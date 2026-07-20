@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
+import { Truck, CheckCircle2, Clock, Package } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
@@ -33,36 +34,77 @@ export default function DeliveriesPage() {
 
   const { data: deliveries, isLoading } = useSaleDeliveries({ status: statusFilter })
 
+  const stats = useMemo(() => {
+    const list = deliveries ?? []
+    let totalItems = 0
+    let deliveredCount = 0
+    let pendingCount = 0
+    let cancelledCount = 0
+    for (const d of list) {
+      totalItems += (d.sale_delivery_lines ?? []).reduce((s, l) => s + l.qty_delivered, 0)
+      if (d.status === 'delivered') deliveredCount++
+      if (d.status === 'pending' || d.status === 'in_progress') pendingCount++
+      if (d.status === 'cancelled') cancelledCount++
+    }
+    return { total: list.length, totalItems, deliveredCount, pendingCount, cancelledCount }
+  }, [deliveries])
+
   const columns = useMemo<ColumnDef<SaleDelivery>[]>(() => [
     {
       accessorKey: 'delivery_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Delivery #" />,
-      cell: ({ row }) => <span className="font-mono text-sm font-medium">{row.getValue('delivery_number')}</span>,
+      cell: ({ row }) => (
+        <span className={cn(
+          'font-mono text-sm font-medium',
+          row.original.type === 'replacement' && 'text-amber-700',
+        )}>
+          {row.getValue('delivery_number')}
+        </span>
+      ),
     },
     {
       id: 'so_number',
       header: 'SO #',
-      cell: ({ row }) => row.original.so_number ?? '—',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">
+          {row.original.so_number ?? <span className="text-muted-foreground">—</span>}
+        </span>
+      ),
     },
     {
       id: 'customer',
       header: 'Customer',
-      cell: ({ row }) => row.original.customer_name ?? '—',
+      cell: ({ row }) => (
+        <span className="text-sm truncate max-w-[160px] block">
+          {row.original.customer_name ?? '—'}
+        </span>
+      ),
     },
     {
       accessorKey: 'date',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
       cell: ({ row }) => {
         const d = row.getValue('date') as string
-        return d ? formatDate(d) : '—'
+        return <span className="text-xs tabular-nums">{d ? formatDate(d) : '—'}</span>
       },
     },
     {
       id: 'items',
       header: 'Items',
       cell: ({ row }) => {
-        const items = row.original.sale_delivery_lines ?? []
-        return `${items.length} lines`
+        const lines = row.original.sale_delivery_lines ?? []
+        const totalQty = lines.reduce((s, l) => s + l.qty_delivered, 0)
+        return (
+          <span className="inline-flex items-center gap-1.5 text-xs">
+            <span className="tabular-nums font-medium">{lines.length}</span>
+            <span className="text-muted-foreground">line{lines.length === 1 ? '' : 's'}</span>
+            {totalQty > 0 && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-medium">
+                <Package className="h-2.5 w-2.5" /> {totalQty} units
+              </span>
+            )}
+          </span>
+        )
       },
     },
     {
@@ -79,13 +121,50 @@ export default function DeliveriesPage() {
   return (
     <PageWrapper>
       <PageHeader title="Deliveries" description="Sale order fulfilment tracking" />
-      <div className="flex flex-wrap gap-2">
+
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Truck className="h-2.5 w-2.5" /> Total deliveries
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight">{stats.total}</p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Package className="h-2.5 w-2.5" /> Total items
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight">
+            {stats.totalItems.toLocaleString('en-QA')}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <CheckCircle2 className="h-2.5 w-2.5" /> Delivered
+          </div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.deliveredCount > 0 && 'text-green-700')}>
+            {stats.deliveredCount}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Clock className="h-2.5 w-2.5" /> Pending
+          </div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.pendingCount > 0 && 'text-amber-600')}>
+            {stats.pendingCount}
+          </p>
+        </div>
+      </div>
+
+      {/* Filter toolbar */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</span>
         {STATUSES.map((s) => (
           <button
             key={s.value}
             onClick={() => setStatusFilter(s.value)}
             className={cn(
-              'px-3 py-1 rounded-full text-sm border transition-colors min-h-11 md:min-h-0',
+              'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-xs font-medium border transition-colors',
               statusFilter === s.value
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'border-border hover:bg-accent'
@@ -95,6 +174,7 @@ export default function DeliveriesPage() {
           </button>
         ))}
       </div>
+
       <DataTable
         columns={columns}
         data={deliveries ?? []}
@@ -103,17 +183,33 @@ export default function DeliveriesPage() {
         mobileCardRender={(del: SaleDelivery) => {
           const s = (del.status ?? 'pending') as DeliveryStatus
           const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.pending
-          const lineCount = (del.sale_delivery_lines ?? []).length
+          const lines = del.sale_delivery_lines ?? []
+          const totalQty = lines.reduce((sum, l) => sum + l.qty_delivered, 0)
           return (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-sm font-medium">{del.delivery_number}</span>
-                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+                <span className={cn(
+                  'font-mono text-sm font-semibold',
+                  del.type === 'replacement' && 'text-amber-700',
+                )}>
+                  {del.delivery_number}
+                </span>
+                <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground truncate">{del.customer_name ?? '—'}</p>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>SO: {del.so_number ?? '—'}</span>
-                <span>{lineCount} line{lineCount !== 1 ? 's' : ''} · {del.date ? formatDate(del.date) : '—'}</span>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="font-mono">{del.so_number ?? '—'}</span>
+                <span className="ml-auto tabular-nums">{del.date ? formatDate(del.date) : '—'}</span>
+              </div>
+              <p className="text-sm truncate">{del.customer_name ?? '—'}</p>
+              <div className="flex items-center justify-between text-xs">
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span className="tabular-nums font-medium text-foreground">{lines.length}</span> line{lines.length === 1 ? '' : 's'}
+                  {totalQty > 0 && (
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-medium">
+                      <Package className="h-2.5 w-2.5" /> {totalQty}
+                    </span>
+                  )}
+                </span>
               </div>
             </div>
           )

@@ -14,6 +14,7 @@ export type InventoryItemUpdate = DBUpdate<'inventory_items'>
 export type BrandVariantInsert = {
   item_id: string
   brand: string
+  brand_id?: string | null
   code?: string | null
   cost_price?: number | null
   selling_price?: number | null

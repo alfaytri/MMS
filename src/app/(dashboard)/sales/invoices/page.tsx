@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
+import { ShoppingCart, TrendingUp, AlertTriangle, CheckCircle2, FileText } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
@@ -12,50 +13,76 @@ import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { type ArInvoice } from '@/types/invoice'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-function formatEnumLabel(s: string): string {
-  return s.replaceAll('_', ' ').replace(/^\w/, (c) => c.toUpperCase())
+const DOC_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  draft:         { label: 'Draft',         className: 'bg-muted text-foreground' },
+  ready_to_send: { label: 'Ready to send', className: 'bg-blue-100 text-blue-700' },
+  sent:          { label: 'Sent',          className: 'bg-green-100 text-green-700' },
 }
 
-const DOC_STATUSES = [
-  { value: '' as const, label: 'All' },
-  { value: 'draft' as const, label: 'Draft' },
-  { value: 'ready_to_send' as const, label: 'Ready to Send' },
-  { value: 'sent' as const, label: 'Sent' },
+const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  unpaid:         { label: 'Unpaid',         className: 'bg-muted text-muted-foreground' },
+  partially_paid: { label: 'Partially paid', className: 'bg-amber-100 text-amber-700' },
+  paid:           { label: 'Paid',           className: 'bg-green-100 text-green-700' },
+  overdue:        { label: 'Overdue',        className: 'bg-red-100 text-red-700' },
+}
+
+const DOC_FILTERS: { value: '' | ArInvoice['doc_status']; label: string }[] = [
+  { value: '',              label: 'All' },
+  { value: 'draft',         label: 'Draft' },
+  { value: 'ready_to_send', label: 'Ready to send' },
+  { value: 'sent',          label: 'Sent' },
 ]
 
-const DOC_STATUS_CONFIG: Record<string, string> = {
-  draft:         'bg-muted text-foreground',
-  ready_to_send: 'bg-blue-100 text-blue-700',
-  sent:          'bg-green-100 text-green-700',
-}
-
-const PAY_STATUS_CONFIG: Record<string, string> = {
-  unpaid:         'bg-muted text-muted-foreground',
-  partially_paid: 'bg-amber-100 text-amber-700',
-  paid:           'bg-green-100 text-green-700',
-  overdue:        'bg-red-100 text-red-700',
-}
+const PAYMENT_FILTERS: { value: '' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue'; label: string }[] = [
+  { value: '',               label: 'All' },
+  { value: 'unpaid',         label: 'Unpaid' },
+  { value: 'partially_paid', label: 'Partially paid' },
+  { value: 'paid',           label: 'Paid' },
+  { value: 'overdue',        label: 'Overdue' },
+]
 
 export default function CustomerInvoicesPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [docFilter, setDocFilter] = useState<ArInvoice['doc_status'] | ''>('')
+  const [docFilter, setDocFilter] = useState<'' | ArInvoice['doc_status']>('')
+  const [payFilter, setPayFilter] = useState<'' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue'>('')
 
-  const { data: invoices, isLoading } = useCustomerInvoices({
-    search,
-    doc_status: docFilter,
-  })
+  const { data: invoices, isLoading } = useCustomerInvoices({})
+
+  const filtered = useMemo(() => {
+    const list = invoices ?? []
+    const q = search.trim().toLowerCase()
+    return list.filter((inv) => {
+      if (docFilter && inv.doc_status !== docFilter) return false
+      if (payFilter && inv.payment_status !== payFilter) return false
+      if (!q) return true
+      const hay = [inv.invoice_id, inv.customer_name, inv.so_number].filter(Boolean).join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }, [invoices, search, docFilter, payFilter])
+
+  const stats = useMemo(() => {
+    const list = invoices ?? []
+    let totalAr   = 0
+    let overdue   = 0
+    let paidCount = 0
+    for (const inv of list) {
+      totalAr += inv.total_amount ?? 0
+      if (inv.payment_status === 'overdue') overdue++
+      if (inv.payment_status === 'paid')    paidCount++
+    }
+    return { total: list.length, totalAr, overdue, paidCount }
+  }, [invoices])
 
   const columns = useMemo<ColumnDef<ArInvoice>[]>(() => [
     {
       accessorKey: 'invoice_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice #" />,
       cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <span className="font-mono text-sm font-medium">{row.getValue('invoice_id')}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-sm font-semibold">{row.getValue('invoice_id')}</span>
           {row.original.needs_refresh && (
             <span title="Needs review — SO was modified">
               <AlertTriangle className="w-3 h-3 text-amber-500" />
@@ -67,28 +94,59 @@ export default function CustomerInvoicesPage() {
     {
       id: 'customer',
       header: 'Customer',
-      cell: ({ row }) => row.original.customer_name ?? '—',
+      cell: ({ row }) => (
+        <span className="text-sm truncate max-w-[180px] block">
+          {row.original.customer_name ?? '—'}
+        </span>
+      ),
     },
     {
       id: 'so_number',
       header: 'SO #',
-      cell: ({ row }) => <span className="hidden md:table-cell">{row.original.so_number ?? '—'}</span>,
+      cell: ({ row }) => {
+        const so = row.original.so_number
+        return so ? (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <ShoppingCart className="h-3 w-3 text-muted-foreground" />
+            <span className="font-mono">{so}</span>
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )
+      },
+    },
+    {
+      accessorKey: 'due_date',
+      header: 'Due',
+      cell: ({ row }) => {
+        const due = row.getValue('due_date') as string | null
+        if (!due) return <span className="text-xs text-muted-foreground">—</span>
+        const isOverdue = row.original.payment_status === 'overdue'
+        return (
+          <span className={cn('text-xs tabular-nums', isOverdue && 'text-destructive font-medium')}>
+            {formatDate(due)}
+          </span>
+        )
+      },
     },
     {
       accessorKey: 'total_amount',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
-      cell: ({ row }) => formatCurrency(row.getValue('total_amount') ?? 0, 'QAR'),
+      header: ({ column }) => (
+        <div className="text-right w-full"><DataTableColumnHeader column={column} title="Amount" /></div>
+      ),
+      cell: ({ row }) => (
+        <span className="text-xs tabular-nums block text-right font-medium">
+          {formatCurrency(row.getValue('total_amount') ?? 0, 'QAR')}
+        </span>
+      ),
     },
     {
       accessorKey: 'doc_status',
       header: 'Status',
       cell: ({ row }) => {
         const s = row.getValue('doc_status') as string
-        return (
-          <Badge className={cn('text-xs hidden sm:inline-flex', DOC_STATUS_CONFIG[s] ?? '')}>
-            {formatEnumLabel(s)}
-          </Badge>
-        )
+        const cfg = DOC_STATUS_CONFIG[s] ?? { label: s?.replace('_', ' ') ?? '—', className: '' }
+        return <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
       },
     },
     {
@@ -96,17 +154,9 @@ export default function CustomerInvoicesPage() {
       header: 'Payment',
       cell: ({ row }) => {
         const s = row.getValue('payment_status') as string
-        return (
-          <Badge className={cn('text-xs', PAY_STATUS_CONFIG[s] ?? '')}>
-            {formatEnumLabel(s)}
-          </Badge>
-        )
+        const cfg = PAY_STATUS_CONFIG[s] ?? { label: s?.replace('_', ' ') ?? '—', className: '' }
+        return <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
       },
-    },
-    {
-      accessorKey: 'due_date',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Due" />,
-      cell: ({ row }) => <span className="hidden lg:table-cell">{formatDate(row.getValue('due_date'))}</span>,
     },
   ], [])
 
@@ -114,44 +164,108 @@ export default function CustomerInvoicesPage() {
     <PageWrapper>
       <PageHeader title="Customer Invoices" description="AR invoices auto-generated from Sale Orders" />
 
-      <div className="flex flex-wrap gap-2">
-        {DOC_STATUSES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => setDocFilter(s.value)}
-            className={cn(
-              'px-3 py-1 rounded-full text-sm border transition-colors min-h-11 md:min-h-0',
-              docFilter === s.value
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'border-border hover:bg-accent'
-            )}
-          >
-            {s.label}
-          </button>
-        ))}
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <FileText className="h-2.5 w-2.5" /> Total invoices
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight">{stats.total}</p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <TrendingUp className="h-2.5 w-2.5" /> AR total
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight">
+            {stats.totalAr.toLocaleString('en-QA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <AlertTriangle className="h-2.5 w-2.5" /> Overdue
+          </div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.overdue > 0 && 'text-destructive')}>
+            {stats.overdue}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <CheckCircle2 className="h-2.5 w-2.5" /> Paid
+          </div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.paidCount > 0 && 'text-success')}>
+            {stats.paidCount}
+          </p>
+        </div>
       </div>
 
-      <SearchInput value={search} onChange={setSearch} placeholder="Search invoice # …" />
+      {/* Toolbar — search + filter chips */}
+      <div className="flex flex-col gap-3">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search invoice #, customer or SO #…" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</span>
+            {DOC_FILTERS.map((f) => (
+              <button
+                key={f.value || 'all'}
+                onClick={() => setDocFilter(f.value)}
+                className={cn(
+                  'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-xs font-medium border transition-colors',
+                  docFilter === f.value
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border hover:bg-accent'
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Payment</span>
+            {PAYMENT_FILTERS.map((f) => (
+              <button
+                key={f.value || 'all'}
+                onClick={() => setPayFilter(f.value)}
+                className={cn(
+                  'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-xs font-medium border transition-colors',
+                  payFilter === f.value
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border hover:bg-accent'
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
-        data={invoices ?? []}
+        data={filtered}
         isLoading={isLoading}
-        onRowClick={(row) => router.push(`/sales/invoices/${row.id}`)}
+        onRowClick={(row: ArInvoice) => router.push(`/sales/invoices/${row.id}`)}
         mobileCardRender={(inv: ArInvoice) => {
-          const payS = inv.payment_status as string
+          const payCfg = PAY_STATUS_CONFIG[inv.payment_status ?? ''] ?? { label: '—', className: '' }
           return (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
-                  <span className="font-mono text-sm font-medium">{inv.invoice_id}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-sm font-semibold">{inv.invoice_id}</span>
                   {inv.needs_refresh && <AlertTriangle className="w-3 h-3 text-amber-500" />}
                 </div>
-                <Badge className={cn('text-xs', PAY_STATUS_CONFIG[payS] ?? '')}>{formatEnumLabel(payS)}</Badge>
+                <Badge className={cn('text-[10px] px-1.5 py-0', payCfg.className)}>{payCfg.label}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground truncate">{inv.customer_name ?? '—'}</p>
+              <p className="text-sm truncate">{inv.customer_name ?? '—'}</p>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Due: {formatDate(inv.due_date)}</span>
-                <span className="font-medium text-foreground">{formatCurrency(inv.total_amount ?? 0, 'QAR')}</span>
+                {inv.so_number ? (
+                  <span className="inline-flex items-center gap-1">
+                    <ShoppingCart className="h-3 w-3" />
+                    <span className="font-mono">{inv.so_number}</span>
+                  </span>
+                ) : <span>Due: {formatDate(inv.due_date)}</span>}
+                <span className={cn('tabular-nums font-medium text-foreground', inv.payment_status === 'overdue' && 'text-destructive')}>
+                  {formatCurrency(inv.total_amount ?? 0, 'QAR')}
+                </span>
               </div>
             </div>
           )
