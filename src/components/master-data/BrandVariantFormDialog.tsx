@@ -136,23 +136,15 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
                 <FormItem className="flex flex-col">
                   <FormLabel>Brand *</FormLabel>
                   <Popover open={brandPickerOpen} onOpenChange={setBrandPickerOpen}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={brandPickerOpen}
-                          className={cn(
-                            'w-full justify-between font-normal',
-                            !brandName && 'text-muted-foreground'
-                          )}
-                          disabled={loadingBrands}
-                        >
-                          {brandName || (loadingBrands ? 'Loading brands…' : 'Select or add brand…')}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </FormControl>
+                    <PopoverTrigger
+                      disabled={loadingBrands}
+                      className={cn(
+                        'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                        !brandName && 'text-muted-foreground'
+                      )}
+                    >
+                      {brandName || (loadingBrands ? 'Loading brands…' : 'Select or add brand…')}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                       <Command shouldFilter={false}>
