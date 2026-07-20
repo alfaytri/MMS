@@ -250,6 +250,7 @@ No active tasks.
 
 
 
+
 ## 🔋 Quota Watch
 
 > Track Supabase Realtime + Egress monthly usage after each remediation phase.
@@ -264,6 +265,7 @@ No active tasks.
 
 ## ✅ Completed
 
+- [2026-07-19] **Lint Cleanup — Unused Vars + Exhaustive-Deps (138 files)** — Phase 1: removed unused imports/vars across 22 files. Phase 2: added safe missing deps (supabase singleton, stable primitives) to 5 files. Phase 3: stabilized `?? []` fallback patterns with module-level constants and raw query deps across 9 files. Phase 4: captured ref.current into local vars for cleanup safety in 2 files. Phase 5: suppressed 13 intentional omissions (Leaflet init, infinite-scroll, dialog-reset) with eslint-disable + reason comments across 11 files. Result: 0 `no-unused-vars` + 0 `exhaustive-deps` warnings. Plan: `docs/superpowers/plans/2026-07-19-exhaustive-deps-fixes.md`.
 - [2026-07-18] **ESLint 9 Upgrade + Build Fixes** — ESLint 8→9 with FlatCompat config, ~15 TypeScript type fixes across hooks, conditional useMemo fix in PermissionTree, unescaped JSX entities in 6 components, let→const lint fixes. 77 files, zero build errors.
 - [2026-07-18] **Architecture Audit Fixes (Tier 1 + Tier 2)** — `src/lib/webhooks/verify.ts` (fail-closed), `src/hooks/useReceivals.ts` (DB sequence for receival numbers), `src/hooks/usePOApprovals.ts` (atomic `po_approval_action` RPC), `src/hooks/useSaleDeliveries.ts` + `src/hooks/usePurchaseReturns.ts` (.limit(500)), 3 migrations: receival_number_seq, po_approval_action RPC, 17 FK indexes. Applied to both staging and main DBs.
 - [2026-07-18] **Responsive UI Work-up Task 4: Verify + close-out** — Removed `scroll-x-fade` from 6 tab strips (PoDetailDialog, SoDetailDialog, OrderDetailDialog, SiteVisitDetailSheet, warehouses/page, services/page), added `max-w-[92vw]` viewport clamps to 5 popovers (create-po, edit-po, ServiceEditDialog, WhAdjustmentDialog, WhTransferDialog). Audit identified 50+ dialogs needing full mobile treatment as future work.

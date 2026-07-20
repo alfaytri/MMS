@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useWatch, type UseFormReturn } from 'react-hook-form'
 import { Upload, X, ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'

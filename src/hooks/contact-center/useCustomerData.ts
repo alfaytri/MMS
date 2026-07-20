@@ -199,7 +199,7 @@ export function useCustomerData(customerId: string | null) {
       .eq('phone', phone)
       .maybeSingle()
     return data
-  }, [])
+  }, [supabase])
 
   return {
     customer,

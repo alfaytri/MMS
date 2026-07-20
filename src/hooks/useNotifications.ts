@@ -3,7 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { DBTable, DBInsert } from '@/types/database.types'
+import type { DBTable } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
 type NotificationTemplate = DBTable<'notification_templates'>

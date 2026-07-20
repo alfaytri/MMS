@@ -20,7 +20,7 @@ export function useAttachPaymentToInvoice() {
       })
       if (error) throw error
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.unlinkedAr.incomingPaymentsAll })

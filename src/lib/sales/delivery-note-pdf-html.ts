@@ -77,8 +77,6 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
       </tr>`
   }).join('')
 
-  const ribbonSubtitle = type === 'replacement' ? 'Replacement' : ''
-
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>

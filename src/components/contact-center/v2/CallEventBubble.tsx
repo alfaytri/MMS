@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, PhoneCall } from 'lucide-react'
+import { PhoneIncoming, PhoneOutgoing, PhoneMissed, PhoneCall } from 'lucide-react'
 import { AttachmentRenderer } from '@/components/contact-center/AttachmentRenderer'
 import type { ChatMessage } from '@/types/contact-center'
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { FileText, User, MapPin, Phone, Calendar, CreditCard } from 'lucide-react'
+import { FileText, User, MapPin, Phone, Calendar } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { STATUS_CONFIG } from '@/types/contracts'

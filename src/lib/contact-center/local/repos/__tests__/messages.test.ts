@@ -73,6 +73,7 @@ describe('messages repo', () => {
       value: new Date().toISOString(),
       updatedAt: Date.now(),
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await repo.lazyFetch(getDb('test'), supa as any, 'c1')
     expect(supa.from).not.toHaveBeenCalled()
   })

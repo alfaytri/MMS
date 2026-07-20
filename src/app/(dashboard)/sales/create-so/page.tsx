@@ -42,7 +42,7 @@ export default function CreateSOPage() {
   const [customerSearch, setCustomerSearch]                   = useState('')
   const [customerId, setCustomerId]                           = useState('')
   const [customerName, setCustomerName]                       = useState('')
-  const [customerCreditGroupId, setCustomerCreditGroupId]     = useState<string | null>(null)
+  const [_customerCreditGroupId, setCustomerCreditGroupId]     = useState<string | null>(null)
   const [customerCreditGroupName, setCustomerCreditGroupName] = useState<string | null>(null)
   const [customerCreditLimit, setCustomerCreditLimit]         = useState<number | null>(null)
   const [customerType, setCustomerType]                       = useState<'cash' | 'credit' | null>(null)
@@ -51,7 +51,7 @@ export default function CreateSOPage() {
 
   const { data: creditGroups = [] } = useCreditGroups()
 
-  const { userDivisionIds, divisions } = useUserDivisionScope()
+  const { divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
   const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')
@@ -152,7 +152,15 @@ export default function CreateSOPage() {
     if (isMultiDivision && !divisionId) { toast.error('Select a division before creating the order.'); return false }
     if (!customerId)            { toast.error('Please select a customer'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
-    if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
+    const missingItems = lineItems.filter((li) => !li.brand_variant_id && !li.tool_asset_item_id)
+    if (missingItems.length > 0) {
+      toast.error(missingItems.length === 1
+        ? 'One line has no item selected — pick a category, item and brand for every row'
+        : `${missingItems.length} lines have no item selected — pick a category, item and brand for every row`)
+      return false
+    }
+    if (lineItems.some((li) => !(li.qty > 0)))        { toast.error('Every line needs a quantity greater than zero'); return false }
+    if (lineItems.some((li) => !(li.unit_price > 0))) { toast.error('Every line needs a unit price greater than zero'); return false }
     return true
   }
 

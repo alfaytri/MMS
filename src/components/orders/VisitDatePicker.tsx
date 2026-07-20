@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { DayPicker } from 'react-day-picker'
 import { format, parseISO } from 'date-fns'
-import { CalendarIcon, X } from 'lucide-react'
+import { CalendarIcon } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import 'react-day-picker/style.css'
 
@@ -31,10 +31,6 @@ export function VisitDatePicker({ selected, onChange }: Props) {
   function handleSelect(dates: Date[] | undefined) {
     const isoStrings = (dates ?? []).map((d) => format(d, 'yyyy-MM-dd'))
     onChange(isoStrings)
-  }
-
-  function removeDate(iso: string) {
-    onChange(selected.filter((s) => s !== iso))
   }
 
   return (

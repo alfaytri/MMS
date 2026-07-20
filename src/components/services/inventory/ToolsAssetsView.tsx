@@ -27,7 +27,7 @@ function filterTree(nodes: InventoryTreeNode[], search: string): InventoryTreeNo
   }, [])
 }
 
-export function ToolsAssetsView({ enabled }: { enabled: boolean }) {
+export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)

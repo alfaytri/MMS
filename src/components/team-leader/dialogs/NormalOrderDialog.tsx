@@ -48,7 +48,7 @@ interface Props {
   onClose: () => void
 }
 
-export function NormalOrderDialog({ visit, profileId, onComplete, onClose }: Props) {
+export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const [statuses, setStatuses] = useState<Record<string, 'done' | 'skipped' | 'issue'>>({})
   const [photos, setPhotos] = useState<Blob[]>([])
   const [damageOpen, setDamageOpen] = useState(false)

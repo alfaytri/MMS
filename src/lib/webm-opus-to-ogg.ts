@@ -28,8 +28,6 @@ function readElementId(buf: Uint8Array, pos: number): [id: number, len: number] 
   return [id, len]
 }
 
-const EBML_UNKNOWN_SIZE = [0x01FFFFFFFFFFFFFF, 0xFF, 0x7FFF, 0x3FFFFF, 0x1FFFFFFF]
-
 function isUnknownSize(value: number, vintLen: number): boolean {
   const maxForLen = (1 << (7 * vintLen)) - 1
   return value === maxForLen
@@ -76,7 +74,7 @@ function parseWebm(buf: Uint8Array): { codecPrivate: Uint8Array; packets: OpusPa
         clusterTs = 0
         for (let i = 0; i < size; i++) clusterTs = clusterTs * 256 + buf[pos + i]
       } else if (id === ID_SIMPLE_BLOCK) {
-        const [trackNum, tnLen] = readVintValue(buf, pos)
+        const [_trackNum, tnLen] = readVintValue(buf, pos)
         const blockPos = pos + tnLen
         if (blockPos + 3 <= dataEnd) {
           const relTs = (buf[blockPos] << 8) | buf[blockPos + 1]

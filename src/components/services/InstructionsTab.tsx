@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Pencil, Archive, Link2, Unlink, FileText, Image, Video, AlignLeft } from 'lucide-react'
+import { Plus, Pencil, Archive, Link2, Unlink, FileText, Image as ImageIcon, Video, AlignLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,7 @@ import { InstructionEditDialog } from './InstructionEditDialog'
 const CONTENT_ICON: Record<string, React.ReactNode> = {
   text: <AlignLeft className="h-3 w-3" />,
   pdf: <FileText className="h-3 w-3" />,
-  image: <Image className="h-3 w-3" />,
+  image: <ImageIcon className="h-3 w-3" />,
   video: <Video className="h-3 w-3" />,
 }
 

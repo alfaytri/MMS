@@ -403,6 +403,7 @@ export default function SaleOrdersPage() {
         )
       },
     },
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- handleCancel/handleConfirm close over confirmSO/cancelSO which are already in deps
   ], [paidMap, confirmSO, cancelSO, router])
 
   return (

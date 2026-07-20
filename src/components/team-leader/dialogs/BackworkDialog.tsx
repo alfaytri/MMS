@@ -31,7 +31,7 @@ interface Props {
   onClose: () => void
 }
 
-export function BackworkDialog({ visit, profileId, onComplete, onClose }: Props) {
+export function BackworkDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const [serviceReasons, setServiceReasons] = useState<Record<string, BackworkReason>>({})
   const [serviceNotes, setServiceNotes] = useState<Record<string, string>>({})
   const [photos, setPhotos] = useState<Blob[]>([])

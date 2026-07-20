@@ -21,7 +21,7 @@ export async function TopNav() {
 
   return (
     <header className="sticky top-0 z-50 h-14 bg-background border-b border-border">
-      <div className="h-full w-full flex items-center px-4 sm:px-6 lg:px-8 gap-2">
+      <div className="h-full w-full flex items-center px-3 sm:px-4 lg:px-6 2xl:px-10 gap-2">
         <MobileNavDrawer />
 
         <Link

@@ -32,7 +32,6 @@ import {
   useRejectTransfer,
   useWarehouseStock,
   type WarehouseTransfer,
-  type TransferItem,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
 import type { Warehouse } from '@/hooks/useWarehouses'

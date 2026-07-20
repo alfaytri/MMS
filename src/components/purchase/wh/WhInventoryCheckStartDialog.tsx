@@ -74,7 +74,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
   function toggleUser(id: string) {
     setSelectedUserIds((prev) => {
       const n = new Set(prev)
-      n.has(id) ? n.delete(id) : n.add(id)
+      if (n.has(id)) { n.delete(id) } else { n.add(id) }
       return n
     })
   }
@@ -131,7 +131,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
       <span onClick={() => setOpen(true)}>{children}</span>
 
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[48rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4" />

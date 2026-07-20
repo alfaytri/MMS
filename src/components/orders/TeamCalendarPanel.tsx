@@ -79,8 +79,6 @@ export function TeamCalendarPanel({
   const { data: teamsRaw } = useTeams(
     divisionSlugs && divisionSlugs.length > 0 ? { divisionIds: divisionSlugs } : undefined
   )
-  const teams = (teamsRaw ?? []) as TeamFull[]
-
   const { data: teamSkillsMap = new Map<string, string[]>() } = useTeamSkills(null)
   const { data: serviceTreeAll } = useServiceTree('normal', [], draftServices.length > 0)
 
@@ -97,10 +95,13 @@ export function TeamCalendarPanel({
   )
 
   const filteredTeams = useMemo(
-    () => capableTeamIds.size === 0
-      ? teams
-      : teams.filter(t => capableTeamIds.has(t.id)),
-    [teams, capableTeamIds],
+    () => {
+      const t = (teamsRaw ?? []) as TeamFull[]
+      return capableTeamIds.size === 0
+        ? t
+        : t.filter(tm => capableTeamIds.has(tm.id))
+    },
+    [teamsRaw, capableTeamIds],
   )
 
   const { data: visits } = useCalendarVisits(visitDate, null)
@@ -140,7 +141,6 @@ export function TeamCalendarPanel({
     update()
     return () => ro.disconnect()
   // scrollContainerRef is stable — intentional empty-dep here
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const cellWidth = fitMode && containerWidth > SIDEBAR_W
@@ -159,7 +159,7 @@ export function TeamCalendarPanel({
   }, [filteredTeams])
 
   useEffect(() => {
-    if (hasScrolled.current || !initialTeamId || teams.length === 0) return
+    if (hasScrolled.current || !initialTeamId || !teamsRaw?.length) return
     hasScrolled.current = true
     const container = scrollContainerRef.current
     if (!container) return
@@ -171,7 +171,7 @@ export function TeamCalendarPanel({
       const rowTop = row.offsetTop
       container.scrollTop = Math.max(0, rowTop - container.clientHeight / 3)
     }
-  }, [initialTeamId, initialHour, teams])
+  }, [initialTeamId, initialHour, teamsRaw, cellWidth])
 
   const date = useMemo(() => new Date(visitDate), [visitDate])
 

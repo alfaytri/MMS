@@ -59,7 +59,7 @@ export function SoLineItemsEditor({
   const priceLoadingKeys = useRef(new Set<string>())
 
   function handleRowPriceLoading(key: string, loading: boolean) {
-    loading ? priceLoadingKeys.current.add(key) : priceLoadingKeys.current.delete(key)
+    if (loading) { priceLoadingKeys.current.add(key) } else { priceLoadingKeys.current.delete(key) }
     onPriceLoading?.(priceLoadingKeys.current.size > 0)
   }
 

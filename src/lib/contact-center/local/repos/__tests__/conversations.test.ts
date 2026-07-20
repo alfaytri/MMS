@@ -42,6 +42,7 @@ describe('conversations repo', () => {
       value: new Date().toISOString(),
       updatedAt: Date.now(),
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await repo.lazyFetch(getDb('test'), supa as any, 'wati')
     expect(supa.from).not.toHaveBeenCalled()
   })
@@ -61,6 +62,7 @@ describe('conversations repo', () => {
         }),
       }),
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await repo.lazyFetch(getDb('test'), supa as any, 'wati')
     expect(supa.from).toHaveBeenCalledWith('chat_conversations')
     const got = await repo.getById(getDb('test'), 'fetched-1')

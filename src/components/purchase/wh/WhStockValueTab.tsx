@@ -267,7 +267,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   const toggleRow = useCallback((id: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
       return next
     })
   }, [])
@@ -490,7 +490,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
             value={selectedWarehouseId ?? '__all__'}
             onValueChange={(v) => setSelectedWarehouseId(v === '__all__' ? undefined : (v ?? undefined))}
           >
-            <SelectTrigger className="w-[180px] h-8 text-xs">
+            <SelectTrigger className="min-w-[180px] h-8 text-xs">
               <SelectValue placeholder="All Warehouses" />
             </SelectTrigger>
             <SelectContent className="max-h-60 overflow-y-auto">

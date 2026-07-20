@@ -60,6 +60,7 @@ function BillDetailContent() {
 
   useEffect(() => {
     if (id) generatePdf()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once effect; generatePdf is a local function recreated every render
   }, [id])
 
   const bill = viewModel?.bill

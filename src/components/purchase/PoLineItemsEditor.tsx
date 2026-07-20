@@ -84,9 +84,11 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
   const priceLoadingKeys = useRef(new Set<string>())
 
   function handleRowPriceLoading(key: string, loading: boolean) {
-    loading
-      ? priceLoadingKeys.current.add(key)
-      : priceLoadingKeys.current.delete(key)
+    if (loading) {
+      priceLoadingKeys.current.add(key)
+    } else {
+      priceLoadingKeys.current.delete(key)
+    }
     onPriceLoading?.(priceLoadingKeys.current.size > 0)
   }
 

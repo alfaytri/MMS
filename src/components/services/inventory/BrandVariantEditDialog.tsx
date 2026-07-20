@@ -51,21 +51,23 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
 
   // Build a map of current DB qty per warehouse for delta detection
   const currentQtyMap = useMemo(() => {
+    const ws = whStockData?.perWarehouse ?? []
     const m = new Map<string, number>()
-    currentWhStock.forEach((ws) => m.set(ws.warehouse_id, ws.qty))
+    ws.forEach((w) => m.set(w.warehouse_id, w.qty))
     return m
-  }, [currentWhStock])
+  }, [whStockData?.perWarehouse])
 
   // Populate whAlloc inputs from DB data whenever the dialog opens or data loads
   useEffect(() => {
-    if (open && isEdit && currentWhStock.length > 0) {
+    const ws = whStockData?.perWarehouse ?? []
+    if (open && isEdit && ws.length > 0) {
       const map: Record<string, string> = {}
-      currentWhStock.forEach((ws) => { map[ws.warehouse_id] = String(ws.qty) })
+      ws.forEach((w) => { map[w.warehouse_id] = String(w.qty) })
       setWhAlloc(map)
     } else if (open && !isEdit) {
       setWhAlloc({})
     }
-  }, [open, isEdit, currentWhStock])
+  }, [open, isEdit, whStockData?.perWarehouse])
 
   useEffect(() => {
     if (open) {

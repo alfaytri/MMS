@@ -348,10 +348,15 @@ export class SyncWorker {
     })
     if (error) throw new Error(error.message ?? 'send_file failed')
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const watiId = (data as any)?.message?.whatsappMessageId
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 ?? (data as any)?.message?.whatsAppMessageId
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 ?? (data as any)?.info?.whatsAppMessageId
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 ?? (data as any)?.whatsappMessageId
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 ?? (data as any)?.id
                 ?? null
     const externalId = watiId ? `wati_${watiId}` : null

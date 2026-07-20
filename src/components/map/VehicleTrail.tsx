@@ -29,6 +29,7 @@ export function VehicleTrail({ map, positions, visible }: VehicleTrailProps) {
       layer.remove()
       layerRef.current = null
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- layer-init effect; visibility toggling handled by a separate effect
   }, [map])
 
   // Toggle visibility

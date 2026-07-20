@@ -69,6 +69,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       form.reset({ name: '', location: '' })
     }
     setSelectedRPIds([])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on identity (id), not object reference
   }, [open, warehouse?.id, form])
 
   // Pre-fill Warehouse RPs once loaded for the current warehouse
@@ -76,6 +77,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
     if (open && warehouse && currentRPs.length > 0) {
       setSelectedRPIds(currentRPs.map((rp) => rp.profile_id))
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on identity (id), not object reference
   }, [open, warehouse?.id, currentRPs])
 
   async function onSubmit(values: WarehouseFormValues) {

@@ -199,6 +199,7 @@ export default function OrdersPage() {
     )
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- depends on specific query properties, not the unstable query object
   }, [ordersQuery.hasNextPage, ordersQuery.isFetchingNextPage, ordersQuery.fetchNextPage, siteVisitsQuery.hasNextPage, siteVisitsQuery.isFetchingNextPage, siteVisitsQuery.fetchNextPage])
   const teams: TeamFull[] = teamsRaw
 

@@ -42,6 +42,7 @@ function FormattedAmountInput({
     if (numDisplay !== Number(value)) {
       setDisplayValue(formatWithCommas(Number(value).toFixed(2)))
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sync pattern: runs on external value change only; adding displayValue would create infinite loop
   }, [value])
 
   return (
@@ -153,6 +154,7 @@ export function PaymentFormDialog({
 
   useEffect(() => {
     if (open) form.reset(freshDefaults())
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dialog-reset pattern: runs on open only; freshDefaults is an inline function
   }, [open])
 
   const watchedAmount = form.watch('amount') || 0

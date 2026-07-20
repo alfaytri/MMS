@@ -23,7 +23,6 @@ export function usePermissions() {
       const callerEmail = user.email?.trim().toLowerCase() ?? null
       const isBootstrap = !!(bootstrapEmail && callerEmail === bootstrapEmail)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: profile } = await supabase
         .from('profiles')
         .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(name, is_system, permissions))')

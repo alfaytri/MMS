@@ -28,7 +28,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
   const [expandedWh, setExpandedWh] = useState<Set<string>>(new Set())
 
   function toggleExpand(id: string) {
-    setExpandedWh((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setExpandedWh((prev) => { const n = new Set(prev); if (n.has(id)) { n.delete(id) } else { n.add(id) } return n })
   }
 
   function viewStock(warehouseId: string) {

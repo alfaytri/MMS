@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void
 }
 
-export function SiteVisitContractDialog({ visit, profileId, onComplete, onClose }: Props) {
+export function SiteVisitContractDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const [photos, setPhotos] = useState<Blob[]>([])
   const [notes, setNotes] = useState('')
 

@@ -68,7 +68,7 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
         })) as unknown as ChatConversation[]
     )
     setLoading(false)
-  }, [provider])
+  }, [provider, supabase])
 
   useEffect(() => {
     cancelledRef.current = false

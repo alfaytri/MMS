@@ -38,7 +38,7 @@ interface ReplacementDeliveryDialogProps {
 }
 
 export function ReplacementDeliveryDialog({
-  open, onOpenChange, returnData, soId, onConfirm, isPending,
+  open, onOpenChange, returnData, onConfirm, isPending,
 }: ReplacementDeliveryDialogProps) {
   const [warehouseId, setWarehouseId] = useState('')
   const [giftItems, setGiftItems] = useState<GiftItem[]>([])

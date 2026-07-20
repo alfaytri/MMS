@@ -65,7 +65,6 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
     queryFn: async (): Promise<OrderLocation[]> => {
       const supabase = createClient()
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let query = supabase
         .from('orders')
         .select(`

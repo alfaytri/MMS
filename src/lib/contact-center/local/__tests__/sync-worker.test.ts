@@ -17,6 +17,7 @@ function mkSupabaseStub() {
     }),
     removeChannel: vi.fn(),
     from: vi.fn(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any
 }
 
@@ -64,7 +65,9 @@ describe('SyncWorker lifecycle', () => {
 
 describe('SyncWorker.subscribeRealtime', () => {
   let onCalls: Array<{ event: string; cfg: Record<string, unknown> }>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let supabaseMock: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let dbMock: any
 
   beforeEach(() => {
@@ -132,8 +135,10 @@ describe('SyncWorker Realtime → Dexie', () => {
 
   it('buffers UPDATE events for 50ms then flushes via bulkPut', async () => {
     const supa = mkSupabaseStub()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onSubCallbacks: Array<(payload: any) => void> = []
     supa.channel.mockReturnValue({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       on: vi.fn().mockImplementation((_evt: string, _filter: any, cb: any) => {
         onSubCallbacks.push(cb); return { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis(), unsubscribe: vi.fn() }
       }),
@@ -182,6 +187,7 @@ describe('SyncWorker drain (text)', () => {
       data: { message: { whatsappMessageId: 'WAMID-1' } },
       error: null,
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
 
     const w = new SyncWorker(getDb('test'), supa, 'wati')
@@ -220,6 +226,7 @@ describe('SyncWorker drain (text)', () => {
     const invoke = vi.fn().mockResolvedValue({
       data: null, error: { message: 'server error', status: 500 },
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
     const w = new SyncWorker(getDb('test'), supa, 'wati')
 
@@ -239,6 +246,7 @@ describe('SyncWorker drain (text)', () => {
 
   it('marks terminal failure after MAX_RETRIES', async () => {
     const invoke = vi.fn().mockResolvedValue({ data: null, error: { message: 'oops', status: 500 } })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
     const w = new SyncWorker(getDb('test'), supa, 'wati')
 
@@ -274,6 +282,7 @@ describe('SyncWorker drain (file)', () => {
       ...mkSupabaseStub(),
       storage: { from: () => ({ upload, getPublicUrl }) },
       functions: { invoke },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any
 
     const w = new SyncWorker(getDb('test'), supa, 'wati')
@@ -311,6 +320,7 @@ describe('SyncWorker drain (file)', () => {
   })
 
   it('marks terminal failure with file-lost when fileMap has no ref (post-reload)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supa = { ...mkSupabaseStub(), storage: { from: () => ({ upload: vi.fn(), getPublicUrl: vi.fn() }) }, functions: { invoke: vi.fn() } } as any
     const w = new SyncWorker(getDb('test'), supa, 'wati')
 

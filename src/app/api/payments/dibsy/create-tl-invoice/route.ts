@@ -12,9 +12,6 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
 
-const SUPA_URL    = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPA_ANON   = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const CRON_SECRET = process.env.CRON_SECRET ?? ''
 const WATI_URL    = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
 const WATI_TOKEN  = process.env.WATI_API_TOKEN ?? ''
 

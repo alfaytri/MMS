@@ -301,7 +301,6 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const isOwnerStep   = step.step_key === 'owner'
-  const isConditional = step.is_conditional && step.condition_types.length > 0
   const displayName   = step.custom_roles?.name ?? step.step_label
 
   function handleToggle(checked: boolean) {

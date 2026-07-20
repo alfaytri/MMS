@@ -160,7 +160,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           />
         </div>
         <Select value={warehouseFilter} onValueChange={v => setWarehouseFilter(v ?? 'all')}>
-          <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectTrigger className="min-w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Warehouses" />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">
@@ -171,7 +171,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
-          <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectTrigger className="min-w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">

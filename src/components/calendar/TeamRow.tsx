@@ -126,7 +126,7 @@ export function TeamRow({
         {/* Half-hour grid cells */}
         <div className="absolute inset-0 flex z-0">
           {slots.map((slot, i) => {
-            const hour = Math.floor(slot)
+            const _hour = Math.floor(slot)
             const isHalf = slot % 1 !== 0
             const isWorking = slot >= workStart && slot < workEnd
             const clickable  = isWorking && !!onCellClick

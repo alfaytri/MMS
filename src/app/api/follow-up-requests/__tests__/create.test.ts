@@ -9,8 +9,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 }))
 
 import { POST } from '../route'
-import { requirePermission } from '@/lib/auth/require-admin'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { requirePermission as _requirePermission } from '@/lib/auth/require-admin'
+import { createAdminClient as _createAdminClient } from '@/lib/supabase/admin'
 
 type AnyFn = (...a: unknown[]) => unknown
 

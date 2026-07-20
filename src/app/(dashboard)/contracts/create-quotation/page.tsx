@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { nanoid } from 'nanoid'
 import {
   ArrowLeft, Save, Wrench, Phone, User, RefreshCw,
   FileText, X, Upload,
@@ -50,7 +49,6 @@ const SOURCE_TYPES = [
 
 export default function CreateContractQuotationPage() {
   const router = useRouter()
-  const sessionId = useRef(nanoid())
   const { data: profile } = useCurrentUserProfile()
   const { divisions: userDivisions } = useUserDivisionScope()
   const createQuotation = useCreateContractQuotation()
@@ -141,12 +139,6 @@ export default function CreateContractQuotationPage() {
     semi_annual: 'Semi-Annual', annual: 'Annual',
   }
   const generalServices = services.filter((s) => s.is_general)
-
-  const toggleDivision = (divId: string) => {
-    setDivisions((prev) =>
-      prev.includes(divId) ? prev.filter((d) => d !== divId) : [...prev, divId],
-    )
-  }
 
   const handleAddService = useCallback((nodeId: string) => {
     setServiceDialogNodeId(nodeId)

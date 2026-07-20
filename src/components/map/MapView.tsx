@@ -1,7 +1,7 @@
 // src/components/map/MapView.tsx
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet.markercluster'
 import type { TeamLocation } from '@/hooks/useTeamLocations'
@@ -47,7 +47,7 @@ export function MapView({
   orders,
   showOrders,
   search,
-  selectedTeamId,
+  selectedTeamId: _selectedTeamId,
   flyTo,
   onFlyToDone,
   onMapReady,
@@ -62,6 +62,8 @@ export function MapView({
   // ── Map initialization (one-time) ────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
+
+    const markerMap = teamMarkerMapRef.current
 
     const map = L.map(containerRef.current, { zoomControl: false })
       .setView(DOHA_CENTER, DEFAULT_ZOOM)
@@ -95,9 +97,10 @@ export function MapView({
       mapRef.current = null
       teamClusterRef.current = null
       orderLayerRef.current = null
-      teamMarkerMapRef.current.clear()
+      markerMap.clear()
       initialBoundsSet.current = false
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time Leaflet map init; adding onMapReady would destroy/recreate the map on parent re-renders
   }, [])
 
   // ── Auto-fit bounds on first data load ───────────────────────

@@ -10,6 +10,7 @@ vi.mock('@/lib/supabase/client', () => ({
     from: () => ({
       select: () => ({
         is: () => ({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           then: (resolve: any) => Promise.resolve(mockSelect()).then(resolve),
         }),
       }),

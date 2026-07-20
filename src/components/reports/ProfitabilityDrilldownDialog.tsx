@@ -63,7 +63,6 @@ export function ProfitabilityDrilldownDialog({
   open, onOpenChange, mode, data, isLoading, rangeLabel,
 }: Props) {
   const cfg = MODE_CONFIG[mode]
-  const rows = data ?? []
   const showAll = mode === 'profit'
 
   const [search, setSearch]           = useState('')
@@ -84,20 +83,23 @@ export function ProfitabilityDrilldownDialog({
   }, [mode])
 
   const products = useMemo(() => {
+    const r = data ?? []
     const set = new Set<string>()
-    rows.forEach((so) => so.lines.forEach((l) => set.add(l.item_name)))
+    r.forEach((so) => so.lines.forEach((l) => set.add(l.item_name)))
     return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [rows])
+  }, [data])
 
   const customers = useMemo(() => {
+    const r = data ?? []
     const set = new Set<string>()
-    rows.forEach((so) => set.add(so.customer_name))
+    r.forEach((so) => set.add(so.customer_name))
     return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [rows])
+  }, [data])
 
   const filtered = useMemo(() => {
+    const r = data ?? []
     const q = search.trim().toLowerCase()
-    return rows.filter((so) => {
+    return r.filter((so) => {
       if (customerFilter !== '__all__' && so.customer_name !== customerFilter) return false
       if (productFilter !== '__all__') {
         if (!so.lines.some((l) => l.item_name === productFilter)) return false
@@ -112,7 +114,7 @@ export function ProfitabilityDrilldownDialog({
         )
       )
     })
-  }, [rows, search, customerFilter, productFilter])
+  }, [data, search, customerFilter, productFilter])
 
   const sorted = useMemo(() => {
     const arr = [...filtered]

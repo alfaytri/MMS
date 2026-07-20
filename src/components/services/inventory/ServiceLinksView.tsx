@@ -62,8 +62,7 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
     [allLinks, leafIdSet],
   )
 
-  const linkedCount = hasSupplySet.size
-  const noSupplyCount = leafServices.length - linkedCount
+  const _linkedCount = hasSupplySet.size
 
   const rightPanelMode: 'zero' | 'single' | 'bulk' =
     checkedIds.size >= 2 ? 'bulk' : activeId ? 'single' : 'zero'

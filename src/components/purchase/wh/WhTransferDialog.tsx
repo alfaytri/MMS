@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ArrowRight, Bell, Plus, Trash2, Package, ChevronsUpDown, Check } from 'lucide-react'
+import { ArrowRight, Bell, Plus, Trash2, Package, ChevronsUpDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -16,7 +16,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -26,21 +25,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from '@/components/ui/command'
+import { WhItemPicker, type PickerItem } from './WhItemPicker'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { Profile } from '@/hooks/useProfiles'
 import {
   useWarehouseStock,
   useCreateTransfer,
   useReorderPoints,
-  type WarehouseStockItem,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { createClient } from '@/lib/supabase/client'
@@ -57,24 +48,6 @@ interface Props {
   warehouses: Warehouse[]
   currentProfile: Profile | null
   children: React.ReactNode
-}
-
-// ─── Stock Tag ──────────────────────────────────────────────────────────────────
-
-function StockTag({
-  destStock,
-  reorderPoint,
-}: {
-  destStock: WarehouseStockItem | undefined
-  reorderPoint: number
-}) {
-  if (!destStock)
-    return <Badge variant="outline" className="text-[8px] px-1 py-0 font-normal text-muted-foreground">New</Badge>
-  if (destStock.qty === 0)
-    return <Badge className="text-[8px] px-1 py-0 font-normal bg-destructive/10 text-destructive border-0">Out</Badge>
-  if (destStock.qty <= reorderPoint)
-    return <Badge className="text-[8px] px-1 py-0 font-normal bg-warning/10 text-warning border-0">Low</Badge>
-  return null
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────────
@@ -131,6 +104,20 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const sourceFieldRPs = fromWh?.field_rps ?? []
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
+
+  const pickerItems: PickerItem[] = useMemo(
+    () => itemsByPriority.map((s) => ({
+      id:            s.brand_variant_id,
+      name:          s.item_name ?? '(No name)',
+      brand:         s.brand ?? null,
+      sku:           s.sku ?? null,
+      category:      s.category_name ?? null,
+      qty:           s.available_qty,
+      destQty:       destStockMap.get(s.brand_variant_id)?.qty,
+      reorderPoint:  reorderMap.get(s.brand_variant_id) ?? 0,
+    })),
+    [itemsByPriority, destStockMap, reorderMap],
+  )
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -273,12 +260,12 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       </AlertDialog>
 
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="w-full h-full rounded-none sm:w-auto sm:h-auto sm:rounded-lg sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
           <DialogHeader className="px-5 pt-5 pb-0">
             <DialogTitle className="text-sm font-semibold">Create Stock Transfer</DialogTitle>
           </DialogHeader>
 
-          <div className="px-5 pb-5 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2 space-y-4">
             {/* ── Route: From → To ── */}
             <div className="flex items-end gap-2">
               <div className="flex-1 space-y-1">
@@ -368,67 +355,15 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                             )}
                             <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
                           </PopoverTrigger>
-                          <PopoverContent className="w-[400px] max-w-[92vw] p-0" align="start">
-                            <Command
-                              filter={(value, search) => {
-                                const item = sourceStock.find((s) => s.brand_variant_id === value)
-                                if (!item) return 0
-                                const haystack = [
-                                  item.item_name,
-                                  item.brand,
-                                  item.category_name,
-                                  item.sku,
-                                ].filter(Boolean).join(' ').toLowerCase()
-                                return haystack.includes(search.toLowerCase()) ? 1 : 0
-                              }}
-                            >
-                              <CommandInput placeholder="Search by name, brand or category..." className="text-xs" />
-                              <CommandList className="max-h-[240px]">
-                                <CommandEmpty className="py-4 text-[11px]">No items found.</CommandEmpty>
-                                <CommandGroup>
-                                  {itemsByPriority.map((s) => {
-                                    const isSelected = row.brand_variant_id === s.brand_variant_id
-                                    const isUsedElsewhere = !isSelected && selectedIds.has(s.brand_variant_id)
-                                    const destItem = destStockMap.get(s.brand_variant_id)
-                                    const rp = reorderMap.get(s.brand_variant_id) ?? 0
-
-                                    return (
-                                      <CommandItem
-                                        key={s.brand_variant_id}
-                                        value={s.brand_variant_id}
-                                        disabled={isUsedElsewhere}
-                                        onSelect={() => selectItem(idx, s.brand_variant_id)}
-                                        className={`py-1.5 text-[11px] ${isUsedElsewhere ? 'opacity-40' : ''}`}
-                                        data-checked={isSelected || undefined}
-                                      >
-                                        <div className="flex flex-col gap-0 min-w-0 flex-1">
-                                          {s.category_name && (
-                                            <span className="text-[9px] text-muted-foreground truncate">
-                                              {s.category_name}
-                                            </span>
-                                          )}
-                                          <span className="font-medium text-[11px] truncate">
-                                            {s.item_name}
-                                          </span>
-                                          {s.brand && (
-                                            <span className="text-[9px] text-primary truncate">
-                                              {s.brand}
-                                              {s.sku && <span className="text-muted-foreground ml-1">({s.sku})</span>}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                                          <span className="text-[9px] text-muted-foreground tabular-nums">
-                                            {s.available_qty} avail
-                                          </span>
-                                          {toId && <StockTag destStock={destItem} reorderPoint={rp} />}
-                                        </div>
-                                      </CommandItem>
-                                    )
-                                  })}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
+                          <PopoverContent className="p-0 w-auto" align="start">
+                            <WhItemPicker
+                              items={pickerItems}
+                              selectedIds={selectedIds}
+                              currentValue={row.brand_variant_id}
+                              onSelect={(id) => selectItem(idx, id)}
+                              showQty
+                              showDestBadge={!!toId}
+                            />
                           </PopoverContent>
                         </Popover>
 
@@ -491,7 +426,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
           </div>
 
           {/* ── Footer ── */}
-          <DialogFooter className="px-5 py-3 border-t bg-muted/30">
+          <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
             <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={handleClose}>
               Cancel
             </Button>

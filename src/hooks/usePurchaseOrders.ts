@@ -223,12 +223,6 @@ function calcApprovalLevel(totalQar: number): number {
   return 3
 }
 
-function getApprovalRoles(level: number): string[] {
-  if (level === 1) return ['purchase_manager']
-  if (level === 2) return ['purchase_manager', 'accountant']
-  return ['purchase_manager', 'accountant', 'owner']
-}
-
 export type PaymentMethod = string
 
 async function generatePONumber(supabase: ReturnType<typeof createClient>): Promise<string> {
@@ -877,7 +871,7 @@ export function useRecallPOToDraft() {
 export function useDeletePoVersion() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ versionId, poId }: { versionId: string; poId: string }) => {
+    mutationFn: async ({ versionId, poId: _poId }: { versionId: string; poId: string }) => {
       const supabase = createClient()
       const { error } = await supabase
         .from('po_versions')
@@ -916,7 +910,7 @@ export function useSubmitPoVersion() {
     mutationFn: async ({
       id,
       currentVersionNumber,
-      currentSnapshot,
+      currentSnapshot: _currentSnapshot,
       payload,
     }: {
       id: string

@@ -11,7 +11,6 @@ import {
   usePendingApprovals, useCompletedApprovals,
   useApproveStep, useRejectPO, useForceApproveAllSteps, useMyApprovalRoles,
 } from '@/hooks/usePOApprovals'
-import { useIsAdmin } from '@/hooks/useProfiles'
 import { type PurchaseOrder, type POApprovalStep } from '@/hooks/usePurchaseOrders'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
@@ -63,7 +62,6 @@ export default function ApprovalsPage() {
 
   const { data: pending, isLoading: pendingLoading } = usePendingApprovals()
   const { data: completed, isLoading: completedLoading } = useCompletedApprovals()
-  const { data: isAdmin } = useIsAdmin()
   const { data: myRoles = [] } = useMyApprovalRoles()
   const approveStep = useApproveStep()
   const rejectPO = useRejectPO()
@@ -274,13 +272,13 @@ export default function ApprovalsPage() {
       </section>
 
       <Dialog open={!!dialogState} onOpenChange={(open) => { if (!open) setDialogState(null) }}>
-        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0">
+        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0 gap-0">
           {dialogState && (
             <>
               <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
                 <DialogTitle>Approve / Reject — {dialogState.po.po_number}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 px-6 pb-2 overflow-y-auto flex-1">
+              <div className="space-y-4 px-6 pb-2 overflow-y-auto flex-1 sm:flex-initial">
                 <div className="rounded-md bg-muted p-3 space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Supplier</span>
@@ -396,7 +394,7 @@ export default function ApprovalsPage() {
                 )}
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2 px-6 pb-6 pt-2 border-t shrink-0">
+              <DialogFooter className="mx-0 mb-0 flex-col sm:flex-row gap-2 px-6 py-4 border-t shrink-0 bg-background rounded-b-lg">
                 {!showRejectOptions ? (
                   <>
                     <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/5" onClick={() => setShowRejectOptions(true)} disabled={isMutating}>
@@ -426,20 +424,19 @@ export default function ApprovalsPage() {
 
       {/* View completed PO approval details */}
       <Dialog open={!!viewPO} onOpenChange={(o) => { if (!o) setViewPO(null) }}>
-        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0">
+        <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0 gap-0">
           {viewPO && (() => {
             const allSteps = viewPO.po_approvals ?? []
             const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
             const currentSteps = [...allSteps].filter((s) => (s.iteration ?? 1) === maxIteration)
               .sort((a, b) => (a.tier_rank ?? 0) - (b.tier_rank ?? 0))
-            const anyRejected = currentSteps.some((s) => s.status === 'rejected')
 
             return (
               <>
                 <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
                   <DialogTitle>Approval Details · {viewPO.po_number}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 px-6 pb-2 overflow-y-auto flex-1">
+                <div className="space-y-4 px-6 pb-2 overflow-y-auto flex-1 sm:flex-initial">
                   <div className="rounded-md border bg-muted/30 p-3 space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Supplier</span>
@@ -553,7 +550,7 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
 
-                <DialogFooter className="px-6 pb-6 pt-2 border-t shrink-0">
+                <DialogFooter className="mx-0 mb-0 px-6 py-4 border-t shrink-0 bg-background rounded-b-lg">
                   <Button variant="outline" onClick={() => setViewPO(null)}>Close</Button>
                 </DialogFooter>
               </>

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import {
   ArrowLeft, Save, Send, CheckCircle, XCircle, Loader2,
-  Wrench, Calendar, Building2,
+  Wrench, Calendar,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,15 +13,13 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useContractDetail } from '@/hooks/useContractDetail'
 import { useUpdateContract } from '@/hooks/useUpdateContract'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import {
   computeSubtotal, computeNetTotal, computeMonthlyValue, computePaymentValue,
-  validateBeforeSave, validateTreeIntegrity, generateAllVisits,
+  validateBeforeSave, generateAllVisits,
 } from '@/lib/contractUtils'
 import { saveContractFull } from '@/hooks/useUpdateContract'
 import { SectionCard, FieldDisplay } from '@/components/contracts/ContractQuotationShared'
@@ -46,7 +44,6 @@ export default function ContractDetailPage() {
   const contractId = params.contractId as string
   const sessionId = useRef(nanoid())
   const { data: profile } = useCurrentUserProfile()
-  const { divisions: userDivisions } = useUserDivisionScope()
   const updateContract = useUpdateContract()
 
   const {

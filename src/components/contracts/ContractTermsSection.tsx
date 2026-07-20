@@ -26,7 +26,7 @@ interface TermItem {
 type DivisionTermRow = { id: string; content_en: string; division_id: string | null; divisions: { name: string } | null }
 type ServiceTermRow  = { id: string; content_en: string; document_type: string }
 
-export function ContractTermsSection({ divisions, services, termsSnapshot }: Props) {
+export function ContractTermsSection({ divisions, services, termsSnapshot: _termsSnapshot }: Props) {
   const supabase = createClient()
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -98,7 +98,7 @@ export function ContractTermsSection({ divisions, services, termsSnapshot }: Pro
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
   }

@@ -38,7 +38,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       reactions:  row.reactions ?? [],
       agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
     })) as unknown as ChatMessage[]
-  }, [])
+  }, [supabase])
 
   // Fetch only the last 24 h — always captures the newest messages regardless of volume
   const pollFromDb = useCallback(async (convId: string) => {
@@ -66,7 +66,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       reactions:  row.reactions ?? [],
       agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
     })) as unknown as ChatMessage[]
-  }, [])
+  }, [supabase])
 
   // Shared merge: adds missed messages AND syncs reactions/delivery_status on existing ones
   function applyPoll(prev: ChatMessage[], recent: ChatMessage[]): ChatMessage[] {
@@ -285,7 +285,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('online', handleOnline)
     }
-  }, [conversationId, phone, provider])
+  }, [conversationId, phone, provider, supabase, loadFromDb, pollFromDb, fetchFromWati, triggerPoll])
 
   async function loadMore() {
     if (!conversationId || !phone || fetchingWati || provider !== 'wati') return

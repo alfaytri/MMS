@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Image as ImageIcon, FileText, Volume2, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'

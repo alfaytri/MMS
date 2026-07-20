@@ -261,10 +261,6 @@ function ScheduleCard({
   const assignedDivisions = divisions.filter(d => d.calendar_schedule_id === schedule.id)
   const unassignedDivisions = divisions.filter(d => d.calendar_schedule_id !== schedule.id)
 
-  const workDayNames = days
-    ? DAYS.filter(d => days[d]?.enabled).map(d => d.charAt(0).toUpperCase() + d.slice(1, 3))
-    : []
-
   return (
     <div className="rounded-lg border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
       <div className="p-4 space-y-3">
