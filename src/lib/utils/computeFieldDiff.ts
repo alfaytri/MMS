@@ -3,6 +3,11 @@ export interface FieldDiff {
   label: string
   from?: string
   to?: string
+  /** Present when the value is an array — item-level added/removed lists. */
+  arrayDiff?: {
+    added:   string[]
+    removed: string[]
+  }
 }
 
 const IGNORED_FIELDS = new Set([
@@ -21,6 +26,21 @@ function stringify(value: unknown): string {
   if (value == null) return '—'
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
+}
+
+function asArray(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value
+  return null
+}
+
+function arrayItemDiff(oldArr: unknown[], newArr: unknown[]) {
+  const oldSet = new Set(oldArr.map(stringify))
+  const newSet = new Set(newArr.map(stringify))
+  const added:   string[] = []
+  const removed: string[] = []
+  for (const v of newSet) if (!oldSet.has(v)) added.push(v)
+  for (const v of oldSet) if (!newSet.has(v)) removed.push(v)
+  return { added, removed }
 }
 
 export function computeFieldDiff(
@@ -48,8 +68,18 @@ export function computeFieldDiff(
     const diffs: FieldDiff[] = []
     for (const key of allKeys) {
       if (IGNORED_FIELDS.has(key)) continue
-      const oldVal = stringify(oldData[key])
-      const newVal = stringify(newData[key])
+      const oldRaw = oldData[key]
+      const newRaw = newData[key]
+      const oldArr = asArray(oldRaw)
+      const newArr = asArray(newRaw)
+      if (oldArr && newArr) {
+        const { added, removed } = arrayItemDiff(oldArr, newArr)
+        if (added.length === 0 && removed.length === 0) continue
+        diffs.push({ field: key, label: humanize(key), arrayDiff: { added, removed } })
+        continue
+      }
+      const oldVal = stringify(oldRaw)
+      const newVal = stringify(newRaw)
       if (oldVal !== newVal) {
         diffs.push({ field: key, label: humanize(key), from: oldVal, to: newVal })
       }

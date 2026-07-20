@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { FilterBar } from '@/components/audit-trail/FilterBar'
-import { AuditTree } from '@/components/audit-trail/AuditTree'
+import { AuditTimeline } from '@/components/audit-trail/AuditTimeline'
 import { useActivityLog, AUDIT_MODULES } from '@/hooks/useActivityLog'
 
 export default function AuditTrailPage() {
@@ -43,7 +43,7 @@ export default function AuditTrailPage() {
       />
 
       <div className="w-full overflow-y-auto overflow-x-hidden rounded-md border border-border/50 bg-background p-3 max-h-[calc(100vh-16rem)]">
-        <AuditTree
+        <AuditTimeline
           logs={logs ?? []}
           isLoading={isLoading}
           searchTerm={debouncedSearch}
