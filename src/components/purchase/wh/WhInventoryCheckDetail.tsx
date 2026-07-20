@@ -363,6 +363,15 @@ interface Props {
 export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }: Props) {
   const [reviewNotes, setReviewNotes] = useState('')
   const [approvingStep, setApprovingStep] = useState<string | null>(null)
+  const [expandedAssignments, setExpandedAssignments] = useState<Set<string>>(new Set())
+
+  function toggleAssignment(id: string) {
+    setExpandedAssignments((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) { n.delete(id) } else { n.add(id) }
+      return n
+    })
+  }
 
   const { data: detail }      = useInventoryCheck(check.id)
   const { data: assignments = [] } = useInventoryCheckAssignments(check.id)
@@ -487,7 +496,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[64rem] sm:h-[85vh] sm:max-w-[95vw] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-sm flex items-center gap-2 flex-wrap">
             {check.check_number}
@@ -503,21 +512,58 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
           </DialogTitle>
         </DialogHeader>
 
-        {/* Assignment progress bar — scrollable when many users */}
-        {assignments.length > 0 && (
-          <div className="flex gap-1 flex-shrink-0 flex-wrap">
-            {assignments.map((a) => (
-              <div key={a.id} className="flex-1 text-center min-w-0">
-                <div className={`h-1.5 rounded-full ${
-                  a.status === 'completed' ? 'bg-success' :
-                  a.status === 'in_progress' ? 'bg-primary' :
-                  'bg-muted'
-                }`} />
-                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{a.profile_name}</p>
+        {/* Assignment progress — chip grid with status per counter */}
+        {assignments.length > 0 && (() => {
+          const completed = assignments.filter((a) => a.status === 'completed').length
+          const inProgress = assignments.filter((a) => a.status === 'in_progress').length
+          const pct = Math.round((completed / assignments.length) * 100)
+          return (
+            <div className="flex-shrink-0 border rounded-md bg-muted/10 p-3 space-y-2">
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Counters</span>
+                <span>
+                  <span className="text-success font-medium">{completed} done</span>
+                  {inProgress > 0 && <> · <span className="text-primary font-medium">{inProgress} counting</span></>}
+                  {' · '}
+                  <span>{assignments.length} total</span>
+                </span>
+                <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden ml-auto max-w-[180px]">
+                  <div className="h-full bg-success transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="tabular-nums text-[10px]">{pct}%</span>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                {assignments.map((a) => {
+                  const initials = a.profile_name.split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase()
+                  const statusCfg =
+                    a.status === 'completed'
+                      ? { bg: 'bg-success/10', ring: 'ring-success/30', dot: 'bg-success', label: 'Done', tone: 'text-success' }
+                      : a.status === 'in_progress'
+                      ? { bg: 'bg-primary/10', ring: 'ring-primary/30', dot: 'bg-primary animate-pulse', label: 'Counting', tone: 'text-primary' }
+                      : { bg: 'bg-muted/40', ring: 'ring-border', dot: 'bg-muted-foreground/40', label: 'Pending', tone: 'text-muted-foreground' }
+                  return (
+                    <div
+                      key={a.id}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md ring-1 ${statusCfg.bg} ${statusCfg.ring}`}
+                      title={a.profile_name}
+                    >
+                      <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold bg-background text-foreground shrink-0`}>
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-medium truncate leading-tight">{a.profile_name}</p>
+                        <div className="flex items-center gap-1">
+                          <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
+                          <span className={`text-[9px] ${statusCfg.tone}`}>{statusCfg.label}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
           <TabsList className="flex-shrink-0 text-xs h-8">
@@ -622,41 +668,105 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
               }
 
               // Initiator or non-counter (manager/owner) — sees all counters' results
+              // If they also have their own assignment, show their counting panel at top,
+              // then collapsed cards for other counters below.
+              const otherAssignments = assignments.filter((a) => a.id !== myAssignment?.id)
+              const myActiveCounting = myAssignment && myAssignment.status !== 'completed' && !checkDone
+
               return (
                 <div className="space-y-4">
-                  {assignments.map((a) => {
-                    const aItems = byAssignment.get(a.id) ?? []
-                    return (
-                      <div key={a.id} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold">{a.profile_name}</span>
-                          <Badge className={`text-[10px] px-1.5 py-0 ${
-                            a.status === 'completed' ? 'bg-success/10 text-success' :
-                            a.status === 'in_progress' ? 'bg-blue-500/10 text-blue-600' :
-                            'bg-muted text-muted-foreground'
-                          }`}>
-                            {a.status === 'completed' ? 'Done' : a.status === 'in_progress' ? 'Counting' : 'Pending'}
-                          </Badge>
-                          <span className="text-[10px] text-muted-foreground">
-                            {aItems.filter((i) => i.is_counted).length}/{aItems.length} items
+                  {/* My own counting panel — pinned to top */}
+                  {myAssignment && (
+                    <div className="space-y-2 border rounded-md p-3 bg-primary/5 border-primary/30">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="text-xs font-semibold">Your count</span>
+                        <Badge className={`text-[10px] px-1.5 py-0 ${
+                          myAssignment.status === 'completed' ? 'bg-success/10 text-success' :
+                          myAssignment.status === 'in_progress' ? 'bg-primary/10 text-primary' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {myAssignment.status === 'completed' ? 'Done' : myAssignment.status === 'in_progress' ? 'Counting' : 'Pending'}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {myItems.filter((i) => i.is_counted).length}/{myItems.length} items
+                        </span>
+                        {myAssignment.completed_at && (
+                          <span className="text-[10px] text-muted-foreground ml-auto">
+                            Completed {format(new Date(myAssignment.completed_at), 'dd MMM, HH:mm')}
                           </span>
-                          {a.completed_at && (
-                            <span className="text-[10px] text-muted-foreground ml-auto">
-                              Completed {format(new Date(a.completed_at), 'dd MMM, HH:mm')}
-                            </span>
-                          )}
-                        </div>
-                        <CountingPanel
-                          checkId={check.id}
-                          items={aItems}
-                          assignmentId={null}
-                          currentProfile={currentProfile}
-                          readOnly
-                          itemTypeMap={itemTypeMap}
-                        />
+                        )}
                       </div>
-                    )
-                  })}
+                      <p className="text-[11px] text-muted-foreground">
+                        Categories: <strong className="text-foreground">{myAssignment.assigned_categories.join(', ')}</strong>
+                      </p>
+                      <CountingPanel
+                        checkId={check.id}
+                        items={myItems}
+                        assignmentId={myActiveCounting ? myAssignment.id : null}
+                        currentProfile={currentProfile}
+                        readOnly={!myActiveCounting}
+                        itemTypeMap={itemTypeMap}
+                      />
+                    </div>
+                  )}
+
+                  {/* Other counters — collapsed by default */}
+                  {otherAssignments.length > 0 && (
+                    <div className="space-y-2">
+                      {myAssignment && (
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">
+                          Other counters
+                        </p>
+                      )}
+                      {otherAssignments.map((a) => {
+                        const aItems = byAssignment.get(a.id) ?? []
+                        const isExpanded = expandedAssignments.has(a.id)
+                        const countedCount = aItems.filter((i) => i.is_counted).length
+                        const statusCfg =
+                          a.status === 'completed' ? { badge: 'bg-success/10 text-success', label: 'Done' } :
+                          a.status === 'in_progress' ? { badge: 'bg-blue-500/10 text-blue-600', label: 'Counting' } :
+                          { badge: 'bg-muted text-muted-foreground', label: 'Pending' }
+                        return (
+                          <div key={a.id} className="border rounded-md overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => toggleAssignment(a.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/30 transition-colors text-left"
+                            >
+                              {isExpanded
+                                ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                              <span className="text-xs font-semibold">{a.profile_name}</span>
+                              <Badge className={`text-[10px] px-1.5 py-0 ${statusCfg.badge}`}>
+                                {statusCfg.label}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground">
+                                {countedCount}/{aItems.length} items
+                              </span>
+                              {a.completed_at && (
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  Completed {format(new Date(a.completed_at), 'dd MMM, HH:mm')}
+                                </span>
+                              )}
+                            </button>
+                            {isExpanded && (
+                              <div className="px-3 pb-3 pt-1 border-t">
+                                <CountingPanel
+                                  checkId={check.id}
+                                  items={aItems}
+                                  assignmentId={null}
+                                  currentProfile={currentProfile}
+                                  readOnly
+                                  itemTypeMap={itemTypeMap}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                   {assignments.length === 0 && items.length > 0 && (
                     <CountingPanel
                       checkId={check.id}

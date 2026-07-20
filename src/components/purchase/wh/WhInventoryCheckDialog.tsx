@@ -225,7 +225,7 @@ export function WhInventoryCheckDialog({ warehouses, children }: Props) {
           {/* Top controls */}
           <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
             <Select value={warehouseId} onValueChange={v => { setWarehouseId(v ?? ''); setCounts({}) }}>
-              <SelectTrigger className="w-[200px] h-8 text-xs">
+              <SelectTrigger className="min-w-[200px] h-8 text-xs">
                 <SelectValue placeholder="Select warehouse…" />
               </SelectTrigger>
               <SelectContent className="max-h-60 overflow-y-auto">

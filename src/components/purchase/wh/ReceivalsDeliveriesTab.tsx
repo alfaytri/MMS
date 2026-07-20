@@ -72,7 +72,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           />
         </div>
         <Select value={direction} onValueChange={(v) => setDirection(v as 'all' | 'inbound' | 'outbound')}>
-          <SelectTrigger className="w-[150px] h-8 text-xs">
+          <SelectTrigger className="min-w-[150px] h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">
@@ -82,7 +82,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           </SelectContent>
         </Select>
         <Select value={warehouseFilter} onValueChange={(v) => setWarehouseFilter(v ?? 'all')}>
-          <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectTrigger className="min-w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Warehouses" />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">

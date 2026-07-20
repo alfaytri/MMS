@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { Camera, X, ChevronsUpDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -9,14 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from '@/components/ui/command'
+import { WhItemPicker, type PickerItem } from './WhItemPicker'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -53,6 +46,17 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const createAdjustment = useCreateStockAdjustmentV2()
 
   const { data: allVariants = [] } = useAllBrandVariantsGrouped(open)
+
+  const pickerItems: PickerItem[] = useMemo(
+    () => allVariants.map((v) => ({
+      id:       v.variantId,
+      name:     v.itemName ?? '(No name)',
+      brand:    v.brand ?? null,
+      sku:      v.itemSku ?? null,
+      category: v.catName ?? null,
+    })),
+    [allVariants],
+  )
 
   const canSubmit = !!warehouseId && !!selectedVariant && !!type && !!qty && !!reason
 
@@ -131,12 +135,12 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
     <>
       <span onClick={() => setOpen(true)}>{children}</span>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="w-full h-full rounded-none sm:w-auto sm:h-auto sm:rounded-lg sm:max-w-lg max-h-[90vh] overflow-y-auto p-0">
+        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[36rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
           <DialogHeader className="px-5 pt-5 pb-0">
             <DialogTitle className="text-sm font-semibold">Stock Adjustment</DialogTitle>
           </DialogHeader>
 
-          <div className="px-5 pb-5 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-2 space-y-4">
             {/* Warehouse */}
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Warehouse *</Label>
@@ -169,55 +173,17 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                   )}
                   <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
                 </PopoverTrigger>
-                <PopoverContent className="w-[420px] max-w-[92vw] p-0" align="start">
-                  <Command
-                    filter={(value, search) => {
-                      const item = allVariants.find((v) => v.variantId === value)
-                      if (!item) return 0
-                      const haystack = [
-                        item.itemName,
-                        item.brand,
-                        item.catName,
-                        item.itemSku,
-                      ].filter(Boolean).join(' ').toLowerCase()
-                      return haystack.includes(search.toLowerCase()) ? 1 : 0
+                <PopoverContent className="p-0 w-auto" align="start">
+                  <WhItemPicker
+                    items={pickerItems}
+                    currentValue={selectedVariant?.variantId ?? ''}
+                    onSelect={(id) => {
+                      const v = allVariants.find((x) => x.variantId === id)
+                      if (v) setSelectedVariant(v)
+                      setItemPickerOpen(false)
                     }}
-                  >
-                    <CommandInput placeholder="Search by name, brand or category..." className="text-xs" />
-                    <CommandList className="max-h-[260px]">
-                      <CommandEmpty className="py-4 text-[11px]">No items found.</CommandEmpty>
-                      <CommandGroup>
-                        {allVariants.map((v) => {
-                          const isSelected = selectedVariant?.variantId === v.variantId
-                          return (
-                            <CommandItem
-                              key={v.variantId}
-                              value={v.variantId}
-                              onSelect={() => {
-                                setSelectedVariant(v)
-                                setItemPickerOpen(false)
-                              }}
-                              className="py-1.5 text-[11px]"
-                              data-checked={isSelected || undefined}
-                            >
-                              <div className="flex flex-col gap-0 min-w-0 flex-1">
-                                <span className="text-[9px] text-muted-foreground truncate">
-                                  {v.catName}
-                                </span>
-                                <span className="font-medium text-[11px] truncate">
-                                  {v.itemName}
-                                </span>
-                                <span className="text-[9px] text-primary truncate">
-                                  {v.brand}
-                                  {v.itemSku && <span className="text-muted-foreground ml-1">({v.itemSku})</span>}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          )
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                    showQty={false}
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -304,7 +270,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
           </div>
 
           {/* Footer */}
-          <DialogFooter className="px-5 py-3 border-t bg-muted/30">
+          <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
             <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={handleClose}>
               Cancel
             </Button>

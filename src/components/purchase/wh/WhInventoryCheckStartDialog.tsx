@@ -131,7 +131,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
       <span onClick={() => setOpen(true)}>{children}</span>
 
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[48rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4" />
