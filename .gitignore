@@ -49,6 +49,9 @@ supabase/.temp/
 /graphify-out/
 /inventory-warehouse-wise/
 
+# ── Internal notes (not for repo) ────────────────────────
+/docs/internal/
+
 # ── Local docs & planning (not app code) ─────────────────
 /Issues/
 /Ideas/
