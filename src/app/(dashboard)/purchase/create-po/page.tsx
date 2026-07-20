@@ -133,6 +133,15 @@ export default function CreatePOPage() {
       if (!supplierId) { toast.error('Please select a supplier'); return false }
     }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
+    const missingItems = lineItems.filter((li) => !li.brand_variant_id && !li.tool_asset_item_id)
+    if (missingItems.length > 0) {
+      toast.error(missingItems.length === 1
+        ? 'One line has no item selected — pick a category, item and brand for every row'
+        : `${missingItems.length} lines have no item selected — pick a category, item and brand for every row`)
+      return false
+    }
+    if (lineItems.some((li) => !(li.qty > 0)))        { toast.error('Every line needs a quantity greater than zero'); return false }
+    if (lineItems.some((li) => !(li.unit_price > 0))) { toast.error('Every line needs a unit price greater than zero'); return false }
     if (discountAmount > subtotal) { toast.error('Discount cannot exceed subtotal'); return false }
     return true
   }

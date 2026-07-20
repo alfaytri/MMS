@@ -1,22 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Eye, EyeOff, Package } from 'lucide-react'
+import { Eye, EyeOff, Package, Truck, Calendar, Building2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useCreateBill } from '@/hooks/useSupplierBills'
-import { usePurchaseOrders, usePOReceivalsByPO, type PurchaseOrder } from '@/hooks/usePurchaseOrders'
+import { usePurchaseOrders, usePurchaseOrder, usePOReceivalsByPO } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
+import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 
 type BillLine = {
   po_line_item_id: string
   item_name: string
+  brand: string | null
+  category: string | null
   sku: string | null
   ordered_qty: number
   received_qty: number
@@ -42,9 +45,8 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   const [showReceival, setShowReceival] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  const { data: selectedPO } = usePurchaseOrder(selectedPoId || null)
   const { data: receivals } = usePOReceivalsByPO(selectedPoId || null)
-
-  const selectedPO = (orders ?? []).find((o) => o.id === selectedPoId) as PurchaseOrder | undefined
 
   useEffect(() => {
     if (open && initialPoId) setSelectedPoId(initialPoId)
@@ -53,15 +55,22 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   useEffect(() => {
     if (!selectedPO) { setLines([]); return }
     const items = selectedPO.po_line_items ?? []
-    setLines(items.map((li) => ({
-      po_line_item_id: li.id,
-      item_name: li.item_name,
-      sku: li.sku ?? null,
-      ordered_qty: li.qty,
-      received_qty: li.received_qty ?? 0,
-      bill_qty: li.qty,
-      unit_price: li.unit_price,
-    })))
+    setLines(items.map((li) => {
+      const brand = li.inventory_brand_variants?.brand ?? null
+      const category = li.inventory_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null
+      const invName = li.inventory_brand_variants?.inventory_items?.name_en ?? null
+      return {
+        po_line_item_id: li.id,
+        item_name: li.item_name || invName || '(No name)',
+        brand,
+        category,
+        sku: li.sku ?? null,
+        ordered_qty: li.qty,
+        received_qty: li.received_qty ?? 0,
+        bill_qty: li.qty,
+        unit_price: li.unit_price,
+      }
+    }))
   }, [selectedPoId, selectedPO])
 
   function updateLine(idx: number, patch: Partial<BillLine>) {
@@ -113,40 +122,44 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
     }
   }
 
-  // Compute total received per line item across approved receivals
-  const receivedMap = new Map<string, number>()
-  for (const r of (receivals ?? []).filter((r) => r.status === 'approved')) {
-    for (const ri of r.receival_items ?? []) {
-      if (!ri.is_free && ri.po_line_item_id) {
-        receivedMap.set(ri.po_line_item_id, (receivedMap.get(ri.po_line_item_id) ?? 0) + ri.qty_received)
+  // Approved received qty per line
+  const receivedMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const r of (receivals ?? []).filter((r) => r.status === 'approved')) {
+      for (const ri of r.receival_items ?? []) {
+        if (!ri.is_free && ri.po_line_item_id) {
+          map.set(ri.po_line_item_id, (map.get(ri.po_line_item_id) ?? 0) + ri.qty_received)
+        }
       }
     }
-  }
+    return map
+  }, [receivals])
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[95vh] flex flex-col">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>Create Supplier Bill</DialogTitle>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) close(); else onOpenChange(o) }}>
+      <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[56rem] sm:h-[85vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
+        <DialogHeader className="px-5 pt-5 pb-0 flex-shrink-0">
+          <DialogTitle className="text-sm font-semibold">Create Supplier Bill</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-          {/* ── PO + fields ─────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* PO selector */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-3 space-y-4">
+          {/* Top selectors */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {!initialPoId ? (
-              <div className="space-y-1 lg:col-span-2">
-                <Label htmlFor="bill-po">Purchase Order *</Label>
+              <div className="space-y-1">
+                <Label htmlFor="bill-po" className="text-[11px] text-muted-foreground">Purchase Order *</Label>
                 <Select
-                  value={selectedPoId || 'none'}
-                  onValueChange={(v) => setSelectedPoId(v === 'none' || v === null ? '' : v)}
+                  value={selectedPoId}
+                  onValueChange={(v) => setSelectedPoId(v ?? '')}
                 >
-                  <SelectTrigger id="bill-po"><SelectValue placeholder="Select PO…" /></SelectTrigger>
+                  <SelectTrigger id="bill-po" className="h-9 text-xs w-full">
+                    <SelectValue placeholder="Select PO…" />
+                  </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
                     {(orders ?? [])
                       .filter((o) => !['draft', 'cancelled'].includes(o.status))
                       .map((po) => (
-                        <SelectItem key={po.id} value={po.id}>
+                        <SelectItem key={po.id} value={po.id} className="text-xs">
                           {po.po_number} — {po.supplier_name}
                         </SelectItem>
                       ))}
@@ -155,58 +168,90 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
               </div>
             ) : (
               selectedPO && (
-                <div className="space-y-1 lg:col-span-2">
-                  <Label>Purchase Order</Label>
-                  <div className="text-sm font-medium border rounded-md px-3 py-2 bg-muted">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Purchase Order</Label>
+                  <div className="h-9 text-xs font-medium border rounded-md px-3 flex items-center bg-muted/40 truncate">
                     {selectedPO.po_number}
-                    <span className="text-muted-foreground ml-2">· {selectedPO.supplier_name}</span>
-                    <span className="text-muted-foreground ml-2">· {formatCurrency(selectedPO.total_qar ?? 0, selectedPO.currency ?? 'QAR')}</span>
                   </div>
                 </div>
               )
             )}
 
             <div className="space-y-1">
-              <Label htmlFor="bill-due-date">Due Date *</Label>
-              <Input id="bill-due-date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <Label htmlFor="bill-due-date" className="text-[11px] text-muted-foreground">Due Date *</Label>
+              <Input id="bill-due-date" type="date" className="h-9 text-xs" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="bill-reference">Reference / Invoice #</Label>
+              <Label htmlFor="bill-reference" className="text-[11px] text-muted-foreground">Reference / Invoice #</Label>
               <Input
                 id="bill-reference"
+                className="h-9 text-xs"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
                 placeholder="Supplier's invoice number"
               />
             </div>
-
-            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
-              <Label htmlFor="bill-notes">Notes</Label>
-              <Input
-                id="bill-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Internal notes…"
-              />
-            </div>
           </div>
 
-          {/* ── Lines table ─────────────────────────────────────────────────── */}
+          {/* PO context card */}
+          {selectedPO && (
+            <div className="rounded-lg border bg-muted/20 px-3 py-2.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+              <div>
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Truck className="h-2.5 w-2.5" /> Supplier
+                </div>
+                <p className="font-semibold truncate">{selectedPO.supplier_name ?? '—'}</p>
+              </div>
+              <div>
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Calendar className="h-2.5 w-2.5" /> Order date
+                </div>
+                <p className="font-semibold">
+                  {selectedPO.created_at ? format(new Date(selectedPO.created_at), 'dd MMM yyyy') : '—'}
+                </p>
+              </div>
+              <div>
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Building2 className="h-2.5 w-2.5" /> Order total
+                </div>
+                <p className="font-semibold tabular-nums">
+                  {formatCurrency(selectedPO.subtotal ?? 0, selectedPO.currency ?? 'QAR')}
+                </p>
+              </div>
+              <div>
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Currency</div>
+                <p className="font-semibold">{selectedPO.currency ?? 'QAR'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          <div className="space-y-1">
+            <Label htmlFor="bill-notes" className="text-[11px] text-muted-foreground">Notes</Label>
+            <Textarea
+              id="bill-notes"
+              className="text-xs min-h-[52px] resize-none"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Internal notes…"
+            />
+          </div>
+
+          {/* Line items */}
           {lines.length > 0 && (
             <div className="space-y-2">
-              {/* Toolbar */}
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-muted-foreground">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <Label className="text-[11px] font-medium">
                   {lines.length} line item{lines.length !== 1 ? 's' : ''} from PO
-                </p>
-                <div className="flex items-center gap-2">
+                </Label>
+                <div className="flex items-center gap-1.5">
                   {showReceival && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-7 text-xs gap-1 text-muted-foreground"
+                      className="h-7 text-[11px] gap-1 text-muted-foreground"
                       onClick={fillFromReceived}
                     >
                       <Package className="h-3 w-3" />
@@ -217,97 +262,118 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className={cn('h-7 text-xs gap-1.5', showReceival && 'bg-blue-50 border-blue-200 text-blue-700')}
+                    className={cn('h-7 text-[11px] gap-1', showReceival && 'bg-primary/10 border-primary/40 text-primary')}
                     onClick={() => setShowReceival((v) => !v)}
                   >
-                    {showReceival ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showReceival ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                     Receival Info
                   </Button>
                 </div>
               </div>
 
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead className="text-right w-[80px]">Ordered</TableHead>
-                      {showReceival && (
-                        <TableHead className="text-right w-[90px] text-blue-600">Received</TableHead>
-                      )}
-                      <TableHead className="text-right w-[110px]">Bill Qty</TableHead>
-                      <TableHead className="text-right w-[130px]">Unit Price</TableHead>
-                      <TableHead className="text-right w-[120px]">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lines.map((line, idx) => {
-                      const lineTotal = line.bill_qty * line.unit_price
-                      const approvedReceived = receivedMap.get(line.po_line_item_id) ?? line.received_qty
-                      return (
-                        <TableRow key={line.po_line_item_id}>
-                          <TableCell>
-                            <p className="text-sm font-medium">{line.item_name}</p>
-                            {line.sku && <p className="text-xs text-muted-foreground">{line.sku}</p>}
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {line.ordered_qty}
-                          </TableCell>
-                          {showReceival && (
-                            <TableCell className="text-right text-sm">
-                              {approvedReceived > 0
-                                ? <span className="text-success font-medium">{approvedReceived}</span>
-                                : <span className="text-muted-foreground">0</span>}
-                              <p className="text-xs text-muted-foreground">
-                                of {line.ordered_qty}
-                              </p>
-                            </TableCell>
-                          )}
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              min={0}
-                              value={line.bill_qty}
-                              onChange={(e) => updateLine(idx, { bill_qty: Math.max(0, Number(e.target.value)) })}
-                              className="h-7 w-20 text-right ml-auto"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={line.unit_price}
-                              onChange={(e) => updateLine(idx, { unit_price: Math.max(0, Number(e.target.value)) })}
-                              className="h-7 w-28 text-right ml-auto"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-medium">
-                            {formatCurrency(lineTotal, 'QAR')}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <div className="space-y-2">
+                {lines.map((line, idx) => {
+                  const lineTotal      = line.bill_qty * line.unit_price
+                  const approvedReceived = receivedMap.get(line.po_line_item_id) ?? line.received_qty
+                  const isMatchOk      = approvedReceived === line.bill_qty
+                  return (
+                    <div key={line.po_line_item_id} className="rounded-lg border bg-background">
+                      {/* Header strip */}
+                      <div className="px-3 pt-2.5 pb-1.5 flex flex-wrap items-center gap-1.5">
+                        {line.category && (
+                          <span className="text-[9px] font-semibold uppercase tracking-wide bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">
+                            {line.category}
+                          </span>
+                        )}
+                        <p className="text-[12px] font-semibold text-foreground truncate">{line.item_name}</p>
+                        {line.brand && <span className="text-[10px] text-primary">· {line.brand}</span>}
+                        {line.sku && <span className="text-[10px] text-muted-foreground">· {line.sku}</span>}
+                        <span className="ml-auto text-[10px] tabular-nums font-medium">
+                          {formatCurrency(lineTotal, selectedPO?.currency ?? 'QAR')}
+                        </span>
+                      </div>
 
-              {/* Subtotal */}
-              <div className="flex justify-end gap-8 text-sm pr-1 pt-1">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-semibold">{formatCurrency(subtotal, 'QAR')}</span>
+                      {/* Values row */}
+                      <div className="px-3 pb-2.5 space-y-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-[6rem_6rem_6rem_7rem] gap-x-3 text-[9px] text-muted-foreground uppercase tracking-wide">
+                          <span>Ordered</span>
+                          {showReceival && <span className="text-primary/70">Received</span>}
+                          <span className={showReceival ? '' : 'col-start-2'}>Bill qty</span>
+                          <span>Unit price</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-[6rem_6rem_6rem_7rem] gap-x-3 gap-y-2 items-center">
+                          {/* Ordered */}
+                          <div className="h-8 flex items-center px-2 text-xs tabular-nums text-muted-foreground">
+                            {line.ordered_qty}
+                          </div>
+
+                          {/* Received (conditional) */}
+                          {showReceival && (
+                            <div className={cn(
+                              'h-8 flex items-center px-2 text-xs tabular-nums rounded-md border',
+                              isMatchOk ? 'bg-success/5 border-success/30 text-success' : 'bg-warning/5 border-warning/30 text-warning'
+                            )}>
+                              {approvedReceived} / {line.ordered_qty}
+                            </div>
+                          )}
+
+                          {/* Bill qty */}
+                          <Input
+                            type="number"
+                            min={0}
+                            value={line.bill_qty}
+                            onChange={(e) => updateLine(idx, { bill_qty: Math.max(0, Number(e.target.value)) })}
+                            className="h-8 w-full text-right tabular-nums text-xs"
+                          />
+
+                          {/* Unit price */}
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={line.unit_price}
+                            onChange={(e) => updateLine(idx, { unit_price: Math.max(0, Number(e.target.value)) })}
+                            className="h-8 w-full text-right tabular-nums text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
 
           {selectedPoId && lines.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">No line items found on this PO.</p>
+            <p className="text-xs text-muted-foreground text-center py-6">No line items found on this PO.</p>
+          )}
+
+          {!selectedPoId && (
+            <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
+              <Package className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
+              <p className="text-xs">Select a PO to load billable line items</p>
+            </div>
           )}
         </div>
 
-        <DialogFooter className="shrink-0 pt-2 border-t gap-2 sm:gap-0">
-          <Button variant="outline" onClick={close}>Cancel</Button>
-          <Button onClick={submit} disabled={saving || !canSubmit}>
+        {/* Sticky subtotal strip */}
+        {lines.length > 0 && (
+          <div className="flex-shrink-0 border-t bg-muted/30 px-5 py-2 flex items-center justify-between text-[11px]">
+            <span className="text-[9px] text-muted-foreground uppercase tracking-wide">Subtotal</span>
+            <span className="text-sm font-bold tabular-nums">
+              {formatCurrency(subtotal, selectedPO?.currency ?? 'QAR')}
+            </span>
+          </div>
+        )}
+
+        <DialogFooter className="m-0 px-5 py-3 border-t bg-background rounded-b-lg">
+          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={close}>Cancel</Button>
+          <Button
+            size="sm"
+            className="text-[11px] h-8"
+            onClick={submit}
+            disabled={saving || !canSubmit}
+          >
             {saving ? 'Creating…' : 'Create Bill'}
           </Button>
         </DialogFooter>

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Plus } from 'lucide-react'
+import { Plus, PackageCheck, Gift, ShoppingCart, Boxes, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -309,6 +309,22 @@ export default function ReceivalsPage() {
     (r) => (r.scopes === null || r.scopes.includes('receival_edit'))
   )
 
+  const stats = useMemo(() => {
+    const list = receivals ?? []
+    let totalValue = 0
+    let freeCount = 0
+    let rejectedCount = 0
+    for (const r of list) {
+      const hasFree = (r.receival_items ?? []).some((it) => it.is_free)
+      if (hasFree) freeCount++
+      if (r.status === 'rejected') rejectedCount++
+      for (const it of r.receival_items ?? []) {
+        if (!it.is_free) totalValue += it.qty_received * it.unit_cost
+      }
+    }
+    return { total: list.length, totalValue, freeCount, rejectedCount }
+  }, [receivals])
+
   const columns = useMemo<ColumnDef<Receival>[]>(() => [
     {
       accessorKey: 'receival_number',
@@ -334,10 +350,17 @@ export default function ReceivalsPage() {
       cell: ({ row }) => {
         const r = row.original
         if (r.source_type === 'inventory') {
-          return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">Inventory</Badge>
+          return (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-purple-700">
+              <Boxes className="h-3 w-3" /> Inventory
+            </span>
+          )
         }
         return r.po_number ? (
-          <span className="text-xs">{r.po_number}</span>
+          <span className="inline-flex items-center gap-1 text-xs">
+            <ShoppingCart className="h-3 w-3 text-muted-foreground" />
+            <span className="font-mono">{r.po_number}</span>
+          </span>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )
@@ -346,17 +369,50 @@ export default function ReceivalsPage() {
     {
       id: 'supplier',
       header: 'Supplier',
-      cell: ({ row }) => row.original.supplier_name ?? '—',
+      cell: ({ row }) => (
+        <span className="text-sm truncate max-w-[160px] block">
+          {row.original.supplier_name ?? '—'}
+        </span>
+      ),
     },
     {
       accessorKey: 'date',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-      cell: ({ row }) => formatDate(row.getValue('date')),
+      cell: ({ row }) => <span className="text-xs tabular-nums">{formatDate(row.getValue('date'))}</span>,
     },
     {
       id: 'items',
       header: 'Items',
-      cell: ({ row }) => `${row.original.receival_items?.length ?? 0} lines`,
+      cell: ({ row }) => {
+        const items = row.original.receival_items ?? []
+        const paid = items.filter((i) => !i.is_free).length
+        const free = items.filter((i) => i.is_free).length
+        return (
+          <span className="inline-flex items-center gap-1.5 text-xs">
+            <span className="tabular-nums font-medium">{paid}</span>
+            <span className="text-muted-foreground">line{paid === 1 ? '' : 's'}</span>
+            {free > 0 && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-success/10 text-success text-[10px] font-medium">
+                <Gift className="h-2.5 w-2.5" /> +{free}
+              </span>
+            )}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'value',
+      header: () => <span className="text-right w-full block">Value</span>,
+      cell: ({ row }) => {
+        const total = (row.original.receival_items ?? [])
+          .filter((i) => !i.is_free)
+          .reduce((s, i) => s + i.qty_received * i.unit_cost, 0)
+        return (
+          <span className="text-xs tabular-nums block text-right font-medium">
+            {total > 0 ? total.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+          </span>
+        )
+      },
     },
     {
       accessorKey: 'status',
@@ -394,14 +450,48 @@ export default function ReceivalsPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex flex-wrap gap-2">
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <PackageCheck className="h-2.5 w-2.5" /> Total receivals
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight">{stats.total}</p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <TrendingUp className="h-2.5 w-2.5" /> Total value
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight">
+            {stats.totalValue.toLocaleString('en-QA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Gift className="h-2.5 w-2.5" /> With free items
+          </div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.freeCount > 0 && 'text-success')}>
+            {stats.freeCount}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Rejected</div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.rejectedCount > 0 && 'text-destructive')}>
+            {stats.rejectedCount}
+          </p>
+        </div>
+      </div>
+
+      {/* Filter toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</span>
           {STATUSES.map((s) => (
             <button
               key={s.value}
               onClick={() => setStatusFilter(s.value)}
               className={cn(
-                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-sm border transition-colors',
+                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-xs font-medium border transition-colors',
                 statusFilter === s.value
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:bg-accent'
@@ -411,19 +501,23 @@ export default function ReceivalsPage() {
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="hidden sm:block h-4 w-px bg-border" />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Source</span>
           {(['all', 'purchase', 'inventory'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setSourceFilter(v)}
               className={cn(
-                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-sm border transition-colors capitalize',
+                'inline-flex items-center gap-1 px-3 py-1 min-h-11 md:min-h-0 rounded-full text-xs font-medium border transition-colors capitalize',
                 sourceFilter === v
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:bg-accent'
               )}
             >
-              {v === 'all' ? 'All Sources' : v}
+              {v === 'purchase' && <ShoppingCart className="h-3 w-3" />}
+              {v === 'inventory' && <Boxes className="h-3 w-3" />}
+              {v === 'all' ? 'All' : v}
             </button>
           ))}
         </div>
@@ -437,21 +531,39 @@ export default function ReceivalsPage() {
         mobileCardRender={(r: Receival) => {
           const s = r.status as string
           const cfg = STATUS_CONFIG[s] ?? { label: s ?? 'Unknown', className: 'bg-gray-100 text-gray-700' }
+          const items = r.receival_items ?? []
+          const paid = items.filter((i) => !i.is_free).length
+          const free = items.filter((i) => i.is_free).length
+          const total = items.filter((i) => !i.is_free).reduce((sum, i) => sum + i.qty_received * i.unit_cost, 0)
           return (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className={cn('font-mono text-sm font-medium', r.source_type === 'inventory' && 'text-purple-700')}>
+                <span className={cn('font-mono text-sm font-semibold', r.source_type === 'inventory' && 'text-purple-700')}>
                   {r.receival_number}
                 </span>
-                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+                <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{r.supplier_name ?? '—'}</span>
-                <span className="text-xs text-muted-foreground">{formatDate(r.date)}</span>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {r.source_type === 'inventory'
+                  ? <><Boxes className="h-3 w-3 text-purple-700" /><span className="text-purple-700 font-medium">Inventory</span></>
+                  : <><ShoppingCart className="h-3 w-3" /><span className="font-mono">{r.po_number ?? '—'}</span></>}
+                <span className="ml-auto tabular-nums">{formatDate(r.date)}</span>
               </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{r.source_type === 'inventory' ? 'Inventory' : r.po_number ?? '—'}</span>
-                <span>{r.receival_items?.length ?? 0} lines</span>
+              <p className="text-sm truncate">{r.supplier_name ?? '—'}</p>
+              <div className="flex items-center justify-between text-xs">
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span className="tabular-nums font-medium text-foreground">{paid}</span> line{paid === 1 ? '' : 's'}
+                  {free > 0 && (
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-success/10 text-success text-[10px] font-medium">
+                      <Gift className="h-2.5 w-2.5" /> +{free}
+                    </span>
+                  )}
+                </span>
+                {total > 0 && (
+                  <span className="tabular-nums font-medium">
+                    {total.toLocaleString('en-QA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                )}
               </div>
             </div>
           )

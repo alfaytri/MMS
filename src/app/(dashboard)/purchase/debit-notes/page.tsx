@@ -2,8 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
+import {
+  FileText, ShoppingCart, RotateCcw, TrendingDown, CheckCircle2, AlertTriangle, Wallet,
+} from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
@@ -20,10 +24,45 @@ const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string
   redeemed: { label: 'Redeemed', className: 'bg-green-100 text-green-700' },
 }
 
+const STATUS_FILTERS: { value: '' | CreditNoteStatus; label: string }[] = [
+  { value: '',         label: 'All' },
+  { value: 'draft',    label: 'Draft' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'issued',   label: 'Issued' },
+  { value: 'redeemed', label: 'Redeemed' },
+]
+
 export default function DebitNotesPage() {
   const [detailNote, setDetailNote] = useState<CreditNote | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'' | CreditNoteStatus>('')
 
   const { data: debitNotes = [], isLoading } = useDebitNotes()
+
+  // Client-side filter — DN#, supplier, PO#, Return#
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return debitNotes.filter((n) => {
+      if (statusFilter && (n.status ?? 'issued') !== statusFilter) return false
+      if (!q) return true
+      const hay = [n.credit_note_id, n.supplier_name, n.po_number, n.return_number]
+        .filter(Boolean).join(' ').toLowerCase()
+      return hay.includes(q)
+    })
+  }, [debitNotes, search, statusFilter])
+
+  // Stat strip metrics — computed from the full (unfiltered) list
+  const stats = useMemo(() => {
+    let totalDebit = 0
+    let unresolved = 0
+    let redeemed   = 0
+    for (const n of debitNotes) {
+      totalDebit += n.total_amount ?? 0
+      if ((n.status ?? 'issued') === 'redeemed') redeemed++
+      if (!n.resolution_type && ((n.status ?? 'issued') === 'issued' || (n.status ?? 'issued') === 'approved')) unresolved++
+    }
+    return { total: debitNotes.length, totalDebit, unresolved, redeemed }
+  }, [debitNotes])
 
   const columns = useMemo<ColumnDef<CreditNote>[]>(() => [
     {
@@ -32,7 +71,7 @@ export default function DebitNotesPage() {
       cell: ({ row }) => (
         <button
           type="button"
-          className="font-mono text-sm font-medium text-primary hover:underline underline-offset-2"
+          className="font-mono text-sm font-semibold text-primary hover:underline underline-offset-2"
           onClick={() => setDetailNote(row.original)}
         >
           {row.getValue('credit_note_id')}
@@ -42,35 +81,57 @@ export default function DebitNotesPage() {
     {
       accessorKey: 'supplier_name',
       header: 'Supplier',
-      cell: ({ row }) => row.original.supplier_name ?? '—',
+      cell: ({ row }) => (
+        <span className="text-sm truncate max-w-[180px] block">
+          {row.original.supplier_name ?? '—'}
+        </span>
+      ),
     },
     {
       id: 'po_ref',
       header: 'PO #',
-      cell: ({ row }) => (
-        <span className="font-mono text-xs">{row.original.po_number ?? '—'}</span>
-      ),
+      cell: ({ row }) => {
+        const po = row.original.po_number
+        return po ? (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <ShoppingCart className="h-3 w-3 text-muted-foreground" />
+            <span className="font-mono">{po}</span>
+          </span>
+        ) : <span className="text-xs text-muted-foreground">—</span>
+      },
     },
     {
       id: 'return_ref',
       header: 'Return #',
-      cell: ({ row }) => (
-        <span className="font-mono text-xs">{row.original.return_number ?? '—'}</span>
-      ),
+      cell: ({ row }) => {
+        const ret = row.original.return_number
+        return ret ? (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <RotateCcw className="h-3 w-3 text-muted-foreground" />
+            <span className="font-mono">{ret}</span>
+          </span>
+        ) : <span className="text-xs text-muted-foreground">—</span>
+      },
     },
     {
       accessorKey: 'total_amount',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Debit Amount" />,
+      header: ({ column }) => (
+        <div className="text-right w-full"><DataTableColumnHeader column={column} title="Debit" /></div>
+      ),
       cell: ({ row }) => (
-        <span className="text-destructive">{formatCurrency(row.getValue('total_amount'), 'QAR')}</span>
+        <span className="text-xs tabular-nums block text-right font-semibold text-destructive">
+          {formatCurrency(row.getValue('total_amount'), 'QAR')}
+        </span>
       ),
     },
     {
       accessorKey: 'new_total',
-      header: 'New PO Total',
+      header: () => <span className="text-right w-full block">New PO Total</span>,
       cell: ({ row }) => {
         const v = row.original.new_total
-        return v != null ? formatCurrency(v, 'QAR') : '—'
+        return v != null
+          ? <span className="text-xs tabular-nums block text-right">{formatCurrency(v, 'QAR')}</span>
+          : <span className="text-xs text-muted-foreground block text-right">—</span>
       },
     },
     {
@@ -79,7 +140,7 @@ export default function DebitNotesPage() {
       cell: ({ row }) => {
         const s = (row.getValue('status') ?? 'issued') as CreditNoteStatus
         const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.issued
-        return <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+        return <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
       },
     },
     {
@@ -88,18 +149,22 @@ export default function DebitNotesPage() {
       cell: ({ row }) => {
         const resolution = row.original.resolution_type
         if (resolution === 'supplier_credit') {
-          return <Badge className="text-xs bg-blue-100 text-blue-700">Supplier Credit</Badge>
+          return <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 gap-1"><Wallet className="h-2.5 w-2.5" />Supplier Credit</Badge>
         }
         if (resolution === 'replacement') {
-          return <Badge className="text-xs bg-green-100 text-green-700">Replacement</Badge>
+          return <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 gap-1"><CheckCircle2 className="h-2.5 w-2.5" />Replacement</Badge>
         }
-        return <span className="text-xs text-muted-foreground">Unresolved</span>
+        return <span className="inline-flex items-center gap-1 text-[10px] text-amber-600"><AlertTriangle className="h-2.5 w-2.5" />Unresolved</span>
       },
     },
     {
       accessorKey: 'created_at',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Created" />,
-      cell: ({ row }) => formatDate(row.getValue('created_at')),
+      cell: ({ row }) => (
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {formatDate(row.getValue('created_at'))}
+        </span>
+      ),
     },
     {
       id: 'actions',
@@ -124,30 +189,105 @@ export default function DebitNotesPage() {
         description="Auto-generated notes from supplier returns"
       />
 
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <FileText className="h-2.5 w-2.5" /> Total notes
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight">{stats.total}</p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <TrendingDown className="h-2.5 w-2.5" /> Total debit
+          </div>
+          <p className="text-lg font-bold tabular-nums leading-tight text-destructive">
+            {stats.totalDebit.toLocaleString('en-QA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <AlertTriangle className="h-2.5 w-2.5" /> Unresolved
+          </div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.unresolved > 0 && 'text-amber-600')}>
+            {stats.unresolved}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <CheckCircle2 className="h-2.5 w-2.5" /> Redeemed
+          </div>
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.redeemed > 0 && 'text-success')}>
+            {stats.redeemed}
+          </p>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search DN #, supplier, PO # or Return #…" />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</span>
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value || 'all'}
+              onClick={() => setStatusFilter(f.value)}
+              className={cn(
+                'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-xs font-medium border transition-colors',
+                statusFilter === f.value
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border hover:bg-accent'
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
-        data={debitNotes}
+        data={filtered}
         isLoading={isLoading}
         onRowClick={(note: CreditNote) => setDetailNote(note)}
         mobileCardRender={(note: CreditNote) => {
           const s = (note.status ?? 'issued') as CreditNoteStatus
           const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.issued
           return (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-sm font-medium">{note.credit_note_id}</span>
-                <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
+                <span className="font-mono text-sm font-semibold text-primary">{note.credit_note_id}</span>
+                <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{note.supplier_name ?? '—'}</p>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>PO: {note.po_number ?? '—'}</span>
-                <span className="font-medium text-destructive">{formatCurrency(note.total_amount, 'QAR')}</span>
+              <p className="text-sm truncate">{note.supplier_name ?? '—'}</p>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {note.po_number && (
+                  <span className="inline-flex items-center gap-1">
+                    <ShoppingCart className="h-3 w-3" />
+                    <span className="font-mono">{note.po_number}</span>
+                  </span>
+                )}
+                {note.return_number && (
+                  <span className="inline-flex items-center gap-1">
+                    <RotateCcw className="h-3 w-3" />
+                    <span className="font-mono">{note.return_number}</span>
+                  </span>
+                )}
+                <span className="ml-auto tabular-nums font-semibold text-destructive">
+                  {formatCurrency(note.total_amount, 'QAR')}
+                </span>
               </div>
-              {note.resolution_type && (
-                <Badge className={cn('text-xs', note.resolution_type === 'supplier_credit' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700')}>
-                  {note.resolution_type === 'supplier_credit' ? 'Supplier Credit' : 'Replacement'}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {note.resolution_type === 'supplier_credit' && (
+                  <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 gap-1"><Wallet className="h-2.5 w-2.5" />Supplier Credit</Badge>
+                )}
+                {note.resolution_type === 'replacement' && (
+                  <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 gap-1"><CheckCircle2 className="h-2.5 w-2.5" />Replacement</Badge>
+                )}
+                {!note.resolution_type && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-600"><AlertTriangle className="h-2.5 w-2.5" />Unresolved</span>
+                )}
+              </div>
             </div>
           )
         }}
