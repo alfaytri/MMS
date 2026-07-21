@@ -49,7 +49,6 @@ export function useInvoices(filters: InvoiceFilters = {}) {
           payments(id, payment_id, amount, method, date, reference, status, deleted_at),
           invoice_line_items(*)
         `)
-        .eq('direction', 'ar')
         .order(filters.sortField ?? 'created_at', {
           ascending: filters.sortAsc ?? false,
         })
@@ -161,7 +160,6 @@ export function useVoidInvoice() {
           notes: [payload.reason, payload.notes].filter(Boolean).join(' — '),
         })
         .eq('id', payload.invoiceId)
-        .eq('direction', 'ar')
       if (error) throw error
     },
     onSuccess: (_, vars) => {
@@ -209,7 +207,6 @@ export function useIssueCreditNote() {
           credit_note_id: creditNoteId,
           invoice_id: payload.invoiceId,
           customer_name: payload.customerName,
-          note_type: 'credit',
           amount: payload.type === 'full'
             ? inv?.total_amount ?? payload.amount
             : payload.amount,

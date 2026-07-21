@@ -65,7 +65,6 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
       .filter(
         (cn) =>
           cn.invoice_id === selectedInvoice.id &&
-          cn.note_type === 'credit' &&
           cn.status !== null &&
           ['approved', 'issued', 'redeemed'].includes(cn.status)
       )

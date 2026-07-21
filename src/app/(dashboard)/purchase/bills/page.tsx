@@ -10,7 +10,7 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { BillFormDialog } from '@/components/purchase/BillFormDialog'
-import { useSupplierBills, type ApInvoice } from '@/hooks/useSupplierBills'
+import { useSupplierBills, type Bill } from '@/hooks/useSupplierBills'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -46,7 +46,7 @@ export default function BillsPage() {
     return list.filter((b) => {
       if (payFilter && b.payment_status !== payFilter) return false
       if (!q) return true
-      const hay = [b.invoice_id, b.supplier_name, b.po_number].filter(Boolean).join(' ').toLowerCase()
+      const hay = [b.bill_number, b.supplier_name, b.po_number].filter(Boolean).join(' ').toLowerCase()
       return hay.includes(q)
     })
   }, [bills, search, payFilter])
@@ -65,12 +65,12 @@ export default function BillsPage() {
     return { total: list.length, totalAp, overdue, paidCount }
   }, [bills])
 
-  const columns = useMemo<ColumnDef<ApInvoice>[]>(() => [
+  const columns = useMemo<ColumnDef<Bill>[]>(() => [
     {
-      accessorKey: 'invoice_id',
+      accessorKey: 'bill_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Bill #" />,
       cell: ({ row }) => (
-        <span className="font-mono text-sm font-semibold">{row.getValue('invoice_id')}</span>
+        <span className="font-mono text-sm font-semibold">{row.getValue('bill_number')}</span>
       ),
     },
     {
@@ -205,13 +205,13 @@ export default function BillsPage() {
         columns={columns}
         data={filtered}
         isLoading={isLoading}
-        onRowClick={(row: ApInvoice) => router.push(`/purchase/bills/${row.id}`)}
-        mobileCardRender={(bill: ApInvoice) => {
+        onRowClick={(row: Bill) => router.push(`/purchase/bills/${row.id}`)}
+        mobileCardRender={(bill: Bill) => {
           const cfg = PAY_STATUS_CONFIG[bill.payment_status ?? ''] ?? { label: '—', className: '' }
           return (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-sm font-semibold">{bill.invoice_id}</span>
+                <span className="font-mono text-sm font-semibold">{bill.bill_number}</span>
                 <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
               </div>
               <p className="text-sm truncate">{bill.supplier_name ?? '—'}</p>

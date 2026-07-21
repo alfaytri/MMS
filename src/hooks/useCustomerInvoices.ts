@@ -65,7 +65,6 @@ export function useSendInvoice() {
         .from('invoices')
         .update({ doc_status: 'sent' })
         .eq('id', id)
-        .eq('direction', 'ar')
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all }),
@@ -83,7 +82,6 @@ export function useInvoicesBySO(soId: string | null) {
         .from('invoices')
         .select('*, invoice_line_items(*), customers(name), sale_orders(so_number)')
         .eq('sale_order_id', soId!)
-        .eq('direction', 'ar')
         .limit(1)
         .maybeSingle()
       if (error) throw error

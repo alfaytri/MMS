@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
-import { nextNoteId, type CreditNote } from '@/hooks/useCreditNotes'
+import { nextNoteId } from '@/hooks/useCreditNotes'
+import type { DebitNote } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
 
 export type POReturnStatus = 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled'
@@ -30,8 +31,8 @@ export type POReturn = {
   created_by_name: string | null
   created_at: string
   updated_at: string
-  credit_note_id: string | null   // UUID FK → credit_notes.id
-  debit_note?: CreditNote | null  // joined
+  credit_note_id: string | null   // UUID FK → debit_notes.id
+  debit_note?: DebitNote | null   // joined
 }
 
 export function usePurchaseReturnsByPO(poId: string | null) {
@@ -48,14 +49,13 @@ export function usePurchaseReturnsByPO(poId: string | null) {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
-      // Fetch linked debit notes separately to avoid PostgREST ambiguity
-      // (both returns.credit_note_id→credit_notes and credit_notes.source_return_id→returns exist)
+      // Fetch linked debit notes separately (returns.credit_note_id → debit_notes.id)
       const rows = data ?? []
       const noteIds = rows.map((r) => (r as Record<string, unknown>).credit_note_id as string | null).filter(Boolean) as string[]
       const noteMap: Record<string, Record<string, unknown>> = {}
       if (noteIds.length > 0) {
         const { data: notes } = await supabase
-          .from('credit_notes')
+          .from('debit_notes')
           .select('*')
           .in('id', noteIds)
         for (const n of (notes ?? [])) noteMap[n.id] = n
@@ -211,24 +211,22 @@ async function createDebitNoteForReturn(
   const originalTotal = po?.total_qar ?? 0
   const newTotal = originalTotal - dnTotal
 
-  const credit_note_id = await nextNoteId('debit')
+  const debit_note_id = await nextNoteId('debit')
 
   const { data: dn, error: dnErr } = await supabase
-    .from('credit_notes')
+    .from('debit_notes')
     .insert({
-      credit_note_id,
-      note_type:        'debit',
-      invoice_id:       null,
-      customer_name:    null,
-      supplier_name:    po?.supplier_name ?? null,
+      debit_note_id,
+      bill_id:           null,
+      supplier_name:     po?.supplier_name ?? null,
       purchase_order_id: ret.source_id,
-      source_return_id: returnId,
-      reason:           ret.reason,
-      type:             'auto',
-      status:           'issued',
-      total_amount:     dnTotal,
-      original_total:   originalTotal,
-      new_total:        newTotal,
+      source_return_id:  returnId,
+      reason:            ret.reason,
+      type:              'auto',
+      status:            'issued',
+      total_amount:      dnTotal,
+      original_total:    originalTotal,
+      new_total:         newTotal,
     })
     .select('id')
     .single()
@@ -236,15 +234,15 @@ async function createDebitNoteForReturn(
 
   const lineRows = [
     ...originalLines.map((l) => ({
-      credit_note_id: dn.id,
-      description:    l.item_name,
-      sku:            l.sku ?? null,
-      qty:            l.qty,
-      unit_price:     l.unit_price,
-      line_type:      'original' as const,
+      debit_note_id: dn.id,
+      description:   l.item_name,
+      sku:           l.sku ?? null,
+      qty:           l.qty,
+      unit_price:    l.unit_price,
+      line_type:     'original' as const,
     })),
     ...returnedLines.map((l) => ({
-      credit_note_id: dn.id,
+      debit_note_id:  dn.id,
       description:    l.item_name,
       sku:            l.sku ?? null,
       qty:            l.qty,
@@ -256,7 +254,7 @@ async function createDebitNoteForReturn(
   ]
   if (lineRows.length > 0) {
     const { error: linesErr } = await supabase
-      .from('credit_note_lines')
+      .from('debit_note_lines')
       .insert(lineRows)
     if (linesErr) throw linesErr
   }

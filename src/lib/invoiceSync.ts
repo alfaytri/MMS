@@ -14,6 +14,7 @@ type SORow = {
   so_number: string
   status: string
   customer_id: string
+  division_id: string | null
   sale_order_lines: SOLine[]
 }
 
@@ -28,7 +29,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
   // Load SO with lines
   const { data: so, error: soErr } = await supabase
     .from('sale_orders')
-    .select('id, so_number, status, customer_id, sale_order_lines(*)')
+    .select('id, so_number, status, customer_id, division_id, sale_order_lines(*)')
     .eq('id', soId)
     .single()
   if (soErr || !so) return
@@ -90,7 +91,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
       .insert({
         invoice_id: invoiceIdDisplay,
         customer_id: (so as SORow).customer_id,
-        direction: 'ar',
+        division_id: (so as SORow).division_id,
         sale_order_id: soId,
         doc_status: 'draft',
         payment_status: 'unpaid',

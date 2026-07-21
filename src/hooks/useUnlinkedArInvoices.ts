@@ -20,7 +20,6 @@ export function useUnlinkedArInvoices(customerId: string) {
       const { data, error } = await supabase
         .from('invoices')
         .select('id, invoice_id, total_amount, payment_status, issued_date')
-        .eq('direction', 'ar')
         .eq('customer_id', customerId)
         .in('payment_status', ['unpaid', 'partially_paid'])
         .order('issued_date', { ascending: false })

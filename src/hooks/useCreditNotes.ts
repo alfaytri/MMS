@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
+import type { DebitNote } from '@/types/invoice'
 
 export type CreditNoteStatus = 'draft' | 'approved' | 'issued' | 'redeemed'
 
@@ -45,8 +46,6 @@ export type CreditNote = {
   credit_note_id: string
   invoice_id: string | null
   customer_name: string | null
-  supplier_name: string | null
-  note_type: 'credit' | 'debit'
   reason: string
   type: string
   status: CreditNoteStatus | null
@@ -54,8 +53,7 @@ export type CreditNote = {
   original_total: number | null
   new_total: number | null
   source_return_id: string | null
-  purchase_order_id?: string | null
-  resolution_type: 'refund' | 'replacement' | 'store_credit' | 'supplier_credit' | null
+  resolution_type: 'refund' | 'replacement' | 'store_credit' | null
   refund_method: string | null
   refund_reference: string | null
   credit_note_lines?: CreditNoteLine[]
@@ -64,7 +62,6 @@ export type CreditNote = {
   // joined
   invoice_display?: string | null
   return_number?: string | null
-  po_number?: string | null
 }
 
 export type CreateCreditNotePayload = {
@@ -82,18 +79,31 @@ export type CreateCreditNotePayload = {
 /** Returns the next CN-XXXXX or DN-XXXXX id (max-based, collision-safe). */
 export async function nextNoteId(type: 'credit' | 'debit'): Promise<string> {
   const supabase = createClient()
-  const prefix = type === 'credit' ? 'CN-' : 'DN-'
+  if (type === 'credit') {
+    const { data } = await supabase
+      .from('credit_notes')
+      .select('credit_note_id')
+      .ilike('credit_note_id', 'CN-%')
+      .order('credit_note_id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const last = data?.credit_note_id
+      ? parseInt((data.credit_note_id as string).replace('CN-', ''), 10)
+      : 0
+    return `CN-${String(last + 1).padStart(5, '0')}`
+  }
+  // debit — query the separate debit_notes table
   const { data } = await supabase
-    .from('credit_notes')
-    .select('credit_note_id')
-    .ilike('credit_note_id', `${prefix}%`)
-    .order('credit_note_id', { ascending: false })
+    .from('debit_notes')
+    .select('debit_note_id')
+    .ilike('debit_note_id', 'DN-%')
+    .order('debit_note_id', { ascending: false })
     .limit(1)
     .maybeSingle()
-  const last = data?.credit_note_id
-    ? parseInt((data.credit_note_id as string).replace(prefix, ''), 10)
+  const last = data?.debit_note_id
+    ? parseInt((data.debit_note_id as string).replace('DN-', ''), 10)
     : 0
-  return `${prefix}${String(last + 1).padStart(5, '0')}`
+  return `DN-${String(last + 1).padStart(5, '0')}`
 }
 
 export function useCreditNotes() {
@@ -104,7 +114,6 @@ export function useCreditNotes() {
       const { data, error } = await supabase
         .from('credit_notes')
         .select('*, credit_note_lines(*), invoices(invoice_id), returns!source_return_id(return_number)')
-        .eq('note_type', 'credit')
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
@@ -124,17 +133,16 @@ export function useDebitNotes() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('credit_notes')
-        .select('*, credit_note_lines(*), returns!source_return_id(return_number), purchase_orders!credit_notes_purchase_order_id_fkey(po_number)')
-        .eq('note_type', 'debit')
+        .from('debit_notes')
+        .select('*, debit_note_lines(*), returns!source_return_id(return_number), purchase_orders!debit_notes_purchase_order_id_fkey(po_number)')
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
-      return (data ?? []).map((cn) => ({
-        ...cn,
-        return_number: cn.returns?.return_number ?? null,
-        po_number: cn.purchase_orders?.po_number ?? null,
-      })) as CreditNote[]
+      return (data ?? []).map((dn) => ({
+        ...dn,
+        return_number: dn.returns?.return_number ?? null,
+        po_number: dn.purchase_orders?.po_number ?? null,
+      })) as unknown as DebitNote[]
     },
     staleTime: 30 * 1000,
   })
@@ -156,7 +164,6 @@ export function useCreateCreditNote() {
           customer_name: payload.customer_name,
           reason: payload.reason,
           type: 'manual',
-          note_type: 'credit',
           status: 'draft',
           total_amount: totalAmount,
         })
@@ -381,7 +388,7 @@ export function useResolveDebitNoteSupplierCredit() {
   return useMutation({
     mutationFn: async (debitNoteId: string) => {
       const { error } = await supabase
-        .from('credit_notes')
+        .from('debit_notes')
         .update({ resolution_type: 'supplier_credit' })
         .eq('id', debitNoteId)
       if (error) throw error
@@ -407,7 +414,7 @@ export function useResolveDebitNoteReplacement() {
   return useMutation({
     mutationFn: async (debitNoteId: string) => {
       const { error } = await supabase
-        .from('credit_notes')
+        .from('debit_notes')
         .update({ resolution_type: 'replacement' })
         .eq('id', debitNoteId)
       if (error) throw error

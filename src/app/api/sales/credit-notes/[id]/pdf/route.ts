@@ -2,8 +2,8 @@
  * POST /api/sales/credit-notes/[id]/pdf  → returns { url, storageKey, noteId, bytes, regenerated }
  * GET  /api/sales/credit-notes/[id]/pdf  → 302 redirect to the public PDF URL
  *
- * Handles both Credit Notes and Debit Notes (the `note_type` discriminator on
- * the credit_notes table). Auth: Bearer JWT. Query: ?force=true.
+ * Handles both Credit Notes (credit_notes table) and Debit Notes (debit_notes
+ * table) via the `noteType` query param. Auth: Bearer JWT. Query: ?force=true.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -31,9 +31,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const force    = req.nextUrl.searchParams.get('force') === 'true'
   const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
+  const noteType = (req.nextUrl.searchParams.get('noteType') as 'credit' | 'debit' | null) ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   try {
-    const result = await generateCreditDebitNotePdf(id, supabase, { force, divisionId })
+    const result = await generateCreditDebitNotePdf(id, supabase, { force, divisionId, noteType })
     return NextResponse.json(result)
   } catch (err) {
     const msg   = err instanceof Error ? err.message : String(err)
@@ -50,9 +51,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const force    = req.nextUrl.searchParams.get('force') === 'true'
   const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
+  const noteType = (req.nextUrl.searchParams.get('noteType') as 'credit' | 'debit' | null) ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
   try {
-    const { url } = await generateCreditDebitNotePdf(id, supabase, { force, divisionId })
+    const { url } = await generateCreditDebitNotePdf(id, supabase, { force, divisionId, noteType })
     return NextResponse.redirect(url, 302)
   } catch (err) {
     const msg   = err instanceof Error ? err.message : String(err)

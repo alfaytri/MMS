@@ -32,16 +32,29 @@ interface CreditNoteLineRow {
 interface CreditNoteRow {
   id:               string
   credit_note_id:   string
-  note_type:        'credit' | 'debit'
   invoice_id:       string | null
   customer_name:    string | null
-  supplier_name:    string | null
   phone:            string | null
   reason:           string
   created_at:       string
   original_total:   number | null
   new_total:        number | null
   credit_note_lines: CreditNoteLineRow[]
+  source_return_id: string | null
+  pdf_url:          string | null
+}
+
+interface DebitNoteRow {
+  id:               string
+  debit_note_id:    string
+  bill_id:          string | null
+  supplier_name:    string | null
+  phone:            string | null
+  reason:           string
+  created_at:       string
+  original_total:   number | null
+  new_total:        number | null
+  debit_note_lines: CreditNoteLineRow[]
   source_return_id: string | null
   pdf_url:          string | null
 }
@@ -57,29 +70,87 @@ export interface GenerateCreditDebitNotePdfResult {
 export async function generateCreditDebitNotePdf(
   noteUuid:  string,
   supabase:  SupabaseClient,
-  opts?:     { force?: boolean; divisionId?: string },
+  opts?:     { force?: boolean; divisionId?: string; noteType?: 'credit' | 'debit' },
 ): Promise<GenerateCreditDebitNotePdfResult> {
 
-  // ── 1. Fetch note row ────────────────────────────────────────────────
-  const { data: note, error: fetchErr } = await supabase
-    .from('credit_notes')
-    .select(`
-      id, credit_note_id, note_type, invoice_id,
-      customer_name, supplier_name, phone, reason, created_at,
-      original_total, new_total, credit_note_lines(*), source_return_id, pdf_url
-    `)
-    .eq('id', noteUuid)
-    .single<CreditNoteRow>()
+  const isDebit = opts?.noteType === 'debit'
 
-  if (fetchErr || !note) {
-    throw new Error(`Credit/Debit Note not found: ${noteUuid} (${fetchErr?.message ?? 'no row'})`)
+  // ── 1. Fetch note row ────────────────────────────────────────────────
+  let noteDisplayId: string
+  let invoiceOrBillId: string | null
+  let customerName: string | null = null
+  let supplierName: string | null = null
+  let phone: string | null = null
+  let reason: string
+  let createdAt: string
+  let originalTotal: number | null
+  let newTotal: number | null
+  let sourceReturnId: string | null
+  let pdfUrl: string | null
+  let allLines: CreditNoteLineRow[] = []
+  let noteId: string
+
+  if (isDebit) {
+    const { data: note, error: fetchErr } = await supabase
+      .from('debit_notes')
+      .select(`
+        id, debit_note_id, bill_id,
+        supplier_name, phone, reason, created_at,
+        original_total, new_total, debit_note_lines(*), source_return_id, pdf_url
+      `)
+      .eq('id', noteUuid)
+      .single<DebitNoteRow>()
+
+    if (fetchErr || !note) {
+      throw new Error(`Debit Note not found: ${noteUuid} (${fetchErr?.message ?? 'no row'})`)
+    }
+
+    noteId = note.id
+    noteDisplayId = note.debit_note_id
+    invoiceOrBillId = note.bill_id
+    supplierName = note.supplier_name
+    phone = note.phone
+    reason = note.reason
+    createdAt = note.created_at
+    originalTotal = note.original_total
+    newTotal = note.new_total
+    sourceReturnId = note.source_return_id
+    pdfUrl = note.pdf_url
+    allLines = note.debit_note_lines ?? []
+  } else {
+    const { data: note, error: fetchErr } = await supabase
+      .from('credit_notes')
+      .select(`
+        id, credit_note_id, invoice_id,
+        customer_name, phone, reason, created_at,
+        original_total, new_total, credit_note_lines(*), source_return_id, pdf_url
+      `)
+      .eq('id', noteUuid)
+      .single<CreditNoteRow>()
+
+    if (fetchErr || !note) {
+      throw new Error(`Credit Note not found: ${noteUuid} (${fetchErr?.message ?? 'no row'})`)
+    }
+
+    noteId = note.id
+    noteDisplayId = note.credit_note_id
+    invoiceOrBillId = note.invoice_id
+    customerName = note.customer_name
+    phone = note.phone
+    reason = note.reason
+    createdAt = note.created_at
+    originalTotal = note.original_total
+    newTotal = note.new_total
+    sourceReturnId = note.source_return_id
+    pdfUrl = note.pdf_url
+    allLines = note.credit_note_lines ?? []
   }
 
-  if (!opts?.force && note.pdf_url) {
+  if (!opts?.force && pdfUrl) {
     return {
-      url:         note.pdf_url,
-      storageKey:  storageKeyFor(note.credit_note_id),
-      noteId:      note.credit_note_id,
+      url:         pdfUrl,
+      storageKey:  storageKeyFor(noteDisplayId),
+      noteId:      noteDisplayId,
       bytes:       0,
       regenerated: false,
     }
@@ -88,21 +159,18 @@ export async function generateCreditDebitNotePdf(
   // ── 2. Resolve reference & return numbers ────────────────────────────
   let referenceNumber = '—'
   let returnNumber    = '—'
-  let partyPhone      = note.phone ?? null
+  let partyPhone      = phone
   let divisionId: string | null = null
 
-  // Return number: join the linked returns row
-  if (note.source_return_id) {
+  if (sourceReturnId) {
     const { data: ret } = await supabase
       .from('returns')
       .select('return_number, source_type, source_id')
-      .eq('id', note.source_return_id)
+      .eq('id', sourceReturnId)
       .maybeSingle<{ return_number: string; source_type: string; source_id: string }>()
     if (ret) {
       returnNumber = ret.return_number
-      // For debit notes, the reference is the PO number — look it up via the
-      // return's source. Also resolve supplier phone if not on the note.
-      if (note.note_type === 'debit' && ret.source_type === 'purchase' && ret.source_id) {
+      if (isDebit && ret.source_type === 'purchase' && ret.source_id) {
         const { data: po } = await supabase
           .from('purchase_orders')
           .select('po_number, supplier_id, division_id')
@@ -110,7 +178,6 @@ export async function generateCreditDebitNotePdf(
           .maybeSingle<{ po_number: string; supplier_id: string | null; division_id: string | null }>()
         if (po?.po_number) referenceNumber = po.po_number
         if (po?.division_id) divisionId = po.division_id
-        // supplier_id is stored as text (UUID) without FK — separate lookup
         if (!partyPhone && po?.supplier_id) {
           const { data: sup } = await supabase
             .from('suppliers')
@@ -123,31 +190,28 @@ export async function generateCreditDebitNotePdf(
     }
   }
 
-  // For credit notes, reference is the invoice display string.
-  // Also resolve customer phone if not on the note.
-  if (note.note_type === 'credit' && note.invoice_id) {
+  if (!isDebit && invoiceOrBillId) {
     const { data: inv } = await supabase
       .from('invoices')
       .select('invoice_id, customers(phone), sale_orders(division_id)')
-      .eq('id', note.invoice_id)
+      .eq('id', invoiceOrBillId)
       .maybeSingle<{ invoice_id: string; customers: { phone: string | null } | null; sale_orders: { division_id: string | null } | null }>()
     if (inv?.invoice_id) referenceNumber = inv.invoice_id
     if (inv?.sale_orders?.division_id) divisionId = inv.sale_orders.division_id
     if (!partyPhone && inv?.customers?.phone) partyPhone = inv.customers.phone
   }
 
-  // ── 3. Branding (dynamic brand resolution) ──────────────────────────
+  // ── 3. Branding ──────────────────────────────────────────────────────
   const [brand, fonts] = await Promise.all([
     resolveBrand(opts?.divisionId ?? divisionId, supabase),
     loadPdfFonts(),
   ])
   const { assets } = brandDataToAssets(brand)
 
-  const partyName = note.note_type === 'credit'
-    ? (note.customer_name ?? '—')
-    : (note.supplier_name ?? '—')
+  const partyName = isDebit
+    ? (supplierName ?? '—')
+    : (customerName ?? '—')
 
-  const allLines = note.credit_note_lines ?? []
   const returnedLines: NoteReturnedLine[] = allLines
     .filter((l) => l.line_type === 'returned')
     .map((l) => ({
@@ -164,18 +228,18 @@ export async function generateCreditDebitNotePdf(
 
   // ── 4. Build & render ────────────────────────────────────────────────
   const html = buildCreditDebitNoteHtml({
-    noteId:          note.credit_note_id,
-    noteType:        note.note_type,
+    noteId:          noteDisplayId,
+    noteType:        isDebit ? 'debit' : 'credit',
     partyName,
     partyPhone,
     referenceNumber,
     returnNumber,
-    reason:          note.reason,
-    createdAt:       note.created_at,
+    reason,
+    createdAt,
     returnedLines,
-    originalTotal:   Number(note.original_total ?? 0),
+    originalTotal:   Number(originalTotal ?? 0),
     creditDebitTotal,
-    newTotal:        Number(note.new_total ?? 0),
+    newTotal:        Number(newTotal ?? 0),
     assets,
     fonts,
   })
@@ -183,37 +247,58 @@ export async function generateCreditDebitNotePdf(
   const buffer = await htmlToPdfBuffer(html)
 
   // ── 5. Upload ────────────────────────────────────────────────────────
-  const storageKey = storageKeyFor(note.credit_note_id)
+  const bucketName = isDebit ? 'debit-note-pdfs' : 'credit-note-pdfs'
+  const storageKey = storageKeyFor(noteDisplayId)
   const { error: uploadErr } = await supabase.storage
-    .from('credit-note-pdfs')
+    .from(bucketName)
     .upload(storageKey, buffer, {
       contentType:  'application/pdf',
       upsert:       true,
       cacheControl: '0',
     })
   if (uploadErr) {
-    throw new Error(`Storage upload failed for ${storageKey}: ${uploadErr.message}`)
+    // Fallback to credit-note-pdfs bucket if debit bucket doesn't exist yet
+    if (isDebit) {
+      const { error: fallbackErr } = await supabase.storage
+        .from('credit-note-pdfs')
+        .upload(storageKey, buffer, {
+          contentType:  'application/pdf',
+          upsert:       true,
+          cacheControl: '0',
+        })
+      if (fallbackErr) {
+        throw new Error(`Storage upload failed for ${storageKey}: ${fallbackErr.message}`)
+      }
+    } else {
+      throw new Error(`Storage upload failed for ${storageKey}: ${uploadErr.message}`)
+    }
   }
 
   const { data: urlData } = supabase.storage
-    .from('credit-note-pdfs')
+    .from(uploadErr && isDebit ? 'credit-note-pdfs' : bucketName)
     .getPublicUrl(storageKey)
-  // Cache-buster — see note in generate-invoice-pdf.ts.
   const publicUrl = `${urlData.publicUrl}?v=${Date.now()}`
 
   // ── 6. Persist URL ───────────────────────────────────────────────────
-  const { error: rpcErr } = await supabase.rpc('set_credit_note_pdf_url', {
-    p_id:  note.id,
-    p_url: publicUrl,
-  })
-  if (rpcErr) {
-    console.warn(`[cn-pdf] uploaded but failed to persist URL on ${note.credit_note_id}: ${rpcErr.message}`)
+  if (isDebit) {
+    await supabase
+      .from('debit_notes')
+      .update({ pdf_url: publicUrl })
+      .eq('id', noteId)
+  } else {
+    const { error: rpcErr } = await supabase.rpc('set_credit_note_pdf_url', {
+      p_id:  noteId,
+      p_url: publicUrl,
+    })
+    if (rpcErr) {
+      console.warn(`[cn-pdf] uploaded but failed to persist URL on ${noteDisplayId}: ${rpcErr.message}`)
+    }
   }
 
   return {
     url:         publicUrl,
     storageKey,
-    noteId:      note.credit_note_id,
+    noteId:      noteDisplayId,
     bytes:       buffer.length,
     regenerated: true,
   }

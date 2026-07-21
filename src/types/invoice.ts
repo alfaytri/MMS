@@ -24,6 +24,15 @@ export type InvoiceLineItem = {
   qty: number | null
   unit_price: number | null
   total: number | null
+}
+
+export type BillLineItem = {
+  id: string
+  bill_id: string
+  description: string
+  qty: number | null
+  unit_price: number | null
+  total: number | null
   match_status: MatchStatus | null
   match_note: string | null
 }
@@ -32,14 +41,13 @@ export type InvoiceLineItem = {
 export type ArInvoice = {
   id: string
   invoice_id: string               // display string e.g. "INV-00001"
-  direction: 'ar'
   customer_id: string
   sale_order_id: string | null
   sale_delivery_id: string | null
-  invoice_type: 'cash' | 'credit'  // set at generation time from customer_type
+  invoice_type: 'cash' | 'credit'
   doc_status: 'draft' | 'ready_to_send' | 'sent'
   payment_status: BillPaymentStatus
-  status: string | null             // lifecycle status: draft, sent, void, cancelled
+  status: string | null
   needs_refresh: boolean
   total_amount: number | null
   subtotal: number | null
@@ -48,12 +56,11 @@ export type ArInvoice = {
   issued_date: string
   due_date: string
   notes: string | null
-  source: string | null             // invoice_source enum: order, contract, quotation
-  source_type?: string | null       // alias used by some queries
+  source: string | null
+  source_type?: string | null
   source_id: string | null
   source_label: string | null
   agent_name: string | null
-  division: string | null
   division_id?: string | null
   manually_paid: boolean
   created_at: string | null
@@ -65,37 +72,84 @@ export type ArInvoice = {
 }
 
 /** AP bill — supplier-facing, created against a PO */
-export type ApInvoice = {
+export type Bill = {
   id: string
-  invoice_id: string               // display string e.g. "PO-00011-B1"
-  direction: 'ap'
+  bill_number: string              // display string e.g. "SUP-INV-00001"
+  bill_type: 'cash' | 'credit'
+  source: string
+  source_id: string
+  source_label: string | null
   supplier_id: string | null
   purchase_order_id: string | null
   receival_id: string | null
   doc_status: 'draft' | 'pending_approval' | 'approved' | 'rejected'
   payment_status: BillPaymentStatus
-  needs_refresh: false
+  needs_refresh: boolean
   total_amount: number | null
   subtotal: number | null
-  discount_amount: number          // NOT NULL DEFAULT 0 in DB
+  discount_amount: number
   discount_label: string | null
   tax: number | null
-  source_label: string | null      // supplier's own invoice reference
   issued_date: string
   due_date: string
   notes: string | null
+  division_id: string | null
+  pdf_url: string | null
   created_at: string | null
+  updated_at?: string | null
   // joined
   supplier_name?: string
   po_number?: string
-  invoice_line_items?: InvoiceLineItem[]
+  bill_line_items?: BillLineItem[]
+}
+
+/** @deprecated Use Bill instead */
+export type ApInvoice = Bill
+
+export type DebitNote = {
+  id: string
+  debit_note_id: string
+  bill_id: string | null
+  purchase_order_id: string | null
+  supplier_name: string | null
+  reason: string
+  type: string
+  status: string | null
+  total_amount: number
+  original_total: number | null
+  new_total: number | null
+  source_return_id: string | null
+  resolution_type: string | null
+  notes: string | null
+  pdf_url: string | null
+  phone: string | null
+  approved_by: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type DebitNoteLine = {
+  id: string
+  debit_note_id: string
+  bill_line_id: string | null
+  description: string | null
+  sku: string | null
+  qty: number
+  unit_price: number
+  total: number | null
+  line_type: string
+  condition: string | null
+  condition_notes: string | null
+  created_at: string | null
 }
 
 export const PAYMENT_PLAN_THRESHOLD = 10000 // QAR
 
 export type PaymentPlan = {
   id: string
-  invoice_id: string
+  invoice_id: string | null
+  bill_id: string | null
   plan_type: 'schedule' | 'adhoc'
   total_amount: number
   status: 'active' | 'completed' | 'cancelled'

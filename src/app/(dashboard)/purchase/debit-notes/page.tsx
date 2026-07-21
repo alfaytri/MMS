@@ -12,7 +12,15 @@ import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
-import { useDebitNotes, type CreditNote, type CreditNoteStatus } from '@/hooks/useCreditNotes'
+import { useDebitNotes, type CreditNoteStatus } from '@/hooks/useCreditNotes'
+import type { DebitNote, DebitNoteLine } from '@/types/invoice'
+
+/** DebitNote row with joined relations from the useDebitNotes hook */
+type DebitNoteRow = DebitNote & {
+  debit_note_lines?: DebitNoteLine[]
+  po_number?: string | null
+  return_number?: string | null
+}
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -33,7 +41,7 @@ const STATUS_FILTERS: { value: '' | CreditNoteStatus; label: string }[] = [
 ]
 
 export default function DebitNotesPage() {
-  const [detailNote, setDetailNote] = useState<CreditNote | null>(null)
+  const [detailNote, setDetailNote] = useState<DebitNoteRow | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | CreditNoteStatus>('')
 
@@ -45,7 +53,7 @@ export default function DebitNotesPage() {
     return debitNotes.filter((n) => {
       if (statusFilter && (n.status ?? 'issued') !== statusFilter) return false
       if (!q) return true
-      const hay = [n.credit_note_id, n.supplier_name, n.po_number, n.return_number]
+      const hay = [n.debit_note_id, n.supplier_name, n.po_number, n.return_number]
         .filter(Boolean).join(' ').toLowerCase()
       return hay.includes(q)
     })
@@ -64,9 +72,9 @@ export default function DebitNotesPage() {
     return { total: debitNotes.length, totalDebit, unresolved, redeemed }
   }, [debitNotes])
 
-  const columns = useMemo<ColumnDef<CreditNote>[]>(() => [
+  const columns = useMemo<ColumnDef<DebitNoteRow>[]>(() => [
     {
-      accessorKey: 'credit_note_id',
+      accessorKey: 'debit_note_id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="DN #" />,
       cell: ({ row }) => (
         <button
@@ -74,7 +82,7 @@ export default function DebitNotesPage() {
           className="font-mono text-sm font-semibold text-primary hover:underline underline-offset-2"
           onClick={() => setDetailNote(row.original)}
         >
-          {row.getValue('credit_note_id')}
+          {row.getValue('debit_note_id')}
         </button>
       ),
     },
@@ -170,10 +178,11 @@ export default function DebitNotesPage() {
       id: 'actions',
       cell: ({ row }) => {
         const note = row.original
-        if (!note.credit_note_lines?.length) return null
+        if (!note.debit_note_lines?.length) return null
         return (
           <CreditDebitNoteDownloadButton
             note={note}
+            noteKind="debit"
             referenceNumber={note.po_number ?? '—'}
             returnNumber={note.return_number ?? '—'}
           />
@@ -249,14 +258,14 @@ export default function DebitNotesPage() {
         columns={columns}
         data={filtered}
         isLoading={isLoading}
-        onRowClick={(note: CreditNote) => setDetailNote(note)}
-        mobileCardRender={(note: CreditNote) => {
+        onRowClick={(note: DebitNoteRow) => setDetailNote(note)}
+        mobileCardRender={(note: DebitNoteRow) => {
           const s = (note.status ?? 'issued') as CreditNoteStatus
           const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.issued
           return (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-sm font-semibold text-primary">{note.credit_note_id}</span>
+                <span className="font-mono text-sm font-semibold text-primary">{note.debit_note_id}</span>
                 <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
               </div>
               <p className="text-sm truncate">{note.supplier_name ?? '—'}</p>
@@ -295,6 +304,7 @@ export default function DebitNotesPage() {
 
       <CreditDebitNoteDetailDialog
         note={detailNote}
+        noteKind="debit"
         referenceNumber={detailNote?.po_number ?? '—'}
         open={!!detailNote}
         onOpenChange={(v) => { if (!v) setDetailNote(null) }}

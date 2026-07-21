@@ -12,7 +12,7 @@ interface RequestBody {
 
 /**
  * Generate ONE Dibsy checkout link that covers the remaining balance on
- * a batch of regular customer invoices (table: invoices, direction = 'ar').
+ * a batch of regular customer invoices (table: invoices, AR-only).
  *
  * All invoices in the batch must belong to the same customer_id.
  *
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
   const { data: invoices, error: fetchErr } = await supabase
     .from('invoices')
-    .select('id, invoice_id, customer_id, total_amount, paid_amount, payment_status, direction, status, dibsy_checkout_url')
+    .select('id, invoice_id, customer_id, total_amount, paid_amount, payment_status, status, dibsy_checkout_url')
     .in('id', invoice_ids)
 
   if (fetchErr) {
@@ -65,16 +65,10 @@ export async function POST(request: Request) {
     )
   }
 
-  // All invoices must be AR + active + same customer + have remaining > 0
+  // All invoices must be active + same customer + have remaining > 0
   const customerIds = new Set<string>()
   let totalRemaining = 0
   for (const inv of invoices) {
-    if (inv.direction !== 'ar') {
-      return NextResponse.json(
-        { ok: false, error: `Invoice ${inv.invoice_id} is not an AR invoice` },
-        { status: 400 },
-      )
-    }
     if (inv.status === 'void' || inv.status === 'cancelled') {
       return NextResponse.json(
         { ok: false, error: `Invoice ${inv.invoice_id} is ${inv.status}` },

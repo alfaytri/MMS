@@ -7,7 +7,7 @@ export type AgingBucket = 'current' | '1_30' | '31_60' | '61_90' | 'over_90' | '
 
 export type AgingBillRow = {
   id: string
-  invoice_id: string
+  bill_number: string
   purchase_order_id: string | null
   po_number: string | null
   issued_date: string
@@ -48,9 +48,8 @@ export function useAgingDrillDown(
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
-        .from('invoices')
-        .select('id, invoice_id, purchase_order_id, issued_date, due_date, total_amount, paid_amount, doc_status, payment_status')
-        .eq('direction', 'ap')
+        .from('bills')
+        .select('id, bill_number, purchase_order_id, issued_date, due_date, total_amount, paid_amount, doc_status, payment_status')
         .eq('supplier_id', supplierId!)
         .neq('doc_status', 'rejected')
         .neq('payment_status', 'paid')
@@ -93,7 +92,7 @@ export function useAgingDrillDown(
           const daysOverdue = Math.max(0, Math.floor((todayMs - dueMs) / 86400000))
           return {
             id: b.id,
-            invoice_id: b.invoice_id,
+            bill_number: b.bill_number,
             purchase_order_id: b.purchase_order_id,
             po_number: b.purchase_order_id ? (poMap.get(b.purchase_order_id) ?? null) : null,
             issued_date: b.issued_date,

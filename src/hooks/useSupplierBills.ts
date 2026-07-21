@@ -1,16 +1,16 @@
 // src/hooks/useSupplierBills.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { ApInvoice, InvoiceLineItem, PaymentPlan } from '@/types/invoice'
+import type { Bill, BillLineItem, PaymentPlan } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
 
-export type { ApInvoice }
+export type { Bill }
 
 export type BillFilters = {
   search?: string
-  doc_status?: ApInvoice['doc_status'] | ''
-  payment_status?: ApInvoice['payment_status'] | ''
+  doc_status?: Bill['doc_status'] | ''
+  payment_status?: Bill['payment_status'] | ''
   supplier_id?: string
 }
 
@@ -24,7 +24,7 @@ export function useSupplierBills(filters?: BillFilters, options?: { enabled?: bo
         .from('supplier_bills')           // queries the VIEW
         .select(`
           *,
-          invoice_line_items(*),
+          bill_line_items(*),
           suppliers(name),
           purchase_orders(po_number)
         `)
@@ -32,7 +32,7 @@ export function useSupplierBills(filters?: BillFilters, options?: { enabled?: bo
       if (filters?.doc_status) q = q.eq('doc_status', filters.doc_status)
       if (filters?.payment_status) q = q.eq('payment_status', filters.payment_status)
       if (filters?.search) {
-        q = q.or(`invoice_id.ilike.%${filters.search}%`)
+        q = q.or(`bill_number.ilike.%${filters.search}%`)
       }
       if (filters?.supplier_id) q = q.eq('supplier_id', filters.supplier_id)
       const { data, error } = await q
@@ -41,7 +41,7 @@ export function useSupplierBills(filters?: BillFilters, options?: { enabled?: bo
         ...b,
         supplier_name: b.suppliers?.name ?? null,
         po_number: b.purchase_orders?.po_number ?? null,
-      })) as ApInvoice[]
+      })) as Bill[]
     },
   })
 }
@@ -54,7 +54,7 @@ export function useSupplierBill(id: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('supplier_bills')
-        .select('*, invoice_line_items(*), suppliers(name), purchase_orders(po_number, po_line_items(*))')
+        .select('*, bill_line_items(*), suppliers(name), purchase_orders(po_number, po_line_items(*))')
         .eq('id', id!)
         .single()
       if (error) throw error
@@ -62,14 +62,14 @@ export function useSupplierBill(id: string | null) {
         ...data,
         supplier_name: (data as unknown as { suppliers?: { name: string } | null }).suppliers?.name ?? null,
         po_number: (data as unknown as { purchase_orders?: { po_number: string } | null }).purchase_orders?.po_number ?? null,
-      } as unknown as ApInvoice
+      } as unknown as Bill
     },
   })
 }
 
 export type POBillRow = {
   id: string
-  invoice_id: string
+  bill_number: string
   doc_status: string
   payment_status: string
   total_amount: number
@@ -86,10 +86,9 @@ export function useBillsByPO(poId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('invoices')
-        .select('id, invoice_id, doc_status, payment_status, total_amount, paid_amount, due_date, issued_date, created_at')
+        .from('bills')
+        .select('id, bill_number, doc_status, payment_status, total_amount, paid_amount, due_date, issued_date, created_at')
         .eq('purchase_order_id', poId!)
-        .eq('direction', 'ap')
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as POBillRow[]
@@ -115,32 +114,37 @@ export function useCreateBill() {
         qty: number
         unit_price: number
         total: number
-        match_status: InvoiceLineItem['match_status']
+        match_status: BillLineItem['match_status']
         match_note: string | null
       }[]
     }) => {
       const supabase = createClient()
 
-      // Count existing AP bills for this PO to generate PO-XXXXX-Bn ID
+      // Generate SUP-INV-NNNNN bill number
       const { count: billCount } = await supabase
-        .from('invoices')
+        .from('bills')
         .select('*', { count: 'exact', head: true })
-        .eq('purchase_order_id', payload.purchase_order_id)
-        .eq('direction', 'ap')
-      const invoiceIdDisplay = `${payload.po_number}-B${(billCount ?? 0) + 1}`
+      const billNumber = `SUP-INV-${String((billCount ?? 0) + 1).padStart(5, '0')}`
 
       const today = new Date().toISOString().split('T')[0]
       const subtotal = payload.line_items.reduce((s, l) => s + l.total, 0)
       const discount = payload.discount_amount ?? 0
       const totalAmount = subtotal - discount
 
+      const { data: po } = await supabase
+        .from('purchase_orders')
+        .select('division_id')
+        .eq('id', payload.purchase_order_id)
+        .single()
+
       const { data: bill, error } = await supabase
-        .from('invoices')
+        .from('bills')
         .insert({
-          invoice_id:        invoiceIdDisplay,
-          direction:         'ap',
+          bill_number:       billNumber,
+          bill_type:         'credit',
           supplier_id:       payload.supplier_id,
           purchase_order_id: payload.purchase_order_id,
+          division_id:       po?.division_id ?? null,
           receival_id:       payload.receival_id,
           doc_status:        'draft',
           payment_status:    'unpaid',
@@ -156,7 +160,6 @@ export function useCreateBill() {
           issued_date:       today,
           due_date:          payload.due_date,
           notes:             payload.notes || null,
-          status:            'draft',
         })
         .select()
         .single()
@@ -164,10 +167,10 @@ export function useCreateBill() {
 
       if (payload.line_items.length > 0) {
         const { error: liErr } = await supabase
-          .from('invoice_line_items')
+          .from('bill_line_items')
           .insert(
             payload.line_items.map((l) => ({
-              invoice_id: bill.id,
+              bill_id: bill.id,
               description: l.description,
               qty: l.qty,
               unit_price: l.unit_price,
@@ -185,7 +188,7 @@ export function useCreateBill() {
         entity_type: 'bill',
         new_data: bill as unknown as Record<string, unknown>,
       })
-      return bill as ApInvoice
+      return bill as Bill
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all }),
   })
@@ -203,10 +206,9 @@ export function useApproveBill() {
     }) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('invoices')
+        .from('bills')
         .update({ doc_status: action })
         .eq('id', id)
-        .eq('direction', 'ap')
       if (error) throw error
       void logActivity({
         action: 'Bill Approved',
@@ -250,7 +252,7 @@ export type BillReceival = {
 }
 
 export type BillViewModel = {
-  bill: ApInvoice & {
+  bill: Bill & {
     paid_amount: number | null
     suppliers: {
       name: string
@@ -279,15 +281,14 @@ export function useBillViewModel(id: string | null) {
 
       const [billResult, paymentsResult, planResult] = await Promise.all([
         supabase
-          .from('invoices')
+          .from('bills')
           .select(`
             *,
-            invoice_line_items(*),
+            bill_line_items(*),
             suppliers(name, contact_name, phone, email, address),
             purchase_orders(po_number, created_date, currency)
           `)
           .eq('id', id!)
-          .eq('direction', 'ap')
           .single(),
         supabase
           .from('payment_bill_allocations')
@@ -310,7 +311,7 @@ export function useBillViewModel(id: string | null) {
         supabase
           .from('payment_plans')
           .select('*, payment_installments(*)')
-          .eq('invoice_id', id!)
+          .eq('bill_id', id!)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -355,7 +356,7 @@ export function useMarkBillPaymentStatus() {
     mutationFn: async ({ billId, status }: { billId: string; status: 'paid' | 'unpaid' }) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('invoices')
+        .from('bills')
         .update({
           payment_status: status,
           manually_paid: status === 'paid',

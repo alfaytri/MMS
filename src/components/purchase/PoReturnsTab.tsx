@@ -177,9 +177,10 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
               {ret.debit_note ? (
                 <div className="flex items-center gap-2 pt-1">
                   <span className="text-xs text-muted-foreground">Debit Note:</span>
-                  <span className="text-xs font-mono font-medium">{ret.debit_note.credit_note_id}</span>
+                  <span className="text-xs font-mono font-medium">{ret.debit_note.debit_note_id}</span>
                   <CreditDebitNoteDownloadButton
                     note={ret.debit_note}
+                    noteKind="debit"
                     referenceNumber={po.po_number ?? '—'}
                     returnNumber={ret.return_number}
                   />

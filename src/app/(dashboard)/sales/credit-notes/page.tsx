@@ -68,9 +68,7 @@ export default function CreditNotesPage() {
   }, [allCreditNotes])
 
   const detailRefNumber = detailNote
-    ? detailNote.note_type === 'credit'
-      ? (detailNote.invoice_display ?? detailNote.invoice_id ?? '—')
-      : '—'
+    ? (detailNote.invoice_display ?? detailNote.invoice_id ?? '—')
     : '—'
 
   const creditColumns = useMemo<ColumnDef<CreditNote>[]>(() => [

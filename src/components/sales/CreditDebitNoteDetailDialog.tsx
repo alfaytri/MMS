@@ -19,6 +19,14 @@ import {
   useResolveCreditNoteReplacement,
   useResolveDebitNoteSupplierCredit, useResolveDebitNoteReplacement,
 } from '@/hooks/useCreditNotes'
+import type { DebitNote, DebitNoteLine } from '@/types/invoice'
+
+/** DebitNote with joined relations from useDebitNotes */
+type DebitNoteWithJoins = DebitNote & {
+  debit_note_lines?: DebitNoteLine[]
+  return_number?: string | null
+  po_number?: string | null
+}
 import { usePaymentMethods } from '@/hooks/usePaymentMethods'
 import { ReplacementReceivalDialog } from '@/components/purchase/ReplacementReceivalDialog'
 
@@ -36,13 +44,14 @@ function conditionLabel(line: NoteDebitLineItem): string {
 }
 
 interface Props {
-  note: CreditNote | null
+  note: CreditNote | DebitNoteWithJoins | null
+  noteKind?: 'credit' | 'debit'
   referenceNumber: string
   open: boolean
   onOpenChange: (v: boolean) => void
 }
 
-export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpenChange }: Props) {
+export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referenceNumber, open, onOpenChange }: Props) {
   const [showRefundForm, setShowRefundForm] = useState(false)
   const [refundMethod, setRefundMethod] = useState<string>('')
   const [refundReference, setRefundReference] = useState('')
@@ -57,13 +66,19 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
 
   if (!note) return null
 
-  const isCredit = note.note_type === 'credit'
+  const isCredit = noteKind === 'credit'
   const isUnresolved = isCredit && note.status === 'issued' && !note.resolution_type
 
-  const isDebit = note.note_type === 'debit'
+  const isDebit = noteKind === 'debit'
   const isDebitUnresolved = isDebit && note.status === 'issued' && !note.resolution_type
 
-  const allLines = note.credit_note_lines ?? []
+  const noteDisplayId = isDebit
+    ? (note as DebitNoteWithJoins).debit_note_id
+    : (note as CreditNote).credit_note_id
+
+  const allLines = isDebit
+    ? ((note as DebitNoteWithJoins).debit_note_lines ?? [])
+    : ((note as CreditNote).credit_note_lines ?? [])
   const pdfData = {
     original_lines: allLines
       .filter((l) => l.line_type === 'original')
@@ -89,7 +104,9 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
   const status = (note.status ?? 'draft') as CreditNoteStatus
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft
   const partyLabel = isDebit ? 'Supplier' : 'Customer'
-  const partyName  = isDebit ? (note.supplier_name ?? '—') : (note.customer_name ?? '—')
+  const partyName  = isDebit
+    ? ((note as DebitNoteWithJoins).supplier_name ?? '—')
+    : ((note as CreditNote).customer_name ?? '—')
   const refLabel   = isDebit ? 'PO #' : 'Invoice #'
   const amtLabel   = isDebit ? 'Debit Amount' : 'Credit Amount'
 
@@ -101,7 +118,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
         <DialogHeader className="pb-3">
           <div className="flex items-center gap-3 pr-8">
             <DialogTitle className="font-mono text-lg leading-none">
-              {note.credit_note_id}
+              {noteDisplayId}
             </DialogTitle>
             <Badge className={cn('text-xs shrink-0', cfg.className)}>{cfg.label}</Badge>
           </div>
@@ -235,10 +252,11 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
         </div>
 
         {/* ── Download ── */}
-        {(note.credit_note_lines?.length ?? 0) > 0 && (
+        {allLines.length > 0 && (
           <div className="flex justify-end pt-1">
             <CreditDebitNoteDownloadButton
               note={note}
+              noteKind={noteKind}
               referenceNumber={referenceNumber}
               returnNumber={note.return_number ?? '—'}
             />
@@ -291,7 +309,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                         onClick={() => {
                           resolveStoreCredit.mutate({
                             creditNoteId: note.id,
-                            invoiceId: note.invoice_id ?? '',
+                            invoiceId: (note as CreditNote).invoice_id ?? '',
                             amount: note.total_amount,
                           }, {
                             onSuccess: () => { toast.success('Credit added to customer balance') },
@@ -369,7 +387,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
                   <AlertDialogHeader>
                     <AlertDialogTitle>Mark as Supplier Credit?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Mark {note.credit_note_id} ({formatCurrency(note.total_amount, 'QAR')}) as supplier credit.
+                      Mark {noteDisplayId} ({formatCurrency(note.total_amount, 'QAR')}) as supplier credit.
                       This amount will be tracked for deduction from future bills.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
@@ -415,7 +433,7 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
           <div className="border-t pt-4">
             <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
               {note.resolution_type === 'refund' && (
-                <span>Refunded via {note.refund_method?.replace(/_/g, ' ')} — Ref: {note.refund_reference || '—'}</span>
+                <span>Refunded via {(note as CreditNote).refund_method?.replace(/_/g, ' ')} — Ref: {(note as CreditNote).refund_reference || '—'}</span>
               )}
               {note.resolution_type === 'replacement' && (
                 <span>Replacement sent</span>
@@ -430,11 +448,11 @@ export function CreditDebitNoteDetailDialog({ note, referenceNumber, open, onOpe
           </div>
         )}
 
-        {showReplacementReceival && note.purchase_order_id && (
+        {showReplacementReceival && isDebit && (note as DebitNoteWithJoins).purchase_order_id && (
           <ReplacementReceivalDialog
             open={showReplacementReceival}
             onOpenChange={(v) => { if (!v) setShowReplacementReceival(false) }}
-            debitNote={note}
+            debitNote={note as DebitNoteWithJoins}
             onSuccess={() => {
               setShowReplacementReceival(false)
               onOpenChange(false)

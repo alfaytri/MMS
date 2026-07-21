@@ -77,7 +77,7 @@ function BillDetailContent() {
           </Button>
           {bill && (
             <>
-              <span className="text-sm font-mono font-bold">{bill.invoice_id}</span>
+              <span className="text-sm font-mono font-bold">{bill.bill_number}</span>
               <Badge className={cn('text-xs', PAY_STATUS_COLORS[paymentStatus] ?? '')}>
                 {paymentStatus.replace(/_/g, ' ')}
               </Badge>

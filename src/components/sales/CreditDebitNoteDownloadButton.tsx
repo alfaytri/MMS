@@ -5,23 +5,23 @@ import { Button } from '@/components/ui/button'
 import { Download, Eye, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import type { CreditNote } from '@/hooks/useCreditNotes'
-
 interface Props {
-  note: CreditNote
+  note: { id: string }
+  noteKind?: 'credit' | 'debit'
   /** @deprecated resolved server-side now; kept for call-site compatibility */
   referenceNumber?: string
   /** @deprecated resolved server-side now; kept for call-site compatibility */
   returnNumber?: string
 }
 
-async function fetchPdfUrl(noteId: string): Promise<{ url: string; noteId: string }> {
+async function fetchPdfUrl(noteId: string, noteKind: 'credit' | 'debit'): Promise<{ url: string; noteId: string }> {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) {
     throw new Error('Not authenticated')
   }
-  const res = await fetch(`/api/sales/credit-notes/${noteId}/pdf`, {
+  const qs = noteKind === 'debit' ? '?noteType=debit' : ''
+  const res = await fetch(`/api/sales/credit-notes/${noteId}/pdf${qs}`, {
     method:  'POST',
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
@@ -32,16 +32,16 @@ async function fetchPdfUrl(noteId: string): Promise<{ url: string; noteId: strin
   return res.json()
 }
 
-export function CreditDebitNoteDownloadButton({ note }: Props) {
+export function CreditDebitNoteDownloadButton({ note, noteKind = 'credit' }: Props) {
   const [busy, setBusy] = useState<'generate' | 'download' | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
-  const prefix = note.note_type === 'credit' ? 'CreditNote' : 'DebitNote'
+  const prefix = noteKind === 'credit' ? 'CreditNote' : 'DebitNote'
 
   async function handleGenerate() {
     if (busy) return
     setBusy('generate')
     try {
-      const { url } = await fetchPdfUrl(note.id)
+      const { url } = await fetchPdfUrl(note.id, noteKind)
       setPdfUrl(url)
       toast.success('PDF generated')
     } catch (err) {

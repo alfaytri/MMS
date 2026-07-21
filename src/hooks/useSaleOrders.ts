@@ -589,7 +589,6 @@ export function useSOPayments(soId: string | null) {
         .from('invoices')
         .select('id')
         .eq('sale_order_id', soId!)
-        .eq('direction', 'ar')
         .maybeSingle()
       const invoiceId = invRow?.id ?? null
 

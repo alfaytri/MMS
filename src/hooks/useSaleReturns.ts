@@ -170,7 +170,6 @@ async function createCreditNoteForReturn(
     .from('invoices')
     .select('id, invoice_id, total_amount')
     .eq('sale_order_id', ret.source_id)
-    .eq('direction', 'ar')
     .maybeSingle()
 
   // 3. Fetch customer name from SO
@@ -218,7 +217,6 @@ async function createCreditNoteForReturn(
     .from('credit_notes')
     .insert({
       credit_note_id,
-      note_type:        'credit',
       invoice_id:       inv?.id ?? null,
       customer_name:    customerName,
       source_return_id: returnId,

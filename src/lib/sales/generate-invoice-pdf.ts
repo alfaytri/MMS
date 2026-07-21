@@ -67,7 +67,6 @@ export async function generateInvoicePdf(
       sale_orders(so_number, payment_terms, division_id)
     `)
     .eq('id', invoiceUuid)
-    .eq('direction', 'ar')
     .single<InvoiceRow>()
 
   if (fetchErr || !inv) {

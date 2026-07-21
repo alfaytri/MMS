@@ -22,18 +22,17 @@ export async function generateBillPdf(
   opts?: { divisionId?: string },
 ): Promise<GenerateBillPdfResult> {
   const { data: bill, error: billErr } = await supabase
-    .from('invoices')
+    .from('bills')
     .select(`
-      id, invoice_id, direction, supplier_id, purchase_order_id,
+      id, bill_number, supplier_id, purchase_order_id,
       doc_status, payment_status, total_amount, subtotal,
       discount_amount, discount_label, source_label,
       issued_date, due_date, notes,
-      invoice_line_items(id, description, qty, unit_price, total),
+      bill_line_items(id, description, qty, unit_price, total),
       suppliers(name, contact_name, phone, email, address),
       purchase_orders(po_number, created_date, currency, division_id)
     `)
     .eq('id', billUuid)
-    .eq('direction', 'ap')
     .single()
   if (billErr || !bill) {
     throw new Error(`Bill not found: ${billUuid} (${billErr?.message ?? 'no row'})`)
@@ -53,7 +52,7 @@ export async function generateBillPdf(
 
   const supplier = bill.suppliers
   const po = bill.purchase_orders
-  const lineItems = (bill.invoice_line_items ?? []) as BillLineItem[]
+  const lineItems = (bill.bill_line_items ?? []) as BillLineItem[]
   const currency = po?.currency ?? 'QAR'
 
   const payments: BillPaymentRow[] = (allocations ?? []).map((a) => ({
@@ -75,7 +74,7 @@ export async function generateBillPdf(
   const { assets } = brandDataToAssets(brand)
 
   const html = buildBillHtml({
-    billId:          bill.invoice_id,
+    billId:          bill.bill_number,
     poNumber:        po?.po_number ?? null,
     poDate:          po?.created_date ?? null,
     supplierName:    supplier?.name ?? '—',
@@ -101,7 +100,7 @@ export async function generateBillPdf(
 
   const buffer = await htmlToPdfBuffer(html)
 
-  const storageKey = `${safeKey(bill.invoice_id)}.pdf`
+  const storageKey = `${safeKey(bill.bill_number)}.pdf`
 
   const { error: uploadErr } = await supabase.storage
     .from('bill-pdfs')
@@ -122,7 +121,7 @@ export async function generateBillPdf(
   return {
     url:        publicUrl,
     storageKey,
-    filename:   `Bill-${bill.invoice_id}.pdf`,
+    filename:   `Bill-${bill.bill_number}.pdf`,
     bytes:      buffer.length,
   }
 }

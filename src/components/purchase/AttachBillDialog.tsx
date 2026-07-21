@@ -155,7 +155,7 @@ export function AttachBillDialog({ open, onOpenChange, mode, paymentId, billId, 
               <SelectContent className="max-h-60 overflow-y-auto">
                 {availableBills.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
-                    {b.invoice_id ?? b.id} — {formatCurrency(b.total_amount ?? 0, 'QAR')} ({formatDate(b.created_at ?? '')})
+                    {b.bill_number ?? b.id} — {formatCurrency(b.total_amount ?? 0, 'QAR')} ({formatDate(b.created_at ?? '')})
                   </SelectItem>
                 ))}
               </SelectContent>

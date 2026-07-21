@@ -96,7 +96,7 @@ export function AgingDrillDownDialog({ open, onOpenChange, supplierId, supplierN
                   <TableBody>
                     {bills.map((bill) => (
                       <TableRow key={bill.id} className="group">
-                        <TableCell className="font-medium text-sm">{bill.invoice_id}</TableCell>
+                        <TableCell className="font-medium text-sm">{bill.bill_number}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           {bill.po_number ? (
                             <button

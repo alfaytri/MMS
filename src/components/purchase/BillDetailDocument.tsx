@@ -18,7 +18,7 @@ import type { BillViewModel } from '@/hooks/useSupplierBills'
 
 type Props = {
   viewModel: BillViewModel
-  relatedBills: { id: string; invoice_id: string }[]
+  relatedBills: { id: string; bill_number: string }[]
   currentBillId: string
   onNavigate: (id: string) => void
 }
@@ -99,7 +99,7 @@ export function BillDetailDocument({
                 b.id === currentBillId ? 'font-bold' : 'text-amber-700'
               )}
             >
-              {b.invoice_id}
+              {b.bill_number}
             </button>
           ))}
         </div>
@@ -121,7 +121,7 @@ export function BillDetailDocument({
             </div>
           </div>
           <div className="text-right space-y-1 text-muted-foreground shrink-0">
-            <p className="font-medium text-foreground font-mono">{bill.invoice_id}</p>
+            <p className="font-medium text-foreground font-mono">{bill.bill_number}</p>
             {bill.source_label && (
               <p>Supplier Ref: <span className="text-foreground font-mono">{bill.source_label}</span></p>
             )}
@@ -162,7 +162,7 @@ export function BillDetailDocument({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(bill.invoice_line_items ?? []).map((li, i) => (
+            {(bill.bill_line_items ?? []).map((li, i) => (
               <TableRow key={li.id}>
                 <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                 <TableCell className="font-medium">{li.description}</TableCell>
@@ -396,7 +396,7 @@ export function BillDetailDocument({
             ) : (
               <div className="w-24 h-24 bg-muted animate-pulse rounded" />
             )}
-            <p className="text-xs font-mono text-muted-foreground">{bill.invoice_id}</p>
+            <p className="text-xs font-mono text-muted-foreground">{bill.bill_number}</p>
           </div>
         </div>
       </BillDetailSection>

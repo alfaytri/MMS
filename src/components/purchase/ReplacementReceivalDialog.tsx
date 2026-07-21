@@ -17,7 +17,8 @@ import {
 import { Pencil, Check } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCreateReplacementReceival, type ReplacementReceivalItem } from '@/hooks/useReceivals'
-import type { CreditNote, NoteDebitLineItem } from '@/hooks/useCreditNotes'
+import type { NoteDebitLineItem } from '@/hooks/useCreditNotes'
+import type { DebitNote, DebitNoteLine } from '@/types/invoice'
 import { formatCurrency } from '@/lib/utils/formatters'
 
 type DraftItem = {
@@ -32,7 +33,7 @@ type DraftItem = {
 interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
-  debitNote: CreditNote
+  debitNote: DebitNote & { debit_note_lines?: DebitNoteLine[] }
   onSuccess: () => void
 }
 
@@ -40,7 +41,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
   const { data: warehouses = [] } = useWarehouses()
   const createReplacement = useCreateReplacementReceival()
 
-  const returnedLines = (debitNote.credit_note_lines ?? [])
+  const returnedLines = (debitNote.debit_note_lines ?? [])
     .filter((l) => l.line_type === 'returned')
     .map((l) => ({
       item_name:       l.description ?? 'Item',
@@ -125,7 +126,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Replacement Receival</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Receive replacement stock for {debitNote.credit_note_id}
+            Receive replacement stock for {debitNote.debit_note_id}
           </p>
         </DialogHeader>
 

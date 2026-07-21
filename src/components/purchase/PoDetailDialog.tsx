@@ -290,7 +290,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                   {!isViewingSnapshot && isApprovedLive && (
                     existingBills.length > 0 ? (
                       <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${existingBills[0].id}`) }}>
-                        View Bill ({existingBills[0].invoice_id})
+                        View Bill ({existingBills[0].bill_number})
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" onClick={() => setCreateBillOpen(true)}>
@@ -594,7 +594,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                                     onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${bill.id}`) }}
                                     className="inline-flex items-center gap-1 text-primary hover:underline font-medium text-sm cursor-pointer"
                                   >
-                                    {bill.invoice_id}
+                                    {bill.bill_number}
                                     <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </button>
                                 </TableCell>
