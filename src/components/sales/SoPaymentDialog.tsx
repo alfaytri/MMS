@@ -17,10 +17,13 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
   const { data: dbMethods = [] } = usePaymentMethods()
 
   const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
+  const showExchangeRate = so.currency !== 'QAR'
 
-  const totalPaid = payments.reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
 
   function handleSubmit(values: PaymentFormValues) {
+    const rate = values.exchange_rate ?? so.exchange_rate ?? 1
+
     createPayment.mutate(
       {
         so_id: so.id,
@@ -29,8 +32,8 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
         date: values.date,
         reference: values.reference || null,
         notes: values.notes || null,
-        currency: 'QAR',
-        exchange_rate: 1,
+        currency: so.currency,
+        exchange_rate: rate,
       },
       {
         onSuccess: () => {
@@ -47,13 +50,15 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
       open={open}
       onOpenChange={onOpenChange}
       title={`Record Payment — ${so.so_number}`}
-      currency="QAR"
+      currency={so.currency}
       methods={methods}
       defaultMethod={methods[0]?.value ?? 'cash'}
       isPending={createPayment.isPending}
       onSubmit={handleSubmit}
       totalAmount={so.total}
       paidAmount={totalPaid}
+      exchangeRate={so.exchange_rate}
+      showExchangeRate={showExchangeRate}
     />
   )
 }

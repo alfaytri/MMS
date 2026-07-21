@@ -390,6 +390,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 <PaymentSummaryTab
                   payments={payments ?? []}
                   totalAmount={current?.total ?? 0}
+                  currency={current?.currency}
                   canRecord={!!canRecordPayment}
                   onRecordPayment={() => setPaymentOpen(true)}
                 />

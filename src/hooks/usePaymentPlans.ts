@@ -77,6 +77,8 @@ type SettleInstallmentVars = {
   date: string
   reference: string | null
   direction: 'incoming' | 'outgoing'
+  currency?: string
+  exchange_rate?: number
 }
 
 export function useSettleInstallment() {
@@ -89,6 +91,9 @@ export function useSettleInstallment() {
         .select('*', { count: 'exact', head: true })
       const payment_id = `PAY-${String((count ?? 0) + 1).padStart(5, '0')}`
 
+      const currency = payload.currency ?? 'QAR'
+      const exchangeRate = payload.exchange_rate ?? 1
+
       const { data: payment, error: payErr } = await supabase
         .from('payments')
         .insert({
@@ -100,6 +105,9 @@ export function useSettleInstallment() {
           reference: payload.reference,
           direction: payload.direction,
           status: 'completed',
+          currency,
+          exchange_rate: exchangeRate,
+          amount_qar: payload.amount_paid * exchangeRate,
         })
         .select()
         .single()

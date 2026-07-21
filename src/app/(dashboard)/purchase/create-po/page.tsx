@@ -64,7 +64,7 @@ export default function CreatePOPage() {
   const [supplierOpen, setSupplierOpen] = useState(false)
   const [addSupplierOpen, setAddSupplierOpen] = useState(false)
   const [currency, setCurrency] = useState<string>('QAR')
-  const [exchangeRate, setExchangeRate] = useState(1)
+  const exchangeRate = 1
   const [lineItems, setLineItems] = useState<LineItemRow[]>([])
   const [terms, setTerms] = useState<PoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
@@ -362,22 +362,6 @@ export default function CreatePOPage() {
             )}
           </div>
 
-          {/* Exchange rate (non-QAR) */}
-          {currency !== 'QAR' && (
-            <div className="flex items-center gap-3">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                Exchange Rate (to QAR)
-              </label>
-              <Input
-                type="number"
-                min="0.0001"
-                step="0.0001"
-                className="h-8 w-32 text-sm"
-                value={exchangeRate}
-                onChange={(e) => setExchangeRate(Number(e.target.value))}
-              />
-            </div>
-          )}
         </section>
 
         <Separator />

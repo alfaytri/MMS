@@ -26,14 +26,11 @@ import { useCompanies } from '@/hooks/useCompanies'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { useCurrencies } from '@/hooks/useCurrencies'
 
-const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
-const CURRENCY_SYMBOLS: Record<string, string> = { QAR: 'QAR ', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SAR: 'SAR ', KWD: 'KWD ' }
-const CURRENCY_NAMES: Record<string, string> = { QAR: 'Qatari Riyal', USD: 'US Dollar', EUR: 'Euro', GBP: 'British Pound', AED: 'UAE Dirham', SAR: 'Saudi Riyal', KWD: 'Kuwaiti Dinar' }
-
-function sym(c: string) { return CURRENCY_SYMBOLS[c] ?? `${c} ` }
-function fmtAmt(amount: number, currency: string) {
-  return `${sym(currency)}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function formatAmt(amount: number, currencyCode: string, symbol?: string) {
+  const prefix = symbol ?? `${currencyCode} `
+  return `${prefix}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function CreateSOPage() {
@@ -50,6 +47,7 @@ export default function CreateSOPage() {
   const [addOpen, setAddOpen]                                 = useState(false)
 
   const { data: creditGroups = [] } = useCreditGroups()
+  const { data: currencies = [] } = useCurrencies()
 
   const { divisions } = useUserDivisionScope()
   const { data: companies = [] } = useCompanies()
@@ -76,7 +74,8 @@ export default function CreateSOPage() {
   }, [divisions, companies])
 
   const [currency, setCurrency]         = useState('QAR')
-  const [exchangeRate, setExchangeRate] = useState(1)
+  const exchangeRate = 1
+  const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? `${currency} `
   const [lineItems, setLineItems]       = useState<SoLineItemRow[]>([])
   const [terms, setTerms]               = useState<SoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
@@ -191,7 +190,7 @@ export default function CreateSOPage() {
     createSO.mutate(buildPayload('quotation'), {
       onSuccess: (result) => {
         if (result.status === 'pending_approval') {
-          toast.warning(`Saved — exceeds credit limit (available: ${fmtAmt(result.available, 'QAR')}). Submitted for owner approval.`)
+          toast.warning(`Saved — exceeds credit limit (available: ${formatAmt(result.available, 'QAR')}). Submitted for owner approval.`)
         } else {
           toast.success('Saved as quotation')
         }
@@ -206,7 +205,7 @@ export default function CreateSOPage() {
     createSO.mutate(buildPayload('confirm'), {
       onSuccess: (result) => {
         if (result.status === 'pending_approval') {
-          toast.warning(`Submitted for approval — exceeds credit limit (available: ${fmtAmt(result.available, 'QAR')}). Owner must approve before order is confirmed.`)
+          toast.warning(`Submitted for approval — exceeds credit limit (available: ${formatAmt(result.available, 'QAR')}). Owner must approve before order is confirmed.`)
         } else {
           toast.success('Order confirmed')
         }
@@ -336,7 +335,7 @@ export default function CreateSOPage() {
             <div className="flex flex-wrap items-center gap-4 rounded-md border bg-muted/20 px-3 py-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Badge variant="outline" className="text-xs">{customerCreditGroupName}</Badge>
-                <span>Limit: {fmtAmt(customerCreditLimit ?? 0, 'QAR')}</span>
+                <span>Limit: {formatAmt(customerCreditLimit ?? 0, 'QAR')}</span>
               </div>
               {creditInfo && (
                 <>
@@ -357,7 +356,7 @@ export default function CreateSOPage() {
                         (creditInfo.credit_utilization_pct ?? 0) >= 70 ? 'font-semibold text-amber-700' :
                                                                           'font-semibold text-emerald-700'
                       }>
-                        {fmtAmt(Number(creditInfo.credit_available ?? 0), 'QAR')}
+                        {formatAmt(Number(creditInfo.credit_available ?? 0), 'QAR')}
                       </span>
                     </span>
                   </div>
@@ -376,26 +375,24 @@ export default function CreateSOPage() {
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CURRENCY</label>
               <select value={currency} onChange={(e) => setCurrency(e.target.value)}
                 className="flex h-9 min-w-[130px] w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                {CURRENCIES.map((c) => <option key={c} value={c}>{sym(c)}{c} — {CURRENCY_NAMES[c]}</option>)}
+                {currencies.map((c) => (
+                  <option key={c.id} value={c.code}>
+                    {c.symbol} {c.code} — {c.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SUBTOTAL ({currency})</label>
-              <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">{fmtAmt(subtotal, currency)}</div>
+              <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">{formatAmt(subtotal, currency, currencySymbol)}</div>
             </div>
             {discountAmount > 0 && (
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">GRAND TOTAL ({currency})</label>
-                <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">{fmtAmt(total, currency)}</div>
+                <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">{formatAmt(total, currency, currencySymbol)}</div>
               </div>
             )}
           </div>
-          {currency !== 'QAR' && (
-            <div className="flex items-center gap-3">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Exchange Rate (to QAR)</label>
-              <Input type="number" min="0.0001" step="0.0001" className="h-8 w-32 text-sm" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} />
-            </div>
-          )}
         </section>
 
         <Separator />

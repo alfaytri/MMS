@@ -81,6 +81,8 @@ export function useCreateCustomerPayment() {
       date: string
       reference: string | null
       notes: string | null
+      currency?: string
+      exchange_rate?: number
     }) => {
       const supabase = createClient()
       const { data: maxRow } = await supabase
@@ -95,6 +97,9 @@ export function useCreateCustomerPayment() {
         : 0
       const payment_id = `CPAY-${String(lastNum + 1).padStart(5, '0')}`
 
+      const currency = payload.currency ?? 'QAR'
+      const exchangeRate = payload.exchange_rate ?? 1
+
       const { data, error } = await supabase
         .from('payments')
         .insert({
@@ -108,6 +113,9 @@ export function useCreateCustomerPayment() {
           notes:       payload.notes,
           direction:   'incoming',
           status:      'completed',
+          currency,
+          exchange_rate: exchangeRate,
+          amount_qar:  payload.amount * exchangeRate,
         })
         .select()
         .single()

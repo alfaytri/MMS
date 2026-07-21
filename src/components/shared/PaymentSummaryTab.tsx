@@ -10,8 +10,10 @@ interface Payment {
   amount: number
   amount_qar?: number | null
   currency?: string
+  exchange_rate?: number
   method: string
   reference: string | null
+  notes?: string | null
 }
 
 interface PaymentSummaryTabProps {
@@ -26,7 +28,11 @@ export function PaymentSummaryTab({
   payments, totalAmount, currency = 'QAR',
   canRecord, onRecordPayment,
 }: PaymentSummaryTabProps) {
-  const totalPaid = payments.reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
+  const isForeignCurrency = currency !== 'QAR'
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
+  const totalPaidQar = isForeignCurrency
+    ? payments.reduce((s, p) => s + (p.amount_qar ?? p.amount * (p.exchange_rate ?? 1)), 0)
+    : totalPaid
   const pct = Math.min(100, (totalPaid / (totalAmount || 1)) * 100)
 
   return (
@@ -46,8 +52,10 @@ export function PaymentSummaryTab({
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Amount</TableHead>
+                  {isForeignCurrency && <TableHead className="hidden sm:table-cell">Rate</TableHead>}
                   <TableHead className="hidden sm:table-cell">Method</TableHead>
                   <TableHead className="hidden md:table-cell">Reference</TableHead>
+                  <TableHead className="hidden lg:table-cell">Notes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -55,13 +63,28 @@ export function PaymentSummaryTab({
                   <TableRow key={p.id}>
                     <TableCell className="text-sm">{formatDate(p.date)}</TableCell>
                     <TableCell className="font-medium">
-                      {formatCurrency(p.amount_qar ?? p.amount, currency)}
+                      <span>{formatCurrency(p.amount, currency)}</span>
+                      {isForeignCurrency && p.amount_qar != null && (
+                        <span className="block text-xs text-muted-foreground font-normal">
+                          = {formatCurrency(p.amount_qar, 'QAR')}
+                        </span>
+                      )}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell capitalize">
+                    {isForeignCurrency && (
+                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                        {p.exchange_rate != null && p.exchange_rate !== 1
+                          ? p.exchange_rate.toFixed(4)
+                          : '—'}
+                      </TableCell>
+                    )}
+                    <TableCell className="hidden sm:table-cell capitalize text-sm">
                       {p.method.replace(/_/g, ' ')}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                       {p.reference ?? '—'}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
+                      {p.notes ?? '—'}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -73,6 +96,11 @@ export function PaymentSummaryTab({
               <span>Paid: {formatCurrency(totalPaid, currency)}</span>
               <span>Total: {formatCurrency(totalAmount, currency)}</span>
             </div>
+            {isForeignCurrency && (
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Paid (QAR): {formatCurrency(totalPaidQar, 'QAR')}</span>
+              </div>
+            )}
             <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-success transition-all"

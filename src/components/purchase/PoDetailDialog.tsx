@@ -549,7 +549,8 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
               <TabsContent value="payments" className="flex-1 overflow-y-auto">
                 <PaymentSummaryTab
                   payments={payments ?? []}
-                  totalAmount={current?.total_qar ?? 0}
+                  totalAmount={(current?.subtotal ?? 0) - (current?.discount_amount ?? 0)}
+                  currency={current?.currency}
                   canRecord={!!canRecordPayment}
                   onRecordPayment={() => setPaymentOpen(true)}
                 />
