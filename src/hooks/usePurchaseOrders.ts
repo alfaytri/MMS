@@ -576,23 +576,21 @@ export function useSubmitPOForApproval() {
 
       // Get current user's profile
       const { data: myProfile } = await supabase
-        .from('profiles').select('id, division_id').eq('auth_user_id', user.id).single()
+        .from('profiles').select('id').eq('auth_user_id', user.id).single()
       if (!myProfile) throw new Error('Profile not found')
-
-      const divisionId: string | null = myProfile.division_id ?? null
 
       // Get PO details
       const { data: po } = await supabase
-        .from('purchase_orders').select('id, total_qar, po_number').eq('id', id).single()
+        .from('purchase_orders').select('id, total_qar, po_number, division_id').eq('id', id).single()
       if (!po) throw new Error('PO not found')
 
-      // Find chain (division-specific → company default)
+      // Find chain (PO's division → company default)
       let chain: { id: string; approval_chain_tiers: Record<string, unknown>[] } | null = null
-      if (divisionId) {
+      if (po.division_id) {
         const { data } = await supabase
           .from('po_approval_chains')
           .select('id, approval_chain_tiers:po_approval_chain_tiers(*)')
-          .eq('division_id', divisionId)
+          .eq('division_id', po.division_id)
           .eq('is_active', true)
           .maybeSingle()
         chain = data
@@ -970,15 +968,15 @@ export function useSubmitPoVersion() {
       // 5. Reset approvals — delete old, insert chain-based fresh steps
       await supabase.from('po_approvals').delete().eq('po_id', id)
 
-      // Resolve chain for the submitter's division
+      // Resolve chain for the PO's division
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
       const { data: myProfile } = await supabase
-        .from('profiles').select('id, division_id').eq('auth_user_id', user.id).single()
+        .from('profiles').select('id').eq('auth_user_id', user.id).single()
       if (!myProfile) throw new Error('Profile not found')
 
-      const divisionId: string | null = myProfile.division_id ?? null
+      const divisionId: string | null = payload.division_id ?? null
 
       let chain: { id: string; approval_chain_tiers: Record<string, unknown>[] } | null = null
       if (divisionId) {

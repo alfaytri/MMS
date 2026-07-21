@@ -301,19 +301,12 @@ export async function POST(req: NextRequest) {
 
   let resolvedDivisionId: string | null = divisionId ?? null
   if (!resolvedDivisionId && warehouseId) {
-    const { data: rpRows } = await supabase
-      .from('warehouse_field_rps')
-      .select('profiles(division_id)')
-      .eq('warehouse_id', warehouseId)
-      .limit(10)
-    const firstDiv = (rpRows ?? []).find(
-      (r) => {
-        const p = r.profiles as unknown as { division_id: string | null } | null
-        return p?.division_id
-      },
-    )
-    const p = firstDiv?.profiles as unknown as { division_id: string | null } | null
-    resolvedDivisionId = p?.division_id ?? null
+    const { data: wh } = await supabase
+      .from('warehouses')
+      .select('division_id')
+      .eq('id', warehouseId)
+      .maybeSingle()
+    resolvedDivisionId = wh?.division_id ?? null
   }
 
   const [fonts, brand] = await Promise.all([loadPdfFonts(), resolveBrand(resolvedDivisionId, supabase)])

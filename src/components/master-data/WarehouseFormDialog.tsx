@@ -20,6 +20,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -29,10 +36,12 @@ import { Badge } from '@/components/ui/badge'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { useCreateWarehouse, useUpdateWarehouse, type Warehouse } from '@/hooks/useWarehouses'
 import { useFieldRPCandidates, useWarehouseFieldRPs, useReplaceWarehouseFieldRPs } from '@/hooks/useWarehouseFieldRPs'
+import { useDivisions } from '@/hooks/useDivisions'
 
 const warehouseSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   location: z.string().optional(),
+  division_id: z.string().min(1, 'Division is required'),
 })
 
 type WarehouseFormValues = z.infer<typeof warehouseSchema>
@@ -50,6 +59,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
   const { data: rpCandidates = [] } = useFieldRPCandidates()
   const { data: currentRPs = [] } = useWarehouseFieldRPs(warehouse?.id ?? null)
   const replaceRPs = useReplaceWarehouseFieldRPs()
+  const { data: divisions = [] } = useDivisions()
   const isPending = create.isPending || update.isPending || replaceRPs.isPending
 
   const [selectedRPIds, setSelectedRPIds] = useState<string[]>([])
@@ -57,22 +67,28 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseSchema),
-    defaultValues: { name: '', location: '' },
+    defaultValues: { name: '', location: '', division_id: '' },
   })
 
-  // Reset everything when dialog opens or warehouse changes
   useEffect(() => {
     if (!open) return
     if (warehouse) {
-      form.reset({ name: warehouse.name, location: warehouse.location ?? '' })
+      form.reset({
+        name: warehouse.name,
+        location: warehouse.location ?? '',
+        division_id: warehouse.division_id ?? '',
+      })
     } else {
-      form.reset({ name: '', location: '' })
+      form.reset({
+        name: '',
+        location: '',
+        division_id: divisions.length === 1 ? divisions[0].id : '',
+      })
     }
     setSelectedRPIds([])
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on identity (id), not object reference
-  }, [open, warehouse?.id, form])
+  }, [open, warehouse?.id, form, divisions])
 
-  // Pre-fill Warehouse RPs once loaded for the current warehouse
   useEffect(() => {
     if (open && warehouse && currentRPs.length > 0) {
       setSelectedRPIds(currentRPs.map((rp) => rp.profile_id))
@@ -84,13 +100,21 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
     try {
       let whId: string
       if (isEditing && warehouse) {
-        await update.mutateAsync({ id: warehouse.id, name: values.name, location: values.location || null })
+        await update.mutateAsync({
+          id: warehouse.id,
+          name: values.name,
+          location: values.location || null,
+          division_id: values.division_id,
+        })
         whId = warehouse.id
       } else {
-        const created = await create.mutateAsync({ name: values.name, location: values.location || null })
+        const created = await create.mutateAsync({
+          name: values.name,
+          location: values.location || null,
+          division_id: values.division_id,
+        })
         whId = created.id
       }
-      // Save Warehouse RP assignments
       await replaceRPs.mutateAsync({ warehouseId: whId, profileIds: selectedRPIds })
       toast.success(warehouse ? 'Warehouse updated' : 'Warehouse created')
       onOpenChange(false)
@@ -116,6 +140,34 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                   <FormControl>
                     <Input placeholder="e.g. Main Warehouse" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="division_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Division *</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={divisions.length <= 1}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select division" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {divisions.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

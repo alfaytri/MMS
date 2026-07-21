@@ -63,6 +63,19 @@ export default function WarehousesPage() {
         cell: ({ row }) => <span className="font-medium">{row.getValue('name')}</span>,
       },
       {
+        id: 'division',
+        accessorFn: (row) => row.division_name,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Division" />,
+        cell: ({ row }) => {
+          const name = row.original.division_name
+          return name ? (
+            <span className="text-xs">{name}</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )
+        },
+      },
+      {
         accessorKey: 'location',
         header: 'Location',
         cell: ({ row }) =>
