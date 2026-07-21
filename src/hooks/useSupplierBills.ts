@@ -21,7 +21,7 @@ export function useSupplierBills(filters?: BillFilters, options?: { enabled?: bo
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
-        .from('supplier_bills')           // queries the VIEW
+        .from('bills')
         .select(`
           *,
           bill_line_items(*),
@@ -53,7 +53,7 @@ export function useSupplierBill(id: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('supplier_bills')
+        .from('bills')
         .select('*, bill_line_items(*), suppliers(name), purchase_orders(po_number, po_line_items(*))')
         .eq('id', id!)
         .single()

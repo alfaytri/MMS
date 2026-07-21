@@ -6,6 +6,8 @@ import { queryKeys } from '@/lib/queryKeys'
 
 export type { PaymentPlan, PaymentInstallment }
 
+type ParentRef = { invoice_id: string } | { bill_id: string }
+
 export function usePaymentPlans(invoiceId: string | null) {
   return useQuery({
     queryKey: queryKeys.payments.plans(invoiceId),
@@ -23,8 +25,24 @@ export function usePaymentPlans(invoiceId: string | null) {
   })
 }
 
-type CreatePaymentPlanVars = {
-  invoice_id: string
+export function useBillPaymentPlans(billId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.payments.plans(billId),
+    enabled: !!billId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('payment_plans')
+        .select('*, payment_installments(*)')
+        .eq('bill_id', billId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as PaymentPlan[]
+    },
+  })
+}
+
+type CreatePaymentPlanVars = ParentRef & {
   plan_type: 'schedule' | 'adhoc'
   total_amount: number
   installments: { due_date: string | null; amount: number }[]
@@ -35,10 +53,14 @@ export function useCreatePaymentPlan() {
   return useMutation<PaymentPlan, Error, CreatePaymentPlanVars>({
     mutationFn: async (payload) => {
       const supabase = createClient()
+      const parentCols = 'invoice_id' in payload
+        ? { invoice_id: payload.invoice_id }
+        : { bill_id: payload.bill_id }
+
       const { data: plan, error } = await supabase
         .from('payment_plans')
         .insert({
-          invoice_id: payload.invoice_id,
+          ...parentCols,
           plan_type: payload.plan_type,
           total_amount: payload.total_amount,
           status: 'active',
@@ -63,20 +85,20 @@ export function useCreatePaymentPlan() {
       }
       return plan as PaymentPlan
     },
-    onSuccess: (_: PaymentPlan, vars: CreatePaymentPlanVars) =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.payments.plans(vars.invoice_id) }),
+    onSuccess: (_: PaymentPlan, vars: CreatePaymentPlanVars) => {
+      const parentId = 'invoice_id' in vars ? vars.invoice_id : vars.bill_id
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.plans(parentId) })
+    },
   })
 }
 
-type SettleInstallmentVars = {
+type SettleInstallmentVars = ParentRef & {
   installment_id: string
   plan_id: string
-  invoice_id: string
   amount_paid: number
   method: 'bank_transfer' | 'cash' | 'cheque' | 'online_transfer'
   date: string
   reference: string | null
-  direction: 'incoming' | 'outgoing'
   currency?: string
   exchange_rate?: number
 }
@@ -94,16 +116,22 @@ export function useSettleInstallment() {
       const currency = payload.currency ?? 'QAR'
       const exchangeRate = payload.exchange_rate ?? 1
 
+      const isAr = 'invoice_id' in payload
+      const parentCols = isAr
+        ? { invoice_id: payload.invoice_id }
+        : { bill_id: payload.bill_id }
+      const direction: 'incoming' | 'outgoing' = isAr ? 'incoming' : 'outgoing'
+
       const { data: payment, error: payErr } = await supabase
         .from('payments')
         .insert({
           payment_id,
-          invoice_id: payload.invoice_id,
+          ...parentCols,
           amount: payload.amount_paid,
           method: payload.method,
           date: payload.date,
           reference: payload.reference,
-          direction: payload.direction,
+          direction,
           status: 'completed',
           currency,
           exchange_rate: exchangeRate,
@@ -136,7 +164,8 @@ export function useSettleInstallment() {
       }
     },
     onSuccess: (_: void, vars: SettleInstallmentVars) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payments.plans(vars.invoice_id) })
+      const parentId = 'invoice_id' in vars ? vars.invoice_id : vars.bill_id
+      queryClient.invalidateQueries({ queryKey: queryKeys.payments.plans(parentId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.supplierPayments.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
     },

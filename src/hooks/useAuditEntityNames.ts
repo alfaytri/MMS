@@ -24,7 +24,7 @@ const ENTITY_TYPE_MAP: Record<string, EntityTypeConfig> = {
   purchase_orders:  { table: 'purchase_orders',          nameCol: 'po_number' },
   sale_order:       { table: 'sale_orders',              nameCol: 'so_number' },
   sale_orders:      { table: 'sale_orders',              nameCol: 'so_number' },
-  bill:             { table: 'supplier_bills',           nameCol: 'source_label', fallbackCol: 'bill_number' },
+  bill:             { table: 'bills',                    nameCol: 'source_label', fallbackCol: 'bill_number' },
   credit_note:      { table: 'credit_notes',             nameCol: 'credit_note_id' },
   debit_note:       { table: 'debit_notes',              nameCol: 'debit_note_id' },
 }

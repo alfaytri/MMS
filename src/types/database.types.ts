@@ -239,13 +239,6 @@ export type Database = {
             referencedRelation: "bills"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "bill_line_items_bill_id_fkey"
-            columns: ["bill_id"]
-            isOneToOne: false
-            referencedRelation: "supplier_bills"
-            referencedColumns: ["id"]
-          },
         ]
       }
       bills: {
@@ -1519,13 +1512,6 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_bill_id_fkey"
-            columns: ["bill_id"]
-            isOneToOne: false
-            referencedRelation: "supplier_bills"
             referencedColumns: ["id"]
           },
           {
@@ -2942,13 +2928,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "payment_bill_allocations_bill_id_fkey"
-            columns: ["bill_id"]
-            isOneToOne: false
-            referencedRelation: "supplier_bills"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "payment_bill_allocations_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
@@ -3075,13 +3054,6 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_plans_bill_id_fkey"
-            columns: ["bill_id"]
-            isOneToOne: false
-            referencedRelation: "supplier_bills"
             referencedColumns: ["id"]
           },
           {
@@ -3267,13 +3239,6 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_bill_id_fkey"
-            columns: ["bill_id"]
-            isOneToOne: false
-            referencedRelation: "supplier_bills"
             referencedColumns: ["id"]
           },
           {
@@ -6004,125 +5969,6 @@ export type Database = {
             columns: ["sale_order_id"]
             isOneToOne: false
             referencedRelation: "sale_orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      supplier_bills: {
-        Row: {
-          bill_number: string | null
-          bill_type: Database["public"]["Enums"]["invoice_type"] | null
-          created_at: string | null
-          discount_amount: number | null
-          discount_label: string | null
-          division_id: string | null
-          doc_status: string | null
-          due_date: string | null
-          id: string | null
-          issued_date: string | null
-          manually_paid: boolean | null
-          needs_refresh: boolean | null
-          notes: string | null
-          paid_amount: number | null
-          payment_status: string | null
-          pdf_url: string | null
-          purchase_order_id: string | null
-          receival_id: string | null
-          source: Database["public"]["Enums"]["bill_source"] | null
-          source_id: string | null
-          source_label: string | null
-          status: string | null
-          subtotal: number | null
-          supplier_id: string | null
-          tax: number | null
-          total_amount: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          bill_number?: string | null
-          bill_type?: Database["public"]["Enums"]["invoice_type"] | null
-          created_at?: string | null
-          discount_amount?: number | null
-          discount_label?: string | null
-          division_id?: string | null
-          doc_status?: string | null
-          due_date?: string | null
-          id?: string | null
-          issued_date?: string | null
-          manually_paid?: boolean | null
-          needs_refresh?: boolean | null
-          notes?: string | null
-          paid_amount?: number | null
-          payment_status?: string | null
-          pdf_url?: string | null
-          purchase_order_id?: string | null
-          receival_id?: string | null
-          source?: Database["public"]["Enums"]["bill_source"] | null
-          source_id?: string | null
-          source_label?: string | null
-          status?: string | null
-          subtotal?: number | null
-          supplier_id?: string | null
-          tax?: number | null
-          total_amount?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          bill_number?: string | null
-          bill_type?: Database["public"]["Enums"]["invoice_type"] | null
-          created_at?: string | null
-          discount_amount?: number | null
-          discount_label?: string | null
-          division_id?: string | null
-          doc_status?: string | null
-          due_date?: string | null
-          id?: string | null
-          issued_date?: string | null
-          manually_paid?: boolean | null
-          needs_refresh?: boolean | null
-          notes?: string | null
-          paid_amount?: number | null
-          payment_status?: string | null
-          pdf_url?: string | null
-          purchase_order_id?: string | null
-          receival_id?: string | null
-          source?: Database["public"]["Enums"]["bill_source"] | null
-          source_id?: string | null
-          source_label?: string | null
-          status?: string | null
-          subtotal?: number | null
-          supplier_id?: string | null
-          tax?: number | null
-          total_amount?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bills_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bills_purchase_order_id_fkey"
-            columns: ["purchase_order_id"]
-            isOneToOne: false
-            referencedRelation: "purchase_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bills_receival_id_fkey"
-            columns: ["receival_id"]
-            isOneToOne: false
-            referencedRelation: "receivals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bills_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
