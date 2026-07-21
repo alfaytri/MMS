@@ -11,8 +11,6 @@ import { AttachInvoiceDialog } from '@/components/sales/AttachInvoiceDialog'
 import { useUnlinkedIncomingPayments } from '@/hooks/useUnlinkedIncomingPayments'
 import { useCustomerInvoice, useSendInvoice } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
-import { usePaymentPlans } from '@/hooks/usePaymentPlans'
-import { CustomerPaymentDialog } from '@/components/sales/CustomerPaymentDialog'
 import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -38,13 +36,11 @@ function InvoiceDetailContent() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [payOpen, setPayOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [attachOpen, setAttachOpen] = useState(false)
 
   const { data: invoice } = useCustomerInvoice(id)
   const { data: payments = [] } = useCustomerPayments(id)
-  const { data: plans = [] } = usePaymentPlans(id)
   const { data: unlinkedPayments = [], isLoading: loadingUnlinked } = useUnlinkedIncomingPayments(
     invoice?.customer_id ?? ''
   )
@@ -123,11 +119,6 @@ function InvoiceDetailContent() {
               {sendInvoice.isPending ? 'Sending…' : 'Send'}
             </Button>
           )}
-          {invoice && outstanding > 0 && docStatus !== 'draft' && (
-            <Button variant="outline" size="sm" onClick={() => setPayOpen(true)}>
-              Record Payment
-            </Button>
-          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -199,15 +190,6 @@ function InvoiceDetailContent() {
         )}
       </div>
 
-      {payOpen && invoice && (
-        <CustomerPaymentDialog
-          open
-          onOpenChange={(o) => { setPayOpen(o); if (!o) generatePdf(true) }}
-          invoice={invoice}
-          alreadyPaid={totalPaid}
-          plans={plans}
-        />
-      )}
       {planOpen && invoice && (
         <PaymentPlanDialog
           open

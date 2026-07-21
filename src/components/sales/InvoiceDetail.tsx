@@ -17,8 +17,6 @@ import { useDetachPaymentFromInvoice } from '@/hooks/useDetachPaymentFromInvoice
 import { useUnlinkedIncomingPayments } from '@/hooks/useUnlinkedIncomingPayments'
 import { useSendInvoice, useDismissRefresh } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
-import { usePaymentPlans } from '@/hooks/usePaymentPlans'
-import { CustomerPaymentDialog } from './CustomerPaymentDialog'
 import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { type ArInvoice } from '@/types/invoice'
@@ -47,8 +45,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
   const sendInvoice = useSendInvoice()
   const dismissRefresh = useDismissRefresh()
   const { data: payments } = useCustomerPayments(invoice.id)
-  const { data: plans } = usePaymentPlans(invoice.id)
-  const [payOpen, setPayOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [attachOpen, setAttachOpen]     = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string; payment_id: string | null } | null>(null)
@@ -161,11 +157,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                   <Send className="w-4 h-4 mr-2" /> Send to Customer
                 </Button>
               )}
-              {outstanding > 0 && invoice.doc_status !== 'draft' && (
-                <Button variant="outline" className="min-h-11" onClick={() => setPayOpen(true)}>
-                  Record Payment
-                </Button>
-              )}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -245,15 +236,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
         </DialogContent>
       </Dialog>
 
-      {payOpen && (
-        <CustomerPaymentDialog
-          open
-          onOpenChange={setPayOpen}
-          invoice={invoice}
-          alreadyPaid={totalPaid}
-          plans={plans ?? []}
-        />
-      )}
       {planOpen && (
         <PaymentPlanDialog
           open

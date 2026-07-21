@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { CustomerPaymentDialog } from './CustomerPaymentDialog'
 import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import {
@@ -31,7 +30,6 @@ interface SoInvoiceTabProps {
 }
 
 export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
-  const [invoicePayOpen, setInvoicePayOpen] = useState(false)
   const [invoicePlanOpen, setInvoicePlanOpen] = useState(false)
 
   const generateInvoice = useGenerateInvoice()
@@ -195,11 +193,6 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
             {sendInvoice.isPending ? 'Sending…' : 'Send to Customer'}
           </Button>
         )}
-        {invoiceOutstanding > 0 && soInvoice.doc_status !== 'draft' && (
-          <Button variant="outline" size="sm" onClick={() => setInvoicePayOpen(true)}>
-            Record Payment
-          </Button>
-        )}
         {/* Only offer the invoice-level plan when the SO didn't already carry
             payment_milestones. If the SO has milestones, those are the agreed
             schedule — duplicating the prompt on the invoice is confusing. */}
@@ -213,15 +206,6 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
         )}
       </div>
 
-      {invoicePayOpen && (
-        <CustomerPaymentDialog
-          open
-          onOpenChange={setInvoicePayOpen}
-          invoice={soInvoice}
-          alreadyPaid={totalInvoicePaid}
-          plans={paymentPlans ?? []}
-        />
-      )}
       {invoicePlanOpen && (
         <PaymentPlanDialog
           open

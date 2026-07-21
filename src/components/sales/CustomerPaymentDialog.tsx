@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PaymentConfirmationDialog } from '@/components/shared/PaymentConfirmationDialog'
 import { useCreateCustomerPayment } from '@/hooks/useCustomerPayments'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { ArInvoice, PaymentPlan } from '@/types/invoice'
@@ -30,8 +31,20 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const [reference, setReference] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
   const amountNum = Number(amount)
   const canPay = amountNum > 0 && amountNum <= outstanding && !!date
+
+  const METHOD_LABELS: Record<string, string> = {
+    bank_transfer: 'Bank Transfer', cash: 'Cash', cheque: 'Cheque',
+    online_transfer: 'Online Transfer', pos: 'POS',
+  }
+
+  const handleRecordClick = () => {
+    if (!canPay) return
+    setConfirmOpen(true)
+  }
 
   const submit = async () => {
     setSaving(true)
@@ -46,6 +59,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
         notes:     null,
       })
       toast.success('Payment recorded')
+      setConfirmOpen(false)
       onOpenChange(false)
     } catch (err: unknown) {
       toast.error((err as Error).message)
@@ -103,10 +117,24 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={saving || !canPay}>
-            {saving ? 'Saving…' : 'Record Payment'}
+          <Button onClick={handleRecordClick} disabled={saving || !canPay}>
+            Record Payment
           </Button>
         </DialogFooter>
+
+        <PaymentConfirmationDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          onConfirm={submit}
+          isPending={saving}
+          title={`Confirm Payment — ${invoice.invoice_id}`}
+          details={[
+            { label: 'Amount', value: formatCurrency(amountNum, 'QAR') },
+            { label: 'Date', value: date },
+            { label: 'Method', value: METHOD_LABELS[method] ?? method },
+            ...(reference ? [{ label: 'Reference', value: reference }] : []),
+          ]}
+        />
       </DialogContent>
     </Dialog>
   )

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { PaymentConfirmationDialog } from '@/components/shared/PaymentConfirmationDialog'
 
 function formatWithCommas(value: string | number): string {
   const str = String(value)
@@ -135,7 +136,9 @@ export function PaymentFormDialog({
     date: z.string().min(1, 'Date is required'),
     reference: z.string().optional().default(''),
     notes: z.string().optional().default(''),
-    exchange_rate: z.coerce.number().positive().optional(),
+    exchange_rate: showExchangeRate
+      ? z.coerce.number({ invalid_type_error: 'Enter exchange rate' }).positive('Enter exchange rate')
+      : z.coerce.number().positive().optional(),
   })
 
   const freshDefaults = () => ({
@@ -144,7 +147,7 @@ export function PaymentFormDialog({
     date: new Date().toISOString().split('T')[0],
     reference: '',
     notes: '',
-    exchange_rate: defaultExchangeRate ?? 1,
+    exchange_rate: undefined as unknown as number,
   })
 
   const form = useForm<z.infer<typeof paymentSchema>>({
@@ -157,6 +160,9 @@ export function PaymentFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dialog-reset pattern: runs on open only; freshDefaults is an inline function
   }, [open])
 
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingValues, setPendingValues] = useState<PaymentFormValues | null>(null)
+
   const watchedAmount = form.watch('amount') || 0
   const watchedRate = form.watch('exchange_rate') || 1
   const qarEquivalent = watchedAmount * watchedRate
@@ -164,8 +170,43 @@ export function PaymentFormDialog({
     ? Math.min(100, ((paidAmount + watchedAmount) / totalAmount) * 100)
     : 0
 
+  const methodLabel = (val: string) => methods.find((m) => m.value === val)?.label ?? val
+
   function handleSubmit(values: z.infer<typeof paymentSchema>) {
-    onSubmit(values as PaymentFormValues)
+    setPendingValues(values as PaymentFormValues)
+    setConfirmOpen(true)
+  }
+
+  function handleConfirm() {
+    if (!pendingValues) return
+    onSubmit(pendingValues)
+    setConfirmOpen(false)
+    setPendingValues(null)
+  }
+
+  if (confirmOpen && pendingValues) {
+    return (
+      <PaymentConfirmationDialog
+        open
+        onOpenChange={(v) => { if (!v) { setConfirmOpen(false); setPendingValues(null) } }}
+        onConfirm={handleConfirm}
+        isPending={isPending}
+        title={`Confirm Payment — ${title.replace('Record Payment — ', '')}`}
+        details={[
+          { label: 'Amount', value: `${currency} ${pendingValues.amount.toLocaleString('en', { minimumFractionDigits: 2 })}` },
+          ...(showExchangeRate && pendingValues.exchange_rate
+            ? [
+                { label: 'Exchange Rate', value: String(pendingValues.exchange_rate) },
+                { label: 'QAR Equivalent', value: `QAR ${(pendingValues.amount * pendingValues.exchange_rate).toLocaleString('en', { minimumFractionDigits: 2 })}` },
+              ]
+            : []),
+          { label: 'Date', value: pendingValues.date },
+          { label: 'Method', value: methodLabel(pendingValues.method) },
+          ...(pendingValues.reference ? [{ label: 'Reference', value: pendingValues.reference }] : []),
+          ...(pendingValues.notes ? [{ label: 'Notes', value: pendingValues.notes }] : []),
+        ]}
+      />
+    )
   }
 
   return (
@@ -233,7 +274,7 @@ export function PaymentFormDialog({
                     <FormItem>
                       <FormLabel>Exchange Rate *</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.0001" min="0" {...field} />
+                        <Input type="number" step="0.0001" min="0" placeholder="Enter rate" {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
