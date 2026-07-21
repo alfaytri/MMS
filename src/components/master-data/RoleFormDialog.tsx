@@ -43,7 +43,7 @@ const roleSchema = z.object({
   description:            z.string().optional().default(''),
   permissions:            z.array(z.string()).default([]),
   is_approval_slot:       z.boolean().default(false),
-  is_field_rp:            z.boolean().default(false),
+  is_warehouse_responsible: z.boolean().default(false),
   is_inventory_receiver:  z.boolean().default(false),
 })
 
@@ -196,7 +196,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
-    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_field_rp: false, is_inventory_receiver: false },
+    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_warehouse_responsible: false, is_inventory_receiver: false },
   })
 
   useEffect(() => {
@@ -206,12 +206,12 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
         description: role.description ?? '',
         permissions: (role.permissions as string[]) ?? [],
         is_approval_slot:      Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot),
-        is_field_rp:           Boolean((role as CustomRole & { is_field_rp?: boolean }).is_field_rp),
+        is_warehouse_responsible:           Boolean((role as CustomRole & { is_warehouse_responsible?: boolean }).is_warehouse_responsible),
         is_inventory_receiver: Boolean((role as CustomRole & { is_inventory_receiver?: boolean }).is_inventory_receiver),
       })
       setExpandedIds(new Set())
     } else if (open) {
-      form.reset({ name: '', description: '', permissions: [], is_approval_slot: false, is_field_rp: false, is_inventory_receiver: false })
+      form.reset({ name: '', description: '', permissions: [], is_approval_slot: false, is_warehouse_responsible: false, is_inventory_receiver: false })
       setExpandedIds(new Set())
     }
   }, [open, role, form])
@@ -310,7 +310,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
               <FormField
                 control={form.control}
-                name="is_field_rp"
+                name="is_warehouse_responsible"
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-md border border-border p-3 bg-card">
                     <div className="space-y-0.5 pr-3">

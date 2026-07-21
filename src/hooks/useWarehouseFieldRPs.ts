@@ -40,7 +40,7 @@ export function useWarehouseFieldRPs(warehouseId: string | null) {
  * for the warehouse assignment dropdown.
  *
  * Previously this queried by role NAME ('field_rp'). Now it queries by the
- * `custom_roles.is_field_rp` toggle added in migration 20260627117000, so
+ * `custom_roles.is_warehouse_responsible` toggle added in migration 20260627117000, so
  * any role can be flagged as a Warehouse RP source (multiple flagged roles =
  * dedupe by profile_id).
  */
@@ -51,9 +51,9 @@ export function useFieldRPCandidates() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('user_custom_roles')
-        .select('profile_id, profiles!user_custom_roles_profile_id_fkey(full_name), custom_roles!inner(name, is_field_rp, deleted_at)')
+        .select('profile_id, profiles!user_custom_roles_profile_id_fkey(full_name), custom_roles!inner(name, is_warehouse_responsible, deleted_at)')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .eq('custom_roles.is_field_rp' as any, true)
+        .eq('custom_roles.is_warehouse_responsible' as any, true)
         .is('custom_roles.deleted_at', null)
       if (error) throw error
       const dedup = new Map<string, { profile_id: string; full_name: string | null }>()
