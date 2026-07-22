@@ -28,7 +28,6 @@ export type SOLineItem = {
   delivered_qty:       number
   line_type:           string
   brand_variant_id:    string | null
-  tool_asset_item_id:  string | null
   avg_cost:            number
   created_at:          string
   inventory_brand_variants?: {
@@ -142,7 +141,6 @@ export type SOLineItemDraft = {
   total:              number
   line_type:          string
   brand_variant_id:   string | null
-  tool_asset_item_id: string | null
   avg_cost:           number
 }
 

@@ -277,7 +277,6 @@ interface PoVersionLineRow {
   unit_price:         number
   total_price:        number
   brand_variant_id:   string | null
-  tool_asset_item_id: string | null
   free_qty:           number
   brand_id:           string | null
 }
@@ -365,7 +364,6 @@ async function renderSnapshotPdf(
     unit_price:         l.unit_price,
     total_price:        l.total_price,
     brand_variant_id:   l.brand_variant_id,
-    tool_asset_item_id: l.tool_asset_item_id,
     free_qty:           l.free_qty,
     brand_id:           l.brand_id,
   }))

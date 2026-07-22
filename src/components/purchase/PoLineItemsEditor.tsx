@@ -66,7 +66,6 @@ function makeRow(line_type: LineType): LineItemRow {
     unit_price: 0,
     total_price: 0,
     brand_variant_id: null,
-    tool_asset_item_id: null,
     free_qty: 0,
   }
 }
@@ -127,7 +126,6 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
       unit_price:         item.cost_price,
       total_price:        item.cost_price,
       brand_variant_id:   item.brand_variant_id,
-      tool_asset_item_id: null,
     })
   }
 

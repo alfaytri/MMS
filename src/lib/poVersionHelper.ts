@@ -102,7 +102,6 @@ export async function savePoSnapshot(
           unit_price:         li.unit_price ?? 0,
           total_price:        li.total_price ?? 0,
           brand_variant_id:   li.brand_variant_id ?? null,
-          tool_asset_item_id: li.tool_asset_item_id ?? null,
           free_qty:           li.free_qty ?? 0,
           brand_id:           li.brand_id ?? null,
         }))

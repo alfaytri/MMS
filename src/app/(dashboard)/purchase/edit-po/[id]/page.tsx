@@ -118,7 +118,6 @@ export default function EditPOPage() {
           unit_price: li.unit_price,
           total_price: li.total_price,
           brand_variant_id: li.brand_variant_id,
-          tool_asset_item_id: li.tool_asset_item_id,
           free_qty: li.free_qty,
           line_type,
         }

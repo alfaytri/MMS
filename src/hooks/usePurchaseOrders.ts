@@ -46,7 +46,6 @@ export type POLineItem = {
   total_price: number
   fifo_layers: unknown
   brand_variant_id: string | null
-  tool_asset_item_id: string | null
   brand_id: string | null
   created_at: string
   inventory_brand_variants?: {
@@ -160,7 +159,6 @@ export type POLineItemDraft = {
   unit_price: number
   total_price: number
   brand_variant_id: string | null
-  tool_asset_item_id: string | null
   free_qty: number
   received_qty?: number
   brand_id?: string | null

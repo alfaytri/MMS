@@ -35,7 +35,7 @@ function makeRow(line_type: SoLineType): SoLineItemRow {
     _key: crypto.randomUUID(), line_type,
     item_name: '', sku: '', qty: 1, unit: 'pcs',
     unit_price: 0, total: 0,
-    brand_variant_id: null, tool_asset_item_id: null,
+    brand_variant_id: null,
     avg_cost: 0,
   }
 }
@@ -91,7 +91,6 @@ export function SoLineItemsEditor({
       unit_price:         item.selling_price,        // selling price, not cost
       total:              item.selling_price,
       brand_variant_id:   item.brand_variant_id,
-      tool_asset_item_id: null,
       avg_cost:           item.cost_price,           // cost_price is always number
     })
   }

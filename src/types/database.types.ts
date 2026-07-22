@@ -3000,7 +3000,6 @@ export type Database = {
           qty: number
           received_qty: number | null
           sku: string | null
-          tool_asset_item_id: string | null
           total_price: number
           unit: string
           unit_price: number
@@ -3017,7 +3016,6 @@ export type Database = {
           qty: number
           received_qty?: number | null
           sku?: string | null
-          tool_asset_item_id?: string | null
           total_price: number
           unit: string
           unit_price: number
@@ -3034,7 +3032,6 @@ export type Database = {
           qty?: number
           received_qty?: number | null
           sku?: string | null
-          tool_asset_item_id?: string | null
           total_price?: number
           unit?: string
           unit_price?: number
@@ -3059,13 +3056,6 @@ export type Database = {
             columns: ["po_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "po_line_items_tool_asset_item_id_fkey"
-            columns: ["tool_asset_item_id"]
-            isOneToOne: false
-            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3175,7 +3165,6 @@ export type Database = {
           qty: number
           received_qty: number | null
           sku: string | null
-          tool_asset_item_id: string | null
           total_price: number
           unit: string
           unit_price: number
@@ -3191,7 +3180,6 @@ export type Database = {
           qty?: number
           received_qty?: number | null
           sku?: string | null
-          tool_asset_item_id?: string | null
           total_price?: number
           unit?: string
           unit_price?: number
@@ -3207,7 +3195,6 @@ export type Database = {
           qty?: number
           received_qty?: number | null
           sku?: string | null
-          tool_asset_item_id?: string | null
           total_price?: number
           unit?: string
           unit_price?: number
@@ -3218,13 +3205,6 @@ export type Database = {
             columns: ["po_version_id"]
             isOneToOne: false
             referencedRelation: "po_versions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "po_version_lines_tool_asset_item_id_fkey"
-            columns: ["tool_asset_item_id"]
-            isOneToOne: false
-            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3668,7 +3648,6 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku: string | null
-          tool_asset_item_id: string | null
           unit_cost: number
         }
         Insert: {
@@ -3681,7 +3660,6 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku?: string | null
-          tool_asset_item_id?: string | null
           unit_cost: number
         }
         Update: {
@@ -3694,7 +3672,6 @@ export type Database = {
           qty_received?: number
           receival_id?: string
           sku?: string | null
-          tool_asset_item_id?: string | null
           unit_cost?: number
         }
         Relationships: [
@@ -3717,13 +3694,6 @@ export type Database = {
             columns: ["receival_id"]
             isOneToOne: false
             referencedRelation: "receivals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receival_items_tool_asset_item_id_fkey"
-            columns: ["tool_asset_item_id"]
-            isOneToOne: false
-            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3828,7 +3798,6 @@ export type Database = {
           qty: number
           return_id: string
           sku: string | null
-          tool_asset_item_id: string | null
         }
         Insert: {
           brand_variant_id?: string | null
@@ -3840,7 +3809,6 @@ export type Database = {
           qty?: number
           return_id: string
           sku?: string | null
-          tool_asset_item_id?: string | null
         }
         Update: {
           brand_variant_id?: string | null
@@ -3852,7 +3820,6 @@ export type Database = {
           qty?: number
           return_id?: string
           sku?: string | null
-          tool_asset_item_id?: string | null
         }
         Relationships: [
           {
@@ -3867,13 +3834,6 @@ export type Database = {
             columns: ["return_id"]
             isOneToOne: false
             referencedRelation: "returns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "return_lines_tool_asset_item_id_fkey"
-            columns: ["tool_asset_item_id"]
-            isOneToOne: false
-            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4072,7 +4032,6 @@ export type Database = {
           qty_delivered: number
           sale_delivery_id: string
           sku: string | null
-          tool_asset_item_id: string | null
         }
         Insert: {
           brand_variant_id?: string | null
@@ -4082,7 +4041,6 @@ export type Database = {
           qty_delivered?: number
           sale_delivery_id: string
           sku?: string | null
-          tool_asset_item_id?: string | null
         }
         Update: {
           brand_variant_id?: string | null
@@ -4092,7 +4050,6 @@ export type Database = {
           qty_delivered?: number
           sale_delivery_id?: string
           sku?: string | null
-          tool_asset_item_id?: string | null
         }
         Relationships: [
           {
@@ -4107,13 +4064,6 @@ export type Database = {
             columns: ["sale_delivery_id"]
             isOneToOne: false
             referencedRelation: "sale_deliveries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sale_delivery_lines_tool_asset_item_id_fkey"
-            columns: ["tool_asset_item_id"]
-            isOneToOne: false
-            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4212,7 +4162,6 @@ export type Database = {
           qty: number
           sale_order_id: string
           sku: string | null
-          tool_asset_item_id: string | null
           total: number
           unit: string
           unit_price: number
@@ -4229,7 +4178,6 @@ export type Database = {
           qty?: number
           sale_order_id: string
           sku?: string | null
-          tool_asset_item_id?: string | null
           total?: number
           unit?: string
           unit_price?: number
@@ -4246,7 +4194,6 @@ export type Database = {
           qty?: number
           sale_order_id?: string
           sku?: string | null
-          tool_asset_item_id?: string | null
           total?: number
           unit?: string
           unit_price?: number
@@ -4271,13 +4218,6 @@ export type Database = {
             columns: ["sale_order_id"]
             isOneToOne: false
             referencedRelation: "sale_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sale_order_lines_tool_asset_item_id_fkey"
-            columns: ["tool_asset_item_id"]
-            isOneToOne: false
-            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4857,30 +4797,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      tool_asset_items: {
-        Row: {
-          category_id: string | null
-          created_at: string | null
-          id: string
-          name_ar: string | null
-          name_en: string
-        }
-        Insert: {
-          category_id?: string | null
-          created_at?: string | null
-          id?: string
-          name_ar?: string | null
-          name_en: string
-        }
-        Update: {
-          category_id?: string | null
-          created_at?: string | null
-          id?: string
-          name_ar?: string | null
-          name_en?: string
-        }
-        Relationships: []
       }
       tool_asset_units: {
         Row: {
