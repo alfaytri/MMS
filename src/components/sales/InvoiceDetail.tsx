@@ -15,7 +15,6 @@ import {
 import { useDetachPaymentFromInvoice } from '@/hooks/useDetachPaymentFromInvoice'
 import { useSendInvoice, useDismissRefresh } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
-import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { type ArInvoice } from '@/types/invoice'
 import { cn } from '@/lib/utils'
@@ -43,7 +42,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
   const sendInvoice = useSendInvoice()
   const dismissRefresh = useDismissRefresh()
   const { data: payments } = useCustomerPayments(invoice.id)
-  const [planOpen, setPlanOpen] = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string; payment_id: string | null } | null>(null)
   const detach = useDetachPaymentFromInvoice()
 
@@ -150,11 +148,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                   <Send className="w-4 h-4 mr-2" /> Send to Customer
                 </Button>
               )}
-              {invoice.payment_status !== 'paid' && (
-                <Button variant="outline" className="min-h-11" onClick={() => setPlanOpen(true)}>
-                  Payment Plan
-                </Button>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
@@ -209,15 +202,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
         </DialogContent>
       </Dialog>
 
-      {planOpen && (
-        <PaymentPlanDialog
-          open
-          onOpenChange={setPlanOpen}
-          invoiceId={invoice.id}
-          outstanding={outstanding}
-          labels={AR_LABELS}
-        />
-      )}
       <AlertDialog
         open={!!detachTarget}
         onOpenChange={(v) => { if (!v) setDetachTarget(null) }}

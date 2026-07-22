@@ -29,6 +29,10 @@ import {
 } from '@/hooks/useSaleOrders'
 import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery } from '@/hooks/useSaleDeliveries'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
+import { useCustomerPayments } from '@/hooks/useCustomerPayments'
+import { usePaymentPlans } from '@/hooks/usePaymentPlans'
+import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
+import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import { useReturnsBySO, useUnresolvedReturns, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { cn } from '@/lib/utils'
@@ -78,6 +82,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: fullSO, isLoading, isError } = useSaleOrder(open ? (so?.id ?? null) : null)
   const { data: soInvoice } = useInvoicesBySO(open ? (so?.id ?? null) : null)
   const { data: payments } = useSOPayments(open ? (so?.id ?? null) : null)
+  const { data: invoicePayments } = useCustomerPayments(soInvoice?.id)
+  const { data: paymentPlans } = usePaymentPlans(soInvoice?.id ?? null)
+  const [paymentPlanOpen, setPaymentPlanOpen] = useState(false)
   const { data: activityLogs } = useActivityLog(
     open && so?.id ? { module: 'sale_orders', entity_id: so.id } : {}
   )
@@ -387,13 +394,35 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
               {/* ── Payments ─────────────────────────────────────── */}
               <TabsContent value="payments" className="flex-1 overflow-y-auto">
-                <PaymentSummaryTab
-                  payments={payments ?? []}
-                  totalAmount={current?.total ?? 0}
-                  currency={current?.currency}
-                  canRecord={!!canRecordPayment}
-                  onRecordPayment={() => setPaymentOpen(true)}
-                />
+                {(() => {
+                  const totalInvoicePaid = (invoicePayments ?? []).reduce((s, p) => s + p.amount, 0)
+                  const invoiceOutstanding = (soInvoice?.total_amount ?? 0) - totalInvoicePaid
+                  const hasActivePlan = (paymentPlans ?? []).some((p) => p.status === 'active')
+                  const canOfferPaymentPlan =
+                    soInvoice &&
+                    soInvoice.invoice_type === 'credit' &&
+                    invoiceOutstanding >= PAYMENT_PLAN_THRESHOLD &&
+                    !hasActivePlan &&
+                    !(current?.payment_milestones && current.payment_milestones.length > 0)
+                  return (
+                    <>
+                      {canOfferPaymentPlan && (
+                        <div className="flex justify-end mb-3">
+                          <Button variant="outline" size="sm" onClick={() => setPaymentPlanOpen(true)}>
+                            Set Up Payment Plan
+                          </Button>
+                        </div>
+                      )}
+                      <PaymentSummaryTab
+                        payments={payments ?? []}
+                        totalAmount={current?.total ?? 0}
+                        currency={current?.currency}
+                        canRecord={!!canRecordPayment}
+                        onRecordPayment={() => setPaymentOpen(true)}
+                      />
+                    </>
+                  )
+                })()}
               </TabsContent>
 
               {/* ── Returns ──────────────────────────────────────── */}
@@ -460,6 +489,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           )}
         </DialogContent>
       </Dialog>
+
+      {paymentPlanOpen && soInvoice && (
+        <PaymentPlanDialog
+          open
+          onOpenChange={setPaymentPlanOpen}
+          invoiceId={soInvoice.id}
+          outstanding={(soInvoice.total_amount ?? 0) - (invoicePayments ?? []).reduce((s, p) => s + p.amount, 0)}
+          labels={AR_LABELS}
+        />
+      )}
 
       {current && (
         <>
