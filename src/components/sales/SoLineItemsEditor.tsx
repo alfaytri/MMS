@@ -279,9 +279,9 @@ export function SoLineItemsEditor({
                         </label>
                         <div
                           className="h-9 px-3 flex items-center justify-end rounded-md border bg-muted/30 text-sm tabular-nums text-muted-foreground"
-                          title="Average cost from inventory (locked)"
+                          title="Cost basis — always in QAR (inventory average cost)"
                         >
-                          {formatCurrency(row.avg_cost ?? 0, currency)}
+                          {formatCurrency(row.avg_cost ?? 0, 'QAR')}
                         </div>
                       </div>
                       <div className="space-y-0.5 w-[115px]">
