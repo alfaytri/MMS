@@ -6,7 +6,11 @@
 
 **Architecture:** The AR side already has most of the pieces — `invoice_recompute_paid_fn` trigger, `payments_redirect_to_invoice_fn`, `generate_invoice_from_so` RPC with an internal 1:1 check. Three defects remain: (1) the recompute sums `amount_qar` and breaks for foreign-currency invoices — same bug we fixed on bills; (2) Dibsy (Qatar's online card gateway) is wired into AR invoices but shouldn't be — sales-order invoices are paid via cash / bank transfer / cheque only, never online card; (3) the RPC's 1:1 enforcement isn't backed by a DB UNIQUE constraint. Layer on the numbering rework and this is a straightforward mirror of the PO/Bill work.
 
-**Dibsy scope decision (locked):** Rip Dibsy out of AR invoices only. Keep the Dibsy library (`src/lib/dibsy.ts`), the shared webhook route, and any other product flows (Telelink etc.) intact. Delete the invoice-specific link endpoint and the invoice branches from the webhook. Drop `invoices.dibsy_payment_id` + `invoices.dibsy_checkout_url` (and the same columns on `tl_invoices` if present).
+**Dibsy scope decision (locked — Option A):** Rip Dibsy out of `public.invoices` entirely. That means both invoice-touching Dibsy endpoints (`create-invoice-link` — dead — and `create-customer-batch-payment` — live), both invoice branches in the webhook (`metadata.invoice_id` + `metadata.customer_batch_invoice_ids`), the Dibsy button on the collections page (`/invoices/pending-payments/[customerId]`), and the two columns `invoices.dibsy_payment_id` + `invoices.dibsy_checkout_url`.
+
+**Critical:** `tl_invoices` (Telelink invoices) has its OWN independent `dibsy_*` columns and its OWN webhook branches. Telelink is a live Dibsy flow and must stay untouched. The migration in Task 2 only drops columns from `public.invoices`, never from `tl_invoices`.
+
+**UI rename (locked):** After Dibsy removal, rename user-visible "Invoices" labels to "SO Invoices" so `public.invoices` (sales orders) is unambiguously distinguished from `tl_invoices` (Telelink). This is a display-string change only — the table name stays `invoices`.
 
 **Tech Stack:** Next.js 15 App Router, Supabase Postgres (staging `mwvblpgbgxipvrevkeff`, prod `wkmvjxxmzstsvahuiwsz` — paused), TypeScript strict. Migrations via `npx supabase db push`. Dibsy is an external Qatar payment gateway; its webhook is a Next.js API route.
 
@@ -30,30 +34,39 @@
 ## File Structure
 
 **Modified (Task 2 — Dibsy removal from AR):**
-- `src/app/api/payments/dibsy/webhook/route.ts` — delete the two AR-invoice branches (single-invoice update + batch-invoice update). Keep the webhook route file itself and any non-invoice branches (Telelink etc.) unchanged.
-- `src/components/sales/InvoiceDetailDocument.tsx` and/or `src/app/(app)/invoices/[id]/page.tsx` — remove any "Send Dibsy link" / "Pay with Dibsy" UI on AR invoice pages if present.
-- `src/hooks/useCustomerInvoices.ts` — remove any Dibsy-related mutation hooks (create-link, mark-paid) if present.
+- `src/app/api/payments/dibsy/webhook/route.ts` — delete BOTH invoice branches: `metadata.invoice_id` (dead) AND `metadata.customer_batch_invoice_ids` (live). Non-invoice branches (Telelink etc.) untouched.
+- `src/components/invoices/CustomerInvoiceDetailContent.tsx` — remove the "Send payment link via Dibsy" button + its `fetch('/api/payments/dibsy/create-customer-batch-payment')` call. The list-of-outstanding-invoices view itself stays.
+- Any other UI referencing `dibsy_checkout_url` / `dibsy_payment_id` on `invoices` (audit via grep in Task 2 Step 1).
 
 **Deleted (Task 2):**
-- `src/app/api/payments/dibsy/create-invoice-link/route.ts` — dedicated AR-invoice link endpoint. AR invoices no longer support online payment via Dibsy.
+- `src/app/api/payments/dibsy/create-invoice-link/route.ts` — dead endpoint.
+- `src/app/api/payments/dibsy/create-customer-batch-payment/route.ts` — live batch-payment endpoint.
+
+**Modified (Task 2b — Invoices → SO Invoices rename):**
+- Sidebar / nav menu labels (search `src/components/layout` for the "Invoices" nav item).
+- Page titles (`src/app/(app)/invoices/**/page.tsx` where a page header reads "Invoices").
+- Any breadcrumbs, page headings, dialog titles that read the word "Invoices" in a UI-visible context and refer to `public.invoices`.
+- Table title columns / list-view captions on SO-invoice pages.
+- **Do NOT touch:** any UI text that refers to `tl_invoices` (Telelink still calls itself "Invoices" in its own module), URL routes (`/invoices/...`), file paths, code identifiers, DB table names.
 
 **Modified (Task 3 — manually_paid cleanup):**
 - `src/components/sales/InvoiceDetailDocument.tsx` — remove any "Mark as Paid" toggle if present.
 - `src/hooks/useCustomerInvoices.ts` — remove any manually_paid mutation if present.
 
-**Preserved (do NOT touch — Dibsy still used elsewhere):**
-- `src/lib/dibsy.ts` — Dibsy API client. Other product flows still use it.
-- Any other Dibsy branches inside the webhook (e.g. Telelink / prepaid).
+**Preserved (do NOT touch — Dibsy still used by Telelink):**
+- `src/lib/dibsy.ts` — Dibsy API client.
+- The webhook route file (only two branches removed, file itself stays).
+- All `tl_invoices.*` Dibsy columns and their write paths (Telelink is a live Dibsy consumer).
 - Dibsy env vars, secret validation, test-mode config.
 
 **Untouched (context, do not edit):**
-- `src/hooks/usePayments.ts` — AR payment insert code. Reads `direction: 'incoming'` from callers; the trigger takes it from there.
-- `src/components/sales/SoPaymentDialog.tsx` — the "Record Payment" flow; already inserts into `payments` correctly.
-- PDF generators (`src/lib/sales/generate-invoice-pdf.ts`) — reads `invoice.paid_amount` from the DB. Once the trigger + backfill run, the PDF will render correct numbers automatically.
+- `src/hooks/usePayments.ts` — AR payment insert code.
+- `src/components/sales/SoPaymentDialog.tsx` — "Record Payment" flow; already inserts into `payments` correctly.
+- PDF generators — read `invoice.paid_amount` from the DB.
 
 **Created (6 migration files, mirrored to both folders):**
 - Phase 1 Task 1: `20260723100000_invoice_recompute_use_original_currency.sql`
-- Phase 1 Task 2: `20260723105000_drop_invoice_dibsy_columns.sql`
+- Phase 1 Task 2: `20260723105000_drop_invoice_dibsy_columns.sql` (drops from `public.invoices` ONLY, not `tl_invoices`)
 - Phase 1 Task 3: `20260723110000_reset_invoice_manually_paid.sql`
 - Phase 2 Task 4: `20260723120000_enforce_one_invoice_per_so.sql`
 - Phase 3 Task 5: `20260723130000_invoice_monthly_numbering.sql`
@@ -254,89 +267,91 @@ EOF
 
 ---
 
-### Task 2: Remove Dibsy from AR invoices
+### Task 2: Remove Dibsy from `public.invoices` entirely (Option A)
 
-**Scope:** AR sales-order invoices are paid via cash / bank transfer / cheque only. Dibsy (Qatar online card gateway) should not be wired into `invoices` at all. Rip out the invoice-specific code paths, delete the `create-invoice-link` endpoint, and drop the `dibsy_payment_id` / `dibsy_checkout_url` columns from `invoices` (and `tl_invoices` if present). Keep the Dibsy library and any non-invoice branches (Telelink etc.) fully intact.
+**Scope:** AR sales-order invoices are paid via cash / bank transfer / cheque only. Rip Dibsy off `public.invoices` completely — both endpoints, both webhook branches, the collections-page Dibsy button, and both columns. Telelink (`tl_invoices`) has its OWN independent Dibsy columns and webhook branches and must stay untouched.
+
+**Reality of the current wiring (from investigation):**
+- `src/app/api/payments/dibsy/create-invoice-link/route.ts` — DEAD. No UI calls it.
+- `src/app/api/payments/dibsy/create-customer-batch-payment/route.ts` — LIVE. Called by `src/components/invoices/CustomerInvoiceDetailContent.tsx:116` from the collections page `/invoices/pending-payments/[customerId]`.
+- Webhook (`src/app/api/payments/dibsy/webhook/route.ts`) has two invoice branches: `metadata.invoice_id` (unreachable — created by the dead endpoint) and `metadata.customer_batch_invoice_ids` (live — created by the batch endpoint). Both go.
+- Only two files write `invoices.dibsy_*` columns: the two endpoints above. `generate_invoice_from_so` never writes them.
+- `tl_invoices` has its OWN `dibsy_payment_id`/`dibsy_checkout_url` and its OWN webhook branches — Telelink still uses Dibsy. **Do not touch anything under `tl_invoices` or `tl_payment_batches`.**
 
 **Files:**
-- Modify: `src/app/api/payments/dibsy/webhook/route.ts` — delete the two invoice branches.
 - Delete: `src/app/api/payments/dibsy/create-invoice-link/route.ts`
-- Modify: `src/components/sales/InvoiceDetailDocument.tsx` and/or `src/app/(app)/invoices/[id]/page.tsx` — remove any Dibsy UI.
-- Modify: `src/hooks/useCustomerInvoices.ts` — remove any Dibsy-related mutations if present.
+- Delete: `src/app/api/payments/dibsy/create-customer-batch-payment/route.ts`
+- Modify: `src/app/api/payments/dibsy/webhook/route.ts` — delete both invoice branches.
+- Modify: `src/components/invoices/CustomerInvoiceDetailContent.tsx` — remove the "Send Payment Link" (or similar) button + its fetch call. Keep the outstanding-invoices list itself.
+- Audit + modify: any other `dibsy_checkout_url` / `dibsy_payment_id` references on `public.invoices` (grep in Step 1).
 - Create: `supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql`
 - Create: `supabase/migrations-staging/20260723105000_drop_invoice_dibsy_columns.sql`
 
 **Interfaces:**
-- Consumes: current `invoices.dibsy_payment_id` + `invoices.dibsy_checkout_url` columns (dropped by this task). Same on `tl_invoices` if present.
-- Produces: an AR invoice has no online-payment concept. The Dibsy webhook still handles other product branches; only the invoice branches are gone. The invoice-link endpoint returns 404 by virtue of the file being deleted.
+- Consumes: `invoices.dibsy_payment_id` + `invoices.dibsy_checkout_url` (both dropped).
+- Produces: `public.invoices` no longer has any online-payment concept. The webhook still runs (Telelink branches intact); the invoice branches are gone. The collections page still lists outstanding invoices but the pay-via-link button is gone.
 
-- [ ] **Step 1: Audit current Dibsy touchpoints in the AR invoice code**
+- [ ] **Step 1: Audit all touchpoints on `public.invoices` (NOT `tl_invoices`)**
 
 ```bash
-grep -rnE "dibsy_payment_id|dibsy_checkout_url|create-invoice-link|customer_batch_invoice_ids|metadata\.invoice_id" src/ --include="*.ts" --include="*.tsx" | head -40
+grep -rnE "dibsy_payment_id|dibsy_checkout_url|create-invoice-link|create-customer-batch-payment|customer_batch_invoice_ids|metadata\.invoice_id" src/ --include="*.ts" --include="*.tsx"
 ```
 
-Expected hits (approx):
-- `src/app/api/payments/dibsy/webhook/route.ts` — the two branches to delete.
-- `src/app/api/payments/dibsy/create-invoice-link/route.ts` — the whole file goes.
-- Any invoice UI file that references `dibsy_checkout_url` — the button/link component to remove.
+Categorize each hit as (a) `public.invoices` = TO REMOVE, (b) `tl_invoices` / Telelink module = LEAVE ALONE. Anything under `src/app/(app)/telelink` or that queries `tl_invoices` / `tl_payment_batches` is category (b) and is out of scope.
 
-Note every file you'll touch before editing anything.
-
-- [ ] **Step 2: Delete the create-invoice-link endpoint**
+- [ ] **Step 2: Delete the two endpoints**
 
 ```bash
 rm src/app/api/payments/dibsy/create-invoice-link/route.ts
-# Also remove the parent directory if it's now empty:
+rm src/app/api/payments/dibsy/create-customer-batch-payment/route.ts
+# Remove empty parent directories if any:
 rmdir src/app/api/payments/dibsy/create-invoice-link 2>/dev/null || true
+rmdir src/app/api/payments/dibsy/create-customer-batch-payment 2>/dev/null || true
 ```
 
-- [ ] **Step 3: Strip the two invoice branches from the webhook**
+- [ ] **Step 3: Strip both invoice branches from the webhook**
 
-Read `src/app/api/payments/dibsy/webhook/route.ts`. Identify:
-- The `metadata.invoice_id` branch (single-invoice, ~lines 159–191)
-- The `metadata.customer_batch_invoice_ids` branch (batch, ~lines 45–98)
+Read `src/app/api/payments/dibsy/webhook/route.ts`. Identify the branch that keys off `metadata.invoice_id` (~lines 159–191, single-invoice update on `public.invoices`) and the branch that keys off `metadata.customer_batch_invoice_ids` (~lines 45–98, batch update on `public.invoices`). Delete both. Collapse the `if / else if` chain cleanly so no dead stubs remain.
 
-Delete both branches entirely. Leave the rest of the routing (any other `metadata.*` branches) intact. If the branch checks are structured as an `if / else if / else if / else` chain and the invoice branches are the middle ones, collapse the chain cleanly — do not leave dead `else if` stubs.
+**Do NOT touch** any branch that keys off `metadata.tl_invoice_id`, `metadata.tl_batch_id`, or otherwise operates on `tl_invoices` / `tl_payment_batches`. Those are Telelink and live.
 
-If after removal the webhook has no branches left (only the Telelink flow uses Dibsy today, for example), keep the file — the webhook route itself and its signature validation still need to run.
+- [ ] **Step 4: Remove the collections-page Dibsy button**
 
-- [ ] **Step 4: Remove Dibsy UI from invoice pages**
+Open `src/components/invoices/CustomerInvoiceDetailContent.tsx`. Around line 116 there's a `fetch('/api/payments/dibsy/create-customer-batch-payment', ...)` call — remove:
+- The button JSX that triggers it.
+- The handler function.
+- Any local state (`isGenerating`, `dibsyUrl`, etc.).
+- Toasts / dialogs shown after the link is created.
+- The import if unused elsewhere.
 
-```bash
-grep -rnE "dibsy_checkout_url|dibsy_payment_id|Send Dibsy|Pay with Dibsy" src/components/sales src/app --include="*.ts" --include="*.tsx"
-```
+The list-of-outstanding-invoices view stays — only the Dibsy pay-batch action is removed.
 
-For each match on an invoice page/component:
-- Delete the button JSX.
-- Delete any local state / handler.
-- Delete the import of `useCreateDibsyInvoiceLink` (or whatever the hook is called) if it becomes unused.
-- If the hook file itself only exports invoice-Dibsy mutations, delete the hook file too.
+- [ ] **Step 5: Remove any residual `dibsy_*` references on `public.invoices`**
 
-If nothing matches, note "no invoice-side Dibsy UI existed" in the commit body and skip.
+For every category-(a) hit from Step 1 that wasn't already handled by Steps 2–4:
+- If it's a `select('..., dibsy_checkout_url, ...')` list — remove those columns.
+- If it's a JSX chip / badge that renders when `dibsy_payment_id` is present — remove the block.
+- If it's a TypeScript type import assuming those fields — leave it for now; regenerated types in Step 8 will make TS complain if anything's still referencing them.
 
-- [ ] **Step 5: Write the column-drop migration**
+- [ ] **Step 6: Write the column-drop migration**
 
 Content of `supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql`:
 ```sql
--- Sales-order invoices are paid via cash / bank transfer / cheque only.
--- Dibsy (Qatar online card gateway) is no longer wired into AR invoices;
--- drop the two columns that stored the checkout link + payment id.
+-- Option A: rip Dibsy out of public.invoices. Sales-order invoices are
+-- paid via cash / bank transfer / cheque only. Both endpoints that
+-- wrote these columns are being deleted in the same task.
 --
--- Idempotent: IF EXISTS guards. Applies to invoices and tl_invoices
--- (staging may or may not have the columns on tl_invoices).
+-- Telelink (tl_invoices) uses its OWN dibsy_* columns and is untouched.
 
 BEGIN;
 
-ALTER TABLE public.invoices    DROP COLUMN IF EXISTS dibsy_payment_id;
-ALTER TABLE public.invoices    DROP COLUMN IF EXISTS dibsy_checkout_url;
-ALTER TABLE public.tl_invoices DROP COLUMN IF EXISTS dibsy_payment_id;
-ALTER TABLE public.tl_invoices DROP COLUMN IF EXISTS dibsy_checkout_url;
+ALTER TABLE public.invoices DROP COLUMN IF EXISTS dibsy_payment_id;
+ALTER TABLE public.invoices DROP COLUMN IF EXISTS dibsy_checkout_url;
 
 COMMIT;
 ```
 
-- [ ] **Step 6: Mirror to migrations-staging/ and apply**
+- [ ] **Step 7: Mirror + apply**
 
 ```bash
 cp supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql \
@@ -344,63 +359,155 @@ cp supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql \
 npx supabase db push
 ```
 
-- [ ] **Step 7: Regenerate types**
+- [ ] **Step 8: Regenerate types**
 
 ```bash
 npx supabase gen types typescript --project-id mwvblpgbgxipvrevkeff --schema public > src/types/database.types.ts
 ```
 
-Re-append the four helper aliases (`AllTables`, `DBTable`, `DBInsert`, `DBUpdate`) — the CLI strips them every time.
+Re-append the four helper aliases (`AllTables`, `DBTable`, `DBInsert`, `DBUpdate`) — the CLI strips them.
 
-- [ ] **Step 8: Typecheck**
+- [ ] **Step 9: Typecheck**
 
 ```bash
-npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "dibsy|invoices" | head -20
+npx tsc --noEmit --skipLibCheck 2>&1 | head -40
 ```
 
-If any file still references the dropped columns, delete or update those references. Common leftovers: an invoice-detail page still selecting `dibsy_checkout_url`, or a type import that assumed the field.
+Anything referencing `invoices.dibsy_payment_id` or `invoices.dibsy_checkout_url` errors here — fix each. Telelink files should NOT error (their `dibsy_*` columns still exist on `tl_invoices`).
 
-- [ ] **Step 9: Ask the user to smoke-test**
+- [ ] **Step 10: Sanity DB queries (report to user for QA)**
+
+Show the user output of these two queries:
+```sql
+-- 1. Confirm columns gone from invoices, still present on tl_invoices.
+SELECT table_name, column_name
+FROM   information_schema.columns
+WHERE  table_schema = 'public'
+  AND  column_name LIKE 'dibsy_%'
+ORDER  BY table_name, column_name;
+-- Expect: only tl_invoices (and tl_payment_batches if it has them) — no rows for 'invoices'.
+
+-- 2. Confirm no orphan Dibsy references on invoices left behind.
+SELECT COUNT(*) FROM public.invoices;  -- basic sanity, table still exists and readable
+```
+
+- [ ] **Step 11: Ask the user to smoke-test**
 
 Message the user:
-> "Dibsy removed from AR invoices. Please:
-> 1. Open an existing invoice — no 'Send Dibsy link' / 'Pay with Dibsy' button.
-> 2. Confirm the invoice list, detail, and PDF all render normally.
-> 3. If there's any non-invoice Dibsy flow you use (Telelink prepaid etc.) — confirm it still works.
-> The `dibsy_payment_id` and `dibsy_checkout_url` columns are gone from `invoices` (and `tl_invoices`)."
+> "Dibsy fully removed from public.invoices (Option A):
+> - Both endpoints deleted, both webhook branches removed.
+> - Collections page (/invoices/pending-payments/[customerId]) still shows outstanding invoices but no 'send payment link' button.
+> - Columns dropped from public.invoices.
+> - Telelink (tl_invoices) untouched — please smoke-test any active Telelink flow to confirm it still works end-to-end.
+> Also confirm: invoice list, invoice detail, and invoice PDF render normally."
 
-- [ ] **Step 10: Commit after confirmation**
+- [ ] **Step 12: Do NOT commit yet — Task 2b (rename) lands in the same commit series**
+
+Leave files staged/unstaged. Task 2b is a small rename that pairs naturally with this commit; controller will decide whether to combine or split commits after both tasks pass review.
+
+---
+
+### Task 2b: Rename user-visible "Invoices" → "SO Invoices"
+
+**Rationale:** `public.invoices` = sales-order AR invoices; `tl_invoices` = Telelink service invoices. Both have appeared in the app UI as "Invoices" which is ambiguous. The user requested renaming `public.invoices`-facing UI text to "SO Invoices" so the two are visually distinct. Table name and routes stay `invoices` — pure display-string change.
+
+**Files (audit + modify):**
+- Sidebar / top-nav labels — search `src/components/layout/**` and `src/app/(app)/layout.tsx` for the "Invoices" nav label pointing at `/invoices/*`.
+- Page titles — `src/app/(app)/invoices/**/page.tsx` (any `<h1>`, `<title>`, breadcrumb component reading "Invoices").
+- Table captions / list headers on the invoices index, invoice detail, and pending-payments pages.
+- Dialog titles that say "Invoice…" — leave singular "Invoice" on document-level dialogs alone (an individual document is still called "Invoice #SO-2026-07-001-I"); only the *plural, index-level, nav-level* usages become "SO Invoices".
+
+**Files (do NOT touch):**
+- URL routes (`/invoices/...` stays).
+- Directory names, filenames, component names (`invoices/` dir, `useCustomerInvoices` hook).
+- DB table `public.invoices`.
+- Any Telelink-facing UI that reads "Invoices" (that's for `tl_invoices` and refers to service invoices — its own module's rename is out of scope for this plan).
+- Migration files, RPC names, function bodies, code comments.
+
+- [ ] **Step 1: Audit all UI touchpoints**
 
 ```bash
-git add src/app/api/payments/dibsy/webhook/route.ts \
-        src/components src/hooks src/app \
-        src/types/database.types.ts \
-        supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql \
-        supabase/migrations-staging/20260723105000_drop_invoice_dibsy_columns.sql
-# Also stage the deletion:
-git rm src/app/api/payments/dibsy/create-invoice-link/route.ts
+grep -rn ">Invoices<\|\"Invoices\"\|'Invoices'\|Invoices List\|All Invoices\|My Invoices" src/ --include="*.tsx" --include="*.ts"
+```
+
+For each hit, decide:
+- Is this in a file under `src/app/(app)/invoices/` OR is the surrounding code fetching from `public.invoices` / calling `useCustomerInvoices` / rendering AR-invoice data? → RENAME.
+- Is this in a Telelink module (`src/app/(app)/telelink/**`) or a component fetching `tl_invoices`? → LEAVE ALONE.
+- Is this a document-singular "Invoice" (e.g. an `<h1>Invoice</h1>` on the detail page for one invoice, or a PDF title)? → LEAVE ALONE. Only plurals / index-level headings become "SO Invoices".
+
+Produce a short list of the exact file:line replacements before editing.
+
+- [ ] **Step 2: Rename the identified plural / index-level occurrences**
+
+Replace each occurrence with `"SO Invoices"`. Preserve casing style if used in an ALL CAPS constant. Preserve any surrounding punctuation.
+
+Examples of what should change:
+- Nav label `<span>Invoices</span>` under an AR-invoice icon → `<span>SO Invoices</span>`.
+- `<PageHeader title="Invoices" />` on `/invoices/page.tsx` → `title="SO Invoices"`.
+- Breadcrumb `"Invoices"` in the collections page ancestor chain → `"SO Invoices"`.
+
+Examples of what should NOT change:
+- `<DialogTitle>Invoice #{invoice_id}</DialogTitle>` — singular, document-level, unchanged.
+- The PDF template's "INVOICE" header — a document title, unchanged.
+- Any TypeScript identifier: `type Invoice`, `useCustomerInvoices`, `invoicesQuery` — unchanged.
+- `/invoices/pending-payments/[customerId]` URL — unchanged.
+
+- [ ] **Step 3: Typecheck**
+
+```bash
+npx tsc --noEmit --skipLibCheck 2>&1 | head -20
+```
+No changes expected — the rename is display-string only.
+
+- [ ] **Step 4: Ask the user to smoke-test**
+
+Message the user:
+> "Rename done. Please open the app and confirm:
+> 1. The sidebar / nav item that used to read 'Invoices' (the one linking to sales-order AR invoices) now reads 'SO Invoices'.
+> 2. The AR invoice list page header reads 'SO Invoices'.
+> 3. The Telelink 'Invoices' menu / page still reads 'Invoices' (its own module is untouched).
+> 4. Individual invoice document titles (e.g. 'Invoice #SO-2026-07-001-I') are unchanged.
+> Flag any place where you still see 'Invoices' (plural) and would prefer 'SO Invoices', or vice versa."
+
+- [ ] **Step 5: Commit — Task 2 + Task 2b together**
+
+After user confirms both tasks work, one combined commit:
+
+```bash
+git add -A
 git commit -m "$(cat <<'EOF'
-refactor(invoices): remove Dibsy from AR sales-order invoices
+refactor(invoices): rip Dibsy from public.invoices; rename UI to "SO Invoices"
 
-Sales-order invoices are paid via cash / bank transfer / cheque only.
-Dibsy (Qatar online card gateway) was wired into invoices — writing
-paid_amount + manually_paid=true directly from the webhook, bypassing
-the trigger and leaving no payments-table audit trail. That whole path
-is unused by the actual business flow, so rip it out rather than
-migrate it.
+Option A — Dibsy has no place on public.invoices. Sales-order AR
+invoices are paid via cash / bank transfer / cheque only. Also rename
+plural / index-level UI labels from "Invoices" to "SO Invoices" so
+public.invoices (sales orders) is unambiguous vs tl_invoices (Telelink).
 
-Changes:
-- Delete src/app/api/payments/dibsy/create-invoice-link/route.ts
-- Remove the two invoice branches from the Dibsy webhook
-  (metadata.invoice_id + metadata.customer_batch_invoice_ids)
-- Drop invoices.dibsy_payment_id + invoices.dibsy_checkout_url
-  (and the same columns on tl_invoices if present)
-- Remove any invoice-side Dibsy UI
+Deleted:
+- src/app/api/payments/dibsy/create-invoice-link/route.ts (dead — no callers)
+- src/app/api/payments/dibsy/create-customer-batch-payment/route.ts (live
+  batch-collection endpoint; feature retired for SO invoices)
+
+Webhook (src/app/api/payments/dibsy/webhook/route.ts): removed both
+invoice branches (metadata.invoice_id + metadata.customer_batch_invoice_ids).
+Telelink branches untouched.
+
+UI:
+- Removed "send payment link" button from the collections page
+  (src/components/invoices/CustomerInvoiceDetailContent.tsx).
+- Renamed plural nav / page-title occurrences of "Invoices" that refer
+  to public.invoices to "SO Invoices". Telelink module's "Invoices"
+  label is unchanged. Singular "Invoice" on individual documents /
+  dialogs / PDFs is unchanged. URL routes unchanged.
+
+DB (staging only, prod paused):
+- Migration 20260723105000_drop_invoice_dibsy_columns.sql drops
+  public.invoices.dibsy_payment_id + dibsy_checkout_url.
+- tl_invoices.dibsy_* columns and Telelink webhook flow untouched.
 
 Preserved:
-- src/lib/dibsy.ts (used by other product flows)
-- The webhook route file itself + signature validation
-- Any non-invoice Dibsy branches (e.g. Telelink)
+- src/lib/dibsy.ts, the webhook route file itself, all tl_invoices
+  Dibsy paths.
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
@@ -901,9 +1008,11 @@ No test infrastructure exists for these hooks / RPCs. Manual smoke suite per tas
 **Phase 1 (Tasks 1–3):**
 1. Open the newest and oldest invoice in staging — confirm paid_amount and payment_status match reality.
 2. Record a QAR payment against a USD invoice → confirm status recomputes correctly (no false "paid" from the QAR mirror).
-3. Open an AR invoice — confirm there is no "Send Dibsy link" / "Pay with Dibsy" UI, and the invoice detail / list / PDF render without errors.
-4. If any non-invoice Dibsy flow is in use (e.g. Telelink prepaid) — smoke-test it end-to-end to confirm the webhook + library still work outside the AR branches.
-5. Confirm no invoice UI shows "Mark as Paid" toggle.
+3. Open `/invoices/pending-payments/[customerId]` — outstanding invoices list still renders; no "Send payment link" / Dibsy button anywhere.
+4. Smoke-test **Telelink end-to-end** — `tl_invoices.dibsy_*` columns still exist, Telelink webhook branches still fire, generating a Telelink payment link + paying it still works.
+5. Confirm SO invoice list / detail / PDF render normally.
+6. Nav sidebar / index page header reads "SO Invoices" (not just "Invoices") for the sales-order AR module. Telelink module's "Invoices" label unchanged. Individual document titles ("Invoice #SO-YYYY-MM-NNN-I") unchanged.
+7. Confirm no invoice UI shows "Mark as Paid" toggle.
 
 **Phase 2 (Task 4):**
 1. Create a fresh SO → convert to invoice → confirm it succeeds.
@@ -922,8 +1031,9 @@ No test infrastructure exists for these hooks / RPCs. Manual smoke suite per tas
 
 | Risk | Mitigation |
 |---|---|
-| A Dibsy-paid invoice exists in staging today and its `dibsy_*` columns get dropped. | The webhook branch that would have needed the columns is being removed in the same task, so no live callers break. Pre-flight: `SELECT COUNT(*) FROM invoices WHERE dibsy_payment_id IS NOT NULL;` — if any rows exist, they were prior test-mode payments; audit them before dropping so accounting has a record. |
-| A non-invoice Dibsy flow (Telelink etc.) still needs the webhook file / library. | Task 2 removes only the two invoice branches from the webhook and only the invoice-specific `create-invoice-link` endpoint. `src/lib/dibsy.ts`, the webhook route file, and non-invoice branches stay. Verified in Step 1 of the task. |
+| Dibsy-linked invoices exist in staging today and their `dibsy_*` columns get dropped. | The batch endpoint that populated them is being deleted in the same task, so no live callers break. Pre-flight: `SELECT COUNT(*) FROM public.invoices WHERE dibsy_payment_id IS NOT NULL OR dibsy_checkout_url IS NOT NULL;` — if any rows exist, they were prior test-mode batch-payment links; audit before dropping so accounting has a record. |
+| Task 2 accidentally touches `tl_invoices` or `tl_payment_batches` (Telelink is a live Dibsy consumer). | Migration explicitly drops from `public.invoices` ONLY. Webhook edit only removes branches keyed by `metadata.invoice_id` / `metadata.customer_batch_invoice_ids` — Telelink branches (`metadata.tl_*`) are untouched. Step 1 audit categorizes every touchpoint as public.invoices vs tl_invoices before any edit. Testing plan includes an explicit end-to-end Telelink smoke test. |
+| Rename accidentally changes Telelink UI or singular document titles. | Task 2b's Step 1 categorization filters every hit: only plural/index-level occurrences under sales-order pages become "SO Invoices". Any file under `src/app/(app)/telelink/**` or a component fetching `tl_invoices` is out of scope. Singular "Invoice" on individual documents / PDFs / dialogs is unchanged. |
 | A historical SO has a NULL `created_at` → renumbering skips it or crashes. | ROW_NUMBER() over `PARTITION BY DATE_TRUNC('month', created_at)` treats NULL as its own partition. Check pre-flight if the query returns any NULL created_at rows before running. If any, backfill created_at first. |
 | Multiple invoices per SO exist in prod (unlikely but possible). | Task 4 pre-flight refuses to add the UNIQUE constraint and reports the count. Reconcile manually before proceeding. |
 | Prod stays paused indefinitely. | All migrations are idempotent and safe to accumulate. `db push` against prod once it's unpaused applies them all in order. |
@@ -938,11 +1048,12 @@ No test infrastructure exists for these hooks / RPCs. Manual smoke suite per tas
 
 # Self-Review Checklist
 
-- ✅ **Spec coverage:** Currency fix (Task 1), Dibsy removal from AR + column drop (Task 2), manually_paid reset (Task 3), UNIQUE enforcement (Task 4), numbering RPC + generate_invoice rewrite (Task 5), historical renumbering (Task 6). All the sketch elements accounted for.
+- ✅ **Spec coverage:** Currency fix (Task 1), Dibsy Option A removal from `public.invoices` (Task 2), rename to SO Invoices (Task 2b), manually_paid reset (Task 3), UNIQUE enforcement (Task 4), numbering RPC + generate_invoice rewrite (Task 5), historical renumbering (Task 6).
 - ✅ **Placeholder scan:** No "TBD" / "similar to Task N" / "add appropriate error handling". Every step has concrete SQL or commands.
 - ✅ **Type consistency:** `sale_order_id`, `invoice_id`, `so_number`, `next_so_number()` used consistently. `<SO>-I` format decided upfront and used in every task that produces or consumes it.
 - ✅ **Prod-paused acknowledged:** Every DB task calls out staging-only application. Prod push explicitly deferred.
-- ✅ **Dibsy scope isolated:** Task 2 removes only the AR-invoice paths. `src/lib/dibsy.ts`, the webhook file, and non-invoice branches stay. Audit query in the risks table catches any orphaned Dibsy-paid invoice before columns drop.
+- ✅ **Dibsy scope isolated:** Task 2 removes only paths on `public.invoices`. `src/lib/dibsy.ts`, the webhook file, all Telelink branches, and `tl_invoices.dibsy_*` columns stay. Audit query in the risks table catches any orphaned Dibsy-linked invoice before columns drop.
+- ✅ **Rename scope isolated:** Task 2b changes plural / index-level display strings only. Singular document titles, Telelink UI, URLs, and code identifiers are explicitly out of scope.
 
 ---
 
@@ -953,4 +1064,4 @@ Plan complete. Two execution options:
 1. **Subagent-Driven (recommended)** — fresh subagent per task, review between tasks, fast iteration
 2. **Inline Execution** — execute tasks in this session using `superpowers:executing-plans`, batch execution with checkpoints
 
-Task 2 (Dibsy removal + column drop) is destructive — columns disappear from the DB. Audit query first (`SELECT COUNT(*) FROM invoices WHERE dibsy_payment_id IS NOT NULL;`) so any test-mode Dibsy payments in staging are logged before the columns go. After the migration, no non-invoice Dibsy flow should be affected — verify at least one such flow (Telelink etc.) if any is in use.
+Task 2 (Dibsy removal on `public.invoices` + column drop) is destructive. Audit query first (`SELECT COUNT(*) FROM public.invoices WHERE dibsy_payment_id IS NOT NULL OR dibsy_checkout_url IS NOT NULL;`) so any test-mode Dibsy links in staging are logged before the columns go. Telelink (`tl_invoices`) is a live Dibsy consumer and MUST be smoke-tested end-to-end after Task 2 to confirm its own Dibsy flow still works. Task 2b (rename) rides along in the same commit — do not commit either until user confirms both.
