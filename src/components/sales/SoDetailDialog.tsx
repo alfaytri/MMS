@@ -445,7 +445,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
               {/* ── Invoice ──────────────────────────────────────── */}
               <TabsContent value="invoice" className="flex-1 overflow-y-auto">
-                {current && <SoInvoiceTab so={current} />}
+                {current && <SoInvoiceTab so={current} onClose={() => onOpenChange(false)} />}
               </TabsContent>
             </Tabs>
           )}

@@ -1,46 +1,43 @@
 'use client'
 
-import { useState } from 'react'
-import dynamic from 'next/dynamic'
-import { Badge } from '@/components/ui/badge'
+import { useRouter } from 'next/navigation'
+import { ExternalLink, Receipt } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
-import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import {
   useInvoicesBySO,
   useGenerateInvoice,
-  useSendInvoice,
 } from '@/hooks/useCustomerInvoices'
-import { useCustomerPayments } from '@/hooks/useCustomerPayments'
-import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
-import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
-
-const InvoicePdfButton = dynamic(
-  () => import('./InvoicePdfButton').then((m) => m.InvoicePdfButton),
-  { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Loading PDF…</Button> }
-)
 
 interface SoInvoiceTabProps {
   so: SaleOrder
+  onClose?: () => void
 }
 
-export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
-  const [invoicePlanOpen, setInvoicePlanOpen] = useState(false)
+const DOC_STATUS_STYLE: Record<string, string> = {
+  draft:         'bg-muted text-foreground',
+  ready_to_send: 'bg-blue-100 text-blue-700',
+  sent:          'bg-green-100 text-green-700',
+}
 
+const PAY_STATUS_STYLE: Record<string, string> = {
+  unpaid:         'bg-red-100 text-red-700',
+  partially_paid: 'bg-amber-100 text-amber-700',
+  paid:           'bg-green-100 text-green-700',
+  overdue:        'bg-red-200 text-red-800',
+}
+
+export function SoInvoiceTab({ so, onClose }: SoInvoiceTabProps) {
+  const router = useRouter()
   const generateInvoice = useGenerateInvoice()
-  const sendInvoice = useSendInvoice()
   const { data: soInvoice } = useInvoicesBySO(so.id)
-  const { data: invoicePayments } = useCustomerPayments(soInvoice?.id)
-  const { data: paymentPlans } = usePaymentPlans(soInvoice?.id ?? null)
 
-  const totalInvoicePaid = (invoicePayments ?? []).reduce((s, p) => s + p.amount, 0)
-  const invoiceOutstanding = (soInvoice?.total_amount ?? 0) - totalInvoicePaid
-  const hasActivePlan = (paymentPlans ?? []).some((p) => p.status === 'active')
   const canGenerateInvoice =
     soInvoice === null &&
     ['confirmed', 'partial_delivery', 'delivered'].includes(so.status)
@@ -57,26 +54,21 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
     })
   }
 
-  function handleSendInvoice() {
-    if (!soInvoice) return
-    sendInvoice.mutate(soInvoice.id, {
-      onSuccess: () => toast.success('Invoice marked as sent'),
-      onError: () => toast.error('Failed to mark invoice as sent'),
-    })
-  }
-
   if (soInvoice === null && !canGenerateInvoice) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-6">
-        Invoice will be available once the order is confirmed.
-      </p>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Receipt className="h-10 w-10 text-muted-foreground/40 mb-3" />
+        <p className="text-sm font-medium text-muted-foreground">No invoice yet</p>
+        <p className="text-xs text-muted-foreground mt-1">Invoices are available once the order is confirmed</p>
+      </div>
     )
   }
 
   if (soInvoice === null && canGenerateInvoice) {
     return (
-      <div className="flex flex-col items-center gap-3 py-8">
-        <p className="text-sm text-muted-foreground">No invoice generated yet.</p>
+      <div className="flex flex-col items-center gap-3 py-12">
+        <Receipt className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">No invoice generated yet</p>
         <Button
           size="sm"
           disabled={generateInvoice.isPending}
@@ -90,131 +82,86 @@ export function SoInvoiceTab({ so }: SoInvoiceTabProps) {
 
   if (!soInvoice) return null
 
+  const paidAmount = soInvoice.paid_amount ?? 0
+  const totalAmount = soInvoice.total_amount ?? 0
+
   return (
-    <div className="space-y-4">
-      {/* Header badges */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-sm font-semibold">{soInvoice.invoice_id}</span>
-        <Badge className={
-          soInvoice.doc_status === 'sent'           ? 'bg-green-100 text-green-700' :
-          soInvoice.doc_status === 'ready_to_send'  ? 'bg-blue-100 text-blue-700' :
-                                                      'bg-muted text-foreground'
-        }>
-          {soInvoice.doc_status === 'ready_to_send' ? 'Ready to Send' :
-           soInvoice.doc_status === 'sent'          ? 'Sent' : 'Draft'}
-        </Badge>
-        <Badge className={
-          soInvoice.payment_status === 'paid'           ? 'bg-green-100 text-green-700' :
-          soInvoice.payment_status === 'partially_paid' ? 'bg-amber-100 text-amber-700' :
-          soInvoice.payment_status === 'overdue'        ? 'bg-red-100 text-red-700' :
-                                                          'bg-muted text-muted-foreground'
-        }>
-          {soInvoice.payment_status === 'partially_paid' ? 'Partially Paid' :
-           soInvoice.payment_status.charAt(0).toUpperCase() + soInvoice.payment_status.slice(1)}
-        </Badge>
-        <Badge className={
-          soInvoice.invoice_type === 'cash'
-            ? 'bg-orange-100 text-orange-700'
-            : 'bg-purple-100 text-purple-700'
-        }>
-          {soInvoice.invoice_type === 'cash' ? 'Cash Invoice' : 'Credit Invoice'}
-        </Badge>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+        <span>1 invoice</span>
+        <span>
+          Total billed:{' '}
+          <span className="font-semibold text-foreground">
+            {formatCurrency(totalAmount, 'QAR')}
+          </span>
+        </span>
       </div>
-
-      {/* Dates */}
-      <div className="flex gap-4 text-xs text-muted-foreground">
-        <span>Issued: <span className="text-foreground">{formatDate(soInvoice.issued_date)}</span></span>
-        <span>Due: <span className="text-foreground">{formatDate(soInvoice.due_date)}</span></span>
-      </div>
-
-      {/* Line items */}
       <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Description</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="hidden sm:table-cell text-right">Unit Price</TableHead>
-              <TableHead className="text-right">Total</TableHead>
+              <TableHead>Invoice #</TableHead>
+              <TableHead className="hidden sm:table-cell">Issued</TableHead>
+              <TableHead className="hidden md:table-cell">Due Date</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center hidden sm:table-cell">Payment</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">Paid</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(soInvoice.invoice_line_items ?? []).map((li) => (
-              <TableRow key={li.id}>
-                <TableCell className="text-sm">{li.description}</TableCell>
-                <TableCell className="text-right text-sm">{li.qty ?? '—'}</TableCell>
-                <TableCell className="hidden sm:table-cell text-right text-sm">
-                  {formatCurrency(li.unit_price ?? 0, 'QAR')}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatCurrency(li.total ?? 0, 'QAR')}
-                </TableCell>
-              </TableRow>
-            ))}
+            <TableRow className="group">
+              <TableCell>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose?.()
+                    router.push(`/sales/invoices/${soInvoice.id}`)
+                  }}
+                  className="inline-flex items-center gap-1 text-primary hover:underline font-medium text-sm cursor-pointer"
+                >
+                  {soInvoice.invoice_id}
+                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              </TableCell>
+              <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                {soInvoice.issued_date ? formatDate(soInvoice.issued_date) : '—'}
+              </TableCell>
+              <TableCell className="hidden md:table-cell text-sm">
+                {soInvoice.due_date ? formatDate(soInvoice.due_date) : '—'}
+              </TableCell>
+              <TableCell className="text-center">
+                <span className={cn(
+                  'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
+                  DOC_STATUS_STYLE[soInvoice.doc_status] ?? 'bg-muted text-foreground',
+                )}>
+                  {soInvoice.doc_status === 'ready_to_send'
+                    ? 'ready to send'
+                    : soInvoice.doc_status.replace(/_/g, ' ')}
+                </span>
+              </TableCell>
+              <TableCell className="text-center hidden sm:table-cell">
+                <span className={cn(
+                  'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
+                  PAY_STATUS_STYLE[soInvoice.payment_status] ?? 'bg-muted text-foreground',
+                )}>
+                  {soInvoice.payment_status.replace(/_/g, ' ')}
+                </span>
+              </TableCell>
+              <TableCell className="text-right tabular-nums text-sm font-medium">
+                {formatCurrency(totalAmount, 'QAR')}
+              </TableCell>
+              <TableCell className="text-right tabular-nums text-sm hidden sm:table-cell">
+                {paidAmount > 0 ? (
+                  <span className="text-emerald-600">{formatCurrency(paidAmount, 'QAR')}</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+            </TableRow>
           </TableBody>
         </Table>
       </div>
-
-      {/* Totals */}
-      <div className="rounded-md border p-3 space-y-1 text-sm">
-        {(soInvoice.subtotal ?? 0) !== (soInvoice.total_amount ?? 0) && (
-          <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
-            <span>{formatCurrency(soInvoice.subtotal ?? 0, 'QAR')}</span>
-          </div>
-        )}
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Total</span>
-          <span>{formatCurrency(soInvoice.total_amount ?? 0, 'QAR')}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Paid</span>
-          <span className="text-green-700">{formatCurrency(totalInvoicePaid, 'QAR')}</span>
-        </div>
-        <div className="flex justify-between font-semibold border-t pt-1">
-          <span>Outstanding</span>
-          <span className={invoiceOutstanding > 0 ? 'text-amber-700' : 'text-green-700'}>
-            {formatCurrency(invoiceOutstanding, 'QAR')}
-          </span>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        <InvoicePdfButton
-          invoice={soInvoice}
-        />
-        {soInvoice.doc_status === 'ready_to_send' && (
-          <Button
-            size="sm"
-            disabled={sendInvoice.isPending}
-            onClick={handleSendInvoice}
-          >
-            {sendInvoice.isPending ? 'Sending…' : 'Send to Customer'}
-          </Button>
-        )}
-        {/* Only offer the invoice-level plan when the SO didn't already carry
-            payment_milestones. If the SO has milestones, those are the agreed
-            schedule — duplicating the prompt on the invoice is confusing. */}
-        {soInvoice.invoice_type === 'credit' &&
-          invoiceOutstanding >= PAYMENT_PLAN_THRESHOLD &&
-          !hasActivePlan &&
-          !(so.payment_milestones && so.payment_milestones.length > 0) && (
-          <Button variant="outline" size="sm" onClick={() => setInvoicePlanOpen(true)}>
-            Set Up Payment Plan
-          </Button>
-        )}
-      </div>
-
-      {invoicePlanOpen && (
-        <PaymentPlanDialog
-          open
-          onOpenChange={setInvoicePlanOpen}
-          invoiceId={soInvoice.id}
-          outstanding={invoiceOutstanding}
-          labels={AR_LABELS}
-        />
-      )}
     </div>
   )
 }
