@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
-import { ToolAssetLookup, type ToolAssetLookupResult } from '@/components/purchase/ToolAssetLookup'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { SOLineItemDraft } from '@/hooks/useSaleOrders'
@@ -97,22 +96,6 @@ export function SoLineItemsEditor({
     })
   }
 
-  function handleToolSelect(key: string, item: ToolAssetLookupResult | null) {
-    if (!item) {
-      updateRow(key, {
-        item_name: '', sku: '', unit: 'pcs',
-        unit_price: 0, total: 0,
-        tool_asset_item_id: null, avg_cost: 0,
-      })
-      return
-    }
-    updateRow(key, {
-      item_name:          item.item_name,
-      tool_asset_item_id: item.tool_asset_item_id,
-      brand_variant_id:   null,
-    })
-  }
-
   /** Build a minimal InventoryLookupResult to hydrate the selector pill when a row already has a variant */
   function buildInventoryValue(row: SoLineItemRow): InventoryLookupResult | null {
     if (!row.brand_variant_id) return null
@@ -198,7 +181,6 @@ export function SoLineItemsEditor({
             {/* Rows */}
             <div className="divide-y">
               {rows.map((row) => {
-                const isInventory = lineType !== 'tools'
                 return (
                   <div key={row._key} className="px-3 py-2.5 space-y-2">
                     {/* Row 1: item picker + delete */}
@@ -208,21 +190,12 @@ export function SoLineItemsEditor({
                           <div className="h-9 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
                             {row.item_name || '—'}
                           </div>
-                        ) : isInventory ? (
+                        ) : (
                           <CascadeInventorySelector
                             lineType={lineType}
                             value={buildInventoryValue(row)}
                             onChange={(item) => handleInventorySelect(row._key, item)}
                             onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
-                          />
-                        ) : (
-                          <ToolAssetLookup
-                            value={
-                              row.tool_asset_item_id
-                                ? { tool_asset_item_id: row.tool_asset_item_id, item_name: row.item_name }
-                                : null
-                            }
-                            onChange={(item) => handleToolSelect(row._key, item)}
                           />
                         )}
                       </div>
