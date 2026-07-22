@@ -329,7 +329,7 @@ export type Database = {
           {
             foreignKeyName: "bills_purchase_order_id_fkey"
             columns: ["purchase_order_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "purchase_orders"
             referencedColumns: ["id"]
           },
@@ -6039,6 +6039,10 @@ export type Database = {
       }
       batch_update_variant_prices: {
         Args: { p_updates: Json }
+        Returns: undefined
+      }
+      bill_recompute_paid_fn: {
+        Args: { p_bill_id: string }
         Returns: undefined
       }
       build_inv_check_approval_chain: {
