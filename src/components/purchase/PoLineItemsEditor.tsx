@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { CascadeInventorySelector } from './CascadeInventorySelector'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
-import { ToolAssetLookup, type ToolAssetLookupResult } from './ToolAssetLookup'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { POLineItemDraft } from '@/hooks/usePurchaseOrders'
 import { useRef } from 'react'
@@ -132,18 +131,6 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
     })
   }
 
-  function handleToolSelect(key: string, item: ToolAssetLookupResult | null) {
-    if (!item) {
-      updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, tool_asset_item_id: null })
-      return
-    }
-    updateRow(key, {
-      item_name: item.item_name,
-      tool_asset_item_id: item.tool_asset_item_id,
-      brand_variant_id: null,
-    })
-  }
-
   const groupedTypes = ALL_TYPES.filter((t) => value.some((r) => r.line_type === t))
 
   return (
@@ -216,7 +203,6 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
             {/* Rows */}
             <div className="divide-y">
               {rows.map((row) => {
-                const isInventory = lineType !== 'tools'
                 return (
                   <div key={row._key} className="px-3 py-2.5 space-y-2">
                     {/* Row 1: item picker + delete */}
@@ -226,7 +212,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                           <div className="h-9 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
                             {row.item_name || '—'}
                           </div>
-                        ) : isInventory ? (
+                        ) : (
                           <CascadeInventorySelector
                             lineType={lineType}
                             value={
@@ -247,18 +233,6 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                             }
                             onChange={(item) => handleInventorySelect(row._key, item)}
                             onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
-                          />
-                        ) : (
-                          <ToolAssetLookup
-                            value={
-                              row.tool_asset_item_id
-                                ? {
-                                    tool_asset_item_id: row.tool_asset_item_id,
-                                    item_name: row.item_name,
-                                  }
-                                : null
-                            }
-                            onChange={(item) => handleToolSelect(row._key, item)}
                           />
                         )}
                       </div>
