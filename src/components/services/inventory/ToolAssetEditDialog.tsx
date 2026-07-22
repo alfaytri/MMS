@@ -8,23 +8,24 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  useCreateToolAssetItem, useUpdateToolAssetItem,
+  useCreateToolItem, useUpdateInventoryItem,
   useCreateToolAssetUnit, useUpdateToolAssetUnit,
+  useToolAssetUnits,
   useStaffProfiles,
-  type ToolAssetItem, type ToolAssetUnit,
+  type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
 
 type ItemProps = {
   open: boolean
   onOpenChange: (v: boolean) => void
-  item?: ToolAssetItem | null
+  item?: InventoryItem | null
   categoryId?: string | null
 }
 
 export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }: ItemProps) {
   const isEdit = !!item
-  const create = useCreateToolAssetItem()
-  const update = useUpdateToolAssetItem()
+  const create = useCreateToolItem()
+  const update = useUpdateInventoryItem()
   const [nameEn, setNameEn] = useState('')
   const [nameAr, setNameAr] = useState('')
 
@@ -42,7 +43,8 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }
         onError: (err) => toast.error(err.message),
       })
     } else {
-      create.mutate({ ...payload, category_id: categoryId ?? null }, {
+      if (!categoryId) { toast.error('Category is required to create a tool'); return }
+      create.mutate({ ...payload, category_id: categoryId }, {
         onSuccess: () => { toast.success('Tool created'); onOpenChange(false) },
         onError: (err) => toast.error(err.message),
       })
@@ -80,16 +82,18 @@ type UnitProps = {
   open: boolean
   onOpenChange: (v: boolean) => void
   itemId: string
+  itemSku?: string | null
   unit?: ToolAssetUnit | null
 }
 
 const CONDITIONS = ['Good', 'Fair', 'Poor', 'Under Repair']
 
-export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: UnitProps) {
+export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, unit }: UnitProps) {
   const isEdit = !!unit
   const create = useCreateToolAssetUnit()
   const update = useUpdateToolAssetUnit()
   const { data: staffProfiles = [] } = useStaffProfiles()
+  const { data: existingUnits = [] } = useToolAssetUnits(!isEdit && open ? itemId : null)
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState('')
   const [condition, setCondition] = useState('Good')
@@ -99,14 +103,20 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, unit }: Un
 
   useEffect(() => {
     if (open) {
-      setSerial(unit?.serial_number ?? '')
+      if (isEdit) {
+        setSerial(unit?.serial_number ?? '')
+      } else {
+        const prefix = itemSku?.trim() || `TOOL-${itemId.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+        const next   = (existingUnits.length + 1).toString().padStart(3, '0')
+        setSerial(`${prefix}-${next}`)
+      }
       setBrand(unit?.brand ?? '')
       setCondition(unit?.condition ?? 'Good')
       setExpiry(unit?.expiry ?? '')
       setStatus(unit?.status ?? 'available')
       setAssignedTo(unit?.assigned_to ?? '')
     }
-  }, [open, unit])
+  }, [open, unit, isEdit, itemId, itemSku, existingUnits.length])
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()

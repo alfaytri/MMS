@@ -11,7 +11,7 @@ import { useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCate
 import { formatDate } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
-function ToolUnitRows({ itemId }: { itemId: string }) {
+function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
   const { data: units = [], isLoading } = useToolAssetUnits(itemId)
   const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
   const [addUnitOpen, setAddUnitOpen] = useState(false)
@@ -70,9 +70,9 @@ function ToolUnitRows({ itemId }: { itemId: string }) {
           </button>
         </td>
       </tr>
-      <ToolAssetUnitEditDialog open={addUnitOpen} onOpenChange={setAddUnitOpen} itemId={itemId} />
+      <ToolAssetUnitEditDialog open={addUnitOpen} onOpenChange={setAddUnitOpen} itemId={itemId} itemSku={itemSku} />
       {editUnit && (
-        <ToolAssetUnitEditDialog open={!!editUnit} onOpenChange={(v) => { if (!v) setEditUnit(null) }} itemId={itemId} unit={editUnit} />
+        <ToolAssetUnitEditDialog open={!!editUnit} onOpenChange={(v) => { if (!v) setEditUnit(null) }} itemId={itemId} itemSku={itemSku} unit={editUnit} />
       )}
     </>
   )
@@ -103,7 +103,7 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
           </div>
         </td>
       </tr>
-      {expanded && <ToolUnitRows itemId={item.id} />}
+      {expanded && <ToolUnitRows itemId={item.id} itemSku={item.sku} />}
       <ToolAssetItemEditDialog open={editOpen} onOpenChange={setEditOpen} item={item} />
     </>
   )

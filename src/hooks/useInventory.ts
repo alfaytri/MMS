@@ -140,6 +140,36 @@ export function useUpdateInventoryItem() {
   })
 }
 
+/** Atomic tool creation: item + default brand_variant via RPC.
+ *  Used by the Master Data → Tools & Assets Add Tool button. */
+export function useCreateToolItem() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { name_en: string; name_ar?: string | null; category_id: string }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('create_tool_item_with_default_variant', {
+        p_name_en:     payload.name_en,
+        p_name_ar:     payload.name_ar ?? '',
+        p_category_id: payload.category_id,
+      })
+      if (error) throw error
+      const newItemId = data as unknown as string
+      void logActivity({
+        action:      'Tool Created',
+        module:      'inventory',
+        entity_id:   newItemId,
+        entity_type: 'inventory_item',
+        new_data:    { name_en: payload.name_en, category_id: payload.category_id },
+      })
+      return newItemId
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+    },
+  })
+}
+
 export function useCreateBrandVariant() {
   const queryClient = useQueryClient()
   return useMutation({

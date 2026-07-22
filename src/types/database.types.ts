@@ -5089,7 +5089,7 @@ export type Database = {
             foreignKeyName: "tool_asset_units_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
-            referencedRelation: "tool_asset_items"
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]
@@ -6307,6 +6307,10 @@ export type Database = {
           p_requested_by_name: string
           p_warehouse_id: string
         }
+        Returns: string
+      }
+      create_tool_item_with_default_variant: {
+        Args: { p_category_id: string; p_name_ar: string; p_name_en: string }
         Returns: string
       }
       create_transfer_v2: {
