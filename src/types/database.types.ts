@@ -5050,6 +5050,50 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_asset_units: {
+        Row: {
+          assigned_to: string | null
+          brand: string | null
+          condition: string | null
+          created_at: string | null
+          expiry: string | null
+          id: string
+          item_id: string | null
+          serial_number: string | null
+          status: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          brand?: string | null
+          condition?: string | null
+          created_at?: string | null
+          expiry?: string | null
+          id?: string
+          item_id?: string | null
+          serial_number?: string | null
+          status?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          brand?: string | null
+          condition?: string | null
+          created_at?: string | null
+          expiry?: string | null
+          id?: string
+          item_id?: string | null
+          serial_number?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_asset_units_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_company_divisions: {
         Row: {
           created_at: string
