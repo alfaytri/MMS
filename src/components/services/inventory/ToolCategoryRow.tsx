@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
-import { useToolAssetItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders, type ToolAssetItem, type ToolAssetUnit } from '@/hooks/useInventory'
+import { useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders, type InventoryItem, type ToolAssetUnit } from '@/hooks/useInventory'
 import { formatDate } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
@@ -78,7 +78,7 @@ function ToolUnitRows({ itemId }: { itemId: string }) {
   )
 }
 
-function ToolItemRow({ item, depth }: { item: ToolAssetItem; depth: number }) {
+function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
@@ -129,7 +129,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
 
   const isLeaf = node.children.length === 0
-  const { data: toolItems = [] } = useToolAssetItemsByCategory(expanded && isLeaf ? node.id : null)
+  const { data: toolItems = [] } = useInventoryItemsByCategory(expanded && isLeaf ? node.id : null, showArchived)
 
   const indent = 12 + depth * 20
 
