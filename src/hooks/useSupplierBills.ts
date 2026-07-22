@@ -120,11 +120,8 @@ export function useCreateBill() {
     }) => {
       const supabase = createClient()
 
-      // Generate SUP-INV-NNNNN bill number
-      const { count: billCount } = await supabase
-        .from('bills')
-        .select('*', { count: 'exact', head: true })
-      const billNumber = `SUP-INV-${String((billCount ?? 0) + 1).padStart(5, '0')}`
+      // Bill number = <PO number>-B. DB enforces 1 PO = 1 bill via UNIQUE.
+      const billNumber = `${payload.po_number}-B`
 
       const today = new Date().toISOString().split('T')[0]
       const subtotal = payload.line_items.reduce((s, l) => s + l.total, 0)
