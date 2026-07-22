@@ -3377,6 +3377,13 @@ export type Database = {
             referencedRelation: "purchase_orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "po_line_items_tool_asset_item_id_fkey"
+            columns: ["tool_asset_item_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       po_rfq_quote_items: {
@@ -3527,6 +3534,13 @@ export type Database = {
             columns: ["po_version_id"]
             isOneToOne: false
             referencedRelation: "po_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_version_lines_tool_asset_item_id_fkey"
+            columns: ["tool_asset_item_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4021,6 +4035,13 @@ export type Database = {
             referencedRelation: "receivals"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "receival_items_tool_asset_item_id_fkey"
+            columns: ["tool_asset_item_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       receivals: {
@@ -4162,6 +4183,13 @@ export type Database = {
             columns: ["return_id"]
             isOneToOne: false
             referencedRelation: "returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_tool_asset_item_id_fkey"
+            columns: ["tool_asset_item_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4397,6 +4425,13 @@ export type Database = {
             referencedRelation: "sale_deliveries"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sale_delivery_lines_tool_asset_item_id_fkey"
+            columns: ["tool_asset_item_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       sale_order_approvals: {
@@ -4552,6 +4587,13 @@ export type Database = {
             columns: ["sale_order_id"]
             isOneToOne: false
             referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_order_lines_tool_asset_item_id_fkey"
+            columns: ["tool_asset_item_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4992,6 +5034,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tool_asset_items: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          id: string
+          name_ar: string | null
+          name_en: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          name_ar?: string | null
+          name_en: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          name_ar?: string | null
+          name_en?: string
+        }
+        Relationships: []
       }
       user_company_divisions: {
         Row: {
