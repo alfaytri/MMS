@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -65,7 +65,6 @@ export type Database = {
           id: string
           key: string
           updated_at: string
-          updated_by: string | null
           value: Json
         }
         Insert: {
@@ -73,7 +72,6 @@ export type Database = {
           id?: string
           key: string
           updated_at?: string
-          updated_by?: string | null
           value?: Json
         }
         Update: {
@@ -81,18 +79,9 @@ export type Database = {
           id?: string
           key?: string
           updated_at?: string
-          updated_by?: string | null
           value?: Json
         }
-        Relationships: [
-          {
-            foreignKeyName: "app_settings_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       approval_workflow_groups: {
         Row: {
@@ -363,7 +352,6 @@ export type Database = {
       brands: {
         Row: {
           created_at: string
-          created_by: string | null
           id: string
           name: string
           name_ar: string | null
@@ -372,7 +360,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
           id?: string
           name: string
           name_ar?: string | null
@@ -381,22 +368,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string | null
           id?: string
           name?: string
           name_ar?: string | null
           sort_order?: number
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "brands_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       cogs_entries: {
         Row: {
@@ -968,79 +946,6 @@ export type Database = {
           },
         ]
       }
-      customer_addresses: {
-        Row: {
-          address_type: Database["public"]["Enums"]["address_type"]
-          blue_plate_no: string | null
-          building_no: string | null
-          created_at: string | null
-          customer_id: string
-          id: string
-          is_primary: boolean
-          label: string | null
-          lat: number | null
-          lng: number | null
-          phone_id: string | null
-          street_no: string | null
-          unit_no: string | null
-          zone_no: string | null
-        }
-        Insert: {
-          address_type: Database["public"]["Enums"]["address_type"]
-          blue_plate_no?: string | null
-          building_no?: string | null
-          created_at?: string | null
-          customer_id: string
-          id?: string
-          is_primary?: boolean
-          label?: string | null
-          lat?: number | null
-          lng?: number | null
-          phone_id?: string | null
-          street_no?: string | null
-          unit_no?: string | null
-          zone_no?: string | null
-        }
-        Update: {
-          address_type?: Database["public"]["Enums"]["address_type"]
-          blue_plate_no?: string | null
-          building_no?: string | null
-          created_at?: string | null
-          customer_id?: string
-          id?: string
-          is_primary?: boolean
-          label?: string | null
-          lat?: number | null
-          lng?: number | null
-          phone_id?: string | null
-          street_no?: string | null
-          unit_no?: string | null
-          zone_no?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "customer_addresses_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customer_credit_summary"
-            referencedColumns: ["customer_id"]
-          },
-          {
-            foreignKeyName: "customer_addresses_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customer_addresses_phone_id_fkey"
-            columns: ["phone_id"]
-            isOneToOne: false
-            referencedRelation: "customer_phones"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       customer_blocks: {
         Row: {
           blocked_by: string | null
@@ -1539,43 +1444,30 @@ export type Database = {
       }
       document_terms: {
         Row: {
-          content_ar: string
           content_en: string
           created_at: string
-          created_by: string | null
           division_id: string | null
           document_type: string
           id: string
           updated_at: string
         }
         Insert: {
-          content_ar?: string
           content_en?: string
           created_at?: string
-          created_by?: string | null
           division_id?: string | null
           document_type: string
           id?: string
           updated_at?: string
         }
         Update: {
-          content_ar?: string
           content_en?: string
           created_at?: string
-          created_by?: string | null
           division_id?: string | null
           document_type?: string
           id?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "document_terms_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "document_terms_division_id_fkey"
             columns: ["division_id"]
@@ -2139,30 +2031,6 @@ export type Database = {
           },
         ]
       }
-      inventory_groups: {
-        Row: {
-          created_at: string | null
-          id: string
-          items: Json
-          name_ar: string | null
-          name_en: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          items?: Json
-          name_ar?: string | null
-          name_en: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          items?: Json
-          name_ar?: string | null
-          name_en?: string
-        }
-        Relationships: []
-      }
       inventory_items: {
         Row: {
           category_id: string
@@ -2643,19 +2511,13 @@ export type Database = {
         Row: {
           category: Database["public"]["Enums"]["notification_category"]
           created_at: string
-          created_by: string | null
-          has_media_followup: boolean
           id: string
           is_active: boolean
           label: string
           label_ar: string | null
-          media_description: string | null
           notes: string | null
-          portal_purpose: string | null
-          requires_portal: boolean
           slug: string
           sort_order: number
-          template_slug: string
           timing_description: string | null
           trigger_type: Database["public"]["Enums"]["notification_trigger"]
           updated_at: string
@@ -2663,19 +2525,13 @@ export type Database = {
         Insert: {
           category: Database["public"]["Enums"]["notification_category"]
           created_at?: string
-          created_by?: string | null
-          has_media_followup?: boolean
           id?: string
           is_active?: boolean
           label: string
           label_ar?: string | null
-          media_description?: string | null
           notes?: string | null
-          portal_purpose?: string | null
-          requires_portal?: boolean
           slug: string
           sort_order?: number
-          template_slug: string
           timing_description?: string | null
           trigger_type: Database["public"]["Enums"]["notification_trigger"]
           updated_at?: string
@@ -2683,39 +2539,18 @@ export type Database = {
         Update: {
           category?: Database["public"]["Enums"]["notification_category"]
           created_at?: string
-          created_by?: string | null
-          has_media_followup?: boolean
           id?: string
           is_active?: boolean
           label?: string
           label_ar?: string | null
-          media_description?: string | null
           notes?: string | null
-          portal_purpose?: string | null
-          requires_portal?: boolean
           slug?: string
           sort_order?: number
-          template_slug?: string
           timing_description?: string | null
           trigger_type?: Database["public"]["Enums"]["notification_trigger"]
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "notification_config_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notification_config_template_slug_fkey"
-            columns: ["template_slug"]
-            isOneToOne: false
-            referencedRelation: "notification_templates"
-            referencedColumns: ["slug"]
-          },
-        ]
+        Relationships: []
       }
       notification_templates: {
         Row: {
@@ -5253,35 +5088,6 @@ export type Database = {
           },
         ]
       }
-      user_ui_preferences: {
-        Row: {
-          created_at: string
-          hide_3cx_mobile_note: boolean
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          hide_3cx_mobile_note?: boolean
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          hide_3cx_mobile_note?: boolean
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_ui_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       warehouse_field_rps: {
         Row: {
           created_at: string
@@ -7298,7 +7104,7 @@ export const Constants = {
   },
 } as const
 
-export type AllTables = Database['public']['Tables']
-export type DBTable<T extends keyof AllTables> = AllTables[T]['Row']
-export type DBInsert<T extends keyof AllTables> = AllTables[T]['Insert']
-export type DBUpdate<T extends keyof AllTables> = AllTables[T]['Update']
+export type AllTables = Database["public"]["Tables"]
+export type DBTable<T extends keyof AllTables> = AllTables[T]["Row"]
+export type DBInsert<T extends keyof AllTables> = AllTables[T]["Insert"]
+export type DBUpdate<T extends keyof AllTables> = AllTables[T]["Update"]
