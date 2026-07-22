@@ -1210,11 +1210,9 @@ export type Database = {
           is_blocked: boolean | null
           name: string
           name_ar: string | null
-          pending_balance: number | null
           phone: string
           signed_credit_form_uploaded_at: string | null
           signed_credit_form_url: string | null
-          subscription_tag: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1235,11 +1233,9 @@ export type Database = {
           is_blocked?: boolean | null
           name: string
           name_ar?: string | null
-          pending_balance?: number | null
           phone: string
           signed_credit_form_uploaded_at?: string | null
           signed_credit_form_url?: string | null
-          subscription_tag?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1260,11 +1256,9 @@ export type Database = {
           is_blocked?: boolean | null
           name?: string
           name_ar?: string | null
-          pending_balance?: number | null
           phone?: string
           signed_credit_form_uploaded_at?: string | null
           signed_credit_form_url?: string | null
-          subscription_tag?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1558,7 +1552,6 @@ export type Database = {
           damaged_qty: number
           id: string
           incoming: number | null
-          incoming_eta: string | null
           item_id: string
           linked_services_count: number
           reorder_point: number
@@ -1579,7 +1572,6 @@ export type Database = {
           damaged_qty?: number
           id?: string
           incoming?: number | null
-          incoming_eta?: string | null
           item_id: string
           linked_services_count?: number
           reorder_point?: number
@@ -1600,7 +1592,6 @@ export type Database = {
           damaged_qty?: number
           id?: string
           incoming?: number | null
-          incoming_eta?: string | null
           item_id?: string
           linked_services_count?: number
           reorder_point?: number
@@ -2407,51 +2398,36 @@ export type Database = {
       notification_templates: {
         Row: {
           body_text: string | null
-          button_type: string | null
-          button_url_suffix_param: string | null
           created_at: string
           created_by: string | null
           description: string | null
-          has_buttons: boolean
           id: string
           is_active: boolean
           media_type: string
-          param_count: number
-          param_names: Json | null
           slug: string
           updated_at: string
           wati_template_name: string
         }
         Insert: {
           body_text?: string | null
-          button_type?: string | null
-          button_url_suffix_param?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
-          has_buttons?: boolean
           id?: string
           is_active?: boolean
           media_type?: string
-          param_count?: number
-          param_names?: Json | null
           slug: string
           updated_at?: string
           wati_template_name?: string
         }
         Update: {
           body_text?: string | null
-          button_type?: string | null
-          button_url_suffix_param?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
-          has_buttons?: boolean
           id?: string
           is_active?: boolean
           media_type?: string
-          param_count?: number
-          param_names?: Json | null
           slug?: string
           updated_at?: string
           wati_template_name?: string
@@ -2459,77 +2435,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notification_templates_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notification_trail: {
-        Row: {
-          category: Database["public"]["Enums"]["notification_category"]
-          channel: Database["public"]["Enums"]["notification_channel"]
-          created_at: string
-          created_by: string | null
-          delivery_status: string | null
-          error_message: string | null
-          external_message_id: string | null
-          id: string
-          message_preview: string | null
-          notification_label: string
-          notification_type: string
-          order_id: string | null
-          provider: string | null
-          recipient_name: string
-          recipient_phone: string
-          status: Database["public"]["Enums"]["notification_status"]
-          trigger_detail: string | null
-          trigger_type: Database["public"]["Enums"]["notification_trigger"]
-        }
-        Insert: {
-          category: Database["public"]["Enums"]["notification_category"]
-          channel: Database["public"]["Enums"]["notification_channel"]
-          created_at?: string
-          created_by?: string | null
-          delivery_status?: string | null
-          error_message?: string | null
-          external_message_id?: string | null
-          id?: string
-          message_preview?: string | null
-          notification_label: string
-          notification_type: string
-          order_id?: string | null
-          provider?: string | null
-          recipient_name: string
-          recipient_phone: string
-          status: Database["public"]["Enums"]["notification_status"]
-          trigger_detail?: string | null
-          trigger_type: Database["public"]["Enums"]["notification_trigger"]
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["notification_category"]
-          channel?: Database["public"]["Enums"]["notification_channel"]
-          created_at?: string
-          created_by?: string | null
-          delivery_status?: string | null
-          error_message?: string | null
-          external_message_id?: string | null
-          id?: string
-          message_preview?: string | null
-          notification_label?: string
-          notification_type?: string
-          order_id?: string | null
-          provider?: string | null
-          recipient_name?: string
-          recipient_phone?: string
-          status?: Database["public"]["Enums"]["notification_status"]
-          trigger_detail?: string | null
-          trigger_type?: Database["public"]["Enums"]["notification_trigger"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_trail_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -2755,79 +2660,6 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "so_invoices"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payment_sessions: {
-        Row: {
-          amount: number
-          checkout_url: string | null
-          created_at: string
-          created_by: string | null
-          currency: string
-          customer_id: string
-          dibsy_payment_id: string | null
-          dibsy_response: Json | null
-          id: string
-          invoice_allocations: Json
-          receipt_sent: boolean
-          redirect_url: string | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          amount: number
-          checkout_url?: string | null
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          customer_id: string
-          dibsy_payment_id?: string | null
-          dibsy_response?: Json | null
-          id?: string
-          invoice_allocations?: Json
-          receipt_sent?: boolean
-          redirect_url?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          amount?: number
-          checkout_url?: string | null
-          created_at?: string
-          created_by?: string | null
-          currency?: string
-          customer_id?: string
-          dibsy_payment_id?: string | null
-          dibsy_response?: Json | null
-          id?: string
-          invoice_allocations?: Json
-          receipt_sent?: boolean
-          redirect_url?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_sessions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_sessions_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customer_credit_summary"
-            referencedColumns: ["customer_id"]
-          },
-          {
-            foreignKeyName: "payment_sessions_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
@@ -5225,61 +5057,6 @@ export type Database = {
           },
         ]
       }
-      warehouse_manager_log: {
-        Row: {
-          assigned_at: string
-          assigned_by: string | null
-          created_at: string
-          id: string
-          manager_id: string
-          removed_at: string | null
-          updated_at: string
-          warehouse_id: string
-        }
-        Insert: {
-          assigned_at?: string
-          assigned_by?: string | null
-          created_at?: string
-          id?: string
-          manager_id: string
-          removed_at?: string | null
-          updated_at?: string
-          warehouse_id: string
-        }
-        Update: {
-          assigned_at?: string
-          assigned_by?: string | null
-          created_at?: string
-          id?: string
-          manager_id?: string
-          removed_at?: string | null
-          updated_at?: string
-          warehouse_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "warehouse_manager_log_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_manager_log_manager_id_fkey"
-            columns: ["manager_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_manager_log_warehouse_id_fkey"
-            columns: ["warehouse_id"]
-            isOneToOne: false
-            referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       warehouse_reorder_points: {
         Row: {
           brand_variant_id: string
@@ -5640,50 +5417,6 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      webhook_logs: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          error_message: string | null
-          event_type: string | null
-          id: string
-          payload: Json
-          processed: boolean | null
-          source: string
-          status_code: number | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          error_message?: string | null
-          event_type?: string | null
-          id?: string
-          payload: Json
-          processed?: boolean | null
-          source: string
-          status_code?: number | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          error_message?: string | null
-          event_type?: string | null
-          id?: string
-          payload?: Json
-          processed?: boolean | null
-          source?: string
-          status_code?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "webhook_logs_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
