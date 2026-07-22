@@ -37,6 +37,8 @@ export default function EditSOPage() {
   const [initialized, setInitialized] = useState(false)
   const [currency, setCurrency] = useState('QAR')
   const [exchangeRate, setExchangeRate] = useState(1)
+  const needsExchangeRate = currency !== 'QAR'
+  const exchangeRateValid = !needsExchangeRate || exchangeRate > 0
   const [lineItems, setLineItems] = useState<SoLineItemRow[]>([])
   const [terms, setTerms] = useState<SoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
@@ -186,7 +188,8 @@ export default function EditSOPage() {
                 : 'gap-1.5'
             }
             onClick={saveQuotation}
-            disabled={isPending || isPriceLoading}
+            disabled={isPending || isPriceLoading || !exchangeRateValid}
+            title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
           >
             {wouldNeedApproval
               ? <AlertTriangle className="h-3.5 w-3.5" />
@@ -249,18 +252,42 @@ export default function EditSOPage() {
             <div className="space-y-1">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SUBTOTAL ({currency})</label>
               <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">{fmtAmt(subtotal, currency)}</div>
+              {needsExchangeRate && exchangeRateValid && (
+                <p className="text-[10px] text-muted-foreground tabular-nums">
+                  ≈ {fmtAmt(subtotal * exchangeRate, 'QAR')}
+                </p>
+              )}
             </div>
             {discountAmount > 0 && (
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">GRAND TOTAL ({currency})</label>
                 <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">{fmtAmt(total, currency)}</div>
+                {needsExchangeRate && exchangeRateValid && (
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    ≈ {fmtAmt(total * exchangeRate, 'QAR')}
+                  </p>
+                )}
               </div>
             )}
           </div>
-          {currency !== 'QAR' && (
+          {needsExchangeRate && (
             <div className="flex items-center gap-3">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Exchange Rate (to QAR)</label>
-              <Input type="number" min="0.0001" step="0.0001" className="h-8 w-32 text-sm" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} />
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                Exchange Rate <span className="text-destructive">*</span>{' '}
+                <span className="normal-case text-muted-foreground/70">(1 {currency} = ? QAR)</span>
+              </label>
+              <Input
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                className="h-8 w-32 text-sm"
+                placeholder="e.g. 3.64"
+                value={exchangeRate || ''}
+                onChange={(e) => setExchangeRate(Number(e.target.value))}
+              />
+              {!exchangeRateValid && (
+                <span className="text-[10px] text-destructive">Required</span>
+              )}
             </div>
           )}
         </section>

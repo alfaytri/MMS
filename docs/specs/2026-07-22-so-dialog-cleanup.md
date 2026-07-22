@@ -284,6 +284,129 @@ npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "SoDetailDialog" | head
 
 ---
 
+# Task 6: Exchange Rate input + FX-aware totals for non-QAR SOs
+
+**Files:**
+- Modify: `src/app/(dashboard)/sales/create-so/page.tsx`
+- Modify: `src/app/(dashboard)/sales/edit-so/[id]/page.tsx`
+- Optionally: `src/components/sales/SoLineItemsEditor.tsx` (for the per-row QAR-equivalent subtitle, if we choose to render one)
+
+**Interfaces:**
+- Consumes: existing `currency` + `exchange_rate` fields on the SO payload (`useSaleOrders.ts:84-85`).
+- Produces: when SO currency ≠ QAR, an "Exchange Rate" input is required. The rate is captured, used to compute `totalQar` correctly on submit, and — optionally — shown as a small QAR-equivalent subtitle beneath the SO Total in the header. Line items still display Sale Price + Line Total in the SO currency (single-currency row from the user's point of view); Unit Cost stays in QAR (per Task 1).
+
+**Rationale:** Today `create-so/page.tsx:77` hardcodes `const exchangeRate = 1`. That means:
+- Every non-QAR SO is stored with `exchange_rate = 1` in the DB — false data for accounting reports that later read `exchange_rate` to reconcile QAR-equivalents.
+- The margin-comparison logic (`avg_cost > sale_price`) treats a `100 QAR` cost as equivalent to `100 USD` — false negatives and false positives on the "Negative margin" badge.
+- There's no visibility of the QAR-equivalent anywhere in the UI when the SO is in USD/EUR/etc.
+
+The user needs to capture the day's rate at SO creation (real-world FX-locking practice) so the SO row is a self-contained record of what was agreed.
+
+**Rate convention (locked):** `exchange_rate` = QAR per 1 unit of SO currency. Example: SO in USD with rate `3.64` means 1 USD = 3.64 QAR. To convert USD → QAR: `usd * exchange_rate`. To convert QAR → USD: `qar / exchange_rate`. This matches how `payments.exchange_rate` is used in the AP/AR flows already (`PaymentSummaryTab.tsx:34`).
+
+- [ ] **Step 1: Replace the hardcoded `exchangeRate = 1` with a stateful input**
+
+In `src/app/(dashboard)/sales/create-so/page.tsx`:
+- Remove `const exchangeRate = 1`.
+- Add `const [exchangeRate, setExchangeRate] = useState<number | ''>(currency === 'QAR' ? 1 : '')`.
+- Add an effect: when `currency` changes to `'QAR'`, force `exchangeRate = 1`. When it changes away from QAR, reset to `''` so the user must enter a value.
+
+- [ ] **Step 2: Render the input**
+
+Directly beneath (or beside) the Currency selector — same row on `md:+` breakpoints, stacked on mobile.
+
+```tsx
+{currency !== 'QAR' && (
+  <div className="space-y-1">
+    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+      Exchange Rate <span className="text-destructive">*</span>{' '}
+      <span className="text-muted-foreground/70 normal-case">(1 {currency} = ? QAR)</span>
+    </label>
+    <Input
+      type="number"
+      min={0}
+      step="0.0001"
+      className="h-9 text-sm"
+      placeholder="e.g. 3.64"
+      value={exchangeRate === '' ? '' : exchangeRate}
+      onChange={(e) => {
+        const v = e.target.value
+        setExchangeRate(v === '' ? '' : Number(v))
+      }}
+    />
+  </div>
+)}
+```
+
+Layout: reuse the same grid the Currency selector sits in. If it uses a single-column layout, the exchange-rate input can sit as its next child.
+
+- [ ] **Step 3: Gate the "Confirm SO" (or Save) button on a valid rate**
+
+The submit button should be `disabled` when `currency !== 'QAR' && (exchangeRate === '' || Number(exchangeRate) <= 0)`. Add a tooltip / helper text: "Enter exchange rate to continue".
+
+- [ ] **Step 4: Fix `totalQar`**
+
+Line ~100 currently: `const totalQar = total * (exchangeRate || 1)`. Keep the shape (that's already the right formula given the rate convention). The bug was that `exchangeRate` was hardcoded to 1; once it's a real user value, `totalQar` becomes correct automatically.
+
+- [ ] **Step 5: Show QAR-equivalent subtitle beneath the SO Total (header + footer)**
+
+In the header (near `<SubtotalCard>`) and the footer Total field: when `currency !== 'QAR' && exchangeRate > 0`, render a small line like:
+```
+$1,000.00
+≈ QAR 3,640.00
+```
+Use `text-xs text-muted-foreground` for the QAR line. This gives the user visibility into what will actually be recorded in QAR.
+
+- [ ] **Step 6: Optional — per-line QAR-equivalent subtitle**
+
+If it fits without shifting the line-item row layout, add a small `text-[10px] text-muted-foreground` below the Line Total showing `≈ QAR {formatCurrency(line_total * exchangeRate, 'QAR')}`. Skip if it causes any breakpoint issues; the header/footer subtitle covers the visibility need.
+
+- [ ] **Step 7: Mirror the change in `edit-so/[id]/page.tsx`**
+
+Same input, same gating, same submit logic. Pre-fill `exchangeRate` from the loaded SO's `exchange_rate` field.
+
+- [ ] **Step 8: Typecheck + smoke-test**
+
+```
+npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "create-so|edit-so" | head
+```
+
+> "Create a new SO. Leave currency = QAR — no Exchange Rate field. Switch to USD — Exchange Rate input appears, is required, Confirm button disabled until you enter a value. Enter 3.64 and $200 sale price — SO Total shows `$1,000.00` with a `≈ QAR 3,640.00` subtitle. Edit an existing USD SO — the previously-saved rate is pre-filled."
+
+- [ ] **Step 9: Commit after confirmation**
+
+```
+git add "src/app/(dashboard)/sales/create-so/page.tsx" \
+        "src/app/(dashboard)/sales/edit-so/[id]/page.tsx" \
+        src/components/sales/SoLineItemsEditor.tsx
+git commit -m "$(cat <<'EOF'
+feat(sales): require exchange rate on non-QAR SOs; show QAR-equivalent
+
+exchangeRate was hardcoded to 1 in create-so/page.tsx:77. Every non-QAR
+SO was persisted with exchange_rate=1 in the DB — accounting reports
+that read that field couldn't reconcile QAR-equivalents, and the
+margin-comparison logic (avg_cost QAR vs sale_price in SO currency)
+was silently wrong for every foreign-currency line.
+
+Now:
+- Exchange Rate input appears when currency ≠ QAR. Required — Confirm
+  button disabled until it's positive. Rate convention: QAR per 1 unit
+  of the SO's currency (matches payments.exchange_rate).
+- SO Total renders "$1,000.00" with "≈ QAR 3,640.00" subtitle so users
+  can see what will land in the DB as totalQar.
+- edit-so pre-fills from the saved rate.
+
+Line items still display Sale Price + Line Total in the SO currency.
+Unit Cost stays locked to QAR (per Task 1 of this plan).
+
+Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
 # Testing Strategy
 
 No test infrastructure exists for these components. Manual smoke suite per task, gated by user confirmation:
