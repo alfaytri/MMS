@@ -111,14 +111,6 @@ export default function EditSOPage() {
     return <div className="text-muted-foreground p-8 text-center">Sale order not found</div>
   }
 
-  if (so.status !== 'quotation') {
-    return (
-      <div className="text-muted-foreground p-8 text-center">
-        Only quotation-status orders can be edited. This order is <Badge variant="outline">{so.status}</Badge>.
-      </div>
-    )
-  }
-
   function validate() {
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
     if (lineItems.some((li) => !li.item_name.trim())) { toast.error('All line items need an item name'); return false }
