@@ -353,14 +353,6 @@ export type FifoLayer = {
   warehouse_name: string | null
 }
 
-export type ToolAssetItem = {
-  id: string
-  category_id: string | null
-  name_en: string
-  name_ar: string | null
-  created_at: string
-}
-
 export type ToolAssetUnit = {
   id: string
   item_id: string
@@ -697,44 +689,8 @@ export function useCategoryStockAggregates(categoryType: string) {
 }
 
 // ─── Tool asset hooks ─────────────────────────────────────────────────────────
-
-export function useToolAssetItems(search = '') {
-  return useQuery({
-    queryKey: queryKeys.inventory.toolAssetItemsBySearch(search),
-    queryFn: async () => {
-      const supabase = createClient()
-      let q = supabase
-        .from('tool_asset_items')
-        .select('*')
-        .order('name_en', { ascending: true })
-        .limit(1000)
-      if (search) q = q.ilike('name_en', `%${search}%`)
-      const { data, error } = await q
-      if (error) throw error
-      return (data ?? []) as ToolAssetItem[]
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useToolAssetItemsByCategory(categoryId: string | null) {
-  return useQuery({
-    queryKey: queryKeys.inventory.toolAssetItemsByCategory(categoryId),
-    enabled: !!categoryId,
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('tool_asset_items')
-        .select('*')
-        .eq('category_id', categoryId!)
-        .order('name_en', { ascending: true })
-        .limit(500)
-      if (error) throw error
-      return (data ?? []) as ToolAssetItem[]
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
+// Unit-tracking only. The item catalog lives in inventory_items — see
+// useInventoryItems / useInventoryItemsByCategory.
 
 export function useToolAssetUnits(itemId: string | null) {
   return useQuery({
@@ -752,67 +708,6 @@ export function useToolAssetUnits(itemId: string | null) {
       return (data ?? []) as ToolAssetUnit[]
     },
     staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useCreateToolAssetItem() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (payload: { name_en: string; name_ar?: string | null; category_id?: string | null }) => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('tool_asset_items')
-        .insert(payload)
-        .select()
-        .single()
-      if (error) throw error
-      void logActivity({
-        action: 'Tool/Asset Created',
-        module: 'inventory',
-        entity_id: data.id,
-        entity_type: 'tool_asset',
-        new_data: data as unknown as Record<string, unknown>,
-      })
-      return data as ToolAssetItem
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems })
-      qc.invalidateQueries({ queryKey: ['tool-asset-items-by-category'] })
-    },
-  })
-}
-
-export function useUpdateToolAssetItem() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; category_id?: string | null }) => {
-      const supabase = createClient()
-      const { data: old } = await supabase
-        .from('tool_asset_items')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
-      const { data, error } = await supabase
-        .from('tool_asset_items')
-        .update(payload)
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw error
-      void logActivity({
-        action: 'Tool/Asset Updated',
-        module: 'inventory',
-        entity_id: id,
-        entity_type: 'tool_asset',
-        old_data: old as unknown as Record<string, unknown> | null,
-        new_data: data as unknown as Record<string, unknown>,
-      })
-      return data as ToolAssetItem
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetItems })
-      qc.invalidateQueries({ queryKey: ['tool-asset-items-by-category'] })
-    },
   })
 }
 

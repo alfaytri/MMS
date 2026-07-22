@@ -268,11 +268,6 @@ export const queryKeys = {
     itemAttributes: (itemId: Nullable) =>
       ['inventory-item-attributes', itemId] as const,
     staffProfiles: ['staff-profiles'] as const,
-    toolAssetItems: ['tool-asset-items'] as const,
-    toolAssetItemsBySearch: (search: string) =>
-      ['tool-asset-items', search] as const,
-    toolAssetItemsByCategory: (categoryId: Nullable) =>
-      ['tool-asset-items-by-category', categoryId] as const,
     toolAssetUnits: (itemId: Nullable) =>
       ['tool-asset-units', itemId] as const,
     categoryStockAggregates: (type: string) =>
