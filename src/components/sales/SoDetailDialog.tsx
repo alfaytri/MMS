@@ -453,7 +453,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           {/* Action buttons */}
           {current && !isLoading && (
             <div className="shrink-0 flex flex-wrap gap-2 pt-2 border-t justify-end">
-              {canCancel && (
+              {canCancel && activeTab === 'items' && (
                 <Button
                   variant="outline"
                   size="sm"
