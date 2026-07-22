@@ -4,7 +4,9 @@
 
 **Goal:** Apply the same quality pass to the AR side that landed on the AP side in commits `e8fabad7` and `7242bb3b`: auto-recompute `invoices.paid_amount` from `payments` (currency-correct), drop the manual "Mark as Paid" toggle, enforce 1 SO = 1 invoice, and renumber SOs + Invoices to the monthly-reset scheme.
 
-**Architecture:** The AR side already has most of the pieces — `invoice_recompute_paid_fn` trigger, `payments_redirect_to_invoice_fn`, `generate_invoice_from_so` RPC with an internal 1:1 check. Three defects remain: (1) the recompute sums `amount_qar` and breaks for foreign-currency invoices — same bug we fixed on bills; (2) the Dibsy webhook writes `invoices.paid_amount + manually_paid=true` directly, bypassing the trigger; (3) the RPC's 1:1 enforcement isn't backed by a DB UNIQUE constraint. Layer on the numbering rework and this is a straightforward mirror of the PO/Bill work with one extra file to touch (the Dibsy webhook).
+**Architecture:** The AR side already has most of the pieces — `invoice_recompute_paid_fn` trigger, `payments_redirect_to_invoice_fn`, `generate_invoice_from_so` RPC with an internal 1:1 check. Three defects remain: (1) the recompute sums `amount_qar` and breaks for foreign-currency invoices — same bug we fixed on bills; (2) Dibsy (Qatar's online card gateway) is wired into AR invoices but shouldn't be — sales-order invoices are paid via cash / bank transfer / cheque only, never online card; (3) the RPC's 1:1 enforcement isn't backed by a DB UNIQUE constraint. Layer on the numbering rework and this is a straightforward mirror of the PO/Bill work.
+
+**Dibsy scope decision (locked):** Rip Dibsy out of AR invoices only. Keep the Dibsy library (`src/lib/dibsy.ts`), the shared webhook route, and any other product flows (Telelink etc.) intact. Delete the invoice-specific link endpoint and the invoice branches from the webhook. Drop `invoices.dibsy_payment_id` + `invoices.dibsy_checkout_url` (and the same columns on `tl_invoices` if present).
 
 **Tech Stack:** Next.js 15 App Router, Supabase Postgres (staging `mwvblpgbgxipvrevkeff`, prod `wkmvjxxmzstsvahuiwsz` — paused), TypeScript strict. Migrations via `npx supabase db push`. Dibsy is an external Qatar payment gateway; its webhook is a Next.js API route.
 
@@ -27,20 +29,31 @@
 
 ## File Structure
 
-**Modified (5 files):**
-- `src/hooks/useCustomerInvoices.ts` — bill-number analogue: switch invoice number generation to `<SO number>-I` when the invoice is created from an SO.
-- `src/app/api/payments/dibsy/webhook/route.ts` — stop writing `invoices.paid_amount + manually_paid=true` directly. Instead INSERT into `payments` with `source_type='invoice', source_id=<invoice_id>, direction='incoming'`. Let the trigger handle the recompute.
-- `src/app/api/payments/dibsy/create-invoice-link/route.ts` — probably no code change; audit whether it needs the invoice number in the new format.
-- `src/components/sales/InvoiceDetailDocument.tsx` — remove any "Mark as Paid" / "Mark as Unpaid" toggle if present.
-- `src/hooks/useCustomerInvoices.ts` — remove the corresponding mutation if present.
+**Modified (Task 2 — Dibsy removal from AR):**
+- `src/app/api/payments/dibsy/webhook/route.ts` — delete the two AR-invoice branches (single-invoice update + batch-invoice update). Keep the webhook route file itself and any non-invoice branches (Telelink etc.) unchanged.
+- `src/components/sales/InvoiceDetailDocument.tsx` and/or `src/app/(app)/invoices/[id]/page.tsx` — remove any "Send Dibsy link" / "Pay with Dibsy" UI on AR invoice pages if present.
+- `src/hooks/useCustomerInvoices.ts` — remove any Dibsy-related mutation hooks (create-link, mark-paid) if present.
+
+**Deleted (Task 2):**
+- `src/app/api/payments/dibsy/create-invoice-link/route.ts` — dedicated AR-invoice link endpoint. AR invoices no longer support online payment via Dibsy.
+
+**Modified (Task 3 — manually_paid cleanup):**
+- `src/components/sales/InvoiceDetailDocument.tsx` — remove any "Mark as Paid" toggle if present.
+- `src/hooks/useCustomerInvoices.ts` — remove any manually_paid mutation if present.
+
+**Preserved (do NOT touch — Dibsy still used elsewhere):**
+- `src/lib/dibsy.ts` — Dibsy API client. Other product flows still use it.
+- Any other Dibsy branches inside the webhook (e.g. Telelink / prepaid).
+- Dibsy env vars, secret validation, test-mode config.
 
 **Untouched (context, do not edit):**
 - `src/hooks/usePayments.ts` — AR payment insert code. Reads `direction: 'incoming'` from callers; the trigger takes it from there.
 - `src/components/sales/SoPaymentDialog.tsx` — the "Record Payment" flow; already inserts into `payments` correctly.
 - PDF generators (`src/lib/sales/generate-invoice-pdf.ts`) — reads `invoice.paid_amount` from the DB. Once the trigger + backfill run, the PDF will render correct numbers automatically.
 
-**Created (5 migration files, mirrored to both folders):**
+**Created (6 migration files, mirrored to both folders):**
 - Phase 1 Task 1: `20260723100000_invoice_recompute_use_original_currency.sql`
+- Phase 1 Task 2: `20260723105000_drop_invoice_dibsy_columns.sql`
 - Phase 1 Task 3: `20260723110000_reset_invoice_manually_paid.sql`
 - Phase 2 Task 4: `20260723120000_enforce_one_invoice_per_so.sql`
 - Phase 3 Task 5: `20260723130000_invoice_monthly_numbering.sql`
@@ -241,112 +254,153 @@ EOF
 
 ---
 
-### Task 2: Migrate Dibsy webhook to insert into payments
+### Task 2: Remove Dibsy from AR invoices
+
+**Scope:** AR sales-order invoices are paid via cash / bank transfer / cheque only. Dibsy (Qatar online card gateway) should not be wired into `invoices` at all. Rip out the invoice-specific code paths, delete the `create-invoice-link` endpoint, and drop the `dibsy_payment_id` / `dibsy_checkout_url` columns from `invoices` (and `tl_invoices` if present). Keep the Dibsy library and any non-invoice branches (Telelink etc.) fully intact.
 
 **Files:**
-- Modify: `src/app/api/payments/dibsy/webhook/route.ts`
+- Modify: `src/app/api/payments/dibsy/webhook/route.ts` — delete the two invoice branches.
+- Delete: `src/app/api/payments/dibsy/create-invoice-link/route.ts`
+- Modify: `src/components/sales/InvoiceDetailDocument.tsx` and/or `src/app/(app)/invoices/[id]/page.tsx` — remove any Dibsy UI.
+- Modify: `src/hooks/useCustomerInvoices.ts` — remove any Dibsy-related mutations if present.
+- Create: `supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql`
+- Create: `supabase/migrations-staging/20260723105000_drop_invoice_dibsy_columns.sql`
 
 **Interfaces:**
-- Consumes: `payments` table shape (existing), `invoice_recompute_paid_fn` trigger (existing after Task 1).
-- Produces: When Dibsy notifies of a successful payment, an INSERT into `payments` with `source_type='invoice', source_id=<invoice_id>, direction='incoming', method='dibsy'`. `invoices.paid_amount` and `payment_status` update via the trigger — the webhook no longer writes those columns directly.
+- Consumes: current `invoices.dibsy_payment_id` + `invoices.dibsy_checkout_url` columns (dropped by this task). Same on `tl_invoices` if present.
+- Produces: an AR invoice has no online-payment concept. The Dibsy webhook still handles other product branches; only the invoice branches are gone. The invoice-link endpoint returns 404 by virtue of the file being deleted.
 
-- [ ] **Step 1: Read the current webhook to understand the two paths**
-
-```bash
-sed -n '50,180p' src/app/api/payments/dibsy/webhook/route.ts
-```
-
-There appear to be two branches — one for a single-invoice webhook (line 79-83 writes `paid_amount + manually_paid=true`) and one for a batch webhook (line 174-176 same). Both need the same treatment.
-
-- [ ] **Step 2: Replace the single-invoice update with a payments.insert**
-
-Locate the block around lines 79-83:
-```typescript
-.from('invoices')
-.update({
-  paid_amount: total,
-  payment_status: 'paid',
-  manually_paid: true,
-})
-.eq('id', invoice.id)
-```
-
-Replace with:
-```typescript
-.from('payments')
-.insert({
-  payment_id: `DIBSY-${dibsyPaymentId.slice(0, 12)}`,
-  source_type: 'invoice',
-  source_id: invoice.id,
-  invoice_id: invoice.id,
-  customer_id: invoice.customer_id,
-  amount: total,
-  currency: invoice.currency ?? 'QAR',
-  amount_qar: total,  // Dibsy operates in QAR
-  method: 'online_transfer',
-  direction: 'incoming',
-  status: 'completed',
-  date: new Date().toISOString().slice(0, 10),
-  reference: dibsyPaymentId,
-  notes: 'Dibsy payment (auto)',
-})
-```
-
-The trigger picks it up from there.
-
-- [ ] **Step 3: Repeat for the batch/other Dibsy handler**
-
-Same substitution around lines 170-178. Each invoice in the batch gets its own `payments` row.
-
-- [ ] **Step 4: Preserve idempotency**
-
-Dibsy may re-send the same webhook. Add a check before insert:
-```typescript
-const { data: existing } = await supabase
-  .from('payments')
-  .select('id')
-  .eq('reference', dibsyPaymentId)
-  .eq('source_type', 'invoice')
-  .maybeSingle()
-if (existing) {
-  console.log(`Dibsy webhook: payment ${dibsyPaymentId} already recorded, skipping`)
-  return NextResponse.json({ ok: true, deduped: true })
-}
-```
-
-- [ ] **Step 5: Typecheck**
+- [ ] **Step 1: Audit current Dibsy touchpoints in the AR invoice code**
 
 ```bash
-npx tsc --noEmit --skipLibCheck 2>&1 | grep "dibsy/webhook" | head -5
+grep -rnE "dibsy_payment_id|dibsy_checkout_url|create-invoice-link|customer_batch_invoice_ids|metadata\.invoice_id" src/ --include="*.ts" --include="*.tsx" | head -40
 ```
-Expected: no errors from this file.
 
-- [ ] **Step 6: Ask the user to smoke-test Dibsy**
+Expected hits (approx):
+- `src/app/api/payments/dibsy/webhook/route.ts` — the two branches to delete.
+- `src/app/api/payments/dibsy/create-invoice-link/route.ts` — the whole file goes.
+- Any invoice UI file that references `dibsy_checkout_url` — the button/link component to remove.
+
+Note every file you'll touch before editing anything.
+
+- [ ] **Step 2: Delete the create-invoice-link endpoint**
+
+```bash
+rm src/app/api/payments/dibsy/create-invoice-link/route.ts
+# Also remove the parent directory if it's now empty:
+rmdir src/app/api/payments/dibsy/create-invoice-link 2>/dev/null || true
+```
+
+- [ ] **Step 3: Strip the two invoice branches from the webhook**
+
+Read `src/app/api/payments/dibsy/webhook/route.ts`. Identify:
+- The `metadata.invoice_id` branch (single-invoice, ~lines 159–191)
+- The `metadata.customer_batch_invoice_ids` branch (batch, ~lines 45–98)
+
+Delete both branches entirely. Leave the rest of the routing (any other `metadata.*` branches) intact. If the branch checks are structured as an `if / else if / else if / else` chain and the invoice branches are the middle ones, collapse the chain cleanly — do not leave dead `else if` stubs.
+
+If after removal the webhook has no branches left (only the Telelink flow uses Dibsy today, for example), keep the file — the webhook route itself and its signature validation still need to run.
+
+- [ ] **Step 4: Remove Dibsy UI from invoice pages**
+
+```bash
+grep -rnE "dibsy_checkout_url|dibsy_payment_id|Send Dibsy|Pay with Dibsy" src/components/sales src/app --include="*.ts" --include="*.tsx"
+```
+
+For each match on an invoice page/component:
+- Delete the button JSX.
+- Delete any local state / handler.
+- Delete the import of `useCreateDibsyInvoiceLink` (or whatever the hook is called) if it becomes unused.
+- If the hook file itself only exports invoice-Dibsy mutations, delete the hook file too.
+
+If nothing matches, note "no invoice-side Dibsy UI existed" in the commit body and skip.
+
+- [ ] **Step 5: Write the column-drop migration**
+
+Content of `supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql`:
+```sql
+-- Sales-order invoices are paid via cash / bank transfer / cheque only.
+-- Dibsy (Qatar online card gateway) is no longer wired into AR invoices;
+-- drop the two columns that stored the checkout link + payment id.
+--
+-- Idempotent: IF EXISTS guards. Applies to invoices and tl_invoices
+-- (staging may or may not have the columns on tl_invoices).
+
+BEGIN;
+
+ALTER TABLE public.invoices    DROP COLUMN IF EXISTS dibsy_payment_id;
+ALTER TABLE public.invoices    DROP COLUMN IF EXISTS dibsy_checkout_url;
+ALTER TABLE public.tl_invoices DROP COLUMN IF EXISTS dibsy_payment_id;
+ALTER TABLE public.tl_invoices DROP COLUMN IF EXISTS dibsy_checkout_url;
+
+COMMIT;
+```
+
+- [ ] **Step 6: Mirror to migrations-staging/ and apply**
+
+```bash
+cp supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql \
+   supabase/migrations-staging/20260723105000_drop_invoice_dibsy_columns.sql
+npx supabase db push
+```
+
+- [ ] **Step 7: Regenerate types**
+
+```bash
+npx supabase gen types typescript --project-id mwvblpgbgxipvrevkeff --schema public > src/types/database.types.ts
+```
+
+Re-append the four helper aliases (`AllTables`, `DBTable`, `DBInsert`, `DBUpdate`) — the CLI strips them every time.
+
+- [ ] **Step 8: Typecheck**
+
+```bash
+npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "dibsy|invoices" | head -20
+```
+
+If any file still references the dropped columns, delete or update those references. Common leftovers: an invoice-detail page still selecting `dibsy_checkout_url`, or a type import that assumed the field.
+
+- [ ] **Step 9: Ask the user to smoke-test**
 
 Message the user:
-> "Dibsy webhook rewired to insert into payments (trigger handles the rest). Please test:
-> 1. Create an invoice with Dibsy enabled (payment link generated).
-> 2. Pay it via Dibsy test card.
-> 3. Confirm the payment lands as a row in the invoice's Payments tab AND the invoice's paid_amount + status update.
-> 4. Send the same webhook twice (via Dibsy dashboard replay if possible) — confirm the second one is skipped, not duplicated."
+> "Dibsy removed from AR invoices. Please:
+> 1. Open an existing invoice — no 'Send Dibsy link' / 'Pay with Dibsy' button.
+> 2. Confirm the invoice list, detail, and PDF all render normally.
+> 3. If there's any non-invoice Dibsy flow you use (Telelink prepaid etc.) — confirm it still works.
+> The `dibsy_payment_id` and `dibsy_checkout_url` columns are gone from `invoices` (and `tl_invoices`)."
 
-- [ ] **Step 7: Commit after confirmation**
+- [ ] **Step 10: Commit after confirmation**
 
 ```bash
-git add src/app/api/payments/dibsy/webhook/route.ts
+git add src/app/api/payments/dibsy/webhook/route.ts \
+        src/components src/hooks src/app \
+        src/types/database.types.ts \
+        supabase/migrations/20260723105000_drop_invoice_dibsy_columns.sql \
+        supabase/migrations-staging/20260723105000_drop_invoice_dibsy_columns.sql
+# Also stage the deletion:
+git rm src/app/api/payments/dibsy/create-invoice-link/route.ts
 git commit -m "$(cat <<'EOF'
-refactor(dibsy): route webhook through payments table, not manual flag
+refactor(invoices): remove Dibsy from AR sales-order invoices
 
-Dibsy webhook was writing invoices.paid_amount and manually_paid=true
-directly, bypassing the trigger-based recompute. That worked until we
-also want the invoice's Payments tab to list the Dibsy transaction
-(previously invisible) and until we drop the manually_paid override
-that the trigger honors.
+Sales-order invoices are paid via cash / bank transfer / cheque only.
+Dibsy (Qatar online card gateway) was wired into invoices — writing
+paid_amount + manually_paid=true directly from the webhook, bypassing
+the trigger and leaving no payments-table audit trail. That whole path
+is unused by the actual business flow, so rip it out rather than
+migrate it.
 
-Now inserts a row into payments with source_type='invoice', method=
-'online_transfer', reference=<dibsy_id>. The trigger recomputes
-invoice.paid_amount + payment_status. Idempotent — same webhook
-replayed doesn't create duplicate payment rows.
+Changes:
+- Delete src/app/api/payments/dibsy/create-invoice-link/route.ts
+- Remove the two invoice branches from the Dibsy webhook
+  (metadata.invoice_id + metadata.customer_batch_invoice_ids)
+- Drop invoices.dibsy_payment_id + invoices.dibsy_checkout_url
+  (and the same columns on tl_invoices if present)
+- Remove any invoice-side Dibsy UI
+
+Preserved:
+- src/lib/dibsy.ts (used by other product flows)
+- The webhook route file itself + signature validation
+- Any non-invoice Dibsy branches (e.g. Telelink)
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
@@ -847,8 +901,9 @@ No test infrastructure exists for these hooks / RPCs. Manual smoke suite per tas
 **Phase 1 (Tasks 1–3):**
 1. Open the newest and oldest invoice in staging — confirm paid_amount and payment_status match reality.
 2. Record a QAR payment against a USD invoice → confirm status recomputes correctly (no false "paid" from the QAR mirror).
-3. Pay an invoice via Dibsy test → confirm payment appears in the Payments tab AND invoice status updates.
-4. Confirm no invoice UI shows "Mark as Paid" toggle.
+3. Open an AR invoice — confirm there is no "Send Dibsy link" / "Pay with Dibsy" UI, and the invoice detail / list / PDF render without errors.
+4. If any non-invoice Dibsy flow is in use (e.g. Telelink prepaid) — smoke-test it end-to-end to confirm the webhook + library still work outside the AR branches.
+5. Confirm no invoice UI shows "Mark as Paid" toggle.
 
 **Phase 2 (Task 4):**
 1. Create a fresh SO → convert to invoice → confirm it succeeds.
@@ -867,7 +922,8 @@ No test infrastructure exists for these hooks / RPCs. Manual smoke suite per tas
 
 | Risk | Mitigation |
 |---|---|
-| Dibsy webhook migration breaks live payments in staging (test mode). | Idempotency check on `payments.reference = dibsyPaymentId` ensures replays are safe. Rollback is one revert commit; the trigger recompute still works with the old direct-write path if we revert. |
+| A Dibsy-paid invoice exists in staging today and its `dibsy_*` columns get dropped. | The webhook branch that would have needed the columns is being removed in the same task, so no live callers break. Pre-flight: `SELECT COUNT(*) FROM invoices WHERE dibsy_payment_id IS NOT NULL;` — if any rows exist, they were prior test-mode payments; audit them before dropping so accounting has a record. |
+| A non-invoice Dibsy flow (Telelink etc.) still needs the webhook file / library. | Task 2 removes only the two invoice branches from the webhook and only the invoice-specific `create-invoice-link` endpoint. `src/lib/dibsy.ts`, the webhook route file, and non-invoice branches stay. Verified in Step 1 of the task. |
 | A historical SO has a NULL `created_at` → renumbering skips it or crashes. | ROW_NUMBER() over `PARTITION BY DATE_TRUNC('month', created_at)` treats NULL as its own partition. Check pre-flight if the query returns any NULL created_at rows before running. If any, backfill created_at first. |
 | Multiple invoices per SO exist in prod (unlikely but possible). | Task 4 pre-flight refuses to add the UNIQUE constraint and reports the count. Reconcile manually before proceeding. |
 | Prod stays paused indefinitely. | All migrations are idempotent and safe to accumulate. `db push` against prod once it's unpaused applies them all in order. |
@@ -882,11 +938,11 @@ No test infrastructure exists for these hooks / RPCs. Manual smoke suite per tas
 
 # Self-Review Checklist
 
-- ✅ **Spec coverage:** Currency fix (Task 1), Dibsy migration (Task 2), manually_paid reset (Task 3), UNIQUE enforcement (Task 4), numbering RPC + generate_invoice rewrite (Task 5), historical renumbering (Task 6). All the sketch elements accounted for.
+- ✅ **Spec coverage:** Currency fix (Task 1), Dibsy removal from AR + column drop (Task 2), manually_paid reset (Task 3), UNIQUE enforcement (Task 4), numbering RPC + generate_invoice rewrite (Task 5), historical renumbering (Task 6). All the sketch elements accounted for.
 - ✅ **Placeholder scan:** No "TBD" / "similar to Task N" / "add appropriate error handling". Every step has concrete SQL or commands.
 - ✅ **Type consistency:** `sale_order_id`, `invoice_id`, `so_number`, `next_so_number()` used consistently. `<SO>-I` format decided upfront and used in every task that produces or consumes it.
 - ✅ **Prod-paused acknowledged:** Every DB task calls out staging-only application. Prod push explicitly deferred.
-- ✅ **Dibsy risk isolated:** Task 2 idempotency check prevents duplicate payments on webhook replay. Test-mode Dibsy is safe to iterate on.
+- ✅ **Dibsy scope isolated:** Task 2 removes only the AR-invoice paths. `src/lib/dibsy.ts`, the webhook file, and non-invoice branches stay. Audit query in the risks table catches any orphaned Dibsy-paid invoice before columns drop.
 
 ---
 
@@ -897,4 +953,4 @@ Plan complete. Two execution options:
 1. **Subagent-Driven (recommended)** — fresh subagent per task, review between tasks, fast iteration
 2. **Inline Execution** — execute tasks in this session using `superpowers:executing-plans`, batch execution with checkpoints
 
-The Dibsy webhook migration (Task 2) is the highest-risk step. Whichever path you pick, plan to verify it end-to-end before moving to Phase 2.
+Task 2 (Dibsy removal + column drop) is destructive — columns disappear from the DB. Audit query first (`SELECT COUNT(*) FROM invoices WHERE dibsy_payment_id IS NOT NULL;`) so any test-mode Dibsy payments in staging are logged before the columns go. After the migration, no non-invoice Dibsy flow should be affected — verify at least one such flow (Telelink etc.) if any is in use.
