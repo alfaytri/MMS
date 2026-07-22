@@ -827,6 +827,13 @@ export function useCreateToolAssetUnit() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action:      'Tool Unit Created',
+        module:      'inventory',
+        entity_id:   data.id,
+        entity_type: 'tool_unit',
+        new_data:    data as unknown as Record<string, unknown>,
+      })
       return data as ToolAssetUnit
     },
     onSuccess: (_, v) => {
@@ -840,6 +847,8 @@ export function useUpdateToolAssetUnit() {
   return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string; brand?: string; condition?: string; status?: string; expiry?: string | null; assigned_to?: string | null }>({
     mutationFn: async ({ id, item_id: _item_id, ...payload }) => {
       const supabase = createClient()
+      const { data: old } = await supabase
+        .from('tool_asset_units').select('*').eq('id', id).maybeSingle()
       const { data, error } = await supabase
         .from('tool_asset_units')
         .update(payload as unknown as import('@/types/database.types').DBUpdate<'tool_asset_units'>)
@@ -847,6 +856,14 @@ export function useUpdateToolAssetUnit() {
         .select()
         .single()
       if (error) throw error
+      void logActivity({
+        action:      'Tool Unit Updated',
+        module:      'inventory',
+        entity_id:   id,
+        entity_type: 'tool_unit',
+        old_data:    old as unknown as Record<string, unknown> | null,
+        new_data:    data as unknown as Record<string, unknown>,
+      })
       return data as ToolAssetUnit
     },
     onSuccess: (_, v) => {

@@ -6,7 +6,7 @@ import {
   UsersRound, ChevronRight, Loader2, SearchX, Activity,
 } from 'lucide-react'
 import type { ActivityLog } from '@/hooks/useActivityLog'
-import { useAuditEntityNames } from '@/hooks/useAuditEntityNames'
+import { useAuditEntityNames, FK_FIELDS, isUuid } from '@/hooks/useAuditEntityNames'
 import { computeFieldDiff } from '@/lib/utils/computeFieldDiff'
 import { humanizeModule } from '@/lib/utils/auditPermissionMap'
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
@@ -251,38 +251,50 @@ function TimelineRow({
 
       {expanded && diffs.length > 0 && (
         <div className="px-3 pb-3 pt-1 pl-14 border-t space-y-2">
-          {diffs.map((d) => (
-            <div key={d.field} className="text-[11px] font-mono">
-              <div className="text-muted-foreground mb-0.5">{d.label}</div>
-              {d.arrayDiff ? (
-                <div className="pl-3 space-y-0.5 max-h-48 overflow-y-auto">
-                  {d.arrayDiff.removed.map((v) => (
-                    <div key={`r-${v}`} className="text-destructive/80 break-all">
-                      <span className="select-none">−&nbsp;</span>{v}
-                    </div>
-                  ))}
-                  {d.arrayDiff.added.map((v) => (
-                    <div key={`a-${v}`} className="text-success break-all">
-                      <span className="select-none">+&nbsp;</span>{v}
-                    </div>
-                  ))}
-                </div>
-              ) : d.from && d.to ? (
-                <div className="pl-3 space-y-0.5">
-                  <div className="text-destructive/80 line-through break-all">{d.from}</div>
-                  <div className="text-success break-all">{d.to}</div>
-                </div>
-              ) : d.to ? (
-                <div className="pl-3 text-success break-all">
-                  <span className="select-none">+&nbsp;</span>{d.to}
-                </div>
-              ) : d.from ? (
-                <div className="pl-3 text-destructive/80 line-through break-all">
-                  <span className="select-none no-underline">−&nbsp;</span>{d.from}
-                </div>
-              ) : null}
-            </div>
-          ))}
+          {diffs.map((d) => {
+            const isFk = FK_FIELDS.has(d.field)
+            const resolve = (v: string | undefined): string | undefined => {
+              if (!v) return v
+              const hit = nameLookup?.get(v)
+              if (hit) return hit
+              if (isFk && isUuid(v)) return `(deleted · ${v.slice(0, 8)}…)`
+              return v
+            }
+            const from = resolve(d.from)
+            const to   = resolve(d.to)
+            return (
+              <div key={d.field} className="text-[11px] font-mono">
+                <div className="text-muted-foreground mb-0.5">{d.label}</div>
+                {d.arrayDiff ? (
+                  <div className="pl-3 space-y-0.5 max-h-48 overflow-y-auto">
+                    {d.arrayDiff.removed.map((v) => (
+                      <div key={`r-${v}`} className="text-destructive/80 break-all">
+                        <span className="select-none">−&nbsp;</span>{resolve(v)}
+                      </div>
+                    ))}
+                    {d.arrayDiff.added.map((v) => (
+                      <div key={`a-${v}`} className="text-success break-all">
+                        <span className="select-none">+&nbsp;</span>{resolve(v)}
+                      </div>
+                    ))}
+                  </div>
+                ) : from && to ? (
+                  <div className="pl-3 space-y-0.5">
+                    <div className="text-destructive/80 line-through break-all">{from}</div>
+                    <div className="text-success break-all">{to}</div>
+                  </div>
+                ) : to ? (
+                  <div className="pl-3 text-success break-all">
+                    <span className="select-none">+&nbsp;</span>{to}
+                  </div>
+                ) : from ? (
+                  <div className="pl-3 text-destructive/80 line-through break-all">
+                    <span className="select-none no-underline">−&nbsp;</span>{from}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
