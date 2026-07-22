@@ -25,7 +25,7 @@ export async function generateBillPdf(
     .from('bills')
     .select(`
       id, bill_number, supplier_id, purchase_order_id,
-      doc_status, payment_status, total_amount, subtotal,
+      doc_status, payment_status, total_amount, paid_amount, subtotal,
       discount_amount, discount_label, source_label,
       issued_date, due_date, notes,
       bill_line_items(id, description, qty, unit_price, total),
@@ -38,34 +38,82 @@ export async function generateBillPdf(
     throw new Error(`Bill not found: ${billUuid} (${billErr?.message ?? 'no row'})`)
   }
 
-  const { data: allocations, error: allocErr } = await supabase
-    .from('payment_bill_allocations')
-    .select(`
-      amount,
-      payments(date, method, reference)
-    `)
-    .eq('bill_id', billUuid)
-    .order('created_at', { ascending: true })
-  if (allocErr) {
-    throw new Error(`Failed to fetch payment allocations: ${allocErr.message}`)
-  }
-
   const supplier = bill.suppliers
   const po = bill.purchase_orders
   const lineItems = (bill.bill_line_items ?? []) as BillLineItem[]
   const currency = po?.currency ?? 'QAR'
 
-  const payments: BillPaymentRow[] = (allocations ?? []).map((a) => ({
-    date:      a.payments?.date ?? '',
-    amount:    a.amount,
-    method:    a.payments?.method ?? '',
-    reference: a.payments?.reference ?? null,
-  }))
+  // Bill payments come from three sources:
+  //   1. payment_bill_allocations rows explicitly split to this bill
+  //   2. payments with source_type='bill' or bill_id=<this bill>
+  //   3. payments recorded against the parent PO (source_type='purchase_order')
+  // The bill_recompute_paid_fn trigger keeps bills.paid_amount in sync
+  // across all three; the PDF just needs to display the underlying entries.
+  const paymentRows: BillPaymentRow[] = []
 
-  const amountPaid = payments.reduce((s, p) => s + p.amount, 0)
+  const { data: allocations, error: allocErr } = await supabase
+    .from('payment_bill_allocations')
+    .select(`amount, payments(date, method, reference)`)
+    .eq('bill_id', billUuid)
+    .order('created_at', { ascending: true })
+  if (allocErr) throw new Error(`Failed to fetch payment allocations: ${allocErr.message}`)
+
+  for (const a of allocations ?? []) {
+    paymentRows.push({
+      date:      a.payments?.date ?? '',
+      amount:    a.amount,
+      method:    a.payments?.method ?? '',
+      reference: a.payments?.reference ?? null,
+    })
+  }
+
+  const { data: directPayments, error: directErr } = await supabase
+    .from('payments')
+    .select('date, amount, method, reference')
+    .or(`and(source_type.eq.bill,source_id.eq.${billUuid}),bill_id.eq.${billUuid}`)
+    .eq('direction', 'outgoing')
+    .is('deleted_at', null)
+    .order('date', { ascending: true })
+  if (directErr) throw new Error(`Failed to fetch direct bill payments: ${directErr.message}`)
+
+  for (const p of directPayments ?? []) {
+    paymentRows.push({
+      date:      p.date ?? '',
+      amount:    p.amount ?? 0,
+      method:    p.method ?? '',
+      reference: p.reference ?? null,
+    })
+  }
+
+  if (po) {
+    const { data: poPayments, error: poErr } = await supabase
+      .from('payments')
+      .select('date, amount, method, reference')
+      .eq('source_type', 'purchase_order')
+      .eq('source_id', bill.purchase_order_id)
+      .eq('direction', 'outgoing')
+      .is('deleted_at', null)
+      .order('date', { ascending: true })
+    if (poErr) throw new Error(`Failed to fetch PO payments: ${poErr.message}`)
+
+    for (const p of poPayments ?? []) {
+      paymentRows.push({
+        date:      p.date ?? '',
+        amount:    p.amount ?? 0,
+        method:    p.method ?? '',
+        reference: p.reference ?? null,
+      })
+    }
+  }
+
+  paymentRows.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+  const payments = paymentRows
+
   const totalAmount = bill.total_amount ?? 0
+  // Source of truth is the trigger-maintained paid_amount, not a sum here.
+  const amountPaid = bill.paid_amount ?? 0
   const outstanding = Math.max(0, totalAmount - amountPaid)
-  const isPaid = outstanding <= 0
+  const isPaid = outstanding <= 0 && totalAmount > 0
 
   const [brand, fonts] = await Promise.all([
     resolveBrand(opts?.divisionId ?? po?.division_id, supabase),

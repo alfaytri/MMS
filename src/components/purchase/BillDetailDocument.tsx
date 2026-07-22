@@ -13,7 +13,6 @@ import {
 import { BillDetailSection } from './BillDetailSection'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
-import { useMarkBillPaymentStatus } from '@/hooks/useSupplierBills'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
 
 type Props = {
@@ -46,7 +45,6 @@ export function BillDetailDocument({
   const watermark = getWatermark(bill)
   const [origin, setOrigin] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
-  const markPaid = useMarkBillPaymentStatus()
 
   useEffect(() => {
     setOrigin(window.location.origin)
@@ -254,28 +252,7 @@ export function BillDetailDocument({
       {/* 7. Payment actions (non-printable) */}
       <div className="print:hidden">
         <BillDetailSection title="Payment">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="flex gap-2">
-              {bill.payment_status !== 'paid' ? (
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => markPaid.mutate({ billId: bill.id, status: 'paid' })}
-                  disabled={markPaid.isPending}
-                >
-                  {markPaid.isPending ? 'Marking…' : 'Mark as Paid'}
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => markPaid.mutate({ billId: bill.id, status: 'unpaid' })}
-                  disabled={markPaid.isPending}
-                >
-                  {markPaid.isPending ? 'Updating…' : 'Mark as Unpaid'}
-                </Button>
-              )}
-            </div>
+          <div className="flex items-center justify-end gap-3 mb-3">
             {bill.payment_status !== 'paid' && (
               <Button size="sm" variant="outline" onClick={() => setAttachOpen(true)}>
                 <Link2 className="h-3.5 w-3.5 mr-1.5" />

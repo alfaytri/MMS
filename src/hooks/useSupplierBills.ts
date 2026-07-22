@@ -350,30 +350,3 @@ export function useBillViewModel(id: string | null) {
   })
 }
 
-export function useMarkBillPaymentStatus() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ billId, status }: { billId: string; status: 'paid' | 'unpaid' }) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('bills')
-        .update({
-          payment_status: status,
-          manually_paid: status === 'paid',
-        })
-        .eq('id', billId)
-      if (error) throw error
-      void logActivity({
-        action: `Bill Payment ${status}`,
-        module: 'bills',
-        entity_id: billId,
-        entity_type: 'bill',
-        new_data: { payment_status: status, manually_paid: status === 'paid' } as unknown as Record<string, unknown>,
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
-      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.viewModel })
-    },
-  })
-}

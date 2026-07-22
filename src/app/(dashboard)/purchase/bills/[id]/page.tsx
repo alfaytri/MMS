@@ -7,10 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import {
-  useBillViewModel,
-  useMarkBillPaymentStatus,
-} from '@/hooks/useSupplierBills'
+import { useBillViewModel } from '@/hooks/useSupplierBills'
 import { cn } from '@/lib/utils'
 
 const PAY_STATUS_COLORS: Record<string, string> = {
@@ -27,7 +24,6 @@ function BillDetailContent() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const markPaid = useMarkBillPaymentStatus()
 
   const { data: viewModel } = useBillViewModel(id)
 
@@ -85,26 +81,6 @@ function BillDetailContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {bill && paymentStatus !== 'paid' && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => markPaid.mutate({ billId: bill.id, status: 'paid' })}
-              disabled={markPaid.isPending}
-            >
-              {markPaid.isPending ? 'Marking…' : 'Mark as Paid'}
-            </Button>
-          )}
-          {bill && paymentStatus === 'paid' && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => markPaid.mutate({ billId: bill.id, status: 'unpaid' })}
-              disabled={markPaid.isPending}
-            >
-              {markPaid.isPending ? 'Updating…' : 'Mark as Unpaid'}
-            </Button>
-          )}
           <Button
             size="sm"
             variant="outline"
