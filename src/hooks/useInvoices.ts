@@ -80,7 +80,7 @@ export function useInvoices(filters: InvoiceFilters = {}) {
       }
 
       // Source filter
-      if (filters.source) q = q.eq('source', filters.source as 'order' | 'contract' | 'quotation')
+      if (filters.source) q = q.eq('source', filters.source as 'sale_order' | 'contract' | 'quotation')
 
       // Agent filter
       if (filters.agent) q = q.eq('agent_name', filters.agent)
