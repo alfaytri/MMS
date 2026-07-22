@@ -18,7 +18,7 @@ import {
   useAssignToolToTeam,
   useUnassignToolFromTeam,
 } from '@/hooks/useTeams'
-import { useToolAssetItems } from '@/hooks/useInventory'
+import { useInventoryItems } from '@/hooks/useInventory'
 import { useTeamsPage } from '../TeamsPageContext'
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -37,7 +37,7 @@ export function TeamToolsSheet() {
   const [addError, setAddError]             = useState<string | null>(null)
 
   const { data: assignments = [], isLoading } = useToolAssignments('team', teamId)
-  const { data: toolItems = [] }              = useToolAssetItems()
+  const { data: toolItems = [] }              = useInventoryItems('tools')
   const { data: availableUnits = [] }        = useAvailableToolUnits(selectedItemId || null)
   const assignTool   = useAssignToolToTeam()
   const unassignTool = useUnassignToolFromTeam()

@@ -263,7 +263,7 @@ export function useToolAssignments(entityType: 'team' | 'employee', entityId: st
       const db = createClient()
       const baseQuery = db
         .from('tool_assignments')
-        .select('*, tool_unit:tool_asset_units(id, serial_number, brand, condition, status, item_id, item:tool_asset_items(id, name_en, name_ar))')
+        .select('*, tool_unit:tool_asset_units(id, serial_number, brand, condition, status, item_id, item:inventory_items(id, name_en, name_ar))')
         .order('assigned_at', { ascending: false })
       const filteredQuery = entityType === 'team'
         ? baseQuery.eq('team_id', entityId!)
@@ -285,7 +285,7 @@ export function useAvailableToolUnits(itemId: string | null) {
       const db = createClient()
       const { data, error } = await db
         .from('tool_asset_units')
-        .select('id, serial_number, brand, condition, status, item_id, item:tool_asset_items(id, name_en, name_ar)')
+        .select('id, serial_number, brand, condition, status, item_id, item:inventory_items(id, name_en, name_ar)')
         .eq('item_id', itemId!)
         .eq('status', 'available')
         .returns<ToolAssignment['tool_unit'][]>()
