@@ -76,7 +76,6 @@ export default function EditSOPage() {
           total: li.total,
           line_type: (li.line_type as SoLineType) || 'products',
           brand_variant_id: li.brand_variant_id,
-          tool_asset_item_id: li.tool_asset_item_id,
           avg_cost: li.avg_cost,
         })),
       )

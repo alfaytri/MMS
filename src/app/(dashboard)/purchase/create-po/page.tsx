@@ -117,9 +117,9 @@ export default function CreatePOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty }) => ({
+      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty }) => ({
         item_name: item_name.trim(),
-        sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
+        sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty,
       })),
       division_id: divisionId || null,
     }
@@ -133,7 +133,7 @@ export default function CreatePOPage() {
       if (!supplierId) { toast.error('Please select a supplier'); return false }
     }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
-    const missingItems = lineItems.filter((li) => !li.brand_variant_id && !li.tool_asset_item_id)
+    const missingItems = lineItems.filter((li) => !li.brand_variant_id)
     if (missingItems.length > 0) {
       toast.error(missingItems.length === 1
         ? 'One line has no item selected — pick a category, item and brand for every row'
@@ -175,7 +175,7 @@ export default function CreatePOPage() {
   }
 
   const isPending = createPO.isPending || submitForApproval.isPending
-  const validCount = lineItems.filter((li) => li.brand_variant_id || li.tool_asset_item_id).length
+  const validCount = lineItems.filter((li) => li.brand_variant_id).length
 
   return (
     <div className="flex flex-col h-full">

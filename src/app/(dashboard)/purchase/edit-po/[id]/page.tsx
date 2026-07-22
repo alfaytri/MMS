@@ -48,11 +48,10 @@ function formatAmt(amount: number, currencyCode: string, symbol?: string) {
   return `${prefix}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function draftToLineItemRows(items: POLineItemDraft[]): LineItemRow[] {
+function draftToLineItemRows(items: (POLineItemDraft & { line_type: LineType })[]): LineItemRow[] {
   return items.map((li) => ({
     ...li,
     _key: crypto.randomUUID(),
-    line_type: (li.tool_asset_item_id ? 'tools' : 'products') as LineType,
   }))
 }
 
@@ -105,17 +104,25 @@ export default function EditPOPage() {
       vendor_notes: po.vendor_notes ?? '',
     })
     setLineItems(draftToLineItemRows(
-      (po.po_line_items ?? []).map((li) => ({
-        item_name: li.item_name,
-        sku: li.sku ?? '',
-        qty: li.qty,
-        unit: li.unit,
-        unit_price: li.unit_price,
-        total_price: li.total_price,
-        brand_variant_id: li.brand_variant_id,
-        tool_asset_item_id: li.tool_asset_item_id,
-        free_qty: li.free_qty,
-      }))
+      (po.po_line_items ?? []).map((li) => {
+        const catType = li.inventory_brand_variants?.inventory_items?.inventory_categories?.type
+        const line_type: LineType =
+          catType === 'tools' || catType === 'spare-parts' || catType === 'consumables'
+            ? catType
+            : 'products'
+        return {
+          item_name: li.item_name,
+          sku: li.sku ?? '',
+          qty: li.qty,
+          unit: li.unit,
+          unit_price: li.unit_price,
+          total_price: li.total_price,
+          brand_variant_id: li.brand_variant_id,
+          tool_asset_item_id: li.tool_asset_item_id,
+          free_qty: li.free_qty,
+          line_type,
+        }
+      })
     ))
     setActiveStage(liveStage)
     setActiveVersionNumber(null)
@@ -126,7 +133,7 @@ export default function EditPOPage() {
   const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? `${currency} `
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
-  const validCount = lineItems.filter((li) => li.brand_variant_id || li.tool_asset_item_id).length
+  const validCount = lineItems.filter((li) => li.brand_variant_id).length
 
   function handleSelectSupplier(s: { id: string; name: string }) {
     setSupplierId(s.id)
@@ -156,9 +163,9 @@ export default function EditPOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty }) => ({
+      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty }) => ({
         item_name: item_name.trim(),
-        sku, qty, unit, unit_price, total_price, brand_variant_id, tool_asset_item_id, free_qty,
+        sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty,
       })),
       division_id: po?.division_id ?? null,
     }
@@ -167,7 +174,7 @@ export default function EditPOPage() {
   function validate() {
     if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
-    const missingItems = lineItems.filter((li) => !li.brand_variant_id && !li.tool_asset_item_id)
+    const missingItems = lineItems.filter((li) => !li.brand_variant_id)
     if (missingItems.length > 0) {
       toast.error(missingItems.length === 1
         ? 'One line has no item selected — pick a category, item and brand for every row'
@@ -222,7 +229,6 @@ export default function EditPOPage() {
         unit_price: li.unit_price,
         total_price: li.total_price,
         brand_variant_id: li.brand_variant_id,
-        tool_asset_item_id: li.tool_asset_item_id,
         free_qty: li.free_qty,
       })),
     }
