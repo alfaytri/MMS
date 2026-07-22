@@ -42,7 +42,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
   // Find existing unpaid invoice for this SO
   const { data: existing } = await supabase
     .from('so_invoices')
-    .select('id, doc_status, payment_status')
+    .select('id, payment_status')
     .eq('sale_order_id', soId)
     .neq('payment_status', 'paid')
     .limit(1)
@@ -50,11 +50,11 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
   const invoice = existing?.[0]
 
   if (invoice) {
-    const isAlreadySent = invoice.doc_status === 'sent'
-    const hasActivity =
+    // Any payment activity against the invoice means it's been in circulation
+    // and downstream views (PDF cache etc.) need to know it changed.
+    const needsRefresh =
       invoice.payment_status === 'partially_paid' ||
       invoice.payment_status === 'overdue'
-    const needsRefresh = isAlreadySent || hasActivity
 
     // Rebuild line items
     await supabase
@@ -93,10 +93,9 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
         customer_id: (so as SORow).customer_id,
         division_id: (so as SORow).division_id,
         sale_order_id: soId,
-        doc_status: 'draft',
         payment_status: 'unpaid',
         needs_refresh: false,
-        source: 'order',
+        source: 'sale_order',
         source_id: soId,
         source_label: `SO #${(so as SORow).so_number}`,
         total_amount: totalAmount,

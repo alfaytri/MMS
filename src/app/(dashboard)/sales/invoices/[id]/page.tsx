@@ -2,16 +2,11 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Printer, Loader2, RefreshCw, Send, Link2 } from 'lucide-react'
+import { ArrowLeft, Printer, Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { AttachInvoiceDialog } from '@/components/sales/AttachInvoiceDialog'
-import { useUnlinkedIncomingPayments } from '@/hooks/useUnlinkedIncomingPayments'
-import { useCustomerInvoice, useSendInvoice } from '@/hooks/useCustomerInvoices'
-import { useCustomerPayments } from '@/hooks/useCustomerPayments'
-import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
+import { useCustomerInvoice } from '@/hooks/useCustomerInvoices'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -22,12 +17,6 @@ const PAY_STATUS_COLORS: Record<string, string> = {
   overdue:        'bg-red-100 text-red-700',
 }
 
-const DOC_STATUS_COLORS: Record<string, string> = {
-  draft:         'bg-slate-50 text-slate-500 border-slate-200',
-  ready_to_send: 'bg-blue-50 text-blue-600 border-blue-200',
-  sent:          'bg-green-50 text-green-600 border-green-200',
-}
-
 function InvoiceDetailContent() {
   const params = useParams<{ id: string }>()
   const id = params.id
@@ -36,21 +25,10 @@ function InvoiceDetailContent() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [planOpen, setPlanOpen] = useState(false)
-  const [attachOpen, setAttachOpen] = useState(false)
 
   const { data: invoice } = useCustomerInvoice(id)
-  const { data: payments = [] } = useCustomerPayments(id)
-  const { data: unlinkedPayments = [], isLoading: loadingUnlinked } = useUnlinkedIncomingPayments(
-    invoice?.customer_id ?? ''
-  )
-  const sendInvoice = useSendInvoice()
 
-  const hasUnlinkedPayments = unlinkedPayments.length > 0
-  const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
-  const outstanding = (invoice?.total_amount ?? 0) - totalPaid
   const paymentStatus = invoice?.payment_status ?? 'unpaid'
-  const docStatus = invoice?.doc_status ?? 'draft'
 
   async function generatePdf(force = false) {
     setLoading(true)
@@ -96,9 +74,6 @@ function InvoiceDetailContent() {
           {invoice && (
             <>
               <span className="text-sm font-mono font-bold">{invoice.invoice_id}</span>
-              <Badge className={cn('text-xs border', DOC_STATUS_COLORS[docStatus] ?? '')}>
-                {docStatus.replace(/_/g, ' ')}
-              </Badge>
               <Badge className={cn('text-xs', PAY_STATUS_COLORS[paymentStatus] ?? '')}>
                 {paymentStatus.replace(/_/g, ' ')}
               </Badge>
@@ -106,44 +81,6 @@ function InvoiceDetailContent() {
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {invoice && docStatus === 'ready_to_send' && (
-            <Button
-              size="sm"
-              disabled={sendInvoice.isPending}
-              onClick={() => sendInvoice.mutate(invoice.id, {
-                onSuccess: () => toast.success('Invoice marked as sent'),
-                onError: () => toast.error('Failed to mark as sent'),
-              })}
-            >
-              <Send className="h-4 w-4 mr-1.5" />
-              {sendInvoice.isPending ? 'Sending…' : 'Send'}
-            </Button>
-          )}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={loadingUnlinked || !hasUnlinkedPayments}
-                    onClick={() => setAttachOpen(true)}
-                  >
-                    <Link2 className="h-4 w-4 mr-1.5" />
-                    Attach Payment
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!hasUnlinkedPayments && (
-                <TooltipContent>No unlinked payments for this customer</TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-          {invoice && paymentStatus !== 'paid' && (
-            <Button variant="outline" size="sm" onClick={() => setPlanOpen(true)}>
-              Payment Plan
-            </Button>
-          )}
           <Button
             size="sm"
             variant="outline"
@@ -190,24 +127,6 @@ function InvoiceDetailContent() {
         )}
       </div>
 
-      {planOpen && invoice && (
-        <PaymentPlanDialog
-          open
-          onOpenChange={setPlanOpen}
-          invoiceId={invoice.id}
-          outstanding={outstanding}
-          labels={AR_LABELS}
-        />
-      )}
-      {attachOpen && invoice && (
-        <AttachInvoiceDialog
-          open
-          onOpenChange={(o) => { setAttachOpen(o); if (!o) generatePdf(true) }}
-          invoiceId={invoice.id}
-          customerId={invoice.customer_id}
-          invoicePaid={invoice.payment_status === 'paid'}
-        />
-      )}
     </div>
   )
 }

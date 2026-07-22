@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Send, Unlink, X } from 'lucide-react'
+import { AlertTriangle, Unlink, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useDetachPaymentFromInvoice } from '@/hooks/useDetachPaymentFromInvoice'
-import { useSendInvoice, useDismissRefresh } from '@/hooks/useCustomerInvoices'
+import { useDismissRefresh } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { type ArInvoice } from '@/types/invoice'
@@ -25,12 +25,6 @@ type Props = {
   invoice: ArInvoice
 }
 
-const DOC_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft:          { label: 'Draft',          className: 'bg-muted text-foreground' },
-  ready_to_send:  { label: 'Ready to Send',  className: 'bg-blue-100 text-blue-700' },
-  sent:           { label: 'Sent',           className: 'bg-green-100 text-green-700' },
-}
-
 const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   unpaid:         { label: 'Unpaid',         className: 'bg-muted text-muted-foreground' },
   partially_paid: { label: 'Partially Paid', className: 'bg-amber-100 text-amber-700' },
@@ -39,7 +33,6 @@ const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = 
 }
 
 export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
-  const sendInvoice = useSendInvoice()
   const dismissRefresh = useDismissRefresh()
   const { data: payments } = useCustomerPayments(invoice.id)
   const [detachTarget, setDetachTarget] = useState<{ id: string; payment_id: string | null } | null>(null)
@@ -47,7 +40,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + p.amount, 0)
   const outstanding = (invoice.total_amount ?? 0) - totalPaid
-  const docCfg = DOC_STATUS_CONFIG[invoice.doc_status] ?? DOC_STATUS_CONFIG.draft
   const payCfg = PAY_STATUS_CONFIG[invoice.payment_status] ?? PAY_STATUS_CONFIG.unpaid
   return (
     <>
@@ -62,7 +54,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap justify-end">
-                <Badge className={cn('text-xs', docCfg.className)}>{docCfg.label}</Badge>
                 <Badge className={cn('text-xs', payCfg.className)}>{payCfg.label}</Badge>
               </div>
             </div>
@@ -132,22 +123,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                   {formatCurrency(outstanding, 'QAR')}
                 </span>
               </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {invoice.doc_status === 'ready_to_send' && (
-                <Button
-                  className="min-h-11"
-                  onClick={() => {
-                    sendInvoice.mutate(invoice.id, {
-                      onSuccess: () => toast.success('Invoice marked as sent'),
-                      onError: () => toast.error('Failed to mark invoice as sent'),
-                    })
-                  }}
-                >
-                  <Send className="w-4 h-4 mr-2" /> Send to Customer
-                </Button>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">

@@ -15,25 +15,12 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-const DOC_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft:         { label: 'Draft',         className: 'bg-muted text-foreground' },
-  ready_to_send: { label: 'Ready to send', className: 'bg-blue-100 text-blue-700' },
-  sent:          { label: 'Sent',          className: 'bg-green-100 text-green-700' },
-}
-
 const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   unpaid:         { label: 'Unpaid',         className: 'bg-muted text-muted-foreground' },
   partially_paid: { label: 'Partially paid', className: 'bg-amber-100 text-amber-700' },
   paid:           { label: 'Paid',           className: 'bg-green-100 text-green-700' },
   overdue:        { label: 'Overdue',        className: 'bg-red-100 text-red-700' },
 }
-
-const DOC_FILTERS: { value: '' | ArInvoice['doc_status']; label: string }[] = [
-  { value: '',              label: 'All' },
-  { value: 'draft',         label: 'Draft' },
-  { value: 'ready_to_send', label: 'Ready to send' },
-  { value: 'sent',          label: 'Sent' },
-]
 
 const PAYMENT_FILTERS: { value: '' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue'; label: string }[] = [
   { value: '',               label: 'All' },
@@ -46,7 +33,6 @@ const PAYMENT_FILTERS: { value: '' | 'unpaid' | 'partially_paid' | 'paid' | 'ove
 export default function CustomerInvoicesPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const [docFilter, setDocFilter] = useState<'' | ArInvoice['doc_status']>('')
   const [payFilter, setPayFilter] = useState<'' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue'>('')
 
   const { data: invoices, isLoading } = useCustomerInvoices({})
@@ -55,13 +41,12 @@ export default function CustomerInvoicesPage() {
     const list = invoices ?? []
     const q = search.trim().toLowerCase()
     return list.filter((inv) => {
-      if (docFilter && inv.doc_status !== docFilter) return false
       if (payFilter && inv.payment_status !== payFilter) return false
       if (!q) return true
       const hay = [inv.invoice_id, inv.customer_name, inv.so_number].filter(Boolean).join(' ').toLowerCase()
       return hay.includes(q)
     })
-  }, [invoices, search, docFilter, payFilter])
+  }, [invoices, search, payFilter])
 
   const stats = useMemo(() => {
     const list = invoices ?? []
@@ -141,15 +126,6 @@ export default function CustomerInvoicesPage() {
       ),
     },
     {
-      accessorKey: 'doc_status',
-      header: 'Status',
-      cell: ({ row }) => {
-        const s = row.getValue('doc_status') as string
-        const cfg = DOC_STATUS_CONFIG[s] ?? { label: s?.replace('_', ' ') ?? '—', className: '' }
-        return <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
-      },
-    },
-    {
       accessorKey: 'payment_status',
       header: 'Payment',
       cell: ({ row }) => {
@@ -202,23 +178,6 @@ export default function CustomerInvoicesPage() {
       <div className="flex flex-col gap-3">
         <SearchInput value={search} onChange={setSearch} placeholder="Search invoice #, customer or SO #…" />
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</span>
-            {DOC_FILTERS.map((f) => (
-              <button
-                key={f.value || 'all'}
-                onClick={() => setDocFilter(f.value)}
-                className={cn(
-                  'px-3 py-1 min-h-11 md:min-h-0 rounded-full text-xs font-medium border transition-colors',
-                  docFilter === f.value
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'border-border hover:bg-accent'
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Payment</span>
             {PAYMENT_FILTERS.map((f) => (

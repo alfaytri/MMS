@@ -125,21 +125,6 @@ export function useCompleteDelivery() {
         .rpc('complete_delivery_inventory', { p_delivery_id: deliveryId, p_so_id: soId })
       if (error) throw new Error(error.message)
 
-      // Invoice update (non-inventory concern)
-      if (invoiceId) {
-        const { data: inv } = await supabase
-          .from('so_invoices')
-          .select('needs_refresh, doc_status')
-          .eq('id', invoiceId)
-          .single()
-        if (inv && !inv.needs_refresh && inv.doc_status === 'draft') {
-          await supabase
-            .from('so_invoices')
-            .update({ doc_status: 'ready_to_send' })
-            .eq('id', invoiceId)
-        }
-      }
-
       // Create follow-up delivery stub for remaining items (partial delivery)
       if (remainingItems.length > 0) {
         const { data: orig } = await supabase

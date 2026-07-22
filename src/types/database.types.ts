@@ -4670,7 +4670,6 @@ export type Database = {
           discount_amount: number
           discount_label: string | null
           division_id: string | null
-          doc_status: Database["public"]["Enums"]["invoice_doc_status"]
           due_date: string
           id: string
           invoice_id: string
@@ -4702,7 +4701,6 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
-          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
           due_date: string
           id?: string
           invoice_id: string
@@ -4734,7 +4732,6 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
-          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
           due_date?: string
           id?: string
           invoice_id?: string
@@ -4798,7 +4795,7 @@ export type Database = {
           {
             foreignKeyName: "invoices_sale_order_id_fkey"
             columns: ["sale_order_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -5696,7 +5693,6 @@ export type Database = {
           discount_amount: number | null
           discount_label: string | null
           division_id: string | null
-          doc_status: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date: string | null
           id: string | null
           invoice_id: string | null
@@ -5729,7 +5725,6 @@ export type Database = {
           discount_amount?: number | null
           discount_label?: string | null
           division_id?: string | null
-          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
@@ -5762,7 +5757,6 @@ export type Database = {
           discount_amount?: number | null
           discount_label?: string | null
           division_id?: string | null
-          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
           due_date?: string | null
           id?: string | null
           invoice_id?: string | null
@@ -5827,7 +5821,7 @@ export type Database = {
           {
             foreignKeyName: "invoices_sale_order_id_fkey"
             columns: ["sale_order_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -6427,6 +6421,7 @@ export type Database = {
       next_follow_up_order_id: { Args: never; Returns: string }
       next_follow_up_request_number: { Args: never; Returns: string }
       next_po_number: { Args: never; Returns: string }
+      next_so_number: { Args: never; Returns: string }
       po_approval_action: {
         Args: {
           p_action: string
@@ -6713,15 +6708,8 @@ export type Database = {
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
-      invoice_doc_status:
-        | "draft"
-        | "ready_to_send"
-        | "sent"
-        | "pending_approval"
-        | "approved"
-        | "rejected"
       invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue"
-      invoice_source: "order" | "contract" | "quotation"
+      invoice_source: "sale_order" | "contract" | "quotation"
       invoice_status:
         | "draft"
         | "sent"
@@ -6996,16 +6984,8 @@ export const Constants = {
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
       inventory_type: ["products", "spare-parts", "consumables", "tools"],
-      invoice_doc_status: [
-        "draft",
-        "ready_to_send",
-        "sent",
-        "pending_approval",
-        "approved",
-        "rejected",
-      ],
       invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue"],
-      invoice_source: ["order", "contract", "quotation"],
+      invoice_source: ["sale_order", "contract", "quotation"],
       invoice_status: [
         "draft",
         "sent",

@@ -20,12 +20,6 @@ interface SoInvoiceTabProps {
   onClose?: () => void
 }
 
-const DOC_STATUS_STYLE: Record<string, string> = {
-  draft:         'bg-muted text-foreground',
-  ready_to_send: 'bg-blue-100 text-blue-700',
-  sent:          'bg-green-100 text-green-700',
-}
-
 const PAY_STATUS_STYLE: Record<string, string> = {
   unpaid:         'bg-red-100 text-red-700',
   partially_paid: 'bg-amber-100 text-amber-700',
@@ -103,7 +97,6 @@ export function SoInvoiceTab({ so, onClose }: SoInvoiceTabProps) {
               <TableHead>Invoice #</TableHead>
               <TableHead className="hidden sm:table-cell">Issued</TableHead>
               <TableHead className="hidden md:table-cell">Due Date</TableHead>
-              <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-center hidden sm:table-cell">Payment</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="text-right hidden sm:table-cell">Paid</TableHead>
@@ -129,16 +122,6 @@ export function SoInvoiceTab({ so, onClose }: SoInvoiceTabProps) {
               </TableCell>
               <TableCell className="hidden md:table-cell text-sm">
                 {soInvoice.due_date ? formatDate(soInvoice.due_date) : '—'}
-              </TableCell>
-              <TableCell className="text-center">
-                <span className={cn(
-                  'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
-                  DOC_STATUS_STYLE[soInvoice.doc_status] ?? 'bg-muted text-foreground',
-                )}>
-                  {soInvoice.doc_status === 'ready_to_send'
-                    ? 'ready to send'
-                    : soInvoice.doc_status.replace(/_/g, ' ')}
-                </span>
               </TableCell>
               <TableCell className="text-center hidden sm:table-cell">
                 <span className={cn(

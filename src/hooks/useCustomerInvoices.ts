@@ -8,7 +8,6 @@ export type { ArInvoice }
 
 export type ArFilters = {
   search?: string
-  doc_status?: ArInvoice['doc_status'] | ''
   payment_status?: ArInvoice['payment_status'] | ''
 }
 
@@ -21,7 +20,6 @@ export function useCustomerInvoices(filters?: ArFilters) {
         .from('customer_invoices')   // queries the VIEW
         .select('*, invoice_line_items(*), customers(name), sale_orders(so_number)')
         .order('created_at', { ascending: false })
-      if (filters?.doc_status) q = q.eq('doc_status', filters.doc_status)
       if (filters?.payment_status) q = q.eq('payment_status', filters.payment_status)
       if (filters?.search) q = q.ilike('invoice_id', `%${filters.search}%`)
       const { data, error } = await q
@@ -53,21 +51,6 @@ export function useCustomerInvoice(id: string | null) {
         so_number: data.sale_orders?.so_number ?? null,
       } as ArInvoice
     },
-  })
-}
-
-export function useSendInvoice() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('so_invoices')
-        .update({ doc_status: 'sent' })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all }),
   })
 }
 

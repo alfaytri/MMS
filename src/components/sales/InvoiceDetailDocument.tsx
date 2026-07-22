@@ -35,12 +35,6 @@ const PAY_STATUS_COLORS: Record<string, string> = {
   overdue:        'bg-red-100 text-red-700',
 }
 
-const DOC_STATUS_COLORS: Record<string, string> = {
-  draft:         'bg-slate-100 text-slate-700',
-  ready_to_send: 'bg-blue-100 text-blue-700',
-  sent:          'bg-green-100 text-green-700',
-}
-
 function getWatermark(inv: ArInvoice): { text: string; colorClass: string } | null {
   if (inv.payment_status === 'paid')    return { text: 'PAID',    colorClass: 'text-green-400' }
   if (inv.payment_status === 'overdue') return { text: 'OVERDUE', colorClass: 'text-red-400'   }
@@ -106,9 +100,6 @@ export function InvoiceDetailDocument({
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={cn('text-xs', PAY_STATUS_COLORS[invoice.payment_status] ?? '')}>
                 {invoice.payment_status.replace(/_/g, ' ')}
-              </Badge>
-              <Badge className={cn('text-xs', DOC_STATUS_COLORS[invoice.doc_status] ?? '')}>
-                {invoice.doc_status.replace(/_/g, ' ')}
               </Badge>
             </div>
           </div>

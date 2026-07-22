@@ -50,7 +50,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
   const [saving, setSaving] = useState(false)
 
   const eligibleInvoices = useMemo(
-    () => (invoices ?? []).filter((inv) => inv.doc_status !== 'draft'),
+    () => invoices ?? [],
     [invoices]
   )
 

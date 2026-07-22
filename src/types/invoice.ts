@@ -45,7 +45,6 @@ export type ArInvoice = {
   sale_order_id: string | null
   sale_delivery_id: string | null
   invoice_type: 'cash' | 'credit'
-  doc_status: 'draft' | 'ready_to_send' | 'sent'
   payment_status: BillPaymentStatus
   status: string | null
   needs_refresh: boolean
