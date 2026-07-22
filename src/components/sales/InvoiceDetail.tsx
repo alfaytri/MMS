@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Link2, Send, Unlink, X } from 'lucide-react'
+import { AlertTriangle, Send, Unlink, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -12,9 +12,7 @@ import {
   AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { AttachInvoiceDialog } from './AttachInvoiceDialog'
 import { useDetachPaymentFromInvoice } from '@/hooks/useDetachPaymentFromInvoice'
-import { useUnlinkedIncomingPayments } from '@/hooks/useUnlinkedIncomingPayments'
 import { useSendInvoice, useDismissRefresh } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
@@ -46,13 +44,8 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
   const dismissRefresh = useDismissRefresh()
   const { data: payments } = useCustomerPayments(invoice.id)
   const [planOpen, setPlanOpen] = useState(false)
-  const [attachOpen, setAttachOpen]     = useState(false)
   const [detachTarget, setDetachTarget] = useState<{ id: string; payment_id: string | null } | null>(null)
   const detach = useDetachPaymentFromInvoice()
-  const { data: unlinkedPayments = [], isLoading: loadingUnlinked } = useUnlinkedIncomingPayments(
-    invoice.customer_id
-  )
-  const hasUnlinkedPayments = unlinkedPayments.length > 0
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + p.amount, 0)
   const outstanding = (invoice.total_amount ?? 0) - totalPaid
@@ -157,26 +150,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                   <Send className="w-4 h-4 mr-2" /> Send to Customer
                 </Button>
               )}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        variant="outline"
-                        className="min-h-11"
-                        disabled={loadingUnlinked || !hasUnlinkedPayments}
-                        onClick={() => setAttachOpen(true)}
-                      >
-                        <Link2 className="w-4 h-4 mr-2" />
-                        Attach Payment
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {!hasUnlinkedPayments && (
-                    <TooltipContent>No unlinked payments for this customer</TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
               {invoice.payment_status !== 'paid' && (
                 <Button variant="outline" className="min-h-11" onClick={() => setPlanOpen(true)}>
                   Payment Plan
@@ -245,16 +218,6 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
           labels={AR_LABELS}
         />
       )}
-      {attachOpen && (
-        <AttachInvoiceDialog
-          open
-          onOpenChange={setAttachOpen}
-          invoiceId={invoice.id}
-          customerId={invoice.customer_id}
-          invoicePaid={invoice.payment_status === 'paid'}
-        />
-      )}
-
       <AlertDialog
         open={!!detachTarget}
         onOpenChange={(v) => { if (!v) setDetachTarget(null) }}
