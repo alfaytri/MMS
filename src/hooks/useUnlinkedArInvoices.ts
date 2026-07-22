@@ -18,7 +18,7 @@ export function useUnlinkedArInvoices(customerId: string) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .select('id, invoice_id, total_amount, payment_status, issued_date')
         .eq('customer_id', customerId)
         .in('payment_status', ['unpaid', 'partially_paid'])

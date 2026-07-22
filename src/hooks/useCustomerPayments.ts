@@ -130,7 +130,7 @@ export function useCreateCustomerPayment() {
       const totalPaid = (allPayments ?? []).reduce((s: number, p) => s + p.amount, 0)
 
       const { data: inv } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .select('total_amount')
         .eq('id', payload.invoice_id)
         .single()
@@ -140,7 +140,7 @@ export function useCreateCustomerPayment() {
         : 'unpaid'
 
       await supabase
-        .from('invoices')
+        .from('so_invoices')
         .update({ payment_status: newStatus })
         .eq('id', payload.invoice_id)
 

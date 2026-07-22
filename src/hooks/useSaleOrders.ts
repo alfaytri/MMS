@@ -586,7 +586,7 @@ export function useSOPayments(soId: string | null) {
       //   • source_type='invoice',    source_id=<invoice.id>      (post-invoice)
       //   • invoice_id=<invoice.id>                               (legacy invoice-tab path)
       const { data: invRow } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .select('id')
         .eq('sale_order_id', soId!)
         .maybeSingle()

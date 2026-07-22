@@ -10,7 +10,11 @@
 
 **Critical:** `tl_invoices` (Telelink invoices) has its OWN independent `dibsy_*` columns and its OWN webhook branches. Telelink is a live Dibsy flow and must stay untouched. The migration in Task 2 only drops columns from `public.invoices`, never from `tl_invoices`.
 
-**UI rename (locked):** After Dibsy removal, rename user-visible "Invoices" labels to "SO Invoices" so `public.invoices` (sales orders) is unambiguously distinguished from `tl_invoices` (Telelink). This is a display-string change only — the table name stays `invoices`.
+**UI rename (locked):** After Dibsy removal, rename user-visible "Invoices" labels to "SO Invoices" so `public.invoices` (sales orders) is unambiguously distinguished from `tl_invoices` (Telelink). Task 2b covers plural / index-level display strings on sales-order routes only; Task 2c below extends this to the DB itself.
+
+**DB table rename (locked — Task 2c):** In addition to the UI rename, rename the DB table `public.invoices` → `public.so_invoices` for "clear understanding" (the user's direct request). This ripples through: FK constraints (auto-updated by Postgres), views (auto-updated by parse tree), RLS policies (auto-updated), triggers (auto-updated), RPC bodies (must be rewritten — text-defined). Migration `20260723115000_rename_invoices_to_so_invoices.sql` uses `pg_get_functiondef` + `regexp_replace('\minvoices\M', 'so_invoices', 'g')` to auto-rewrite every affected function. Code side: `.from('invoices')` → `.from('so_invoices')` in 13 files (25 total occurrences) + types regen. Ships in the same combined commit as Task 2 + Task 2b.
+
+**Downstream impact on Tasks 3-6 (locked):** All subsequent tasks' SQL bodies must reference `public.so_invoices` (not `public.invoices`). Task briefs 3-6 in this document were drafted before the rename decision — treat their `invoices` references as `so_invoices` when executing. The recreated `customer_invoices` view (from Task 2's migration) still selects from the underlying table via Postgres's OID-bound parse tree, so no additional rebuild needed after the rename.
 
 **Tech Stack:** Next.js 15 App Router, Supabase Postgres (staging `mwvblpgbgxipvrevkeff`, prod `wkmvjxxmzstsvahuiwsz` — paused), TypeScript strict. Migrations via `npx supabase db push`. Dibsy is an external Qatar payment gateway; its webhook is a Next.js API route.
 

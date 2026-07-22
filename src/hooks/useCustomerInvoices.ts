@@ -62,7 +62,7 @@ export function useSendInvoice() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .update({ doc_status: 'sent' })
         .eq('id', id)
       if (error) throw error
@@ -79,7 +79,7 @@ export function useInvoicesBySO(soId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .select('*, invoice_line_items(*), customers(name), sale_orders(so_number)')
         .eq('sale_order_id', soId!)
         .limit(1)
@@ -121,7 +121,7 @@ export function useDismissRefresh() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .update({ needs_refresh: false })
         .eq('id', id)
       if (error) throw error

@@ -192,7 +192,7 @@ export async function generateCreditDebitNotePdf(
 
   if (!isDebit && invoiceOrBillId) {
     const { data: inv } = await supabase
-      .from('invoices')
+      .from('so_invoices')
       .select('invoice_id, customers(phone), sale_orders(division_id)')
       .eq('id', invoiceOrBillId)
       .maybeSingle<{ invoice_id: string; customers: { phone: string | null } | null; sale_orders: { division_id: string | null } | null }>()

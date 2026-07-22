@@ -52,7 +52,7 @@ export async function lazyFetch(db: MmsCcDb, supabase: SupabaseClient, customerI
   let paidByInvoice = new Map<string, number>()
   if (invoiceNumbers.length > 0) {
     const { data: invs, error: invErr } = await supabase
-      .from('invoices')
+      .from('so_invoices')
       .select('invoice_id, paid_amount')
       .in('invoice_id', invoiceNumbers)
     if (invErr) console.error('[orders.lazyFetch] invoices', invErr)

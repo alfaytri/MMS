@@ -31,13 +31,7 @@ export function CustomerInvoiceDetailDialog({ open, onOpenChange, customer }: Pr
         <DialogHeader className="sr-only">
           <DialogTitle>{customer.customer_name} — pending invoices</DialogTitle>
         </DialogHeader>
-        <CustomerInvoiceDetailContent
-          customer={customer}
-          onLinkCreated={(url) => {
-            window.open(url, '_blank', 'noopener,noreferrer')
-            onOpenChange(false)
-          }}
-        />
+        <CustomerInvoiceDetailContent customer={customer} />
       </DialogContent>
     </Dialog>
   )

@@ -57,7 +57,7 @@ export async function generateInvoicePdf(
 
   // ── 1. Fetch invoice ─────────────────────────────────────────────────
   const { data: inv, error: fetchErr } = await supabase
-    .from('invoices')
+    .from('so_invoices')
     .select(`
       id, invoice_id, invoice_type, issued_date, due_date,
       subtotal, discount_amount, total_amount, paid_amount, payment_status,

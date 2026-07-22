@@ -167,7 +167,7 @@ async function createCreditNoteForReturn(
 
   // 2. Fetch linked invoice
   const { data: inv } = await supabase
-    .from('invoices')
+    .from('so_invoices')
     .select('id, invoice_id, total_amount')
     .eq('sale_order_id', ret.source_id)
     .maybeSingle()

@@ -330,7 +330,7 @@ export const NAV_TREE: TreeNode[] = [
           },
           {
             id: 'ps-invoices',
-            label: 'Invoices',
+            label: 'SO Invoices',
             icon: FileText,
             permissions: [
               { key: 'sales.invoices.view', label: 'View Sales Invoices', description: 'Access sales invoice records' },

@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PaymentPortal from '@/components/pay/PaymentPortal'
 import type { PhoneGroup } from '@/components/pay/PaymentPortal'
@@ -34,8 +33,8 @@ export default async function PayPage({ params, searchParams }: Props) {
   // Fall back to regular invoice — use old single-redirect behavior
   if (!clickedInvoice) {
     const { data: regularInvoice } = await supabase
-      .from('invoices')
-      .select('id, invoice_id, payment_status, dibsy_checkout_url, total_amount, paid_amount')
+      .from('so_invoices')
+      .select('id, invoice_id, payment_status, total_amount, paid_amount')
       .eq('id', invoiceId)
       .maybeSingle()
 
@@ -56,10 +55,8 @@ export default async function PayPage({ params, searchParams }: Props) {
       )
     }
 
-    if (regularInvoice.dibsy_checkout_url) {
-      redirect(regularInvoice.dibsy_checkout_url)
-    }
-
+    // Sales-order (public.invoices) invoices no longer support an online
+    // Dibsy checkout link (Option A) — cash / bank transfer / cheque only.
     return (
       <PaymentPortal
         clickedInvoiceId={invoiceId}

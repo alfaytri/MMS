@@ -42,7 +42,7 @@ export function useInvoices(filters: InvoiceFilters = {}) {
     queryFn: async ({ pageParam = 0 }) => {
       const supabase = createClient()
       let q = supabase
-        .from('invoices')
+        .from('so_invoices')
         .select(`
           *,
           customers!inner(name, customer_phones(phone, is_primary)),
@@ -154,7 +154,7 @@ export function useVoidInvoice() {
     }) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .update({
           status: 'void',
           notes: [payload.reason, payload.notes].filter(Boolean).join(' — '),
@@ -195,7 +195,7 @@ export function useIssueCreditNote() {
 
       // Fetch invoice for customer info
       const { data: inv } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .select('customer_id, total_amount')
         .eq('id', payload.invoiceId)
         .single()
@@ -266,7 +266,7 @@ export function useBulkQbSyncInvoices() {
     mutationFn: async (invoiceIds: string[]) => {
       const supabase = createClient()
       const { error } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .update({ qb_synced: true })
         .in('id', invoiceIds)
       if (error) throw error

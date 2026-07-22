@@ -1,13 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { CreditCard, Loader2, Phone } from 'lucide-react'
+import { useMemo } from 'react'
+import { Phone } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
-import { toast } from 'sonner'
 import type {
   CustomerPending,
   CustomerPhone,
@@ -24,8 +22,6 @@ const SOURCE_COLORS: Record<string, string> = {
 
 interface Props {
   customer: CustomerPending
-  /** Called with the Dibsy checkout URL after a batch link is created. */
-  onLinkCreated?: (url: string) => void
 }
 
 interface PhoneGroup {
@@ -60,10 +56,7 @@ function groupInvoicesByPhone(
   return groups
 }
 
-export function CustomerInvoiceDetailContent({ customer, onLinkCreated }: Props) {
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [sending, setSending] = useState(false)
-
+export function CustomerInvoiceDetailContent({ customer }: Props) {
   const unpaid = useMemo(
     () => customer.invoices.filter((inv) => inv.total_amount - inv.paid_amount > 0),
     [customer.invoices],
@@ -78,60 +71,6 @@ export function CustomerInvoiceDetailContent({ customer, onLinkCreated }: Props)
     () => unpaid.reduce((s, i) => s + (i.total_amount - i.paid_amount), 0),
     [unpaid],
   )
-
-  const selectedTotal = useMemo(
-    () =>
-      unpaid
-        .filter((i) => selected.has(i.id))
-        .reduce((s, i) => s + (i.total_amount - i.paid_amount), 0),
-    [unpaid, selected],
-  )
-
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function toggleGroup(invoices: PendingInvoice[]) {
-    const allSelected = invoices.every((i) => selected.has(i.id))
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (allSelected) {
-        for (const i of invoices) next.delete(i.id)
-      } else {
-        for (const i of invoices) next.add(i.id)
-      }
-      return next
-    })
-  }
-
-  async function handleGenerateLink() {
-    if (selected.size === 0) return
-    setSending(true)
-    try {
-      const res = await fetch('/api/payments/dibsy/create-customer-batch-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice_ids: [...selected] }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error ?? 'Failed to create payment link')
-      }
-      const url = data.checkout_url as string
-      await navigator.clipboard.writeText(url).catch(() => {})
-      toast.success('Payment link copied to clipboard')
-      onLinkCreated?.(url)
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create payment link')
-    } finally {
-      setSending(false)
-    }
-  }
 
   return (
     <div className="flex flex-col h-full">
@@ -176,8 +115,6 @@ export function CustomerInvoiceDetailContent({ customer, onLinkCreated }: Props)
           </p>
         ) : (
           groups.map((g) => {
-            const allSelected =
-              g.invoices.length > 0 && g.invoices.every((i) => selected.has(i.id))
             return (
               <section key={g.phone?.id ?? 'other'} className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -195,15 +132,6 @@ export function CustomerInvoiceDetailContent({ customer, onLinkCreated }: Props)
                       · {g.invoices.length}
                     </span>
                   </div>
-                  {g.invoices.length > 1 && (
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-primary hover:underline shrink-0 min-h-9 px-2"
-                      onClick={() => toggleGroup(g.invoices)}
-                    >
-                      {allSelected ? 'Clear group' : 'Select group'}
-                    </button>
-                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -214,27 +142,15 @@ export function CustomerInvoiceDetailContent({ customer, onLinkCreated }: Props)
                         ? (inv.paid_amount / inv.total_amount) * 100
                         : 0
                     const isOverdue = inv.payment_status === 'overdue'
-                    const isSelected = selected.has(inv.id)
                     return (
-                      <button
+                      <div
                         key={inv.id}
-                        type="button"
-                        onClick={() => toggle(inv.id)}
                         className={cn(
-                          'w-full text-left rounded-lg border p-3 space-y-2 transition-colors min-h-11',
-                          isSelected
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:bg-accent/30',
+                          'w-full text-left rounded-lg border p-3 space-y-2 min-h-11',
+                          'border-border',
                         )}
                       >
                         <div className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            readOnly
-                            tabIndex={-1}
-                            className="h-4 w-4 rounded border-input mt-0.5 shrink-0 pointer-events-none"
-                          />
                           <div className="flex-1 min-w-0 space-y-1.5">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="font-mono text-sm font-semibold">
@@ -278,7 +194,7 @@ export function CustomerInvoiceDetailContent({ customer, onLinkCreated }: Props)
                             <Progress value={paidPct} className="h-1.5" />
                           </div>
                         </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -286,33 +202,6 @@ export function CustomerInvoiceDetailContent({ customer, onLinkCreated }: Props)
             )
           })
         )}
-      </div>
-
-      {/* ── Sticky pay bar ─────────────────────────────────────── */}
-      <div className="border-t bg-background px-4 md:px-6 py-3 flex items-center gap-3">
-        <div className="text-xs text-muted-foreground flex-1 min-w-0">
-          {selected.size > 0 ? (
-            <>
-              <span className="font-semibold text-foreground">{selected.size}</span> selected ·{' '}
-              <span className="font-semibold text-foreground">
-                {formatCurrency(selectedTotal)}
-              </span>
-            </>
-          ) : (
-            'Select invoices to generate a payment link'
-          )}
-        </div>
-        <Button
-          onClick={handleGenerateLink}
-          disabled={selected.size === 0 || sending}
-          className="gap-1.5 h-10 shrink-0"
-        >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-          <span className="hidden sm:inline">
-            {sending ? 'Creating…' : 'Generate Link'}
-          </span>
-          <span className="sm:hidden">{sending ? '…' : 'Link'}</span>
-        </Button>
       </div>
     </div>
   )

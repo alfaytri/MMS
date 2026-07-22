@@ -128,13 +128,13 @@ export function useCompleteDelivery() {
       // Invoice update (non-inventory concern)
       if (invoiceId) {
         const { data: inv } = await supabase
-          .from('invoices')
+          .from('so_invoices')
           .select('needs_refresh, doc_status')
           .eq('id', invoiceId)
           .single()
         if (inv && !inv.needs_refresh && inv.doc_status === 'draft') {
           await supabase
-            .from('invoices')
+            .from('so_invoices')
             .update({ doc_status: 'ready_to_send' })
             .eq('id', invoiceId)
         }

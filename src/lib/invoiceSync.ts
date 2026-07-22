@@ -41,7 +41,7 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
 
   // Find existing unpaid invoice for this SO
   const { data: existing } = await supabase
-    .from('invoices')
+    .from('so_invoices')
     .select('id, doc_status, payment_status')
     .eq('sale_order_id', soId)
     .neq('payment_status', 'paid')
@@ -74,20 +74,20 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
     }
 
     await supabase
-      .from('invoices')
+      .from('so_invoices')
       .update({ total_amount: totalAmount, subtotal: totalAmount, needs_refresh: needsRefresh })
       .eq('id', invoice.id)
   } else if ((so as SORow).status === 'confirmed') {
     // Create fresh AR invoice
     const { count } = await supabase
-      .from('invoices')
+      .from('so_invoices')
       .select('*', { count: 'exact', head: true })
     const invoiceIdDisplay = `INV-${String((count ?? 0) + 1).padStart(5, '0')}`
     const today = new Date().toISOString().split('T')[0]
     const due = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
     const { data: newInvoice, error: insErr } = await supabase
-      .from('invoices')
+      .from('so_invoices')
       .insert({
         invoice_id: invoiceIdDisplay,
         customer_id: (so as SORow).customer_id,

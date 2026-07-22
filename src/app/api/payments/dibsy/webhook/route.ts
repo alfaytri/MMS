@@ -37,66 +37,7 @@ export async function POST(request: Request) {
 
   const subscriptionId           = payment.metadata?.subscription_id
   const tlInvoiceId              = payment.metadata?.tl_invoice_id
-  const invoiceId                = payment.metadata?.invoice_id
   const batchId                  = payment.metadata?.batch_id
-  const customerBatchInvoiceIds  = payment.metadata?.customer_batch_invoice_ids
-
-  // Handle batch payment for regular customer invoices (table: invoices, AR)
-  if (customerBatchInvoiceIds) {
-    if (payment.status === 'paid') {
-      let ids: string[] = []
-      try {
-        const parsed = JSON.parse(customerBatchInvoiceIds)
-        if (Array.isArray(parsed)) ids = parsed.filter((x) => typeof x === 'string')
-      } catch {
-        console.error('[dibsy/webhook] customer_batch_invoice_ids parse failed')
-        return NextResponse.json({ error: 'Invalid customer batch metadata' }, { status: 400 })
-      }
-      if (ids.length === 0) {
-        return NextResponse.json({ ok: true })
-      }
-
-      const adminClient = createAdminClient()
-
-      // Fetch each invoice's total to compute paid_amount = total_amount
-      // (the batch link bills the FULL remaining for every invoice in the
-      // selection, so on success they all become fully paid).
-      const { data: invs, error: fetchErr } = await adminClient
-        .from('invoices')
-        .select('id, total_amount')
-        .in('id', ids)
-
-      if (fetchErr || !invs) {
-        console.error('[dibsy/webhook] customer batch fetch failed', fetchErr)
-        return NextResponse.json({ error: 'Invoice fetch failed' }, { status: 500 })
-      }
-
-      const now = new Date().toISOString()
-      let markedCount = 0
-      for (const inv of invs) {
-        const total = Number(inv.total_amount ?? 0)
-        const { data: updated, error } = await adminClient
-          .from('invoices')
-          .update({
-            paid_amount: total,
-            payment_status: 'paid',
-            manually_paid: true,
-            updated_at: now,
-          })
-          .eq('id', inv.id)
-          .neq('payment_status', 'paid')
-          .select('id')
-
-        if (error) {
-          console.error(`[dibsy/webhook] customer-batch invoice ${inv.id} update failed`, error)
-        } else if (updated?.length) {
-          markedCount++
-        }
-      }
-      console.log(`[dibsy/webhook] customer batch ${ids.length} invoices → paid (${markedCount} updated, payment ${dibsyPaymentId})`)
-    }
-    return NextResponse.json({ ok: true })
-  }
 
   // Handle batch payment (multiple TL invoices)
   if (batchId) {
@@ -151,41 +92,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
       }
       console.log(`[dibsy/webhook] tl_invoice ${tlInvoiceId} → paid (payment ${dibsyPaymentId})`)
-    }
-    return NextResponse.json({ ok: true })
-  }
-
-  // Handle regular invoice payment
-  if (invoiceId) {
-    if (payment.status === 'paid') {
-      const adminClient = createAdminClient()
-      const { data: inv } = await adminClient
-        .from('invoices')
-        .select('total_amount, paid_amount')
-        .eq('id', invoiceId)
-        .maybeSingle()
-
-      if (inv) {
-        const paidAmount = Number(payment.amount?.value ?? 0)
-        const newPaidAmount = (inv.paid_amount ?? 0) + paidAmount
-        const fullyPaid = newPaidAmount >= (inv.total_amount ?? 0)
-
-        const { error } = await adminClient
-          .from('invoices')
-          .update({
-            paid_amount: newPaidAmount,
-            payment_status: fullyPaid ? 'paid' : 'partially_paid',
-            manually_paid: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', invoiceId)
-
-        if (error) {
-          console.error('[dibsy/webhook] invoices update failed', error)
-          return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
-        }
-        console.log(`[dibsy/webhook] invoice ${invoiceId} → paid ${paidAmount} QAR (payment ${dibsyPaymentId})`)
-      }
     }
     return NextResponse.json({ ok: true })
   }

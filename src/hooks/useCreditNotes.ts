@@ -217,7 +217,7 @@ export function useApplyCreditNote() {
       const alreadyPaid = (payments ?? []).reduce((s: number, p) => s + p.amount, 0)
 
       const { data: inv } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .select('total_amount, customer_id')
         .eq('id', invoiceId)
         .single()
@@ -255,7 +255,7 @@ export function useApplyCreditNote() {
       const newStatus =
         newPaid >= (inv?.total_amount ?? Infinity) ? 'paid' : 'partially_paid'
       await supabase
-        .from('invoices')
+        .from('so_invoices')
         .update({ payment_status: newStatus })
         .eq('id', invoiceId)
 
@@ -320,7 +320,7 @@ export function useResolveCreditNoteStoreCredit() {
       amount: number
     }) => {
       const { data: inv } = await supabase
-        .from('invoices')
+        .from('so_invoices')
         .select('customer_id')
         .eq('id', input.invoiceId)
         .single()

@@ -845,7 +845,7 @@ export type Database = {
             foreignKeyName: "credit_notes_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoices"
+            referencedRelation: "so_invoices"
             referencedColumns: ["id"]
           },
           {
@@ -2190,155 +2190,7 @@ export type Database = {
             foreignKeyName: "invoice_line_items_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      invoices: {
-        Row: {
-          agent_name: string | null
-          created_at: string | null
-          customer_id: string | null
-          dibsy_checkout_url: string | null
-          dibsy_payment_id: string | null
-          discount_amount: number
-          discount_label: string | null
-          division_id: string | null
-          doc_status: Database["public"]["Enums"]["invoice_doc_status"]
-          due_date: string
-          id: string
-          invoice_id: string
-          invoice_type: Database["public"]["Enums"]["invoice_type"]
-          issued_date: string
-          manually_paid: boolean
-          needs_refresh: boolean
-          notes: string | null
-          paid_amount: number | null
-          payment_status: Database["public"]["Enums"]["invoice_payment_status"]
-          pdf_url: string | null
-          phone_id: string | null
-          qb_synced: boolean | null
-          sale_delivery_id: string | null
-          sale_order_id: string | null
-          source: Database["public"]["Enums"]["invoice_source"]
-          source_id: string
-          source_label: string | null
-          status: Database["public"]["Enums"]["invoice_status"] | null
-          subtotal: number | null
-          tax: number | null
-          total_amount: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          agent_name?: string | null
-          created_at?: string | null
-          customer_id?: string | null
-          dibsy_checkout_url?: string | null
-          dibsy_payment_id?: string | null
-          discount_amount?: number
-          discount_label?: string | null
-          division_id?: string | null
-          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
-          due_date: string
-          id?: string
-          invoice_id: string
-          invoice_type?: Database["public"]["Enums"]["invoice_type"]
-          issued_date: string
-          manually_paid?: boolean
-          needs_refresh?: boolean
-          notes?: string | null
-          paid_amount?: number | null
-          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
-          pdf_url?: string | null
-          phone_id?: string | null
-          qb_synced?: boolean | null
-          sale_delivery_id?: string | null
-          sale_order_id?: string | null
-          source: Database["public"]["Enums"]["invoice_source"]
-          source_id: string
-          source_label?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"] | null
-          subtotal?: number | null
-          tax?: number | null
-          total_amount?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          agent_name?: string | null
-          created_at?: string | null
-          customer_id?: string | null
-          dibsy_checkout_url?: string | null
-          dibsy_payment_id?: string | null
-          discount_amount?: number
-          discount_label?: string | null
-          division_id?: string | null
-          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
-          due_date?: string
-          id?: string
-          invoice_id?: string
-          invoice_type?: Database["public"]["Enums"]["invoice_type"]
-          issued_date?: string
-          manually_paid?: boolean
-          needs_refresh?: boolean
-          notes?: string | null
-          paid_amount?: number | null
-          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
-          pdf_url?: string | null
-          phone_id?: string | null
-          qb_synced?: boolean | null
-          sale_delivery_id?: string | null
-          sale_order_id?: string | null
-          source?: Database["public"]["Enums"]["invoice_source"]
-          source_id?: string
-          source_label?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"] | null
-          subtotal?: number | null
-          tax?: number | null
-          total_amount?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customer_credit_summary"
-            referencedColumns: ["customer_id"]
-          },
-          {
-            foreignKeyName: "invoices_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_phone_id_fkey"
-            columns: ["phone_id"]
-            isOneToOne: false
-            referencedRelation: "customer_phones"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_sale_delivery_id_fkey"
-            columns: ["sale_delivery_id"]
-            isOneToOne: false
-            referencedRelation: "sale_deliveries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_sale_order_id_fkey"
-            columns: ["sale_order_id"]
-            isOneToOne: false
-            referencedRelation: "sale_orders"
+            referencedRelation: "so_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -2902,7 +2754,7 @@ export type Database = {
             foreignKeyName: "payment_plans_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoices"
+            referencedRelation: "so_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -3101,7 +2953,7 @@ export type Database = {
             foreignKeyName: "payments_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoices"
+            referencedRelation: "so_invoices"
             referencedColumns: ["id"]
           },
           {
@@ -4810,6 +4662,148 @@ export type Database = {
           },
         ]
       }
+      so_invoices: {
+        Row: {
+          agent_name: string | null
+          created_at: string | null
+          customer_id: string | null
+          discount_amount: number
+          discount_label: string | null
+          division_id: string | null
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"]
+          due_date: string
+          id: string
+          invoice_id: string
+          invoice_type: Database["public"]["Enums"]["invoice_type"]
+          issued_date: string
+          manually_paid: boolean
+          needs_refresh: boolean
+          notes: string | null
+          paid_amount: number | null
+          payment_status: Database["public"]["Enums"]["invoice_payment_status"]
+          pdf_url: string | null
+          phone_id: string | null
+          qb_synced: boolean | null
+          sale_delivery_id: string | null
+          sale_order_id: string | null
+          source: Database["public"]["Enums"]["invoice_source"]
+          source_id: string
+          source_label: string | null
+          status: Database["public"]["Enums"]["invoice_status"] | null
+          subtotal: number | null
+          tax: number | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          discount_amount?: number
+          discount_label?: string | null
+          division_id?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
+          due_date: string
+          id?: string
+          invoice_id: string
+          invoice_type?: Database["public"]["Enums"]["invoice_type"]
+          issued_date: string
+          manually_paid?: boolean
+          needs_refresh?: boolean
+          notes?: string | null
+          paid_amount?: number | null
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
+          pdf_url?: string | null
+          phone_id?: string | null
+          qb_synced?: boolean | null
+          sale_delivery_id?: string | null
+          sale_order_id?: string | null
+          source: Database["public"]["Enums"]["invoice_source"]
+          source_id: string
+          source_label?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
+          subtotal?: number | null
+          tax?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          discount_amount?: number
+          discount_label?: string | null
+          division_id?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"]
+          due_date?: string
+          id?: string
+          invoice_id?: string
+          invoice_type?: Database["public"]["Enums"]["invoice_type"]
+          issued_date?: string
+          manually_paid?: boolean
+          needs_refresh?: boolean
+          notes?: string | null
+          paid_amount?: number | null
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
+          pdf_url?: string | null
+          phone_id?: string | null
+          qb_synced?: boolean | null
+          sale_delivery_id?: string | null
+          sale_order_id?: string | null
+          source?: Database["public"]["Enums"]["invoice_source"]
+          source_id?: string
+          source_label?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
+          subtotal?: number | null
+          tax?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_phone_id_fkey"
+            columns: ["phone_id"]
+            isOneToOne: false
+            referencedRelation: "customer_phones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_delivery_id_fkey"
+            columns: ["sale_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "sale_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_adjustment_approvals: {
         Row: {
           action_at: string | null
@@ -5699,8 +5693,6 @@ export type Database = {
           agent_name: string | null
           created_at: string | null
           customer_id: string | null
-          dibsy_checkout_url: string | null
-          dibsy_payment_id: string | null
           discount_amount: number | null
           discount_label: string | null
           division_id: string | null
@@ -5734,8 +5726,6 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          dibsy_checkout_url?: string | null
-          dibsy_payment_id?: string | null
           discount_amount?: number | null
           discount_label?: string | null
           division_id?: string | null
@@ -5769,8 +5759,6 @@ export type Database = {
           agent_name?: string | null
           created_at?: string | null
           customer_id?: string | null
-          dibsy_checkout_url?: string | null
-          dibsy_payment_id?: string | null
           discount_amount?: number | null
           discount_label?: string | null
           division_id?: string | null

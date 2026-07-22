@@ -126,7 +126,7 @@ export default function SalesAgingReportPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
-                <TableHead className="text-center hidden sm:table-cell">Invoices</TableHead>
+                <TableHead className="text-center hidden sm:table-cell">SO Invoices</TableHead>
                 <SortHeader label="Current" sortId="current" className="hidden md:table-cell" />
                 <SortHeader label="1–30" sortId="1_30" className="hidden md:table-cell" />
                 <SortHeader label="31–60" sortId="31_60" className="hidden lg:table-cell" />

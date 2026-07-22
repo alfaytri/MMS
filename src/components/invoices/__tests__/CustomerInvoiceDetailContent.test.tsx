@@ -1,10 +1,7 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { CustomerInvoiceDetailContent } from '../CustomerInvoiceDetailContent'
 import type { CustomerPending, CustomerPhone, PendingInvoice } from '@/hooks/usePendingPayments'
-
-// sonner toast triggers act warnings if not stubbed.
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const PHONE_A: CustomerPhone = { id: 'phone-a', phone: '+97412345678', is_primary: true, label: null }
 const PHONE_B: CustomerPhone = { id: 'phone-b', phone: '+97487654321', is_primary: false, label: 'Work' }
@@ -88,23 +85,6 @@ describe('CustomerInvoiceDetailContent', () => {
     }
     render(<CustomerInvoiceDetailContent customer={customer} />)
     expect(screen.getByText('No pending invoices')).toBeInTheDocument()
-  })
-
-  it('disables the Generate Link button when nothing is selected', () => {
-    const customer: CustomerPending = {
-      customer_id: 'cust-1',
-      customer_name: 'Test',
-      phones: [PHONE_A],
-      division_id: null,
-      division_name: null,
-      total_pending: 100,
-      invoice_count: 1,
-      overdue_count: 0,
-      invoices: [inv('1', 'phone-a', 100)],
-    }
-    render(<CustomerInvoiceDetailContent customer={customer} />)
-    const btn = screen.getByRole('button', { name: /Link/i })
-    expect(btn).toBeDisabled()
   })
 
   it('orphan phone_id (not in customer.phones) lands in "Other"', () => {
