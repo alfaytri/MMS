@@ -120,18 +120,18 @@ export default function CreateSOPage() {
     credit_group_name?: string | null
     credit_group_limit?: number | null
     credit_group_default_terms?: string | null
-    customer_type?: string | null
   }) {
     setCustomerId(c.id); setCustomerName(c.name); setCustomerSearch(c.name)
     setCustomerCreditGroupId(c.credit_group_id)
     setCustomerCreditGroupName(c.credit_group_name ?? null)
     setCustomerCreditLimit(c.credit_group_limit ?? null)
-    setCustomerType((c.customer_type as 'cash' | 'credit') ?? 'credit')
+    // customer_type is derived from credit_group_id (column dropped 2026-07-24).
+    setCustomerType(c.credit_group_id ? 'credit' : 'cash')
     setCustomerOpen(false)
 
     // Auto-select payment terms from the credit group's default (credit only)
     const defaultTerms = c.credit_group_default_terms ?? null
-    if (defaultTerms && c.customer_type !== 'cash') {
+    if (defaultTerms && c.credit_group_id) {
       const preset = PAYMENT_PRESETS.find((p) => p.label === defaultTerms)
       setTerms((prev) => ({
         ...prev,
@@ -143,7 +143,7 @@ export default function CreateSOPage() {
     }
   }
 
-  function handleCustomerCreated(created: { id: string; name: string; credit_group_id: string | null; customer_type: string }) {
+  function handleCustomerCreated(created: { id: string; name: string; credit_group_id: string | null }) {
     const group = creditGroups.find((g) => g.id === created.credit_group_id)
     handleSelectCustomer({
       id:                         created.id,
@@ -152,7 +152,6 @@ export default function CreateSOPage() {
       credit_group_name:          group?.name ?? null,
       credit_group_limit:         group?.credit_limit ?? null,
       credit_group_default_terms: group?.default_payment_terms ?? null,
-      customer_type:              created.customer_type as 'cash' | 'credit',
     })
   }
 
@@ -331,7 +330,7 @@ export default function CreateSOPage() {
                             <Check className={`mr-2 h-4 w-4 ${customerId === c.id ? 'opacity-100' : 'opacity-0'}`} />
                             <div className="flex-1">
                               <span>{c.name}</span>
-                              {c.customer_type === 'cash' && (
+                              {!c.credit_group_id && (
                                 <span className="ml-2 text-[10px] text-orange-600 font-medium">Cash</span>
                               )}
                             </div>

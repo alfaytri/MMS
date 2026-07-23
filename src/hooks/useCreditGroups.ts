@@ -190,7 +190,7 @@ export function useAssignCreditGroup() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('customers')
-        .update({ credit_group_id: groupId, customer_type: 'credit' })
+        .update({ credit_group_id: groupId })
         .eq('id', customerId)
         .select('id, credit_group_id, name')
       if (error) throw error

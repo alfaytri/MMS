@@ -59,6 +59,7 @@ export const NAV_TREE: TreeNode[] = [
             permissions: [
               { key: 'warehouse.warehouses.view', label: 'View Warehouses Tab', description: 'See the Warehouses tab listing physical warehouses' },
               { key: 'warehouse.settings.manage', label: 'Manage WH Settings', description: 'Edit warehouses, assign Warehouse RPs, configure reorder points' },
+              { key: 'warehouse.responsible_person', label: 'Warehouse RP (assignable)', description: 'Users holding this role can be assigned as a Warehouse Responsible Person for one or more warehouses (dispatch / receive transfers, count checks, etc.)' },
             ],
           },
           {

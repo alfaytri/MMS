@@ -37,7 +37,8 @@ export function useWarehouseResponsiblePersons(warehouseId: string | null) {
 
 /**
  * Fetch all profiles eligible to be a warehouse responsible person —
- * any role with custom_roles.is_warehouse_responsible = true.
+ * any role holding the `warehouse.responsible_person` permission. Replaces
+ * the old custom_roles.is_warehouse_responsible boolean (dropped 2026-07-24).
  */
 export function useResponsiblePersonCandidates() {
   return useQuery({
@@ -46,9 +47,8 @@ export function useResponsiblePersonCandidates() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('user_custom_roles')
-        .select('profile_id, profiles!user_custom_roles_profile_id_fkey(full_name), custom_roles!inner(name, is_warehouse_responsible, deleted_at)')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .eq('custom_roles.is_warehouse_responsible' as any, true)
+        .select('profile_id, profiles!user_custom_roles_profile_id_fkey(full_name), custom_roles!inner(name, permissions, deleted_at)')
+        .contains('custom_roles.permissions', ['warehouse.responsible_person'])
         .is('custom_roles.deleted_at', null)
       if (error) throw error
       const dedup = new Map<string, { profile_id: string; full_name: string | null }>()

@@ -43,7 +43,6 @@ const roleSchema = z.object({
   description:            z.string().optional().default(''),
   permissions:            z.array(z.string()).default([]),
   is_approval_slot:       z.boolean().default(false),
-  is_warehouse_responsible: z.boolean().default(false),
   is_inventory_receiver:  z.boolean().default(false),
 })
 
@@ -196,7 +195,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
-    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_warehouse_responsible: false, is_inventory_receiver: false },
+    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_inventory_receiver: false },
   })
 
   useEffect(() => {
@@ -206,12 +205,11 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
         description: role.description ?? '',
         permissions: (role.permissions as string[]) ?? [],
         is_approval_slot:      Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot),
-        is_warehouse_responsible:           Boolean((role as CustomRole & { is_warehouse_responsible?: boolean }).is_warehouse_responsible),
         is_inventory_receiver: Boolean((role as CustomRole & { is_inventory_receiver?: boolean }).is_inventory_receiver),
       })
       setExpandedIds(new Set())
     } else if (open) {
-      form.reset({ name: '', description: '', permissions: [], is_approval_slot: false, is_warehouse_responsible: false, is_inventory_receiver: false })
+      form.reset({ name: '', description: '', permissions: [], is_approval_slot: false, is_inventory_receiver: false })
       setExpandedIds(new Set())
     }
   }, [open, role, form])
@@ -299,25 +297,6 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                       <p className="text-xs text-muted-foreground">
                         Mark this role as an approval-slot so users holding it can fill steps in PO,
                         Inventory Check, and Stock Adjustment approval chains.
-                      </p>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="is_warehouse_responsible"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-md border border-border p-3 bg-card">
-                    <div className="space-y-0.5 pr-3">
-                      <FormLabel className="text-sm">Warehouse Responsible Person (RP)</FormLabel>
-                      <p className="text-xs text-muted-foreground">
-                        Mark this role as a Warehouse RP so users holding it appear as
-                        candidates in the Warehouse dialog&apos;s Warehouse RPs picker.
                       </p>
                     </div>
                     <FormControl>

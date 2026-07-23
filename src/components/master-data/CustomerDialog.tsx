@@ -34,7 +34,7 @@ interface CustomerDialogProps {
   onOpenChange: (open: boolean) => void
   groups:       GroupOption[]
   customer?:    Customer | null
-  onCreated?:   (customer: { id: string; name: string; credit_group_id: string | null; customer_type: string }) => void
+  onCreated?:   (customer: { id: string; name: string; credit_group_id: string | null }) => void
 }
 
 function displayNameFromPath(path: string, slot: Slot): string {
@@ -86,7 +86,8 @@ export function CustomerDialog({
       setName(customer.name ?? '')
       setPhones(seedPhoneRows(customer.phones))
       setEmail(customer.email ?? '')
-      setCustomerType((customer.customer_type as 'cash' | 'credit') ?? 'cash')
+      // customer_type is derived from credit_group_id (column dropped 2026-07-24).
+      setCustomerType(customer.credit_group_id ? 'credit' : 'cash')
       setEntityType((customer.entity_type as 'individual' | 'business') ?? 'individual')
       setGroupId(customer.credit_group_id ?? '')
       setCrDoc(customer.cr_url ? { path: customer.cr_url, name: displayNameFromPath(customer.cr_url, 'cr') } : null)
@@ -98,7 +99,8 @@ export function CustomerDialog({
         : null)
     } else if (!isEdit) {
       setName(''); setPhones([newPhoneRow(true)]); setEmail('')
-      setCustomerType('credit'); setEntityType('individual'); setGroupId('')
+      // New customers default to cash — a credit group must be picked to promote.
+      setCustomerType('cash'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
     }
     setUploading(null)
@@ -108,7 +110,7 @@ export function CustomerDialog({
   const docsRequired     = customerType === 'credit' && !!groupId
   const businessDocsReq  = docsRequired && entityType === 'business'
 
-  const isCashToCredit       = isEdit && customer?.customer_type === 'cash' && customerType === 'credit'
+  const isCashToCredit       = isEdit && !customer?.credit_group_id && customerType === 'credit'
   const isIndividualToBusiness = isEdit && customer?.entity_type === 'individual' && entityType === 'business'
 
   function updatePhone(key: string, patch: Partial<PhoneRow>) {
@@ -236,10 +238,10 @@ export function CustomerDialog({
             name:                   name.trim(),
             phones:                 phonesPayload,
             email:                  email.trim() || null,
-            customer_type:          routeGroupViaApproval
-              ? (customer.customer_type as 'cash' | 'credit') ?? 'cash'
-              : customerType,
             entity_type:            entityType,
+            // customer_type is derived server-side from credit_group_id.
+            // routeGroupViaApproval keeps the current group until approval
+            // lands; otherwise clear it when saving as cash.
             credit_group_id:        routeGroupViaApproval
               ? (customer.credit_group_id ?? null)
               : (customerType === 'credit' ? groupId : null),
@@ -251,7 +253,6 @@ export function CustomerDialog({
             name:                   customer.name,
             phones:                 customer.phones ?? [],
             email:                  customer.email,
-            customer_type:          customer.customer_type,
             entity_type:            customer.entity_type,
             credit_group_id:        customer.credit_group_id,
             credit_group_name:      customer.credit_group_name ?? null,
@@ -297,8 +298,9 @@ export function CustomerDialog({
         name:                   name.trim(),
         phones:                 phonesPayload,
         email:                  email.trim() || null,
-        customer_type:          newGroupNeedsApproval ? 'cash' : customerType,
         entity_type:            entityType,
+        // customer_type is derived — leave credit_group_id NULL when the
+        // group still needs approval OR the user picked cash.
         credit_group_id:        newGroupNeedsApproval
           ? null
           : (customerType === 'credit' ? groupId : null),
@@ -312,7 +314,6 @@ export function CustomerDialog({
             id: created.id,
             name: name.trim(),
             credit_group_id: customerType === 'credit' ? groupId || null : null,
-            customer_type: newGroupNeedsApproval ? 'cash' : customerType,
           }
           if (!newGroupNeedsApproval) {
             toast.success('Customer created')

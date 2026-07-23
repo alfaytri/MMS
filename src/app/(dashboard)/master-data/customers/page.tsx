@@ -177,7 +177,7 @@ export default function CustomersPage() {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <Badge variant="outline" className="text-[10px] capitalize">
-                        {c.customer_type ?? '—'}
+                        {c.credit_group_id ? 'credit' : 'cash'}
                       </Badge>
                     </TableCell>
                     <TableCell>

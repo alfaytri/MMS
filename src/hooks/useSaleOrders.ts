@@ -293,7 +293,6 @@ export function useCreateCustomer() {
       phones: { phone: string; is_primary: boolean }[]
       email: string | null
       credit_group_id?: string | null
-      customer_type?: 'cash' | 'credit'
       entity_type?: 'individual' | 'business'
       cr_url?: string | null
       establishment_id_url?: string | null
@@ -353,7 +352,6 @@ export function useUpdateCustomer() {
         name?:                   string
         phones?:                 { phone: string; is_primary: boolean }[]
         email?:                  string | null
-        customer_type?:          'cash' | 'credit'
         entity_type?:            'individual' | 'business'
         credit_group_id?:        string | null
         cr_url?:                 string | null
@@ -365,7 +363,6 @@ export function useUpdateCustomer() {
         name?:                   string
         phones?:                 { phone: string; is_primary: boolean }[]
         email?:                  string | null
-        customer_type?:          string | null
         entity_type?:            string | null
         credit_group_id?:        string | null
         credit_group_name?:      string | null
@@ -440,7 +437,6 @@ export function useUpdateCustomer() {
           diff.push({ field: 'phones', from: prevKey || null, to: nextKey || null })
         }
       }
-      cmp('customer_type',          args.previous.customer_type)
       cmp('entity_type',            args.previous.entity_type)
       cmp('cr_url',                 args.previous.cr_url,                'cr_doc')
       cmp('establishment_id_url',   args.previous.establishment_id_url,  'establishment_id_doc')
