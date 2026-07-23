@@ -137,7 +137,7 @@ export function PaymentFormDialog({
     reference: z.string().optional().default(''),
     notes: z.string().optional().default(''),
     exchange_rate: showExchangeRate
-      ? z.coerce.number({ invalid_type_error: 'Enter exchange rate' }).positive('Enter exchange rate')
+      ? z.coerce.number({ message: 'Enter exchange rate' }).positive('Enter exchange rate')
       : z.coerce.number().positive().optional(),
   })
 

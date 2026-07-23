@@ -184,7 +184,9 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         .select('id, name, team_id, teams!fk_employee_team(name)')
         .eq('profile_id', profile.id)
         .maybeSingle()
-      return data ?? null
+      if (!data) return null
+      const teams = Array.isArray(data.teams) ? data.teams[0] ?? null : data.teams
+      return { id: data.id, name: data.name, team_id: data.team_id, teams }
     },
     enabled: !!profile?.id && currentlyTl && SHOW_TEAMS_CONTROL,
   })
@@ -200,7 +202,14 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         .not('team_id', 'is', null)
         .eq('status', 'active')
         .order('name')
-      return (data ?? []) as { id: string; name: string; team_id: string; teams: { id: string; name: string } }[]
+      return (data ?? [])
+        .map((e) => ({
+          id: e.id,
+          name: e.name,
+          team_id: e.team_id ?? '',
+          teams: Array.isArray(e.teams) ? e.teams[0] ?? null : e.teams,
+        }))
+        .filter((e): e is { id: string; name: string; team_id: string; teams: { id: string; name: string } } => e.teams !== null)
     },
     enabled: isTl && SHOW_TEAMS_CONTROL,
   })

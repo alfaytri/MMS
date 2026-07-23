@@ -48,9 +48,10 @@ function formatAmt(amount: number, currencyCode: string, symbol?: string) {
   return `${prefix}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function draftToLineItemRows(items: (POLineItemDraft & { line_type: LineType })[]): LineItemRow[] {
+function draftToLineItemRows(items: (POLineItemDraft & { line_type?: LineType })[]): LineItemRow[] {
   return items.map((li) => ({
     ...li,
+    line_type: (li.line_type ?? 'products') as LineType,
     _key: crypto.randomUUID(),
   }))
 }

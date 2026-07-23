@@ -8,7 +8,6 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { FifoLayersTable } from './FifoLayersTable'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
-import { ReservedOrdersDialog } from './ReservedOrdersDialog'
 import { InventoryReceivalDialog } from '@/components/inventory/InventoryReceivalDialog'
 import { useArchiveInventoryBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
 import { useWarehouses } from '@/hooks/useWarehouses'
@@ -115,7 +114,6 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
   const [fifoOpen, setFifoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
-  const [reservedOpen, setReservedOpen] = useState(false)
   const [invReceivalOpen, setInvReceivalOpen] = useState(false)
   const archive = useArchiveInventoryBrandVariant()
   const { data: canCreateInvRcv = false } = useCanCreateInventoryReceivals()
@@ -155,13 +153,9 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
         </TableCell>
         <TableCell className="text-right">
           {reservedQty > 0 ? (
-            <button
-              title="Click to see which orders are holding this reservation"
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
-              onClick={(e) => { e.stopPropagation(); setReservedOpen(true) }}
-            >
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-orange-100 text-orange-700">
               {reservedQty}
-            </button>
+            </span>
           ) : (
             <span className="text-[11px] text-muted-foreground">—</span>
           )}
@@ -234,13 +228,6 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
         brandVariantId={variant.id}
         variantLabel={displayBrand}
         variantCode={variant.code ?? '—'}
-      />
-
-      <ReservedOrdersDialog
-        open={reservedOpen}
-        onOpenChange={setReservedOpen}
-        brandVariantId={variant.id}
-        variantLabel={displayBrand}
       />
 
       <ConfirmDialog

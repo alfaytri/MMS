@@ -61,7 +61,7 @@ export function usePayments(filters: PaymentFilters = {}) {
         .from('payments')
         .select(`
           *,
-          invoices(invoice_id, total_amount, paid_amount, source, customer_id),
+          so_invoices!payments_invoice_id_fkey(invoice_id, total_amount, paid_amount, source, customer_id),
           customers!payments_customer_id_fkey(name, customer_phones(phone, is_primary))
         `)
         .eq('direction', 'incoming')
@@ -86,7 +86,7 @@ export function usePayments(filters: PaymentFilters = {}) {
       // DB-level filtering on joined tables — no client-side filtering needed
       if (filters.invoiceSearch) {
         const safe = filters.invoiceSearch.replace(/%/g, '\\%')
-        q = q.ilike('invoices.invoice_id', `%${safe}%`)
+        q = q.ilike('so_invoices.invoice_id', `%${safe}%`)
       }
       if (filters.customerSearch) {
         const safe = filters.customerSearch.replace(/%/g, '\\%')
@@ -99,7 +99,7 @@ export function usePayments(filters: PaymentFilters = {}) {
 
       // 2. Map joined data to FinancePayment — no batch lookups needed
       const mapped = payments.map((p) => {
-        const inv = p.invoices
+        const inv = p.so_invoices
         const cust = p.customers
         const primaryPhone = cust?.customer_phones?.find(
           (ph) => ph.is_primary
@@ -107,7 +107,7 @@ export function usePayments(filters: PaymentFilters = {}) {
         return {
           ...p,
           direction: 'incoming' as const,
-          invoices: undefined, // remove nested join objects
+          so_invoices: undefined, // remove nested join objects
           customers: undefined,
           invoice_display: inv?.invoice_id ?? null,
           invoice_total: inv?.total_amount ?? null,

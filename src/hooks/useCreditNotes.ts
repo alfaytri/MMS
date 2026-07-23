@@ -113,13 +113,13 @@ export function useCreditNotes() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('credit_notes')
-        .select('*, credit_note_lines(*), invoices(invoice_id), returns!source_return_id(return_number)')
+        .select('*, credit_note_lines(*), so_invoices!credit_notes_invoice_id_fkey(invoice_id), returns!source_return_id(return_number)')
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
       return (data ?? []).map((cn) => ({
         ...cn,
-        invoice_display: cn.invoices?.invoice_id ?? null,
+        invoice_display: cn.so_invoices?.invoice_id ?? null,
         return_number: cn.returns?.return_number ?? null,
       })) as CreditNote[]
     },

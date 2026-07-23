@@ -85,7 +85,7 @@ export async function generateBillPdf(
     })
   }
 
-  if (po) {
+  if (po && bill.purchase_order_id) {
     const { data: poPayments, error: poErr } = await supabase
       .from('payments')
       .select('date, amount, method, reference')

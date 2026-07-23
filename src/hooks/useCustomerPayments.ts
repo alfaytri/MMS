@@ -31,7 +31,7 @@ export function useCustomerPayments(invoiceId?: string) {
       const supabase = createClient()
       let q = supabase
         .from('payments')
-        .select('*, customer_id, invoices(invoice_id, customers(name))')
+        .select('*, customer_id, so_invoices!payments_invoice_id_fkey(invoice_id, customers(name))')
         .eq('direction', 'incoming')
         .order('date', { ascending: false })
       if (invoiceId) q = q.eq('invoice_id', invoiceId)
@@ -61,8 +61,8 @@ export function useCustomerPayments(invoiceId?: string) {
         const soInfo = p.source_type === 'sale_order' && p.source_id ? soMap[p.source_id] : null
         return {
           ...p,
-          invoice_display: p.invoices?.invoice_id ?? null,
-          customer_name: p.invoices?.customers?.name ?? soInfo?.customer_name ?? null,
+          invoice_display: p.so_invoices?.invoice_id ?? null,
+          customer_name: p.so_invoices?.customers?.name ?? soInfo?.customer_name ?? null,
           so_number: soInfo?.so_number ?? null,
         }
       }) as CustomerPayment[]

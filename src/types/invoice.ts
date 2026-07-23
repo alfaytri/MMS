@@ -126,6 +126,8 @@ export type DebitNote = {
   created_by: string | null
   created_at: string
   updated_at: string
+  po_number?: string | null
+  return_number?: string | null
 }
 
 export type DebitNoteLine = {

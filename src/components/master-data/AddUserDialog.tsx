@@ -78,9 +78,13 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
         .eq('status', 'active')
         .order('name')
       if (error) return []
-      return (data ?? []).filter((e: { teams: unknown }) => e.teams !== null) as {
-        id: string; name: string; teams: { id: string; name: string }
-      }[]
+      return (data ?? [])
+        .map((e) => ({
+          id: e.id,
+          name: e.name,
+          teams: Array.isArray(e.teams) ? e.teams[0] ?? null : e.teams,
+        }))
+        .filter((e): e is { id: string; name: string; teams: { id: string; name: string } } => e.teams !== null)
     },
     enabled: isTl && SHOW_TEAMS_CONTROL,
   })

@@ -113,7 +113,7 @@ export function useApproveStep() {
         p_approver_name: me.fullName ?? me.email,
         p_approver_profile_id: me.profileId!,
         p_action: 'approve',
-        p_comment: comment || null,
+        p_comment: comment || undefined,
       })
       if (error) throw error
       return data as { ok: boolean; po_status: string; action: string; roles: string[] }
@@ -188,7 +188,7 @@ export function useForceApproveAllSteps() {
         p_approver_name: me.fullName ?? me.email,
         p_approver_profile_id: me.profileId,
         p_action: 'force_approve_all',
-        p_comment: forceComment?.trim() || null,
+        p_comment: forceComment?.trim() || undefined,
       })
       if (error) throw error
       const result = data as { ok: boolean; po_status: string; action: string; roles: string[] }
@@ -229,7 +229,7 @@ export function useRejectPO() {
         p_approver_name: me.fullName ?? me.email,
         p_approver_profile_id: me.profileId!,
         p_action: mode === 'full_rejection' ? 'reject_cancel' : 'reject_draft',
-        p_comment: comment || null,
+        p_comment: comment || undefined,
       })
       if (error) throw error
       return data as { ok: boolean; po_status: string; action: string; roles: string[] }
