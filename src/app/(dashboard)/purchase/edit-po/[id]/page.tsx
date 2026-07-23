@@ -289,6 +289,8 @@ export default function EditPOPage() {
       delivery_terms: version.delivery_terms ?? '',
       delivery_terms_notes: version.delivery_terms_notes ?? '',
       expected_delivery: version.expected_delivery ?? '',
+      // po_versions doesn't snapshot quote_deadline; fall back to the live PO value.
+      quote_deadline: po?.quote_deadline ?? '',
       vendor_notes: version.vendor_notes ?? '',
     })
     setLineItems(draftToLineItemRows(version.po_version_lines))
@@ -352,6 +354,7 @@ export default function EditPOPage() {
       delivery_terms: version.delivery_terms ?? '',
       delivery_terms_notes: version.delivery_terms_notes ?? '',
       expected_delivery: version.expected_delivery ?? '',
+      quote_deadline: po?.quote_deadline ?? '',
       vendor_notes: version.vendor_notes ?? '',
     }
 

@@ -85,7 +85,7 @@ export async function PATCH(
     if (Object.keys(profileUpdates).length > 0) {
       const { error: updErr } = await admin
         .from('user_data')
-        .update(profileUpdates as Database['public']['Tables']['profiles']['Update'])
+        .update(profileUpdates as Database['public']['Tables']['user_data']['Update'])
         .eq('auth_user_id', targetAuthUserId)
       if (updErr) {
         if (/duplicate|unique/i.test(updErr.message) && /threecx|extension/i.test(updErr.message)) {

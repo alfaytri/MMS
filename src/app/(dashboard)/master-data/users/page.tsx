@@ -395,7 +395,7 @@ export default function UsersRolesPage() {
               data={(profiles as Profile[] | undefined) ?? []}
               isLoading={loadingProfiles}
               globalFilter={userSearch}
-              mobileCardRender={(profile) => {
+              mobileCardRender={(profile: Profile) => {
                 const ur = (profile as Profile & {
                   user_custom_roles?: Array<{
                     role_id: string

@@ -5,8 +5,8 @@ import type { DBTable, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
 
-export type Profile = DBTable<'profiles'>
-export type ProfileUpdate = DBUpdate<'profiles'>
+export type Profile = DBTable<'user_data'>
+export type ProfileUpdate = DBUpdate<'user_data'>
 
 export function useProfiles() {
   return useQuery({
@@ -68,7 +68,7 @@ export function useCreateMyProfile() {
           full_name: values.full_name,
           user_type: values.user_type ?? 'internal',
           is_active: true,
-        } as unknown as import('@/types/database.types').DBInsert<'profiles'>)
+        } as unknown as import('@/types/database.types').DBInsert<'user_data'>)
         .select()
         .single()
       if (error) throw error

@@ -215,7 +215,7 @@ export function useCustomers(search?: string) {
     queryFn: async () => {
       const supabase = createClient()
       const { data: payload, error } = await supabase.rpc('search_customers', {
-        p_query:       search ?? null,
+        p_query:       search ?? undefined,
         p_only_active: true,
         p_limit:       50,
         p_offset:      0,
@@ -252,7 +252,7 @@ export function useAllCustomers(search: string, page: number) {
     queryFn:  async () => {
       const supabase = createClient()
       const { data: payload, error } = await supabase.rpc('search_customers', {
-        p_query:       search ?? null,
+        p_query:       search ?? undefined,
         p_only_active: false,
         p_limit:       CUSTOMERS_PAGE_SIZE,
         p_offset:      page * CUSTOMERS_PAGE_SIZE,
