@@ -1471,6 +1471,91 @@ export type Database = {
           },
         ]
       }
+      employees: {
+        Row: {
+          avatar: string | null
+          avatar_url: string | null
+          created_at: string | null
+          deleted_at: string | null
+          division_id: string | null
+          id: string
+          join_date: string
+          name: string
+          name_ar: string | null
+          nationality: string | null
+          phone: string
+          profile_id: string | null
+          site_visit_order: boolean
+          site_visit_quotation: boolean
+          skills: string[] | null
+          status: Database["public"]["Enums"]["employee_status"] | null
+          team_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar?: string | null
+          avatar_url?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          division_id?: string | null
+          id?: string
+          join_date: string
+          name: string
+          name_ar?: string | null
+          nationality?: string | null
+          phone: string
+          profile_id?: string | null
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
+          skills?: string[] | null
+          status?: Database["public"]["Enums"]["employee_status"] | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar?: string | null
+          avatar_url?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          division_id?: string | null
+          id?: string
+          join_date?: string
+          name?: string
+          name_ar?: string | null
+          nationality?: string | null
+          phone?: string
+          profile_id?: string | null
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
+          skills?: string[] | null
+          status?: Database["public"]["Enums"]["employee_status"] | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fifo_cost_layers: {
         Row: {
           brand_variant_id: string
@@ -4353,6 +4438,33 @@ export type Database = {
           },
         ]
       }
+      schedules: {
+        Row: {
+          created_at: string | null
+          days: Json
+          deleted_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days: Json
+          deleted_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days?: Json
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       shipments: {
         Row: {
           archived: boolean | null
@@ -4798,6 +4910,182 @@ export type Database = {
           },
         ]
       }
+      team_activity_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      team_schedule_assignments: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          id: string
+          schedule_id: string
+          start_date: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          schedule_id: string
+          start_date: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          schedule_id?: string
+          start_date?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_schedule_assignments_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_schedule_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          division_id: string | null
+          id: string
+          is_emergency: boolean
+          is_normal: boolean
+          is_qc: boolean
+          leader_id: string | null
+          name: string
+          name_ar: string | null
+          name_en: string
+          phone: string | null
+          schedule_end: number | null
+          schedule_id: string | null
+          schedule_start: number | null
+          site_visit_order: boolean
+          site_visit_quotation: boolean
+          tag: Database["public"]["Enums"]["team_tag"] | null
+          traccar_device_id: string | null
+          updated_at: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          division_id?: string | null
+          id?: string
+          is_emergency?: boolean
+          is_normal?: boolean
+          is_qc?: boolean
+          leader_id?: string | null
+          name: string
+          name_ar?: string | null
+          name_en?: string
+          phone?: string | null
+          schedule_end?: number | null
+          schedule_id?: string | null
+          schedule_start?: number | null
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
+          tag?: Database["public"]["Enums"]["team_tag"] | null
+          traccar_device_id?: string | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          division_id?: string | null
+          id?: string
+          is_emergency?: boolean
+          is_normal?: boolean
+          is_qc?: boolean
+          leader_id?: string | null
+          name?: string
+          name_ar?: string | null
+          name_en?: string
+          phone?: string | null
+          schedule_end?: number | null
+          schedule_id?: string | null
+          schedule_start?: number | null
+          site_visit_order?: boolean
+          site_visit_quotation?: boolean
+          tag?: Database["public"]["Enums"]["team_tag"] | null
+          traccar_device_id?: string | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_asset_units: {
         Row: {
           assigned_to: string | null
@@ -4838,6 +5126,58 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_to: string
+          employee_id: string | null
+          id: string
+          notes: string | null
+          team_id: string | null
+          tool_unit_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_to: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          team_id?: string | null
+          tool_unit_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_to?: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          team_id?: string | null
+          tool_unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_assignments_tool_unit_id_fkey"
+            columns: ["tool_unit_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_units"
             referencedColumns: ["id"]
           },
         ]
@@ -4933,6 +5273,50 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          id: string
+          name: string | null
+          plate: string
+          team_id: string | null
+          traccar_device_id: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          name?: string | null
+          plate: string
+          team_id?: string | null
+          traccar_device_id?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          name?: string | null
+          plate?: string
+          team_id?: string | null
+          traccar_device_id?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -6402,6 +6786,12 @@ export type Database = {
       bill_source: "order"
       credit_note_status: "draft" | "approved" | "issued" | "redeemed"
       division: "maintenance" | "cleaning" | "kitchen" | "pest-control"
+      employee_status:
+        | "active"
+        | "vacation"
+        | "archived"
+        | "unassigned"
+        | "on-task"
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
@@ -6678,6 +7068,13 @@ export const Constants = {
       bill_source: ["order"],
       credit_note_status: ["draft", "approved", "issued", "redeemed"],
       division: ["maintenance", "cleaning", "kitchen", "pest-control"],
+      employee_status: [
+        "active",
+        "vacation",
+        "archived",
+        "unassigned",
+        "on-task",
+      ],
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
       inventory_type: ["products", "spare-parts", "consumables", "tools"],
