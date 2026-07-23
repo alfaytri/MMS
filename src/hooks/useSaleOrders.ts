@@ -114,10 +114,16 @@ export type SalePayment = {
   created_at: string
 }
 
+export type CustomerPhone = {
+  phone:      string
+  is_primary: boolean
+}
+
 export type Customer = {
   id:                  string
   name:                string
   phone:               string | null
+  phones:              CustomerPhone[]
   email:               string | null
   customer_type:       string | null
   entity_type:         'individual' | 'business' | null
@@ -226,10 +232,12 @@ export function useCustomers(search?: string) {
           credit_groups?: { name?: string; credit_limit?: number; default_payment_terms?: string | null } | null
           customer_phones?: { phone: string; is_primary: boolean }[]
         }
-        const primary = (r.customer_phones ?? []).find((p) => p.is_primary) ?? r.customer_phones?.[0] ?? null
+        const phones = (r.customer_phones ?? []).map((p) => ({ phone: p.phone, is_primary: p.is_primary }))
+        const primary = phones.find((p) => p.is_primary) ?? phones[0] ?? null
         return {
           ...row,
           phone:                       primary?.phone ?? null,
+          phones,
           credit_group_name:           r.credit_groups?.name                  ?? null,
           credit_group_limit:          r.credit_groups?.credit_limit          ?? null,
           credit_group_default_terms:  r.credit_groups?.default_payment_terms ?? null,
@@ -267,10 +275,12 @@ export function useAllCustomers(search: string, page: number) {
             credit_groups?: { name?: string; credit_limit?: number } | null
             customer_phones?: { phone: string; is_primary: boolean }[]
           }
-          const primary = (r.customer_phones ?? []).find((p) => p.is_primary) ?? r.customer_phones?.[0] ?? null
+          const phones = (r.customer_phones ?? []).map((p) => ({ phone: p.phone, is_primary: p.is_primary }))
+          const primary = phones.find((p) => p.is_primary) ?? phones[0] ?? null
           return {
             ...row,
             phone:              primary?.phone ?? null,
+            phones,
             credit_group_name:  r.credit_groups?.name         ?? null,
             credit_group_limit: r.credit_groups?.credit_limit ?? null,
           }
@@ -288,7 +298,7 @@ export function useCreateCustomer() {
   return useMutation({
     mutationFn: async (payload: {
       name: string
-      phone: string
+      phones: { phone: string; is_primary: boolean }[]
       email: string | null
       credit_group_id?: string | null
       customer_type?: 'cash' | 'credit'
@@ -299,7 +309,7 @@ export function useCreateCustomer() {
     }) => {
       const supabase = createClient()
       const now = new Date().toISOString()
-      const { phone, ...customerFields } = payload
+      const { phones, ...customerFields } = payload
       const row = {
         ...customerFields,
         cr_uploaded_at:                 payload.cr_url                 ? now : null,
@@ -313,25 +323,27 @@ export function useCreateCustomer() {
         .single()
       if (error) throw error
 
-      const { error: phoneErr } = await supabase
-        .from('customer_phones')
-        .insert({ customer_id: data.id, phone, is_primary: true })
+      const { error: phoneErr } = await supabase.rpc('save_customer_phones', {
+        p_customer_id: data.id,
+        p_phones: phones,
+      })
       if (phoneErr) {
         // Roll back the customer so the admin can retry with a different number.
         await supabase.from('customers').delete().eq('id', data.id)
-        throw new Error(phoneErr.message.includes('unique') || phoneErr.message.includes('duplicate')
-          ? 'That phone number is already assigned to another customer'
+        throw new Error(phoneErr.message.includes('already assigned') || phoneErr.message.includes('23505')
+          ? phoneErr.message.replace(/^ERROR:\s*/i, '')
           : phoneErr.message)
       }
 
+      const primary = phones.find((p) => p.is_primary) ?? phones[0]
       void logActivity({
         action: 'Customer Created',
         module: 'customers',
         entity_id: data.id,
         entity_type: 'customer',
-        new_data: { ...data, phone } as unknown as Record<string, unknown>,
+        new_data: { ...data, phone: primary?.phone ?? null, phones } as unknown as Record<string, unknown>,
       })
-      return { ...data, phone }
+      return { ...data, phone: primary?.phone ?? null, phones }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
@@ -347,7 +359,7 @@ export function useUpdateCustomer() {
       id:    string
       patch: {
         name?:                   string
-        phone?:                  string
+        phones?:                 { phone: string; is_primary: boolean }[]
         email?:                  string | null
         customer_type?:          'cash' | 'credit'
         entity_type?:            'individual' | 'business'
@@ -359,7 +371,7 @@ export function useUpdateCustomer() {
       // Old values for audit diff; only fields present here are checked
       previous: {
         name?:                   string
-        phone?:                  string | null
+        phones?:                 { phone: string; is_primary: boolean }[]
         email?:                  string | null
         customer_type?:          string | null
         entity_type?:            string | null
@@ -374,8 +386,8 @@ export function useUpdateCustomer() {
       const supabase = createClient()
       const now = new Date().toISOString()
 
-      // Phone lives on customer_phones now; strip it out of the customers update.
-      const { phone: newPhone, ...customerPatch } = args.patch
+      // Phones live on customer_phones; strip out of the customers update.
+      const { phones: newPhones, ...customerPatch } = args.patch
       const update: Database['public']['Tables']['customers']['Update'] = { ...customerPatch }
       if (args.patch.cr_url && args.patch.cr_url !== args.previous.cr_url) {
         update.cr_uploaded_at = now
@@ -395,32 +407,21 @@ export function useUpdateCustomer() {
       if (error) throw error
       if (!data || data.length === 0) throw new Error('Customer not found or update blocked')
 
-      // Sync primary phone into customer_phones. Only if the value changed.
-      if (newPhone !== undefined && newPhone !== args.previous.phone) {
-        const { data: existingPrimary } = await supabase
-          .from('customer_phones')
-          .select('id, phone')
-          .eq('customer_id', args.id)
-          .eq('is_primary', true)
-          .maybeSingle()
-        if (existingPrimary) {
-          const { error: upErr } = await supabase
-            .from('customer_phones')
-            .update({ phone: newPhone })
-            .eq('id', existingPrimary.id)
-          if (upErr) {
-            throw new Error(upErr.message.includes('unique') || upErr.message.includes('duplicate')
-              ? 'That phone number is already assigned to another customer'
-              : upErr.message)
-          }
-        } else if (newPhone) {
-          const { error: insErr } = await supabase
-            .from('customer_phones')
-            .insert({ customer_id: args.id, phone: newPhone, is_primary: true })
-          if (insErr) {
-            throw new Error(insErr.message.includes('unique') || insErr.message.includes('duplicate')
-              ? 'That phone number is already assigned to another customer'
-              : insErr.message)
+      // Sync phones via RPC when the list changed.
+      if (newPhones !== undefined) {
+        const prev = args.previous.phones ?? []
+        const same =
+          prev.length === newPhones.length &&
+          prev.every((p) => newPhones.some((np) => np.phone === p.phone && np.is_primary === p.is_primary))
+        if (!same) {
+          const { error: phoneErr } = await supabase.rpc('save_customer_phones', {
+            p_customer_id: args.id,
+            p_phones: newPhones,
+          })
+          if (phoneErr) {
+            throw new Error(phoneErr.message.includes('already assigned') || phoneErr.message.includes('23505')
+              ? phoneErr.message.replace(/^ERROR:\s*/i, '')
+              : phoneErr.message)
           }
         }
       }
@@ -438,8 +439,15 @@ export function useUpdateCustomer() {
         }
       }
       cmp('name',                   args.previous.name)
-      cmp('phone',                  args.previous.phone)
       cmp('email',                  args.previous.email)
+      // Phones are diffed separately (structural), not through cmp().
+      if (args.patch.phones !== undefined) {
+        const prevKey = (args.previous.phones ?? []).map((p) => `${p.phone}${p.is_primary ? '*' : ''}`).sort().join(',')
+        const nextKey = args.patch.phones.map((p) => `${p.phone}${p.is_primary ? '*' : ''}`).sort().join(',')
+        if (prevKey !== nextKey) {
+          diff.push({ field: 'phones', from: prevKey || null, to: nextKey || null })
+        }
+      }
       cmp('customer_type',          args.previous.customer_type)
       cmp('entity_type',            args.previous.entity_type)
       cmp('cr_url',                 args.previous.cr_url,                'cr_doc')

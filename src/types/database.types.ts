@@ -6065,6 +6065,10 @@ export type Database = {
           total_outstanding: number
         }[]
       }
+      save_customer_phones: {
+        Args: { p_customer_id: string; p_phones: Json }
+        Returns: undefined
+      }
       save_inventory_check_item_count: {
         Args: {
           p_counted_qty: number

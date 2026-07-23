@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Upload, FileCheck2, X, Lock } from 'lucide-react'
+import { Upload, FileCheck2, X, Lock, Plus, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,7 @@ import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWi
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
+import { cn } from '@/lib/utils'
 
 const BUCKET = 'customer-credit-docs'
 
@@ -25,20 +26,34 @@ type Slot = 'cr' | 'establishment' | 'signed'
 
 type GroupOption = { id: string; name: string; credit_limit?: number }
 
+type PhoneRow = { key: string; countryCode: string; digits: string; is_primary: boolean }
+
 interface CustomerDialogProps {
   mode:         'create' | 'edit'
   open:         boolean
   onOpenChange: (open: boolean) => void
   groups:       GroupOption[]
-  // Required only in edit mode
   customer?:    Customer | null
   onCreated?:   (customer: { id: string; name: string; credit_group_id: string | null; customer_type: string }) => void
 }
 
-/** Strip the `<timestamp>-<slot>-` prefix from a storage path to get a friendly display name. */
 function displayNameFromPath(path: string, slot: Slot): string {
   const filename = path.split('/').pop() ?? path
   return filename.replace(new RegExp(`^\\d+-${slot}-`), '')
+}
+
+function newPhoneRow(is_primary: boolean): PhoneRow {
+  return { key: `phone-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, countryCode: '+974', digits: '', is_primary }
+}
+
+function seedPhoneRows(source: Customer['phones'] | null | undefined): PhoneRow[] {
+  const rows = (source ?? []).map((p) => {
+    const split = splitPhone(p.phone)
+    return { key: `phone-${p.phone}`, countryCode: split.code, digits: split.digits, is_primary: p.is_primary }
+  })
+  if (rows.length === 0) return [newPhoneRow(true)]
+  if (!rows.some((r) => r.is_primary)) rows[0].is_primary = true
+  return rows
 }
 
 export function CustomerDialog({
@@ -49,8 +64,7 @@ export function CustomerDialog({
   const canChangeCreditGroup = useHasPermission('master_data.customers.change_credit_group')
 
   const [name, setName]                 = useState('')
-  const [phone, setPhone]               = useState('')
-  const [countryCode, setCountryCode]   = useState('+974')
+  const [phones, setPhones]             = useState<PhoneRow[]>([newPhoneRow(true)])
   const [email, setEmail]               = useState('')
   const [customerType, setCustomerType] = useState<'cash' | 'credit'>('credit')
   const [entityType, setEntityType]     = useState<'individual' | 'business'>('individual')
@@ -66,14 +80,11 @@ export function CustomerDialog({
   const submitGroupChange   = useSubmitCreditGroupChange()
   const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending
 
-  // Seed form from `customer` when opening in edit mode (or clear it on close).
   useEffect(() => {
     if (!open) return
     if (isEdit && customer) {
-      const split = splitPhone(customer.phone)
       setName(customer.name ?? '')
-      setPhone(split.digits)
-      setCountryCode(split.code)
+      setPhones(seedPhoneRows(customer.phones))
       setEmail(customer.email ?? '')
       setCustomerType((customer.customer_type as 'cash' | 'credit') ?? 'cash')
       setEntityType((customer.entity_type as 'individual' | 'business') ?? 'individual')
@@ -86,7 +97,7 @@ export function CustomerDialog({
         ? { path: customer.signed_credit_form_url, name: displayNameFromPath(customer.signed_credit_form_url, 'signed') }
         : null)
     } else if (!isEdit) {
-      setName(''); setPhone(''); setCountryCode('+974'); setEmail('')
+      setName(''); setPhones([newPhoneRow(true)]); setEmail('')
       setCustomerType('credit'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
     }
@@ -97,12 +108,29 @@ export function CustomerDialog({
   const docsRequired     = customerType === 'credit' && !!groupId
   const businessDocsReq  = docsRequired && entityType === 'business'
 
-  // In edit mode, a "promotion" means an existing classification that escalated:
-  //   cash → credit, OR individual → business. Those force fresh docs.
-  // (Doc presence still matters — if the customer is already credit+business with
-  // valid docs and we're not changing anything, no re-upload is required.)
   const isCashToCredit       = isEdit && customer?.customer_type === 'cash' && customerType === 'credit'
   const isIndividualToBusiness = isEdit && customer?.entity_type === 'individual' && entityType === 'business'
+
+  function updatePhone(key: string, patch: Partial<PhoneRow>) {
+    setPhones((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)))
+  }
+
+  function addPhone() {
+    setPhones((prev) => [...prev, newPhoneRow(false)])
+  }
+
+  function removePhone(key: string) {
+    setPhones((prev) => {
+      if (prev.length <= 1) return prev
+      const next = prev.filter((p) => p.key !== key)
+      if (!next.some((p) => p.is_primary)) next[0].is_primary = true
+      return next
+    })
+  }
+
+  function setPrimary(key: string) {
+    setPhones((prev) => prev.map((p) => ({ ...p, is_primary: p.key === key })))
+  }
 
   async function uploadDoc(file: File, slot: Slot): Promise<UploadedDoc | null> {
     const supabase = createClient()
@@ -124,9 +152,6 @@ export function CustomerDialog({
 
   async function removeDoc(doc: UploadedDoc | null, slot: Slot) {
     if (!doc) return
-    // Only delete from storage if it's a freshly-uploaded file (under `pending/`).
-    // Existing files attached to a customer stay until the dialog is saved with a
-    // replacement; otherwise a cancel would lose the file forever.
     if (doc.path.startsWith('pending/')) {
       const supabase = createClient()
       await supabase.storage.from(BUCKET).remove([doc.path])
@@ -136,11 +161,38 @@ export function CustomerDialog({
     else setSignedFormDoc(null)
   }
 
+  function buildPhonesPayload(): { phone: string; is_primary: boolean }[] | null {
+    const cleaned = phones
+      .map((p) => ({ phone: `${p.countryCode}${p.digits.trim()}`, is_primary: p.is_primary, digits: p.digits.trim() }))
+      .filter((p) => p.digits.length > 0)
+    if (cleaned.length === 0) {
+      toast.error('At least one phone number is required')
+      return null
+    }
+    const primaryCount = cleaned.filter((p) => p.is_primary).length
+    if (primaryCount !== 1) {
+      toast.error('Exactly one phone must be marked primary')
+      return null
+    }
+    const seen = new Set<string>()
+    for (const p of cleaned) {
+      if (seen.has(p.phone)) {
+        toast.error(`Duplicate phone: ${p.phone}`)
+        return null
+      }
+      seen.add(p.phone)
+    }
+    return cleaned.map((p) => ({ phone: p.phone, is_primary: p.is_primary }))
+  }
+
   function handleSubmit() {
-    if (!name.trim() || !phone.trim()) {
-      toast.error('Name and phone are required')
+    if (!name.trim()) {
+      toast.error('Name is required')
       return
     }
+    const phonesPayload = buildPhonesPayload()
+    if (!phonesPayload) return
+
     if (customerType === 'credit' && !groupId) {
       toast.error('Select a credit group for credit customers')
       return
@@ -153,11 +205,6 @@ export function CustomerDialog({
       toast.error('CR and Establishment ID are required for business customers')
       return
     }
-    // Promotion guard: force a re-uploaded signed credit form on Cash→Credit,
-    // and fresh CR + Establishment ID on Individual→Business. We detect "fresh"
-    // by the path being under `pending/` or under the customer's own folder,
-    // not the original placeholder — easiest check is that the path differs from
-    // what was persisted on the customer record.
     if (isCashToCredit && signedFormDoc?.path === customer?.signed_credit_form_url) {
       toast.error('Promotion to Credit requires a freshly signed credit form upload')
       return
@@ -173,20 +220,12 @@ export function CustomerDialog({
       }
     }
 
-    const fullPhone = `${countryCode}${phone.trim()}`
-
-    // A non-zero-limit credit group must go through the configurable
-    // credit_group approval workflow. Cash group (limit = 0) assigns directly.
     const newGroupNeedsApproval =
       customerType === 'credit'
       && !!selectedGroup
       && (selectedGroup.credit_limit ?? 0) > 0
 
     if (isEdit && customer) {
-      // If the user picked a different non-zero-limit group, save every other
-      // change directly but keep the old group on the row — the new group is
-      // submitted for approval. The list dropdown uses the same RPC; the two
-      // entry points share one chain so there's no double-routing.
       const groupIsChanging = (customer.credit_group_id ?? null) !== (groupId || null)
       const routeGroupViaApproval = groupIsChanging && newGroupNeedsApproval
 
@@ -195,7 +234,7 @@ export function CustomerDialog({
           id: customer.id,
           patch: {
             name:                   name.trim(),
-            phone:                  fullPhone,
+            phones:                 phonesPayload,
             email:                  email.trim() || null,
             customer_type:          routeGroupViaApproval
               ? (customer.customer_type as 'cash' | 'credit') ?? 'cash'
@@ -210,7 +249,7 @@ export function CustomerDialog({
           },
           previous: {
             name:                   customer.name,
-            phone:                  customer.phone,
+            phones:                 customer.phones ?? [],
             email:                  customer.email,
             customer_type:          customer.customer_type,
             entity_type:            customer.entity_type,
@@ -241,8 +280,6 @@ export function CustomerDialog({
                   onOpenChange(false)
                 },
                 onError: (err) => {
-                  // Other fields already saved — surface the approval-submit
-                  // error so the user knows the group is still on the old value.
                   toast.error(`Saved, but credit group not sent: ${err.message}`)
                   onOpenChange(false)
                 },
@@ -255,14 +292,10 @@ export function CustomerDialog({
       return
     }
 
-    // Create: insert the customer first (with all docs + everything except the
-    // pending group), then submit the credit-group change for approval if the
-    // picked group needs it. The customer exists either way — they just can't
-    // place credit SOs until the chain approves the group.
     createCustomer.mutate(
       {
         name:                   name.trim(),
-        phone:                  fullPhone,
+        phones:                 phonesPayload,
         email:                  email.trim() || null,
         customer_type:          newGroupNeedsApproval ? 'cash' : customerType,
         entity_type:            entityType,
@@ -312,7 +345,6 @@ export function CustomerDialog({
     )
   }
 
-  // In edit mode, type and entity selects are gated by change_type permission.
   const lockType  = isEdit && !canChangeType
   const lockGroup = isEdit && !canChangeCreditGroup
 
@@ -384,13 +416,63 @@ export function CustomerDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Phone <span className="text-destructive">*</span></Label>
-            <PhoneInputWithCode
-              value={phone}
-              onChange={setPhone}
-              countryCode={countryCode}
-              onCountryCodeChange={setCountryCode}
-            />
+            <div className="flex items-center justify-between">
+              <Label>Phones <span className="text-destructive">*</span></Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addPhone}
+                className="h-7 gap-1 text-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add phone
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {phones.map((p) => {
+                const canRemove = phones.length > 1
+                return (
+                  <div key={p.key} className="flex items-start gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPrimary(p.key)}
+                      title={p.is_primary ? 'Primary phone' : 'Set as primary'}
+                      className={cn(
+                        'mt-2 h-8 w-8 shrink-0 rounded-md border flex items-center justify-center transition-colors',
+                        p.is_primary
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:bg-muted/50'
+                      )}
+                    >
+                      <Star className={cn('h-3.5 w-3.5', p.is_primary && 'fill-current')} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <PhoneInputWithCode
+                        value={p.digits}
+                        onChange={(v) => updatePhone(p.key, { digits: v })}
+                        countryCode={p.countryCode}
+                        onCountryCodeChange={(v) => updatePhone(p.key, { countryCode: v })}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="mt-1 h-8 w-8 shrink-0 text-muted-foreground disabled:opacity-30"
+                      onClick={() => removePhone(p.key)}
+                      disabled={!canRemove}
+                      title={canRemove ? 'Remove phone' : 'At least one phone is required'}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Tap the star to mark a phone as primary. Numbers must be unique across all customers.
+            </p>
           </div>
 
           <div className="space-y-1.5">
