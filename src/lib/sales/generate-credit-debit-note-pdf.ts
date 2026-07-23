@@ -164,7 +164,7 @@ export async function generateCreditDebitNotePdf(
 
   if (sourceReturnId) {
     const { data: ret } = await supabase
-      .from('returns')
+      .from('so_po_returns')
       .select('return_number, source_type, source_id')
       .eq('id', sourceReturnId)
       .maybeSingle<{ return_number: string; source_type: string; source_id: string }>()

@@ -51,7 +51,7 @@ export async function generateReturnPdf(
   const force = opts?.force ?? false
 
   const { data: ret, error: retErr } = await supabase
-    .from('returns')
+    .from('so_po_returns')
     .select('*, return_lines(*)')
     .eq('id', returnId)
     .single<ReturnRow>()
@@ -166,7 +166,7 @@ export async function generateReturnPdf(
   const publicUrl = `${urlData.publicUrl}?v=${Date.now()}`
 
   await supabase
-    .from('returns')
+    .from('so_po_returns')
     .update({ pdf_url: publicUrl })
     .eq('id', ret.id)
 
