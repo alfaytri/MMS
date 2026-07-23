@@ -392,11 +392,11 @@ export default function CreateSOPage() {
 
         {/* ② Currency */}
         <section className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(180px,260px)_auto_auto] gap-3 items-start">
             <div className="space-y-1">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CURRENCY</label>
               <select value={currency} onChange={(e) => setCurrency(e.target.value)}
-                className="flex h-9 min-w-[130px] w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
                 {currencies.map((c) => (
                   <option key={c.id} value={c.code}>
                     {c.symbol} {c.code} — {c.name}
