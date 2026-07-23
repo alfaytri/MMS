@@ -50,7 +50,6 @@ interface PoRow {
   division_id:       string | null
   payment_terms:     string | null
   delivery_terms:    string | null
-  rfq_id:            string | null
   pdf_rfq_url:       string | null
   pdf_draft_url:     string | null
   pdf_po_url:        string | null
@@ -104,7 +103,6 @@ export async function generatePoPdf(
       id, po_number, status, currency, subtotal, total_qar,
       discount_amount, created_date, expected_delivery,
       supplier_name, supplier_id, division_id, payment_terms, delivery_terms,
-      rfq_id,
       pdf_rfq_url, pdf_draft_url, pdf_po_url, pdf_confirmed_url, pdf_payment_hash,
       po_line_items(item_name, sku, qty, unit, unit_price, total_price)
     `)
@@ -134,16 +132,7 @@ export async function generatePoPdf(
     }
   }
 
-  // ── Resolve linked RFQ number (for meta block) ──────────────────────
-  let rfqNumber: string | null = null
-  if (po.rfq_id) {
-    const { data: rfq } = await supabase
-      .from('request_for_quotations')
-      .select('rfq_number')
-      .eq('id', po.rfq_id)
-      .single<{ rfq_number: string }>()
-    rfqNumber = rfq?.rfq_number ?? null
-  }
+  const rfqNumber: string | null = null
 
   // ── Resolve supplier phone ──────────────────────────────────────────
   let supplierPhone: string | null = null
@@ -310,11 +299,11 @@ async function renderSnapshotPdf(
 ): Promise<GeneratePoPdfSnapshotResult> {
   const { data: po, error: poErr } = await supabase
     .from('purchase_orders')
-    .select('id, po_number, status, created_date, supplier_id, rfq_id, division_id')
+    .select('id, po_number, status, created_date, supplier_id, division_id')
     .eq('id', poUuid)
     .single<{
       id: string; po_number: string; status: string;
-      created_date: string; supplier_id: string | null; rfq_id: string | null;
+      created_date: string; supplier_id: string | null;
       division_id: string | null;
     }>()
   if (poErr || !po) {
@@ -345,15 +334,7 @@ async function renderSnapshotPdf(
       .single<{ phone: string | null }>()
     supplierPhone = supplier?.phone ?? null
   }
-  let rfqNumber: string | null = null
-  if (po.rfq_id) {
-    const { data: rfq } = await supabase
-      .from('request_for_quotations')
-      .select('rfq_number')
-      .eq('id', po.rfq_id)
-      .single<{ rfq_number: string }>()
-    rfqNumber = rfq?.rfq_number ?? null
-  }
+  const rfqNumber: string | null = null
 
   const lines: PoLineItem[] = (snap.po_version_lines ?? []).map((l) => ({
     item_name:          l.item_name,

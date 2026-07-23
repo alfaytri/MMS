@@ -105,7 +105,6 @@ export type PurchaseOrder = {
   created_by: string | null
   version_number: number
   po_type: POType
-  rfq_id: string | null
   rfq_supplier_ids: string[] | null
   // joined
   po_line_items?: POLineItem[]
@@ -181,7 +180,6 @@ export type CreatePOPayload = {
   line_items: POLineItemDraft[]
   division_id: string | null
   po_type?: POType
-  rfq_id?: string | null
   rfq_supplier_ids?: string[]
 }
 
@@ -446,7 +444,6 @@ export function useCreatePO() {
           created_by: creatorProfileId,
           division_id: payload.division_id ?? null,
           po_type: payload.po_type ?? 'draft',
-          rfq_id: payload.rfq_id ?? null,
           rfq_supplier_ids: payload.rfq_supplier_ids ?? [],
         })
         .select()
