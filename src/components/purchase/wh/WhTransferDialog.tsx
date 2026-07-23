@@ -101,7 +101,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
     })
   }, [sourceStock, toId, destStockMap, reorderMap])
 
-  const sourceFieldRPs = fromWh?.field_rps ?? []
+  const sourceFieldRPs = fromWh?.responsible_persons ?? []
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 
-export type FieldRPRow = {
+export type WarehouseResponsiblePersonRow = {
   id: string
   warehouse_id: string
   profile_id: string
@@ -13,22 +13,22 @@ export type FieldRPRow = {
 }
 
 /**
- * Fetch all Warehouse RP assignments for a warehouse.
+ * Fetch all responsible-person assignments for a warehouse.
  */
-export function useWarehouseFieldRPs(warehouseId: string | null) {
+export function useWarehouseResponsiblePersons(warehouseId: string | null) {
   return useQuery({
-    queryKey: queryKeys.warehouseOps.warehouseFieldRPsByWarehouse(warehouseId),
+    queryKey: queryKeys.warehouseOps.responsiblePersonsByWarehouse(warehouseId),
     enabled: !!warehouseId,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('warehouse_field_rps')
+        .from('warehouse_responsible_persons')
         .select('*, profiles(full_name)')
         .eq('warehouse_id', warehouseId!)
       if (error) throw error
       return (data ?? []).map((row) => {
         const { profiles, ...rest } = row as typeof row & { profiles: { full_name: string | null } | null }
-        return { ...rest, profile_name: profiles?.full_name ?? null } as FieldRPRow
+        return { ...rest, profile_name: profiles?.full_name ?? null } as WarehouseResponsiblePersonRow
       })
     },
     staleTime: 5 * 60 * 1000,
@@ -36,17 +36,12 @@ export function useWarehouseFieldRPs(warehouseId: string | null) {
 }
 
 /**
- * Fetch all profiles that have a Field-RP-flagged role assigned —
- * for the warehouse assignment dropdown.
- *
- * Previously this queried by role NAME ('field_rp'). Now it queries by the
- * `custom_roles.is_warehouse_responsible` toggle added in migration 20260627117000, so
- * any role can be flagged as a Warehouse RP source (multiple flagged roles =
- * dedupe by profile_id).
+ * Fetch all profiles eligible to be a warehouse responsible person —
+ * any role with custom_roles.is_warehouse_responsible = true.
  */
-export function useFieldRPCandidates() {
+export function useResponsiblePersonCandidates() {
   return useQuery({
-    queryKey: ['field_rp_candidates'],
+    queryKey: ['warehouse_responsible_person_candidates'],
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -73,22 +68,22 @@ export function useFieldRPCandidates() {
 }
 
 /**
- * Replace all Warehouse RP assignments for a warehouse atomically.
- * Uses a SECURITY DEFINER RPC to bypass RLS (no INSERT/DELETE policies on the table).
+ * Replace all responsible-person assignments for a warehouse atomically.
+ * Uses a SECURITY DEFINER RPC to bypass RLS.
  */
-export function useReplaceWarehouseFieldRPs() {
+export function useReplaceWarehouseResponsiblePersons() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ warehouseId, profileIds }: { warehouseId: string; profileIds: string[] }) => {
       const supabase = createClient()
-      const { error } = await supabase.rpc('replace_warehouse_field_rps', {
+      const { error } = await supabase.rpc('replace_warehouse_responsible_persons', {
         p_warehouse_id: warehouseId,
         p_profile_ids: profileIds,
       })
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseFieldRPs })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.responsiblePersons })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
     },
   })

@@ -81,8 +81,8 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                   </Tooltip>
                 </TooltipProvider>
                 <span className="font-medium text-foreground truncate">
-                  {wh.field_rps.length > 0
-                    ? wh.field_rps.map((rp: { full_name: string | null }) => rp.full_name ?? 'Unnamed').join(', ')
+                  {wh.responsible_persons.length > 0
+                    ? wh.responsible_persons.map((rp: { full_name: string | null }) => rp.full_name ?? 'Unnamed').join(', ')
                     : 'Unassigned'}
                 </span>
               </div>

@@ -35,7 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { useCreateWarehouse, useUpdateWarehouse, type Warehouse } from '@/hooks/useWarehouses'
-import { useFieldRPCandidates, useWarehouseFieldRPs, useReplaceWarehouseFieldRPs } from '@/hooks/useWarehouseFieldRPs'
+import { useResponsiblePersonCandidates, useWarehouseResponsiblePersons, useReplaceWarehouseResponsiblePersons } from '@/hooks/useWarehouseResponsiblePersons'
 import { useDivisions } from '@/hooks/useDivisions'
 
 const warehouseSchema = z.object({
@@ -56,9 +56,9 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
   const isEditing = !!warehouse
   const create = useCreateWarehouse()
   const update = useUpdateWarehouse()
-  const { data: rpCandidates = [] } = useFieldRPCandidates()
-  const { data: currentRPs = [] } = useWarehouseFieldRPs(warehouse?.id ?? null)
-  const replaceRPs = useReplaceWarehouseFieldRPs()
+  const { data: rpCandidates = [] } = useResponsiblePersonCandidates()
+  const { data: currentRPs = [] } = useWarehouseResponsiblePersons(warehouse?.id ?? null)
+  const replaceRPs = useReplaceWarehouseResponsiblePersons()
   const { data: divisions = [] } = useDivisions()
   const isPending = create.isPending || update.isPending || replaceRPs.isPending
 

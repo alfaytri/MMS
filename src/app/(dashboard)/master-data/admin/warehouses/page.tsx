@@ -82,7 +82,7 @@ export default function WarehousesPage() {
           row.getValue('location') || <span className="text-muted-foreground">—</span>,
       },
       {
-        id: 'field_rps',
+        id: 'responsible_persons',
         header: () => (
           <TooltipProvider delayDuration={200}>
             <Tooltip>
@@ -97,8 +97,8 @@ export default function WarehousesPage() {
           const wh = row.original
           return (
             <span className="text-xs">
-              {wh.field_rps.length > 0
-                ? wh.field_rps.map((rp: { full_name: string | null }) => rp.full_name).filter(Boolean).join(', ')
+              {wh.responsible_persons.length > 0
+                ? wh.responsible_persons.map((rp: { full_name: string | null }) => rp.full_name).filter(Boolean).join(', ')
                 : <span className="text-muted-foreground">Unassigned</span>}
             </span>
           )

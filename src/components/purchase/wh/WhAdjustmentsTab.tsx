@@ -133,8 +133,8 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
 
   function canApprove(adj: StockAdjustmentRow) {
     const wh = warehouses.find(w => w.id === adj.warehouse_id)
-    if (!wh || wh.field_rps.length === 0) return true
-    return wh.field_rps.some((rp: { profile_id: string }) => rp.profile_id === currentProfile?.id)
+    if (!wh || wh.responsible_persons.length === 0) return true
+    return wh.responsible_persons.some((rp: { profile_id: string }) => rp.profile_id === currentProfile?.id)
   }
 
   const FILTER_TABS: Array<{ value: StatusFilter; label: string; count: number }> = [

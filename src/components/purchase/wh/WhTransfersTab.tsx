@@ -110,7 +110,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
 
   const isFieldRPOf = useCallback((warehouseId: string): boolean => {
     const wh = warehouses.find(w => w.id === warehouseId)
-    return wh?.field_rps.some((rp: { profile_id: string }) => rp.profile_id === currentProfile?.id) ?? false
+    return wh?.responsible_persons.some((rp: { profile_id: string }) => rp.profile_id === currentProfile?.id) ?? false
   }, [warehouses, currentProfile?.id])
 
   const canDispatch = useCallback((t: WarehouseTransfer): boolean => {
@@ -155,7 +155,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   async function getFieldRPProfileIds(warehouseId: string): Promise<string[]> {
     const supabase = createClient()
     const { data } = await supabase
-      .from('warehouse_field_rps')
+      .from('warehouse_responsible_persons')
       .select('profile_id')
       .eq('warehouse_id', warehouseId)
     return (data ?? []).map(r => r.profile_id)

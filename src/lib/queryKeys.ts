@@ -42,22 +42,6 @@ export const queryKeys = {
     salesBySo:      (soId: Nullable) => ['approvals', 'sales', 'so', soId] as const,
   },
 
-  /* ── Calendar ─────────────────────────────────────────── */
-  calendar: {
-    schedule: ['calendar-schedule'] as const,
-    allDivisionSchedules: ['all-division-schedules'] as const,
-    divisionSchedule: (slug: Nullable) =>
-      ['division-schedule', slug] as const,
-    visits: (date?: Nullable, divisionSlug?: Nullable) =>
-      ['calendar-visits', date, divisionSlug] as const,
-    visitsAll: ['calendar-visits'] as const,
-    dateAvailability: (dates: string[], fromTime?: Nullable, toTime?: Nullable) =>
-      ['date-availability', [...dates].sort(), fromTime, toTime] as const,
-    permissions: ['calendar-permissions'] as const,
-    weekCapacity: (weekStart?: Nullable, divisionSlug?: Nullable, visitTypeKey?: Nullable) =>
-      ['week-capacity', weekStart, divisionSlug, visitTypeKey] as const,
-    weekCapacityAll: ['week-capacity'] as const,
-  },
 
   /* ── Companies ────────────────────────────────────────── */
   companies: {
@@ -201,10 +185,6 @@ export const queryKeys = {
     allList: ['divisions', 'all'] as const,
     byCompany: (companyId: Nullable) =>
       ['divisions', 'company', companyId] as const,
-    withSchedule: ['divisions', 'with-schedule'] as const,
-    divisionSchedule: ['division-schedule'] as const,
-    divisionScheduleBySlug: (slug: Nullable) =>
-      ['division-schedule', slug] as const,
   },
 
   /* ── Inventory ────────────────────────────────────────── */
@@ -576,9 +556,9 @@ export const queryKeys = {
     inventoryCheckApprovals: (checkId: string) =>
       ['inventory_check_approvals', checkId] as const,
     receivalsDeliveries: ['receivals_deliveries'] as const,
-    warehouseFieldRPs: ['warehouse_field_rps'] as const,
-    warehouseFieldRPsByWarehouse: (warehouseId: Nullable) =>
-      ['warehouse_field_rps', { warehouseId }] as const,
+    responsiblePersons: ['warehouse_responsible_persons'] as const,
+    responsiblePersonsByWarehouse: (warehouseId: Nullable) =>
+      ['warehouse_responsible_persons', { warehouseId }] as const,
     reorderPoints: ['reorder_points'] as const,
     reorderPointsByWarehouse: (warehouseId: Nullable) =>
       ['reorder_points', { warehouseId }] as const,
