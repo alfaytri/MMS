@@ -162,8 +162,6 @@ export function useCreateUser() {
       username: string
       password: string
       role_ids?: string[]
-      is_team_leader?: boolean
-      employee_id?: string
       is_division_manager?: boolean
       has_contact_centre_access?: boolean
       threecx_extension?: string
@@ -204,9 +202,6 @@ export function useUpdateUser() {
         role_id: string
         approval_scopes: ('po' | 'inv_check' | 'stock_adj' | 'sales_margin' | 'sales_credit')[] | null
       }>
-      is_team_leader?: boolean
-      employee_id?: string
-      demote_team_leader?: boolean
       is_division_manager?: boolean
       has_contact_centre_access?: boolean
       threecx_extension?: string | null
@@ -232,7 +227,6 @@ export function useUpdateUser() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.my })
-      queryClient.invalidateQueries({ queryKey: queryKeys.teamLeader.identity })
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.isAdmin })
     },
   })

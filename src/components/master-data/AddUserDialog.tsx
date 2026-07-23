@@ -5,8 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { useQuery } from '@tanstack/react-query'
-import { Users2, Building2, X } from 'lucide-react'
+import { Building2, X } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -14,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Switch } from '@/components/ui/switch'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -28,9 +26,6 @@ import { useRoles } from '@/hooks/useRoles'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
 import { createClient } from '@/lib/supabase/client'
-import { queryKeys } from '@/lib/queryKeys'
-
-const SHOW_TEAMS_CONTROL = false
 
 const schema = z.object({
   full_name: z.string().min(1, 'Name is required'),
@@ -53,41 +48,12 @@ interface Props {
 export function AddUserDialog({ open, onOpenChange }: Props) {
   const createUser = useCreateUser()
   const { data: roles } = useRoles()
-  const [isTl, setIsTl] = useState(false)
-  const [isDivMgr, setIsDivMgr] = useState(false)
-  const [hasCcAccess, setHasCcAccess] = useState(false)
-  const [extension, setExtension] = useState('')
-  const [_extensionError, setExtensionError] = useState<string | null>(null)
-  const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
   const [selectedDivisionIds, setSelectedDivisionIds] = useState<string[]>([])
   const [phoneCountryCode, setPhoneCountryCode] = useState('+974')
   const [phoneDigits, setPhoneDigits] = useState('')
 
   const { data: allDivisions = [] } = useAllDivisions()
   const { data: companies = [] } = useCompanies()
-
-  const { data: tlEmployees = [] } = useQuery({
-    queryKey: queryKeys.teamLeader.linkableEmployees,
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, name, team_id, teams!fk_employee_team(id, name)')
-        .is('profile_id', null)
-        .not('team_id', 'is', null)
-        .eq('status', 'active')
-        .order('name')
-      if (error) return []
-      return (data ?? [])
-        .map((e) => ({
-          id: e.id,
-          name: e.name,
-          teams: Array.isArray(e.teams) ? e.teams[0] ?? null : e.teams,
-        }))
-        .filter((e): e is { id: string; name: string; teams: { id: string; name: string } } => e.teams !== null)
-    },
-    enabled: isTl && SHOW_TEAMS_CONTROL,
-  })
 
   const companiesWithAvailable = useMemo(() => {
     const selectedSet = new Set(selectedDivisionIds)
@@ -117,12 +83,6 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   function handleOpenChange(v: boolean) {
     if (!v) {
       form.reset()
-      setIsTl(false)
-      setIsDivMgr(false)
-      setHasCcAccess(false)
-      setExtension('')
-      setExtensionError(null)
-      setLinkedEmployeeId(null)
       setSelectedDivisionIds([])
       setPhoneCountryCode('+974')
       setPhoneDigits('')
@@ -142,22 +102,12 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   }
 
   function onSubmit(values: Values) {
-    if (hasCcAccess && extension.trim() !== '' && !/^\d{2,8}$/.test(extension.trim())) {
-      setExtensionError('Extension must be 2-8 digits')
-      return
-    }
-    setExtensionError(null)
     createUser.mutate(
       {
         full_name: values.full_name,
         username: values.username,
         password: values.password,
-        role_ids: isTl ? [] : values.role_ids,
-        employee_id: isTl ? linkedEmployeeId ?? undefined : undefined,
-        is_team_leader: isTl,
-        is_division_manager: isDivMgr,
-        has_contact_centre_access: hasCcAccess,
-        threecx_extension: extension.trim() === '' ? undefined : extension.trim(),
+        role_ids: values.role_ids,
         phone: phoneDigits ? `${phoneCountryCode}${phoneDigits}` : undefined,
       },
       {
@@ -238,59 +188,6 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               </div>
             </div>
 
-            {/* ─── Teams Operation Control (hidden until teams module is active) ─── */}
-            {SHOW_TEAMS_CONTROL && (
-              <section className="rounded-xl border bg-card overflow-hidden shadow-sm">
-                <header className="flex items-center gap-2 px-3.5 py-2 border-b bg-muted/40">
-                  <Users2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Teams Operation Control
-                  </span>
-                </header>
-                <div className="divide-y divide-border">
-                  <div className="flex items-center justify-between px-3.5 py-3 gap-3">
-                    <div className="min-w-0">
-                      <Label htmlFor="add-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Links this account to a team leader employee
-                      </p>
-                    </div>
-                    <Switch id="add-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
-                  </div>
-                  {isTl && (
-                    <div className="px-3.5 py-2.5 bg-muted/30 space-y-1.5">
-                      <Label htmlFor="add-user-linked-employee" className="text-xs">Linked Employee *</Label>
-                      <Select value={linkedEmployeeId ?? ''} onValueChange={setLinkedEmployeeId}>
-                        <SelectTrigger id="add-user-linked-employee" className="h-9">
-                          <SelectValue placeholder="Select team leader employee…" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60 overflow-y-auto">
-                          {tlEmployees.map((e) => (
-                            <SelectItem key={e.id} value={e.id}>
-                              {e.name} — {e.teams?.name ?? 'Unknown Team'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {tlEmployees.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No unlinked team leaders found.</p>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between px-3.5 py-3 gap-3">
-                    <div className="min-w-0">
-                      <Label htmlFor="add-user-is-div-mgr" className="text-sm font-medium">Division Manager</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Can access the Team Leader page for all teams in their assigned divisions
-                      </p>
-                    </div>
-                    <Switch id="add-user-is-div-mgr" checked={isDivMgr} onCheckedChange={setIsDivMgr} />
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {(!SHOW_TEAMS_CONTROL || !isTl) && (
             <div>
               <Label>Roles</Label>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border rounded-md p-3">
@@ -315,9 +212,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                 ))}
               </div>
             </div>
-            )}
 
-            {/* ── Divisions ── */}
             <div className="space-y-2.5">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Divisions</Label>

@@ -14,9 +14,6 @@ const bodySchema = z.object({
     role_id:         z.string().uuid(),
     approval_scopes: z.array(z.enum(['po','inv_check','stock_adj','sales_margin','sales_credit'])).nullable().optional(),
   })).optional(),
-  is_team_leader: z.boolean().optional(),
-  employee_id: z.string().uuid().optional(),
-  demote_team_leader: z.boolean().optional(),
   is_division_manager: z.boolean().optional(),
   has_contact_centre_access: z.boolean().optional(),
   // 3CX extension: empty string clears it. 2–8 digits when set.
@@ -30,11 +27,9 @@ export async function PATCH(
 ) {
   const { id: targetAuthUserId } = await params
 
-  // 1. Admin gate.
   const gate = await requireAdmin()
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
-  // 2. Parse + validate.
   let body: unknown
   try { body = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -45,80 +40,12 @@ export async function PATCH(
   }
   const changes = parsed.data
 
-  // 3. Self-deactivation guard.
   if (targetAuthUserId === gate.authUserId && changes.is_active === false) {
     return NextResponse.json({ error: 'You cannot deactivate yourself' }, { status: 400 })
   }
 
   const admin = createAdminClient()
 
-  // 3b. Handle team leader promotion (OFF → ON)
-  if (changes.is_team_leader === true && changes.employee_id) {
-    const { data: emp } = await admin
-      .from('employees')
-      .select('id, profile_id, teams!teams_leader_id_fkey(id)')
-      .eq('id', changes.employee_id)
-      .maybeSingle()
-
-    const { data: currentProfile } = await admin
-      .from('profiles')
-      .select('id')
-      .eq('auth_user_id', targetAuthUserId)
-      .maybeSingle()
-
-    if (currentProfile) {
-      // Clear old employee link if switching employees
-      await admin
-        .from('employees')
-        .update({ profile_id: null })
-        .eq('profile_id', currentProfile.id)
-        .neq('id', changes.employee_id)
-
-      await admin
-        .from('employees')
-        .update({ profile_id: currentProfile.id })
-        .eq('id', changes.employee_id)
-    }
-
-    const teamId = Array.isArray(emp?.teams) ? emp.teams[0]?.id
-      : (emp?.teams as unknown as { id: string } | null)?.id ?? null
-
-    await admin.auth.admin.updateUserById(targetAuthUserId, {
-      user_metadata: { is_team_leader: true, team_id: teamId ?? undefined },
-    })
-
-    await admin
-      .from('profiles')
-      .update({ user_type: 'team-leader' })
-      .eq('auth_user_id', targetAuthUserId)
-  }
-
-  // 3c. Handle demotion (ON → OFF)
-  if (changes.demote_team_leader === true) {
-    const { data: currentProfile } = await admin
-      .from('profiles')
-      .select('id')
-      .eq('auth_user_id', targetAuthUserId)
-      .maybeSingle()
-
-    if (currentProfile) {
-      await admin
-        .from('employees')
-        .update({ profile_id: null })
-        .eq('profile_id', currentProfile.id)
-    }
-
-    await admin.auth.admin.updateUserById(targetAuthUserId, {
-      user_metadata: { is_team_leader: false },
-    })
-
-    await admin
-      .from('profiles')
-      .update({ user_type: 'internal' })
-      .eq('auth_user_id', targetAuthUserId)
-  }
-
-  // 4. Email change (hits auth.users) — must not clobber user_metadata.
   if (changes.email) {
     const { data: existing } = await admin.auth.admin.getUserById(targetAuthUserId)
     const mergedMeta = { ...(existing.user?.user_metadata ?? {}) }
@@ -130,7 +57,6 @@ export async function PATCH(
     if (emailErr) return NextResponse.json({ error: `Email update failed: ${emailErr.message}` }, { status: 400 })
   }
 
-  // 5. Profile updates (other than roles).
   const profileUpdates: Record<string, unknown> = {}
   if (changes.full_name !== undefined) profileUpdates.full_name = changes.full_name
   if (changes.email !== undefined) profileUpdates.email = changes.email
@@ -139,7 +65,6 @@ export async function PATCH(
   if (changes.has_contact_centre_access !== undefined) profileUpdates.has_contact_centre_access = changes.has_contact_centre_access
   if (changes.phone !== undefined) profileUpdates.phone = changes.phone && changes.phone.length > 0 ? changes.phone : null
   if (changes.threecx_extension !== undefined) {
-    // Empty string ↔ null in storage — keeps the unique-index check happy.
     profileUpdates.threecx_extension = changes.threecx_extension && changes.threecx_extension.length > 0
       ? changes.threecx_extension
       : null
@@ -163,9 +88,6 @@ export async function PATCH(
         .update(profileUpdates as Database['public']['Tables']['profiles']['Update'])
         .eq('auth_user_id', targetAuthUserId)
       if (updErr) {
-        // Duplicate 3CX extension surfaces as a unique-constraint violation;
-        // map it to a friendlier message so the dialog can show "That extension
-        // is already assigned" instead of raw Postgres text.
         if (/duplicate|unique/i.test(updErr.message) && /threecx|extension/i.test(updErr.message)) {
           return NextResponse.json({ error: 'That extension is already assigned to another user' }, { status: 409 })
         }
@@ -174,7 +96,6 @@ export async function PATCH(
     }
   }
 
-  // 6. Role replace via atomic RPC (if role_ids or role_assignments supplied, even empty array).
   if ((changes.role_assignments !== undefined || changes.role_ids !== undefined) && profileId) {
     const assignments =
       changes.role_assignments ??
@@ -187,7 +108,6 @@ export async function PATCH(
     if (rpcErr) return NextResponse.json({ error: `Role replace failed: ${rpcErr.message}` }, { status: 500 })
   }
 
-  // 7. Audit.
   await logUserEvent({
     action: 'user.admin_update',
     actorAuthUserId: gate.authUserId,

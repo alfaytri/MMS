@@ -5,8 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { X, Shield, KeyRound, UserPlus2, Building2, Users2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { X, Shield, KeyRound, UserPlus2, Building2 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -14,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Switch } from '@/components/ui/switch'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
@@ -31,10 +29,6 @@ import {
 import { useRoles, type CustomRole } from '@/hooks/useRoles'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
-import { createClient } from '@/lib/supabase/client'
-import { queryKeys } from '@/lib/queryKeys'
-
-const SHOW_TEAMS_CONTROL = false
 
 const SCOPE_VALUES = ['po', 'inv_check', 'stock_adj', 'sales_margin', 'sales_credit'] as const
 type ScopeValue = typeof SCOPE_VALUES[number]
@@ -139,7 +133,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const updateUser = useUpdateUser()
   const { data: roles } = useRoles()
 
-  // ── Division assignment ──────────────────────────────────────────────
   const { data: allDivisions = [] } = useAllDivisions()
   const { data: companies = [] } = useCompanies()
   const { data: userDivisions = [] } = useUserDivisions(profile?.id ?? null)
@@ -147,15 +140,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const removeDivision = useRemoveDivision()
   const [divisionPickValue, setDivisionPickValue] = useState('')
 
-  // ── Team Leader toggle ──────────────────────────────────────────────
-  const currentlyTl = profile?.user_type === 'team-leader'
-  const [isTl, setIsTl] = useState(currentlyTl)
-  const [linkedEmployeeId, setLinkedEmployeeId] = useState<string | null>(null)
-
-  // ── Division Manager toggle ────────────────────────────────────────
-  const [isDivMgr, setIsDivMgr] = useState(false)
-
-  // ── Contact Centre access toggle + 3CX extension ───────────────────
   const [hasCcAccess, setHasCcAccess] = useState(false)
   const [extension, setExtension] = useState('')
   const [_extensionError, setExtensionError] = useState<string | null>(null)
@@ -163,56 +147,13 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const [phoneDigits, setPhoneDigits] = useState('')
 
   useEffect(() => {
-    setIsTl(profile?.user_type === 'team-leader')
-    setIsDivMgr(profile?.is_division_manager ?? false)
     setHasCcAccess(profile?.has_contact_centre_access ?? false)
     setExtension(profile?.threecx_extension ?? '')
     setExtensionError(null)
-    setLinkedEmployeeId(null)
     const { code, digits } = splitPhone(profile?.phone)
     setPhoneCountryCode(code)
     setPhoneDigits(digits)
   }, [profile])
-
-  const { data: currentEmployee } = useQuery({
-    queryKey: queryKeys.teamLeader.currentEmployee(profile?.id),
-    queryFn: async () => {
-      if (!profile?.id) return null
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('employees')
-        .select('id, name, team_id, teams!fk_employee_team(name)')
-        .eq('profile_id', profile.id)
-        .maybeSingle()
-      if (!data) return null
-      const teams = Array.isArray(data.teams) ? data.teams[0] ?? null : data.teams
-      return { id: data.id, name: data.name, team_id: data.team_id, teams }
-    },
-    enabled: !!profile?.id && currentlyTl && SHOW_TEAMS_CONTROL,
-  })
-
-  const { data: tlEmployees = [] } = useQuery({
-    queryKey: queryKeys.teamLeader.linkableEmployeesEdit,
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('employees')
-        .select('id, name, team_id, teams!fk_employee_team(id, name)')
-        .is('profile_id', null)
-        .not('team_id', 'is', null)
-        .eq('status', 'active')
-        .order('name')
-      return (data ?? [])
-        .map((e) => ({
-          id: e.id,
-          name: e.name,
-          team_id: e.team_id ?? '',
-          teams: Array.isArray(e.teams) ? e.teams[0] ?? null : e.teams,
-        }))
-        .filter((e): e is { id: string; name: string; team_id: string; teams: { id: string; name: string } } => e.teams !== null)
-    },
-    enabled: isTl && SHOW_TEAMS_CONTROL,
-  })
 
   const companiesWithUnassigned = useMemo(() => {
     const assignedIds = new Set(userDivisions.map((ud) => ud.division_id))
@@ -281,8 +222,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
 
   function onSubmit(values: Values) {
     if (!profile) return
-    // Pre-validate extension when CC access is on; API also enforces this but
-    // a client-side message is faster + we already have the value.
     if (hasCcAccess && extension.trim() !== '' && !/^\d{2,8}$/.test(extension.trim())) {
       setExtensionError('Extension must be 2-8 digits')
       return
@@ -295,20 +234,11 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
         full_name: values.full_name,
         email,
         is_active: values.is_active,
-        role_assignments: (SHOW_TEAMS_CONTROL && isTl)
-          ? []
-          : values.role_assignments.map((a) => ({
-              role_id: a.role_id,
-              approval_scopes: a.approval_scopes ?? null,
-            })),
-        is_team_leader: SHOW_TEAMS_CONTROL ? isTl : undefined,
-        employee_id: SHOW_TEAMS_CONTROL && linkedEmployeeId && linkedEmployeeId !== '__change__'
-          ? linkedEmployeeId
-          : undefined,
-        demote_team_leader: SHOW_TEAMS_CONTROL ? (!isTl && currentlyTl) : undefined,
-        is_division_manager: SHOW_TEAMS_CONTROL ? isDivMgr : undefined,
+        role_assignments: values.role_assignments.map((a) => ({
+          role_id: a.role_id,
+          approval_scopes: a.approval_scopes ?? null,
+        })),
         has_contact_centre_access: hasCcAccess,
-        // Keep the extension stored even when access is OFF so re-enabling preserves it.
         threecx_extension: extension.trim() === '' ? null : extension.trim(),
         phone: phoneDigits ? `${phoneCountryCode}${phoneDigits}` : null,
       },
@@ -372,214 +302,136 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               </div>
             </div>
 
-            {/* ─── Teams Operation Control (hidden until teams module is active) ─── */}
-            {SHOW_TEAMS_CONTROL && (
-              <section className="rounded-xl border bg-card overflow-hidden shadow-sm">
-                <header className="flex items-center gap-2 px-3.5 py-2 border-b bg-muted/40">
-                  <Users2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Teams Operation Control
-                  </span>
-                </header>
-                <div className="divide-y divide-border">
-                  <div className="flex items-center justify-between px-3.5 py-3 gap-3">
-                    <div className="min-w-0">
-                      <Label htmlFor="edit-user-is-tl" className="text-sm font-medium">Team Leader Account</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Links this account to a team leader employee
-                      </p>
-                    </div>
-                    <Switch id="edit-user-is-tl" checked={isTl} onCheckedChange={setIsTl} />
-                  </div>
-
-                  {isTl && currentEmployee && !linkedEmployeeId && (
-                    <div className="px-3.5 py-2.5 bg-muted/30 text-sm">
-                      <p className="font-medium">{currentEmployee.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {currentEmployee.teams?.name ?? 'Unknown Team'}
-                      </p>
-                      <button
-                        type="button"
-                        className="text-xs text-primary mt-1 underline"
-                        onClick={() => setLinkedEmployeeId('__change__')}
-                      >
-                        Change employee
-                      </button>
-                    </div>
-                  )}
-
-                  {isTl && (!currentEmployee || linkedEmployeeId) && (
-                    <div className="px-3.5 py-2.5 space-y-1.5 bg-muted/30">
-                      <Label htmlFor="edit-user-linked-employee" className="text-xs">Linked Employee *</Label>
-                      <Select
-                        value={linkedEmployeeId && linkedEmployeeId !== '__change__' ? linkedEmployeeId : ''}
-                        onValueChange={setLinkedEmployeeId}
-                      >
-                        <SelectTrigger id="edit-user-linked-employee" className="h-9">
-                          <SelectValue placeholder="Select team leader employee…" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60 overflow-y-auto">
-                          {tlEmployees.map((e) => (
-                            <SelectItem key={e.id} value={e.id}>
-                              {e.name} — {e.teams?.name ?? 'Unknown Team'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {tlEmployees.length === 0 && (
-                        <p className="text-xs text-muted-foreground">No unlinked team leaders found.</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between px-3.5 py-3 gap-3">
-                    <div className="min-w-0">
-                      <Label htmlFor="edit-user-is-div-mgr" className="text-sm font-medium">Division Manager</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Can access the Team Leader page for all teams in their assigned divisions
-                      </p>
-                    </div>
-                    <Switch id="edit-user-is-div-mgr" checked={isDivMgr} onCheckedChange={setIsDivMgr} />
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {(!SHOW_TEAMS_CONTROL || !isTl) && (
             <div className="space-y-2.5">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium">Roles</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Grants permissions and/or makes this user eligible to fill approval-chain steps.
-                  </p>
-                </div>
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Roles</Label>
+                <p className="text-xs text-muted-foreground">
+                  Grants permissions and/or makes this user eligible to fill approval-chain steps.
+                </p>
+              </div>
 
-                <div className="flex flex-wrap gap-1.5 min-h-[2rem] items-center">
-                  {form.watch('role_assignments').length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">No roles assigned.</p>
-                  ) : (
-                    form.watch('role_assignments').map((assignment, idx) => {
-                      const role = (roles ?? []).find((r) => r.id === assignment.role_id)
-                      if (!role) return null
+              <div className="flex flex-wrap gap-1.5 min-h-[2rem] items-center">
+                {form.watch('role_assignments').length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No roles assigned.</p>
+                ) : (
+                  form.watch('role_assignments').map((assignment, idx) => {
+                    const role = (roles ?? []).find((r) => r.id === assignment.role_id)
+                    if (!role) return null
 
-                      const isAS = Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot)
-                      const hasPerms = ((role.permissions as string[] | null)?.length ?? 0) > 0
+                    const isAS = Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot)
+                    const hasPerms = ((role.permissions as string[] | null)?.length ?? 0) > 0
 
-                      function removeAssignment() {
-                        const updated = form.getValues('role_assignments').filter((_, i) => i !== idx)
-                        form.setValue('role_assignments', updated, { shouldDirty: true })
-                      }
+                    function removeAssignment() {
+                      const updated = form.getValues('role_assignments').filter((_, i) => i !== idx)
+                      form.setValue('role_assignments', updated, { shouldDirty: true })
+                    }
 
-                      // Pick chip color: approval-only = primary, has perms = secondary tone
-                      const chipClass = isAS
-                        ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10'
-                        : 'border-border bg-muted/40 text-foreground hover:bg-muted/70'
+                    const chipClass = isAS
+                      ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10'
+                      : 'border-border bg-muted/40 text-foreground hover:bg-muted/70'
 
-                      const Icon = isAS ? Shield : KeyRound
+                    const Icon = isAS ? Shield : KeyRound
 
-                      return (
-                        <span
-                          key={assignment.role_id}
-                          className={`group inline-flex items-center gap-1.5 rounded-full border pl-2 pr-1 py-0.5 text-xs font-medium transition-colors ${chipClass}`}
-                          title={isAS && hasPerms ? 'Permissions + approval slot' : isAS ? 'Approval slot' : 'Permission role'}
-                        >
-                          <Icon className="h-3 w-3 shrink-0 opacity-70" />
-                          <span>{role.name}</span>
-                          {isAS && (
-                            <RoleScopePicker
-                              scopes={(assignment.approval_scopes ?? null) as ScopeValue[] | null}
-                              onChange={(next) => {
-                                const updated = [...form.getValues('role_assignments')]
-                                updated[idx] = { ...updated[idx], approval_scopes: next }
-                                form.setValue('role_assignments', updated, { shouldDirty: true })
-                              }}
-                            />
-                          )}
-                          <button
-                            type="button"
-                            className="rounded-full p-0.5 opacity-60 hover:opacity-100 hover:bg-background/80 transition"
-                            onClick={removeAssignment}
-                            aria-label={`Remove ${role.name}`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      )
-                    })
-                  )}
-                </div>
-
-                {/* Add-role dropdown */}
-                {(roles ?? []).filter((r) =>
-                  !form.watch('role_assignments').some((a) => a.role_id === r.id)
-                ).length > 0 && (() => {
-                  const available = (roles ?? []).filter(
-                    (r) => !form.watch('role_assignments').some((a) => a.role_id === r.id)
-                  )
-                  const approvalRoles   = available.filter((r) => Boolean((r as CustomRole & { is_approval_slot?: boolean }).is_approval_slot))
-                  const permissionRoles = available.filter((r) => !Boolean((r as CustomRole & { is_approval_slot?: boolean }).is_approval_slot))
-
-                  return (
-                    <Select
-                      value=""
-                      onValueChange={(id) => {
-                        if (!id) return
-                        const current = form.getValues('role_assignments')
-                        if (current.some((a) => a.role_id === id)) return
-                        form.setValue('role_assignments', [...current, { role_id: id, approval_scopes: null }], { shouldDirty: true })
-                      }}
-                    >
-                      <SelectTrigger className="w-full sm:w-72 h-9 text-sm">
-                        <UserPlus2 className="h-3.5 w-3.5 text-muted-foreground mr-1" />
-                        <SelectValue placeholder="Add role…" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60 overflow-y-auto">
-                        {approvalRoles.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                              <Shield className="h-3 w-3" />
-                              Approval Roles
-                            </SelectLabel>
-                            {approvalRoles.map((r) => {
-                              const hasPerms = ((r.permissions as string[] | null)?.length ?? 0) > 0
-                              return (
-                                <SelectItem key={r.id} value={r.id} className="text-sm">
-                                  <span className="flex items-center gap-2">
-                                    <Shield className="h-3 w-3 text-primary/70" />
-                                    <span>{r.name}</span>
-                                    {hasPerms && (
-                                      <span className="text-[10px] text-muted-foreground">+ perms</span>
-                                    )}
-                                  </span>
-                                </SelectItem>
-                              )
-                            })}
-                          </SelectGroup>
+                    return (
+                      <span
+                        key={assignment.role_id}
+                        className={`group inline-flex items-center gap-1.5 rounded-full border pl-2 pr-1 py-0.5 text-xs font-medium transition-colors ${chipClass}`}
+                        title={isAS && hasPerms ? 'Permissions + approval slot' : isAS ? 'Approval slot' : 'Permission role'}
+                      >
+                        <Icon className="h-3 w-3 shrink-0 opacity-70" />
+                        <span>{role.name}</span>
+                        {isAS && (
+                          <RoleScopePicker
+                            scopes={(assignment.approval_scopes ?? null) as ScopeValue[] | null}
+                            onChange={(next) => {
+                              const updated = [...form.getValues('role_assignments')]
+                              updated[idx] = { ...updated[idx], approval_scopes: next }
+                              form.setValue('role_assignments', updated, { shouldDirty: true })
+                            }}
+                          />
                         )}
-                        {permissionRoles.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                              <KeyRound className="h-3 w-3" />
-                              Permission Roles
-                            </SelectLabel>
-                            {permissionRoles.map((r) => (
+                        <button
+                          type="button"
+                          className="rounded-full p-0.5 opacity-60 hover:opacity-100 hover:bg-background/80 transition"
+                          onClick={removeAssignment}
+                          aria-label={`Remove ${role.name}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )
+                  })
+                )}
+              </div>
+
+              {(roles ?? []).filter((r) =>
+                !form.watch('role_assignments').some((a) => a.role_id === r.id)
+              ).length > 0 && (() => {
+                const available = (roles ?? []).filter(
+                  (r) => !form.watch('role_assignments').some((a) => a.role_id === r.id)
+                )
+                const approvalRoles   = available.filter((r) => Boolean((r as CustomRole & { is_approval_slot?: boolean }).is_approval_slot))
+                const permissionRoles = available.filter((r) => !Boolean((r as CustomRole & { is_approval_slot?: boolean }).is_approval_slot))
+
+                return (
+                  <Select
+                    value=""
+                    onValueChange={(id) => {
+                      if (!id) return
+                      const current = form.getValues('role_assignments')
+                      if (current.some((a) => a.role_id === id)) return
+                      form.setValue('role_assignments', [...current, { role_id: id, approval_scopes: null }], { shouldDirty: true })
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-72 h-9 text-sm">
+                      <UserPlus2 className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                      <SelectValue placeholder="Add role…" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      {approvalRoles.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <Shield className="h-3 w-3" />
+                            Approval Roles
+                          </SelectLabel>
+                          {approvalRoles.map((r) => {
+                            const hasPerms = ((r.permissions as string[] | null)?.length ?? 0) > 0
+                            return (
                               <SelectItem key={r.id} value={r.id} className="text-sm">
                                 <span className="flex items-center gap-2">
-                                  <KeyRound className="h-3 w-3 text-muted-foreground" />
+                                  <Shield className="h-3 w-3 text-primary/70" />
                                   <span>{r.name}</span>
+                                  {hasPerms && (
+                                    <span className="text-[10px] text-muted-foreground">+ perms</span>
+                                  )}
                                 </span>
                               </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )
-                })()}
-              </div>
-            )}
+                            )
+                          })}
+                        </SelectGroup>
+                      )}
+                      {permissionRoles.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <KeyRound className="h-3 w-3" />
+                            Permission Roles
+                          </SelectLabel>
+                          {permissionRoles.map((r) => (
+                            <SelectItem key={r.id} value={r.id} className="text-sm">
+                              <span className="flex items-center gap-2">
+                                <KeyRound className="h-3 w-3 text-muted-foreground" />
+                                <span>{r.name}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )
+              })()}
+            </div>
 
-            {/* ── Divisions ── */}
             <div className="space-y-2.5 pt-2">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Divisions</Label>

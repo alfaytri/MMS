@@ -530,57 +530,6 @@ export const queryKeys = {
     all: ['suppliers'] as const,
   },
 
-  /* ── Team Leader ──────────────────────────────────────── */
-  teamLeader: {
-    identity: ['tl-identity'] as const,
-    allTeamsSelect: (divisionIds?: string[] | null) =>
-      ['tl-all-teams-select', divisionIds ?? 'all'] as const,
-    orders: (teamId: Nullable) => ['tl-orders', teamId] as const,
-    linkableEmployees: ['tl-linkable-employees'] as const,
-    linkableEmployeesEdit: ['tl-linkable-employees-edit'] as const,
-    currentEmployee: (profileId?: Nullable) =>
-      ['tl-current-employee', profileId] as const,
-  },
-
-  /* ── Teams ────────────────────────────────────────────── */
-  teams: {
-    all: ['teams'] as const,
-    list: (filters: unknown) => ['teams', filters] as const,
-    employees: ['employees'] as const,
-    employeesList: (filters: unknown) => ['employees', filters] as const,
-    vehicles: ['vehicles'] as const,
-    schedules: ['schedules'] as const,
-    scheduleAssignments: ['team-schedule-assignments'] as const,
-    scheduleAssignmentsByTeam: (teamId: Nullable) =>
-      ['team-schedule-assignments', teamId] as const,
-    toolAssignments: (entityType: string, entityId: Nullable) =>
-      ['tool-assignments', entityType, entityId] as const,
-    availableToolUnits: ['available-tool-units'] as const,
-    availableToolUnitsByItem: (itemId: Nullable) =>
-      ['available-tool-units', itemId] as const,
-    toolCountMap: (entityType: string) =>
-      ['tool-count-map', entityType] as const,
-    activityLog: ['team-activity-log'] as const,
-    activityLogByEntity: (entityId: Nullable) =>
-      ['team-activity-log', entityId ?? 'all'] as const,
-    activityLogCount: ['team-activity-log-count'] as const,
-    locations: ['team-locations'] as const,
-    overtimeReport: (year: number) =>
-      ['team-overtime-report', year] as const,
-    skills: (divisionSlug: Nullable) =>
-      ['team-skills', divisionSlug] as const,
-  },
-
-  /* ── Traccar ──────────────────────────────────────────── */
-  traccar: {
-    devices: ['traccar-devices'] as const,
-    positions: (deviceIds: number[]) =>
-      ['traccar-positions', deviceIds] as const,
-    history: (deviceId: number | null, from: Nullable, to: Nullable) =>
-      ['traccar-history', deviceId, from, to] as const,
-    geofences: ['traccar-geofences'] as const,
-  },
-
   /* ── Unlinked AR ──────────────────────────────────────── */
   unlinkedAr: {
     incomingPaymentsAll: ['unlinked-incoming-payments'] as const,

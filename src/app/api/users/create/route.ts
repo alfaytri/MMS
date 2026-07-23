@@ -13,8 +13,6 @@ const bodySchema = z.object({
     .regex(/^[a-z0-9._-]+$/, 'Only lowercase letters, numbers, dots, hyphens, and underscores'),
   password: passwordSchema,
   role_ids: z.array(z.string().uuid()).default([]),
-  is_team_leader: z.boolean().default(false),
-  employee_id: z.string().uuid().optional(),
   is_division_manager: z.boolean().default(false),
   has_contact_centre_access: z.boolean().default(false),
   threecx_extension: z.string().trim().regex(/^\d{2,8}$|^$/, 'Extension must be 2-8 digits').optional(),
@@ -22,11 +20,9 @@ const bodySchema = z.object({
 })
 
 export async function POST(request: Request) {
-  // 1. Admin gate.
   const gate = await requireAdmin()
   if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
-  // 2. Validate.
   let body: unknown
   try { body = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -36,12 +32,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid body' }, { status: 400 })
   }
   const {
-    full_name, username, password, role_ids, is_team_leader, employee_id,
+    full_name, username, password, role_ids,
     is_division_manager, has_contact_centre_access, threecx_extension, phone,
   } = parsed.data
   const email = `${username}@mms.local`
 
-  // 3. Rate limit.
   if (await isRateLimited({
     action: 'user.admin_create',
     actorAuthUserId: gate.authUserId,
@@ -51,29 +46,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Rate limit: 10 creates per minute. Wait and retry.' }, { status: 429 })
   }
 
-  // 4. Create auth user.
   const admin = createAdminClient()
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: is_team_leader
-      ? { full_name, is_team_leader: true }
-      : { full_name },
+    user_metadata: { full_name },
   })
   if (createErr || !created.user) {
     return NextResponse.json({ error: `Auth user creation failed: ${createErr?.message ?? 'unknown'}` }, { status: 400 })
   }
   const authUserId = created.user.id
 
-  // 5. Insert profile.
   const { data: profile, error: profErr } = await admin
     .from('profiles')
     .insert({
       auth_user_id: authUserId,
       email,
       full_name,
-      user_type: is_team_leader ? 'team-leader' : 'internal',
+      user_type: 'internal',
       is_active: true,
       created_by: gate.authUserId,
       is_division_manager,
@@ -85,7 +76,6 @@ export async function POST(request: Request) {
     .single()
   if (profErr) {
     if (/duplicate|unique/i.test(profErr.message) && /threecx|extension/i.test(profErr.message)) {
-      // Roll back the orphan auth user so the admin can retry cleanly.
       await admin.auth.admin.deleteUser(authUserId)
       return NextResponse.json({ error: 'That extension is already assigned to another user' }, { status: 409 })
     }
@@ -95,32 +85,8 @@ export async function POST(request: Request) {
     )
   }
 
-  // 6a. Link employee if team leader.
-  if (is_team_leader && employee_id) {
-    const { data: emp } = await admin
-      .from('employees')
-      .select('id, teams!teams_leader_id_fkey(id)')
-      .eq('id', employee_id)
-      .maybeSingle()
-
-    const teamId = Array.isArray(emp?.teams) ? emp.teams[0]?.id
-      : (emp?.teams as unknown as { id: string } | null)?.id ?? null
-
-    await admin
-      .from('employees')
-      .update({ profile_id: profile.id })
-      .eq('id', employee_id)
-
-    if (teamId) {
-      await admin.auth.admin.updateUserById(authUserId, {
-        user_metadata: { full_name, is_team_leader: true, team_id: teamId },
-      })
-    }
-  }
-
-  // 6b. Assign roles via atomic RPC (non-fatal on failure, skip for TL).
   let roleWarning: string | null = null
-  if (!is_team_leader && role_ids.length > 0) {
+  if (role_ids.length > 0) {
     const { error: rpcErr } = await admin.rpc('replace_user_custom_roles_v2', {
       p_user_id: profile.id,
       p_assignments: (role_ids ?? []).map((role_id: string) => ({ role_id, approval_scopes: null })),
@@ -128,7 +94,6 @@ export async function POST(request: Request) {
     if (rpcErr) roleWarning = `Roles not assigned: ${rpcErr.message}`
   }
 
-  // 7. Audit.
   await logUserEvent({
     action: 'user.admin_create',
     actorAuthUserId: gate.authUserId,
