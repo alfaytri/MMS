@@ -214,20 +214,15 @@ export function useCustomers(search?: string) {
     queryKey: queryKeys.customers.search(search),
     queryFn: async () => {
       const supabase = createClient()
-      let q = supabase
-        .from('customers')
-        .select('id, name, email, customer_type, is_blocked, is_active, credit_group_id, credit_groups(name, credit_limit, default_payment_terms), customer_phones(phone, is_primary)')
-        .eq('is_active', true)
-        .order('name')
-        .limit(50)
-      if (search) {
-        const safe = search.replace(/%/g, '\\%')
-        // Phone search filters on the child table via the join alias.
-        q = q.or(`name.ilike.%${safe}%,customer_phones.phone.ilike.%${safe}%`)
-      }
-      const { data, error } = await q
+      const { data: payload, error } = await supabase.rpc('search_customers', {
+        p_query:       search ?? null,
+        p_only_active: true,
+        p_limit:       50,
+        p_offset:      0,
+      })
       if (error) throw error
-      return (data ?? []).map((row) => {
+      const data = (payload as { rows?: unknown[] } | null)?.rows ?? []
+      return (data as Record<string, unknown>[]).map((row) => {
         const r = row as typeof row & {
           credit_groups?: { name?: string; credit_limit?: number; default_payment_terms?: string | null } | null
           customer_phones?: { phone: string; is_primary: boolean }[]
@@ -256,21 +251,18 @@ export function useAllCustomers(search: string, page: number) {
     queryKey: queryKeys.customers.allCustomersSearch(search, page),
     queryFn:  async () => {
       const supabase = createClient()
-      const from = page * CUSTOMERS_PAGE_SIZE
-      const to   = from + CUSTOMERS_PAGE_SIZE - 1
-      let q = supabase
-        .from('customers')
-        .select('id, name, email, customer_type, entity_type, is_blocked, is_active, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, credit_groups(name, credit_limit), customer_phones(phone, is_primary)', { count: 'exact' })
-        .order('name')
-        .range(from, to)
-      if (search) {
-        const safe = search.replace(/%/g, '\\%')
-        q = q.or(`name.ilike.%${safe}%,customer_phones.phone.ilike.%${safe}%`)
-      }
-      const { data, count, error } = await q
+      const { data: payload, error } = await supabase.rpc('search_customers', {
+        p_query:       search ?? null,
+        p_only_active: false,
+        p_limit:       CUSTOMERS_PAGE_SIZE,
+        p_offset:      page * CUSTOMERS_PAGE_SIZE,
+      })
       if (error) throw error
+      const parsed = (payload as { rows?: unknown[]; total_count?: number } | null) ?? {}
+      const data   = parsed.rows ?? []
+      const count  = parsed.total_count ?? 0
       return {
-        customers: (data ?? []).map((row) => {
+        customers: (data as Record<string, unknown>[]).map((row) => {
           const r = row as typeof row & {
             credit_groups?: { name?: string; credit_limit?: number } | null
             customer_phones?: { phone: string; is_primary: boolean }[]
@@ -285,7 +277,7 @@ export function useAllCustomers(search: string, page: number) {
             credit_group_limit: r.credit_groups?.credit_limit ?? null,
           }
         }) as Customer[],
-        total: count ?? 0,
+        total: count,
       }
     },
     staleTime: 30 * 1000,
