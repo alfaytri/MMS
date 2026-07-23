@@ -1180,7 +1180,6 @@ export type Database = {
           is_blocked: boolean | null
           name: string
           name_ar: string | null
-          phone: string
           signed_credit_form_uploaded_at: string | null
           signed_credit_form_url: string | null
           updated_at: string | null
@@ -1203,7 +1202,6 @@ export type Database = {
           is_blocked?: boolean | null
           name: string
           name_ar?: string | null
-          phone: string
           signed_credit_form_uploaded_at?: string | null
           signed_credit_form_url?: string | null
           updated_at?: string | null
@@ -1226,7 +1224,6 @@ export type Database = {
           is_blocked?: boolean | null
           name?: string
           name_ar?: string | null
-          phone?: string
           signed_credit_form_uploaded_at?: string | null
           signed_credit_form_url?: string | null
           updated_at?: string | null

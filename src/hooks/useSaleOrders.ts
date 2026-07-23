@@ -210,20 +210,26 @@ export function useCustomers(search?: string) {
       const supabase = createClient()
       let q = supabase
         .from('customers')
-        .select('id, name, phone, email, customer_type, is_blocked, is_active, credit_group_id, credit_groups(name, credit_limit, default_payment_terms)')
+        .select('id, name, email, customer_type, is_blocked, is_active, credit_group_id, credit_groups(name, credit_limit, default_payment_terms), customer_phones(phone, is_primary)')
         .eq('is_active', true)
         .order('name')
         .limit(50)
       if (search) {
         const safe = search.replace(/%/g, '\\%')
-        q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
+        // Phone search filters on the child table via the join alias.
+        q = q.or(`name.ilike.%${safe}%,customer_phones.phone.ilike.%${safe}%`)
       }
       const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((row) => {
-        const r = row as typeof row & { credit_groups?: { name?: string; credit_limit?: number; default_payment_terms?: string | null } | null }
+        const r = row as typeof row & {
+          credit_groups?: { name?: string; credit_limit?: number; default_payment_terms?: string | null } | null
+          customer_phones?: { phone: string; is_primary: boolean }[]
+        }
+        const primary = (r.customer_phones ?? []).find((p) => p.is_primary) ?? r.customer_phones?.[0] ?? null
         return {
           ...row,
+          phone:                       primary?.phone ?? null,
           credit_group_name:           r.credit_groups?.name                  ?? null,
           credit_group_limit:          r.credit_groups?.credit_limit          ?? null,
           credit_group_default_terms:  r.credit_groups?.default_payment_terms ?? null,
@@ -246,20 +252,25 @@ export function useAllCustomers(search: string, page: number) {
       const to   = from + CUSTOMERS_PAGE_SIZE - 1
       let q = supabase
         .from('customers')
-        .select('id, name, phone, email, customer_type, entity_type, is_blocked, is_active, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, credit_groups(name, credit_limit)', { count: 'exact' })
+        .select('id, name, email, customer_type, entity_type, is_blocked, is_active, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, credit_groups(name, credit_limit), customer_phones(phone, is_primary)', { count: 'exact' })
         .order('name')
         .range(from, to)
       if (search) {
         const safe = search.replace(/%/g, '\\%')
-        q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
+        q = q.or(`name.ilike.%${safe}%,customer_phones.phone.ilike.%${safe}%`)
       }
       const { data, count, error } = await q
       if (error) throw error
       return {
         customers: (data ?? []).map((row) => {
-          const r = row as typeof row & { credit_groups?: { name?: string; credit_limit?: number } | null }
+          const r = row as typeof row & {
+            credit_groups?: { name?: string; credit_limit?: number } | null
+            customer_phones?: { phone: string; is_primary: boolean }[]
+          }
+          const primary = (r.customer_phones ?? []).find((p) => p.is_primary) ?? r.customer_phones?.[0] ?? null
           return {
             ...row,
+            phone:              primary?.phone ?? null,
             credit_group_name:  r.credit_groups?.name         ?? null,
             credit_group_limit: r.credit_groups?.credit_limit ?? null,
           }
@@ -288,8 +299,9 @@ export function useCreateCustomer() {
     }) => {
       const supabase = createClient()
       const now = new Date().toISOString()
+      const { phone, ...customerFields } = payload
       const row = {
-        ...payload,
+        ...customerFields,
         cr_uploaded_at:                 payload.cr_url                 ? now : null,
         establishment_id_uploaded_at:   payload.establishment_id_url   ? now : null,
         signed_credit_form_uploaded_at: payload.signed_credit_form_url ? now : null,
@@ -300,14 +312,26 @@ export function useCreateCustomer() {
         .select()
         .single()
       if (error) throw error
+
+      const { error: phoneErr } = await supabase
+        .from('customer_phones')
+        .insert({ customer_id: data.id, phone, is_primary: true })
+      if (phoneErr) {
+        // Roll back the customer so the admin can retry with a different number.
+        await supabase.from('customers').delete().eq('id', data.id)
+        throw new Error(phoneErr.message.includes('unique') || phoneErr.message.includes('duplicate')
+          ? 'That phone number is already assigned to another customer'
+          : phoneErr.message)
+      }
+
       void logActivity({
         action: 'Customer Created',
         module: 'customers',
         entity_id: data.id,
         entity_type: 'customer',
-        new_data: data as unknown as Record<string, unknown>,
+        new_data: { ...data, phone } as unknown as Record<string, unknown>,
       })
-      return data
+      return { ...data, phone }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
@@ -350,8 +374,9 @@ export function useUpdateCustomer() {
       const supabase = createClient()
       const now = new Date().toISOString()
 
-      // Stamp uploaded_at for any newly-uploaded doc (path changed AND non-null)
-      const update: Database['public']['Tables']['customers']['Update'] = { ...args.patch }
+      // Phone lives on customer_phones now; strip it out of the customers update.
+      const { phone: newPhone, ...customerPatch } = args.patch
+      const update: Database['public']['Tables']['customers']['Update'] = { ...customerPatch }
       if (args.patch.cr_url && args.patch.cr_url !== args.previous.cr_url) {
         update.cr_uploaded_at = now
       }
@@ -369,6 +394,36 @@ export function useUpdateCustomer() {
         .select('id, name')
       if (error) throw error
       if (!data || data.length === 0) throw new Error('Customer not found or update blocked')
+
+      // Sync primary phone into customer_phones. Only if the value changed.
+      if (newPhone !== undefined && newPhone !== args.previous.phone) {
+        const { data: existingPrimary } = await supabase
+          .from('customer_phones')
+          .select('id, phone')
+          .eq('customer_id', args.id)
+          .eq('is_primary', true)
+          .maybeSingle()
+        if (existingPrimary) {
+          const { error: upErr } = await supabase
+            .from('customer_phones')
+            .update({ phone: newPhone })
+            .eq('id', existingPrimary.id)
+          if (upErr) {
+            throw new Error(upErr.message.includes('unique') || upErr.message.includes('duplicate')
+              ? 'That phone number is already assigned to another customer'
+              : upErr.message)
+          }
+        } else if (newPhone) {
+          const { error: insErr } = await supabase
+            .from('customer_phones')
+            .insert({ customer_id: args.id, phone: newPhone, is_primary: true })
+          if (insErr) {
+            throw new Error(insErr.message.includes('unique') || insErr.message.includes('duplicate')
+              ? 'That phone number is already assigned to another customer'
+              : insErr.message)
+          }
+        }
+      }
 
       // Build a diff for the audit log — only include fields that actually changed.
       const diff: Array<{ field: string; from: unknown; to: unknown }> = []
@@ -507,7 +562,7 @@ export function useSaleOrder(id: string | null) {
             )
           ),
           sale_deliveries(*, sale_delivery_lines(*)),
-          customers(name, phone, email)
+          customers(name, email, customer_phones(phone, is_primary))
         `)
         .eq('id', id!)
         .single()
@@ -551,10 +606,12 @@ export function useSaleOrder(id: string | null) {
         return chain
       }
 
+      const custPhones = (data.customers as unknown as { customer_phones?: { phone: string; is_primary: boolean }[] } | null)?.customer_phones ?? []
+      const primaryPhone = custPhones.find((p) => p.is_primary)?.phone ?? custPhones[0]?.phone ?? null
       const so = {
         ...data,
         customer_name:  data.customers?.name  ?? null,
-        customer_phone: data.customers?.phone ?? null,
+        customer_phone: primaryPhone,
       } as unknown as SaleOrder
 
       for (const li of so.sale_order_lines ?? []) {

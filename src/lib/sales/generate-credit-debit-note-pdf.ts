@@ -193,12 +193,20 @@ export async function generateCreditDebitNotePdf(
   if (!isDebit && invoiceOrBillId) {
     const { data: inv } = await supabase
       .from('so_invoices')
-      .select('invoice_id, customers(phone), sale_orders(division_id)')
+      .select('invoice_id, customers(customer_phones(phone, is_primary)), sale_orders(division_id)')
       .eq('id', invoiceOrBillId)
-      .maybeSingle<{ invoice_id: string; customers: { phone: string | null } | null; sale_orders: { division_id: string | null } | null }>()
+      .maybeSingle<{
+        invoice_id: string
+        customers: { customer_phones: { phone: string; is_primary: boolean }[] } | null
+        sale_orders: { division_id: string | null } | null
+      }>()
     if (inv?.invoice_id) referenceNumber = inv.invoice_id
     if (inv?.sale_orders?.division_id) divisionId = inv.sale_orders.division_id
-    if (!partyPhone && inv?.customers?.phone) partyPhone = inv.customers.phone
+    if (!partyPhone) {
+      const phones = inv?.customers?.customer_phones ?? []
+      const primary = phones.find((p) => p.is_primary) ?? phones[0]
+      if (primary?.phone) partyPhone = primary.phone
+    }
   }
 
   // ── 3. Branding ──────────────────────────────────────────────────────

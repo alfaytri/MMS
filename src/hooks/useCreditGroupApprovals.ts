@@ -67,7 +67,7 @@ export function usePendingCreditGroupRequests() {
         .from('customer_credit_group_requests')
         .select(`
           *,
-          customer:customers(name, phone, email, entity_type, customer_type, cr_url, establishment_id_url, signed_credit_form_url),
+          customer:customers(name, email, entity_type, customer_type, cr_url, establishment_id_url, signed_credit_form_url, customer_phones(phone, is_primary)),
           requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
           previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
           rows:customer_credit_group_approvals(*)
@@ -79,7 +79,7 @@ export function usePendingCreditGroupRequests() {
       return (data ?? []).map((r) => ({
         ...r,
         customer_name:           r.customer?.name ?? null,
-        customer_phone:          r.customer?.phone ?? null,
+        customer_phone:          ((r.customer as unknown as { customer_phones?: { phone: string; is_primary: boolean }[] } | null)?.customer_phones ?? []).find((p) => p.is_primary)?.phone ?? ((r.customer as unknown as { customer_phones?: { phone: string; is_primary: boolean }[] } | null)?.customer_phones ?? [])[0]?.phone ?? null,
         customer_email:          r.customer?.email ?? null,
         customer_entity_type:    r.customer?.entity_type ?? null,
         customer_type:           r.customer?.customer_type ?? null,
@@ -104,7 +104,7 @@ export function useCompletedCreditGroupRequests() {
         .from('customer_credit_group_requests')
         .select(`
           *,
-          customer:customers(name, phone, email, entity_type, customer_type, cr_url, establishment_id_url, signed_credit_form_url),
+          customer:customers(name, email, entity_type, customer_type, cr_url, establishment_id_url, signed_credit_form_url, customer_phones(phone, is_primary)),
           requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
           previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
           rows:customer_credit_group_approvals(*)
@@ -116,7 +116,7 @@ export function useCompletedCreditGroupRequests() {
       return (data ?? []).map((r) => ({
         ...r,
         customer_name:           r.customer?.name ?? null,
-        customer_phone:          r.customer?.phone ?? null,
+        customer_phone:          ((r.customer as unknown as { customer_phones?: { phone: string; is_primary: boolean }[] } | null)?.customer_phones ?? []).find((p) => p.is_primary)?.phone ?? ((r.customer as unknown as { customer_phones?: { phone: string; is_primary: boolean }[] } | null)?.customer_phones ?? [])[0]?.phone ?? null,
         customer_email:          r.customer?.email ?? null,
         customer_entity_type:    r.customer?.entity_type ?? null,
         customer_type:           r.customer?.customer_type ?? null,
