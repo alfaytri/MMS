@@ -78,3 +78,6 @@ odoo_viewers/
 !/scripts/build_test_workbook.mjs
 !/scripts/test-cases/
 temp_*.sql
+
+# ── Session scratchpad (Claude working files) ────────────
+/scratchpad/

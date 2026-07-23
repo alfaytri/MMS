@@ -1,1 +1,0 @@
-src/components/master-data/EditUserDialog.tsx(397,122): error TS2339: Property 'name' does not exist on type 'never'.
