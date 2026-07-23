@@ -106,7 +106,6 @@ interface PaymentFormDialogProps {
   onSubmit: (values: PaymentFormValues) => void
   totalAmount: number
   paidAmount: number
-  exchangeRate?: number
   showExchangeRate?: boolean
 }
 
@@ -122,7 +121,7 @@ export type PaymentFormValues = {
 export function PaymentFormDialog({
   open, onOpenChange, title, currency, methods,
   defaultMethod, isPending, onSubmit,
-  totalAmount, paidAmount, exchangeRate: _defaultExchangeRate,
+  totalAmount, paidAmount,
   showExchangeRate = false,
 }: PaymentFormDialogProps) {
   const outstanding = Math.max(0, totalAmount - paidAmount)

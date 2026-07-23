@@ -65,7 +65,6 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
       await completeDelivery.mutateAsync({
         deliveryId: delivery.id,
         soId: delivery.sale_order_id,
-        invoiceId: linkedInvoice?.id ?? null,
         remainingItems,
       })
       toast.success('Delivery completed')

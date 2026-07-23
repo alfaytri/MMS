@@ -110,12 +110,10 @@ export function useCompleteDelivery() {
     mutationFn: async ({
       deliveryId,
       soId,
-      invoiceId: _invoiceId,
       remainingItems,
     }: {
       deliveryId: string
       soId: string
-      invoiceId: string | null
       remainingItems: DeliveryItem[]
     }) => {
       const supabase = createClient()

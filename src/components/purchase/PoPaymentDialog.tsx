@@ -65,7 +65,6 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
       onSubmit={handleSubmit}
       totalAmount={totalInCurrency}
       paidAmount={paidInCurrency}
-      exchangeRate={po.exchange_rate}
       showExchangeRate={showExchangeRate}
     />
   )

@@ -571,7 +571,6 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   {
                     deliveryId: confirmDeliveryId,
                     soId: current.id,
-                    invoiceId: soInvoice?.id ?? null,
                     remainingItems: remaining,
                   },
                   {

@@ -57,7 +57,6 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
       onSubmit={handleSubmit}
       totalAmount={so.total}
       paidAmount={totalPaid}
-      exchangeRate={so.exchange_rate}
       showExchangeRate={showExchangeRate}
     />
   )
