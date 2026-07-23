@@ -88,6 +88,16 @@ function fmtDate(iso: string): string {
   return `${day} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
+// Suppliers fill these fields with pen on the printed RFQ.
+const RFQ_BLANK = '&nbsp;'
+// Default response window: 5 days from the RFQ creation date.
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString()
+}
+
 // ── Template ───────────────────────────────────────────────────────────────
 
 export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
@@ -111,10 +121,12 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
   // Strip whatever prefix the source po_number has (e.g. "PO-00013") and swap in the variant prefix.
   const docNoDisplay = po_number.replace(/^[A-Z]+-/, RIBBON[variant].prefix)
 
+  const isRfq        = variant === 'rfq'
   const showPayments = variant === 'po' || variant === 'confirmed'
-  const showDiscount = (discount_amount ?? 0) > 0
+  const showDiscount = !isRfq && (discount_amount ?? 0) > 0
 
   // ── Line-item rows ──────────────────────────────────────────────────
+  // For RFQs, unit price + total cells render blank so the supplier fills them.
   const lineRows = lines.map((li) => {
     const nameArHtml = li.item_name_ar
       ? `<div class="item-name-ar">${escapeHtml(li.item_name_ar)}</div>`
@@ -122,6 +134,9 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
     const skuHtml = li.sku
       ? `<div class="item-sku">${escapeHtml(li.sku)}</div>`
       : ''
+
+    const unitPriceCell = isRfq ? RFQ_BLANK : escapeHtml(fmtMoney(li.unit_price, currency))
+    const totalCell     = isRfq ? RFQ_BLANK : escapeHtml(fmtMoney(li.total_price, currency))
 
     return `
       <tr>
@@ -132,32 +147,49 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
         </td>
         <td class="cell-num">${escapeHtml(li.unit)}</td>
         <td class="cell-num">${li.qty}</td>
-        <td class="cell-num">${escapeHtml(fmtMoney(li.unit_price, currency))}</td>
-        <td class="cell-num">${escapeHtml(fmtMoney(li.total_price, currency))}</td>
+        <td class="cell-num">${unitPriceCell}</td>
+        <td class="cell-num">${totalCell}</td>
       </tr>`
   }).join('')
 
-  // ── Meta blocks (6 fields) ──────────────────────────────────────────
+  // ── Meta blocks ──────────────────────────────────────────────────────
   const metaBlocks: string[] = []
 
   metaBlocks.push(metaBlock(fmtDate(created_date), 'تاريخ الطلب', 'Order Date'))
-  metaBlocks.push(metaBlock(
-    expected_delivery ? fmtDate(expected_delivery) : '—',
-    'تاريخ التسليم المتوقع',
-    'Expected Delivery',
-  ))
-  metaBlocks.push(metaBlock(
-    supplier_phone ? escapeHtml(supplier_phone) : '—',
-    'هاتف المورد',
-    'Supplier Phone',
-  ))
-  metaBlocks.push(metaBlock(escapeHtml(supplier_name), 'اسم المورد', 'Supplier Name'))
 
-  if (rfq_number) {
-    metaBlocks.push(metaBlock(escapeHtml(rfq_number), 'رقم طلب عرض الأسعار', 'RFQ #'))
+  if (isRfq) {
+    metaBlocks.push(metaBlock(
+      expected_delivery ? fmtDate(expected_delivery) : RFQ_BLANK,
+      'موعد التسليم المطلوب',
+      'Required By',
+    ))
+    metaBlocks.push(metaBlock(
+      fmtDate(addDaysIso(created_date, 5)),
+      'يرجى الرد قبل',
+      'Please Quote By',
+    ))
+    // Supplier fields left blank for the recipient to fill in with pen.
+    metaBlocks.push(metaBlock(RFQ_BLANK, 'اسم المورد', 'Supplier Name'))
+    metaBlocks.push(metaBlock(RFQ_BLANK, 'هاتف المورد', 'Supplier Phone'))
+  } else {
+    metaBlocks.push(metaBlock(
+      expected_delivery ? fmtDate(expected_delivery) : '—',
+      'تاريخ التسليم المتوقع',
+      'Expected Delivery',
+    ))
+    metaBlocks.push(metaBlock(
+      supplier_phone ? escapeHtml(supplier_phone) : '—',
+      'هاتف المورد',
+      'Supplier Phone',
+    ))
+    metaBlocks.push(metaBlock(escapeHtml(supplier_name), 'اسم المورد', 'Supplier Name'))
+
+    if (rfq_number) {
+      metaBlocks.push(metaBlock(escapeHtml(rfq_number), 'رقم طلب عرض الأسعار', 'RFQ #'))
+    }
+
+    metaBlocks.push(metaBlock(escapeHtml(status), 'حالة الطلب', 'Order Status'))
   }
-
-  metaBlocks.push(metaBlock(escapeHtml(status), 'حالة الطلب', 'Order Status'))
 
   // ── Payment rows ─────────────────────────────────────────────────────
   const paymentRows = payments.length > 0
@@ -173,21 +205,57 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
   const outstandingClass = outstanding > 0 ? ' s-outstanding' : ''
 
   // ── Terms rows ──────────────────────────────────────────────────────
+  // On RFQs we show the two headings with blank values so the supplier can
+  // propose their own terms in ink.
   const termsRows: string[] = []
-  if (payment_terms) {
+  if (isRfq) {
     termsRows.push(`
       <div class="terms-row">
         <div class="terms-key">Payment Terms</div>
-        <div class="terms-val">${escapeHtml(payment_terms)}</div>
+        <div class="terms-val">${RFQ_BLANK}</div>
       </div>`)
-  }
-  if (delivery_terms) {
     termsRows.push(`
       <div class="terms-row">
         <div class="terms-key">Delivery Terms</div>
-        <div class="terms-val">${escapeHtml(delivery_terms)}</div>
+        <div class="terms-val">${RFQ_BLANK}</div>
       </div>`)
+    termsRows.push(`
+      <div class="terms-row">
+        <div class="terms-key">Quote Validity</div>
+        <div class="terms-val">${RFQ_BLANK}</div>
+      </div>`)
+  } else {
+    if (payment_terms) {
+      termsRows.push(`
+        <div class="terms-row">
+          <div class="terms-key">Payment Terms</div>
+          <div class="terms-val">${escapeHtml(payment_terms)}</div>
+        </div>`)
+    }
+    if (delivery_terms) {
+      termsRows.push(`
+        <div class="terms-row">
+          <div class="terms-key">Delivery Terms</div>
+          <div class="terms-val">${escapeHtml(delivery_terms)}</div>
+        </div>`)
+    }
   }
+
+  // ── RFQ instructions (only on the RFQ variant) ──────────────────────
+  const rfqInstructionsHtml = isRfq ? `
+  <div class="rfq-instructions">
+    <div class="rfq-instructions-title">
+      <span class="ar">تعليمات لتقديم العرض</span>
+      <span class="en">Instructions to Supplier</span>
+    </div>
+    <ul>
+      <li>Please quote your best unit price and line total in the price columns above.</li>
+      <li>Fill in your name, phone, payment terms, delivery terms and quote validity.</li>
+      <li>Return the signed quote by the <strong>Please Quote By</strong> date shown above.</li>
+      <li>Send the completed quote to <strong>purchases@alfaytri.com</strong> or WhatsApp <strong>+974 4410 6900</strong>.</li>
+    </ul>
+  </div>
+  ` : ''
 
   // ── Full HTML document ──────────────────────────────────────────────
   return `<!DOCTYPE html>
@@ -218,6 +286,28 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
 
   .summary-row .s-outstanding { color: #dc2626; font-size: 10px; }
   .summary-divider { height: 0.7px; background: var(--text); }
+
+  /* ─── RFQ instructions block ─── */
+  .rfq-instructions {
+    margin: 4mm 8mm 0 8mm;
+    border: 0.7px solid var(--text);
+    padding: 3mm 4mm;
+  }
+  .rfq-instructions-title {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'IBMPlexSans', sans-serif; font-weight: 600; font-size: 9px;
+    color: var(--text); border-bottom: 0.7px solid var(--grey-rule);
+    padding-bottom: 1.5mm; margin-bottom: 2mm;
+  }
+  .rfq-instructions-title .ar {
+    font-family: 'IBMPlexSansArabic', sans-serif; direction: rtl;
+  }
+  .rfq-instructions ul {
+    margin: 0; padding-left: 4mm;
+    font-family: 'IBMPlexSans', sans-serif; font-size: 8px; line-height: 1.55;
+    color: var(--text);
+  }
+  .rfq-instructions li { margin-bottom: 0.8mm; }
 </style>
 </head>
 <body>
@@ -277,7 +367,7 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
         <span class="s-label">المجموع الفرعي</span>
         <span class="s-en">Subtotal</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(subtotal, currency))}</span>
+        <span class="s-amount">${isRfq ? RFQ_BLANK : escapeHtml(fmtMoney(subtotal, currency))}</span>
       </div>
       ${showDiscount ? `
       <div class="summary-row">
@@ -291,7 +381,7 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
         <span class="s-label">الإجمالي النهائي</span>
         <span class="s-en">Grand Total</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(total_qar, currency))}</span>
+        <span class="s-amount">${isRfq ? RFQ_BLANK : escapeHtml(fmtMoney(total_qar, currency))}</span>
       </div>
       ${showPayments ? `
       <div class="summary-divider"></div>
@@ -310,6 +400,8 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
       ` : ''}
     </div>
   </div>
+
+  ${rfqInstructionsHtml}
 
   ${stampSectionHtml(assets.stamp)}
 
