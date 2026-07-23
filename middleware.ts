@@ -1,14 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Explicit allowlist — no stringly-typed bypass, no startsWith surprises.
-const ALLOWED_PATHS = new Set<string>([
-  '/login',
-])
-// Inbound webhooks from external services (Wati, 17track) carry no session
-// cookie — they must bypass the auth gate. Each route validates its own
-// shared secret / signature instead.
-const WEBHOOK_PREFIXES = ['/api/wati/webhook', '/api/whapi/webhook', '/api/webhooks/', '/api/payments/dibsy/webhook', '/api/payments/dibsy/create-batch-payment', '/api/3cx/']
+// Inbound webhooks from external services carry no session cookie — they
+// must bypass the auth gate. Each route validates its own shared secret /
+// signature instead.
+const WEBHOOK_PREFIXES = ['/api/webhooks/', '/api/payments/dibsy/webhook', '/api/payments/dibsy/create-batch-payment', '/api/3cx/']
 
 const PUBLIC_PREFIXES = ['/pay/']
 
