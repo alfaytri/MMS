@@ -110,7 +110,7 @@ export function useCompleteDelivery() {
     mutationFn: async ({
       deliveryId,
       soId,
-      invoiceId,
+      invoiceId: _invoiceId,
       remainingItems,
     }: {
       deliveryId: string
