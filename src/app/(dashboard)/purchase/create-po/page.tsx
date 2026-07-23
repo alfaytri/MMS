@@ -22,7 +22,7 @@ import {
 import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLineItemsEditor'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
-import { SupplierMultiSelect } from '@/components/purchase/SupplierMultiSelect'
+import { SupplierMultiSelect, SupplierChips } from '@/components/purchase/SupplierMultiSelect'
 import { useCreatePO, useSubmitPOForApproval, type CreatePOPayload } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
@@ -254,7 +254,7 @@ export default function CreatePOPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 items-start">
             {/* Supplier — single combobox or multi-select in RFQ mode */}
             {rfqMode ? (
               <div className="space-y-1">
@@ -264,6 +264,7 @@ export default function CreatePOPage() {
                 <SupplierMultiSelect
                   value={rfqSupplierIds}
                   onChange={setRfqSupplierIds}
+                  hideChips
                 />
               </div>
             ) : (
@@ -361,6 +362,10 @@ export default function CreatePOPage() {
               </div>
             )}
           </div>
+
+          {rfqMode && rfqSupplierIds.length > 0 && (
+            <SupplierChips value={rfqSupplierIds} onChange={setRfqSupplierIds} />
+          )}
 
         </section>
 

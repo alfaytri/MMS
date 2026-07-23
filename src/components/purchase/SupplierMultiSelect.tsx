@@ -19,12 +19,19 @@ interface SupplierMultiSelectProps {
   value: string[]
   onChange: (ids: string[]) => void
   disabled?: boolean
+  /**
+   * When true, the selected-supplier chips are not rendered inside this
+   * component. The caller is expected to render them elsewhere (e.g. below
+   * a fixed-height row) via `<SupplierChips />` to keep grid alignment clean.
+   */
+  hideChips?: boolean
 }
 
 export function SupplierMultiSelect({
   value,
   onChange,
   disabled = false,
+  hideChips = false,
 }: SupplierMultiSelectProps) {
   const [open, setOpen] = useState(false)
   const { data: suppliers = [] } = useSuppliers()
@@ -105,7 +112,7 @@ export function SupplierMultiSelect({
         </PopoverContent>
       </Popover>
 
-      {value.length > 0 && (
+      {!hideChips && value.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {value.map((id) => {
             const name = supplierMap.get(id)
@@ -130,6 +137,46 @@ export function SupplierMultiSelect({
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+interface SupplierChipsProps {
+  value:    string[]
+  onChange: (ids: string[]) => void
+}
+
+/**
+ * Standalone renderer for the selected-supplier chips. Use when
+ * `<SupplierMultiSelect hideChips />` is embedded inside a grid row and the
+ * chips should flow beneath the row on their own line.
+ */
+export function SupplierChips({ value, onChange }: SupplierChipsProps) {
+  const { data: suppliers = [] } = useSuppliers()
+  const supplierMap = useMemo(
+    () => new Map(suppliers.map((s) => [s.id, s.name])),
+    [suppliers],
+  )
+  if (value.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {value.map((id) => {
+        const name = supplierMap.get(id)
+        if (!name) return null
+        return (
+          <Badge key={id} variant="secondary" className="gap-1 pr-1">
+            <span className="truncate max-w-[160px]">{name}</span>
+            <button
+              type="button"
+              className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
+              onClick={() => onChange(value.filter((v) => v !== id))}
+              aria-label={`Remove ${name}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        )
+      })}
     </div>
   )
 }
