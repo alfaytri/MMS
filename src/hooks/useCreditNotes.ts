@@ -327,11 +327,9 @@ export function useResolveCreditNoteStoreCredit() {
 
       if (!inv?.customer_id) throw new Error('Could not resolve customer')
 
-      const { error: rpcError } = await supabase.rpc('increment_credit_balance', {
-        p_customer_id: inv.customer_id,
-        p_amount: input.amount,
-      })
-      if (rpcError) throw rpcError
+      // Store-credit resolution marks the credit note; the "credit balance"
+      // is derived from credit_notes at read time (customers.credit_balance
+      // column was dropped 2026-07-24).
 
       const { error } = await supabase
         .from('credit_notes')

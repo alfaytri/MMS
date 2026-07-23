@@ -79,7 +79,7 @@ export async function requireAuth(): Promise<
 
 /**
  * Generic permission gate. Requires the caller to have ANY of the listed
- * permissions via their assigned custom roles. System admins (is_system=true)
+ * permissions via their assigned custom roles. System admins (is_system_admin=true)
  * always pass. Use this instead of requireAdmin() when a route is gated by a
  * permission OTHER than master_data.users.manage.
  */
@@ -105,7 +105,7 @@ export async function requirePermission(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
+    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system_admin, permissions))')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
@@ -113,13 +113,13 @@ export async function requirePermission(
     return { ok: false, status: 403, message: 'Forbidden — no profile linked to this user' }
   }
 
-  const roles: Array<{ custom_roles: { is_system: boolean | null; permissions: string[] } | null }> =
+  const roles: Array<{ custom_roles: { is_system_admin: boolean | null; permissions: string[] } | null }> =
     profile.user_custom_roles ?? []
 
   const perms: string[] = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
-  // System admin = is_system=true seeded role OR system.admin permission grant.
+  // System admin = is_system_admin=true seeded role OR system.admin permission grant.
   const isSystemAdmin =
-    roles.some((r) => r.custom_roles?.is_system === true) ||
+    roles.some((r) => r.custom_roles?.is_system_admin === true) ||
     perms.includes('system.admin')
   if (isSystemAdmin) {
     return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }

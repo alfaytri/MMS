@@ -47,7 +47,7 @@ const ROLE_COLOR_CLASSES: Record<string, string> = {
 
 function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => void; onDelete: () => void }) {
   const permissions = useMemo(() => (role.permissions as string[]) ?? [], [role.permissions])
-  const color = role.is_system ? 'blue' : roleColor(role.name)
+  const color = role.is_system_admin ? 'blue' : roleColor(role.name)
   const colorClass = ROLE_COLOR_CLASSES[color] ?? ROLE_COLOR_CLASSES.blue
 
   const coverageChips = useMemo(() =>
@@ -70,7 +70,7 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
           <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-semibold ${colorClass}`}>
             {role.name}
           </span>
-          {role.is_system && (
+          {role.is_system_admin && (
             <Badge variant="outline" className="text-xs px-1.5 py-0">System</Badge>
           )}
         </div>

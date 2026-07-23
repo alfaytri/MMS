@@ -25,21 +25,21 @@ export function usePermissions() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(name, is_system, permissions))')
+        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(name, is_system_admin, permissions))')
         .eq('auth_user_id', user.id)
         .maybeSingle()
       if (!profile) return { permissions: [], isSystemAdmin: isBootstrap, roles: [] }
 
       const roles = (profile.user_custom_roles ?? []) as Array<{
-        custom_roles: { name: string; is_system: boolean; permissions: string[] } | null
+        custom_roles: { name: string; is_system_admin: boolean; permissions: string[] } | null
       }>
 
       const permissions = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
       // A user is a system admin if any of their roles either:
-      //   - is the seeded system role (is_system = true on Owner / Admin), OR
+      //   - is the seeded system role (is_system_admin = true on Owner / Admin), OR
       //   - holds the `system.admin` permission key (the UI-toggleable bypass).
       const isSystemAdmin =
-        roles.some((r) => r.custom_roles?.is_system === true) ||
+        roles.some((r) => r.custom_roles?.is_system_admin === true) ||
         permissions.includes('system.admin')
 
       const roleNames = roles.map((r) => r.custom_roles?.name).filter(Boolean) as string[]

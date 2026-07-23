@@ -38,7 +38,7 @@ export function useSaleReturns(filters: { search?: string; status?: string } = {
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('*, return_lines(*)')
         .eq('source_type', 'sale_order')
         .is('deleted_at', null)
@@ -80,7 +80,7 @@ export function useCreateSaleReturn() {
 
       // Generate return number
       const { count } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('*', { count: 'exact', head: true })
         .eq('source_type', 'sale_order')
       const return_number = `SR-${String((count ?? 0) + 1).padStart(5, '0')}`
@@ -97,7 +97,7 @@ export function useCreateSaleReturn() {
       }
 
       const { data, error } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .insert({
           return_number,
           source_type: 'sale_order',
@@ -258,7 +258,7 @@ async function createCreditNoteForReturn(
 
   // 6. Link return → credit note
   await supabase
-    .from('returns')
+    .from('so_po_returns')
     .update({ credit_note_id: cn.id })
     .eq('id', returnId)
 }
@@ -270,14 +270,14 @@ export function useUpdateReturnStatus() {
       const supabase = createClient()
 
       const { data: ret, error: fetchErr } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('source_id, return_number, reason, return_lines(*)')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
 
       const { error } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .update({ status })
         .eq('id', id)
       if (error) throw error
@@ -325,7 +325,7 @@ export function useReturnsBySO(soId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('*, return_lines(*)')
         .eq('source_type', 'sale_order')
         .eq('source_id', soId!)
@@ -382,20 +382,20 @@ export function useAssignWarehouseAndRestock() {
       const supabase = createClient()
 
       const { error: whErr } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .update({ restock_warehouse_id: warehouseId })
         .eq('id', id)
       if (whErr) throw whErr
 
       const { data: ret, error: fetchErr } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('source_id, return_number, reason, return_lines(*)')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
 
       const { error: statusErr } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .update({ status: 'restocked' })
         .eq('id', id)
       if (statusErr) throw statusErr
@@ -433,7 +433,7 @@ export function useUnresolvedReturns(soId: string | null) {
     enabled: !!soId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('*, return_lines(*), credit_notes!returns_credit_note_id_fkey(id, resolution_type)')
         .eq('source_type', 'sale_order')
         .eq('source_id', soId!)

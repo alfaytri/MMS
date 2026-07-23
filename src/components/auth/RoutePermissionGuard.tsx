@@ -14,7 +14,7 @@ import { matchRequiredPermission } from '@/lib/route-permissions'
  * "Access Denied" if the user lacks it.
  *
  * - Unprotected routes (no entry in the map) render normally.
- * - System admins (is_system = true) and the bootstrap email pass through
+ * - System admins (is_system_admin = true) and the bootstrap email pass through
  *   because usePermissions reports `isSystemAdmin = true` for them.
  */
 export function RoutePermissionGuard({ children }: { children: React.ReactNode }) {

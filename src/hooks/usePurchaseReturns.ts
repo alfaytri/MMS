@@ -42,7 +42,7 @@ export function usePurchaseReturnsByPO(poId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('*, return_lines(*)')
         .eq('source_type', 'purchase_order')
         .eq('source_id', poId!)
@@ -78,7 +78,7 @@ export function usePurchaseReturns(filters: { search?: string; status?: string }
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('*, return_lines(*)')
         .eq('source_type', 'purchase_order')
         .is('deleted_at', null)
@@ -109,13 +109,13 @@ export function useCreatePurchaseReturn() {
     }) => {
       const supabase = createClient()
       const { count } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('*', { count: 'exact', head: true })
         .eq('source_type', 'purchase_order')
       const return_number = `PR-${String((count ?? 0) + 1).padStart(5, '0')}`
 
       const { data, error } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .insert({
           return_number,
           source_type: 'purchase_order',
@@ -261,7 +261,7 @@ async function createDebitNoteForReturn(
 
   // 4. Link return → debit note
   await supabase
-    .from('returns')
+    .from('so_po_returns')
     .update({ credit_note_id: dn.id })
     .eq('id', returnId)
 }
@@ -281,7 +281,7 @@ export function useUpdatePOReturnStatus() {
       const supabase = createClient()
 
       const { data: ret, error: fetchErr } = await supabase
-        .from('returns')
+        .from('so_po_returns')
         .select('return_number, dispatched_at, source_id, reason, return_lines(*)')
         .eq('id', id)
         .single()
@@ -290,7 +290,7 @@ export function useUpdatePOReturnStatus() {
       if (status === 'dispatched') {
         // Update status first (RPC validates status = 'dispatched')
         const { error } = await supabase
-          .from('returns').update({ status }).eq('id', id)
+          .from('so_po_returns').update({ status }).eq('id', id)
         if (error) throw error
         // Call RPC — revert status if it fails. The RPC runs atomically in PG
         // so dispatched_at is either NULL (failure) or set (success); we only
@@ -299,7 +299,7 @@ export function useUpdatePOReturnStatus() {
           .rpc('rpc_process_po_return_dispatch', { p_return_id: id })
         if (rpcErr) {
           await supabase
-            .from('returns').update({ status: 'pending' }).eq('id', id)
+            .from('so_po_returns').update({ status: 'pending' }).eq('id', id)
           throw rpcErr
         }
         // Auto-create debit note
@@ -318,11 +318,11 @@ export function useUpdatePOReturnStatus() {
           .rpc('rpc_cancel_po_return_dispatch', { p_return_id: id })
         if (rpcErr) throw rpcErr
         const { error } = await supabase
-          .from('returns').update({ status }).eq('id', id)
+          .from('so_po_returns').update({ status }).eq('id', id)
         if (error) throw error
       } else {
         const { error } = await supabase
-          .from('returns').update({ status }).eq('id', id)
+          .from('so_po_returns').update({ status }).eq('id', id)
         if (error) throw error
       }
 

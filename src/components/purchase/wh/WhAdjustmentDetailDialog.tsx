@@ -76,7 +76,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
   const [actioningId, setActioningId] = useState<string | null>(null)
 
   // 'system.admin' is uniquely held by the Admin custom role — using it (rather
-  // than isSystemAdmin, which is true for any is_system role like field_rp) keeps
+  // than isSystemAdmin, which is true for any is_system_admin role like field_rp) keeps
   // the override scoped to actual administrators.
   const isAdmin = useMemo(
     () => (permissionsData?.permissions ?? []).includes('system.admin'),
