@@ -57,6 +57,8 @@ export interface BuildPoHtmlInput {
   currency:          string
   payment_terms:     string | null
   delivery_terms:    string | null
+  quote_deadline:    string | null   // RFQ response deadline (used when variant === 'rfq')
+  vendor_notes:      string | null   // free-form notes to the vendor, rendered on every variant
   variant:           PoPdfVariant    // rfq | draft | po | confirmed — drives ribbon text and doc-# prefix
   payments:          PoPayment[]
   amount_paid:       number
@@ -105,7 +107,8 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
     po_number, created_date, expected_delivery, supplier_name,
     supplier_phone, rfq_number, status, lines, subtotal,
     discount_amount, total_qar, currency, payment_terms,
-    delivery_terms, variant, payments, amount_paid,
+    delivery_terms, quote_deadline, vendor_notes,
+    variant, payments, amount_paid,
     outstanding, assets, fonts,
   } = input
 
@@ -164,7 +167,7 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
       'Required By',
     ))
     metaBlocks.push(metaBlock(
-      fmtDate(addDaysIso(created_date, 5)),
+      fmtDate(quote_deadline ?? addDaysIso(created_date, 5)),
       'يرجى الرد قبل',
       'Please Quote By',
     ))
@@ -241,6 +244,17 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
     }
   }
 
+  // ── Vendor notes (rendered on every variant when populated) ─────────
+  const vendorNotesHtml = vendor_notes && vendor_notes.trim() ? `
+  <div class="vendor-notes">
+    <div class="vendor-notes-title">
+      <span class="ar">ملاحظات للمورد</span>
+      <span class="en">Vendor Notes</span>
+    </div>
+    <div class="vendor-notes-body">${escapeHtml(vendor_notes)}</div>
+  </div>
+  ` : ''
+
   // ── RFQ instructions (only on the RFQ variant) ──────────────────────
   const rfqInstructionsHtml = isRfq ? `
   <div class="rfq-instructions">
@@ -308,6 +322,27 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
     color: var(--text);
   }
   .rfq-instructions li { margin-bottom: 0.8mm; }
+
+  /* ─── Vendor notes block ─── */
+  .vendor-notes {
+    margin: 4mm 8mm 0 8mm;
+    border: 0.7px solid var(--grey-rule);
+    padding: 3mm 4mm;
+    background: var(--muted-bg, #fafafa);
+  }
+  .vendor-notes-title {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'IBMPlexSans', sans-serif; font-weight: 600; font-size: 9px;
+    color: var(--text); border-bottom: 0.7px solid var(--grey-rule);
+    padding-bottom: 1.5mm; margin-bottom: 2mm;
+  }
+  .vendor-notes-title .ar {
+    font-family: 'IBMPlexSansArabic', sans-serif; direction: rtl;
+  }
+  .vendor-notes-body {
+    font-family: 'IBMPlexSans', sans-serif; font-size: 8px; line-height: 1.5;
+    color: var(--text); white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
@@ -400,6 +435,8 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
       ` : ''}
     </div>
   </div>
+
+  ${vendorNotesHtml}
 
   ${rfqInstructionsHtml}
 

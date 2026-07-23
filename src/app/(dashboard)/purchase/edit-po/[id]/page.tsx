@@ -102,6 +102,7 @@ export default function EditPOPage() {
       delivery_terms: po.delivery_terms ?? '',
       delivery_terms_notes: po.delivery_terms_notes ?? '',
       expected_delivery: po.expected_delivery ?? '',
+      quote_deadline: po.quote_deadline ?? '',
       vendor_notes: po.vendor_notes ?? '',
     })
     setLineItems(draftToLineItemRows(
@@ -153,6 +154,7 @@ export default function EditPOPage() {
       currency,
       exchange_rate: exchangeRate,
       expected_delivery: terms.expected_delivery || null,
+      quote_deadline: terms.quote_deadline || null,
       payment_terms: terms.payment_terms || null,
       payment_terms_notes: terms.payment_terms_notes || null,
       payment_milestones: terms.payment_milestones.length > 0

@@ -90,6 +90,7 @@ export type PurchaseOrder = {
   total_qar: number
   created_date: string
   expected_delivery: string | null
+  quote_deadline: string | null
   approval_level: number
   payment_terms: string | null
   payment_terms_notes: string | null
@@ -169,6 +170,7 @@ export type CreatePOPayload = {
   currency: string
   exchange_rate: number
   expected_delivery: string | null
+  quote_deadline?: string | null
   payment_terms: string | null
   payment_terms_notes: string | null
   payment_milestones: { label: string; percent: number }[] | null
@@ -433,6 +435,7 @@ export function useCreatePO() {
           approval_level,
           created_date: new Date().toISOString().split('T')[0],
           expected_delivery: payload.expected_delivery,
+          quote_deadline: payload.quote_deadline ?? null,
           payment_terms: payload.payment_terms,
           payment_terms_notes: payload.payment_terms_notes,
           payment_milestones: payload.payment_milestones ?? null,
@@ -939,6 +942,7 @@ export function useSubmitPoVersion() {
           version_number: newVersion,
           status: 'pending_approval',
           expected_delivery: payload.expected_delivery,
+          quote_deadline: payload.quote_deadline ?? null,
           payment_terms: payload.payment_terms,
           payment_terms_notes: payload.payment_terms_notes,
           payment_milestones: payload.payment_milestones ?? null,
@@ -1097,6 +1101,7 @@ export function useSavePoAsDraft() {
           total_qar,
           approval_level,
           expected_delivery: payload.expected_delivery,
+          quote_deadline: payload.quote_deadline ?? null,
           payment_terms: payload.payment_terms,
           payment_terms_notes: payload.payment_terms_notes,
           payment_milestones: payload.payment_milestones ?? null,

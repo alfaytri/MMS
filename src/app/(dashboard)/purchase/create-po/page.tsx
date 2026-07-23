@@ -107,6 +107,7 @@ export default function CreatePOPage() {
       currency,
       exchange_rate: exchangeRate,
       expected_delivery: terms.expected_delivery || null,
+      quote_deadline: terms.quote_deadline || null,
       payment_terms: terms.payment_terms || null,
       payment_terms_notes: terms.payment_terms_notes || null,
       payment_milestones: terms.payment_milestones.length > 0
@@ -129,6 +130,7 @@ export default function CreatePOPage() {
     if (isMultiDivision && !divisionId) { toast.error('Select a division before creating the order.'); return false }
     if (rfqMode) {
       if (rfqSupplierIds.length === 0) { toast.error('Select at least one supplier for the RFQ'); return false }
+      if (!terms.quote_deadline) { toast.error('Set a "Please Quote By" date for the RFQ'); return false }
     } else {
       if (!supplierId) { toast.error('Please select a supplier'); return false }
     }
@@ -423,7 +425,7 @@ export default function CreatePOPage() {
 
         {/* ④⑤ Payment & Delivery Terms */}
         {!rfqMode && (
-          <PoTermsSection value={terms} onChange={setTerms} />
+          <PoTermsSection value={terms} onChange={setTerms} rfqMode={rfqMode} />
         )}
 
         <Separator />

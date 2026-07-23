@@ -50,6 +50,8 @@ interface PoRow {
   division_id:       string | null
   payment_terms:     string | null
   delivery_terms:    string | null
+  quote_deadline:    string | null
+  vendor_notes:      string | null
   pdf_rfq_url:       string | null
   pdf_draft_url:     string | null
   pdf_po_url:        string | null
@@ -103,6 +105,7 @@ export async function generatePoPdf(
       id, po_number, status, currency, subtotal, total_qar,
       discount_amount, created_date, expected_delivery,
       supplier_name, supplier_id, division_id, payment_terms, delivery_terms,
+      quote_deadline, vendor_notes,
       pdf_rfq_url, pdf_draft_url, pdf_po_url, pdf_confirmed_url, pdf_payment_hash,
       po_line_items(item_name, sku, qty, unit, unit_price, total_price)
     `)
@@ -205,6 +208,8 @@ export async function generatePoPdf(
     currency:          po.currency ?? 'QAR',
     payment_terms:     po.payment_terms,
     delivery_terms:    po.delivery_terms,
+    quote_deadline:    po.quote_deadline,
+    vendor_notes:      po.vendor_notes,
     variant,
     payments,
     amount_paid:  amountPaid,
@@ -299,12 +304,14 @@ async function renderSnapshotPdf(
 ): Promise<GeneratePoPdfSnapshotResult> {
   const { data: po, error: poErr } = await supabase
     .from('purchase_orders')
-    .select('id, po_number, status, created_date, supplier_id, division_id')
+    .select('id, po_number, status, created_date, supplier_id, division_id, quote_deadline, vendor_notes')
     .eq('id', poUuid)
     .single<{
       id: string; po_number: string; status: string;
       created_date: string; supplier_id: string | null;
       division_id: string | null;
+      quote_deadline: string | null;
+      vendor_notes:   string | null;
     }>()
   if (poErr || !po) {
     throw new Error(`Purchase Order not found: ${poUuid} (${poErr?.message ?? 'no row'})`)
@@ -373,6 +380,8 @@ async function renderSnapshotPdf(
     currency:          snap.currency ?? 'QAR',
     payment_terms:     snap.payment_terms,
     delivery_terms:    snap.delivery_terms,
+    quote_deadline:    po.quote_deadline,
+    vendor_notes:      po.vendor_notes,
     variant,
     payments:          [],
     amount_paid:       0,

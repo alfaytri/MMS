@@ -15,6 +15,7 @@ export interface PoTermsValues {
   delivery_terms: string
   delivery_terms_notes: string
   expected_delivery: string
+  quote_deadline: string
   vendor_notes: string
 }
 
@@ -25,6 +26,7 @@ export const DEFAULT_TERMS: PoTermsValues = {
   delivery_terms: '',
   delivery_terms_notes: '',
   expected_delivery: '',
+  quote_deadline: '',
   vendor_notes: '',
 }
 
@@ -63,9 +65,11 @@ interface PoTermsSectionProps {
   value: PoTermsValues
   onChange: (values: PoTermsValues) => void
   readOnly?: boolean
+  /** Show RFQ-specific fields (Please Quote By). Hidden for regular POs. */
+  rfqMode?: boolean
 }
 
-export function PoTermsSection({ value, onChange, readOnly = false }: PoTermsSectionProps) {
+export function PoTermsSection({ value, onChange, readOnly = false, rfqMode = false }: PoTermsSectionProps) {
   function set<K extends keyof PoTermsValues>(key: K, val: PoTermsValues[K]) {
     onChange({ ...value, [key]: val })
   }
@@ -204,7 +208,7 @@ export function PoTermsSection({ value, onChange, readOnly = false }: PoTermsSec
           Delivery Terms
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className={`grid grid-cols-1 gap-3 ${rfqMode ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           {/* Terms select */}
           <div className="space-y-1">
             <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -223,10 +227,10 @@ export function PoTermsSection({ value, onChange, readOnly = false }: PoTermsSec
             </select>
           </div>
 
-          {/* Expected delivery */}
+          {/* Expected delivery — label switches to "Required By" in RFQ mode */}
           <div className="space-y-1">
             <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-              Expected Delivery *
+              {rfqMode ? 'Required By' : 'Expected Delivery *'}
             </label>
             <Input
               type="date"
@@ -236,6 +240,22 @@ export function PoTermsSection({ value, onChange, readOnly = false }: PoTermsSec
               onChange={(e) => set('expected_delivery', e.target.value)}
             />
           </div>
+
+          {/* Please quote by — only for RFQ */}
+          {rfqMode && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Please Quote By *
+              </label>
+              <Input
+                type="date"
+                className="h-9"
+                value={value.quote_deadline}
+                readOnly={readOnly}
+                onChange={(e) => set('quote_deadline', e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         <Textarea
