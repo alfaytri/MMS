@@ -26,7 +26,7 @@ async function getMyProfileId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) { cachedProfileId = null; return null }
   const { data } = await supabase
-    .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+    .from('user_data').select('id').eq('auth_user_id', user.id).maybeSingle()
   cachedProfileId = data?.id ?? null
   return cachedProfileId as string | null
 }

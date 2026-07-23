@@ -6,7 +6,7 @@ import { logActivity } from '@/lib/logActivity'
 
 export type InventoryCategory = DBTable<'inventory_categories'>
 export type InventoryItem = DBTable<'inventory_items'>
-export type BrandVariant = DBTable<'inventory_brand_variants'>
+export type BrandVariant = DBTable<'inventory_item_brand_variants'>
 export type InventoryItemInsert = DBInsert<'inventory_items'>
 export type InventoryItemUpdate = DBUpdate<'inventory_items'>
 // Explicit insert shape (subset of DBInsert) to keep the API surface minimal.
@@ -67,7 +67,7 @@ export function useBrandVariants(itemId: string | null) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('*, brands(name)')
         .eq('item_id', itemId!)
         .eq('status', 'active')
@@ -175,8 +175,8 @@ export function useCreateBrandVariant() {
     mutationFn: async (values: BrandVariantInsert) => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('inventory_brand_variants')
-        .insert(values as unknown as DBInsert<'inventory_brand_variants'>)
+        .from('inventory_item_brand_variants')
+        .insert(values as unknown as DBInsert<'inventory_item_brand_variants'>)
         .select()
         .single()
       if (error) throw error
@@ -204,13 +204,13 @@ export function useUpdateBrandVariant() {
     mutationFn: async ({ id, ...values }: BrandVariantUpdate & { id: string }) => {
       const supabase = createClient()
       const { data: old } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('*')
         .eq('id', id)
         .maybeSingle()
       const { data, error } = await supabase
-        .from('inventory_brand_variants')
-        .update(values as unknown as import('@/types/database.types').DBUpdate<'inventory_brand_variants'>)
+        .from('inventory_item_brand_variants')
+        .update(values as unknown as import('@/types/database.types').DBUpdate<'inventory_item_brand_variants'>)
         .eq('id', id)
         .select()
         .single()
@@ -272,7 +272,7 @@ export function useAllBrandVariantsGrouped(enabled = true) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('id, brand, cost_price, inventory_items(id, name_en, sku, inventory_categories(id, name_en, type))')
         .order('brand')
       if (error) throw error
@@ -482,7 +482,7 @@ export function useInventoryBrandVariants(itemId: string | null, showArchived = 
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('*')
         .eq('item_id', itemId!)
         .order('sort_order', { ascending: true })
@@ -503,9 +503,9 @@ export function useArchiveInventoryBrandVariant() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { data: old } = await supabase
-        .from('inventory_brand_variants').select('*').eq('id', id).maybeSingle()
+        .from('inventory_item_brand_variants').select('*').eq('id', id).maybeSingle()
       const { error } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .update({ status: 'archived' })
         .eq('id', id)
       if (error) throw error
@@ -766,7 +766,7 @@ export function useArchiveInventoryCategory() {
       if (items && items.length > 0) {
         const itemIds = (items as { id: string }[]).map((i) => i.id)
         const { error: varErr } = await supabase
-          .from('inventory_brand_variants')
+          .from('inventory_item_brand_variants')
           .update({ status: 'archived' })
           .in('item_id', itemIds)
         if (varErr) throw varErr
@@ -805,7 +805,7 @@ export function useArchiveInventoryCategory() {
 
 // ─── Sort order bulk update ───────────────────────────────────────────────────
 
-export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_items' | 'inventory_brand_variants') {
+export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_items' | 'inventory_item_brand_variants') {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (updates: { id: string; sort_order: number }[]) => {
@@ -821,7 +821,7 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
     onSuccess: () => {
       if (table === 'inventory_categories') qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
       if (table === 'inventory_items') qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
-      if (table === 'inventory_brand_variants') qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      if (table === 'inventory_item_brand_variants') qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
     },
   })
 }
@@ -858,7 +858,7 @@ export function useStaffProfiles() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_data')
         .select('id, full_name')
         .order('full_name')
       if (error) throw error
@@ -883,7 +883,7 @@ export function useBrandVariantsByIds(ids: string[]) {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('id, selling_price, average_cost')
         .in('id', ids)
       if (error) throw error
@@ -956,7 +956,7 @@ export function useAllBrandNames() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('brand')
         .neq('status', 'archived')
         .order('brand')

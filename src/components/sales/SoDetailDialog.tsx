@@ -102,7 +102,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
     const map = new Map<string, { chain: string[]; type: string | null; brand: string | null }>()
     for (const li of fullSO?.sale_order_lines ?? []) {
       if (!li.brand_variant_id) continue
-      const bv = li.inventory_brand_variants
+      const bv = li.inventory_item_brand_variants
       const cat = bv?.inventory_items?.inventory_categories
       map.set(li.brand_variant_id, {
         chain: cat?.ancestor_chain ?? [],
@@ -209,7 +209,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                     </TableHeader>
                     <TableBody>
                       {(fullSO?.sale_order_lines ?? []).map((li) => {
-                        const bv = li.inventory_brand_variants
+                        const bv = li.inventory_item_brand_variants
                         const cat = bv?.inventory_items?.inventory_categories
                         const chain = cat?.ancestor_chain ?? []
                         const itemType = cat?.type ?? null

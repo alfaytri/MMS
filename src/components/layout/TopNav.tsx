@@ -13,7 +13,7 @@ export async function TopNav() {
 
   const { data: profile } = user
     ? await supabase
-        .from('profiles')
+        .from('user_data')
         .select('full_name, avatar_url')
         .eq('auth_user_id', user.id)
         .single()

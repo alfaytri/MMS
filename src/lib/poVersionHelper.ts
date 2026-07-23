@@ -25,7 +25,7 @@ export async function resolveLineItemNames(
 
   const ids = needsResolve.map((li) => li.brand_variant_id!)
   const { data: rows } = await supabase
-    .from('inventory_brand_variants')
+    .from('inventory_item_brand_variants')
     .select('id, inventory_items(name_en)')
     .in('id', ids)
   const nameMap = new Map<string, string>()

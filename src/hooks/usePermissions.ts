@@ -24,7 +24,7 @@ export function usePermissions() {
       const isBootstrap = !!(bootstrapEmail && callerEmail === bootstrapEmail)
 
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('user_data')
         .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(name, is_system_admin, permissions))')
         .eq('auth_user_id', user.id)
         .maybeSingle()

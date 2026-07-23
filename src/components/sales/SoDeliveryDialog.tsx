@@ -122,7 +122,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
             <Label className="text-sm font-medium">Items</Label>
             {lines.map((line) => {
               const max = maxDeliverable(line)
-              const bv = line.inventory_brand_variants
+              const bv = line.inventory_item_brand_variants
               const cat = bv?.inventory_items?.inventory_categories
               const chain = cat?.ancestor_chain ?? []
               const typeBadge = cat?.type ? TYPE_BADGE[cat.type] : null

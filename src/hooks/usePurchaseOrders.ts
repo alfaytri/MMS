@@ -48,7 +48,7 @@ export type POLineItem = {
   brand_variant_id: string | null
   brand_id: string | null
   created_at: string
-  inventory_brand_variants?: {
+  inventory_item_brand_variants?: {
     brand: string
     inventory_items?: {
       name_en: string
@@ -289,7 +289,7 @@ export function usePurchaseOrder(id: string | null) {
           *,
           po_line_items(
             *,
-            inventory_brand_variants(
+            inventory_item_brand_variants(
               brand,
               inventory_items(
                 name_en,
@@ -305,7 +305,7 @@ export function usePurchaseOrder(id: string | null) {
 
       const catIds = new Set<string>()
       for (const li of data.po_line_items ?? []) {
-        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
+        const cat = li.inventory_item_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) catIds.add(cat.id)
         if (cat?.parent_id) catIds.add(cat.parent_id)
       }
@@ -343,7 +343,7 @@ export function usePurchaseOrder(id: string | null) {
 
       const po = data as PurchaseOrder
       for (const li of po.po_line_items ?? []) {
-        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
+        const cat = li.inventory_item_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) {
           ;(cat as typeof cat & { ancestor_chain: string[] }).ancestor_chain = getAncestorChain(cat.id)
         }
@@ -413,7 +413,7 @@ export function useCreatePO() {
       let creatorProfileId: string | null = null
       if (user) {
         const { data: profile } = await supabase
-          .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+          .from('user_data').select('id').eq('auth_user_id', user.id).maybeSingle()
         creatorProfileId = profile?.id ?? null
       }
 
@@ -574,7 +574,7 @@ export function useSubmitPOForApproval() {
 
       // Get current user's profile
       const { data: myProfile } = await supabase
-        .from('profiles').select('id').eq('auth_user_id', user.id).single()
+        .from('user_data').select('id').eq('auth_user_id', user.id).single()
       if (!myProfile) throw new Error('Profile not found')
 
       // Get PO details
@@ -972,7 +972,7 @@ export function useSubmitPoVersion() {
       if (!user) throw new Error('Not authenticated')
 
       const { data: myProfile } = await supabase
-        .from('profiles').select('id').eq('auth_user_id', user.id).single()
+        .from('user_data').select('id').eq('auth_user_id', user.id).single()
       if (!myProfile) throw new Error('Profile not found')
 
       const divisionId: string | null = payload.division_id ?? null
@@ -1048,7 +1048,7 @@ export function useSubmitPoVersion() {
       }
 
       const versionPerformer = myProfile
-        ? ((await supabase.from('profiles').select('full_name').eq('id', myProfile.id).maybeSingle())?.data?.full_name ?? null)
+        ? ((await supabase.from('user_data').select('full_name').eq('id', myProfile.id).maybeSingle())?.data?.full_name ?? null)
         : null
       await logPOActivity({
         poId: id,

@@ -39,7 +39,7 @@ export function useCanCreateInventoryReceivals() {
       if (userErr || !userRes.user) return false
 
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('user_data')
         .select('id')
         .eq('auth_user_id', userRes.user.id)
         .maybeSingle()

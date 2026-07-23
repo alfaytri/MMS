@@ -151,7 +151,7 @@ export function useCreateReceival() {
       let receivedByName: string | null = null
       if (user) {
         const { data: profile } = await supabase
-          .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+          .from('user_data').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
 
@@ -230,7 +230,7 @@ export function useRequestReceivalEdit() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       const { data: profile } = await supabase
-        .from('profiles').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
+        .from('user_data').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
       if (!profile?.id) throw new Error('Profile not found')
 
       const { data, error } = await supabase
@@ -241,7 +241,7 @@ export function useRequestReceivalEdit() {
 
       // Notify all admin profiles
       const { data: admins } = await supabase
-        .from('profiles').select('id').eq('user_type', 'internal')
+        .from('user_data').select('id').eq('user_type', 'internal')
       const notifications = (admins ?? []).map((a: { id: string }) => ({
         profile_id: a.id,
         title: 'Receival Edit Requested',
@@ -271,7 +271,7 @@ export function useApproveReceivalEdit() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       const { data: profile } = await supabase
-        .from('profiles').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
+        .from('user_data').select('id').eq('auth_user_id', user?.id ?? '').maybeSingle()
 
       const patch: Record<string, unknown> = {
         status: action,
@@ -367,7 +367,7 @@ export function useCreateReplacementReceival() {
       let receivedByName: string | null = null
       if (user) {
         const { data: profile } = await supabase
-          .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+          .from('user_data').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         receivedByName = profile?.full_name ?? user.email ?? null
       }
       const today = new Date().toISOString().split('T')[0]

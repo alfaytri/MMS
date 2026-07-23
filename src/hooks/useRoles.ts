@@ -186,7 +186,7 @@ export function useMyApprovalSlotRoles() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return [] as { name: string; scopes: string[] | null }[]
       const { data: profile } = await supabase
-        .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+        .from('user_data').select('id').eq('auth_user_id', user.id).maybeSingle()
       if (!profile) return [] as { name: string; scopes: string[] | null }[]
       const { data, error } = await supabase
         .from('user_custom_roles')

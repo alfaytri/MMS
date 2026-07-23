@@ -107,7 +107,7 @@ export default function EditPOPage() {
     })
     setLineItems(draftToLineItemRows(
       (po.po_line_items ?? []).map((li) => {
-        const catType = li.inventory_brand_variants?.inventory_items?.inventory_categories?.type
+        const catType = li.inventory_item_brand_variants?.inventory_items?.inventory_categories?.type
         const line_type: LineType =
           catType === 'tools' || catType === 'spare-parts' || catType === 'consumables'
             ? catType

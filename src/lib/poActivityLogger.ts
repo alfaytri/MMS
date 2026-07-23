@@ -41,7 +41,7 @@ export async function resolveMyName(): Promise<string | null> {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
     const { data: profile } = await supabase
-      .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+      .from('user_data').select('full_name').eq('auth_user_id', user.id).maybeSingle()
     return profile?.full_name ?? user.email ?? null
   } catch {
     return null

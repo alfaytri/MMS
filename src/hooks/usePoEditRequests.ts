@@ -16,14 +16,14 @@ export interface EditRequest {
   review_comment: string | null
   used_at:        string | null
   created_at:     string
-  profiles: { id: string; full_name: string | null } | null
+  user_data: { id: string; full_name: string | null } | null
 }
 
 async function getMyProfileId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data } = await supabase
-    .from('profiles').select('id').eq('auth_user_id', user.id).maybeSingle()
+    .from('user_data').select('id').eq('auth_user_id', user.id).maybeSingle()
   return data?.id ?? null
 }
 
@@ -31,7 +31,7 @@ async function getMyFullName(supabase: ReturnType<typeof createClient>): Promise
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data } = await supabase
-    .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+    .from('user_data').select('full_name').eq('auth_user_id', user.id).maybeSingle()
   return data?.full_name ?? null
 }
 
@@ -47,7 +47,7 @@ export function usePoEditRequest(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('po_edit_requests')
-        .select('*, profiles!requested_by(id, full_name)')
+        .select('*, user_data!requested_by(id, full_name)')
         .eq('po_id', poId)
         .in('status', ['pending', 'approved'])
         .order('created_at', { ascending: false })

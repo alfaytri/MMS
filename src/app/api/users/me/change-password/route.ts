@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   if (updErr) return NextResponse.json({ error: `Password update failed: ${updErr.message}` }, { status: 400 })
 
   const admin = createAdminClient()
-  await admin.from('profiles')
+  await admin.from('user_data')
     .update({ must_change_password: false })
     .eq('auth_user_id', gate.authUserId)
 

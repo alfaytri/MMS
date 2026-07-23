@@ -23,7 +23,7 @@ export function useWarehouses() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('warehouses')
-        .select('*, company_divisions(name), warehouse_responsible_persons(profile_id, profiles(full_name))')
+        .select('*, company_divisions(name), warehouse_responsible_persons(profile_id, user_data(full_name))')
         .order('name')
       if (error) throw error
       return (data ?? []).map((row) => {
@@ -31,12 +31,12 @@ export function useWarehouses() {
           company_divisions: { name: string } | null
           warehouse_responsible_persons: Array<{
             profile_id: string
-            profiles: { full_name: string | null } | null
+            user_data: { full_name: string | null } | null
           }>
         }
         const rps = (warehouse_responsible_persons ?? []).map((rp) => ({
           profile_id: rp.profile_id,
-          full_name: rp.profiles?.full_name ?? null,
+          full_name: rp.user_data?.full_name ?? null,
         }))
         return {
           ...rest,

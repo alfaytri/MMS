@@ -31,7 +31,7 @@ export function useBrandVariantAncestry(variantId: string | null) {
     queryFn: async (): Promise<BrandVariantAncestry> => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select(`
           id, brand, code, cost_price, stock_level, reserved_qty,
           inventory_items!inner (

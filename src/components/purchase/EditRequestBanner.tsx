@@ -32,7 +32,7 @@ export function EditRequestBanner({ request, canReview }: Props) {
   const [declineOpen, setDeclineOpen] = useState(false)
   const [declineComment, setDeclineComment] = useState('')
 
-  const requesterName = request.profiles?.full_name ?? 'a team member'
+  const requesterName = request.user_data?.full_name ?? 'a team member'
 
   if (request.status === 'pending') {
     return (

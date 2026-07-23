@@ -36,7 +36,7 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
   if (bootstrapEmail && callerEmail === bootstrapEmail) {
     // Still try to fetch profile.id for audit purposes, but don't block on failure.
       const { data: bp } = await supabase
-      .from('profiles')
+      .from('user_data')
       .select('id')
       .eq('auth_user_id', user.id)
       .maybeSingle()
@@ -45,7 +45,7 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
 
   // Non-bootstrap: require profile + master_data.users.manage permission.
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('user_data')
     .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
     .eq('auth_user_id', user.id)
     .maybeSingle()
@@ -96,7 +96,7 @@ export async function requirePermission(
   const callerEmail = user.email?.trim().toLowerCase() ?? null
   if (bootstrapEmail && callerEmail === bootstrapEmail) {
       const { data: bp } = await supabase
-      .from('profiles')
+      .from('user_data')
       .select('id')
       .eq('auth_user_id', user.id)
       .maybeSingle()
@@ -104,7 +104,7 @@ export async function requirePermission(
   }
 
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('user_data')
     .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system_admin, permissions))')
     .eq('auth_user_id', user.id)
     .maybeSingle()

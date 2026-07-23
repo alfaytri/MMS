@@ -193,7 +193,7 @@ export function useRevertLandedCost() {
       let performerName = 'System'
       if (user) {
         const { data: profile } = await supabase
-          .from('profiles').select('full_name').eq('auth_user_id', user.id).maybeSingle()
+          .from('user_data').select('full_name').eq('auth_user_id', user.id).maybeSingle()
         performerName = profile?.full_name ?? user.email ?? 'System'
       }
       const { error } = await supabase

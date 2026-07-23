@@ -30,7 +30,7 @@ export type SOLineItem = {
   brand_variant_id:    string | null
   avg_cost:            number
   created_at:          string
-  inventory_brand_variants?: {
+  inventory_item_brand_variants?: {
     brand: string
     inventory_items?: {
       name_en: string
@@ -549,7 +549,7 @@ export function useSaleOrder(id: string | null) {
           *,
           sale_order_lines(
             *,
-            inventory_brand_variants(
+            inventory_item_brand_variants(
               brand,
               inventory_items(
                 name_en,
@@ -566,7 +566,7 @@ export function useSaleOrder(id: string | null) {
 
       const catIds = new Set<string>()
       for (const li of data.sale_order_lines ?? []) {
-        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
+        const cat = li.inventory_item_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) catIds.add(cat.id)
         if (cat?.parent_id) catIds.add(cat.parent_id)
       }
@@ -611,7 +611,7 @@ export function useSaleOrder(id: string | null) {
       } as unknown as SaleOrder
 
       for (const li of so.sale_order_lines ?? []) {
-        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories
+        const cat = li.inventory_item_brand_variants?.inventory_items?.inventory_categories
         if (cat?.id) {
           cat.ancestor_chain = getAncestorChain(cat.id)
         }

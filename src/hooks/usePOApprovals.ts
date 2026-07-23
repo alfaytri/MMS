@@ -10,7 +10,7 @@ async function getMyIdentity() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data: profile } = await supabase
-    .from('profiles').select('id, full_name').eq('auth_user_id', user.id).maybeSingle()
+    .from('user_data').select('id, full_name').eq('auth_user_id', user.id).maybeSingle()
   return {
     email: user.email ?? '',
     profileId: profile?.id ?? null,

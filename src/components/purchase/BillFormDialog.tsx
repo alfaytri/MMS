@@ -56,9 +56,9 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
     if (!selectedPO) { setLines([]); return }
     const items = selectedPO.po_line_items ?? []
     setLines(items.map((li) => {
-      const brand = li.inventory_brand_variants?.brand ?? null
-      const category = li.inventory_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null
-      const invName = li.inventory_brand_variants?.inventory_items?.name_en ?? null
+      const brand = li.inventory_item_brand_variants?.brand ?? null
+      const category = li.inventory_item_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null
+      const invName = li.inventory_item_brand_variants?.inventory_items?.name_en ?? null
       return {
         po_line_item_id: li.id,
         item_name: li.item_name || invName || '(No name)',

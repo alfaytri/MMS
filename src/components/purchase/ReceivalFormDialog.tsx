@@ -316,12 +316,12 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
         const ordered   = li.qty ?? 0
         const prior     = li.received_qty ?? 0
         const remaining = Math.max(0, ordered - prior)
-        const brand = li.inventory_brand_variants?.brand ?? null
-        const cat = li.inventory_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null
+        const brand = li.inventory_item_brand_variants?.brand ?? null
+        const cat = li.inventory_item_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null
         return {
           po_line_item_id: li.id,
           brand_variant_id: li.brand_variant_id ?? null,
-          item_name: li.item_name || li.inventory_brand_variants?.inventory_items?.name_en || '(No name)',
+          item_name: li.item_name || li.inventory_item_brand_variants?.inventory_items?.name_en || '(No name)',
           brand,
           category: cat,
           sku: li.sku ?? null,

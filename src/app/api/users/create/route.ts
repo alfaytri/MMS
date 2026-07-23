@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const authUserId = created.user.id
 
   const { data: profile, error: profErr } = await admin
-    .from('profiles')
+    .from('user_data')
     .insert({
       auth_user_id: authUserId,
       email,

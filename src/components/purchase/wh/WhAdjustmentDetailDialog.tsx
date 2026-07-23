@@ -33,7 +33,7 @@ type AdjustmentRow = {
   approved_at: string | null
   created_at: string
   warehouses?: { name: string } | null
-  inventory_brand_variants?: {
+  inventory_item_brand_variants?: {
     brand?: string | null
     inventory_items?: {
       name_en: string
@@ -105,9 +105,9 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
 
   if (!adjustment) return null
 
-  const item     = adjustment.inventory_brand_variants?.inventory_items
+  const item     = adjustment.inventory_item_brand_variants?.inventory_items
   const itemName = item?.name_en ?? '—'
-  const brand    = adjustment.inventory_brand_variants?.brand ?? null
+  const brand    = adjustment.inventory_item_brand_variants?.brand ?? null
   const categoryId = item?.inventory_categories?.id ?? null
   const itemType   = item?.inventory_categories?.type ?? null
   const category   = categoryId && categoriesFlat.length

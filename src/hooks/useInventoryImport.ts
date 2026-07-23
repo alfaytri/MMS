@@ -2,7 +2,7 @@
 //
 // Consumes ValidatedRow[] produced by src/lib/inventory-import.ts (parsing +
 // validation are pure/offline) and turns the valid rows into real
-// inventory_categories / inventory_items / inventory_brand_variants rows.
+// inventory_categories / inventory_items / inventory_item_brand_variants rows.
 //
 // Hierarchy: Category Path > Item Name > Brand (variant). Two rows sharing
 // Category Path + Item Name but a different Brand are two brand-variants of
@@ -368,7 +368,7 @@ export function useInventoryImport() {
 
       // ─── Step 4: Create brand variants (batched) ────────────────────────
       const { data: existingVariants, error: variantFetchErr } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('id, item_id, brand')
       if (variantFetchErr) throw variantFetchErr
 
@@ -413,7 +413,7 @@ export function useInventoryImport() {
         }))
 
         const { data: inserted, error: batchErr } = await supabase
-          .from('inventory_brand_variants')
+          .from('inventory_item_brand_variants')
           .insert(payloads)
           .select('id')
 
@@ -427,7 +427,7 @@ export function useInventoryImport() {
               }
 
               const { error: singleErr } = await supabase
-                .from('inventory_brand_variants')
+                .from('inventory_item_brand_variants')
                 .insert({
                   item_id: p.itemId,
                   brand: p.row.brand,
@@ -518,7 +518,7 @@ export function useExistingInventoryLookup() {
       }
 
       const { data: variants, error: variantErr } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('id, item_id, brand')
       if (variantErr) throw variantErr
 

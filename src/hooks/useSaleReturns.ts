@@ -89,7 +89,7 @@ export function useCreateSaleReturn() {
       let createdByName: string | null = null
       if (user) {
         const { data: profile } = await supabase
-          .from('profiles')
+          .from('user_data')
           .select('full_name')
           .eq('id', user.id)
           .single()

@@ -57,7 +57,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       po_line_item_id: li.id,
       brand_variant_id: li.brand_variant_id ?? null,
       item_name: li.item_name,
-      system_name: (li as { inventory_brand_variants?: { inventory_items?: { name_en?: string } } }).inventory_brand_variants?.inventory_items?.name_en ?? null,
+      system_name: (li as { inventory_item_brand_variants?: { inventory_items?: { name_en?: string } } }).inventory_item_brand_variants?.inventory_items?.name_en ?? null,
       sku: li.sku ?? null,
       unit: li.unit ?? '',
       ordered: li.qty,

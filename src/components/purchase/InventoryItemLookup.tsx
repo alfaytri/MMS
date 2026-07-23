@@ -31,7 +31,7 @@ export function InventoryItemLookup({ value, onChange, placeholder = 'Search inv
       const supabase = createClient()
       const safe = query.replace(/%/g, '\\%')
       const { data } = await supabase
-        .from('inventory_brand_variants')
+        .from('inventory_item_brand_variants')
         .select('id, code, cost_price, selling_price, inventory_items!inner(name_en, name_ar, sku, unit)')
         .or(`inventory_items.name_en.ilike.%${safe}%,code.ilike.%${safe}%`)
         .eq('inventory_items.status', 'active')

@@ -34,7 +34,7 @@ export function useCurrentUserProfile() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_data')
         .select('*')
         .eq('auth_user_id', user.id)
         .maybeSingle()
@@ -61,7 +61,7 @@ export function useCreateMyProfile() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_data')
         .insert({
           auth_user_id: user.id,
           email: user.email ?? null,
@@ -87,8 +87,8 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: async ({ id, ...values }: ProfileUpdate & { id: string }) => {
       const supabase = createClient()
-      const { data: old } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
-      const { data, error } = await supabase.from('profiles').update(values).eq('id', id).select().single()
+      const { data: old } = await supabase.from('user_data').select('*').eq('id', id).maybeSingle()
+      const { data, error } = await supabase.from('user_data').update(values).eq('id', id).select().single()
       if (error) throw error
       void logActivity({
         action: 'Profile Updated',
@@ -282,7 +282,7 @@ export function useAllProfiles() {
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_data')
         .select('id, full_name, email')
         .eq('is_active', true)
         .order('full_name', { ascending: true })

@@ -66,7 +66,7 @@ interface AdjustmentData {
   requested_by_name: string | null
   approved_by_name: string | null
   warehouses: { name: string } | null
-  inventory_brand_variants: { brand: string | null; inventory_items: { name_en: string; sku: string | null } | null } | null
+  inventory_item_brand_variants: { brand: string | null; inventory_items: { name_en: string; sku: string | null } | null } | null
 }
 
 interface LandedCostData {
@@ -141,7 +141,7 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
         case 'adjustment': {
           const { data, error } = await supabase
             .from('stock_adjustments')
-            .select('*, warehouses(name), inventory_brand_variants(brand, inventory_items(name_en, sku))')
+            .select('*, warehouses(name), inventory_item_brand_variants(brand, inventory_items(name_en, sku))')
             .eq('id', referenceId)
             .maybeSingle()
           if (error) throw error
@@ -447,8 +447,8 @@ function TransferView({ data }: { data: TransferData }) {
 
 function AdjustmentView({ data, variantMeta }: { data: AdjustmentData; variantMeta: Map<string, VariantMeta> }) {
   const meta = data.brand_variant_id ? variantMeta.get(data.brand_variant_id) : null
-  const itemName = data.inventory_brand_variants?.inventory_items?.name_en ?? meta?.itemName ?? '—'
-  const brand = data.inventory_brand_variants?.brand ?? meta?.brand
+  const itemName = data.inventory_item_brand_variants?.inventory_items?.name_en ?? meta?.itemName ?? '—'
+  const brand = data.inventory_item_brand_variants?.brand ?? meta?.brand
 
   const TYPE_COLORS: Record<string, string> = {
     increase:  'bg-success/10 text-success',

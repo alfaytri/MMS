@@ -21,7 +21,7 @@ export function useUserCompanyDivisions() {
 
       // profile id
       const { data: profile } = await supabase
-        .from('profiles')
+        .from('user_data')
         .select('id')
         .eq('auth_user_id', user.id)
         .single()

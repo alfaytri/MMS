@@ -36,7 +36,7 @@ type StockAdjustmentRow = {
   created_at: string
   updated_at: string
   warehouses?: { name: string } | null
-  inventory_brand_variants?: {
+  inventory_item_brand_variants?: {
     brand?: string | null
     inventory_items?: {
       name_en: string
@@ -181,9 +181,9 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
             }
           />
         ) : paged.map((adj) => {
-          const item     = adj.inventory_brand_variants?.inventory_items
+          const item     = adj.inventory_item_brand_variants?.inventory_items
           const itemName = item?.name_en ?? '—'
-          const brand    = adj.inventory_brand_variants?.brand ?? null
+          const brand    = adj.inventory_item_brand_variants?.brand ?? null
           const categoryId = item?.inventory_categories?.id ?? null
           const itemType   = item?.inventory_categories?.type ?? null
           const category   = categoryId && categoriesFlat.length
@@ -267,9 +267,9 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                 </TableCell>
               </TableRow>
             ) : paged.map((adj) => {
-              const item     = adj.inventory_brand_variants?.inventory_items
+              const item     = adj.inventory_item_brand_variants?.inventory_items
               const itemName = item?.name_en ?? '—'
-              const brand    = adj.inventory_brand_variants?.brand ?? null
+              const brand    = adj.inventory_item_brand_variants?.brand ?? null
               const categoryId = item?.inventory_categories?.id ?? null
               const itemType   = item?.inventory_categories?.type ?? null
               const category   = categoryId && categoriesFlat.length

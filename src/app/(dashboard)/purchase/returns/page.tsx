@@ -181,12 +181,12 @@ export default function PurchaseReturnsPage() {
           const received = Math.max(l.received_qty ?? 0, receivedFromReceivals)
           if (received <= 0) return null
           return {
-            item_name: l.item_name || l.inventory_brand_variants?.inventory_items?.name_en || '(No name)',
+            item_name: l.item_name || l.inventory_item_brand_variants?.inventory_items?.name_en || '(No name)',
             sku: l.sku ?? null,
             qty: 0,
             brand_variant_id: l.brand_variant_id ?? null,
-            brand: l.inventory_brand_variants?.brand ?? null,
-            category: l.inventory_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null,
+            brand: l.inventory_item_brand_variants?.brand ?? null,
+            category: l.inventory_item_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null,
             condition: 'other' as const,
             condition_notes: null,
             _max: received,

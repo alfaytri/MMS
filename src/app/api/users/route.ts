@@ -14,7 +14,7 @@ export async function GET() {
 
     const admin = createAdminClient()
     const { data, error } = await admin
-      .from('profiles')
+      .from('user_data')
       // user_custom_roles now carries BOTH the general role info AND the approval-slot info
       // (approval_scopes + custom_roles.is_approval_slot). Downstream code that previously read
       // profile.approval_role_assignments should now filter user_custom_roles by

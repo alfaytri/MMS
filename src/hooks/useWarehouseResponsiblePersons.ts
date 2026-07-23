@@ -23,12 +23,12 @@ export function useWarehouseResponsiblePersons(warehouseId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('warehouse_responsible_persons')
-        .select('*, profiles(full_name)')
+        .select('*, user_data(full_name)')
         .eq('warehouse_id', warehouseId!)
       if (error) throw error
       return (data ?? []).map((row) => {
-        const { profiles, ...rest } = row as typeof row & { profiles: { full_name: string | null } | null }
-        return { ...rest, profile_name: profiles?.full_name ?? null } as WarehouseResponsiblePersonRow
+        const { user_data, ...rest } = row as typeof row & { user_data: { full_name: string | null } | null }
+        return { ...rest, profile_name: user_data?.full_name ?? null } as WarehouseResponsiblePersonRow
       })
     },
     staleTime: 5 * 60 * 1000,
@@ -47,17 +47,17 @@ export function useResponsiblePersonCandidates() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('user_custom_roles')
-        .select('profile_id, profiles!user_custom_roles_profile_id_fkey(full_name), custom_roles!inner(name, permissions, deleted_at)')
+        .select('profile_id, user_data!user_custom_roles_profile_id_fkey(full_name), custom_roles!inner(name, permissions, deleted_at)')
         .contains('custom_roles.permissions', ['warehouse.responsible_person'])
         .is('custom_roles.deleted_at', null)
       if (error) throw error
       const dedup = new Map<string, { profile_id: string; full_name: string | null }>()
       for (const row of (data ?? [])) {
-        const r = row as typeof row & { profiles: { full_name: string | null } | null }
+        const r = row as typeof row & { user_data: { full_name: string | null } | null }
         if (!dedup.has(r.profile_id)) {
           dedup.set(r.profile_id, {
             profile_id: r.profile_id,
-            full_name: r.profiles?.full_name ?? null,
+            full_name: r.user_data?.full_name ?? null,
           })
         }
       }

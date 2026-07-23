@@ -73,7 +73,7 @@ export async function PATCH(
   let profileId: string | null = null
   if (Object.keys(profileUpdates).length > 0 || changes.role_ids !== undefined || changes.role_assignments !== undefined) {
     const { data: existingProfile, error: selErr } = await admin
-      .from('profiles')
+      .from('user_data')
       .select('id')
       .eq('auth_user_id', targetAuthUserId)
       .maybeSingle()
@@ -84,7 +84,7 @@ export async function PATCH(
 
     if (Object.keys(profileUpdates).length > 0) {
       const { error: updErr } = await admin
-        .from('profiles')
+        .from('user_data')
         .update(profileUpdates as Database['public']['Tables']['profiles']['Update'])
         .eq('auth_user_id', targetAuthUserId)
       if (updErr) {

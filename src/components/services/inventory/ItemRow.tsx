@@ -40,7 +40,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const [addVariantOpen, setAddVariantOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archive = useArchiveInventoryItem()
-  const updateVariantOrder = useUpdateSortOrders('inventory_brand_variants')
+  const updateVariantOrder = useUpdateSortOrders('inventory_item_brand_variants')
   const { data: variants = [] } = useInventoryBrandVariants(item.id, showArchived)
 
   function handleVariantMove(idx: number, direction: 'up' | 'down') {

@@ -415,7 +415,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                         </TableHeader>
                         <TableBody>
                           {(fullPO?.po_line_items ?? []).map((li) => {
-                            const bv = li.inventory_brand_variants
+                            const bv = li.inventory_item_brand_variants
                             const cat = bv?.inventory_items?.inventory_categories
                             const chain = cat?.ancestor_chain ?? []
                             const itemType = cat?.type ?? null

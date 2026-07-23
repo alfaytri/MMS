@@ -116,7 +116,7 @@ async function fetchAdjustments(supabase: SupaClient, fromDate?: string, toDate?
   let q = supabase
     .from('stock_adjustments')
     .select(`*, warehouses(name),
-      inventory_brand_variants(brand, inventory_items(name_en, sku))`)
+      inventory_item_brand_variants(brand, inventory_items(name_en, sku))`)
     .order('created_at', { ascending: false })
     .limit(2000)
   if (fromDate) q = q.gte('created_at', fromDate)
@@ -125,7 +125,7 @@ async function fetchAdjustments(supabase: SupaClient, fromDate?: string, toDate?
   if (error) throw error
 
   const rows: AdjustmentReportRow[] = (data ?? []).map((a: Record<string, unknown>) => {
-    const bv = a.inventory_brand_variants as { brand: string | null; inventory_items: { name_en: string; sku: string | null } | null } | null
+    const bv = a.inventory_item_brand_variants as { brand: string | null; inventory_items: { name_en: string; sku: string | null } | null } | null
     return {
       created_at: a.created_at as string,
       warehouse_name: ((a.warehouses as { name: string } | null)?.name) ?? '—',
