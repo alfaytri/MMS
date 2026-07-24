@@ -125,7 +125,6 @@ export type Customer = {
   phone:               string | null
   phones:              CustomerPhone[]
   email:               string | null
-  customer_type:       string | null
   entity_type:         'individual' | 'business' | null
   is_blocked:          boolean
   is_active:           boolean

@@ -16,7 +16,6 @@ export type AgingBillRow = {
   paid_amount: number
   outstanding: number
   days_overdue: number
-  doc_status: string
   payment_status: string
 }
 
@@ -49,9 +48,8 @@ export function useAgingDrillDown(
       const supabase = createClient()
       let q = supabase
         .from('bills')
-        .select('id, bill_number, purchase_order_id, issued_date, due_date, total_amount, paid_amount, doc_status, payment_status')
+        .select('id, bill_number, purchase_order_id, issued_date, due_date, total_amount, paid_amount, payment_status')
         .eq('supplier_id', supplierId!)
-        .neq('doc_status', 'rejected')
         .neq('payment_status', 'paid')
         .order('due_date', { ascending: true })
         .limit(100)
@@ -101,7 +99,6 @@ export function useAgingDrillDown(
             paid_amount: b.paid_amount ?? 0,
             outstanding,
             days_overdue: daysOverdue,
-            doc_status: b.doc_status,
             payment_status: b.payment_status,
           }
         })

@@ -1,13 +1,5 @@
 // src/types/invoice.ts
 
-export type DocStatus =
-  | 'draft'
-  | 'ready_to_send'
-  | 'sent'
-  | 'pending_approval'
-  | 'approved'
-  | 'rejected'
-
 export type BillPaymentStatus = 'unpaid' | 'partially_paid' | 'paid' | 'overdue'
 
 export type MatchStatus =
@@ -81,7 +73,6 @@ export type Bill = {
   supplier_id: string | null
   purchase_order_id: string | null
   receival_id: string | null
-  doc_status: 'draft' | 'pending_approval' | 'approved' | 'rejected'
   payment_status: BillPaymentStatus
   needs_refresh: boolean
   total_amount: number | null

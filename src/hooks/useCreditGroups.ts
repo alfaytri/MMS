@@ -216,13 +216,13 @@ export function useAssignCreditGroup() {
       const snapshots = queryClient.getQueriesData({ queryKey: queryKeys.customers.allCustomers })
       queryClient.setQueriesData(
         { queryKey: queryKeys.customers.allCustomers },
-        (old: { customers?: { id: string; credit_group_id: string | null; credit_group_name: string | null; customer_type: string | null }[] } | undefined) => {
+        (old: { customers?: { id: string; credit_group_id: string | null; credit_group_name: string | null }[] } | undefined) => {
           if (!old?.customers) return old
           return {
             ...old,
             customers: old.customers.map((c) =>
               c.id === customerId
-                ? { ...c, credit_group_id: groupId, credit_group_name: groupName ?? c.credit_group_name, customer_type: 'credit' as const }
+                ? { ...c, credit_group_id: groupId, credit_group_name: groupName ?? c.credit_group_name }
                 : c
             ),
           }

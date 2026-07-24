@@ -25,7 +25,7 @@ export async function generateBillPdf(
     .from('bills')
     .select(`
       id, bill_number, supplier_id, purchase_order_id,
-      doc_status, payment_status, total_amount, paid_amount, subtotal,
+      payment_status, total_amount, paid_amount, subtotal,
       discount_amount, discount_label, source_label,
       issued_date, due_date, notes,
       bill_line_items(id, description, qty, unit_price, total),

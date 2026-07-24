@@ -579,7 +579,6 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                             <TableHead>Bill #</TableHead>
                             <TableHead className="hidden sm:table-cell">Issued</TableHead>
                             <TableHead className="hidden md:table-cell">Due Date</TableHead>
-                            <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-center hidden sm:table-cell">Payment</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
                             <TableHead className="text-right hidden sm:table-cell">Paid</TableHead>
@@ -603,19 +602,6 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell text-sm">
                                   {bill.due_date ? formatDate(bill.due_date) : '—'}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <span className={cn(
-                                    'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
-                                    {
-                                      draft: 'bg-muted text-foreground',
-                                      pending_approval: 'bg-amber-100 text-amber-700',
-                                      approved: 'bg-blue-100 text-blue-700',
-                                      rejected: 'bg-red-100 text-red-700',
-                                    }[bill.doc_status] ?? 'bg-muted text-foreground'
-                                  )}>
-                                    {bill.doc_status.replace(/_/g, ' ')}
-                                  </span>
                                 </TableCell>
                                 <TableCell className="text-center hidden sm:table-cell">
                                   <span className={cn(

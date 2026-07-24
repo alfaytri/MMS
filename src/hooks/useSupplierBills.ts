@@ -9,7 +9,6 @@ export type { Bill }
 
 export type BillFilters = {
   search?: string
-  doc_status?: Bill['doc_status'] | ''
   payment_status?: Bill['payment_status'] | ''
   supplier_id?: string
 }
@@ -29,7 +28,6 @@ export function useSupplierBills(filters?: BillFilters, options?: { enabled?: bo
           purchase_orders(po_number)
         `)
         .order('created_at', { ascending: false })
-      if (filters?.doc_status) q = q.eq('doc_status', filters.doc_status)
       if (filters?.payment_status) q = q.eq('payment_status', filters.payment_status)
       if (filters?.search) {
         q = q.or(`bill_number.ilike.%${filters.search}%`)
@@ -70,7 +68,6 @@ export function useSupplierBill(id: string | null) {
 export type POBillRow = {
   id: string
   bill_number: string
-  doc_status: string
   payment_status: string
   total_amount: number
   paid_amount: number
@@ -87,7 +84,7 @@ export function useBillsByPO(poId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('bills')
-        .select('id, bill_number, doc_status, payment_status, total_amount, paid_amount, due_date, issued_date, created_at')
+        .select('id, bill_number, payment_status, total_amount, paid_amount, due_date, issued_date, created_at')
         .eq('purchase_order_id', poId!)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -143,7 +140,6 @@ export function useCreateBill() {
           purchase_order_id: payload.purchase_order_id,
           division_id:       po?.division_id ?? null,
           receival_id:       payload.receival_id,
-          doc_status:        'draft',
           payment_status:    'unpaid',
           needs_refresh:     false,
           source:            'order',
@@ -188,37 +184,6 @@ export function useCreateBill() {
       return bill as Bill
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all }),
-  })
-}
-
-export function useApproveBill() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      id,
-      action,
-    }: {
-      id: string
-      action: 'pending_approval' | 'approved' | 'rejected'
-    }) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('bills')
-        .update({ doc_status: action })
-        .eq('id', id)
-      if (error) throw error
-      void logActivity({
-        action: 'Bill Approved',
-        module: 'bills',
-        entity_id: id,
-        entity_type: 'bill',
-        old_data: { doc_status: 'draft' },
-        new_data: { doc_status: action },
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
-    },
   })
 }
 

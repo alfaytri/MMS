@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -270,7 +271,6 @@ export type Database = {
           discount_amount: number
           discount_label: string | null
           division_id: string | null
-          doc_status: string
           due_date: string
           id: string
           issued_date: string
@@ -299,7 +299,6 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
-          doc_status?: string
           due_date?: string
           id?: string
           issued_date?: string
@@ -328,7 +327,6 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
-          doc_status?: string
           due_date?: string
           id?: string
           issued_date?: string
@@ -413,6 +411,7 @@ export type Database = {
           brand_variant_id: string
           created_at: string
           date: string
+          division_id: string | null
           id: string
           landed_cost_id: string | null
           notes: string | null
@@ -427,6 +426,7 @@ export type Database = {
           brand_variant_id: string
           created_at?: string
           date?: string
+          division_id?: string | null
           id?: string
           landed_cost_id?: string | null
           notes?: string | null
@@ -441,6 +441,7 @@ export type Database = {
           brand_variant_id?: string
           created_at?: string
           date?: string
+          division_id?: string | null
           id?: string
           landed_cost_id?: string | null
           notes?: string | null
@@ -464,6 +465,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -1229,12 +1237,13 @@ export type Database = {
           created_at: string | null
           credit_group_id: string | null
           email: string | null
-          entity_type: string | null
+          entity_type:
+            | Database["public"]["Enums"]["customer_entity_type"]
+            | null
           establishment_id_uploaded_at: string | null
           establishment_id_url: string | null
           id: string
           is_active: boolean
-          is_blocked: boolean | null
           name: string
           name_ar: string | null
           signed_credit_form_uploaded_at: string | null
@@ -1248,12 +1257,13 @@ export type Database = {
           created_at?: string | null
           credit_group_id?: string | null
           email?: string | null
-          entity_type?: string | null
+          entity_type?:
+            | Database["public"]["Enums"]["customer_entity_type"]
+            | null
           establishment_id_uploaded_at?: string | null
           establishment_id_url?: string | null
           id?: string
           is_active?: boolean
-          is_blocked?: boolean | null
           name: string
           name_ar?: string | null
           signed_credit_form_uploaded_at?: string | null
@@ -1267,12 +1277,13 @@ export type Database = {
           created_at?: string | null
           credit_group_id?: string | null
           email?: string | null
-          entity_type?: string | null
+          entity_type?:
+            | Database["public"]["Enums"]["customer_entity_type"]
+            | null
           establishment_id_uploaded_at?: string | null
           establishment_id_url?: string | null
           id?: string
           is_active?: boolean
-          is_blocked?: boolean | null
           name?: string
           name_ar?: string | null
           signed_credit_form_uploaded_at?: string | null
@@ -1480,6 +1491,7 @@ export type Database = {
           brand_variant_id: string
           created_at: string | null
           date: string
+          division_id: string | null
           id: string
           landed_cost_per_unit: number | null
           qty: number
@@ -1495,6 +1507,7 @@ export type Database = {
           brand_variant_id: string
           created_at?: string | null
           date: string
+          division_id?: string | null
           id?: string
           landed_cost_per_unit?: number | null
           qty: number
@@ -1510,6 +1523,7 @@ export type Database = {
           brand_variant_id?: string
           created_at?: string | null
           date?: string
+          division_id?: string | null
           id?: string
           landed_cost_per_unit?: number | null
           qty?: number
@@ -1534,6 +1548,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -2156,6 +2177,7 @@ export type Database = {
         Row: {
           brand_variant_id: string
           created_at: string
+          division_id: string | null
           id: string
           item_name: string
           movement_type: string
@@ -2170,6 +2192,7 @@ export type Database = {
         Insert: {
           brand_variant_id: string
           created_at?: string
+          division_id?: string | null
           id?: string
           item_name: string
           movement_type: string
@@ -2184,6 +2207,7 @@ export type Database = {
         Update: {
           brand_variant_id?: string
           created_at?: string
+          division_id?: string | null
           id?: string
           item_name?: string
           movement_type?: string
@@ -2208,6 +2232,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_movements_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -3248,7 +3279,7 @@ export type Database = {
           payment_terms_notes: string | null
           po_id: string
           snapshot_label: string
-          stage: string
+          stage: Database["public"]["Enums"]["po_stage"]
           submitted_at: string
           submitted_by: string | null
           subtotal: number
@@ -3271,7 +3302,7 @@ export type Database = {
           payment_terms_notes?: string | null
           po_id: string
           snapshot_label?: string
-          stage: string
+          stage: Database["public"]["Enums"]["po_stage"]
           submitted_at?: string
           submitted_by?: string | null
           subtotal: number
@@ -3294,7 +3325,7 @@ export type Database = {
           payment_terms_notes?: string | null
           po_id?: string
           snapshot_label?: string
-          stage?: string
+          stage?: Database["public"]["Enums"]["po_stage"]
           submitted_at?: string
           submitted_by?: string | null
           subtotal?: number
@@ -3633,6 +3664,7 @@ export type Database = {
         Row: {
           brand_variant_id: string | null
           created_at: string | null
+          division_id: string | null
           id: string
           is_free: boolean | null
           item_name: string
@@ -3645,6 +3677,7 @@ export type Database = {
         Insert: {
           brand_variant_id?: string | null
           created_at?: string | null
+          division_id?: string | null
           id?: string
           is_free?: boolean | null
           item_name: string
@@ -3657,6 +3690,7 @@ export type Database = {
         Update: {
           brand_variant_id?: string | null
           created_at?: string | null
+          division_id?: string | null
           id?: string
           is_free?: boolean | null
           item_name?: string
@@ -3682,6 +3716,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "receival_items_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "receival_items_po_line_item_id_fkey"
             columns: ["po_line_item_id"]
             isOneToOne: false
@@ -3703,6 +3744,7 @@ export type Database = {
           check_sheet_pdf_url: string | null
           created_at: string | null
           date: string
+          division_id: string | null
           id: string
           is_replacement: boolean
           notes: string | null
@@ -3722,6 +3764,7 @@ export type Database = {
           check_sheet_pdf_url?: string | null
           created_at?: string | null
           date: string
+          division_id?: string | null
           id?: string
           is_replacement?: boolean
           notes?: string | null
@@ -3741,6 +3784,7 @@ export type Database = {
           check_sheet_pdf_url?: string | null
           created_at?: string | null
           date?: string
+          division_id?: string | null
           id?: string
           is_replacement?: boolean
           notes?: string | null
@@ -3761,6 +3805,13 @@ export type Database = {
             columns: ["carved_from_layer_id"]
             isOneToOne: false
             referencedRelation: "fifo_cost_layers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivals_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -4924,7 +4975,9 @@ export type Database = {
           created_at: string | null
           expiry: string | null
           id: string
+          is_placeholder: boolean
           item_id: string | null
+          receival_item_id: string | null
           serial_number: string | null
           status: string | null
         }
@@ -4935,7 +4988,9 @@ export type Database = {
           created_at?: string | null
           expiry?: string | null
           id?: string
+          is_placeholder?: boolean
           item_id?: string | null
+          receival_item_id?: string | null
           serial_number?: string | null
           status?: string | null
         }
@@ -4946,7 +5001,9 @@ export type Database = {
           created_at?: string | null
           expiry?: string | null
           id?: string
+          is_placeholder?: boolean
           item_id?: string | null
+          receival_item_id?: string | null
           serial_number?: string | null
           status?: string | null
         }
@@ -4956,6 +5013,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_asset_units_receival_item_id_fkey"
+            columns: ["receival_item_id"]
+            isOneToOne: false
+            referencedRelation: "receival_items"
             referencedColumns: ["id"]
           },
         ]
@@ -5417,6 +5481,7 @@ export type Database = {
           dispatched_at: string | null
           dispatched_by_name: string | null
           dispatched_by_profile_id: string | null
+          division_id: string | null
           from_warehouse_id: string
           id: string
           notes: string | null
@@ -5442,6 +5507,7 @@ export type Database = {
           dispatched_at?: string | null
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
+          division_id?: string | null
           from_warehouse_id: string
           id?: string
           notes?: string | null
@@ -5467,6 +5533,7 @@ export type Database = {
           dispatched_at?: string | null
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
+          division_id?: string | null
           from_warehouse_id?: string
           id?: string
           notes?: string | null
@@ -5533,6 +5600,13 @@ export type Database = {
             columns: ["dispatched_by_profile_id"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -6325,6 +6399,7 @@ export type Database = {
           check_sheet_pdf_url: string | null
           created_at: string | null
           date: string
+          division_id: string | null
           id: string
           is_replacement: boolean
           notes: string | null
@@ -6870,6 +6945,7 @@ export type Database = {
       approval_type: "margin" | "credit"
       bill_source: "order"
       credit_note_status: "draft" | "approved" | "issued" | "redeemed"
+      customer_entity_type: "individual" | "business"
       division: "maintenance" | "cleaning" | "kitchen" | "pest-control"
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
@@ -6931,6 +7007,7 @@ export type Database = {
         | "failed"
         | "refunded"
         | "processing"
+      po_stage: "rfq" | "draft" | "po"
       po_status:
         | "draft"
         | "pending_approval"
@@ -7147,6 +7224,7 @@ export const Constants = {
       approval_type: ["margin", "credit"],
       bill_source: ["order"],
       credit_note_status: ["draft", "approved", "issued", "redeemed"],
+      customer_entity_type: ["individual", "business"],
       division: ["maintenance", "cleaning", "kitchen", "pest-control"],
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
@@ -7214,6 +7292,7 @@ export const Constants = {
         "refunded",
         "processing",
       ],
+      po_stage: ["rfq", "draft", "po"],
       po_status: [
         "draft",
         "pending_approval",
