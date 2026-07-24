@@ -59,14 +59,21 @@ export function PaymentConfirmationDialog({
           ))}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+        <DialogFooter className="gap-3 sm:gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+            className="min-w-24"
+          >
             Go Back
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={countdown > 0 || isPending}
             variant="destructive"
+            className="min-w-40 font-semibold"
           >
             {isPending
               ? 'Recording...'
