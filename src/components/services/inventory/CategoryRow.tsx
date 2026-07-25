@@ -35,7 +35,9 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
 
   const isLeaf = node.children.length === 0
-  const { data: items = [] } = useInventoryItemsByCategory(expanded && isLeaf ? node.id : null, showArchived)
+  // Items are fetched regardless of whether the category also has sub-categories.
+  // A category can hold both direct items AND sub-categories at the same time.
+  const { data: items = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
 
   const indent = 12 + depth * 20
 
@@ -132,11 +134,9 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
             <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
               <FolderPlus className="h-3 w-3" />
             </Button>
-            {isLeaf && (
-              <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
-                <Plus className="h-3 w-3" />
-              </Button>
-            )}
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
+              <Plus className="h-3 w-3" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
@@ -163,8 +163,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         />
       ))}
 
-      {/* Items (only on leaf nodes) */}
-      {expanded && isLeaf && items.map((item, idx) => (
+      {/* Items — a category can hold direct items alongside sub-categories */}
+      {expanded && items.map((item, idx) => (
         <ItemRow
           key={item.id}
           item={item}
@@ -187,7 +187,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
 
       <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType={categoryType} category={node} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType={categoryType} parentId={node.id} />
-      {isLeaf && <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType={categoryType} />}
+      <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType={categoryType} />
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}

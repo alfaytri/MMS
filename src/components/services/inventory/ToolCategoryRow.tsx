@@ -129,7 +129,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
 
   const isLeaf = node.children.length === 0
-  const { data: toolItems = [] } = useInventoryItemsByCategory(expanded && isLeaf ? node.id : null, showArchived)
+  // Items are fetched whenever the row is expanded, regardless of children.
+  // A tools category can hold both direct tool items AND sub-categories.
+  const { data: toolItems = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
 
   const indent = 12 + depth * 20
 
@@ -183,7 +185,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
           </div>
         </td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
-          {isLeaf && expanded && toolItems.length > 0 && (
+          {expanded && toolItems.length > 0 && (
             <span>{toolItems.length} item{toolItems.length !== 1 ? 's' : ''}</span>
           )}
         </td>
@@ -192,11 +194,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
             <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
               <FolderPlus className="h-3 w-3" />
             </Button>
-            {isLeaf && (
-              <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Tool/Asset" onClick={() => setAddItemOpen(true)}>
-                <Plus className="h-3 w-3" />
-              </Button>
-            )}
+            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Tool/Asset" onClick={() => setAddItemOpen(true)}>
+              <Plus className="h-3 w-3" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
@@ -220,7 +220,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         />
       ))}
 
-      {expanded && isLeaf && toolItems.map((item) => (
+      {expanded && toolItems.map((item) => (
         <ToolItemRow key={item.id} item={item} depth={depth} />
       ))}
 
@@ -234,7 +234,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
 
       <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType="tools" category={node} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType="tools" parentId={node.id} />
-      {isLeaf && <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} />}
+      <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} />
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
