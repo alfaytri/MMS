@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks. Three items queued for next session (see `docs/SESSION-HANDOVER-2026-07-24.md`): tool-serial placeholder UI, credit-group approval dialog, compat-views drop.
+🚀 Starting: **Tool Serial Tracking Phase 2: Placeholder Serial UI** — Add placeholder-serial confirm input + auto-generate link on tool units (over already-deployed DB triggers). Spec: `docs/specs/2026-07-24-tool-serial-tracking-plan.md`.
 
 
 
