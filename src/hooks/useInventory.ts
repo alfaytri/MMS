@@ -325,14 +325,16 @@ export type FifoLayer = {
 export type ToolAssetUnit = {
   id: string
   item_id: string
-  serial_number: string
-  brand: string
+  serial_number: string | null
+  brand: string | null
   status: string
   assigned_to: string | null
   condition: string
   expiry: string | null
   created_at: string
   updated_at: string
+  is_placeholder: boolean
+  receival_item_id: string | null
 }
 
 // ─── Category hooks (new) ─────────────────────────────────────────────────────
@@ -700,7 +702,7 @@ export function useCreateToolAssetUnit() {
 
 export function useUpdateToolAssetUnit() {
   const qc = useQueryClient()
-  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string; brand?: string; condition?: string; status?: string; expiry?: string | null; assigned_to?: string | null }>({
+  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string | null; brand?: string; condition?: string; status?: string; expiry?: string | null; assigned_to?: string | null; is_placeholder?: boolean }>({
     mutationFn: async ({ id, item_id: _item_id, ...payload }) => {
       const supabase = createClient()
       const { data: old } = await supabase
@@ -721,6 +723,67 @@ export function useUpdateToolAssetUnit() {
         new_data:    data as unknown as Record<string, unknown>,
       })
       return data as ToolAssetUnit
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+    },
+  })
+}
+
+export type PlaceholderUnitForReceival = ToolAssetUnit & {
+  item_name: string
+  item_sku: string | null
+}
+
+/** Returns placeholder tool_asset_units that were auto-created by triggers for the given receival.
+ *  Joined with the item catalog so the caller can group by item and show a friendly name. */
+export function usePlaceholderUnitsByReceival(receivalId: string | null) {
+  return useQuery({
+    queryKey: ['tool-asset-units-placeholder-by-receival', receivalId] as const,
+    enabled: !!receivalId,
+    queryFn: async () => {
+      const supabase = createClient()
+      // First: resolve receival_item ids for this receival
+      const { data: ri, error: riErr } = await supabase
+        .from('receival_items')
+        .select('id')
+        .eq('receival_id', receivalId!)
+      if (riErr) throw riErr
+      const receivalItemIds = (ri ?? []).map((r) => r.id)
+      if (receivalItemIds.length === 0) return [] as PlaceholderUnitForReceival[]
+
+      const { data, error } = await supabase
+        .from('tool_asset_units')
+        .select('*, inventory_items:item_id(id, name_en, sku)')
+        .in('receival_item_id', receivalItemIds)
+        .is('serial_number', null)
+        .order('created_at', { ascending: true })
+        .limit(500)
+      if (error) throw error
+      return ((data ?? []) as unknown as (ToolAssetUnit & { inventory_items: { id: string; name_en: string; sku: string | null } | null })[])
+        .map((u) => ({
+          ...u,
+          item_name: u.inventory_items?.name_en ?? '(Unknown item)',
+          item_sku: u.inventory_items?.sku ?? null,
+        })) as PlaceholderUnitForReceival[]
+    },
+    staleTime: 0,
+  })
+}
+
+export function useAutoGenerateToolSerials() {
+  const qc = useQueryClient()
+  return useMutation<{ updated_count: number; sku_prefix: string }, Error, { item_id: string }>({
+    mutationFn: async ({ item_id }) => {
+      const supabase = createClient()
+      // Types not yet regenerated for this RPC — cast to bypass strict rpc-name union
+      const { data, error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
+        'auto_generate_tool_serials',
+        { p_item_id: item_id }
+      )
+      if (error) throw error as Error
+      const result = (data ?? {}) as { updated_count?: number; sku_prefix?: string }
+      return { updated_count: result.updated_count ?? 0, sku_prefix: result.sku_prefix ?? '' }
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })

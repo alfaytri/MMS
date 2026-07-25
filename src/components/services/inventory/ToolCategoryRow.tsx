@@ -7,7 +7,12 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
-import { useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders, type InventoryItem, type ToolAssetUnit } from '@/hooks/useInventory'
+import { PlaceholderUnitRow } from './PlaceholderUnitRow'
+import {
+  useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders,
+  useAutoGenerateToolSerials,
+  type InventoryItem, type ToolAssetUnit,
+} from '@/hooks/useInventory'
 import { formatDate } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
@@ -15,6 +20,7 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
   const { data: units = [], isLoading } = useToolAssetUnits(itemId)
   const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
   const [addUnitOpen, setAddUnitOpen] = useState(false)
+  const autoGenerate = useAutoGenerateToolSerials()
 
   const statusColor: Record<string, string> = {
     available: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
@@ -23,10 +29,42 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
     retired: 'bg-muted text-muted-foreground',
   }
 
+  // Pending = "no serial yet". If a serial is present, treat the row as confirmed
+  // regardless of the placeholder flag (defensive against DB flag drift).
+  const pendingUnits = units.filter((u) => !u.serial_number)
+  const confirmedUnits = units.filter((u) => !!u.serial_number)
+  const pendingCount = pendingUnits.length
+
+  function handleAutoGenerate() {
+    autoGenerate.mutate({ item_id: itemId }, {
+      onSuccess: (res) => toast.success(`Generated ${res.updated_count} serial${res.updated_count === 1 ? '' : 's'}`),
+      onError: (err) => toast.error(err.message),
+    })
+  }
+
   return (
     <>
       <tr className="bg-muted/50">
         <td colSpan={3} className="py-2 pl-12 pr-4">
+          {pendingCount > 0 && (
+            <div className="mb-2 flex items-center gap-3 flex-wrap">
+              <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                {pendingCount} pending serial{pendingCount === 1 ? '' : 's'} — enter manually, or
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-2.5 text-[11px] border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                onClick={handleAutoGenerate}
+                disabled={autoGenerate.isPending}
+              >
+                {autoGenerate.isPending
+                  ? 'Generating…'
+                  : `Auto-generate ${pendingCount} serial${pendingCount === 1 ? '' : 's'}`}
+              </Button>
+            </div>
+          )}
           <div className="rounded border border-border overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -44,7 +82,10 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                 {!isLoading && units.length === 0 && (
                   <tr><td colSpan={6} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
                 )}
-                {units.map((unit) => (
+                {pendingUnits.map((unit) => (
+                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} />
+                ))}
+                {confirmedUnits.map((unit) => (
                   <tr key={unit.id} className="border-t border-border">
                     <td className="py-1.5 px-2 font-mono">{unit.serial_number}</td>
                     <td className="py-1.5 px-2">{unit.brand}</td>

@@ -14,6 +14,7 @@ import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
 import { PoPaymentDialog } from './PoPaymentDialog'
 import { PoReceiveTab } from './PoReceiveTab'
+import { ReceivalSerialsStep } from './ReceivalSerialsStep'
 import { PoVersionTabs } from './PoVersionTabs'
 import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoReturnsTab } from './PoReturnsTab'
@@ -67,6 +68,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [createBillOpen, setCreateBillOpen] = useState(false)
   const [requestEditOpen, setRequestEditOpen] = useState(false)
+  const [serialsReceival, setSerialsReceival] = useState<{ id: string; number: string } | null>(null)
 
   const resolvedId = po?.id ?? poId ?? null
 
@@ -541,7 +543,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
               {/* ── Receive ──────────────────────────────────────── */}
               {current && ['approved', 'partially_received'].includes(current.status) && (
                 <TabsContent value="receive" className="flex-1 overflow-y-auto">
-                  <PoReceiveTab po={current} />
+                  <PoReceiveTab po={current} onReceivalCreated={setSerialsReceival} />
                 </TabsContent>
               )}
 
@@ -689,6 +691,24 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
           poNumber={current.po_number ?? null}
         />
       )}
+
+      {/* Confirm tool serials — opens after any receival finishes.
+          Lives here (not inside PoReceiveTab) so it survives the Receive tab
+          unmounting when the PO status flips to completed. */}
+      <Dialog open={!!serialsReceival} onOpenChange={(o) => { if (!o) setSerialsReceival(null) }}>
+        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[54rem] sm:h-[85vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-5 pt-5 pb-0 flex-shrink-0">
+            <DialogTitle className="text-sm font-semibold">Confirm Tool Serials</DialogTitle>
+          </DialogHeader>
+          {serialsReceival && (
+            <ReceivalSerialsStep
+              receivalId={serialsReceival.id}
+              receivalNumber={serialsReceival.number}
+              onDone={() => setSerialsReceival(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

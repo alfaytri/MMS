@@ -44,7 +44,13 @@ type ExtraFreeItem = {
   unitCost: number
 }
 
-export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
+export function PoReceiveTab({
+  po,
+  onReceivalCreated,
+}: {
+  po: PurchaseOrder
+  onReceivalCreated?: (r: { id: string; number: string }) => void
+}) {
   const { data: warehouses } = useWarehouses()
   const createReceival = useCreateReceival()
 
@@ -145,7 +151,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
     const regularItems = items.filter((i) => !i.is_free)
 
     try {
-      await createReceival.mutateAsync({ po_id: po.id, warehouse_id: warehouseId, date: new Date().toISOString().split('T')[0], notes, items })
+      const result = await createReceival.mutateAsync({ po_id: po.id, warehouse_id: warehouseId, date: new Date().toISOString().split('T')[0], notes, items })
       toast.success('Receival recorded successfully')
       setRows((prev) => prev.map((r) => {
         const received = regularItems.find((i) => i.po_line_item_id === r.po_line_item_id)?.qty_received ?? 0
@@ -153,6 +159,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
       }))
       setExtraFreeItems([])
       setNotes('')
+      onReceivalCreated?.({ id: result.receival_id, number: result.receival_number })
     } catch (err: unknown) {
       toast.error((err as Error).message ?? 'Failed to record receival')
     } finally {
@@ -403,6 +410,7 @@ export function PoReceiveTab({ po }: { po: PurchaseOrder }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }
