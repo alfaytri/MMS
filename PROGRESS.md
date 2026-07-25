@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks. Two follow-ups queued as task chips: SO edit re-approval flow (task_5012314b), supplier credit balance UI (task_cdfec473).
+🚀 Starting: **SO Edit Re-Approval Flow** — Mirror POs: editing a confirmed SO that pushes total over credit limit or a line below cost must flip the SO back to `pending_approval` and build the sales approval chain. Currently the SO edit runs a plain UPDATE and skips these checks.
 
 
 
