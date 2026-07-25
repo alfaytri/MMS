@@ -672,7 +672,7 @@ export function useCreateSO() {
         p_exchange_rate:        payload.exchange_rate,
         // The nullable fields below are accepted by the DB function even though
         // the generated types declare them as non-nullable strings.
-        p_expected_delivery:    payload.expected_delivery ?? '',
+        p_expected_delivery:    (payload.expected_delivery ?? '') || null as unknown as string,
         p_payment_terms:        payload.payment_terms ?? '',
         p_payment_terms_notes:  payload.payment_terms_notes ?? '',
         p_payment_milestones:   payload.payment_milestones as unknown as string,

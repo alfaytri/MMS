@@ -85,14 +85,19 @@ export function useCreateSaleReturn() {
         .eq('source_type', 'sale_order')
       const return_number = `SR-${String((count ?? 0) + 1).padStart(5, '0')}`
 
+      // Resolve user_data.id from auth.uid() — the FK on so_po_returns.created_by
+      // points to user_data(id), NOT the auth user's id. Same rule for
+      // created_by_name lookup (user_data links via auth_user_id, not id).
       const { data: { user } } = await supabase.auth.getUser()
+      let createdById: string | null = null
       let createdByName: string | null = null
       if (user) {
         const { data: profile } = await supabase
           .from('user_data')
-          .select('full_name')
-          .eq('id', user.id)
-          .single()
+          .select('id, full_name')
+          .eq('auth_user_id', user.id)
+          .maybeSingle()
+        createdById = profile?.id ?? null
         createdByName = profile?.full_name ?? null
       }
 
@@ -107,7 +112,7 @@ export function useCreateSaleReturn() {
           restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
           status: 'pending',
-          created_by: user?.id ?? null,
+          created_by: createdById,
           created_by_name: createdByName,
         })
         .select()

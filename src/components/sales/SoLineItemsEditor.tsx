@@ -28,9 +28,9 @@ const TYPE_CONFIG: Record<SoLineType, TypeConfig> = {
   tools:         { label: 'Tools & Assets', icon: Wrench,      headerClass: 'bg-purple-500/10 text-purple-700 border-b border-purple-200', buttonClass: 'border-purple-300 bg-purple-500/10 text-purple-700 hover:bg-purple-500/20' },
 }
 
-// Spare Parts intentionally excluded from SO line-item creation — spares are
-// consumed internally, not sold as line items on customer sale orders.
-const ALL_TYPES: SoLineType[] = ['products', 'consumables', 'tools']
+// Tools & Assets intentionally excluded from SO line-item creation — tools are
+// company-owned equipment tracked as serialized assets, not sold to customers.
+const ALL_TYPES: SoLineType[] = ['products', 'consumables', 'spare-parts']
 
 function makeRow(line_type: SoLineType): SoLineItemRow {
   return {

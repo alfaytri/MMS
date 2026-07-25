@@ -168,6 +168,17 @@ async function createDebitNoteForReturn(
   returnId: string,
   ret: { source_id: string; return_number: string; return_lines: POReturnItem[]; reason: string }
 ) {
+  // Idempotency guard: if a DN already exists for this return (double-click,
+  // retry after network flake, cross-tab race), reuse it instead of creating
+  // a duplicate. The DB also enforces this via a partial unique index on
+  // debit_notes(source_return_id) — see 20260725120000.
+  const { data: existingDn } = await supabase
+    .from('debit_notes')
+    .select('id')
+    .eq('source_return_id', returnId)
+    .maybeSingle()
+  if (existingDn) return
+
   // 1. Fetch PO details with line items
   const { data: po } = await supabase
     .from('purchase_orders')

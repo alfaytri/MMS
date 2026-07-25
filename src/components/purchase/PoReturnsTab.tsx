@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table'
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { useCreatePurchaseReturn, useUpdatePOReturnStatus, useCreateDebitNoteForReturn, type POReturn, type POReturnItem, type POReturnStatus } from '@/hooks/usePurchaseReturns'
+import { useReturnReasons } from '@/hooks/useReturnReasons'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
@@ -51,6 +52,7 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
   const [returnCreateOpen, setReturnCreateOpen] = useState(false)
   const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0])
   const [returnReason, setReturnReason] = useState('')
+  const [customReason, setCustomReason] = useState('')
   const [returnNotes, setReturnNotes] = useState('')
   const [returnWarehouseId, setReturnWarehouseId] = useState('')
   const [returnItems, setReturnItems] = useState<(POReturnItem & { _max: number })[]>([])
@@ -60,6 +62,7 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
   const updatePOReturnStatus = useUpdatePOReturnStatus()
   const createDebitNote = useCreateDebitNoteForReturn()
   const { data: warehouses = [] } = useWarehouses()
+  const { data: reasons = [] } = useReturnReasons('po_return')
   const bvIds = useMemo(() => returnItems.map((i) => i.brand_variant_id).filter(Boolean) as string[], [returnItems])
   const { data: whStockMap } = useWarehouseStockByItems(bvIds)
 
@@ -82,12 +85,14 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
     setReturnWarehouseId(latestReceival?.warehouse_id ?? '')
     setReturnDate(new Date().toISOString().split('T')[0])
     setReturnReason('')
+    setCustomReason('')
     setReturnNotes('')
     setReturnCreateOpen(true)
   }
 
   function handleCreatePOReturn() {
-    if (!returnReason) { toast.error('Reason is required'); return }
+    const resolvedReason = returnReason === '__custom__' ? customReason.trim() : returnReason
+    if (!resolvedReason) { toast.error('Reason is required'); return }
     const items = returnItems.filter((i) => i.qty > 0)
     if (items.length === 0) { toast.error('Enter qty for at least one item'); return }
     if (items.some((i) => i.qty > i._max)) { toast.error('One or more quantities exceed the received amount'); return }
@@ -95,7 +100,7 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
       {
         source_id: po.id,
         date: returnDate,
-        reason: returnReason,
+        reason: resolvedReason,
         items: items.map(({ item_name, sku, qty, brand_variant_id, condition, condition_notes }) => ({ item_name, sku, qty, brand_variant_id, condition, condition_notes })),
         restock_warehouse_id: returnWarehouseId || null,
         notes: returnNotes || null,
@@ -254,7 +259,26 @@ export function PoReturnsTab({ po, poReturns, receivals }: PoReturnsTabProps) {
             </div>
             <div className="space-y-1">
               <Label htmlFor="por-reason">Reason *</Label>
-              <Input id="por-reason" value={returnReason} onChange={(e) => setReturnReason(e.target.value)} placeholder="e.g. Wrong item, damaged on arrival…" />
+              <Select value={returnReason} onValueChange={(v) => { setReturnReason(v ?? ''); if (v !== '__custom__') setCustomReason('') }}>
+                <SelectTrigger id="por-reason" className="h-9 text-xs">
+                  <SelectValue placeholder="Select reason…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {reasons.map((r) => (
+                    <SelectItem key={r.id} value={r.label} className="text-xs">{r.label}</SelectItem>
+                  ))}
+                  <SelectItem value="__custom__" className="text-xs">Other (custom reason)…</SelectItem>
+                </SelectContent>
+              </Select>
+              {returnReason === '__custom__' && (
+                <Input
+                  autoFocus
+                  className="mt-1.5"
+                  placeholder="Enter custom reason…"
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                />
+              )}
             </div>
             {returnItems.length > 0 && (
               <div className="space-y-2">

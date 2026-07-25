@@ -67,8 +67,8 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed }: Props) {
       </td>
       <td className="py-1.5 px-2 text-muted-foreground">—</td>
       <td className="py-1.5 px-2">
-        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-          pending serial
+        <span className="inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+          pending
         </span>
       </td>
       <td className="py-1.5 px-2">
