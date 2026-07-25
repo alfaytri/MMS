@@ -710,41 +710,58 @@ export function useUpdateSO() {
     mutationFn: async ({ id, line_items, ...fields }: UpdateSOPayload & { line_items?: SOLineItemDraft[] }) => {
       const supabase = createClient()
 
-      let extraFields: Record<string, unknown> = {}
+      // If line_items are being edited, route through apply_sale_order_edit
+      // RPC — it recomputes totals, rebalances stock reservations, re-runs the
+      // credit + margin checks, and flips status to pending_approval + builds
+      // a fresh approval chain when a threshold is crossed. Any existing
+      // pending chain rows are marked superseded first (idempotent).
+      let editResult: { status?: string; exceeds_credit?: boolean; has_below_cost?: boolean } | null = null
       if (line_items) {
-        const subtotal = calcSOSubtotal(line_items)
         const fieldMap = fields as Record<string, unknown>
-        const discountType = (fieldMap.discount_type as string) ?? 'fixed'
+        const discountType   = (fieldMap.discount_type as string)   ?? 'fixed'
         const discountAmount = (fieldMap.discount_amount as number) ?? 0
-        const discountResolved = discountType === 'percentage'
-          ? (subtotal * discountAmount) / 100
-          : discountAmount
-        extraFields = { subtotal, total: subtotal - discountResolved, discount_amount_resolved: discountResolved }
+        const discountLabel  = (fieldMap.discount_label as string | null | undefined) ?? null
+        const { data, error: rpcErr } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
+          'apply_sale_order_edit',
+          {
+            p_so_id:           id,
+            p_line_items:      line_items.map(({ avg_cost: _, ...li }) => li) as unknown as string,
+            p_discount_amount: discountAmount,
+            p_discount_label:  discountLabel,
+            p_discount_type:   discountType,
+          }
+        )
+        if (rpcErr) throw rpcErr as Error
+        editResult = (data ?? null) as typeof editResult
       }
 
-      // fields is Partial<CreateSOPayload> which may contain intent/customer_id not in the
-      // DB schema columns; the DB silently ignores unknown keys so this is safe.
-      const updatePayload = { ...fields, ...extraFields }
-      const { error: soErr } = await supabase
-        .from('sale_orders')
-        .update(updatePayload as unknown as import('@/types/database.types').DBUpdate<'sale_orders'>)
-        .eq('id', id)
-      if (soErr) throw soErr
-
-      if (line_items) {
-        const { error: delErr } = await supabase.from('sale_order_lines').delete().eq('sale_order_id', id)
-        if (delErr) throw delErr
-        if (line_items.length > 0) {
-          const { error: liErr } = await supabase
-            .from('sale_order_lines')
-            .insert(line_items.map(({ avg_cost: _, ...li }) => ({ ...li, sale_order_id: id })))
-          if (liErr) throw liErr
-        }
+      // Metadata-only fields (customer notes, validity_days, terms, expected
+      // delivery, exchange rate) are safe as a direct UPDATE — none of them
+      // change credit exposure or below-cost status.
+      // Strip fields the RPC already handled or that aren't DB columns.
+      const {
+        line_items: _lineItems,
+        discount_amount: _da, discount_label: _dl, discount_type: _dt,
+        subtotal: _sub, total: _tot,
+        intent: _intent, customer_id: _cust,
+        ...safeFields
+      } = fields as Record<string, unknown>
+      void _lineItems; void _da; void _dl; void _dt; void _sub; void _tot; void _intent; void _cust
+      if (Object.keys(safeFields).length > 0) {
+        const { error: soErr } = await supabase
+          .from('sale_orders')
+          .update(safeFields as unknown as import('@/types/database.types').DBUpdate<'sale_orders'>)
+          .eq('id', id)
+        if (soErr) throw soErr
       }
+
+      return editResult
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
     },
   })
 }

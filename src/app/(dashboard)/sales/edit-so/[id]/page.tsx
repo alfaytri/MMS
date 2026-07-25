@@ -143,8 +143,17 @@ export default function EditSOPage() {
   function saveQuotation() {
     if (!validate()) return
     updateSO.mutate(buildPayload(), {
-      onSuccess: () => {
-        toast.success('Quotation updated')
+      onSuccess: (result) => {
+        // The RPC returns the resulting status; surface it so the user knows
+        // if their edit tripped the approval chain (credit overage / below cost).
+        const status = (result as { status?: string } | null)?.status
+        if (status === 'pending_approval') {
+          toast.success('SO updated — sent for approval (credit or margin trigger)')
+        } else if (status === 'confirmed') {
+          toast.success('SO updated')
+        } else {
+          toast.success('Quotation updated')
+        }
         router.push('/sales/orders')
       },
       onError: (err) => toast.error(err.message),
