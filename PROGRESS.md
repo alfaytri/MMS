@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks. Two follow-ups queued: apply customer credit note to SO creation (offset credit_used), first-payment-from-credit on SO payment flow.
+🚀 Starting: **Store Credit as Payment Method** — SO payment dialog shows any active store-credit balance as a pre-filled first payment; on submit, credit_note gets redeemed (fully or partially) and any remainder is paid normally. Kept independent of the credit-limit calculation per user's design call.
 
 
 
