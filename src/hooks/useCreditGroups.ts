@@ -4,7 +4,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
-import { logActivity } from '@/lib/logActivity'
 
 export type CreditGroup = {
   id:                     string
@@ -174,69 +173,8 @@ export function useCreditGroupCustomerCounts() {
   })
 }
 
-// Assign a customer to a credit group via React Query mutation (not raw supabase call).
-export function useAssignCreditGroup() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      customerId, groupId, groupName, fromGroupId, fromGroupName,
-    }: {
-      customerId:     string
-      groupId:        string
-      groupName?:     string
-      fromGroupId?:   string | null
-      fromGroupName?: string | null
-    }) => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('customers')
-        .update({ credit_group_id: groupId })
-        .eq('id', customerId)
-        .select('id, credit_group_id, name')
-      if (error) throw error
-      if (!data || data.length === 0) throw new Error('Customer not found or update blocked')
-
-      // Fire-and-forget audit. Never blocks the mutation.
-      void logActivity({
-        action:      'Credit Group Changed',
-        module:      'customers',
-        entity_id:   customerId,
-        entity_type: 'customer',
-        details: JSON.stringify({
-          customer_name: data[0]?.name ?? null,
-          from: { id: fromGroupId ?? null, name: fromGroupName ?? null },
-          to:   { id: groupId,             name: groupName     ?? null },
-        }),
-      })
-
-      return { groupName }
-    },
-    onMutate: async ({ customerId, groupId, groupName }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.customers.allCustomers })
-      const snapshots = queryClient.getQueriesData({ queryKey: queryKeys.customers.allCustomers })
-      queryClient.setQueriesData(
-        { queryKey: queryKeys.customers.allCustomers },
-        (old: { customers?: { id: string; credit_group_id: string | null; credit_group_name: string | null }[] } | undefined) => {
-          if (!old?.customers) return old
-          return {
-            ...old,
-            customers: old.customers.map((c) =>
-              c.id === customerId
-                ? { ...c, credit_group_id: groupId, credit_group_name: groupName ?? c.credit_group_name }
-                : c
-            ),
-          }
-        },
-      )
-      return { snapshots }
-    },
-    onError: (_err, _vars, context) => {
-      context?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data))
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.customers.all })
-      queryClient.invalidateQueries({ queryKey: queryKeys.customers.allCustomers })
-      queryClient.invalidateQueries({ queryKey: queryKeys.creditGroups.counts })
-    },
-  })
-}
+// Direct-write credit-group assignment was removed — the only supported path is
+// now through the Edit Customer dialog, which routes limit-bearing groups
+// through submit_credit_group_change (approval chain). Do not re-add a
+// direct-write mutation here without discussion — it would bypass the doc gate
+// and the approval workflow.

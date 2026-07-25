@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { toast } from 'sonner'
+import { useState, useRef, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Plus, Mail, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -10,19 +9,18 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger,
-} from '@/components/ui/select'
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { CustomerDialog } from '@/components/master-data/CustomerDialog'
+import { CreditGroupPendingDialog } from '@/components/master-data/CreditGroupPendingDialog'
+import type { CreditGroupRequest } from '@/hooks/useCreditGroupApprovals'
 import { useAllCustomers, type Customer } from '@/hooks/useSaleOrders'
-import { useCreditGroups, useAssignCreditGroup } from '@/hooks/useCreditGroups'
+import { useCreditGroups } from '@/hooks/useCreditGroups'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useAllCustomerCredit } from '@/hooks/useCustomerCredit'
 import { CreditUtilizationBar } from '@/components/shared/CreditUtilizationBar'
-import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
+import { usePendingCreditGroupRequests } from '@/hooks/useCreditGroupApprovals'
 
 const PAGE_SIZE = 50
 
@@ -34,6 +32,7 @@ export default function CustomersPage() {
 
   const [createOpen, setCreateOpen]   = useState(false)
   const [editing, setEditing]         = useState<Customer | null>(null)
+  const [pendingView, setPendingView] = useState<{ request: CreditGroupRequest; customerName: string } | null>(null)
 
   function handleSearch(val: string) {
     setSearch(val)
@@ -50,48 +49,12 @@ export default function CustomersPage() {
   const { data: groups = [] }  = useCreditGroups()
   const { data: creditRows = [] } = useAllCustomerCredit()
   const creditByCustomer = new Map(creditRows.map((r) => [r.customer_id, r]))
-  const assignGroup            = useAssignCreditGroup()
-  const submitGroupChange      = useSubmitCreditGroupChange()
-  const canChangeCreditGroup   = useHasPermission('master_data.customers.change_credit_group')
-  const canEditCustomer        = useHasPermission('master_data.customers.manage')
-
-  function handleAssign(
-    customerId: string,
-    groupId: string,
-    fromGroupId: string | null,
-    fromGroupName: string | null,
-  ) {
-    if (fromGroupId === groupId) return
-    const group = groups.find((g) => g.id === groupId)
-    const groupName = group?.name
-    // Approval gate: groups with a non-zero credit limit go through the
-    // PM → AM → Owner workflow. Zero-limit (cash) groups are assigned
-    // directly because there's no credit risk to approve.
-    const needsApproval = (group?.credit_limit ?? 0) > 0
-    if (needsApproval) {
-      submitGroupChange.mutate(
-        { customerId, groupId },
-        {
-          onSuccess: (data) => {
-            if (data.status === 'approved') {
-              toast.success(`Assigned to ${groupName} (no approval needed)`)
-            } else {
-              toast.success(`Sent for approval: PM → AM → Owner`)
-            }
-          },
-          onError: (err) => toast.error(err.message),
-        }
-      )
-      return
-    }
-    assignGroup.mutate(
-      { customerId, groupId, groupName, fromGroupId, fromGroupName },
-      {
-        onSuccess: () => toast.success('Credit group updated'),
-        onError:   (err) => toast.error(err.message),
-      }
-    )
-  }
+  const { data: pendingRequests = [] } = usePendingCreditGroupRequests()
+  const pendingByCustomer = useMemo(
+    () => new Map(pendingRequests.map((r) => [r.customer_id, r])),
+    [pendingRequests],
+  )
+  const canEditCustomer = useHasPermission('master_data.customers.manage')
 
   return (
     <PageWrapper>
@@ -181,30 +144,31 @@ export default function CustomersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {canChangeCreditGroup ? (
-                        <Select
-                          value={c.credit_group_id ?? ''}
-                          onValueChange={(val) => { if (val) handleAssign(c.id, val, c.credit_group_id ?? null, c.credit_group_name ?? null) }}
-                          disabled={assignGroup.isPending || submitGroupChange.isPending}
-                        >
-                          <SelectTrigger className="h-8 min-h-11 md:min-h-0 w-44 text-xs">
-                            <span className={c.credit_group_name ? '' : 'text-muted-foreground'}>
-                              {c.credit_group_name ?? 'Assign group…'}
+                      {(() => {
+                        const pending = pendingByCustomer.get(c.id)
+                        return (
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-xs truncate ${c.credit_group_name ? '' : 'text-muted-foreground'}`}>
+                              {c.credit_group_name ?? '—'}
                             </span>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {groups
-                              .filter((g) => (g.credit_limit ?? 0) > 0)
-                              .map((g) => (
-                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {c.credit_group_name ?? '—'}
-                        </span>
-                      )}
+                            {pending && (
+                              <button
+                                type="button"
+                                onClick={() => setPendingView({ request: pending, customerName: c.name })}
+                                title="View pending request"
+                                className="shrink-0"
+                              >
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                                >
+                                  Pending: {pending.requested_group_name ?? '—'}
+                                </Badge>
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {(() => {
@@ -267,6 +231,14 @@ export default function CustomersPage() {
         groups={groups}
         customer={editing}
       />
+      {pendingView && (
+        <CreditGroupPendingDialog
+          open={!!pendingView}
+          onOpenChange={(o) => { if (!o) setPendingView(null) }}
+          request={pendingView.request}
+          customerName={pendingView.customerName}
+        />
+      )}
     </PageWrapper>
   )
 }

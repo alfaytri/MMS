@@ -261,6 +261,27 @@ export function useRejectCreditGroupChange() {
   })
 }
 
+export function useCancelCreditGroupChange() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ requestId, reason }: { requestId: string; reason?: string }) => {
+      const supabase = createClient()
+      const { error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
+        'cancel_credit_group_change',
+        { p_request_id: requestId, p_reason: reason?.trim() || null }
+      )
+      if (error) throw new Error((error as { message?: string }).message ?? 'Failed to cancel request')
+      return requestId
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.all })
+      qc.invalidateQueries({ queryKey: queryKeys.creditGroupApprovals.byCustomerAll })
+      qc.invalidateQueries({ queryKey: ['customer-credit-summary'] })
+      qc.invalidateQueries({ queryKey: ['customers'] })
+    },
+  })
+}
+
 export function useForceApproveCreditGroupChange() {
   const qc = useQueryClient()
   return useMutation({
