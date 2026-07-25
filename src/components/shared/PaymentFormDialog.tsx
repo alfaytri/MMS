@@ -107,6 +107,17 @@ interface PaymentFormDialogProps {
   totalAmount: number
   paidAmount: number
   showExchangeRate?: boolean
+  /** Rendered between the payment summary and the amount input. Used to
+   *  surface e.g. an "Apply store credit" panel above the cash inputs. */
+  headerSlot?: React.ReactNode
+  /** When set, further constrains the max amount the form allows below the
+   *  natural outstanding. Used when part of the invoice is being paid by a
+   *  separate flow (store credit) inside the same submit. */
+  outstandingOverride?: number
+  /** Extra rows prepended to the confirmation dialog (e.g. "Store Credit" +
+   *  amount). Parent supplies these so the confirm step reflects the full
+   *  transaction, not just the cash portion. */
+  extraConfirmationLines?: { label: string; value: string }[]
 }
 
 export type PaymentFormValues = {
@@ -123,14 +134,26 @@ export function PaymentFormDialog({
   defaultMethod, isPending, onSubmit,
   totalAmount, paidAmount,
   showExchangeRate = false,
+  headerSlot,
+  outstandingOverride,
+  extraConfirmationLines,
 }: PaymentFormDialogProps) {
-  const outstanding = Math.max(0, totalAmount - paidAmount)
+  const rawOutstanding = Math.max(0, totalAmount - paidAmount)
+  const outstanding = outstandingOverride !== undefined
+    ? Math.max(0, Math.min(outstandingOverride, rawOutstanding))
+    : rawOutstanding
   const progressPct = totalAmount > 0 ? Math.min(100, (paidAmount / totalAmount) * 100) : 0
 
+  // When outstandingOverride === 0, the whole invoice is being paid by a
+  // parent flow (e.g. store credit) and the cash amount is legitimately 0.
+  // Otherwise the amount must be positive.
+  const allowZeroAmount = outstandingOverride === 0
   const paymentSchema = z.object({
-    amount: z.coerce.number()
-      .positive('Amount must be positive')
-      .max(outstanding + 0.01, `Amount exceeds outstanding (${currency} ${outstanding.toLocaleString('en', { minimumFractionDigits: 2 })})`),
+    amount: allowZeroAmount
+      ? z.coerce.number().min(0, 'Amount cannot be negative').max(0.01, 'No additional payment needed')
+      : z.coerce.number()
+          .positive('Amount must be positive')
+          .max(outstanding + 0.01, `Amount exceeds outstanding (${currency} ${outstanding.toLocaleString('en', { minimumFractionDigits: 2 })})`),
     method: z.string().min(1, 'Select a method'),
     date: z.string().min(1, 'Date is required'),
     reference: z.string().optional().default(''),
@@ -158,6 +181,16 @@ export function PaymentFormDialog({
     if (open) form.reset(freshDefaults())
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dialog-reset pattern: runs on open only; freshDefaults is an inline function
   }, [open])
+
+  // Auto-sync the amount when the parent lowers outstandingOverride (e.g. the
+  // user toggles "Apply store credit"). Snap amount to the new remaining so
+  // the user isn't stuck fixing a stale value. Only fires while the dialog
+  // is open, and only when the override actually changes.
+  useEffect(() => {
+    if (!open || outstandingOverride === undefined) return
+    form.setValue('amount', Number(outstanding.toFixed(2)), { shouldValidate: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only re-sync on override change
+  }, [outstandingOverride, open])
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingValues, setPendingValues] = useState<PaymentFormValues | null>(null)
@@ -192,16 +225,21 @@ export function PaymentFormDialog({
         isPending={isPending}
         title={`Confirm Payment — ${title.replace('Record Payment — ', '')}`}
         details={[
-          { label: 'Amount', value: `${currency} ${pendingValues.amount.toLocaleString('en', { minimumFractionDigits: 2 })}` },
-          ...(showExchangeRate && pendingValues.exchange_rate
+          ...(extraConfirmationLines ?? []),
+          ...(pendingValues.amount > 0
             ? [
-                { label: 'Exchange Rate', value: String(pendingValues.exchange_rate) },
-                { label: 'QAR Equivalent', value: `QAR ${(pendingValues.amount * pendingValues.exchange_rate).toLocaleString('en', { minimumFractionDigits: 2 })}` },
+                { label: 'Amount', value: `${currency} ${pendingValues.amount.toLocaleString('en', { minimumFractionDigits: 2 })}` },
+                ...(showExchangeRate && pendingValues.exchange_rate
+                  ? [
+                      { label: 'Exchange Rate', value: String(pendingValues.exchange_rate) },
+                      { label: 'QAR Equivalent', value: `QAR ${(pendingValues.amount * pendingValues.exchange_rate).toLocaleString('en', { minimumFractionDigits: 2 })}` },
+                    ]
+                  : []),
+                { label: 'Method', value: methodLabel(pendingValues.method) },
+                ...(pendingValues.reference ? [{ label: 'Reference', value: pendingValues.reference }] : []),
               ]
             : []),
           { label: 'Date', value: pendingValues.date },
-          { label: 'Method', value: methodLabel(pendingValues.method) },
-          ...(pendingValues.reference ? [{ label: 'Reference', value: pendingValues.reference }] : []),
           ...(pendingValues.notes ? [{ label: 'Notes', value: pendingValues.notes }] : []),
         ]}
       />
@@ -242,6 +280,8 @@ export function PaymentFormDialog({
                   )}
                 </div>
               </div>
+
+              {headerSlot}
 
               {/* Row 1: Amount + Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -288,36 +328,40 @@ export function PaymentFormDialog({
                 </div>
               )}
 
-              {/* Row 3: Method + Reference */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={form.control} name="method" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Method *</FormLabel>
-                    <FormControl>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                        value={field.value}
-                        onChange={field.onChange}
-                      >
-                        <option value="">Select...</option>
-                        {methods.map((m) => (
-                          <option key={m.value} value={m.value}>{m.label}</option>
-                        ))}
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+              {/* Row 3: Method + Reference — hidden when amount = 0 (the whole
+                  invoice is being paid via credit or another parent flow, so
+                  a cash-side method would just confuse users). */}
+              {watchedAmount > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="method" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Method *</FormLabel>
+                      <FormControl>
+                        <select
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                          value={field.value}
+                          onChange={field.onChange}
+                        >
+                          <option value="">Select...</option>
+                          {methods.map((m) => (
+                            <option key={m.value} value={m.value}>{m.label}</option>
+                          ))}
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
-                <FormField control={form.control} name="reference" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Reference</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Transaction / cheque #" {...field} />
-                    </FormControl>
-                  </FormItem>
-                )} />
-              </div>
+                  <FormField control={form.control} name="reference" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reference</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Transaction / cheque #" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )} />
+                </div>
+              )}
 
               {/* Row 4: Notes */}
               <FormField control={form.control} name="notes" render={({ field }) => (
@@ -335,7 +379,11 @@ export function PaymentFormDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending || outstanding <= 0}>
+              {/* Gate on the RAW outstanding, not the credit-adjusted one —
+                  when store credit covers the full remaining, the amount input
+                  legitimately goes to 0 but the submit still needs to fire
+                  (so the credit redemption records). */}
+              <Button type="submit" disabled={isPending || rawOutstanding <= 0}>
                 {isPending ? 'Recording…' : 'Record Payment'}
               </Button>
             </DialogFooter>

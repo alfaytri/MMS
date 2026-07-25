@@ -113,14 +113,14 @@ export function useCreditNotes() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('credit_notes')
-        .select('*, credit_note_lines(*), so_invoices!credit_notes_invoice_id_fkey(invoice_id), returns!source_return_id(return_number)')
+        .select('*, credit_note_lines(*), so_invoices!credit_notes_invoice_id_fkey(invoice_id), so_po_returns!source_return_id(return_number)')
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
       return (data ?? []).map((cn) => ({
         ...cn,
         invoice_display: cn.so_invoices?.invoice_id ?? null,
-        return_number: cn.returns?.return_number ?? null,
+        return_number: cn.so_po_returns?.return_number ?? null,
       })) as CreditNote[]
     },
     staleTime: 30 * 1000,
@@ -134,13 +134,13 @@ export function useDebitNotes() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('debit_notes')
-        .select('*, debit_note_lines(*), returns!source_return_id(return_number), purchase_orders!debit_notes_purchase_order_id_fkey(po_number)')
+        .select('*, debit_note_lines(*), so_po_returns!source_return_id(return_number), purchase_orders!debit_notes_purchase_order_id_fkey(po_number)')
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw error
       return (data ?? []).map((dn) => ({
         ...dn,
-        return_number: dn.returns?.return_number ?? null,
+        return_number: dn.so_po_returns?.return_number ?? null,
         po_number: dn.purchase_orders?.po_number ?? null,
       })) as unknown as DebitNote[]
     },
@@ -319,13 +319,43 @@ export function useResolveCreditNoteStoreCredit() {
       invoiceId: string
       amount: number
     }) => {
-      const { data: inv } = await supabase
-        .from('so_invoices')
-        .select('customer_id')
-        .eq('id', input.invoiceId)
-        .single()
-
-      if (!inv?.customer_id) throw new Error('Could not resolve customer')
+      // Customer is only needed for the activity log. The CN is the
+      // authoritative record; resolving customer isn't strictly required to
+      // flip resolution_type. Try invoice first, then fall back to the
+      // linked return's source SO, but don't hard-fail if neither yields one
+      // (some CNs are created from returns with no invoice link).
+      let resolvedCustomerId: string | null = null
+      if (input.invoiceId) {
+        const { data: inv } = await supabase
+          .from('so_invoices')
+          .select('customer_id')
+          .eq('id', input.invoiceId)
+          .maybeSingle()
+        resolvedCustomerId = inv?.customer_id ?? null
+      }
+      if (!resolvedCustomerId) {
+        const { data: cn } = await supabase
+          .from('credit_notes')
+          .select('source_return_id')
+          .eq('id', input.creditNoteId)
+          .maybeSingle()
+        if (cn?.source_return_id) {
+          const { data: ret } = await supabase
+            .from('so_po_returns')
+            .select('source_type, source_id')
+            .eq('id', cn.source_return_id)
+            .maybeSingle()
+          if (ret?.source_type === 'sale_order' && ret.source_id) {
+            const { data: so } = await supabase
+              .from('sale_orders')
+              .select('customer_id')
+              .eq('id', ret.source_id)
+              .maybeSingle()
+            resolvedCustomerId = so?.customer_id ?? null
+          }
+        }
+      }
+      // Note: resolvedCustomerId can still be null; we log it either way.
 
       // Store-credit resolution marks the credit note; the "credit balance"
       // is derived from credit_notes at read time (customers.credit_balance

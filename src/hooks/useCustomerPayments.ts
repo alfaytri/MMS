@@ -3,6 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 
+// Re-exported helper used by the payment dialog; splits a total redemption
+// amount across the customer's open CNs in FIFO order and returns one
+// payment record per CN consumed.
+export type StoreCreditRedemption = {
+  credit_note_id: string
+  amount:         number
+}
+
 export type CustomerPayment = {
   id: string
   payment_id: string | null
@@ -77,12 +85,16 @@ export function useCreateCustomerPayment() {
       invoice_id: string
       customer_id: string
       amount: number
-      method: 'bank_transfer' | 'cash' | 'cheque' | 'online_transfer' | 'pos'
+      method: 'bank_transfer' | 'cash' | 'cheque' | 'online_transfer' | 'pos' | 'store_credit'
       date: string
       reference: string | null
       notes: string | null
       currency?: string
       exchange_rate?: number
+      credit_note_id?: string | null
+      /** Skip the trailing invoice payment_status recompute — the caller will
+       *  invoke it once after a batch of payments. */
+      skip_status_recompute?: boolean
     }) => {
       const supabase = createClient()
       const { data: maxRow } = await supabase
@@ -100,26 +112,30 @@ export function useCreateCustomerPayment() {
       const currency = payload.currency ?? 'QAR'
       const exchangeRate = payload.exchange_rate ?? 1
 
+      const insertRow = {
+        payment_id,
+        invoice_id:  payload.invoice_id,
+        customer_id: payload.customer_id,
+        amount:      payload.amount,
+        method:      payload.method,
+        date:        payload.date,
+        reference:   payload.reference,
+        notes:       payload.notes,
+        direction:   'incoming',
+        status:      'completed',
+        currency,
+        exchange_rate: exchangeRate,
+        amount_qar:  payload.amount * exchangeRate,
+        ...(payload.credit_note_id ? { credit_note_id: payload.credit_note_id } : {}),
+      }
       const { data, error } = await supabase
         .from('payments')
-        .insert({
-          payment_id,
-          invoice_id:  payload.invoice_id,
-          customer_id: payload.customer_id,
-          amount:      payload.amount,
-          method:      payload.method,
-          date:        payload.date,
-          reference:   payload.reference,
-          notes:       payload.notes,
-          direction:   'incoming',
-          status:      'completed',
-          currency,
-          exchange_rate: exchangeRate,
-          amount_qar:  payload.amount * exchangeRate,
-        })
+        .insert(insertRow as unknown as import('@/types/database.types').DBInsert<'payments'>)
         .select()
         .single()
       if (error) throw error
+
+      if (payload.skip_status_recompute) return data
 
       // Recompute invoice payment_status (belt-and-suspenders alongside the DB trigger)
       const { data: allPayments } = await supabase
@@ -150,6 +166,129 @@ export function useCreateCustomerPayment() {
       queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.byInvoice(variables.invoice_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+    },
+  })
+}
+
+/**
+ * Redeem store credit against an invoice. Consumes the customer's open credit
+ * notes FIFO — one payment record per CN consumed, method='store_credit',
+ * credit_note_id linked. Recomputes invoice payment_status once at the end.
+ * Returns the number of payments actually created (may be < requested if the
+ * customer doesn't have enough credit).
+ */
+export function useApplyStoreCredit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      // Either invoice_id OR (source_type='sale_order' + source_id) must be provided.
+      invoice_id?:     string | null
+      source_type?:    'sale_order' | null
+      source_id?:      string | null
+      customer_id:     string
+      redemptions:     StoreCreditRedemption[]   // [{credit_note_id, amount}]
+      date:            string
+      reference?:      string | null
+      notes?:          string | null
+      currency?:       string
+      exchange_rate?:  number
+    }) => {
+      const supabase = createClient()
+      const currency = payload.currency ?? 'QAR'
+      const exchangeRate = payload.exchange_rate ?? 1
+
+      const rows: unknown[] = []
+      for (const r of payload.redemptions) {
+        if (r.amount <= 0) continue
+        const { data: maxRow } = await supabase
+          .from('payments')
+          .select('payment_id')
+          .ilike('payment_id', 'CPAY-%')
+          .order('payment_id', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        const lastNum = maxRow?.payment_id
+          ? parseInt(maxRow.payment_id.replace('CPAY-', ''), 10)
+          : 0
+        const payment_id = `CPAY-${String(lastNum + 1 + rows.length).padStart(5, '0')}`
+
+        rows.push({
+          payment_id,
+          invoice_id:     payload.invoice_id ?? null,
+          source_type:    payload.source_type ?? null,
+          source_id:      payload.source_id  ?? null,
+          customer_id:    payload.customer_id,
+          amount:         r.amount,
+          method:         'store_credit',
+          date:           payload.date,
+          reference:      payload.reference ?? null,
+          notes:          payload.notes ?? null,
+          direction:      'incoming',
+          status:         'completed',
+          currency,
+          exchange_rate:  exchangeRate,
+          amount_qar:     r.amount * exchangeRate,
+          credit_note_id: r.credit_note_id,
+        })
+      }
+      if (rows.length === 0) return { created: 0 }
+
+      const { data: inserted, error } = await supabase
+        .from('payments')
+        .insert(rows as unknown as import('@/types/database.types').DBInsert<'payments'>[])
+        .select('id, payment_id, source_type, source_id, invoice_id, credit_note_id, method, amount')
+      if (error) throw error
+      if (!inserted || inserted.length === 0) {
+        throw new Error('Store-credit redemption returned 0 rows — likely RLS block or trigger silently dropped the row')
+      }
+      if (inserted.length !== rows.length) {
+        throw new Error(`Store-credit redemption inserted ${inserted.length}/${rows.length} rows`)
+      }
+
+      // Recompute invoice payment_status once, at the end — only when redemption
+      // was against an invoice. SO-level redemption has no invoice to recompute
+      // (the SO's paid_amount is derived from payments at read time).
+      if (payload.invoice_id) {
+        const { data: allPayments } = await supabase
+          .from('payments')
+          .select('amount')
+          .eq('invoice_id', payload.invoice_id)
+          .eq('direction', 'incoming')
+          .is('deleted_at', null)
+        const totalPaid = (allPayments ?? []).reduce((s: number, p) => s + Number(p.amount ?? 0), 0)
+
+        const { data: inv } = await supabase
+          .from('so_invoices')
+          .select('total_amount')
+          .eq('id', payload.invoice_id)
+          .single()
+        const newStatus =
+          totalPaid >= (inv?.total_amount ?? Infinity) ? 'paid'
+          : totalPaid > 0 ? 'partially_paid'
+          : 'unpaid'
+
+        await supabase
+          .from('so_invoices')
+          .update({ payment_status: newStatus })
+          .eq('id', payload.invoice_id)
+      }
+
+      return { created: rows.length }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
+      if (variables.invoice_id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.byInvoice(variables.invoice_id) })
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      // The per-SO payments query lives under a separate key (['so-payments', soId]) —
+      // invalidate it so the payments tab refreshes after a redemption.
+      if (variables.source_type === 'sale_order' && variables.source_id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(variables.source_id) })
+      }
+      queryClient.invalidateQueries({ queryKey: ['customer-credit-balances'] })
+      queryClient.invalidateQueries({ queryKey: ['open-credit-notes', variables.customer_id] })
     },
   })
 }

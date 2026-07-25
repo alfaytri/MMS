@@ -71,18 +71,20 @@ export function useOpenCreditNotesForCustomer(customerId: string | null) {
     enabled:  !!customerId,
     queryFn: async (): Promise<OpenCreditNoteRow[]> => {
       const supabase = createClient()
+      // NOTE: We can't embed sale_orders through so_po_returns.source_id because
+      // source_id is polymorphic (sale_order OR purchase_order). PostgREST 400s
+      // when asked to auto-resolve that FK. So fetch the CN + its return + its
+      // invoice first, then batch-fetch the sale_orders separately.
       const { data, error } = await supabase
         .from('credit_notes')
         .select(`
           id, credit_note_id, total_amount, status, created_at, resolution_type,
           invoice_id, source_return_id,
           so_invoices:invoice_id (
-            invoice_id,
-            sale_orders:sale_order_id ( so_number, customer_id, currency )
+            invoice_id, sale_order_id
           ),
           so_po_returns:source_return_id (
-            return_number, source_type, source_id,
-            sale_orders:source_id ( so_number, customer_id, currency )
+            return_number, source_type, source_id
           )
         `)
         .eq('resolution_type', 'store_credit')
@@ -90,40 +92,74 @@ export function useOpenCreditNotesForCustomer(customerId: string | null) {
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw new Error(error.message)
+
+      // Batch-fetch sale_orders for both the invoice.sale_order_id and the
+      // return.source_id-when-sale_order paths.
+      const soIds = new Set<string>()
+      for (const r of (data ?? []) as unknown as {
+        so_invoices: { sale_order_id: string | null } | null
+        so_po_returns: { source_type: string | null; source_id: string | null } | null
+      }[]) {
+        if (r.so_invoices?.sale_order_id) soIds.add(r.so_invoices.sale_order_id)
+        if (r.so_po_returns?.source_type === 'sale_order' && r.so_po_returns.source_id) {
+          soIds.add(r.so_po_returns.source_id)
+        }
+      }
+      const soMap: Record<string, { so_number: string; customer_id: string | null; currency: string | null }> = {}
+      if (soIds.size > 0) {
+        const { data: sos } = await supabase
+          .from('sale_orders')
+          .select('id, so_number, customer_id, currency')
+          .in('id', Array.from(soIds))
+        for (const so of (sos ?? []) as { id: string; so_number: string; customer_id: string | null; currency: string | null }[]) {
+          soMap[so.id] = so
+        }
+      }
+
+      // Subtract already-applied payments per CN so `amount` is the REMAINING
+      // balance available to redeem, not the original total.
+      const cnIds = (data ?? []).map((r) => (r as { id: string }).id)
+      const applied: Record<string, number> = {}
+      if (cnIds.length > 0) {
+        const { data: pays } = await supabase
+          .from('payments')
+          .select('credit_note_id, amount')
+          .in('credit_note_id', cnIds)
+          .eq('direction', 'incoming')
+          .is('deleted_at', null)
+        for (const p of (pays ?? []) as { credit_note_id: string | null; amount: number }[]) {
+          if (!p.credit_note_id) continue
+          applied[p.credit_note_id] = (applied[p.credit_note_id] ?? 0) + Number(p.amount ?? 0)
+        }
+      }
       const rows = (data ?? []) as unknown as {
         id: string
         credit_note_id: string
         total_amount: number
         status: string | null
         created_at: string
-        so_invoices: {
-          invoice_id: string | null
-          sale_orders: { so_number: string | null; customer_id: string | null; currency: string | null } | null
-        } | null
-        so_po_returns: {
-          return_number: string | null
-          source_type: string | null
-          source_id: string | null
-          sale_orders: { so_number: string | null; customer_id: string | null; currency: string | null } | null
-        } | null
+        so_invoices: { invoice_id: string | null; sale_order_id: string | null } | null
+        so_po_returns: { return_number: string | null; source_type: string | null; source_id: string | null } | null
       }[]
       return rows
         .map((r) => {
-          const invSo = r.so_invoices?.sale_orders ?? null
-          const retSo = r.so_po_returns?.source_type === 'sale_order' ? (r.so_po_returns?.sale_orders ?? null) : null
-          const soRow = invSo ?? retSo
+          const invSoId = r.so_invoices?.sale_order_id ?? null
+          const retSoId = r.so_po_returns?.source_type === 'sale_order' ? (r.so_po_returns?.source_id ?? null) : null
+          const soRow = (invSoId && soMap[invSoId]) || (retSoId && soMap[retSoId]) || null
+          const remaining = Number(r.total_amount ?? 0) - (applied[r.id] ?? 0)
           return {
             row: r,
             customer_id: soRow?.customer_id ?? null,
             currency:    soRow?.currency ?? 'QAR',
             reference:   soRow?.so_number ?? r.so_invoices?.invoice_id ?? r.so_po_returns?.return_number ?? null,
+            remaining,
           }
         })
-        .filter((x) => x.customer_id === customerId)
+        .filter((x) => x.customer_id === customerId && x.remaining > 0)
         .map((x) => ({
           id:          x.row.id,
           note_number: x.row.credit_note_id,
-          amount:      Number(x.row.total_amount ?? 0),
+          amount:      x.remaining,
           currency:    x.currency,
           created_at:  x.row.created_at,
           status:      x.row.status,

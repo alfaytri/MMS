@@ -59,8 +59,10 @@ export function PaymentSummaryTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((p) => (
-                  <TableRow key={p.id}>
+                {payments.map((p) => {
+                  const isStoreCredit = p.method === 'store_credit'
+                  return (
+                  <TableRow key={p.id} className={isStoreCredit ? 'bg-emerald-50/40 dark:bg-emerald-950/10' : undefined}>
                     <TableCell className="text-sm">{formatDate(p.date)}</TableCell>
                     <TableCell className="font-medium">
                       <span>{formatCurrency(p.amount, currency)}</span>
@@ -77,8 +79,10 @@ export function PaymentSummaryTab({
                           : '—'}
                       </TableCell>
                     )}
-                    <TableCell className="hidden sm:table-cell capitalize text-sm">
-                      {p.method.replace(/_/g, ' ')}
+                    <TableCell className="hidden sm:table-cell text-sm">
+                      {isStoreCredit
+                        ? 'Credit Note Applied'
+                        : <span className="capitalize">{p.method.replace(/_/g, ' ')}</span>}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                       {p.reference ?? '—'}
@@ -87,7 +91,8 @@ export function PaymentSummaryTab({
                       {p.notes ?? '—'}
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           </div>

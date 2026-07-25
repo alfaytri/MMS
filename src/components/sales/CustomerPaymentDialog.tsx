@@ -1,15 +1,17 @@
 // src/components/sales/CustomerPaymentDialog.tsx
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { Wallet } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PaymentConfirmationDialog } from '@/components/shared/PaymentConfirmationDialog'
-import { useCreateCustomerPayment } from '@/hooks/useCustomerPayments'
+import { useCreateCustomerPayment, useApplyStoreCredit } from '@/hooks/useCustomerPayments'
+import { useOpenCreditNotesForCustomer } from '@/hooks/useOpenCreditNotes'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { ArInvoice, PaymentPlan } from '@/types/invoice'
 
@@ -23,8 +25,25 @@ type Props = {
 
 export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid, plans }: Props) {
   const createPayment = useCreateCustomerPayment()
+  const applyStoreCredit = useApplyStoreCredit()
   const outstanding = (invoice.total_amount ?? 0) - alreadyPaid
 
+  // Store credit available in the invoice's currency. Rendered inline at the
+  // top of the dialog when > 0. Other currencies are ignored — mixing e.g. USD
+  // credit against a QAR invoice would need exchange-rate handling that we
+  // don't want to hide from the user in a one-click flow.
+  const invoiceCurrency = 'QAR'
+  const { data: openCNs = [] } = useOpenCreditNotesForCustomer(open ? invoice.customer_id : null)
+  const availableCredit = useMemo(
+    () => openCNs.filter((n) => n.currency === invoiceCurrency).reduce((s, n) => s + n.amount, 0),
+    [openCNs, invoiceCurrency],
+  )
+  const availableCreditForThisInvoice = Math.min(availableCredit, outstanding)
+
+  const [useCredit, setUseCredit] = useState(false)
+  const [creditAmount, setCreditAmount] = useState('0')
+
+  // "Cash" here = whatever's left over after credit (real payment method).
   const [amount, setAmount] = useState(String(outstanding > 0 ? outstanding.toFixed(2) : ''))
   const [method, setMethod] = useState<'bank_transfer' | 'cash' | 'cheque' | 'online_transfer' | 'pos'>('bank_transfer')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -33,12 +52,33 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
 
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const amountNum = Number(amount)
-  const canPay = amountNum > 0 && amountNum <= outstanding && !!date
+  const creditPortion = useCredit ? Math.max(0, Math.min(Number(creditAmount) || 0, availableCreditForThisInvoice)) : 0
+  const cashPortion   = Math.max(0, Number(amount) || 0)
+  const total         = creditPortion + cashPortion
+  const canPay        = total > 0 && total <= outstanding && !!date && (cashPortion === 0 || (cashPortion > 0 && !!method))
 
   const METHOD_LABELS: Record<string, string> = {
     bank_transfer: 'Bank Transfer', cash: 'Cash', cheque: 'Cheque',
     online_transfer: 'Online Transfer', pos: 'POS',
+  }
+
+  // Turning credit ON pre-fills the credit input to cover as much of the
+  // invoice as possible, and reduces the cash side to just the remainder.
+  function toggleCredit(next: boolean) {
+    setUseCredit(next)
+    if (next) {
+      setCreditAmount(availableCreditForThisInvoice.toFixed(2))
+      setAmount(Math.max(0, outstanding - availableCreditForThisInvoice).toFixed(2))
+    } else {
+      setCreditAmount('0')
+      setAmount(outstanding.toFixed(2))
+    }
+  }
+
+  function onCreditAmountChange(v: string) {
+    setCreditAmount(v)
+    const cn = Math.min(Math.max(0, Number(v) || 0), availableCreditForThisInvoice)
+    setAmount(Math.max(0, outstanding - cn).toFixed(2))
   }
 
   const handleRecordClick = () => {
@@ -49,16 +89,47 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const submit = async () => {
     setSaving(true)
     try {
-      await createPayment.mutateAsync({
-        invoice_id:  invoice.id,
-        customer_id: invoice.customer_id,
-        amount:      amountNum,
-        method,
-        date,
-        reference: reference || null,
-        notes:     null,
-      })
-      toast.success('Payment recorded')
+      // 1. Redeem credit (FIFO across the customer's CNs in this currency).
+      if (creditPortion > 0) {
+        const eligible = openCNs.filter((n) => n.currency === invoiceCurrency)
+        const redemptions: { credit_note_id: string; amount: number }[] = []
+        let remaining = creditPortion
+        for (const cn of eligible) {
+          if (remaining <= 0) break
+          const take = Math.min(cn.amount, remaining)
+          redemptions.push({ credit_note_id: cn.id, amount: take })
+          remaining -= take
+        }
+        await applyStoreCredit.mutateAsync({
+          invoice_id:  invoice.id,
+          customer_id: invoice.customer_id,
+          redemptions,
+          date,
+          reference: reference || null,
+          notes: 'Store-credit redemption',
+        })
+      }
+
+      // 2. Cash portion — whatever's left as a normal payment.
+      if (cashPortion > 0) {
+        await createPayment.mutateAsync({
+          invoice_id:  invoice.id,
+          customer_id: invoice.customer_id,
+          amount:      cashPortion,
+          method,
+          date,
+          reference: reference || null,
+          notes:     null,
+        })
+      }
+
+      toast.success(
+        creditPortion > 0 && cashPortion > 0
+          ? `Applied ${formatCurrency(creditPortion, invoiceCurrency)} store credit + ${formatCurrency(cashPortion, invoiceCurrency)} ${METHOD_LABELS[method]}`
+          : creditPortion > 0
+            ? `Redeemed ${formatCurrency(creditPortion, invoiceCurrency)} in store credit`
+            : 'Payment recorded'
+      )
       setConfirmOpen(false)
       onOpenChange(false)
     } catch (err: unknown) {
@@ -87,23 +158,66 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
             </div>
           )}
 
+          {availableCredit > 0 && (
+            <div className="rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2.5 space-y-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={useCredit}
+                  onChange={(e) => toggleCredit(e.target.checked)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                    <Wallet className="h-3.5 w-3.5" />
+                    Apply store credit — {formatCurrency(availableCredit, invoiceCurrency)} available
+                  </div>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    {availableCredit > outstanding
+                      ? `Only ${formatCurrency(outstanding, invoiceCurrency)} needed for this invoice — the rest stays on the customer's balance.`
+                      : `Covers ${formatCurrency(availableCredit, invoiceCurrency)} of this invoice; the remainder needs a real payment method.`}
+                  </p>
+                </div>
+              </label>
+              {useCredit && (
+                <div className="pl-6">
+                  <Label htmlFor="cust-pay-credit" className="text-[11px] text-emerald-700 dark:text-emerald-400">Credit to apply</Label>
+                  <Input
+                    id="cust-pay-credit"
+                    type="number"
+                    value={creditAmount}
+                    onChange={(e) => onCreditAmountChange(e.target.value)}
+                    step="0.01"
+                    min={0}
+                    max={availableCreditForThisInvoice}
+                    className="h-9 mt-1"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1">
-            <Label htmlFor="cust-pay-amount">Amount *</Label>
-            <Input id="cust-pay-amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min={0.01} max={outstanding} />
+            <Label htmlFor="cust-pay-amount">
+              {creditPortion > 0 ? 'Remaining amount (other method)' : 'Amount *'}
+            </Label>
+            <Input id="cust-pay-amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min={0} max={outstanding} />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="cust-pay-method">Method *</Label>
-            <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
-              <SelectTrigger id="cust-pay-method"><SelectValue /></SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto">
-                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="cheque">Cheque</SelectItem>
-                <SelectItem value="online_transfer">Online Transfer</SelectItem>
-                <SelectItem value="pos">POS</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {cashPortion > 0 && (
+            <div className="space-y-1">
+              <Label htmlFor="cust-pay-method">Method *</Label>
+              <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
+                <SelectTrigger id="cust-pay-method"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="online_transfer">Online Transfer</SelectItem>
+                  <SelectItem value="pos">POS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label htmlFor="cust-pay-date">Date *</Label>
@@ -129,9 +243,16 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
           isPending={saving}
           title={`Confirm Payment — ${invoice.invoice_id}`}
           details={[
-            { label: 'Amount', value: formatCurrency(amountNum, 'QAR') },
-            { label: 'Date', value: date },
-            { label: 'Method', value: METHOD_LABELS[method] ?? method },
+            ...(creditPortion > 0
+              ? [{ label: 'Store Credit', value: formatCurrency(creditPortion, invoiceCurrency) }]
+              : []),
+            ...(cashPortion > 0
+              ? [
+                  { label: 'Payment', value: `${formatCurrency(cashPortion, invoiceCurrency)} — ${METHOD_LABELS[method] ?? method}` },
+                ]
+              : []),
+            { label: 'Total', value: formatCurrency(total, invoiceCurrency) },
+            { label: 'Date',  value: date },
             ...(reference ? [{ label: 'Reference', value: reference }] : []),
           ]}
         />
