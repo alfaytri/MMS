@@ -11,6 +11,8 @@ import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { SupplierFormDialog } from '@/components/master-data/SupplierFormDialog'
 import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
+import { useSupplierCreditBalances, groupBalancesByParty } from '@/hooks/useCreditBalances'
+import { CreditBalanceDialog } from '@/components/shared/CreditBalanceDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,7 +26,10 @@ export default function SuppliersPage() {
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<SupplierWithCurrency | null>(null)
+  const [balanceView, setBalanceView] = useState<{ id: string; name: string } | null>(null)
   const { data: suppliers, isLoading } = useSuppliers()
+  const { data: balances = [] } = useSupplierCreditBalances()
+  const balanceMap = useMemo(() => groupBalancesByParty(balances), [balances])
 
   const columns = useMemo<ColumnDef<SupplierWithCurrency>[]>(
     () => [
@@ -58,6 +63,35 @@ export default function SuppliersPage() {
           const c = row.original.currencies
           if (!c) return <span className="text-muted-foreground">—</span>
           return <Badge variant="outline" className="text-[10px] font-mono">{c.code}</Badge>
+        },
+      },
+      {
+        id: 'credit_balance',
+        header: 'Credit Balance',
+        cell: ({ row }) => {
+          const rows = balanceMap.get(row.original.id) ?? []
+          if (rows.length === 0) return <span className="text-muted-foreground">—</span>
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setBalanceView({ id: row.original.id, name: row.original.name })
+              }}
+              className="flex flex-wrap items-center gap-1 hover:opacity-80"
+              title="Click for details"
+            >
+              {rows.map((r) => (
+                <Badge
+                  key={r.currency}
+                  variant="outline"
+                  className="text-[10px] font-mono border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300"
+                >
+                  {r.currency} {r.open_amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Badge>
+              ))}
+            </button>
+          )
         },
       },
       {
@@ -125,7 +159,7 @@ export default function SuppliersPage() {
         ),
       },
     ],
-    []
+    [balanceMap]
   )
 
   return (
@@ -185,6 +219,16 @@ export default function SuppliersPage() {
         }}
         supplier={editing}
       />
+
+      {balanceView && (
+        <CreditBalanceDialog
+          open={!!balanceView}
+          onOpenChange={(o) => { if (!o) setBalanceView(null) }}
+          partyId={balanceView.id}
+          partyName={balanceView.name}
+          kind="supplier"
+        />
+      )}
     </PageWrapper>
   )
 }

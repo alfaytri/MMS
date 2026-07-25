@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import {
   FileText, ShoppingCart, RotateCcw, TrendingDown, CheckCircle2, AlertTriangle, Wallet,
@@ -44,8 +45,18 @@ export default function DebitNotesPage() {
   const [detailNote, setDetailNote] = useState<DebitNoteRow | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | CreditNoteStatus>('')
+  const searchParams = useSearchParams()
 
   const { data: debitNotes = [], isLoading } = useDebitNotes()
+
+  // Deep-link support: `?dn=<id>` auto-opens the detail dialog once the list
+  // has loaded. Used by the supplier credit-balance popup (opens in new tab).
+  useEffect(() => {
+    const dnId = searchParams.get('dn')
+    if (!dnId || detailNote) return
+    const match = debitNotes.find((n) => n.id === dnId)
+    if (match) setDetailNote(match as DebitNoteRow)
+  }, [searchParams, debitNotes, detailNote])
 
   // Client-side filter — DN#, supplier, PO#, Return#
   const filtered = useMemo(() => {

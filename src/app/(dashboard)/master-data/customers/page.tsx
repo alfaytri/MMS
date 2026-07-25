@@ -14,6 +14,8 @@ import {
 import { EmptyState } from '@/components/shared/EmptyState'
 import { CustomerDialog } from '@/components/master-data/CustomerDialog'
 import { CreditGroupPendingDialog } from '@/components/master-data/CreditGroupPendingDialog'
+import { CreditBalanceDialog } from '@/components/shared/CreditBalanceDialog'
+import { useCustomerCreditBalances, groupBalancesByParty } from '@/hooks/useCreditBalances'
 import type { CreditGroupRequest } from '@/hooks/useCreditGroupApprovals'
 import { useAllCustomers, type Customer } from '@/hooks/useSaleOrders'
 import { useCreditGroups } from '@/hooks/useCreditGroups'
@@ -33,6 +35,7 @@ export default function CustomersPage() {
   const [createOpen, setCreateOpen]   = useState(false)
   const [editing, setEditing]         = useState<Customer | null>(null)
   const [pendingView, setPendingView] = useState<{ request: CreditGroupRequest; customerName: string } | null>(null)
+  const [balanceView, setBalanceView] = useState<{ id: string; name: string } | null>(null)
 
   function handleSearch(val: string) {
     setSearch(val)
@@ -54,6 +57,8 @@ export default function CustomersPage() {
     () => new Map(pendingRequests.map((r) => [r.customer_id, r])),
     [pendingRequests],
   )
+  const { data: customerBalances = [] } = useCustomerCreditBalances()
+  const balanceByCustomer = useMemo(() => groupBalancesByParty(customerBalances), [customerBalances])
   const canEditCustomer = useHasPermission('master_data.customers.manage')
 
   return (
@@ -86,6 +91,7 @@ export default function CustomersPage() {
               <TableHead className="hidden md:table-cell">Type</TableHead>
               <TableHead>Credit Group</TableHead>
               <TableHead className="hidden lg:table-cell">Credit Used</TableHead>
+              <TableHead>We Owe</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -99,12 +105,13 @@ export default function CustomersPage() {
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-36" /></TableCell>
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
               : customers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="p-0">
+                    <TableCell colSpan={8} className="p-0">
                       <EmptyState title="No customers found" />
                     </TableCell>
                   </TableRow>
@@ -184,6 +191,30 @@ export default function CustomersPage() {
                         )
                       })()}
                     </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const rows = balanceByCustomer.get(c.id) ?? []
+                        if (rows.length === 0) return <span className="text-muted-foreground">—</span>
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setBalanceView({ id: c.id, name: c.name })}
+                            className="flex flex-wrap items-center gap-1 hover:opacity-80"
+                            title="Click for details"
+                          >
+                            {rows.map((r) => (
+                              <Badge
+                                key={r.currency}
+                                variant="outline"
+                                className="text-[10px] font-mono border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300"
+                              >
+                                {r.currency} {r.open_amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </Badge>
+                            ))}
+                          </button>
+                        )
+                      })()}
+                    </TableCell>
                     <TableCell className="text-right">
                       {canEditCustomer && (
                         <Button
@@ -237,6 +268,16 @@ export default function CustomersPage() {
           onOpenChange={(o) => { if (!o) setPendingView(null) }}
           request={pendingView.request}
           customerName={pendingView.customerName}
+        />
+      )}
+
+      {balanceView && (
+        <CreditBalanceDialog
+          open={!!balanceView}
+          onOpenChange={(o) => { if (!o) setBalanceView(null) }}
+          partyId={balanceView.id}
+          partyName={balanceView.name}
+          kind="customer"
         />
       )}
     </PageWrapper>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Plus, FileText, CheckCircle2, Clock, CreditCard } from 'lucide-react'
 import { toast } from 'sonner'
@@ -43,9 +44,19 @@ export default function CreditNotesPage() {
   const [statusFilter, setStatusFilter] = useState<CreditNoteStatus | ''>('')
   const [applyTarget, setApplyTarget] = useState<CreditNote | null>(null)
   const [detailNote, setDetailNote] = useState<CreditNote | null>(null)
+  const searchParams = useSearchParams()
 
   const { data: allCreditNotes = [], isLoading: cnLoading } = useCreditNotes()
   const applyCreditNote = useApplyCreditNote()
+
+  // Deep-link support: `?cn=<id>` auto-opens the detail dialog once the list
+  // has loaded. Used by the customer credit-balance popup (opens in new tab).
+  useEffect(() => {
+    const cnId = searchParams.get('cn')
+    if (!cnId || detailNote) return
+    const match = allCreditNotes.find((n) => n.id === cnId)
+    if (match) setDetailNote(match)
+  }, [searchParams, allCreditNotes, detailNote])
 
   const creditNotes = useMemo(() => {
     if (!statusFilter) return allCreditNotes
