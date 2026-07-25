@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks. Two items queued for next session (see `docs/SESSION-HANDOVER-2026-07-24.md`): credit-group approval dialog, compat-views drop.
+🚀 Starting: **Credit-Group Approval Dialog** — Replace direct-write dropdown on customers list with a proper doc-upload + submit dialog, pending state pill on customer row, cancel-request affordance, Owner force-approve menu. Spec: `docs/specs/2026-07-24-credit-group-request-dialog-plan.md`.
 
 
 
