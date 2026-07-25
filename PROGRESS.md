@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks. One item queued for next session (see `docs/SESSION-HANDOVER-2026-07-24.md`): compat-views drop.
+🚀 Starting: **Drop 3 Compat Views (6 phases)** — Rewrite ~25 stored functions to reference real table names (`user_data`, `so_po_returns`, `inventory_item_brand_variants`), then drop the passthrough views. Spec: `docs/specs/2026-07-24-drop-compat-views-plan.md`.
 
 
 
