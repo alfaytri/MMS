@@ -67,9 +67,6 @@ export type ArInvoice = {
 export type Bill = {
   id: string
   bill_number: string              // display string e.g. "SUP-INV-00001"
-  bill_type: 'cash' | 'credit'
-  source: string
-  source_id: string
   source_label: string | null
   supplier_id: string | null
   purchase_order_id: string | null

@@ -135,15 +135,12 @@ export function useCreateBill() {
         .from('bills')
         .insert({
           bill_number:       billNumber,
-          bill_type:         'credit',
           supplier_id:       payload.supplier_id,
           purchase_order_id: payload.purchase_order_id,
           division_id:       po?.division_id ?? null,
           receival_id:       payload.receival_id,
           payment_status:    'unpaid',
           needs_refresh:     false,
-          source:            'order',
-          source_id:         payload.purchase_order_id,
           source_label:      payload.source_label ?? null,
           subtotal:          subtotal,
           discount_amount:   discount,

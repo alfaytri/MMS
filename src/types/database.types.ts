@@ -258,7 +258,6 @@ export type Database = {
       bills: {
         Row: {
           bill_number: string
-          bill_type: Database["public"]["Enums"]["invoice_type"]
           created_at: string | null
           discount_amount: number
           discount_label: string | null
@@ -266,7 +265,6 @@ export type Database = {
           due_date: string
           id: string
           issued_date: string
-          manually_paid: boolean
           needs_refresh: boolean
           notes: string | null
           paid_amount: number | null
@@ -274,10 +272,7 @@ export type Database = {
           pdf_url: string | null
           purchase_order_id: string | null
           receival_id: string | null
-          source: Database["public"]["Enums"]["bill_source"]
-          source_id: string
           source_label: string | null
-          status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number | null
           supplier_id: string | null
           tax: number | null
@@ -286,7 +281,6 @@ export type Database = {
         }
         Insert: {
           bill_number: string
-          bill_type?: Database["public"]["Enums"]["invoice_type"]
           created_at?: string | null
           discount_amount?: number
           discount_label?: string | null
@@ -294,7 +288,6 @@ export type Database = {
           due_date?: string
           id?: string
           issued_date?: string
-          manually_paid?: boolean
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
@@ -302,10 +295,7 @@ export type Database = {
           pdf_url?: string | null
           purchase_order_id?: string | null
           receival_id?: string | null
-          source?: Database["public"]["Enums"]["bill_source"]
-          source_id: string
           source_label?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
           supplier_id?: string | null
           tax?: number | null
@@ -314,7 +304,6 @@ export type Database = {
         }
         Update: {
           bill_number?: string
-          bill_type?: Database["public"]["Enums"]["invoice_type"]
           created_at?: string | null
           discount_amount?: number
           discount_label?: string | null
@@ -322,7 +311,6 @@ export type Database = {
           due_date?: string
           id?: string
           issued_date?: string
-          manually_paid?: boolean
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
@@ -330,10 +318,7 @@ export type Database = {
           pdf_url?: string | null
           purchase_order_id?: string | null
           receival_id?: string | null
-          source?: Database["public"]["Enums"]["bill_source"]
-          source_id?: string
           source_label?: string | null
-          status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
           supplier_id?: string | null
           tax?: number | null
@@ -6415,7 +6400,6 @@ export type Database = {
       approval_status: "pending" | "approved" | "rejected"
       approval_type: "margin" | "credit"
       audit_severity: "info" | "warning" | "error" | "critical"
-      bill_source: "order"
       credit_group_request_status:
         | "pending"
         | "approved"
@@ -6707,7 +6691,6 @@ export const Constants = {
       approval_status: ["pending", "approved", "rejected"],
       approval_type: ["margin", "credit"],
       audit_severity: ["info", "warning", "error", "critical"],
-      bill_source: ["order"],
       credit_group_request_status: [
         "pending",
         "approved",
