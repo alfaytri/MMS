@@ -33,8 +33,8 @@ interface CreditNoteRow {
   id:               string
   credit_note_id:   string
   invoice_id:       string | null
+  customer_id:      string | null
   customer_name:    string | null
-  phone:            string | null
   reason:           string
   created_at:       string
   original_total:   number | null
@@ -42,6 +42,7 @@ interface CreditNoteRow {
   credit_note_lines: CreditNoteLineRow[]
   source_return_id: string | null
   pdf_url:          string | null
+  customers:        { customer_phones: { phone: string; is_primary: boolean }[] | null } | null
 }
 
 interface DebitNoteRow {
@@ -121,9 +122,10 @@ export async function generateCreditDebitNotePdf(
     const { data: note, error: fetchErr } = await supabase
       .from('credit_notes')
       .select(`
-        id, credit_note_id, invoice_id,
-        customer_name, phone, reason, created_at,
-        original_total, new_total, credit_note_lines(*), source_return_id, pdf_url
+        id, credit_note_id, invoice_id, customer_id,
+        customer_name, reason, created_at,
+        original_total, new_total, credit_note_lines(*), source_return_id, pdf_url,
+        customers(customer_phones(phone, is_primary))
       `)
       .eq('id', noteUuid)
       .single<CreditNoteRow>()
@@ -136,7 +138,12 @@ export async function generateCreditDebitNotePdf(
     noteDisplayId = note.credit_note_id
     invoiceOrBillId = note.invoice_id
     customerName = note.customer_name
-    phone = note.phone
+    // Derive phone from the customer's phone list — primary first, else the first entry.
+    {
+      const phones = note.customers?.customer_phones ?? []
+      const primary = phones.find((p) => p.is_primary)
+      phone = primary?.phone ?? phones[0]?.phone ?? null
+    }
     reason = note.reason
     createdAt = note.created_at
     originalTotal = note.original_total

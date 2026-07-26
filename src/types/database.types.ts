@@ -787,80 +787,74 @@ export type Database = {
       }
       credit_notes: {
         Row: {
-          approved_by: string | null
           created_at: string
-          created_by: string | null
           credit_note_id: string
+          customer_id: string | null
           customer_name: string | null
           id: string
           invoice_id: string | null
           new_total: number | null
-          notes: string | null
           original_total: number | null
           pdf_url: string | null
-          phone: string | null
           reason: string
+          reason_id: string | null
           refund_method: string | null
+          refund_method_id: string | null
           refund_reference: string | null
           resolution_type: string | null
           source_return_id: string | null
           status: Database["public"]["Enums"]["credit_note_status"] | null
           total_amount: number
-          type: string
           updated_at: string
         }
         Insert: {
-          approved_by?: string | null
           created_at?: string
-          created_by?: string | null
           credit_note_id: string
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
           invoice_id?: string | null
           new_total?: number | null
-          notes?: string | null
           original_total?: number | null
           pdf_url?: string | null
-          phone?: string | null
           reason: string
+          reason_id?: string | null
           refund_method?: string | null
+          refund_method_id?: string | null
           refund_reference?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
           total_amount?: number
-          type?: string
           updated_at?: string
         }
         Update: {
-          approved_by?: string | null
           created_at?: string
-          created_by?: string | null
           credit_note_id?: string
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
           invoice_id?: string | null
           new_total?: number | null
-          notes?: string | null
           original_total?: number | null
           pdf_url?: string | null
-          phone?: string | null
           reason?: string
+          reason_id?: string | null
           refund_method?: string | null
+          refund_method_id?: string | null
           refund_reference?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
           total_amount?: number
-          type?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "credit_notes_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "credit_notes_customer_id_fkey"
+            columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "user_data"
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
@@ -875,6 +869,20 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "so_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_reason_id_fkey"
+            columns: ["reason_id"]
+            isOneToOne: false
+            referencedRelation: "reason_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_refund_method_id_fkey"
+            columns: ["refund_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
             referencedColumns: ["id"]
           },
           {

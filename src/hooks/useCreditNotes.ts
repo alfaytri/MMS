@@ -45,9 +45,10 @@ export type CreditNote = {
   id: string
   credit_note_id: string
   invoice_id: string | null
+  customer_id: string | null
   customer_name: string | null
   reason: string
-  type: string
+  reason_id: string | null
   status: CreditNoteStatus | null
   total_amount: number
   original_total: number | null
@@ -56,6 +57,7 @@ export type CreditNote = {
   source_return_id: string | null
   resolution_type: 'refund' | 'replacement' | 'store_credit' | null
   refund_method: string | null
+  refund_method_id: string | null
   refund_reference: string | null
   credit_note_lines?: CreditNoteLine[]
   created_at: string
@@ -164,7 +166,6 @@ export function useCreateCreditNote() {
           invoice_id: payload.invoice_id,
           customer_name: payload.customer_name,
           reason: payload.reason,
-          type: 'manual',
           status: 'draft',
           total_amount: totalAmount,
         })

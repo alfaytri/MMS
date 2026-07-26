@@ -177,12 +177,13 @@ async function createCreditNoteForReturn(
     .eq('sale_order_id', ret.source_id)
     .maybeSingle()
 
-  // 3. Fetch customer name from SO
+  // 3. Fetch customer id + name from SO
   const { data: soData } = await supabase
     .from('sale_orders')
-    .select('customers(name)')
+    .select('customer_id, customers(name)')
     .eq('id', ret.source_id)
     .single()
+  const customerId: string | null = (soData as { customer_id?: string | null } | null)?.customer_id ?? null
   const customerName: string = (soData?.customers as { name?: string } | null)?.name ?? 'Unknown'
 
   // 4. Build returned lines — resolve unit price from SO lines
@@ -223,10 +224,10 @@ async function createCreditNoteForReturn(
     .insert({
       credit_note_id,
       invoice_id:       inv?.id ?? null,
+      customer_id:      customerId,
       customer_name:    customerName,
       source_return_id: returnId,
       reason:           ret.reason,
-      type:             'auto',
       status:           'issued',
       total_amount:     cnTotal,
       original_total:   originalTotal,
