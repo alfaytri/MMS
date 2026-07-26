@@ -102,7 +102,7 @@ export function CustomerInvoiceDetailContent({ customer }: Props) {
         <p className="text-xs text-muted-foreground mt-1.5">
           Outstanding:{' '}
           <span className="font-semibold text-foreground">
-            {formatCurrency(outstandingTotal)}
+            {formatCurrency(outstandingTotal, 'QAR')}
           </span>
         </p>
       </div>
@@ -184,11 +184,11 @@ export function CustomerInvoiceDetailContent({ customer }: Props) {
 
                             <div className="flex items-center justify-between text-xs">
                               <span>
-                                Paid {formatCurrency(inv.paid_amount)} /{' '}
-                                {formatCurrency(inv.total_amount)}
+                                Paid {formatCurrency(inv.paid_amount, 'QAR')} /{' '}
+                                {formatCurrency(inv.total_amount, 'QAR')}
                               </span>
                               <span className="font-semibold text-destructive">
-                                {formatCurrency(remaining)} due
+                                {formatCurrency(remaining, 'QAR')} due
                               </span>
                             </div>
                             <Progress value={paidPct} className="h-1.5" />

@@ -454,8 +454,8 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                               <TableCell className="text-right">{li.qty}</TableCell>
                               <TableCell className="hidden md:table-cell text-right text-muted-foreground">{li.free_qty || '—'}</TableCell>
                               <TableCell className="hidden md:table-cell text-right">{li.received_qty}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(li.unit_price, current?.currency)}</TableCell>
-                              <TableCell className="text-right font-medium">{formatCurrency(li.total_price, current?.currency)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(li.unit_price, current?.currency ?? 'QAR')}</TableCell>
+                              <TableCell className="text-right font-medium">{formatCurrency(li.total_price, current?.currency ?? 'QAR')}</TableCell>
                             </TableRow>
                             )
                           })}
@@ -528,7 +528,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                                 <TableRow key={ri.id}>
                                   <TableCell className="text-xs">{ri.item_name}{ri.is_free && <span className="ml-1 text-[10px] px-1 py-0.5 rounded border">Free</span>}</TableCell>
                                   <TableCell className="text-xs text-right">{ri.qty_received}</TableCell>
-                                  <TableCell className="text-xs text-right">{formatCurrency(ri.unit_cost, current?.currency)}</TableCell>
+                                  <TableCell className="text-xs text-right">{formatCurrency(ri.unit_cost, current?.currency ?? 'QAR')}</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -552,7 +552,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                 <PaymentSummaryTab
                   payments={payments ?? []}
                   totalAmount={(current?.subtotal ?? 0) - (current?.discount_amount ?? 0)}
-                  currency={current?.currency}
+                  currency={current?.currency ?? 'QAR'}
                   canRecord={!!canRecordPayment}
                   onRecordPayment={() => setPaymentOpen(true)}
                 />

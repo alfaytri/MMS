@@ -53,7 +53,7 @@ export function CustomerPendingCard({ customer, onView }: Props) {
         </div>
 
         <div>
-          <p className="text-2xl font-bold">{formatCurrency(customer.total_pending)}</p>
+          <p className="text-2xl font-bold">{formatCurrency(customer.total_pending, 'QAR')}</p>
         </div>
 
         <div className="flex items-center gap-2">

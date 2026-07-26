@@ -1,6 +1,6 @@
 import { format, formatDistanceToNow } from 'date-fns'
 
-export function formatCurrency(amount: number | null | undefined, currency = 'QAR'): string {
+export function formatCurrency(amount: number | null | undefined, currency: string): string {
   if (amount == null) return '—'
   return new Intl.NumberFormat('en-QA', {
     style: 'currency',

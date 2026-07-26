@@ -3,15 +3,15 @@ import { formatCurrency, formatDate, formatDateTime, formatRelative, formatNumbe
 
 describe('formatCurrency', () => {
   it('formats QAR amounts', () => {
-    expect(formatCurrency(1234.5)).toMatch(/1,234\.50/)
+    expect(formatCurrency(1234.5, 'QAR')).toMatch(/1,234\.50/)
   })
 
   it('returns dash for null', () => {
-    expect(formatCurrency(null)).toBe('—')
+    expect(formatCurrency(null, 'QAR')).toBe('—')
   })
 
   it('returns dash for undefined', () => {
-    expect(formatCurrency(undefined)).toBe('—')
+    expect(formatCurrency(undefined, 'QAR')).toBe('—')
   })
 })
 

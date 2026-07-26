@@ -36,7 +36,7 @@ export function CogsBreakdownContent({ variantId, enabled, onSelectLc }: Props) 
       <div className="px-3 py-2 space-y-1.5 text-xs">
         <div className="flex items-center justify-between gap-6">
           <span className="text-muted-foreground">Sold (at sale)</span>
-          <span className="font-semibold tabular-nums">QR {formatCurrency(data.sold_at_sale)}</span>
+          <span className="font-semibold tabular-nums">QR {formatCurrency(data.sold_at_sale, 'QAR')}</span>
         </div>
 
         {data.lc_adjustments.length > 0 && (
@@ -58,7 +58,7 @@ export function CogsBreakdownContent({ variantId, enabled, onSelectLc }: Props) 
                     )}
                   </button>
                   <span className="font-semibold tabular-nums">
-                    {adj.total_cost >= 0 ? '+' : ''}{formatCurrency(adj.total_cost)}
+                    {adj.total_cost >= 0 ? '+' : ''}{formatCurrency(adj.total_cost, 'QAR')}
                   </span>
                 </li>
               ))}
@@ -68,7 +68,7 @@ export function CogsBreakdownContent({ variantId, enabled, onSelectLc }: Props) 
 
         <div className="flex items-center justify-between gap-6 pt-1 mt-1 border-t">
           <span className="text-muted-foreground">Total</span>
-          <span className="font-semibold tabular-nums">QR {formatCurrency(data.total)}</span>
+          <span className="font-semibold tabular-nums">QR {formatCurrency(data.total, 'QAR')}</span>
         </div>
       </div>
     </div>

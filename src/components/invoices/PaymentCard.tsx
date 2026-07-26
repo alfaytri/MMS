@@ -140,7 +140,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
         <div className="hidden sm:block text-right shrink-0 mr-2">
           {payment.invoice_total != null && (
             <p className="text-xs text-muted-foreground">
-              Inv: {formatCurrency(payment.invoice_total)}
+              Inv: {formatCurrency(payment.invoice_total, 'QAR')}
             </p>
           )}
           {invoiceRemaining != null && invoiceRemaining < 0 ? (
@@ -148,7 +148,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
           ) : invoiceRemaining != null && invoiceRemaining === 0 ? (
             <p className="text-[10px] text-emerald-600 font-medium">Fully paid</p>
           ) : invoiceRemaining != null ? (
-            <p className="text-[10px] text-amber-600">Bal: {formatCurrency(invoiceRemaining)}</p>
+            <p className="text-[10px] text-amber-600">Bal: {formatCurrency(invoiceRemaining, 'QAR')}</p>
           ) : null}
         </div>
 
@@ -158,7 +158,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
             'text-sm font-semibold',
             isFailed && 'line-through text-destructive'
           )}>
-            {formatCurrency(payment.amount)}
+            {formatCurrency(payment.amount, 'QAR')}
           </p>
           <p className="text-[10px] text-muted-foreground">{formatDate(payment.date)}</p>
         </div>
@@ -183,7 +183,7 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
                   <MethodIcon className="h-3 w-3 mr-0.5" /> {method.label}
                 </Badge>
               </p>
-              <p><span className="text-muted-foreground">Amount:</span> {formatCurrency(payment.amount)}</p>
+              <p><span className="text-muted-foreground">Amount:</span> {formatCurrency(payment.amount, 'QAR')}</p>
               <p><span className="text-muted-foreground">Date:</span> {formatDate(payment.date)}</p>
               {payment.reference && <p><span className="text-muted-foreground">Reference:</span> {payment.reference}</p>}
               {payment.transaction_id && <p><span className="text-muted-foreground">Transaction ID:</span> {payment.transaction_id}</p>}
@@ -208,11 +208,11 @@ export function PaymentCard({ payment, selected, onSelect }: Props) {
                 <div className="space-y-1 text-xs">
                   {payment.invoice_display && <p><span className="text-muted-foreground">Invoice:</span> {payment.invoice_display}</p>}
                   {payment.invoice_source_type && <p><span className="text-muted-foreground">Source:</span> {payment.invoice_source_type}</p>}
-                  {payment.invoice_total != null && <p><span className="text-muted-foreground">Invoice Total:</span> {formatCurrency(payment.invoice_total)}</p>}
-                  {payment.invoice_paid != null && <p><span className="text-muted-foreground">Paid So Far:</span> {formatCurrency(payment.invoice_paid)}</p>}
+                  {payment.invoice_total != null && <p><span className="text-muted-foreground">Invoice Total:</span> {formatCurrency(payment.invoice_total, 'QAR')}</p>}
+                  {payment.invoice_paid != null && <p><span className="text-muted-foreground">Paid So Far:</span> {formatCurrency(payment.invoice_paid, 'QAR')}</p>}
                   {invoiceRemaining != null && invoiceRemaining > 0 && (
                     <div className="mt-1 rounded bg-amber-50 border border-amber-200 px-2 py-1.5 text-amber-800">
-                      Remaining: {formatCurrency(invoiceRemaining)}
+                      Remaining: {formatCurrency(invoiceRemaining, 'QAR')}
                     </div>
                   )}
                 </div>

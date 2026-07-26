@@ -90,10 +90,10 @@ export function InvoiceCard({ invoice, selected, onSelect, onVoid, onCreditNote 
           <div className="w-24">
             <Progress value={paidPct} className={cn('h-[3px]', isOverdue && 'bg-red-200 [&>div]:bg-red-500')} />
           </div>
-          {remaining > 0 && (<span className="text-[10px] text-muted-foreground">{formatCurrency(remaining)} remaining</span>)}
+          {remaining > 0 && (<span className="text-[10px] text-muted-foreground">{formatCurrency(remaining, 'QAR')} remaining</span>)}
         </div>
         <div className="text-right shrink-0 hidden md:block">
-          <p className="text-sm font-semibold">{formatCurrency(total)}</p>
+          <p className="text-sm font-semibold">{formatCurrency(total, 'QAR')}</p>
           <p className="text-[10px] text-muted-foreground">{formatDate(invoice.issued_date)}</p>
           {invoice.payment_status === 'paid' ? (
             <p className="text-[10px] text-emerald-600 font-medium">Paid in full</p>
@@ -114,11 +114,11 @@ export function InvoiceCard({ invoice, selected, onSelect, onVoid, onCreditNote 
               {(invoice.invoice_line_items ?? []).map((li) => (
                 <div key={li.id} className="flex justify-between text-xs">
                   <span className="truncate mr-2">{li.description}</span>
-                  <span className="shrink-0 font-mono">{li.qty} × {formatCurrency(li.unit_price)}</span>
+                  <span className="shrink-0 font-mono">{li.qty} × {formatCurrency(li.unit_price, 'QAR')}</span>
                 </div>
               ))}
               <div className="flex justify-between text-xs font-semibold border-t pt-1 mt-1">
-                <span>Total</span><span>{formatCurrency(total)}</span>
+                <span>Total</span><span>{formatCurrency(total, 'QAR')}</span>
               </div>
             </div>
           </div>
@@ -134,13 +134,13 @@ export function InvoiceCard({ invoice, selected, onSelect, onVoid, onCreditNote 
                       <Badge variant="outline" className="text-[10px] px-1">{formatDate(p.date)}</Badge>
                       <span className="text-muted-foreground">{p.method}</span>
                     </div>
-                    <span className="font-mono">{formatCurrency(p.amount)}</span>
+                    <span className="font-mono">{formatCurrency(p.amount, 'QAR')}</span>
                   </div>
                 ))}
               </div>
             )}
             {remaining > 0 && (
-              <div className="mt-2 rounded bg-amber-50 border border-amber-200 px-2 py-1.5 text-xs text-amber-800">Balance: {formatCurrency(remaining)}</div>
+              <div className="mt-2 rounded bg-amber-50 border border-amber-200 px-2 py-1.5 text-xs text-amber-800">Balance: {formatCurrency(remaining, 'QAR')}</div>
             )}
           </div>
           <div className="space-y-3">

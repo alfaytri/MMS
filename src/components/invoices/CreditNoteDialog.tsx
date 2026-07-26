@@ -65,7 +65,7 @@ export function CreditNoteDialog({ open, onOpenChange, invoice }: Props) {
             <Undo2 className="h-5 w-5" /> Issue Credit Note
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Against {invoice?.invoice_id} ({formatCurrency(total)}) for {invoice?.customer_name ?? 'Unknown'}
+            Against {invoice?.invoice_id} ({formatCurrency(total, invoice?.currency ?? 'QAR')}) for {invoice?.customer_name ?? 'Unknown'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-4 py-2">
@@ -78,7 +78,7 @@ export function CreditNoteDialog({ open, onOpenChange, invoice }: Props) {
           </div>
           {type === 'partial' && (
             <div className="space-y-2">
-              <Label htmlFor="cn-amount">Amount (max {formatCurrency(total)})</Label>
+              <Label htmlFor="cn-amount">Amount (max {formatCurrency(total, invoice?.currency ?? 'QAR')})</Label>
               <Input id="cn-amount" type="number" min={0.01} max={total} step={0.01} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             </div>
           )}
