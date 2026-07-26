@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Drop `custom_roles.description` + UI (Section 1.6): 1 col drop, 3 UI touch-ups, `add_workflow_step` RPC signature slim**
 
 
 
