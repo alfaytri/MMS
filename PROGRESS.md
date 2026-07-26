@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **`debit_notes` cleanup + 2 FKs (Section 1.9): drop 5 dead cols; add `reason_id` + `supplier_id` FKs with sync trigger (mirrors 1.5 pattern)**
 
 
 
