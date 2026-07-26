@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Enum Conversion Pass 2: FK conversions to existing lookup tables** — `payments.method` → `payment_methods`, all `*.currency` columns → `currencies`, `suppliers.country` → `country_codes`. Pass 3 (28 blocker columns needing app refactor of ~90 files) deferred pending scope decision per column.
+🚀 Starting: **Enum Conversion Pass 2a: Currency FK pilot** — additive migration that adds `currency_id uuid REFERENCES currencies(id)` alongside the 8 existing text `currency` / `default_currency` columns (`companies`, `company_divisions`, `landed_costs`, `landed_cost_lines`, `payments`, `purchase_orders`, `po_versions`, `po_rfq_quotes`, `sale_orders`), backfills via join on `currencies.code`, and installs BEFORE INSERT/UPDATE sync triggers so new rows written via the text column auto-populate the FK. App code untouched; writer migration + text-column drop deferred to a follow-up. Pass 2b (country) + 2c (payment method) queued; Pass 3 deferred pending per-column scope.
 
 
 
