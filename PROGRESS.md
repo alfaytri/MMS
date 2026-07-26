@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Drop dead `bills` columns (`bill_type`, `source`, `source_id`, `status`, `manually_paid`) + rewrite `bill_recompute_paid_fn` / `allocate_payment_to_bill` to remove manual-override branch (Section 1.4 of next-work-plan)**
 
 
 
