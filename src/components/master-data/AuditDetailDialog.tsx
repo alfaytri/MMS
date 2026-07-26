@@ -62,10 +62,6 @@ export function AuditDetailDialog({ open, onOpenChange, entry }: AuditDetailDial
               <span className="text-muted-foreground">Severity:</span>
               <p><Badge variant="outline" className={severityVariant === 'destructive' ? 'border-destructive text-destructive' : severityVariant === 'warning' ? 'border-warning text-warning' : ''}>{entry.severity ?? 'info'}</Badge></p>
             </div>
-            <div>
-              <span className="text-muted-foreground">IP Address:</span>
-              <p className="font-mono text-xs">{entry.ip_address ?? '—'}</p>
-            </div>
           </div>
 
           {entry.details && (
