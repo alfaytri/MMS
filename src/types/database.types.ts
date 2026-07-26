@@ -4266,24 +4266,19 @@ export type Database = {
           invoice_id: string
           invoice_type: Database["public"]["Enums"]["invoice_type"]
           issued_date: string
-          manually_paid: boolean
           needs_refresh: boolean
           notes: string | null
           paid_amount: number | null
           payment_status: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url: string | null
-          phone_id: string | null
           qb_synced: boolean | null
-          sale_delivery_id: string | null
           sale_order_id: string | null
           source: Database["public"]["Enums"]["invoice_source"]
           source_id: string
           source_label: string | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number | null
-          tax: number | null
           total_amount: number | null
-          updated_at: string | null
         }
         Insert: {
           agent_name?: string | null
@@ -4297,24 +4292,19 @@ export type Database = {
           invoice_id: string
           invoice_type?: Database["public"]["Enums"]["invoice_type"]
           issued_date: string
-          manually_paid?: boolean
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
           payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
-          phone_id?: string | null
           qb_synced?: boolean | null
-          sale_delivery_id?: string | null
           sale_order_id?: string | null
           source: Database["public"]["Enums"]["invoice_source"]
           source_id: string
           source_label?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
-          tax?: number | null
           total_amount?: number | null
-          updated_at?: string | null
         }
         Update: {
           agent_name?: string | null
@@ -4328,24 +4318,19 @@ export type Database = {
           invoice_id?: string
           invoice_type?: Database["public"]["Enums"]["invoice_type"]
           issued_date?: string
-          manually_paid?: boolean
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
           payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
-          phone_id?: string | null
           qb_synced?: boolean | null
-          sale_delivery_id?: string | null
           sale_order_id?: string | null
           source?: Database["public"]["Enums"]["invoice_source"]
           source_id?: string
           source_label?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
-          tax?: number | null
           total_amount?: number | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -4367,20 +4352,6 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_phone_id_fkey"
-            columns: ["phone_id"]
-            isOneToOne: false
-            referencedRelation: "customer_phones"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_sale_delivery_id_fkey"
-            columns: ["sale_delivery_id"]
-            isOneToOne: false
-            referencedRelation: "sale_deliveries"
             referencedColumns: ["id"]
           },
           {
@@ -5407,25 +5378,20 @@ export type Database = {
           invoice_id: string | null
           invoice_type: Database["public"]["Enums"]["invoice_type"] | null
           issued_date: string | null
-          manually_paid: boolean | null
           needs_refresh: boolean | null
           notes: string | null
           paid_amount: number | null
           payment_status:
             | Database["public"]["Enums"]["invoice_payment_status"]
             | null
-          phone_id: string | null
           qb_synced: boolean | null
-          sale_delivery_id: string | null
           sale_order_id: string | null
           source: Database["public"]["Enums"]["invoice_source"] | null
           source_id: string | null
           source_label: string | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number | null
-          tax: number | null
           total_amount: number | null
-          updated_at: string | null
         }
         Insert: {
           agent_name?: string | null
@@ -5439,25 +5405,20 @@ export type Database = {
           invoice_id?: string | null
           invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
-          manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
           payment_status?:
             | Database["public"]["Enums"]["invoice_payment_status"]
             | null
-          phone_id?: string | null
           qb_synced?: boolean | null
-          sale_delivery_id?: string | null
           sale_order_id?: string | null
           source?: Database["public"]["Enums"]["invoice_source"] | null
           source_id?: string | null
           source_label?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
-          tax?: number | null
           total_amount?: number | null
-          updated_at?: string | null
         }
         Update: {
           agent_name?: string | null
@@ -5471,25 +5432,20 @@ export type Database = {
           invoice_id?: string | null
           invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
           issued_date?: string | null
-          manually_paid?: boolean | null
           needs_refresh?: boolean | null
           notes?: string | null
           paid_amount?: number | null
           payment_status?:
             | Database["public"]["Enums"]["invoice_payment_status"]
             | null
-          phone_id?: string | null
           qb_synced?: boolean | null
-          sale_delivery_id?: string | null
           sale_order_id?: string | null
           source?: Database["public"]["Enums"]["invoice_source"] | null
           source_id?: string | null
           source_label?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
-          tax?: number | null
           total_amount?: number | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -5511,20 +5467,6 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_phone_id_fkey"
-            columns: ["phone_id"]
-            isOneToOne: false
-            referencedRelation: "customer_phones"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_sale_delivery_id_fkey"
-            columns: ["sale_delivery_id"]
-            isOneToOne: false
-            referencedRelation: "sale_deliveries"
             referencedColumns: ["id"]
           },
           {

@@ -35,14 +35,12 @@ export type ArInvoice = {
   invoice_id: string               // display string e.g. "INV-00001"
   customer_id: string
   sale_order_id: string | null
-  sale_delivery_id: string | null
   invoice_type: 'cash' | 'credit'
   payment_status: BillPaymentStatus
   status: string | null
   needs_refresh: boolean
   total_amount: number | null
   subtotal: number | null
-  tax: number | null
   paid_amount: number | null
   currency?: string | null
   issued_date: string
@@ -54,9 +52,7 @@ export type ArInvoice = {
   source_label: string | null
   agent_name: string | null
   division_id?: string | null
-  manually_paid: boolean
   created_at: string | null
-  updated_at?: string | null
   // joined
   customer_name?: string
   so_number?: string

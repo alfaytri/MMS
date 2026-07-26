@@ -100,7 +100,6 @@ export async function syncInvoiceToSalesOrder(soId: string): Promise<void> {
         source_label: `SO #${(so as SORow).so_number}`,
         total_amount: totalAmount,
         subtotal: totalAmount,
-        tax: 0,
         issued_date: today,
         due_date: due,
         status: 'draft',

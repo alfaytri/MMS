@@ -13,8 +13,6 @@ export type CustomerPhone = {
 export type PendingInvoice = {
   id: string
   invoice_id: string
-  /** FK to customer_phones.id. NULL when no phone trail exists (manual or sale-order invoices). */
-  phone_id: string | null
   division_id: string | null
   division_name: string | null
   source_type: string | null

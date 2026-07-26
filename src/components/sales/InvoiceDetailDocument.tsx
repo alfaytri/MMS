@@ -158,12 +158,6 @@ export function InvoiceDetailDocument({
               <span>{formatCurrency(invoice.subtotal ?? 0, invoice.currency ?? 'QAR')}</span>
             </div>
           )}
-          {(invoice.tax ?? 0) > 0 && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tax:</span>
-              <span>{formatCurrency(invoice.tax ?? 0, invoice.currency ?? 'QAR')}</span>
-            </div>
-          )}
           <div className="flex justify-between font-bold text-base">
             <span>Grand Total:</span>
             <span>{formatCurrency(invoice.total_amount ?? 0, invoice.currency ?? 'QAR')}</span>
