@@ -1134,12 +1134,16 @@ export function useCompleteAssignment() {
           { p_has_damage_or_writeoff: hasDamage, p_has_variance: hasVariance },
         )
         if (chainErr) throw chainErr
-        const steps = (chainSteps ?? []) as Array<{ step_order: number; step_role: Database['public']['Enums']['inventory_check_step_role']; step_label: string }>
+        const steps = (chainSteps ?? []) as Array<{ step_order: number; step_role: string; step_label: string }>
         if (steps.length === 0) throw new Error('No approval steps configured for inv_check workflow')
 
-        await supabase.from('inventory_check_approvals').insert(
-          steps.map((s) => ({ check_id: checkId, ...s, status: 'pending' as const })),
-        )
+        // Types still declare step_role as the (now-dropped) enum union;
+        // cast through unknown until types are regenerated post-unpause.
+        const chainRows = steps.map((s) => ({ check_id: checkId, ...s, status: 'pending' as const }))
+        const { error: chainInsertErr } = await supabase
+          .from('inventory_check_approvals')
+          .insert(chainRows as unknown as import('@/types/database.types').DBInsert<'inventory_check_approvals'>[])
+        if (chainInsertErr) throw chainInsertErr
 
         await supabase.from('inventory_checks').update({ status: 'pending_approval' }).eq('id', checkId)
 
