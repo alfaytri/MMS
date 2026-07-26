@@ -901,18 +901,28 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                       <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
                       Reconciliation
                     </p>
-                    <p className="text-[10px] text-muted-foreground px-1">
-                      <span className="font-semibold">Expected = Counted + Moved since count.</span>{' '}
-                      A <span className="text-success font-medium">Match</span> means the physical count + any post-count movements equals what the system now shows.
-                    </p>
+                    <div className="px-1 space-y-1 text-[10px] text-muted-foreground">
+                      <p>
+                        <span className="font-semibold text-foreground">Two reconciliations, one row:</span>{' '}
+                        the count variance (Start vs Counted) becomes a pending Stock Adjustment,
+                        while post-count movements (Moved) are already reflected in the live system.
+                      </p>
+                      <p>
+                        <span className="text-success font-medium">Match</span> = physical stock (Counted + Moved) equals what the system currently shows.
+                        <span className="mx-1">·</span>
+                        <span className="font-medium">Book expected</span> = System-at-start + Moved (what the books would show if no variance existed).
+                      </p>
+                    </div>
                     <div className="rounded-md border overflow-hidden">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                             <th className="text-left px-3 py-1.5 font-semibold">Item</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[60px]" title="What the system said at the moment the check started">Start</th>
                             <th className="text-right px-2 py-1.5 font-semibold w-[65px]" title="What the counter physically counted during the check">Counted</th>
                             <th className="text-right px-2 py-1.5 font-semibold w-[55px]" title="Net stock movement since the count was completed (purchases, sales, transfers …)">Moved</th>
-                            <th className="text-right px-2 py-1.5 font-semibold w-[110px]" title="Counted + Moved — what the system should show now">Expected</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[110px]" title="Counted + Moved — the real physical stock right now">Physical</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[110px]" title="Start + Moved — what the books say should be here (before any pending SA)">Book expected</th>
                             <th className="text-right px-2 py-1.5 font-semibold w-[65px]" title="What the system actually shows right now">System</th>
                             <th className="text-right px-3 py-1.5 font-semibold w-[80px]">Status</th>
                           </tr>
@@ -921,13 +931,16 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                       {reconItems.map((item) => {
                         const movements = postCountByVariant.get(item.brand_variant_id) ?? []
                         const netMoved = movements.reduce((sum, m) => sum + m.qty, 0)
-                        const expectedNow = (item.counted_qty ?? 0) + netMoved
+                        const startQty = item.system_qty
+                        const physicalNow = (item.counted_qty ?? 0) + netMoved
+                        const bookExpected = startQty + netMoved
                         const checkClosed = check.status === 'approved' || check.status === 'rejected'
                         const systemNow = checkClosed && item.system_qty_at_close != null
                           ? item.system_qty_at_close
                           : liveStockMap.get(item.brand_variant_id) ?? (item.system_qty + netMoved)
-                        const diff = expectedNow - systemNow
+                        const diff = physicalNow - systemNow
                         const isMatch = diff === 0
+                        const countVariance = (item.counted_qty ?? 0) - startQty
 
                         return (
                           <tr key={item.id} className={`border-t ${isMatch ? '' : 'bg-destructive/5'}`}>
@@ -939,7 +952,19 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                                 brand={item.brand}
                               />
                             </td>
-                            <td className="text-right px-2 py-2 tabular-nums align-middle">{item.counted_qty}</td>
+                            <td className="text-right px-2 py-2 tabular-nums align-middle text-muted-foreground">
+                              {startQty}
+                            </td>
+                            <td className="text-right px-2 py-2 tabular-nums align-middle">
+                              <span className="inline-flex items-baseline gap-1 justify-end">
+                                <span>{item.counted_qty}</span>
+                                {countVariance !== 0 && (
+                                  <span className={`text-[9px] font-medium ${countVariance > 0 ? 'text-success' : 'text-destructive'}`}>
+                                    ({countVariance > 0 ? '+' : ''}{countVariance})
+                                  </span>
+                                )}
+                              </span>
+                            </td>
                             <td className={`text-right px-2 py-2 tabular-nums align-middle ${netMoved > 0 ? 'text-success' : netMoved < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                               {netMoved === 0 ? '—' : netMoved > 0 ? `+${netMoved}` : netMoved}
                             </td>
@@ -949,10 +974,22 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                                   <span className="text-[10px] text-muted-foreground">
                                     {item.counted_qty ?? 0}{netMoved > 0 ? ` + ${netMoved}` : ` − ${Math.abs(netMoved)}`} =
                                   </span>
-                                  <span className="font-semibold">{expectedNow}</span>
+                                  <span className="font-semibold">{physicalNow}</span>
                                 </span>
                               ) : (
-                                <span className="font-medium">{expectedNow}</span>
+                                <span className="font-medium">{physicalNow}</span>
+                              )}
+                            </td>
+                            <td className="text-right px-2 py-2 tabular-nums align-middle">
+                              {netMoved !== 0 ? (
+                                <span className="inline-flex items-baseline gap-1 justify-end">
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {startQty}{netMoved > 0 ? ` + ${netMoved}` : ` − ${Math.abs(netMoved)}`} =
+                                  </span>
+                                  <span className="font-semibold">{bookExpected}</span>
+                                </span>
+                              ) : (
+                                <span className="font-medium">{bookExpected}</span>
                               )}
                             </td>
                             <td className="text-right px-2 py-2 tabular-nums align-middle">{systemNow}</td>
