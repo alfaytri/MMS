@@ -13,7 +13,7 @@ Each row here is a table you want us to inspect. For each, we decide: keep / ren
 
 | # | Table | Question / concern | Status |
 |---|---|---|---|
-| 1.1 | `activity_log` | What is `ip_address` used for? If unused → drop it | ☐ |
+| 1.1 | `activity_log` | ~~`ip_address`~~ dropped — was never populated; `performer_id` already identifies actor (`f6e3c8cb`) | ✅ |
 | 1.2 | `approval_workflow_steps` | Explain `step_key` and `step_label` — are both needed? | ☐ |
 | 1.3 | `bill_line_items` | Explain `team_name`, `match_status`, `match_note` — where do they come from, are they used? | ☐ |
 | 1.4 | `bills` | Explain `bill_type`, `source`, `source_id`, `source_label`, `status` — audit their flow. Verify `receival_id` and `division_id` are wired correctly. What is `manually_paid`? | ☐ |
