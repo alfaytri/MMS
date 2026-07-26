@@ -98,7 +98,7 @@ export function EditRequestBanner({ request, canReview }: Props) {
                 disabled={review.isPending || !declineComment.trim()}
                 onClick={() => {
                   review.mutate(
-                    { requestId: request.id, decision: 'declined', comment: declineComment },
+                    { requestId: request.id, decision: 'rejected', comment: declineComment },
                     {
                       onSuccess: () => {
                         toast.success('Edit request declined')

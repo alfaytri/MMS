@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { logPOActivity } from '@/lib/poActivityLogger'
 
-export type EditRequestStatus = 'pending' | 'approved' | 'declined' | 'used'
+export type EditRequestStatus = 'pending' | 'approved' | 'rejected' | 'used'
 
 export interface EditRequest {
   id:             string
@@ -133,7 +133,7 @@ export function useReviewEditRequest() {
       comment,
     }: {
       requestId: string
-      decision: 'approved' | 'declined'
+      decision: 'approved' | 'rejected'
       comment?: string
     }) => {
       const supabase = createClient()
@@ -153,7 +153,7 @@ export function useReviewEditRequest() {
         await supabase
           .from('po_edit_requests')
           .update({
-            status: 'declined',
+            status: 'rejected',
             reviewed_by: myProfileId,
             reviewed_at: new Date().toISOString(),
             review_comment: 'Superseded by a newer approved request',
@@ -189,7 +189,7 @@ export function useReviewEditRequest() {
       const reviewerName = await getMyFullName(supabase)
       await logPOActivity({
         poId: req.po_id,
-        action: `Edit Request ${decision === 'approved' ? 'Approved' : 'Declined'}${reviewerName ? ` by ${reviewerName}` : ''}`,
+        action: `Edit Request ${decision === 'approved' ? 'Approved' : 'Rejected'}${reviewerName ? ` by ${reviewerName}` : ''}`,
         details: comment?.trim() || undefined,
         performerName: reviewerName,
         severity: decision === 'approved' ? 'info' : 'warning',
