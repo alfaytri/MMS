@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
-import type { DBTable } from '@/types/database.types'
+import type { DBTable, Database } from '@/types/database.types'
 
 export type ActivityLog = DBTable<'activity_log'>
+export type AuditSeverity = Database['public']['Enums']['audit_severity']
 
 export const AUDIT_MODULES = [
   'inventory', 'warehouses', 'profiles', 'custom_roles',
@@ -16,12 +17,12 @@ export const AUDIT_MODULES = [
   'deliveries', 'credit_notes',
 ] as const
 
-export const AUDIT_SEVERITIES = ['info', 'warning', 'critical'] as const
+export const AUDIT_SEVERITIES = ['info', 'warning', 'error', 'critical'] as const satisfies readonly AuditSeverity[]
 
 interface ActivityLogFilters {
   search?: string
   module?: string
-  severity?: string
+  severity?: AuditSeverity
   entity_id?: string
   dateFrom?: string
   dateTo?: string

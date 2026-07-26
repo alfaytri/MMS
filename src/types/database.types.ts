@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -53,7 +52,7 @@ export type Database = {
           new_data: Json | null
           old_data: Json | null
           performer_name: string | null
-          severity: string
+          severity: Database["public"]["Enums"]["audit_severity"]
         }
         Insert: {
           action: string
@@ -67,7 +66,7 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           performer_name?: string | null
-          severity?: string
+          severity?: Database["public"]["Enums"]["audit_severity"]
         }
         Update: {
           action?: string
@@ -81,7 +80,7 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           performer_name?: string | null
-          severity?: string
+          severity?: Database["public"]["Enums"]["audit_severity"]
         }
         Relationships: []
       }
@@ -197,13 +196,6 @@ export type Database = {
             foreignKeyName: "workflow_approval_steps_archived_by_fkey"
             columns: ["archived_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workflow_approval_steps_archived_by_fkey"
-            columns: ["archived_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -278,14 +270,14 @@ export type Database = {
           needs_refresh: boolean
           notes: string | null
           paid_amount: number | null
-          payment_status: string
+          payment_status: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url: string | null
           purchase_order_id: string | null
           receival_id: string | null
           source: Database["public"]["Enums"]["bill_source"]
           source_id: string
           source_label: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number | null
           supplier_id: string | null
           tax: number | null
@@ -306,14 +298,14 @@ export type Database = {
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
           purchase_order_id?: string | null
           receival_id?: string | null
           source?: Database["public"]["Enums"]["bill_source"]
           source_id: string
           source_label?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
           supplier_id?: string | null
           tax?: number | null
@@ -334,14 +326,14 @@ export type Database = {
           needs_refresh?: boolean
           notes?: string | null
           paid_amount?: number | null
-          payment_status?: string
+          payment_status?: Database["public"]["Enums"]["invoice_payment_status"]
           pdf_url?: string | null
           purchase_order_id?: string | null
           receival_id?: string | null
           source?: Database["public"]["Enums"]["bill_source"]
           source_id?: string
           source_label?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number | null
           supplier_id?: string | null
           tax?: number | null
@@ -453,13 +445,6 @@ export type Database = {
           unit_cost?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "cogs_entries_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "cogs_entries_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
@@ -636,13 +621,6 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "divisions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -882,13 +860,6 @@ export type Database = {
             foreignKeyName: "credit_notes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_notes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -904,13 +875,6 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "so_invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_notes_source_return_id_fkey"
-            columns: ["source_return_id"]
-            isOneToOne: false
-            referencedRelation: "returns"
             referencedColumns: ["id"]
           },
           {
@@ -1003,13 +967,6 @@ export type Database = {
             foreignKeyName: "custom_roles_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "custom_roles_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -1029,7 +986,7 @@ export type Database = {
           iteration: number
           reason: string | null
           request_id: string
-          status: string
+          status: Database["public"]["Enums"]["approval_status"]
           step_order: number
           step_role: string
         }
@@ -1046,7 +1003,7 @@ export type Database = {
           iteration?: number
           reason?: string | null
           request_id: string
-          status?: string
+          status?: Database["public"]["Enums"]["approval_status"]
           step_order: number
           step_role: string
         }
@@ -1063,18 +1020,11 @@ export type Database = {
           iteration?: number
           reason?: string | null
           request_id?: string
-          status?: string
+          status?: Database["public"]["Enums"]["approval_status"]
           step_order?: number
           step_role?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "customer_credit_group_approvals_decided_by_fkey"
-            columns: ["decided_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "customer_credit_group_approvals_decided_by_fkey"
             columns: ["decided_by"]
@@ -1101,7 +1051,7 @@ export type Database = {
           previous_group_id: string | null
           requested_by: string | null
           requested_group_id: string
-          status: string
+          status: Database["public"]["Enums"]["credit_group_request_status"]
           updated_at: string
         }
         Insert: {
@@ -1113,7 +1063,7 @@ export type Database = {
           previous_group_id?: string | null
           requested_by?: string | null
           requested_group_id: string
-          status?: string
+          status?: Database["public"]["Enums"]["credit_group_request_status"]
           updated_at?: string
         }
         Update: {
@@ -1125,7 +1075,7 @@ export type Database = {
           previous_group_id?: string | null
           requested_by?: string | null
           requested_group_id?: string
-          status?: string
+          status?: Database["public"]["Enums"]["credit_group_request_status"]
           updated_at?: string
         }
         Relationships: [
@@ -1147,13 +1097,6 @@ export type Database = {
             foreignKeyName: "customer_credit_group_requests_decided_by_fkey"
             columns: ["decided_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customer_credit_group_requests_decided_by_fkey"
-            columns: ["decided_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -1162,13 +1105,6 @@ export type Database = {
             columns: ["previous_group_id"]
             isOneToOne: false
             referencedRelation: "credit_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customer_credit_group_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1432,13 +1368,6 @@ export type Database = {
             foreignKeyName: "debit_notes_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -1453,13 +1382,6 @@ export type Database = {
             foreignKeyName: "debit_notes_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -1468,13 +1390,6 @@ export type Database = {
             columns: ["purchase_order_id"]
             isOneToOne: false
             referencedRelation: "purchase_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_source_return_id_fkey"
-            columns: ["source_return_id"]
-            isOneToOne: false
-            referencedRelation: "returns"
             referencedColumns: ["id"]
           },
           {
@@ -1536,13 +1451,6 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fifo_cost_layers_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fifo_cost_layers_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
@@ -1635,7 +1543,7 @@ export type Database = {
           status: string
           step_label: string
           step_order: number
-          step_role: string
+          step_role: Database["public"]["Enums"]["inventory_check_step_role"]
         }
         Insert: {
           action_at?: string | null
@@ -1648,7 +1556,7 @@ export type Database = {
           status?: string
           step_label: string
           step_order: number
-          step_role: string
+          step_role: Database["public"]["Enums"]["inventory_check_step_role"]
         }
         Update: {
           action_at?: string | null
@@ -1661,7 +1569,7 @@ export type Database = {
           status?: string
           step_label?: string
           step_order?: number
-          step_role?: string
+          step_role?: Database["public"]["Enums"]["inventory_check_step_role"]
         }
         Relationships: [
           {
@@ -1669,13 +1577,6 @@ export type Database = {
             columns: ["check_id"]
             isOneToOne: false
             referencedRelation: "inventory_checks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_check_approvals_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1730,13 +1631,6 @@ export type Database = {
             columns: ["check_id"]
             isOneToOne: false
             referencedRelation: "inventory_checks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_check_assignments_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1817,13 +1711,6 @@ export type Database = {
             foreignKeyName: "inventory_check_items_assigned_profile_id_fkey"
             columns: ["assigned_profile_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_check_items_assigned_profile_id_fkey"
-            columns: ["assigned_profile_id"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -1832,13 +1719,6 @@ export type Database = {
             columns: ["assignment_id"]
             isOneToOne: false
             referencedRelation: "inventory_check_assignments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_check_items_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
             referencedColumns: ["id"]
           },
           {
@@ -1891,13 +1771,6 @@ export type Database = {
             columns: ["check_id"]
             isOneToOne: false
             referencedRelation: "inventory_checks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_check_log_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1978,21 +1851,7 @@ export type Database = {
             foreignKeyName: "inventory_checks_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_checks_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_checks_initiated_by_profile_id_fkey"
-            columns: ["initiated_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2006,21 +1865,7 @@ export type Database = {
             foreignKeyName: "inventory_checks_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_checks_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_checks_submitted_by_fkey"
-            columns: ["submitted_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2224,13 +2069,6 @@ export type Database = {
             foreignKeyName: "inventory_stock_movements_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
             isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_stock_movements_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
             referencedColumns: ["id"]
           },
@@ -2351,13 +2189,6 @@ export type Database = {
           updated_unit_cost?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "landed_cost_item_alloc_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "landed_cost_item_alloc_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
@@ -2507,13 +2338,6 @@ export type Database = {
           type?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "notifications_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "notifications_profile_id_fkey"
             columns: ["profile_id"]
@@ -2708,6 +2532,7 @@ export type Database = {
           cheque_date: string | null
           cheque_number: string | null
           created_at: string | null
+          credit_note_id: string | null
           currency: string
           customer_id: string | null
           date: string
@@ -2737,6 +2562,7 @@ export type Database = {
           cheque_date?: string | null
           cheque_number?: string | null
           created_at?: string | null
+          credit_note_id?: string | null
           currency?: string
           customer_id?: string | null
           date: string
@@ -2766,6 +2592,7 @@ export type Database = {
           cheque_date?: string | null
           cheque_number?: string | null
           created_at?: string | null
+          credit_note_id?: string | null
           currency?: string
           customer_id?: string | null
           date?: string
@@ -2792,6 +2619,13 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -3009,21 +2843,7 @@ export type Database = {
             foreignKeyName: "po_edit_requests_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "po_edit_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "po_edit_requests_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3090,13 +2910,6 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "po_line_items_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
             referencedColumns: ["id"]
           },
           {
@@ -3468,13 +3281,6 @@ export type Database = {
             foreignKeyName: "purchase_orders_created_by_profiles_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "purchase_orders_created_by_profiles_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -3573,13 +3379,6 @@ export type Database = {
             foreignKeyName: "reason_lists_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reason_lists_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -3627,13 +3426,6 @@ export type Database = {
             foreignKeyName: "receival_edit_requests_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receival_edit_requests_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -3642,13 +3434,6 @@ export type Database = {
             columns: ["receival_id"]
             isOneToOne: false
             referencedRelation: "receivals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receival_edit_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3701,13 +3486,6 @@ export type Database = {
           unit_cost?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "receival_items_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "receival_items_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
@@ -3876,21 +3654,7 @@ export type Database = {
             foreignKeyName: "return_lines_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
             isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "return_lines_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "return_lines_return_id_fkey"
-            columns: ["return_id"]
-            isOneToOne: false
-            referencedRelation: "returns"
             referencedColumns: ["id"]
           },
           {
@@ -3959,21 +3723,7 @@ export type Database = {
             foreignKeyName: "sale_deliveries_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sale_deliveries_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sale_deliveries_return_id_fkey"
-            columns: ["return_id"]
-            isOneToOne: false
-            referencedRelation: "returns"
             referencedColumns: ["id"]
           },
           {
@@ -4035,13 +3785,6 @@ export type Database = {
           sku?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "sale_delivery_lines_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sale_delivery_lines_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
@@ -4127,21 +3870,7 @@ export type Database = {
             foreignKeyName: "approval_requests_decided_by_fkey"
             columns: ["decided_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "approval_requests_decided_by_fkey"
-            columns: ["decided_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "approval_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4207,21 +3936,7 @@ export type Database = {
             foreignKeyName: "sale_order_lines_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
             isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sale_order_lines_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sale_order_lines_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4341,13 +4056,6 @@ export type Database = {
           voucher_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "sale_orders_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sale_orders_created_by_fkey"
             columns: ["created_by"]
@@ -4667,13 +4375,6 @@ export type Database = {
             foreignKeyName: "returns_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "returns_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -4752,13 +4453,6 @@ export type Database = {
             foreignKeyName: "stock_adjustment_approvals_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_adjustment_approvals_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -4830,21 +4524,7 @@ export type Database = {
             foreignKeyName: "stock_adjustments_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_adjustments_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_adjustments_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
             referencedColumns: ["id"]
           },
           {
@@ -4858,21 +4538,7 @@ export type Database = {
             foreignKeyName: "stock_adjustments_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_adjustments_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_adjustments_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4948,13 +4614,6 @@ export type Database = {
             foreignKeyName: "suppliers_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "suppliers_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -4971,7 +4630,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           brand: string | null
-          condition: string | null
+          condition: Database["public"]["Enums"]["tool_condition"] | null
           created_at: string | null
           expiry: string | null
           id: string
@@ -4979,12 +4638,12 @@ export type Database = {
           item_id: string | null
           receival_item_id: string | null
           serial_number: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["tool_status"] | null
         }
         Insert: {
           assigned_to?: string | null
           brand?: string | null
-          condition?: string | null
+          condition?: Database["public"]["Enums"]["tool_condition"] | null
           created_at?: string | null
           expiry?: string | null
           id?: string
@@ -4992,12 +4651,12 @@ export type Database = {
           item_id?: string | null
           receival_item_id?: string | null
           serial_number?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["tool_status"] | null
         }
         Update: {
           assigned_to?: string | null
           brand?: string | null
-          condition?: string | null
+          condition?: Database["public"]["Enums"]["tool_condition"] | null
           created_at?: string | null
           expiry?: string | null
           id?: string
@@ -5005,7 +4664,7 @@ export type Database = {
           item_id?: string | null
           receival_item_id?: string | null
           serial_number?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["tool_status"] | null
         }
         Relationships: [
           {
@@ -5051,13 +4710,6 @@ export type Database = {
             foreignKeyName: "user_divisions_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_divisions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -5066,13 +4718,6 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_divisions_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5114,21 +4759,7 @@ export type Database = {
             foreignKeyName: "user_custom_roles_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_custom_roles_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_custom_roles_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5240,13 +4871,6 @@ export type Database = {
             foreignKeyName: "warehouse_reorder_points_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
             isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_reorder_points_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
             referencedColumns: ["id"]
           },
@@ -5283,13 +4907,6 @@ export type Database = {
             foreignKeyName: "warehouse_responsible_persons_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_responsible_persons_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
@@ -5322,13 +4939,6 @@ export type Database = {
           warehouse_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "warehouse_stock_allocations_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "warehouse_stock_allocations_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
@@ -5447,13 +5057,6 @@ export type Database = {
             foreignKeyName: "warehouse_transfer_items_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
             isOneToOne: false
-            referencedRelation: "inventory_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_transfer_items_brand_variant_id_fkey"
-            columns: ["brand_variant_id"]
-            isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
             referencedColumns: ["id"]
           },
@@ -5550,21 +5153,7 @@ export type Database = {
             foreignKeyName: "warehouse_transfers_approved_by_profile_id_fkey"
             columns: ["approved_by_profile_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_transfers_approved_by_profile_id_fkey"
-            columns: ["approved_by_profile_id"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_transfers_cancelled_by_profile_id_fkey"
-            columns: ["cancelled_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5578,21 +5167,7 @@ export type Database = {
             foreignKeyName: "warehouse_transfers_created_by_profile_id_fkey"
             columns: ["created_by_profile_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_transfers_created_by_profile_id_fkey"
-            columns: ["created_by_profile_id"]
-            isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_transfers_dispatched_by_profile_id_fkey"
-            columns: ["dispatched_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5614,13 +5189,6 @@ export type Database = {
             columns: ["from_warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_transfers_received_by_profile_id_fkey"
-            columns: ["received_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5696,6 +5264,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      customer_credit_balances: {
+        Row: {
+          currency: string | null
+          customer_id: string | null
+          open_amount: number | null
+          open_count: number | null
+        }
+        Relationships: []
       }
       customer_credit_summary: {
         Row: {
@@ -5863,242 +5440,19 @@ export type Database = {
           },
         ]
       }
-      inventory_brand_variants: {
+      supplier_credit_balances: {
         Row: {
-          average_cost: number | null
-          brand: string | null
-          brand_id: string | null
-          code: string | null
-          cost_price: number | null
-          created_at: string | null
-          damaged_qty: number | null
-          id: string | null
-          incoming: number | null
-          item_id: string | null
-          linked_services_count: number | null
-          reorder_point: number | null
-          reserved_qty: number | null
-          selling_price: number | null
-          sort_order: number | null
-          status: string | null
-          stock_level: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          average_cost?: number | null
-          brand?: string | null
-          brand_id?: string | null
-          code?: string | null
-          cost_price?: number | null
-          created_at?: string | null
-          damaged_qty?: number | null
-          id?: string | null
-          incoming?: number | null
-          item_id?: string | null
-          linked_services_count?: number | null
-          reorder_point?: number | null
-          reserved_qty?: number | null
-          selling_price?: number | null
-          sort_order?: number | null
-          status?: string | null
-          stock_level?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          average_cost?: number | null
-          brand?: string | null
-          brand_id?: string | null
-          code?: string | null
-          cost_price?: number | null
-          created_at?: string | null
-          damaged_qty?: number | null
-          id?: string | null
-          incoming?: number | null
-          item_id?: string | null
-          linked_services_count?: number | null
-          reorder_point?: number | null
-          reserved_qty?: number | null
-          selling_price?: number | null
-          sort_order?: number | null
-          status?: string | null
-          stock_level?: number | null
-          updated_at?: string | null
+          currency: string | null
+          open_amount: number | null
+          open_count: number | null
+          supplier_id: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "inventory_brand_variants_brand_id_fkey"
-            columns: ["brand_id"]
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
             isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_brand_variants_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          auth_user_id: string | null
-          avatar_url: string | null
-          created_at: string | null
-          created_by: string | null
-          email: string | null
-          full_name: string | null
-          full_name_ar: string | null
-          has_contact_centre_access: boolean | null
-          id: string | null
-          is_active: boolean | null
-          is_division_manager: boolean | null
-          must_change_password: boolean | null
-          phone: string | null
-          threecx_extension: string | null
-          title: string | null
-          updated_at: string | null
-          user_type: Database["public"]["Enums"]["user_type"] | null
-        }
-        Insert: {
-          auth_user_id?: string | null
-          avatar_url?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          email?: string | null
-          full_name?: string | null
-          full_name_ar?: string | null
-          has_contact_centre_access?: boolean | null
-          id?: string | null
-          is_active?: boolean | null
-          is_division_manager?: boolean | null
-          must_change_password?: boolean | null
-          phone?: string | null
-          threecx_extension?: string | null
-          title?: string | null
-          updated_at?: string | null
-          user_type?: Database["public"]["Enums"]["user_type"] | null
-        }
-        Update: {
-          auth_user_id?: string | null
-          avatar_url?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          email?: string | null
-          full_name?: string | null
-          full_name_ar?: string | null
-          has_contact_centre_access?: boolean | null
-          id?: string | null
-          is_active?: boolean | null
-          is_division_manager?: boolean | null
-          must_change_password?: boolean | null
-          phone?: string | null
-          threecx_extension?: string | null
-          title?: string | null
-          updated_at?: string | null
-          user_type?: Database["public"]["Enums"]["user_type"] | null
-        }
-        Relationships: []
-      }
-      returns: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          created_by_name: string | null
-          credit_note_id: string | null
-          date: string | null
-          deleted_at: string | null
-          dispatched_at: string | null
-          division_id: string | null
-          id: string | null
-          notes: string | null
-          pdf_url: string | null
-          reason: string | null
-          restock_warehouse_id: string | null
-          restocked_at: string | null
-          return_number: string | null
-          source_id: string | null
-          source_type: Database["public"]["Enums"]["return_source_type"] | null
-          status: Database["public"]["Enums"]["return_status"] | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          created_by_name?: string | null
-          credit_note_id?: string | null
-          date?: string | null
-          deleted_at?: string | null
-          dispatched_at?: string | null
-          division_id?: string | null
-          id?: string | null
-          notes?: string | null
-          pdf_url?: string | null
-          reason?: string | null
-          restock_warehouse_id?: string | null
-          restocked_at?: string | null
-          return_number?: string | null
-          source_id?: string | null
-          source_type?: Database["public"]["Enums"]["return_source_type"] | null
-          status?: Database["public"]["Enums"]["return_status"] | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          created_by_name?: string | null
-          credit_note_id?: string | null
-          date?: string | null
-          deleted_at?: string | null
-          dispatched_at?: string | null
-          division_id?: string | null
-          id?: string | null
-          notes?: string | null
-          pdf_url?: string | null
-          reason?: string | null
-          restock_warehouse_id?: string | null
-          restocked_at?: string | null
-          return_number?: string | null
-          source_id?: string | null
-          source_type?: Database["public"]["Enums"]["return_source_type"] | null
-          status?: Database["public"]["Enums"]["return_status"] | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "returns_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "returns_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "returns_credit_note_id_fkey"
-            columns: ["credit_note_id"]
-            isOneToOne: false
-            referencedRelation: "credit_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "returns_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "returns_restock_warehouse_id_fkey"
-            columns: ["restock_warehouse_id"]
-            isOneToOne: false
-            referencedRelation: "warehouses"
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -6253,6 +5607,16 @@ export type Database = {
         Args: { p_edit_request_id: string; p_items: Json }
         Returns: Json
       }
+      apply_sale_order_edit: {
+        Args: {
+          p_discount_amount?: number
+          p_discount_label?: string
+          p_discount_type?: string
+          p_line_items: Json
+          p_so_id: string
+        }
+        Returns: Json
+      }
       approve_credit_group_change: {
         Args: { p_approval_id: string; p_comment?: string }
         Returns: undefined
@@ -6265,7 +5629,6 @@ export type Database = {
         Args: { p_comment: string; p_request_id: string }
         Returns: undefined
       }
-      approve_service_change: { Args: { p_request_id: string }; Returns: Json }
       approve_stock_adjustment_inventory: {
         Args: { p_adjustment_id: string; p_approved_by: string }
         Returns: undefined
@@ -6282,6 +5645,7 @@ export type Database = {
         Args: { p_invoice_id: string; p_payment_id: string }
         Returns: undefined
       }
+      auto_generate_tool_serials: { Args: { p_item_id: string }; Returns: Json }
       backfill_conversation_last_messages: { Args: never; Returns: number }
       batch_increment_received_qty: {
         Args: { p_updates: Json }
@@ -6309,6 +5673,10 @@ export type Database = {
           p_payload: Json
           p_so_id: string
         }
+        Returns: undefined
+      }
+      cancel_credit_group_change: {
+        Args: { p_reason?: string; p_request_id: string }
         Returns: undefined
       }
       cancel_delivery_inventory: {
@@ -6571,6 +5939,7 @@ export type Database = {
         Args: { p_invoice_id: string; p_payment_id: string }
         Returns: undefined
       }
+      diag_list_receival_triggers: { Args: never; Returns: Json }
       dispatch_transfer: {
         Args: {
           p_dispatched_by_name: string
@@ -6703,10 +6072,6 @@ export type Database = {
       reject_sales_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
-      }
-      reject_service_change: {
-        Args: { p_reason: string; p_request_id: string }
-        Returns: Json
       }
       reject_transfer_v2: {
         Args: {
@@ -6894,14 +6259,9 @@ export type Database = {
         Args: { p_customer_id: string; p_requested_group_id: string }
         Returns: Json
       }
-      submit_service_change: { Args: { p_payload: Json }; Returns: Json }
       toggle_workflow_step: {
         Args: { p_active: boolean; p_step_id: string }
         Returns: undefined
-      }
-      update_pending_service_change: {
-        Args: { p_new_changes: Json; p_request_id: string }
-        Returns: Json
       }
       update_reserved_qty: {
         Args: { p_bv_id: string; p_delta: number }
@@ -6936,19 +6296,30 @@ export type Database = {
         Returns: boolean
       }
       validate_lc_allocation: { Args: { p_lc_id: string }; Returns: Json }
-      withdraw_service_change: { Args: { p_request_id: string }; Returns: Json }
     }
     Enums: {
       address_type: "blue-plate" | "google-coords"
       approval_source_type: "sale_order" | "order"
       approval_status: "pending" | "approved" | "rejected"
       approval_type: "margin" | "credit"
+      audit_severity: "info" | "warning" | "error" | "critical"
       bill_source: "order"
+      credit_group_request_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "cancelled"
       credit_note_status: "draft" | "approved" | "issued" | "redeemed"
       customer_entity_type: "individual" | "business"
       division: "maintenance" | "cleaning" | "kitchen" | "pest-control"
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
+      inventory_check_step_role:
+        | "accounting_manager"
+        | "inventory_manager"
+        | "responsible_person"
+        | "brand_manager"
+        | "owner"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
       invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue"
       invoice_source: "sale_order" | "contract" | "quotation"
@@ -7222,12 +6593,26 @@ export const Constants = {
       approval_source_type: ["sale_order", "order"],
       approval_status: ["pending", "approved", "rejected"],
       approval_type: ["margin", "credit"],
+      audit_severity: ["info", "warning", "error", "critical"],
       bill_source: ["order"],
+      credit_group_request_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "cancelled",
+      ],
       credit_note_status: ["draft", "approved", "issued", "redeemed"],
       customer_entity_type: ["individual", "business"],
       division: ["maintenance", "cleaning", "kitchen", "pest-control"],
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
+      inventory_check_step_role: [
+        "accounting_manager",
+        "inventory_manager",
+        "responsible_person",
+        "brand_manager",
+        "owner",
+      ],
       inventory_type: ["products", "spare-parts", "consumables", "tools"],
       invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue"],
       invoice_source: ["sale_order", "contract", "quotation"],

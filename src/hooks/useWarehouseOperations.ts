@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { sendNotifications, getApprovalScopeRecipients } from '@/lib/notify'
+import type { Database } from '@/types/database.types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1059,7 +1060,7 @@ export function useCompleteAssignment() {
           { p_has_damage_or_writeoff: hasDamage, p_has_variance: hasVariance },
         )
         if (chainErr) throw chainErr
-        const steps = (chainSteps ?? []) as Array<{ step_order: number; step_role: string; step_label: string }>
+        const steps = (chainSteps ?? []) as Array<{ step_order: number; step_role: Database['public']['Enums']['inventory_check_step_role']; step_label: string }>
         if (steps.length === 0) throw new Error('No approval steps configured for inv_check workflow')
 
         await supabase.from('inventory_check_approvals').insert(
