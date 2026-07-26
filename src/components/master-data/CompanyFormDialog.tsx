@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateCompany, useUpdateCompany, type Company } from '@/hooks/useCompanies'
+import { useCurrencies } from '@/hooks/useCurrencies'
 
 const companySchema = z.object({
   name_en: z.string().min(1, 'English name is required'),
@@ -52,6 +53,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
   const isEditing = !!company
   const create = useCreateCompany()
   const update = useUpdateCompany()
+  const { data: currencies = [] } = useCurrencies()
   const isPending = create.isPending || update.isPending
 
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
@@ -233,7 +235,17 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
                   <FormItem>
                     <FormLabel>Currency</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <select
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        {currencies.map((c) => (
+                          <option key={c.id} value={c.code}>
+                            {c.code}{c.symbol ? ` ${c.symbol}` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

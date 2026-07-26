@@ -63,13 +63,18 @@ export function useToggleCurrency() {
 export function useAddCurrency() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (values: { code: string; name: string; symbol: string }) => {
+    mutationFn: async (values: { code: string; symbol?: string; name?: string }) => {
       const supabase = createClient()
       const existing = qc.getQueryData<Currency[]>(queryKeys.currencies.list(false)) ?? []
       const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order), 0)
       const { error } = await supabase
         .from('currencies')
-        .insert({ ...values, sort_order: maxOrder + 1 })
+        .insert({
+          code: values.code,
+          symbol: values.symbol?.trim() || null,
+          name: values.name?.trim() || null,
+          sort_order: maxOrder + 1,
+        })
       if (error) throw error
       void logActivity({
         action: 'Currency Added',

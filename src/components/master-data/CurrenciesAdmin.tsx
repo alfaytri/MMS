@@ -17,7 +17,6 @@ import { useCurrencies, useToggleCurrency, useAddCurrency } from '@/hooks/useCur
 export function CurrenciesAdmin() {
   const [addOpen, setAddOpen] = useState(false)
   const [newCode, setNewCode] = useState('')
-  const [newName, setNewName] = useState('')
   const [newSymbol, setNewSymbol] = useState('')
 
   const { data: currencies = [], isLoading, isError } = useCurrencies(false)
@@ -26,17 +25,15 @@ export function CurrenciesAdmin() {
 
   function resetForm() {
     setNewCode('')
-    setNewName('')
     setNewSymbol('')
   }
 
   function handleAdd() {
     const code = newCode.trim().toUpperCase()
-    const name = newName.trim()
     const symbol = newSymbol.trim()
 
-    if (!code || !name || !symbol) {
-      toast.error('All fields are required')
+    if (!code) {
+      toast.error('Code is required')
       return
     }
     if (currencies.some((c) => c.code === code)) {
@@ -45,7 +42,7 @@ export function CurrenciesAdmin() {
     }
 
     addMutation.mutate(
-      { code, name, symbol },
+      { code, symbol: symbol || undefined },
       {
         onSuccess: () => {
           resetForm()
@@ -93,15 +90,16 @@ export function CurrenciesAdmin() {
             )}
           >
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium">{c.name}</span>
               <Badge variant="outline" className="text-[10px] font-mono">
                 {c.code}
               </Badge>
-              <span className="text-xs text-muted-foreground">{c.symbol}</span>
+              {c.symbol && (
+                <span className="text-sm text-muted-foreground">{c.symbol}</span>
+              )}
             </div>
             <Switch
               checked={c.is_active}
-              aria-label={`Toggle ${c.name}`}
+              aria-label={`Toggle ${c.code}`}
               onCheckedChange={(checked) =>
                 toggleMutation.mutate(
                   { id: c.id, is_active: checked },
@@ -135,16 +133,7 @@ export function CurrenciesAdmin() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cur-name">Name</Label>
-              <Input
-                id="cur-name"
-                placeholder="e.g. Turkish Lira"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cur-symbol">Symbol</Label>
+              <Label htmlFor="cur-symbol">Symbol <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Input
                 id="cur-symbol"
                 placeholder="e.g. ₺"
@@ -158,7 +147,7 @@ export function CurrenciesAdmin() {
             <Button variant="outline" onClick={() => { setAddOpen(false); resetForm() }}>Cancel</Button>
             <Button
               onClick={handleAdd}
-              disabled={!newCode.trim() || !newName.trim() || !newSymbol.trim() || addMutation.isPending}
+              disabled={!newCode.trim() || addMutation.isPending}
             >
               {addMutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

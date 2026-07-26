@@ -555,7 +555,7 @@ export default function EditPOPage() {
                   className="flex h-9 min-w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {currencies.map((c) => (
-                    <option key={c.id} value={c.code}>{c.symbol} {c.code} — {c.name}</option>
+                    <option key={c.id} value={c.code}>{c.code}{c.symbol ? ` ${c.symbol}` : ''}</option>
                   ))}
                 </select>
               </div>

@@ -85,7 +85,7 @@ export function useCreateCustomerPayment() {
       invoice_id: string
       customer_id: string
       amount: number
-      method: 'bank_transfer' | 'cash' | 'cheque' | 'online_transfer' | 'pos' | 'store_credit'
+      method: string
       date: string
       reference: string | null
       notes: string | null

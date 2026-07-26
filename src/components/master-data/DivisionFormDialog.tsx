@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateDivision, useUpdateDivision, type Division } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
+import { useCurrencies } from '@/hooks/useCurrencies'
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ export function DivisionFormDialog({
   const create = useCreateDivision()
   const update = useUpdateDivision()
   const { data: fetchedCompanies } = useCompanies()
+  const { data: currencies = [] } = useCurrencies()
   const companies = companiesProp ?? fetchedCompanies ?? []
   const isPending = create.isPending || update.isPending
 
@@ -518,7 +520,17 @@ export function DivisionFormDialog({
                   <FormItem>
                     <FormLabel>Currency</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <select
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        {currencies.map((c) => (
+                          <option key={c.id} value={c.code}>
+                            {c.code}{c.symbol ? ` ${c.symbol}` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

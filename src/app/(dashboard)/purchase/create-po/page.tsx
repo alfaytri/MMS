@@ -336,7 +336,7 @@ export default function CreatePOPage() {
               >
                 {currencies.map((c) => (
                   <option key={c.id} value={c.code}>
-                    {c.symbol} {c.code} — {c.name}
+                    {c.code}{c.symbol ? ` ${c.symbol}` : ''}
                   </option>
                 ))}
               </select>

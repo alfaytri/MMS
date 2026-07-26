@@ -398,7 +398,7 @@ export default function CreateSOPage() {
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
                 {currencies.map((c) => (
                   <option key={c.id} value={c.code}>
-                    {c.symbol} {c.code} — {c.name}
+                    {c.code}{c.symbol ? ` ${c.symbol}` : ''}
                   </option>
                 ))}
               </select>

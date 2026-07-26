@@ -252,7 +252,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
                         <SelectContent className="max-h-60 overflow-y-auto">
                           {currencies.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.code} — {c.name}
+                              {c.code}{c.symbol ? ` ${c.symbol}` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>

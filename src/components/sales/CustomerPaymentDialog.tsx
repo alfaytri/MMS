@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PaymentConfirmationDialog } from '@/components/shared/PaymentConfirmationDialog'
 import { useCreateCustomerPayment, useApplyStoreCredit } from '@/hooks/useCustomerPayments'
 import { useOpenCreditNotesForCustomer } from '@/hooks/useOpenCreditNotes'
+import { usePaymentMethods } from '@/hooks/usePaymentMethods'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { ArInvoice, PaymentPlan } from '@/types/invoice'
 
@@ -26,6 +27,7 @@ type Props = {
 export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid, plans }: Props) {
   const createPayment = useCreateCustomerPayment()
   const applyStoreCredit = useApplyStoreCredit()
+  const { data: dbMethods = [] } = usePaymentMethods()
   const outstanding = (invoice.total_amount ?? 0) - alreadyPaid
 
   // Store credit available in the invoice's currency. Rendered inline at the
@@ -45,7 +47,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
 
   // "Cash" here = whatever's left over after credit (real payment method).
   const [amount, setAmount] = useState(String(outstanding > 0 ? outstanding.toFixed(2) : ''))
-  const [method, setMethod] = useState<'bank_transfer' | 'cash' | 'cheque' | 'online_transfer' | 'pos'>('bank_transfer')
+  const [method, setMethod] = useState<string>('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [reference, setReference] = useState('')
   const [saving, setSaving] = useState(false)
@@ -57,10 +59,8 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const total         = creditPortion + cashPortion
   const canPay        = total > 0 && total <= outstanding && !!date && (cashPortion === 0 || (cashPortion > 0 && !!method))
 
-  const METHOD_LABELS: Record<string, string> = {
-    bank_transfer: 'Bank Transfer', cash: 'Cash', cheque: 'Cheque',
-    online_transfer: 'Online Transfer', pos: 'POS',
-  }
+  const methodLabel = (slug: string) =>
+    dbMethods.find((m) => m.slug === slug)?.name ?? slug
 
   // Turning credit ON pre-fills the credit input to cover as much of the
   // invoice as possible, and reduces the cash side to just the remainder.
@@ -125,7 +125,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
 
       toast.success(
         creditPortion > 0 && cashPortion > 0
-          ? `Applied ${formatCurrency(creditPortion, invoiceCurrency)} store credit + ${formatCurrency(cashPortion, invoiceCurrency)} ${METHOD_LABELS[method]}`
+          ? `Applied ${formatCurrency(creditPortion, invoiceCurrency)} store credit + ${formatCurrency(cashPortion, invoiceCurrency)} ${methodLabel(method)}`
           : creditPortion > 0
             ? `Redeemed ${formatCurrency(creditPortion, invoiceCurrency)} in store credit`
             : 'Payment recorded'
@@ -206,14 +206,12 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
           {cashPortion > 0 && (
             <div className="space-y-1">
               <Label htmlFor="cust-pay-method">Method *</Label>
-              <Select value={method} onValueChange={(v) => setMethod(v as typeof method)}>
-                <SelectTrigger id="cust-pay-method"><SelectValue /></SelectTrigger>
+              <Select value={method} onValueChange={(v) => setMethod(v ?? '')}>
+                <SelectTrigger id="cust-pay-method"><SelectValue placeholder="Select method…" /></SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                  <SelectItem value="online_transfer">Online Transfer</SelectItem>
-                  <SelectItem value="pos">POS</SelectItem>
+                  {dbMethods.map((m) => (
+                    <SelectItem key={m.id} value={m.slug}>{m.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -248,7 +246,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
               : []),
             ...(cashPortion > 0
               ? [
-                  { label: 'Payment', value: `${formatCurrency(cashPortion, invoiceCurrency)} — ${METHOD_LABELS[method] ?? method}` },
+                  { label: 'Payment', value: `${formatCurrency(cashPortion, invoiceCurrency)} — ${methodLabel(method)}` },
                 ]
               : []),
             { label: 'Total', value: formatCurrency(total, invoiceCurrency) },

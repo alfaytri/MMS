@@ -37,6 +37,7 @@ import {
 import {
   useReceivalsForLcSelector, useReceivalItemsWithFifo, useReceivalItemsBatch,
 } from '@/hooks/useReceivals'
+import { useCurrencies } from '@/hooks/useCurrencies'
 import type { ColumnDef } from '@tanstack/react-table'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -646,6 +647,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const { data: receivals } = useReceivalsForLcSelector({ search: receivalSearch })
+  const { data: currencies = [] } = useCurrencies()
   const { data: expandedItems, isLoading: loadingExpanded } = useReceivalItemsWithFifo(expandedReceivalId)
   const { data: usedReceivalMap } = useLcUsedReceivalMap()
 
@@ -824,8 +826,8 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                     onChange={(e) => updateLine(i, 'currency', e.target.value)}
                     className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                   >
-                    {['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'].map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                    {currencies.map((c) => (
+                      <option key={c.id} value={c.code}>{c.code}</option>
                     ))}
                   </select>
                 </div>

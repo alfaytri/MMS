@@ -224,7 +224,7 @@ export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplier
                         <SelectContent className="max-h-60 overflow-y-auto">
                           {currencies.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.code} — {c.name}
+                              {c.code}{c.symbol ? ` ${c.symbol}` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>

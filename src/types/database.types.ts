@@ -489,6 +489,7 @@ export type Database = {
           cr_number: string | null
           created_at: string
           created_by: string | null
+          currency_id: string | null
           default_currency: string
           default_tax_rate: number
           footer_motto: string | null
@@ -507,6 +508,7 @@ export type Database = {
           cr_number?: string | null
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
           default_currency?: string
           default_tax_rate?: number
           footer_motto?: string | null
@@ -525,6 +527,7 @@ export type Database = {
           cr_number?: string | null
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
           default_currency?: string
           default_tax_rate?: number
           footer_motto?: string | null
@@ -537,7 +540,15 @@ export type Database = {
           updated_at?: string
           vat_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_divisions: {
         Row: {
@@ -551,6 +562,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           css_classes: string | null
+          currency_id: string | null
           default_currency: string
           default_tax_rate: number
           footer_motto: string | null
@@ -576,6 +588,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           css_classes?: string | null
+          currency_id?: string | null
           default_currency?: string
           default_tax_rate?: number
           footer_motto?: string | null
@@ -601,6 +614,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           css_classes?: string | null
+          currency_id?: string | null
           default_currency?: string
           default_tax_rate?: number
           footer_motto?: string | null
@@ -616,6 +630,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "company_divisions_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "divisions_company_id_fkey"
             columns: ["company_id"]
@@ -892,9 +913,9 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
-          name: string
+          name: string | null
           sort_order: number
-          symbol: string
+          symbol: string | null
           updated_at: string
         }
         Insert: {
@@ -902,9 +923,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
-          name: string
+          name?: string | null
           sort_order?: number
-          symbol: string
+          symbol?: string | null
           updated_at?: string
         }
         Update: {
@@ -912,9 +933,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
-          name?: string
+          name?: string | null
           sort_order?: number
-          symbol?: string
+          symbol?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2211,6 +2232,7 @@ export type Database = {
           bill_path: string | null
           created_at: string | null
           currency: string
+          currency_id: string | null
           description: string
           exchange_rate: number
           id: string
@@ -2221,6 +2243,7 @@ export type Database = {
           bill_path?: string | null
           created_at?: string | null
           currency?: string
+          currency_id?: string | null
           description?: string
           exchange_rate?: number
           id?: string
@@ -2231,12 +2254,20 @@ export type Database = {
           bill_path?: string | null
           created_at?: string | null
           currency?: string
+          currency_id?: string | null
           description?: string
           exchange_rate?: number
           id?: string
           landed_cost_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "landed_cost_lines_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "landed_cost_lines_landed_cost_id_fkey"
             columns: ["landed_cost_id"]
@@ -2254,6 +2285,7 @@ export type Database = {
           attached_receival_ids: string[] | null
           created_at: string | null
           currency: string | null
+          currency_id: string | null
           date: string
           description: string | null
           id: string
@@ -2271,6 +2303,7 @@ export type Database = {
           attached_receival_ids?: string[] | null
           created_at?: string | null
           currency?: string | null
+          currency_id?: string | null
           date: string
           description?: string | null
           id?: string
@@ -2288,6 +2321,7 @@ export type Database = {
           attached_receival_ids?: string[] | null
           created_at?: string | null
           currency?: string | null
+          currency_id?: string | null
           date?: string
           description?: string | null
           id?: string
@@ -2298,7 +2332,15 @@ export type Database = {
           voided_at?: string | null
           voided_reason?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "landed_costs_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -2534,6 +2576,7 @@ export type Database = {
           created_at: string | null
           credit_note_id: string | null
           currency: string
+          currency_id: string | null
           customer_id: string | null
           date: string
           deleted_at: string | null
@@ -2564,6 +2607,7 @@ export type Database = {
           created_at?: string | null
           credit_note_id?: string | null
           currency?: string
+          currency_id?: string | null
           customer_id?: string | null
           date: string
           deleted_at?: string | null
@@ -2594,6 +2638,7 @@ export type Database = {
           created_at?: string | null
           credit_note_id?: string | null
           currency?: string
+          currency_id?: string | null
           customer_id?: string | null
           date?: string
           deleted_at?: string | null
@@ -2626,6 +2671,13 @@ export type Database = {
             columns: ["credit_note_id"]
             isOneToOne: false
             referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
             referencedColumns: ["id"]
           },
           {
@@ -2974,6 +3026,7 @@ export type Database = {
         Row: {
           created_at: string | null
           currency: string
+          currency_id: string | null
           id: string
           notes: string | null
           po_id: string
@@ -2985,6 +3038,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           currency?: string
+          currency_id?: string | null
           id?: string
           notes?: string | null
           po_id: string
@@ -2996,6 +3050,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           currency?: string
+          currency_id?: string | null
           id?: string
           notes?: string | null
           po_id?: string
@@ -3005,6 +3060,13 @@ export type Database = {
           total_amount?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "po_rfq_quotes_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "po_rfq_quotes_po_id_fkey"
             columns: ["po_id"]
@@ -3080,6 +3142,7 @@ export type Database = {
       po_versions: {
         Row: {
           currency: string
+          currency_id: string | null
           delivery_terms: string | null
           delivery_terms_notes: string | null
           discount_amount: number
@@ -3103,6 +3166,7 @@ export type Database = {
         }
         Insert: {
           currency: string
+          currency_id?: string | null
           delivery_terms?: string | null
           delivery_terms_notes?: string | null
           discount_amount?: number
@@ -3126,6 +3190,7 @@ export type Database = {
         }
         Update: {
           currency?: string
+          currency_id?: string | null
           delivery_terms?: string | null
           delivery_terms_notes?: string | null
           discount_amount?: number
@@ -3149,6 +3214,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "po_versions_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "po_versions_po_id_fkey"
             columns: ["po_id"]
             isOneToOne: false
@@ -3171,6 +3243,7 @@ export type Database = {
           created_by: string | null
           created_date: string
           currency: string | null
+          currency_id: string | null
           deleted_at: string | null
           delivery_terms: string | null
           delivery_terms_notes: string | null
@@ -3208,6 +3281,7 @@ export type Database = {
           created_by?: string | null
           created_date: string
           currency?: string | null
+          currency_id?: string | null
           deleted_at?: string | null
           delivery_terms?: string | null
           delivery_terms_notes?: string | null
@@ -3245,6 +3319,7 @@ export type Database = {
           created_by?: string | null
           created_date?: string
           currency?: string | null
+          currency_id?: string | null
           deleted_at?: string | null
           delivery_terms?: string | null
           delivery_terms_notes?: string | null
@@ -3282,6 +3357,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
             referencedColumns: ["id"]
           },
           {
@@ -3962,6 +4044,7 @@ export type Database = {
           created_by: string | null
           created_by_name: string | null
           currency: string
+          currency_id: string | null
           customer_id: string
           customer_notes: string | null
           deleted_at: string | null
@@ -3995,6 +4078,7 @@ export type Database = {
           created_by?: string | null
           created_by_name?: string | null
           currency?: string
+          currency_id?: string | null
           customer_id: string
           customer_notes?: string | null
           deleted_at?: string | null
@@ -4028,6 +4112,7 @@ export type Database = {
           created_by?: string | null
           created_by_name?: string | null
           currency?: string
+          currency_id?: string | null
           customer_id?: string
           customer_notes?: string | null
           deleted_at?: string | null
@@ -4061,6 +4146,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_orders_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
             referencedColumns: ["id"]
           },
           {

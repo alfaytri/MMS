@@ -237,7 +237,7 @@ export function useApplyCreditNote() {
         payment_id,
         invoice_id: invoiceId,
         amount: Math.min(cnTotal, outstanding),
-        method: 'online',
+        method: 'online_transfer',
         date: new Date().toISOString().split('T')[0],
         notes: `Credit note ${cn?.credit_note_id ?? id} applied`,
         direction: 'incoming',
