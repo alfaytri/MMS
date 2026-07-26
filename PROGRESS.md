@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks.
+🚀 Starting: **Inventory Check → Stock Adjustment auto-generation (Option B, two-stage)**
 
 
 
