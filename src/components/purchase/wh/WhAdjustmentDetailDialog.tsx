@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ShieldAlert } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,12 +11,12 @@ import { toast } from 'sonner'
 import { ItemTreeCell } from './ItemTreeCell'
 import {
   useActionStockAdjustmentStep,
+  useForceApproveStockAdjustment,
   type StockAdjustmentApprovalStep,
 } from '@/hooks/useWarehouseOperations'
 import type { Profile } from '@/hooks/useProfiles'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
-import { usePermissions } from '@/hooks/usePermissions'
 import { useWorkflowSteps } from '@/hooks/useWorkflowSteps'
 import { useAllCategoriesFlat, breadcrumb as categoryBreadcrumb } from '@/hooks/useInventoryTree'
 
@@ -69,21 +70,19 @@ interface Props {
 
 export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouses, open, onOpenChange }: Props) {
   const action = useActionStockAdjustmentStep()
+  const forceApprove = useForceApproveStockAdjustment()
   const { data: mySlots = [] } = useMyApprovalSlotRoles()
   const myApprovalRolesByName = useMemo(() => new Set(mySlots.map((s) => s.name)), [mySlots])
-  const { data: permissionsData } = usePermissions()
   const { data: workflowSteps = [] } = useWorkflowSteps()
   const { data: categoriesFlat = [] } = useAllCategoriesFlat()
   const [reviewNotes, setReviewNotes] = useState('')
   const [actioningId, setActioningId] = useState<string | null>(null)
+  const [forceConfirmOpen, setForceConfirmOpen] = useState(false)
+  const [forceComment, setForceComment] = useState('')
 
-  // 'system.admin' is uniquely held by the Admin custom role — using it (rather
-  // than isSystemAdmin, which is true for any is_system_admin role like field_rp) keeps
-  // the override scoped to actual administrators.
-  const isAdmin = useMemo(
-    () => (permissionsData?.permissions ?? []).includes('system.admin'),
-    [permissionsData],
-  )
+  // Owner detection — the DB force_approve_stock_adjustment RPC enforces this
+  // gate server-side; this flag just controls whether the button appears.
+  const isOwner = myApprovalRolesByName.has('Owner')
 
   const isFieldRpHere = useMemo(() => {
     if (!adjustment || !currentProfile) return false
@@ -91,8 +90,9 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
     return !!wh?.responsible_persons.some((rp: { profile_id: string }) => rp.profile_id === currentProfile.id)
   }, [adjustment, currentProfile, warehouses])
 
+  // Strict per-step role gating — no Admin/Owner bypass here. Force Approve
+  // is a separate button that clears every remaining pending step at once.
   function canActOnStep(stepRole: string): boolean {
-    if (isAdmin) return true
     if (stepRole === 'responsible_person') return isFieldRpHere
     const step = workflowSteps.find((s) => s.step_key === stepRole)
     if (!step) return false
@@ -141,7 +141,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-sm flex items-center gap-2 flex-wrap">
             <span>Stock Adjustment</span>
@@ -219,7 +219,21 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
 
           {/* Approval chain */}
           <div className="rounded-md border p-3 space-y-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Approval Chain</div>
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Approval Chain</div>
+              {isOwner && overallPending && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px] text-destructive border-destructive/40 hover:bg-destructive/10 gap-1"
+                  disabled={forceApprove.isPending}
+                  onClick={() => { setForceComment(''); setForceConfirmOpen(true) }}
+                >
+                  <ShieldAlert className="h-3 w-3" />
+                  Force Approve
+                </Button>
+              )}
+            </div>
 
             {steps.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">
@@ -257,13 +271,26 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
                       </div>
 
                       {step.profile_name && (
-                        <p className="text-[10px] text-muted-foreground pl-7">
-                          {step.status === 'approved' ? 'Approved' : 'Reviewed'} by {step.profile_name}
-                          {step.action_at ? ` · ${format(new Date(step.action_at), 'dd MMM yyyy, HH:mm')}` : ''}
+                        <p className="text-[10px] text-muted-foreground pl-7 flex items-center gap-1.5">
+                          <span>
+                            {step.status === 'approved' ? 'Approved' : 'Reviewed'} by {step.profile_name}
+                            {step.action_at ? ` · ${format(new Date(step.action_at), 'dd MMM yyyy, HH:mm')}` : ''}
+                          </span>
+                          {(step as StockAdjustmentApprovalStep & { force_approved?: boolean }).force_approved && (
+                            <Badge className="text-[9px] px-1 py-0 bg-destructive/10 text-destructive gap-0.5">
+                              <ShieldAlert className="h-2.5 w-2.5" />
+                              Force
+                            </Badge>
+                          )}
                         </p>
                       )}
                       {step.notes && (
                         <p className="text-[10px] text-muted-foreground pl-7 italic">{step.notes}</p>
+                      )}
+                      {(step as StockAdjustmentApprovalStep & { force_comment?: string | null }).force_comment && (
+                        <p className="text-[10px] text-destructive pl-7 italic">
+                          Force reason: {(step as StockAdjustmentApprovalStep & { force_comment?: string | null }).force_comment}
+                        </p>
                       )}
 
                       {userCanAct && (
@@ -302,6 +329,53 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
           </div>
         </div>
       </DialogContent>
+
+      <Dialog open={forceConfirmOpen} onOpenChange={setForceConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-4 w-4" />
+              Force-approve this adjustment?
+            </DialogTitle>
+            <DialogDescription>
+              This bypasses every remaining pending step and applies the stock change immediately.
+              Each skipped step is marked <span className="font-semibold">Force</span> in the audit
+              trail. Owner-only. Cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Reason for bypassing the chain (recommended)…"
+            className="text-xs min-h-[64px]"
+            value={forceComment}
+            onChange={(e) => setForceComment(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setForceConfirmOpen(false)} disabled={forceApprove.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={forceApprove.isPending}
+              onClick={async () => {
+                if (!adjustment) return
+                try {
+                  await forceApprove.mutateAsync({
+                    adjustmentId: adjustment.id,
+                    comment:      forceComment.trim() || undefined,
+                  })
+                  toast.success('Adjustment force-approved')
+                  setForceConfirmOpen(false)
+                  setForceComment('')
+                } catch (e) {
+                  toast.error((e as Error).message)
+                }
+              }}
+            >
+              {forceApprove.isPending ? 'Force-approving…' : 'Force approve'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

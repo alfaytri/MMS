@@ -637,6 +637,56 @@ export function useActionStockAdjustmentStep() {
   })
 }
 
+export function useForceApproveStockAdjustment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      adjustmentId, comment,
+    }: {
+      adjustmentId: string
+      comment?:     string
+    }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc(
+        'force_approve_stock_adjustment' as never,
+        {
+          p_adjustment_id: adjustmentId,
+          p_comment:       comment?.trim() || undefined,
+        } as never,
+      )
+      if (error) {
+        const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')
+        throw new Error(cleanMessage)
+      }
+      return { count: Number(data ?? 0), adjustmentId }
+    },
+    onSuccess: async ({ adjustmentId }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+
+      const supabase = createClient()
+      const { data: adj } = await supabase
+        .from('stock_adjustments')
+        .select('requested_by')
+        .eq('id', adjustmentId)
+        .single()
+      if (adj?.requested_by) {
+        await sendNotifications([{
+          profile_id: adj.requested_by,
+          type: 'stock_adj_approved',
+          title: 'Stock adjustment force-approved by Owner',
+          related_id: adjustmentId,
+          related_type: 'stock_adjustment',
+        }])
+        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
+      }
+    },
+  })
+}
+
 export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {}) {
   return useQuery({
     queryKey: queryKeys.warehouseOps.inventoryChecksByWarehouse(warehouseId),
