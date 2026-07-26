@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks.
+🚀 Starting: **Enum Conversion Pass 3 Pilot D: `payments.source_type`**
 
 
 
