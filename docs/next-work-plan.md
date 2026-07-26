@@ -14,8 +14,8 @@ Each row here is a table you want us to inspect. For each, we decide: keep / ren
 | # | Table | Question / concern | Status |
 |---|---|---|---|
 | 1.1 | `activity_log` | ~~`ip_address`~~ dropped — was never populated; `performer_id` already identifies actor (`f6e3c8cb`) | ✅ |
-| 1.2 | `approval_workflow_steps` | Explain `step_key` and `step_label` — are both needed? | ☐ |
-| 1.3 | `bill_line_items` | Explain `team_name`, `match_status`, `match_note` — where do they come from, are they used? | ☐ |
+| 1.2 | `approval_workflow_steps` | Both `step_key` (slug id, referenced by child approval rows) and `step_label` (human name, snapshotted for audit trail) are needed. Redundant with `role_id` in theory but the historical-snapshot pattern is intentional — **keep as-is** | ✅ |
+| 1.3 | `bill_line_items` | ~~`team_name`~~ dropped — legacy from invoice_line_items, never written on AP bills (`4f7c70d0`). `match_status` + `match_note` are active (three-way-match feature). `match_status` logged for Pass 3 enum conversion | ✅ |
 | 1.4 | `bills` | Explain `bill_type`, `source`, `source_id`, `source_label`, `status` — audit their flow. Verify `receival_id` and `division_id` are wired correctly. What is `manually_paid`? | ☐ |
 | 1.5 | `credit_notes` | Why is `invoice_id` sometimes empty? `reason` should become an enum linked to a `reason_list` table. Also inspect `approved_by`, `refund_method`, `refund_reference` | ☐ |
 | 1.6 | `custom_roles` | Drop `description` column + drop from UI | ☐ |
