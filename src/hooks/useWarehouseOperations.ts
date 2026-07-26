@@ -1030,12 +1030,13 @@ export function useCompleteAssignment() {
         .eq('id', assignmentId)
       if (assignErr) throw assignErr
 
-      await supabase.from('inventory_check_log').insert({
+      const { error: userCompletedErr } = await supabase.from('inventory_check_log').insert({
         check_id: checkId,
         event_type: 'user_completed',
         profile_id: profileId,
         profile_name: profileName,
       })
+      if (userCompletedErr) throw userCompletedErr
 
       const { data: allAssignments, error: allErr } = await supabase
         .from('inventory_check_assignments')
@@ -1069,11 +1070,12 @@ export function useCompleteAssignment() {
 
         await supabase.from('inventory_checks').update({ status: 'pending_approval' }).eq('id', checkId)
 
-        await supabase.from('inventory_check_log').insert({
+        const { error: allCountedErr } = await supabase.from('inventory_check_log').insert({
           check_id: checkId,
           event_type: 'all_counted',
           profile_name: 'System',
         })
+        if (allCountedErr) throw allCountedErr
 
         const recipients = await getApprovalScopeRecipients('inv_check')
         if (recipients.length > 0) {
@@ -1123,13 +1125,14 @@ export function useApproveCheckStep() {
         .eq('id', approvalId)
       if (stepErr) throw stepErr
 
-      await supabase.from('inventory_check_log').insert({
+      const { error: approvalActionErr } = await supabase.from('inventory_check_log').insert({
         check_id: checkId,
         event_type: 'approval_action',
         profile_id: profileId,
         profile_name: profileName,
         meta: { action },
       })
+      if (approvalActionErr) throw approvalActionErr
 
       let outcome: 'rejected' | 'approved' | 'step_approved' = 'step_approved'
 
