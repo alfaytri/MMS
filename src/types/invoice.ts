@@ -77,7 +77,6 @@ export type Bill = {
   subtotal: number | null
   discount_amount: number
   discount_label: string | null
-  tax: number | null
   currency?: string | null
   issued_date: string
   due_date: string
@@ -85,7 +84,6 @@ export type Bill = {
   division_id: string | null
   pdf_url: string | null
   created_at: string | null
-  updated_at?: string | null
   // joined
   supplier_name?: string
   po_number?: string

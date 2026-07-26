@@ -10,6 +10,7 @@ export interface GenerateBillPdfResult {
   storageKey:  string
   filename:    string
   bytes:       number
+  regenerated: boolean
 }
 
 function safeKey(name: string): string {
@@ -19,7 +20,7 @@ function safeKey(name: string): string {
 export async function generateBillPdf(
   billUuid: string,
   supabase:  SupabaseClient<Database>,
-  opts?: { divisionId?: string },
+  opts?: { divisionId?: string; force?: boolean },
 ): Promise<GenerateBillPdfResult> {
   const { data: bill, error: billErr } = await supabase
     .from('bills')
@@ -27,7 +28,7 @@ export async function generateBillPdf(
       id, bill_number, supplier_id, purchase_order_id,
       payment_status, total_amount, paid_amount, subtotal,
       discount_amount, discount_label, source_label,
-      issued_date, due_date, notes,
+      issued_date, due_date, notes, pdf_url, needs_refresh,
       bill_line_items(id, description, qty, unit_price, total),
       suppliers(name, contact_name, phone, email, address),
       purchase_orders(po_number, created_date, currency, division_id)
@@ -36,6 +37,20 @@ export async function generateBillPdf(
     .single()
   if (billErr || !bill) {
     throw new Error(`Bill not found: ${billUuid} (${billErr?.message ?? 'no row'})`)
+  }
+
+  // ── Cache hit — serve the previous PDF unless caller forced regen ──
+  // pdf_url is nulled by the bills_invalidate_pdf_cache trigger on any
+  // update to the bill (including payment recomputes and line-item
+  // changes). If it's still set, the cached rendering is current.
+  if (!opts?.force && bill.pdf_url && !bill.needs_refresh) {
+    return {
+      url:         bill.pdf_url,
+      storageKey:  `${safeKey(bill.bill_number)}.pdf`,
+      filename:    `Bill-${bill.bill_number}.pdf`,
+      bytes:       0,
+      regenerated: false,
+    }
   }
 
   const supplier = bill.suppliers
@@ -166,10 +181,22 @@ export async function generateBillPdf(
     .getPublicUrl(storageKey)
   const publicUrl = `${urlData.publicUrl}?v=${Date.now()}`
 
+  // Persist the URL via the SECURITY DEFINER RPC — it sets a
+  // transaction-local GUC so bills_invalidate_pdf_cache_fn lets
+  // the write through and also flips needs_refresh back to false.
+  const { error: rpcErr } = await supabase.rpc('set_bill_pdf_url', {
+    p_id:  bill.id,
+    p_url: publicUrl,
+  })
+  if (rpcErr) {
+    console.warn(`[bill-pdf] uploaded but failed to persist URL on ${bill.bill_number}: ${rpcErr.message}`)
+  }
+
   return {
-    url:        publicUrl,
+    url:         publicUrl,
     storageKey,
-    filename:   `Bill-${bill.bill_number}.pdf`,
-    bytes:      buffer.length,
+    filename:    `Bill-${bill.bill_number}.pdf`,
+    bytes:       buffer.length,
+    regenerated: true,
   }
 }

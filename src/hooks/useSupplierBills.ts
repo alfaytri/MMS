@@ -146,7 +146,6 @@ export function useCreateBill() {
           discount_amount:   discount,
           discount_label:    payload.discount_label ?? null,
           total_amount:      totalAmount,
-          tax:               0,
           issued_date:       today,
           due_date:          payload.due_date,
           notes:             payload.notes || null,

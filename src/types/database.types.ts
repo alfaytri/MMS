@@ -275,9 +275,7 @@ export type Database = {
           source_label: string | null
           subtotal: number | null
           supplier_id: string | null
-          tax: number | null
           total_amount: number | null
-          updated_at: string | null
         }
         Insert: {
           bill_number: string
@@ -298,9 +296,7 @@ export type Database = {
           source_label?: string | null
           subtotal?: number | null
           supplier_id?: string | null
-          tax?: number | null
           total_amount?: number | null
-          updated_at?: string | null
         }
         Update: {
           bill_number?: string
@@ -321,9 +317,7 @@ export type Database = {
           source_label?: string | null
           subtotal?: number | null
           supplier_id?: string | null
-          tax?: number | null
           total_amount?: number | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -6315,6 +6309,10 @@ export type Database = {
         Returns: undefined
       }
       set_credit_note_pdf_url: {
+        Args: { p_id: string; p_url: string }
+        Returns: undefined
+      }
+      set_bill_pdf_url: {
         Args: { p_id: string; p_url: string }
         Returns: undefined
       }
