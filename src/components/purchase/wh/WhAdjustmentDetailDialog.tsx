@@ -141,7 +141,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[64rem] max-h-[92vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="text-sm flex items-center gap-2 flex-wrap">
             <span>Stock Adjustment</span>
@@ -154,71 +154,79 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {adjustment.source_check_id && (
-            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-center gap-2">
+            <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
               <span className="font-semibold">Auto-generated from inventory check</span>
               <span className="font-mono">{adjustment.source_check?.check_number ?? adjustment.source_check_id}</span>
             </div>
           )}
 
-          {/* Item & quantity */}
-          <div className="rounded-md border p-3 space-y-2">
-            <ItemTreeCell category={category} itemType={itemType} itemName={itemName} brand={brand} />
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Warehouse</span>
-              <span className="font-medium">{adjustment.warehouses?.name ?? '—'}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Quantity</span>
-              <span className="font-medium">{adjustment.qty}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Requested by</span>
-              <span className="font-medium">
-                {adjustment.requested_by_name ?? '—'}
-                {adjustment.created_at && (
-                  <span className="text-muted-foreground ml-2">
-                    {format(new Date(adjustment.created_at), 'dd MMM yyyy, HH:mm')}
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* Reason & notes */}
-          <div className="rounded-md border p-3 space-y-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Reason</div>
-            <p className="text-xs">{adjustment.reason || '—'}</p>
-            {adjustment.notes && (
-              <>
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground pt-2">Notes</div>
-                <p className="text-xs">{adjustment.notes}</p>
-              </>
-            )}
-          </div>
-
-          {/* Photos */}
-          {(adjustment.photo_urls?.length ?? 0) > 0 && (
-            <div className="rounded-md border p-3 space-y-2">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Evidence Photos</div>
-              <div className="grid grid-cols-3 gap-2">
-                {(adjustment.photo_urls ?? []).map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={`Evidence ${i + 1}`}
-                      className="aspect-square w-full object-cover rounded-md border hover:opacity-80 transition"
-                    />
-                  </a>
-                ))}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5">
+            {/* ── Left column: item details + reason + photos ──────────── */}
+            <div className="space-y-4">
+              {/* Item & quantity */}
+              <div className="rounded-md border p-4 space-y-3">
+                <ItemTreeCell category={category} itemType={itemType} itemName={itemName} brand={brand} />
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs pt-1">
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Warehouse</div>
+                    <div className="font-medium">{adjustment.warehouses?.name ?? '—'}</div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Quantity</div>
+                    <div className="font-medium">{adjustment.qty}</div>
+                  </div>
+                  <div className="col-span-2 space-y-0.5">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Requested by</div>
+                    <div className="font-medium">
+                      {adjustment.requested_by_name ?? '—'}
+                      {adjustment.created_at && (
+                        <span className="text-muted-foreground ml-2 font-normal">
+                          {format(new Date(adjustment.created_at), 'dd MMM yyyy, HH:mm')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Approval chain */}
-          <div className="rounded-md border p-3 space-y-2">
+              {/* Reason & notes */}
+              <div className="rounded-md border p-4 space-y-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Reason</div>
+                  <p className="text-xs leading-relaxed">{adjustment.reason || '—'}</p>
+                </div>
+                {adjustment.notes && (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Notes</div>
+                    <p className="text-xs leading-relaxed">{adjustment.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Photos */}
+              {(adjustment.photo_urls?.length ?? 0) > 0 && (
+                <div className="rounded-md border p-4 space-y-2">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Evidence Photos</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(adjustment.photo_urls ?? []).map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={`Evidence ${i + 1}`}
+                          className="aspect-square w-full object-cover rounded-md border hover:opacity-80 transition"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Right column: approval chain ─────────────────────────── */}
+            <div className="rounded-md border p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Approval Chain</div>
               {isOwner && overallPending && (
@@ -326,6 +334,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
                 })}
               </div>
             )}
+            </div>
           </div>
         </div>
       </DialogContent>
