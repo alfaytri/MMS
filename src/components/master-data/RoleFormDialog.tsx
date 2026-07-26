@@ -13,7 +13,6 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +39,6 @@ for (const root of NAV_TREE) {
 
 const roleSchema = z.object({
   name:                   z.string().min(1, 'Name is required'),
-  description:            z.string().optional().default(''),
   permissions:            z.array(z.string()).default([]),
   is_approval_slot:       z.boolean().default(false),
   is_inventory_receiver:  z.boolean().default(false),
@@ -195,21 +193,20 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
-    defaultValues: { name: '', description: '', permissions: [], is_approval_slot: false, is_inventory_receiver: false },
+    defaultValues: { name: '', permissions: [], is_approval_slot: false, is_inventory_receiver: false },
   })
 
   useEffect(() => {
     if (open && role) {
       form.reset({
         name: role.name,
-        description: role.description ?? '',
         permissions: (role.permissions as string[]) ?? [],
         is_approval_slot:      Boolean((role as CustomRole & { is_approval_slot?: boolean }).is_approval_slot),
         is_inventory_receiver: Boolean((role as CustomRole & { is_inventory_receiver?: boolean }).is_inventory_receiver),
       })
       setExpandedIds(new Set())
     } else if (open) {
-      form.reset({ name: '', description: '', permissions: [], is_approval_slot: false, is_inventory_receiver: false })
+      form.reset({ name: '', permissions: [], is_approval_slot: false, is_inventory_receiver: false })
       setExpandedIds(new Set())
     }
   }, [open, role, form])
@@ -246,7 +243,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
   function clearAll()  { form.setValue('permissions', []) }
 
   function onSubmit(values: RoleFormValues) {
-    const payload = { ...values, description: values.description || null }
+    const payload = { ...values }
     const mutation = isEditing
       ? () => update.mutateAsync({ id: role!.id, ...payload })
       : () => create.mutateAsync(payload)
@@ -260,26 +257,19 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Create'} Role</DialogTitle>
-          <p className="text-sm text-muted-foreground">Configure role name, description, and permissions.</p>
+          <p className="text-sm text-muted-foreground">Configure role name and permissions.</p>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 space-y-4">
-            {/* Name + Description */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
+            {/* Name */}
+            <div className="px-1">
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role Name *</FormLabel>
                   <FormControl><Input placeholder="e.g. Senior Dispatcher" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl><Textarea rows={1} placeholder="Brief description…" className="resize-none" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

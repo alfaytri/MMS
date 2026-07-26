@@ -68,7 +68,6 @@ export function UserRoleDialog({ open, onOpenChange, profile }: UserRoleDialogPr
                   <label key={role.id} className="flex items-center gap-2 text-sm py-1 px-1 rounded hover:bg-muted cursor-pointer min-h-[44px] sm:min-h-0">
                     <Checkbox checked={assignedRoleIds.has(role.id)} onCheckedChange={() => handleToggleRole(role.id)} />
                     <span>{role.name}</span>
-                    {role.description && <span className="text-muted-foreground text-xs">— {role.description}</span>}
                   </label>
                 ))}
               </div>

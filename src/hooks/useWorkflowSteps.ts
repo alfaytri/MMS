@@ -42,7 +42,6 @@ export function useAddWorkflowStep() {
     mutationFn: async (args: {
       workflow: string
       role_name: string
-      role_desc?: string
       is_conditional?: boolean
       condition_types?: string[]
     }) => {
@@ -50,7 +49,6 @@ export function useAddWorkflowStep() {
       const { data, error } = await supabase.rpc('add_workflow_step', {
         p_workflow: args.workflow,
         p_role_name: args.role_name,
-        p_role_desc: args.role_desc ?? '',
         p_is_conditional: args.is_conditional ?? false,
         p_condition_types: args.condition_types ?? [],
       })

@@ -933,7 +933,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           deleted_at: string | null
-          description: string | null
           id: string
           is_approval_slot: boolean
           is_inventory_receiver: boolean
@@ -947,7 +946,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
-          description?: string | null
           id?: string
           is_approval_slot?: boolean
           is_inventory_receiver?: boolean
@@ -961,7 +959,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
-          description?: string | null
           id?: string
           is_approval_slot?: boolean
           is_inventory_receiver?: boolean
@@ -5623,28 +5620,15 @@ export type Database = {
         }
         Returns: string
       }
-      add_workflow_step:
-        | {
-            Args: {
-              p_condition_types?: string[]
-              p_is_conditional?: boolean
-              p_role_desc?: string
-              p_role_name: string
-              p_workflow: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_condition_types?: string[]
-              p_group_id?: string
-              p_is_conditional?: boolean
-              p_role_desc?: string
-              p_role_name: string
-              p_workflow: string
-            }
-            Returns: Json
-          }
+      add_workflow_step: {
+        Args: {
+          p_condition_types?: string[]
+          p_is_conditional?: boolean
+          p_role_name: string
+          p_workflow: string
+        }
+        Returns: Json
+      }
       add_workflow_step_for_role:
         | {
             Args: {

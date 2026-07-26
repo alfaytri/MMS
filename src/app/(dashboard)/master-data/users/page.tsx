@@ -84,11 +84,6 @@ function RoleCard({ role, onEdit, onDelete }: { role: CustomRole; onEdit: () => 
         </div>
       </div>
 
-      {/* Description */}
-      {role.description && (
-        <p className="text-sm text-muted-foreground leading-snug">{role.description}</p>
-      )}
-
       {/* Coverage chips */}
       {coverageChips.length > 0 && (
         <div className="flex flex-wrap gap-1">
