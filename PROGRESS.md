@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **credit_notes cleanup + 3 FKs (Section 1.5): drop 5 dead cols; add `reason_id`, `customer_id`, `refund_method_id` FKs with sync triggers**
 
 
 
