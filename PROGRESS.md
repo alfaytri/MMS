@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Drop unused `bill_line_items.team_name` column (Section 1.3 of next-work-plan)**
 
 
 
