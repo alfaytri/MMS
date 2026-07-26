@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks.
+🚀 Starting: **Enum Conversion Pass 3 Pilots B + C: `stock_adjustments.adjustment_type` and `inventory_check_log.event_type`**
 
 
 
