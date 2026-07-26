@@ -18,7 +18,7 @@ Each row here is a table you want us to inspect. For each, we decide: keep / ren
 | 1.3 | `bill_line_items` | ~~`team_name`~~ dropped — legacy from invoice_line_items, never written on AP bills (`4f7c70d0`). `match_status` + `match_note` are active (three-way-match feature). `match_status` logged for Pass 3 enum conversion | ✅ |
 | 1.4 | `bills` | Dropped 5 dead cols (`bill_type`/`source`/`source_id`/`status`/`manually_paid`, `cb7b8bb2`). Follow-up (`4986263a`): dropped `tax` + `updated_at`; kept `pdf_url` + `needs_refresh` and wired real PDF cache (BEFORE-UPDATE invalidation trigger + `set_bill_pdf_url` RPC + generator cache-check). Kept: `source_label`, `receival_id`, `division_id`, `payment_status`, `paid_amount` | ✅ |
 | 1.5 | `credit_notes` | `invoice_id` empty is legit (return-before-invoice case). Dropped 5 dead cols (`approved_by`/`phone`/`type`/`notes`/`created_by`) + added 3 FKs (`reason_id`→reason_lists, `customer_id`→customers, `refund_method_id`→payment_methods) with backfill + sync triggers (`5f756722`). PDF now derives phone via customer FK. `refund_method`/`refund_reference` were both active (kept) | ✅ |
-| 1.6 | `custom_roles` | Drop `description` column + drop from UI | ☐ |
+| 1.6 | `custom_roles` | ~~`description`~~ dropped from schema + 3 UI touchpoints (RoleFormDialog, UserRoleDialog, users/page) + `add_workflow_step` RPC slimmed (`dff4bd9a`) | ✅ |
 | 1.7 | `customer_invoices` | Audit — anything unused gets dropped | ☐ |
 | 1.8 | `debit_note_lines` | We record `unit_cost` — from which receival? If a return spans two receivals, how do we split and store it back into inventory? | ☐ |
 | 1.9 | `debit_notes` | Why is `bill_id` sometimes empty? | ☐ |
