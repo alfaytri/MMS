@@ -901,15 +901,19 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                       <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
                       Reconciliation
                     </p>
+                    <p className="text-[10px] text-muted-foreground px-1">
+                      <span className="font-semibold">Expected = Counted + Moved since count.</span>{' '}
+                      A <span className="text-success font-medium">Match</span> means the physical count + any post-count movements equals what the system now shows.
+                    </p>
                     <div className="rounded-md border overflow-hidden">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                             <th className="text-left px-3 py-1.5 font-semibold">Item</th>
-                            <th className="text-right px-2 py-1.5 font-semibold w-[65px]">Counted</th>
-                            <th className="text-right px-2 py-1.5 font-semibold w-[55px]">Moved</th>
-                            <th className="text-right px-2 py-1.5 font-semibold w-[70px]">Expected</th>
-                            <th className="text-right px-2 py-1.5 font-semibold w-[65px]">System</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[65px]" title="What the counter physically counted during the check">Counted</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[55px]" title="Net stock movement since the count was completed (purchases, sales, transfers …)">Moved</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[110px]" title="Counted + Moved — what the system should show now">Expected</th>
+                            <th className="text-right px-2 py-1.5 font-semibold w-[65px]" title="What the system actually shows right now">System</th>
                             <th className="text-right px-3 py-1.5 font-semibold w-[80px]">Status</th>
                           </tr>
                         </thead>
@@ -939,7 +943,18 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                             <td className={`text-right px-2 py-2 tabular-nums align-middle ${netMoved > 0 ? 'text-success' : netMoved < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                               {netMoved === 0 ? '—' : netMoved > 0 ? `+${netMoved}` : netMoved}
                             </td>
-                            <td className="text-right px-2 py-2 tabular-nums font-medium align-middle">{expectedNow}</td>
+                            <td className="text-right px-2 py-2 tabular-nums align-middle">
+                              {netMoved !== 0 ? (
+                                <span className="inline-flex items-baseline gap-1 justify-end">
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {item.counted_qty ?? 0}{netMoved > 0 ? ` + ${netMoved}` : ` − ${Math.abs(netMoved)}`} =
+                                  </span>
+                                  <span className="font-semibold">{expectedNow}</span>
+                                </span>
+                              ) : (
+                                <span className="font-medium">{expectedNow}</span>
+                              )}
+                            </td>
                             <td className="text-right px-2 py-2 tabular-nums align-middle">{systemNow}</td>
                             <td className="text-right px-3 py-2 align-middle">
                               <span className={`inline-flex items-center justify-end gap-0.5 text-[10px] font-semibold ${isMatch ? 'text-success' : 'text-destructive'}`}>
