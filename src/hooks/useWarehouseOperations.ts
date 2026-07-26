@@ -120,13 +120,15 @@ export type StockAdjustment = {
   approved_at: string | null
   created_at: string
   updated_at: string
+  source_check_id: string | null
+  source_check_item_id: string | null
 }
 
 export type StockAdjustmentApprovalStep = {
   id: string
   adjustment_id: string
   step_order: number
-  step_role: 'accounting_manager' | 'inventory_manager' | 'responsible_person' | 'brand_manager' | 'owner'
+  step_role: string
   step_label: string
   status: 'pending' | 'approved' | 'rejected'
   profile_id: string | null
@@ -467,13 +469,14 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
           stock_adjustment_approvals(
             id, adjustment_id, step_order, step_role, step_label, status,
             profile_id, profile_name, action_at, notes, created_at
-          )
+          ),
+          source_check:inventory_checks!source_check_id(id, check_number)
         `)
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q.limit(100)
       if (error) throw error
-      return (data ?? []) as StockAdjustment[]
+      return (data ?? []) as unknown as StockAdjustment[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -490,7 +493,7 @@ export function useCreateStockAdjustment() {
         .select()
         .single()
       if (error) throw error
-      return data as StockAdjustment
+      return data as unknown as StockAdjustment
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
   })
@@ -881,6 +884,76 @@ export function useInventoryCheckApprovals(checkId: string) {
   })
 }
 
+export type CheckGeneratedSA = {
+  id: string
+  adjustment_type: string
+  qty: number
+  status: string
+  created_at: string
+  approved_at: string | null
+  source_check_item_id: string | null
+  reason: string
+  notes: string | null
+  item_name: string | null
+  sku: string | null
+  brand: string | null
+}
+
+export function useInventoryCheckGeneratedSAs(checkId: string) {
+  return useQuery({
+    queryKey: queryKeys.warehouseOps.inventoryCheckGeneratedSAs(checkId),
+    queryFn: async () => {
+      const supabase = createClient()
+      // Cast through unknown: source_check_id / source_check_item_id landed
+      // in migration 20260726120000 but generated types are still stale
+      // (dev project paused during regen).
+      const q = supabase.from('stock_adjustments' as never)
+        .select(`
+          id, adjustment_type, qty, status, created_at, approved_at,
+          source_check_item_id, reason, notes,
+          inventory_item_brand_variants(brand, inventory_items(name_en, sku))
+        `)
+        .eq('source_check_id', checkId)
+        .order('created_at', { ascending: true })
+      const { data, error } = await q as unknown as {
+        data: Array<{
+          id: string
+          adjustment_type: string
+          qty: number | string
+          status: string
+          created_at: string
+          approved_at: string | null
+          source_check_item_id: string | null
+          reason: string
+          notes: string | null
+          inventory_item_brand_variants: {
+            brand: string | null
+            inventory_items: { name_en: string | null; sku: string | null } | null
+          } | null
+        }> | null
+        error: Error | null
+      }
+      if (error) throw error
+      return (data ?? []).map((r) => ({
+        id:                    r.id,
+        adjustment_type:       r.adjustment_type,
+        qty:                   Number(r.qty),
+        status:                r.status,
+        created_at:            r.created_at,
+        approved_at:           r.approved_at,
+        source_check_item_id:  r.source_check_item_id,
+        reason:                r.reason,
+        notes:                 r.notes,
+        item_name:             r.inventory_item_brand_variants?.inventory_items?.name_en ?? null,
+        sku:                   r.inventory_item_brand_variants?.inventory_items?.sku ?? null,
+        brand:                 r.inventory_item_brand_variants?.brand ?? null,
+      } as CheckGeneratedSA))
+    },
+    enabled: !!checkId,
+    staleTime: 30_000,
+  })
+}
+
 export type PostCountMovement = {
   id: string
   brand_variant_id: string
@@ -1162,6 +1235,8 @@ export function useApproveCheckStep() {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckApprovals(vars.checkId) })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckLog(vars.checkId) })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckDetail(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckGeneratedSAs(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })

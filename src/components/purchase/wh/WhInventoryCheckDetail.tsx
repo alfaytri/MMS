@@ -17,6 +17,7 @@ import {
   useInventoryCheckAssignments,
   useInventoryCheckLog,
   useInventoryCheckApprovals,
+  useInventoryCheckGeneratedSAs,
   usePostCountMovements,
   useWarehouseStock,
   useSaveItemCount,
@@ -24,6 +25,7 @@ import {
   useApproveCheckStep,
 } from '@/hooks/useWarehouseOperations'
 import type { InventoryCheck, InventoryCheckItem, PostCountMovement } from '@/hooks/useWarehouseOperations'
+import { cn } from '@/lib/utils'
 import { ItemTreeCell } from './ItemTreeCell'
 import type { Profile } from '@/hooks/useProfiles'
 import { format } from 'date-fns'
@@ -380,6 +382,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   const { data: assignments = [] } = useInventoryCheckAssignments(check.id)
   const { data: logEntries = [] }  = useInventoryCheckLog(check.id)
   const { data: approvals = [] }   = useInventoryCheckApprovals(check.id)
+  const { data: generatedSAs = [] } = useInventoryCheckGeneratedSAs(check.id)
   const approveStep                = useApproveCheckStep()
 
   const items = detail?.items ?? []
@@ -577,6 +580,14 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                 <AlertCircle className="h-3 w-3 ml-1 text-warning" />
               )}
             </TabsTrigger>
+            {generatedSAs.length > 0 && (
+              <TabsTrigger value="adjustments" className="text-xs h-7 px-3">
+                Adjustments
+                <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[9px] font-semibold">
+                  {generatedSAs.length}
+                </Badge>
+              </TabsTrigger>
+            )}
             {canSeeAll && (check.status === 'pending_approval' || check.status === 'approved' || check.status === 'rejected') && (
               <TabsTrigger value="approval" className="text-xs h-7 px-3">Approval Chain</TabsTrigger>
             )}
@@ -783,6 +794,59 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                 </div>
               )
             })()}
+          </TabsContent>
+
+          {/* ── Generated Stock Adjustments ── */}
+          <TabsContent value="adjustments" className="flex-1 min-h-0 overflow-y-auto mt-2">
+            <div className="space-y-2">
+              <div className="rounded-md border overflow-hidden bg-background">
+                <div className="grid grid-cols-[1fr_90px_60px_110px_100px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span>Item</span>
+                  <span>Type</span>
+                  <span className="text-right">Qty</span>
+                  <span className="text-right">Created</span>
+                  <span className="text-right">Status</span>
+                </div>
+                {generatedSAs.map((sa) => {
+                  const typeTone =
+                    sa.adjustment_type === 'increase'  ? 'bg-success/10 text-success'
+                    : sa.adjustment_type === 'damage'    ? 'bg-destructive/10 text-destructive'
+                    : sa.adjustment_type === 'write_off' ? 'bg-destructive/15 text-destructive'
+                    :                                       'bg-warning/10 text-warning'
+                  const statusTone =
+                    sa.status === 'approved'         ? 'bg-success/10 text-success'
+                    : sa.status === 'rejected'         ? 'bg-destructive/10 text-destructive'
+                    : sa.status === 'pending_approval' ? 'bg-warning/10 text-warning'
+                    :                                     'bg-muted text-muted-foreground'
+                  return (
+                    <div
+                      key={sa.id}
+                      className="grid grid-cols-[1fr_90px_60px_110px_100px] gap-2 px-3 py-1.5 border-t text-xs items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{sa.item_name ?? '—'}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {sa.brand ?? '—'}{sa.sku ? ` · ${sa.sku}` : ''}
+                        </p>
+                      </div>
+                      <span className={cn('inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize w-fit', typeTone)}>
+                        {sa.adjustment_type.replace(/_/g, ' ')}
+                      </span>
+                      <span className="text-right tabular-nums font-medium">{sa.qty}</span>
+                      <span className="text-right text-[10px] text-muted-foreground">
+                        {format(new Date(sa.created_at), 'dd MMM, HH:mm')}
+                      </span>
+                      <span className={cn('inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize w-fit ml-auto', statusTone)}>
+                        {sa.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-[10px] text-muted-foreground px-1">
+                These adjustments were auto-generated when the check was approved. Each one now goes through the Stock Adjustment approval chain — actual stock only changes on its final approval.
+              </p>
+            </div>
           </TabsContent>
 
           {/* ── Approval chain ── */}

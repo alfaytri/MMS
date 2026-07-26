@@ -43,6 +43,8 @@ type AdjustmentRow = {
   } | null
   photo_urls?: string[] | null
   stock_adjustment_approvals?: StockAdjustmentApprovalStep[] | null
+  source_check_id?: string | null
+  source_check?: { id: string; check_number: string | null } | null
 }
 
 const TYPE_STYLES: Record<string, string> = {
@@ -153,6 +155,13 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
         </DialogHeader>
 
         <div className="space-y-4">
+          {adjustment.source_check_id && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-center gap-2">
+              <span className="font-semibold">Auto-generated from inventory check</span>
+              <span className="font-mono">{adjustment.source_check?.check_number ?? adjustment.source_check_id}</span>
+            </div>
+          )}
+
           {/* Item & quantity */}
           <div className="rounded-md border p-3 space-y-2">
             <ItemTreeCell category={category} itemType={itemType} itemName={itemName} brand={brand} />

@@ -555,6 +555,8 @@ export const queryKeys = {
       ['inventory_check_log', checkId] as const,
     inventoryCheckApprovals: (checkId: string) =>
       ['inventory_check_approvals', checkId] as const,
+    inventoryCheckGeneratedSAs: (checkId: string) =>
+      ['inventory_check_generated_sas', checkId] as const,
     receivalsDeliveries: ['receivals_deliveries'] as const,
     responsiblePersons: ['warehouse_responsible_persons'] as const,
     responsiblePersonsByWarehouse: (warehouseId: Nullable) =>
