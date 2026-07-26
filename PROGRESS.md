@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Bills PDF cache wiring + drop `tax`/`updated_at` (Section 1.4 follow-up): keep `pdf_url` + `needs_refresh`, cache PDF, invalidate on payment/bill changes**
 
 
 
