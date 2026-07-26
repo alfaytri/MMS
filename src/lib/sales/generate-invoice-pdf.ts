@@ -36,7 +36,7 @@ interface InvoiceRow {
   notes:           string | null
   pdf_url:         string | null
   sale_order_id:   string | null
-  customers:       { name: string | null; phone: string | null } | null
+  customers:       { name: string | null; customer_phones: { phone: string; is_primary: boolean }[] | null } | null
   invoice_line_items: InvoiceLineItem[] | null
   sale_orders:     { so_number: string; payment_terms: string | null; division_id: string | null } | null
 }
@@ -62,7 +62,7 @@ export async function generateInvoicePdf(
       id, invoice_id, invoice_type, issued_date, due_date,
       subtotal, discount_amount, total_amount, paid_amount, payment_status,
       notes, pdf_url, sale_order_id,
-      customers(name, phone),
+      customers(name, customer_phones(phone, is_primary)),
       invoice_line_items(description, qty, unit_price, total),
       sale_orders(so_number, payment_terms, division_id)
     `)
@@ -116,7 +116,10 @@ export async function generateInvoicePdf(
     issued_date:    inv.issued_date,
     due_date:       inv.due_date,
     customer_name:  inv.customers?.name  ?? '',
-    customer_phone: inv.customers?.phone ?? null,
+    customer_phone: (() => {
+      const phones = inv.customers?.customer_phones ?? []
+      return phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? null
+    })(),
     so_number:      inv.sale_orders?.so_number ?? null,
     lines:          inv.invoice_line_items ?? [],
     subtotal,

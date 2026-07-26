@@ -396,7 +396,6 @@ export default function PurchaseOrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>PO Number</TableHead>
-                <TableHead className="w-[90px] text-center">Type</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead className="w-[110px]">Date</TableHead>
                 <TableHead className="w-[80px] text-center hidden md:table-cell">Items</TableHead>
@@ -410,12 +409,12 @@ export default function PurchaseOrdersPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell
                         key={j}
                         className={cn(
-                          j === 3 ? 'hidden md:table-cell' : '',
-                          j === 6 ? 'hidden lg:table-cell' : ''
+                          j === 2 ? 'hidden md:table-cell' : '',
+                          j === 5 ? 'hidden lg:table-cell' : ''
                         )}
                       >
                         <div className="h-4 bg-muted animate-pulse rounded" />
@@ -425,7 +424,7 @@ export default function PurchaseOrdersPage() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="p-0">
+                  <TableCell colSpan={8} className="p-0">
                     <EmptyState
                       title="No purchase orders found"
                       icon={<FileText className="h-6 w-6 text-muted-foreground" />}
@@ -449,17 +448,14 @@ export default function PurchaseOrdersPage() {
                       onClick={() => setDetailPO(po)}
                     >
                       <TableCell>
-                        <span className="font-medium font-mono text-sm">{po.po_number}</span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className={cn(
-                          'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                          po.po_type === 'rfq' ? 'bg-orange-100 text-orange-700'
-                            : po.po_type === 'confirmed' ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-muted text-foreground',
-                        )}>
-                          {po.po_type === 'rfq' ? 'RFQ' : po.po_type === 'confirmed' ? 'Confirmed' : 'Draft'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium font-mono text-sm">{po.po_number}</span>
+                          {po.po_type === 'rfq' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">
+                              RFQ
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {po.po_type === 'rfq' && po.rfq_supplier_ids?.length ? (

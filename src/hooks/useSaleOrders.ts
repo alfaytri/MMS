@@ -502,7 +502,7 @@ export function useSaleOrders(filters: SOFilters = {}) {
       const supabase = createClient()
       let q = supabase
         .from('sale_orders')
-        .select('*, sale_order_lines(*), sale_deliveries(*, sale_delivery_lines(*)), customers!inner(name)')
+        .select('*, sale_order_lines(*), sale_deliveries(*, sale_delivery_lines(*)), customers!inner(name), created_by_user:user_data!sale_orders_created_by_fkey(full_name)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
@@ -526,10 +526,14 @@ export function useSaleOrders(filters: SOFilters = {}) {
       const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((row) => {
-        const r = row as typeof row & { customers?: { name?: string } | null }
+        const r = row as typeof row & {
+          customers?: { name?: string } | null
+          created_by_user?: { full_name?: string } | null
+        }
         return {
           ...row,
-          customer_name: r.customers?.name ?? null,
+          customer_name:    r.customers?.name ?? null,
+          created_by_name:  r.created_by_user?.full_name ?? (row as { created_by_name?: string | null }).created_by_name ?? null,
         }
       }) as unknown as SaleOrder[]
     },
