@@ -137,12 +137,15 @@ function ItemCountRow({
         <span className="text-right tabular-nums">{item.counted_qty ?? '—'}</span>
       ) : (
         <Input
-          type="number"
-          min="0"
-          step="0.01"
+          type="text"
+          inputMode="decimal"
+          pattern="[0-9]*\.?[0-9]*"
           className="h-7 text-xs text-right w-full"
           value={countedStr}
-          onChange={(e) => onCountChange(item.id, e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v === '' || /^\d*\.?\d*$/.test(v)) onCountChange(item.id, v)
+          }}
         />
       )}
 
