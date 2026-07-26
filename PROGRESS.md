@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-No active tasks.
+🚀 Starting: **Enum Conversion Pass 1: Native-enum retypes (8 columns)** — targeting `activity_log.severity`, `tool_asset_units.condition/status`, `bills.status/payment_status`, `customer_credit_group_requests.status`, `customer_credit_group_approvals.status`, `inventory_check_approvals.step_role`. See `EOD/enum-candidates-report.md` + `EOD/enum-code-impact.md` for scope. Pass 2 (FK to existing lookups) queued; Pass 3 (28 blocker columns needing app refactor) deferred.
 
 
 
