@@ -219,6 +219,11 @@ function CountingPanel({
 
   const countedCount    = items.filter((i) => i.is_counted || countMap.has(i.id)).length
   const hasAnyNewCounts = countMap.size > 0
+  const uncountedCount  = items.filter((i) => {
+    const draft = countMap.get(i.id)
+    if (draft !== undefined) return draft.trim() === '' || Number.isNaN(parseFloat(draft))
+    return i.counted_qty == null
+  }).length
 
   async function handleSave() {
     setSaving(true)
@@ -243,11 +248,33 @@ function CountingPanel({
 
   async function handleComplete() {
     if (!assignmentId) return
+
+    // Guard: every assigned item must have a numeric count entered.
+    // A blank produces a phantom variance = -system_qty on a NULL counted_qty
+    // (variance is a generated column that COALESCEs null → 0) and makes
+    // the item look "counted" downstream in the Reconciliation table.
+    // Counters that mean "zero on the shelf" must type 0 explicitly.
+    const missing = items.filter((i) => {
+      const draft = countMap.get(i.id)
+      if (draft !== undefined) {
+        return draft.trim() === '' || Number.isNaN(parseFloat(draft))
+      }
+      return i.counted_qty == null
+    })
+    if (missing.length > 0) {
+      const preview = missing.slice(0, 3).map((i) => i.item_name).join(', ')
+      const more = missing.length > 3 ? ` and ${missing.length - 3} more` : ''
+      toast.error(
+        `${missing.length} item${missing.length === 1 ? '' : 's'} still uncounted: ${preview}${more}. Enter 0 if the shelf is empty.`,
+      )
+      return
+    }
+
     setCompleting(true)
     try {
       // Save unsaved counts first
       for (const [itemId, countedStr] of countMap.entries()) {
-        if (countedStr === '') continue
+        if (countedStr.trim() === '') continue
         await saveCount.mutateAsync({
           itemId,
           checkId,
@@ -341,12 +368,18 @@ function CountingPanel({
       </div>
 
       {!readOnly && assignmentId && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          {uncountedCount > 0 && (
+            <span className="text-[11px] text-warning font-medium">
+              {uncountedCount} item{uncountedCount === 1 ? '' : 's'} still need a count — enter 0 for empty
+            </span>
+          )}
           <Button
             size="sm"
             className="text-xs bg-success text-success-foreground hover:bg-success/90"
             onClick={handleComplete}
-            disabled={completing}
+            disabled={completing || uncountedCount > 0}
+            title={uncountedCount > 0 ? `${uncountedCount} item${uncountedCount === 1 ? '' : 's'} still need a count` : undefined}
           >
             {completing ? 'Completing…' : 'Mark my count as complete'}
           </Button>
