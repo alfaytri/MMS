@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Drop 5 dead cols from `so_invoices` (Section 1.7): `tax`, `sale_delivery_id`, `updated_at`, `manually_paid`, `phone_id`; also collapse the now-degenerate phone-grouped invoice UI**
 
 
 
