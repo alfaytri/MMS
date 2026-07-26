@@ -17,14 +17,11 @@ import {
   useSaleOrder, useUpdateSO,
   calcSOSubtotal, calcSOTotal, hasNegativeMargin,
 } from '@/hooks/useSaleOrders'
+import { useCurrencies } from '@/hooks/useCurrencies'
 
-const CURRENCIES = ['QAR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'KWD'] as const
-const CURRENCY_SYMBOLS: Record<string, string> = { QAR: 'QAR ', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SAR: 'SAR ', KWD: 'KWD ' }
-const CURRENCY_NAMES: Record<string, string> = { QAR: 'Qatari Riyal', USD: 'US Dollar', EUR: 'Euro', GBP: 'British Pound', AED: 'UAE Dirham', SAR: 'Saudi Riyal', KWD: 'Kuwaiti Dinar' }
-
-function sym(c: string) { return CURRENCY_SYMBOLS[c] ?? `${c} ` }
-function fmtAmt(amount: number, currency: string) {
-  return `${sym(currency)}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function fmtAmt(amount: number, currency: string, symbol?: string | null) {
+  const prefix = symbol ? `${symbol} ` : `${currency} `
+  return `${prefix}${amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function EditSOPage() {
@@ -33,6 +30,10 @@ export default function EditSOPage() {
   const { data: so, isLoading } = useSaleOrder(id)
   const updateSO = useUpdateSO()
   const { data: creditInfo } = useCustomerCredit(so?.customer_id ?? null)
+  const { data: currencies = [] } = useCurrencies()
+
+  const currencySymbol = (code: string) =>
+    currencies.find((c) => c.code === code)?.symbol ?? null
 
   const [initialized, setInitialized] = useState(false)
   const [currency, setCurrency] = useState('QAR')
@@ -246,12 +247,14 @@ export default function EditSOPage() {
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CURRENCY</label>
               <select value={currency} onChange={(e) => setCurrency(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                {CURRENCIES.map((c) => <option key={c} value={c}>{sym(c)}{c} — {CURRENCY_NAMES[c]}</option>)}
+                {currencies.map((c) => (
+                  <option key={c.id} value={c.code}>{c.code}{c.symbol ? ` ${c.symbol}` : ''}</option>
+                ))}
               </select>
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">SUBTOTAL ({currency})</label>
-              <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">{fmtAmt(subtotal, currency)}</div>
+              <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">{fmtAmt(subtotal, currency, currencySymbol(currency))}</div>
               {needsExchangeRate && exchangeRateValid && (
                 <p className="text-[10px] text-muted-foreground tabular-nums">
                   ≈ {fmtAmt(subtotal * exchangeRate, 'QAR')}
@@ -261,7 +264,7 @@ export default function EditSOPage() {
             {discountAmount > 0 && (
               <div className="space-y-1">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">GRAND TOTAL ({currency})</label>
-                <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">{fmtAmt(total, currency)}</div>
+                <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">{fmtAmt(total, currency, currencySymbol(currency))}</div>
                 {needsExchangeRate && exchangeRateValid && (
                   <p className="text-[10px] text-muted-foreground tabular-nums">
                     ≈ {fmtAmt(total * exchangeRate, 'QAR')}
