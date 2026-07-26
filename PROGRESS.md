@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Enum Conversion Pass 3 batch: 6 easy-win columns (`customers.entity_type`, `payments.direction`, `sale_deliveries.type`, `credit_notes.resolution_type`, `receivals.source_type`, `inventory_stock_movements.movement_type`)**
+🚀 Starting: **Enum Conversion Pass 3: `credit_note_lines.line_type` + `debit_note_lines.line_type` → native `credit_debit_line_type` enum (`'original'`, `'returned'`)**
 
 
 
