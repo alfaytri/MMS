@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Drop unused `debit_note_lines.bill_line_id` (Section 1.8)**
 
 
 
