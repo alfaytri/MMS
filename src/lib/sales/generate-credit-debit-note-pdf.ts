@@ -49,8 +49,8 @@ interface DebitNoteRow {
   id:               string
   debit_note_id:    string
   bill_id:          string | null
+  supplier_id:      string | null
   supplier_name:    string | null
-  phone:            string | null
   reason:           string
   created_at:       string
   original_total:   number | null
@@ -58,6 +58,7 @@ interface DebitNoteRow {
   debit_note_lines: CreditNoteLineRow[]
   source_return_id: string | null
   pdf_url:          string | null
+  suppliers:        { phone: string | null } | null
 }
 
 export interface GenerateCreditDebitNotePdfResult {
@@ -95,9 +96,10 @@ export async function generateCreditDebitNotePdf(
     const { data: note, error: fetchErr } = await supabase
       .from('debit_notes')
       .select(`
-        id, debit_note_id, bill_id,
-        supplier_name, phone, reason, created_at,
-        original_total, new_total, debit_note_lines(*), source_return_id, pdf_url
+        id, debit_note_id, bill_id, supplier_id,
+        supplier_name, reason, created_at,
+        original_total, new_total, debit_note_lines(*), source_return_id, pdf_url,
+        suppliers(phone)
       `)
       .eq('id', noteUuid)
       .single<DebitNoteRow>()
@@ -110,7 +112,7 @@ export async function generateCreditDebitNotePdf(
     noteDisplayId = note.debit_note_id
     invoiceOrBillId = note.bill_id
     supplierName = note.supplier_name
-    phone = note.phone
+    phone = note.suppliers?.phone ?? null
     reason = note.reason
     createdAt = note.created_at
     originalTotal = note.original_total

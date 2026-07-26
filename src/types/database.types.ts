@@ -1293,91 +1293,68 @@ export type Database = {
       }
       debit_notes: {
         Row: {
-          approved_by: string | null
           bill_id: string | null
           created_at: string
-          created_by: string | null
           debit_note_id: string
           id: string
           new_total: number | null
-          notes: string | null
           original_total: number | null
           pdf_url: string | null
-          phone: string | null
           purchase_order_id: string | null
           reason: string
+          reason_id: string | null
           resolution_type: string | null
           source_return_id: string | null
           status: Database["public"]["Enums"]["credit_note_status"] | null
+          supplier_id: string | null
           supplier_name: string | null
           total_amount: number
-          type: string
           updated_at: string
         }
         Insert: {
-          approved_by?: string | null
           bill_id?: string | null
           created_at?: string
-          created_by?: string | null
           debit_note_id: string
           id?: string
           new_total?: number | null
-          notes?: string | null
           original_total?: number | null
           pdf_url?: string | null
-          phone?: string | null
           purchase_order_id?: string | null
           reason: string
+          reason_id?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
+          supplier_id?: string | null
           supplier_name?: string | null
           total_amount?: number
-          type?: string
           updated_at?: string
         }
         Update: {
-          approved_by?: string | null
           bill_id?: string | null
           created_at?: string
-          created_by?: string | null
           debit_note_id?: string
           id?: string
           new_total?: number | null
-          notes?: string | null
           original_total?: number | null
           pdf_url?: string | null
-          phone?: string | null
           purchase_order_id?: string | null
           reason?: string
+          reason_id?: string | null
           resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
+          supplier_id?: string | null
           supplier_name?: string | null
           total_amount?: number
-          type?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "debit_notes_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "debit_notes_bill_id_fkey"
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
           {
@@ -1388,10 +1365,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "debit_notes_reason_id_fkey"
+            columns: ["reason_id"]
+            isOneToOne: false
+            referencedRelation: "reason_lists"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "debit_notes_source_return_id_fkey"
             columns: ["source_return_id"]
             isOneToOne: false
             referencedRelation: "so_po_returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debit_notes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]

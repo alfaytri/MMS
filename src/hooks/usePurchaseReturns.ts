@@ -182,7 +182,7 @@ async function createDebitNoteForReturn(
   // 1. Fetch PO details with line items
   const { data: po } = await supabase
     .from('purchase_orders')
-    .select('supplier_name, total_qar, po_number, po_line_items(*)')
+    .select('supplier_id, supplier_name, total_qar, po_number, po_line_items(*)')
     .eq('id', ret.source_id)
     .single()
   type PoLineRow = { item_name: string; sku: string | null; brand_variant_id: string | null; unit_price: number; qty: number; total_price?: number }
@@ -229,11 +229,11 @@ async function createDebitNoteForReturn(
     .insert({
       debit_note_id,
       bill_id:           null,
+      supplier_id:       (po as { supplier_id?: string | null } | null)?.supplier_id ?? null,
       supplier_name:     po?.supplier_name ?? null,
       purchase_order_id: ret.source_id,
       source_return_id:  returnId,
       reason:            ret.reason,
-      type:              'auto',
       status:            'issued',
       total_amount:      dnTotal,
       original_total:    originalTotal,

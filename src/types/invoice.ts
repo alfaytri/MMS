@@ -94,9 +94,10 @@ export type DebitNote = {
   debit_note_id: string
   bill_id: string | null
   purchase_order_id: string | null
+  supplier_id: string | null
   supplier_name: string | null
   reason: string
-  type: string
+  reason_id: string | null
   status: string | null
   total_amount: number
   original_total: number | null
@@ -104,11 +105,7 @@ export type DebitNote = {
   currency?: string | null
   source_return_id: string | null
   resolution_type: string | null
-  notes: string | null
   pdf_url: string | null
-  phone: string | null
-  approved_by: string | null
-  created_by: string | null
   created_at: string
   updated_at: string
   po_number?: string | null
