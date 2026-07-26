@@ -1243,7 +1243,6 @@ export type Database = {
       }
       debit_note_lines: {
         Row: {
-          bill_line_id: string | null
           condition: string | null
           condition_notes: string | null
           created_at: string | null
@@ -1257,7 +1256,6 @@ export type Database = {
           unit_price: number
         }
         Insert: {
-          bill_line_id?: string | null
           condition?: string | null
           condition_notes?: string | null
           created_at?: string | null
@@ -1271,7 +1269,6 @@ export type Database = {
           unit_price: number
         }
         Update: {
-          bill_line_id?: string | null
           condition?: string | null
           condition_notes?: string | null
           created_at?: string | null
@@ -1285,13 +1282,6 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "debit_note_lines_bill_line_id_fkey"
-            columns: ["bill_line_id"]
-            isOneToOne: false
-            referencedRelation: "bill_line_items"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "debit_note_lines_debit_note_id_fkey"
             columns: ["debit_note_id"]

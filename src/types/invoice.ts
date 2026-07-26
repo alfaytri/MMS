@@ -118,7 +118,6 @@ export type DebitNote = {
 export type DebitNoteLine = {
   id: string
   debit_note_id: string
-  bill_line_id: string | null
   description: string | null
   sku: string | null
   qty: number
