@@ -2585,6 +2585,7 @@ export type Database = {
           id: string
           invoice_id: string | null
           method: string
+          method_id: string | null
           notes: string | null
           payment_id: string | null
           qb_synced: boolean | null
@@ -2616,6 +2617,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           method: string
+          method_id?: string | null
           notes?: string | null
           payment_id?: string | null
           qb_synced?: boolean | null
@@ -2647,6 +2649,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           method?: string
+          method_id?: string | null
           notes?: string | null
           payment_id?: string | null
           qb_synced?: boolean | null
@@ -2706,6 +2709,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "so_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_method_id_fkey"
+            columns: ["method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
             referencedColumns: ["id"]
           },
           {
@@ -4655,6 +4665,7 @@ export type Database = {
           category: string | null
           contact_name: string | null
           country: string | null
+          country_id: number | null
           created_at: string
           created_by: string | null
           currency_id: string | null
@@ -4672,6 +4683,7 @@ export type Database = {
           category?: string | null
           contact_name?: string | null
           country?: string | null
+          country_id?: number | null
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
@@ -4689,6 +4701,7 @@ export type Database = {
           category?: string | null
           contact_name?: string | null
           country?: string | null
+          country_id?: number | null
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
@@ -4702,6 +4715,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "suppliers_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_codes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suppliers_created_by_fkey"
             columns: ["created_by"]
