@@ -2866,7 +2866,7 @@ export type Database = {
           review_comment: string | null
           reviewed_at: string | null
           reviewed_by: string | null
-          status: string
+          status: Database["public"]["Enums"]["po_edit_request_status"]
           used_at: string | null
         }
         Insert: {
@@ -2878,7 +2878,7 @@ export type Database = {
           review_comment?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["po_edit_request_status"]
           used_at?: string | null
         }
         Update: {
@@ -2890,7 +2890,7 @@ export type Database = {
           review_comment?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["po_edit_request_status"]
           used_at?: string | null
         }
         Relationships: [
@@ -6490,6 +6490,7 @@ export type Database = {
         | "failed"
         | "refunded"
         | "processing"
+      po_edit_request_status: "pending" | "approved" | "rejected" | "used"
       po_stage: "rfq" | "draft" | "po"
       po_status:
         | "draft"
@@ -6789,6 +6790,7 @@ export const Constants = {
         "refunded",
         "processing",
       ],
+      po_edit_request_status: ["pending", "approved", "rejected", "used"],
       po_stage: ["rfq", "draft", "po"],
       po_status: [
         "draft",
