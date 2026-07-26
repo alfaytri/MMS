@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Drop unused `activity_log.ip_address` column (Section 1.1 of next-work-plan)**
 
 
 
