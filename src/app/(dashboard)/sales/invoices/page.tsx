@@ -121,7 +121,7 @@ export default function CustomerInvoicesPage() {
       ),
       cell: ({ row }) => (
         <span className="text-xs tabular-nums block text-right font-medium">
-          {formatCurrency(row.getValue('total_amount') ?? 0, 'QAR')}
+          {formatCurrency(row.getValue('total_amount') ?? 0, row.original.currency ?? 'QAR')}
         </span>
       ),
     },
@@ -223,7 +223,7 @@ export default function CustomerInvoicesPage() {
                   </span>
                 ) : <span>Due: {formatDate(inv.due_date)}</span>}
                 <span className={cn('tabular-nums font-medium text-foreground', inv.payment_status === 'overdue' && 'text-destructive')}>
-                  {formatCurrency(inv.total_amount ?? 0, 'QAR')}
+                  {formatCurrency(inv.total_amount ?? 0, inv.currency ?? 'QAR')}
                 </span>
               </div>
             </div>

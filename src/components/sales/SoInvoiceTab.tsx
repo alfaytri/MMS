@@ -86,7 +86,7 @@ export function SoInvoiceTab({ so, onClose }: SoInvoiceTabProps) {
         <span>
           Total billed:{' '}
           <span className="font-semibold text-foreground">
-            {formatCurrency(totalAmount, 'QAR')}
+            {formatCurrency(totalAmount, so.currency ?? 'QAR')}
           </span>
         </span>
       </div>
@@ -132,11 +132,11 @@ export function SoInvoiceTab({ so, onClose }: SoInvoiceTabProps) {
                 </span>
               </TableCell>
               <TableCell className="text-right tabular-nums text-sm font-medium">
-                {formatCurrency(totalAmount, 'QAR')}
+                {formatCurrency(totalAmount, so.currency ?? 'QAR')}
               </TableCell>
               <TableCell className="text-right tabular-nums text-sm hidden sm:table-cell">
                 {paidAmount > 0 ? (
-                  <span className="text-emerald-600">{formatCurrency(paidAmount, 'QAR')}</span>
+                  <span className="text-emerald-600">{formatCurrency(paidAmount, so.currency ?? 'QAR')}</span>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}

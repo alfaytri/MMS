@@ -52,6 +52,7 @@ export type CreditNote = {
   total_amount: number
   original_total: number | null
   new_total: number | null
+  currency?: string | null
   source_return_id: string | null
   resolution_type: 'refund' | 'replacement' | 'store_credit' | null
   refund_method: string | null

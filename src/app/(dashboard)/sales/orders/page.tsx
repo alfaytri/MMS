@@ -292,7 +292,7 @@ export default function SaleOrdersPage() {
     {
       accessorKey: 'total',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Total (QAR)" />,
-      cell: ({ row }) => <span className="font-medium tabular-nums">{formatCurrency(row.getValue('total'), 'QAR')}</span>,
+      cell: ({ row }) => <span className="font-medium tabular-nums">{formatCurrency(row.getValue('total'), row.original.currency ?? 'QAR')}</span>,
     },
     {
       id: 'payment',
@@ -438,6 +438,7 @@ export default function SaleOrdersPage() {
             </div>
             <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Total Value</p>
+              {/* TODO: multi-currency aggregation */}
               <p className="text-2xl font-bold tabular-nums">{formatCurrency(stats.totalValue, 'QAR')}</p>
             </div>
           </CardContent>
@@ -600,7 +601,7 @@ export default function SaleOrdersPage() {
               <p className="text-sm text-muted-foreground truncate">{so.customer_name ?? '—'}</p>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{formatDate(so.created_at)}</span>
-                <span className="font-medium text-foreground tabular-nums">{formatCurrency(so.total, 'QAR')}</span>
+                <span className="font-medium text-foreground tabular-nums">{formatCurrency(so.total, so.currency ?? 'QAR')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className={cn('text-[10px]', pCfg.className)}>{pCfg.label}</Badge>

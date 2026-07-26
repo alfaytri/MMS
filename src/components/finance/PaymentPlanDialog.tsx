@@ -25,6 +25,7 @@ type Props = {
   onOpenChange: (v: boolean) => void
   invoiceId: string
   outstanding: number
+  currency?: string | null
   labels?: PaymentPlanLabels
 }
 
@@ -35,8 +36,10 @@ export function PaymentPlanDialog({
   onOpenChange,
   invoiceId,
   outstanding,
+  currency,
   labels = AP_LABELS,
 }: Props) {
+  const cur = currency ?? 'QAR'
   const createPlan = useCreatePaymentPlan()
   const [planType, setPlanType]         = useState<'schedule' | 'adhoc'>('schedule')
   const [installments, setInstallments] = useState<InstallmentDraft[]>([
@@ -54,7 +57,7 @@ export function PaymentPlanDialog({
   const submit = async () => {
     if (planType === 'schedule' && !balanceOk) {
       toast.error(
-        `Installment total (${formatCurrency(totalDefined, 'QAR')}) must equal outstanding (${formatCurrency(outstanding, 'QAR')})`
+        `Installment total (${formatCurrency(totalDefined, cur)}) must equal outstanding (${formatCurrency(outstanding, cur)})`
       )
       return
     }
@@ -87,7 +90,7 @@ export function PaymentPlanDialog({
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {labels.partyLabel} — {labels.amountLabel} outstanding:{' '}
-            <span className="font-semibold text-foreground">{formatCurrency(outstanding, 'QAR')}</span>
+            <span className="font-semibold text-foreground">{formatCurrency(outstanding, cur)}</span>
           </p>
           <div className="flex gap-2">
             {(['schedule', 'adhoc'] as const).map((t) => (
@@ -150,8 +153,8 @@ export function PaymentPlanDialog({
             ))}
             {planType === 'schedule' && (
               <p className={`text-xs ${balanceOk ? 'text-success' : 'text-amber-600'}`}>
-                Total defined: {formatCurrency(totalDefined, 'QAR')} /{' '}
-                {formatCurrency(outstanding, 'QAR')} outstanding
+                Total defined: {formatCurrency(totalDefined, cur)} /{' '}
+                {formatCurrency(outstanding, cur)} outstanding
               </p>
             )}
           </div>

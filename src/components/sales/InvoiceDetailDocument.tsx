@@ -136,8 +136,8 @@ export function InvoiceDetailDocument({
                 <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                 <TableCell className="font-medium">{li.description}</TableCell>
                 <TableCell className="text-right">{li.qty ?? '—'}</TableCell>
-                <TableCell className="text-right">{formatCurrency(li.unit_price ?? 0, 'QAR')}</TableCell>
-                <TableCell className="text-right font-medium">{formatCurrency(li.total ?? 0, 'QAR')}</TableCell>
+                <TableCell className="text-right">{formatCurrency(li.unit_price ?? 0, invoice.currency ?? 'QAR')}</TableCell>
+                <TableCell className="text-right font-medium">{formatCurrency(li.total ?? 0, invoice.currency ?? 'QAR')}</TableCell>
               </TableRow>
             ))}
             {(invoice.invoice_line_items ?? []).length === 0 && (
@@ -155,18 +155,18 @@ export function InvoiceDetailDocument({
           {(invoice.subtotal ?? 0) > 0 && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal:</span>
-              <span>{formatCurrency(invoice.subtotal ?? 0, 'QAR')}</span>
+              <span>{formatCurrency(invoice.subtotal ?? 0, invoice.currency ?? 'QAR')}</span>
             </div>
           )}
           {(invoice.tax ?? 0) > 0 && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tax:</span>
-              <span>{formatCurrency(invoice.tax ?? 0, 'QAR')}</span>
+              <span>{formatCurrency(invoice.tax ?? 0, invoice.currency ?? 'QAR')}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-base">
             <span>Grand Total:</span>
-            <span>{formatCurrency(invoice.total_amount ?? 0, 'QAR')}</span>
+            <span>{formatCurrency(invoice.total_amount ?? 0, invoice.currency ?? 'QAR')}</span>
           </div>
         </div>
       </div>
@@ -190,7 +190,7 @@ export function InvoiceDetailDocument({
                 <TableRow key={p.id}>
                   <TableCell>{formatDate(p.date)}</TableCell>
                   <TableCell className="capitalize">{p.method.replace(/_/g, ' ')}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(p.amount, 'QAR')}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(p.amount, invoice.currency ?? 'QAR')}</TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">{p.reference ?? '—'}</TableCell>
                 </TableRow>
               ))}
@@ -200,19 +200,19 @@ export function InvoiceDetailDocument({
         <div className="flex justify-end mt-4">
           <div className="w-64 space-y-1.5 text-sm border-t pt-3">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Amount (QAR):</span>
-              <span>{formatCurrency(invoice.total_amount ?? 0, 'QAR')}</span>
+              <span className="text-muted-foreground">{`Total Amount (${invoice.currency ?? 'QAR'}):`}</span>
+              <span>{formatCurrency(invoice.total_amount ?? 0, invoice.currency ?? 'QAR')}</span>
             </div>
             <div className="flex justify-between text-green-600 font-medium">
               <span>Total Paid:</span>
-              <span>{formatCurrency(totalPaid, 'QAR')}</span>
+              <span>{formatCurrency(totalPaid, invoice.currency ?? 'QAR')}</span>
             </div>
             <div className={cn(
               'flex justify-between font-bold',
               balance > 0 ? 'text-red-600' : balance < 0 ? 'text-amber-600' : 'text-green-600'
             )}>
               <span>Balance:</span>
-              <span>{formatCurrency(balance, 'QAR')}</span>
+              <span>{formatCurrency(balance, invoice.currency ?? 'QAR')}</span>
             </div>
             <div className="pt-1">
               <Badge className={cn('text-xs', PAY_STATUS_COLORS[invoice.payment_status] ?? '')}>
@@ -243,7 +243,7 @@ export function InvoiceDetailDocument({
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell>{inst.due_date ? formatDate(inst.due_date) : '—'}</TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatCurrency(inst.amount, 'QAR')}
+                      {formatCurrency(inst.amount, invoice.currency ?? 'QAR')}
                     </TableCell>
                     <TableCell>
                       <span className={cn(

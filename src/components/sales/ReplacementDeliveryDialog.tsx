@@ -33,13 +33,15 @@ interface ReplacementDeliveryDialogProps {
   onOpenChange: (open: boolean) => void
   returnData: SaleReturn
   soId: string
+  currency?: string | null
   onConfirm: (warehouseId: string, warehouseName: string, giftItems: GiftItem[]) => void
   isPending: boolean
 }
 
 export function ReplacementDeliveryDialog({
-  open, onOpenChange, returnData, onConfirm, isPending,
+  open, onOpenChange, returnData, currency, onConfirm, isPending,
 }: ReplacementDeliveryDialogProps) {
+  const cur = currency ?? 'QAR'
   const [warehouseId, setWarehouseId] = useState('')
   const [giftItems, setGiftItems] = useState<GiftItem[]>([])
   const [pickerValue, setPickerValue] = useState<InventoryLookupResult | null>(null)
@@ -190,7 +192,7 @@ export function ReplacementDeliveryDialog({
                         />
                       </TableCell>
                       <TableCell className="text-right text-sm">
-                        {formatCurrency(gift.unit_price, 'QAR')}
+                        {formatCurrency(gift.unit_price, cur)}
                       </TableCell>
                       <TableCell>
                         <Button
@@ -211,7 +213,7 @@ export function ReplacementDeliveryDialog({
 
             {giftItems.length > 0 && (
               <p className="text-sm text-muted-foreground text-right">
-                Goodwill cost: <span className="font-medium text-foreground">{formatCurrency(goodwillCost, 'QAR')}</span>
+                Goodwill cost: <span className="font-medium text-foreground">{formatCurrency(goodwillCost, cur)}</span>
               </p>
             )}
           </div>

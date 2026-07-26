@@ -34,7 +34,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   // top of the dialog when > 0. Other currencies are ignored — mixing e.g. USD
   // credit against a QAR invoice would need exchange-rate handling that we
   // don't want to hide from the user in a one-click flow.
-  const invoiceCurrency = 'QAR'
+  const invoiceCurrency = invoice.currency ?? 'QAR'
   const { data: openCNs = [] } = useOpenCreditNotesForCustomer(open ? invoice.customer_id : null)
   const availableCredit = useMemo(
     () => openCNs.filter((n) => n.currency === invoiceCurrency).reduce((s, n) => s + n.amount, 0),
@@ -147,9 +147,9 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Total:</span> <span className="font-medium">{formatCurrency(invoice.total_amount ?? 0, 'QAR')}</span></div>
-            <div><span className="text-muted-foreground">Paid:</span> <span className="font-medium text-green-700">{formatCurrency(alreadyPaid, 'QAR')}</span></div>
-            <div className="col-span-2 font-semibold">Outstanding: {formatCurrency(outstanding, 'QAR')}</div>
+            <div><span className="text-muted-foreground">Total:</span> <span className="font-medium">{formatCurrency(invoice.total_amount ?? 0, invoiceCurrency)}</span></div>
+            <div><span className="text-muted-foreground">Paid:</span> <span className="font-medium text-green-700">{formatCurrency(alreadyPaid, invoiceCurrency)}</span></div>
+            <div className="col-span-2 font-semibold">Outstanding: {formatCurrency(outstanding, invoiceCurrency)}</div>
           </div>
 
           {plans.length > 0 && (

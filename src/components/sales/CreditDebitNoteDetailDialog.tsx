@@ -176,10 +176,10 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
                       <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
-                        {formatCurrency(line.unit_price, 'QAR')}
+                        {formatCurrency(line.unit_price, note.currency ?? 'QAR')}
                       </TableCell>
                       <TableCell className="text-sm text-right font-medium whitespace-nowrap tabular-nums">
-                        {formatCurrency(line.total, 'QAR')}
+                        {formatCurrency(line.total, note.currency ?? 'QAR')}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -217,10 +217,10 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{conditionLabel(line)}</TableCell>
                       )}
                       <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
-                        {formatCurrency(line.unit_price, 'QAR')}
+                        {formatCurrency(line.unit_price, note.currency ?? 'QAR')}
                       </TableCell>
                       <TableCell className="text-sm text-right font-medium whitespace-nowrap tabular-nums">
-                        {formatCurrency(line.total, 'QAR')}
+                        {formatCurrency(line.total, note.currency ?? 'QAR')}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -237,16 +237,16 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
           <div className="flex flex-col gap-1.5 text-sm w-64">
             <div className="flex justify-between gap-8">
               <span className="text-muted-foreground">Original Total</span>
-              <span className="whitespace-nowrap tabular-nums">{formatCurrency(note.original_total ?? 0, 'QAR')}</span>
+              <span className="whitespace-nowrap tabular-nums">{formatCurrency(note.original_total ?? 0, note.currency ?? 'QAR')}</span>
             </div>
             <div className="flex justify-between gap-8 text-destructive">
               <span>{amtLabel}</span>
-              <span className="whitespace-nowrap tabular-nums">− {formatCurrency(note.total_amount, 'QAR')}</span>
+              <span className="whitespace-nowrap tabular-nums">− {formatCurrency(note.total_amount, note.currency ?? 'QAR')}</span>
             </div>
             <Separator className="my-1" />
             <div className="flex justify-between gap-8 font-semibold text-base">
               <span>New Total</span>
-              <span className="whitespace-nowrap tabular-nums">{formatCurrency(note.new_total ?? 0, 'QAR')}</span>
+              <span className="whitespace-nowrap tabular-nums">{formatCurrency(note.new_total ?? 0, note.currency ?? 'QAR')}</span>
             </div>
           </div>
         </div>
@@ -298,7 +298,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                     <AlertDialogHeader>
                       <AlertDialogTitle>Add to Customer Credit Balance?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will add {formatCurrency(note.total_amount, 'QAR')} to the
+                        This will add {formatCurrency(note.total_amount, note.currency ?? 'QAR')} to the
                         customer&apos;s credit balance for use on future orders.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -387,7 +387,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                   <AlertDialogHeader>
                     <AlertDialogTitle>Mark as Supplier Credit?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Mark {noteDisplayId} ({formatCurrency(note.total_amount, 'QAR')}) as supplier credit.
+                      Mark {noteDisplayId} ({formatCurrency(note.total_amount, note.currency ?? 'QAR')}) as supplier credit.
                       This amount will be tracked for deduction from future bills.
                     </AlertDialogDescription>
                   </AlertDialogHeader>

@@ -299,7 +299,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
                               />
                             </TableCell>
                             <TableCell className="text-right text-sm font-medium">
-                              {formatCurrency(lineTotal, 'QAR')}
+                              {formatCurrency(lineTotal, po.currency ?? 'QAR')}
                             </TableCell>
                           </TableRow>
                         )
@@ -313,7 +313,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
                   <div className="flex gap-8">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-semibold min-w-[120px] text-right">
-                      {formatCurrency(subtotal, 'QAR')}
+                      {formatCurrency(subtotal, po.currency ?? 'QAR')}
                     </span>
                   </div>
                   {discount > 0 && (
@@ -322,14 +322,14 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
                         {po.discount_label ? `Discount (${po.discount_label})` : 'Discount'}
                       </span>
                       <span className="font-semibold min-w-[120px] text-right text-destructive">
-                        −{formatCurrency(discount, 'QAR')}
+                        −{formatCurrency(discount, po.currency ?? 'QAR')}
                       </span>
                     </div>
                   )}
                   <div className="flex gap-8 border-t pt-1 w-full justify-end">
                     <span className="font-bold">Grand Total</span>
                     <span className="font-bold min-w-[120px] text-right">
-                      {formatCurrency(grandTotal, 'QAR')}
+                      {formatCurrency(grandTotal, po.currency ?? 'QAR')}
                     </span>
                   </div>
                 </div>

@@ -118,7 +118,7 @@ export default function BillsPage() {
       ),
       cell: ({ row }) => (
         <span className="text-xs tabular-nums block text-right font-medium">
-          {formatCurrency(row.getValue('total_amount') ?? 0, 'QAR')}
+          {formatCurrency(row.getValue('total_amount') ?? 0, row.original.currency ?? 'QAR')}
         </span>
       ),
     },
@@ -223,7 +223,7 @@ export default function BillsPage() {
                   </span>
                 ) : <span>—</span>}
                 <span className={cn('tabular-nums font-medium text-foreground', bill.payment_status === 'overdue' && 'text-destructive')}>
-                  {formatCurrency(bill.total_amount ?? 0, 'QAR')}
+                  {formatCurrency(bill.total_amount ?? 0, bill.currency ?? 'QAR')}
                 </span>
               </div>
             </div>

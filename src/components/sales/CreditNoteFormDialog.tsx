@@ -224,7 +224,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                     <span className="mx-1 text-muted-foreground">·</span>
                     {inv.customer_name}
                     <span className="mx-1 text-muted-foreground">·</span>
-                    <span className="tabular-nums">{formatCurrency(inv.total_amount ?? 0, 'QAR')}</span>
+                    <span className="tabular-nums">{formatCurrency(inv.total_amount ?? 0, inv.currency ?? 'QAR')}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -238,7 +238,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
               <div className="rounded-md border bg-muted/30 p-3 grid grid-cols-3 gap-3 text-sm">
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Invoice total</div>
-                  <div className="font-semibold tabular-nums">{formatCurrency(invoiceTotal, 'QAR')}</div>
+                  <div className="font-semibold tabular-nums">{formatCurrency(invoiceTotal, selectedInvoice.currency ?? 'QAR')}</div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Already credited</div>
@@ -246,7 +246,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                     'font-semibold tabular-nums',
                     alreadyCredited > 0 && 'text-amber-600'
                   )}>
-                    {formatCurrency(alreadyCredited, 'QAR')}
+                    {formatCurrency(alreadyCredited, selectedInvoice.currency ?? 'QAR')}
                   </div>
                 </div>
                 <div>
@@ -255,7 +255,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                     'font-semibold tabular-nums',
                     remainingCreditable === 0 ? 'text-destructive' : 'text-foreground'
                   )}>
-                    {formatCurrency(remainingCreditable, 'QAR')}
+                    {formatCurrency(remainingCreditable, selectedInvoice.currency ?? 'QAR')}
                   </div>
                 </div>
               </div>
@@ -301,7 +301,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                   {mode === 'full' && (
                     <div className="rounded-md border bg-background p-3 text-sm">
                       <div className="text-muted-foreground text-xs mb-1">Will credit the full remaining balance</div>
-                      <div className="text-lg font-semibold tabular-nums">{formatCurrency(remainingCreditable, 'QAR')}</div>
+                      <div className="text-lg font-semibold tabular-nums">{formatCurrency(remainingCreditable, selectedInvoice.currency ?? 'QAR')}</div>
                     </div>
                   )}
 
@@ -311,7 +311,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                       <Label htmlFor="cn-partial">
                         Amount <span className="text-destructive">*</span>
                         <span className="ml-1 text-xs text-muted-foreground font-normal">
-                          (max {formatCurrency(remainingCreditable, 'QAR')})
+                          (max {formatCurrency(remainingCreditable, selectedInvoice.currency ?? 'QAR')})
                         </span>
                       </Label>
                       <Input
@@ -384,10 +384,10 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                                       />
                                     </td>
                                     <td className="text-right py-2 px-2 text-xs tabular-nums text-muted-foreground">
-                                      {formatCurrency(line.original_unit_price, 'QAR')}
+                                      {formatCurrency(line.original_unit_price, selectedInvoice.currency ?? 'QAR')}
                                     </td>
                                     <td className="text-right py-2 pr-3 text-xs tabular-nums font-medium">
-                                      {formatCurrency(lineTotal, 'QAR')}
+                                      {formatCurrency(lineTotal, selectedInvoice.currency ?? 'QAR')}
                                     </td>
                                   </tr>
                                 )
@@ -436,13 +436,13 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                         'text-lg font-bold tabular-nums',
                         overLimit && 'text-destructive'
                       )}>
-                        {formatCurrency(cnTotal, 'QAR')}
+                        {formatCurrency(cnTotal, selectedInvoice.currency ?? 'QAR')}
                       </div>
                     </div>
                     {overLimit && (
                       <div className="text-xs text-destructive flex items-center gap-1.5">
                         <AlertTriangle className="h-3.5 w-3.5" />
-                        Exceeds remaining {formatCurrency(remainingCreditable, 'QAR')}
+                        Exceeds remaining {formatCurrency(remainingCreditable, selectedInvoice.currency ?? 'QAR')}
                       </div>
                     )}
                   </div>

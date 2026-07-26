@@ -226,19 +226,19 @@ export function BillDetailDocument({
         <div className="flex justify-end mt-4">
           <div className="w-64 space-y-1.5 text-sm border-t pt-3">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Amount (QAR):</span>
-              <span>{formatCurrency(bill.total_amount, 'QAR')}</span>
+              <span className="text-muted-foreground">Total Amount ({currency}):</span>
+              <span>{formatCurrency(bill.total_amount, currency)}</span>
             </div>
             <div className="flex justify-between text-green-600 font-medium">
               <span>Total Paid:</span>
-              <span>{formatCurrency(totalPaid, 'QAR')}</span>
+              <span>{formatCurrency(totalPaid, currency)}</span>
             </div>
             <div className={cn(
               'flex justify-between font-bold',
               balance > 0 ? 'text-red-600' : balance < 0 ? 'text-amber-600' : 'text-green-600'
             )}>
               <span>Balance:</span>
-              <span>{formatCurrency(balance, 'QAR')}</span>
+              <span>{formatCurrency(balance, currency)}</span>
             </div>
             <div className="pt-1">
               <Badge className={cn('text-xs', PAY_STATUS_COLORS[bill.payment_status] ?? '')}>
@@ -338,9 +338,9 @@ export function BillDetailDocument({
                 <TableRow key={inst.id}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>{formatDate(inst.due_date)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(inst.amount, 'QAR')}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(inst.amount, currency)}</TableCell>
                   <TableCell className="text-right text-green-600">
-                    {formatCurrency(inst.paid_amount, 'QAR')}
+                    {formatCurrency(inst.paid_amount, currency)}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="text-xs capitalize">

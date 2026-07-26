@@ -44,6 +44,7 @@ export type ArInvoice = {
   subtotal: number | null
   tax: number | null
   paid_amount: number | null
+  currency?: string | null
   issued_date: string
   due_date: string
   notes: string | null
@@ -80,6 +81,7 @@ export type Bill = {
   discount_amount: number
   discount_label: string | null
   tax: number | null
+  currency?: string | null
   issued_date: string
   due_date: string
   notes: string | null
@@ -108,6 +110,7 @@ export type DebitNote = {
   total_amount: number
   original_total: number | null
   new_total: number | null
+  currency?: string | null
   source_return_id: string | null
   resolution_type: string | null
   notes: string | null

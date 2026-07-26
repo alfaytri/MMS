@@ -100,8 +100,8 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                     <tr key={li.id}>
                       <td className="py-2 pr-2">{li.description}</td>
                       <td className="text-right py-2 px-2 text-muted-foreground">{li.qty ?? '—'}</td>
-                      <td className="text-right py-2 px-2 hidden sm:table-cell">{formatCurrency(li.unit_price ?? 0, 'QAR')}</td>
-                      <td className="text-right py-2 pl-2 font-medium">{formatCurrency(li.total ?? 0, 'QAR')}</td>
+                      <td className="text-right py-2 px-2 hidden sm:table-cell">{formatCurrency(li.unit_price ?? 0, invoice.currency ?? 'QAR')}</td>
+                      <td className="text-right py-2 pl-2 font-medium">{formatCurrency(li.total ?? 0, invoice.currency ?? 'QAR')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -111,16 +111,16 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
             <div className="border rounded-lg p-3 space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total</span>
-                <span>{formatCurrency(invoice.total_amount ?? 0, 'QAR')}</span>
+                <span>{formatCurrency(invoice.total_amount ?? 0, invoice.currency ?? 'QAR')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Paid</span>
-                <span className="text-green-700">{formatCurrency(totalPaid, 'QAR')}</span>
+                <span className="text-green-700">{formatCurrency(totalPaid, invoice.currency ?? 'QAR')}</span>
               </div>
               <div className="flex justify-between font-semibold border-t pt-1">
                 <span>Outstanding</span>
                 <span className={outstanding > 0 ? 'text-amber-700' : 'text-green-700'}>
-                  {formatCurrency(outstanding, 'QAR')}
+                  {formatCurrency(outstanding, invoice.currency ?? 'QAR')}
                 </span>
               </div>
             </div>
@@ -151,7 +151,7 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{formatCurrency(p.amount, 'QAR')}</span>
+                        <span className="font-medium">{formatCurrency(p.amount, invoice.currency ?? 'QAR')}</span>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>

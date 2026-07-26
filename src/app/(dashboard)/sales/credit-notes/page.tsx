@@ -128,7 +128,7 @@ export default function CreditNotesPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
       cell: ({ row }) => (
         <span className="text-xs tabular-nums block text-right font-medium">
-          {formatCurrency(row.getValue('total_amount'), 'QAR')}
+          {formatCurrency(row.getValue('total_amount'), row.original.currency ?? 'QAR')}
         </span>
       ),
     },
@@ -139,7 +139,7 @@ export default function CreditNotesPage() {
         const v = row.original.new_total
         return (
           <span className="text-xs tabular-nums block text-right font-medium">
-            {v != null ? formatCurrency(v, 'QAR') : '—'}
+            {v != null ? formatCurrency(v, row.original.currency ?? 'QAR') : '—'}
           </span>
         )
       },
@@ -274,11 +274,11 @@ export default function CreditNotesPage() {
               <p className="text-sm truncate">{note.customer_name ?? '—'}</p>
               <div className="flex items-center justify-between text-xs">
                 <span className="tabular-nums font-medium">
-                  {formatCurrency(note.total_amount, 'QAR')}
+                  {formatCurrency(note.total_amount, note.currency ?? 'QAR')}
                 </span>
                 {note.new_total != null && (
                   <span className="text-muted-foreground tabular-nums">
-                    New: {formatCurrency(note.new_total, 'QAR')}
+                    New: {formatCurrency(note.new_total, note.currency ?? 'QAR')}
                   </span>
                 )}
               </div>
@@ -300,7 +300,7 @@ export default function CreditNotesPage() {
         <ConfirmDialog
           open
           title="Apply Credit Note?"
-          description={`Apply ${applyTarget.credit_note_id} (${formatCurrency(applyTarget.total_amount, 'QAR')}) to invoice ${applyTarget.invoice_display ?? applyTarget.invoice_id ?? ''}? Any excess will be stored as customer credit balance.`}
+          description={`Apply ${applyTarget.credit_note_id} (${formatCurrency(applyTarget.total_amount, applyTarget.currency ?? 'QAR')}) to invoice ${applyTarget.invoice_display ?? applyTarget.invoice_id ?? ''}? Any excess will be stored as customer credit balance.`}
           confirmLabel="Apply"
           onConfirm={async () => {
             if (!applyTarget.invoice_id) return

@@ -139,7 +139,7 @@ export default function DebitNotesPage() {
       ),
       cell: ({ row }) => (
         <span className="text-xs tabular-nums block text-right font-semibold text-destructive">
-          {formatCurrency(row.getValue('total_amount'), 'QAR')}
+          {formatCurrency(row.getValue('total_amount'), row.original.currency ?? 'QAR')}
         </span>
       ),
     },
@@ -149,7 +149,7 @@ export default function DebitNotesPage() {
       cell: ({ row }) => {
         const v = row.original.new_total
         return v != null
-          ? <span className="text-xs tabular-nums block text-right">{formatCurrency(v, 'QAR')}</span>
+          ? <span className="text-xs tabular-nums block text-right">{formatCurrency(v, row.original.currency ?? 'QAR')}</span>
           : <span className="text-xs text-muted-foreground block text-right">—</span>
       },
     },
@@ -294,7 +294,7 @@ export default function DebitNotesPage() {
                   </span>
                 )}
                 <span className="ml-auto tabular-nums font-semibold text-destructive">
-                  {formatCurrency(note.total_amount, 'QAR')}
+                  {formatCurrency(note.total_amount, note.currency ?? 'QAR')}
                 </span>
               </div>
               <div className="flex items-center gap-2">

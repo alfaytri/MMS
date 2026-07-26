@@ -164,7 +164,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
             </div>
             {current && (
               <div className="text-sm text-muted-foreground">
-                Total: {formatCurrency(current.total, 'QAR')} · {formatDate(current.created_at)}
+                Total: {formatCurrency(current.total, current.currency ?? 'QAR')} · {formatDate(current.created_at)}
               </div>
             )}
           </DialogHeader>
@@ -244,9 +244,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                           </TableCell>
                           <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku ?? '—'}</TableCell>
                           <TableCell className="text-right">{li.qty}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(li.unit_price, 'QAR')}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(li.unit_price, current?.currency ?? 'QAR')}</TableCell>
                           <TableCell className="hidden md:table-cell text-right">{li.delivered_qty}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(li.total, 'QAR')}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(li.total, current?.currency ?? 'QAR')}</TableCell>
                         </TableRow>
                         )
                       })}
@@ -255,16 +255,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 </div>
                 {current && (
                   <div className="mt-4 space-y-1 text-sm text-right pr-2">
-                    <div className="text-muted-foreground">Subtotal: <span className="text-foreground font-medium">{formatCurrency(current.subtotal, 'QAR')}</span></div>
+                    <div className="text-muted-foreground">Subtotal: <span className="text-foreground font-medium">{formatCurrency(current.subtotal, current.currency ?? 'QAR')}</span></div>
                     {(current.discount_amount_resolved > 0) && (
                       <div className="text-muted-foreground">
-                        Discount{current.discount_label ? ` (${current.discount_label})` : ''}: <span className="text-destructive">-{formatCurrency(current.discount_amount_resolved, 'QAR')}</span>
+                        Discount{current.discount_label ? ` (${current.discount_label})` : ''}: <span className="text-destructive">-{formatCurrency(current.discount_amount_resolved, current.currency ?? 'QAR')}</span>
                       </div>
                     )}
                     {current.tax > 0 && (
-                      <div className="text-muted-foreground">Tax: <span className="text-foreground">{formatCurrency(current.tax, 'QAR')}</span></div>
+                      <div className="text-muted-foreground">Tax: <span className="text-foreground">{formatCurrency(current.tax, current.currency ?? 'QAR')}</span></div>
                     )}
-                    <div className="font-semibold">Total: {formatCurrency(current.total, 'QAR')}</div>
+                    <div className="font-semibold">Total: {formatCurrency(current.total, current.currency ?? 'QAR')}</div>
                   </div>
                 )}
               </TabsContent>
@@ -496,6 +496,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           onOpenChange={setPaymentPlanOpen}
           invoiceId={soInvoice.id}
           outstanding={(soInvoice.total_amount ?? 0) - (invoicePayments ?? []).reduce((s, p) => s + p.amount, 0)}
+          currency={soInvoice.currency ?? current?.currency ?? 'QAR'}
           labels={AR_LABELS}
         />
       )}
@@ -510,6 +511,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               onOpenChange={setReplacementOpen}
               returnData={selectedReturn}
               soId={current.id}
+              currency={current.currency ?? 'QAR'}
               isPending={createReplacement.isPending}
               onConfirm={(warehouseId, warehouseName, giftItems) => {
                 createReplacement.mutate({
