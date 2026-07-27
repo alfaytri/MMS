@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **HOTFIX for Section 10: `deduct_fifo_layers` column-name collision — `source_type` / `source_id` ambiguous between OUT parameters and `fifo_cost_layers` columns. Every downstream RPC currently 400s. Fix + re-run 2A verify**
 
 
 
