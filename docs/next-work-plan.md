@@ -27,7 +27,12 @@ Each row here is a table you want us to inspect. For each, we decide: keep / ren
 | 1.12 | `inventory_check_assignments` | State machine `pending → in_progress → completed` was designed but middle transition was never wired. Extended `save_inventory_check_item_count` RPC to idempotently flip pending → in_progress + stamp `started_at` + insert `user_started` log event on first count-save (`63c9ca62`) | ✅ |
 | 1.13 | `inventory_check_items` | Find redundant columns | ☐ |
 | 1.14 | `inventory_checks` | Many columns are always empty — audit and remove | ☐ |
-| 1.15 | *(more tables)* | You'll review the rest and add here later | ☐ |
+| 1.15 | `inventory_check_assignments` | Table clean; activated 2 declared-but-unwired columns instead of dropping. Added set_updated_at trigger; surfaced `started_at` in the 3 assignment-header slots — "Started …" while in_progress, "Completed …" when done (`40591ab9`) | ✅ |
+| 1.16 | `inventory_check_approvals` | `step_role` was populated but never checked — Approve/Reject on the check page had no role gate. Added `canActOnStep` mirror of stock-adj dialog; retyped `step_role` from stale enum to string; removed the `unknown` cast in useCompleteAssignment (`f29c0ebc`) | ✅ |
+| 1.17 | `inventory_check_log` | Latent 1.12 bug: `event_type` enum missing `user_started` — every counter's first saveCount errored out silently since 1.12 shipped. One-line ALTER TYPE ADD VALUE fix (`39f9269f`) | ✅ |
+| 1.18 | `stock_adjustments` | Dropped 3 dead cols (`deleted_at` / `created_by` / `approved_by`) + rewrote `action_stock_adjustment_step` / `create_stock_adjustment_v2` / `apply_inventory_check_adjustments` to stop writing them + deleted unused `useCreateStockAdjustment` hook. `WhAdjustmentsTab` inline Approve/Reject bypass flagged for 1.19 | ✅ |
+| 1.19 | `WhAdjustmentsTab` inline Approve/Reject bypass | Tab renders inline Approve/Reject buttons gated only by warehouse-RP membership. They call `approve_stock_adjustment_inventory` / direct `.update({status:'rejected'})` and **skip the entire `stock_adjustment_approvals` chain** — defeating the strict role gating added in `20260726140000`. Decide: keep as intentional chain-less-warehouse fallback, remove entirely, or add a "no chain configured" guard | ☐ |
+| 1.20 | *(more tables)* | You'll review the rest and add here later | ☐ |
 
 ---
 

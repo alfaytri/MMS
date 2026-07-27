@@ -4445,12 +4445,9 @@ export type Database = {
         Row: {
           adjustment_type: string
           approved_at: string | null
-          approved_by: string | null
           approved_by_name: string | null
           brand_variant_id: string
           created_at: string
-          created_by: string | null
-          deleted_at: string | null
           id: string
           notes: string | null
           photo_urls: string[] | null
@@ -4465,12 +4462,9 @@ export type Database = {
         Insert: {
           adjustment_type: string
           approved_at?: string | null
-          approved_by?: string | null
           approved_by_name?: string | null
           brand_variant_id: string
           created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
           id?: string
           notes?: string | null
           photo_urls?: string[] | null
@@ -4485,12 +4479,9 @@ export type Database = {
         Update: {
           adjustment_type?: string
           approved_at?: string | null
-          approved_by?: string | null
           approved_by_name?: string | null
           brand_variant_id?: string
           created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
           id?: string
           notes?: string | null
           photo_urls?: string[] | null
@@ -4504,24 +4495,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "stock_adjustments_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "stock_adjustments_brand_variant_id_fkey"
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_adjustments_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
           {

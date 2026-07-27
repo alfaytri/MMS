@@ -138,16 +138,6 @@ export type StockAdjustmentApprovalStep = {
   created_at: string
 }
 
-export type CreateAdjustmentPayload = {
-  warehouse_id: string
-  brand_variant_id: string
-  adjustment_type: 'increase' | 'decrease' | 'set'
-  qty: number
-  reason: string
-  notes?: string | null
-  requested_by_name?: string | null
-}
-
 export type InventoryCheck = {
   id: string
   check_number: string
@@ -473,23 +463,6 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
       return (data ?? []) as unknown as StockAdjustment[]
     },
     staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useCreateStockAdjustment() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (payload: CreateAdjustmentPayload) => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('stock_adjustments')
-        .insert({ ...payload, status: 'pending_approval' })
-        .select()
-        .single()
-      if (error) throw error
-      return data as unknown as StockAdjustment
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments }),
   })
 }
 
