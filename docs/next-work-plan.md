@@ -24,7 +24,7 @@ Each row here is a table you want us to inspect. For each, we decide: keep / ren
 | 1.9 | `debit_notes` | `bill_id` empty is legit (return-before-bill). Dropped 5 dead cols (`approved_by`/`phone`/`type`/`notes`/`created_by`) + added 2 FKs (`reason_id`→reason_lists, `supplier_id`→suppliers) with backfill + sync trigger (`e450163f`). PDF now derives phone via `suppliers` join. `debit_notes_invalidate_pdf_cache_fn` also rewritten to drop OLD.notes reference. Mirror of Section 1.5 pattern | ✅ |
 | 1.10 | `fifo_cost_layers` | Added polymorphic `source_id` uuid; backfilled from `inventory_stock_movements.reference_id`. `rpc_process_return_restock` + `apply_adjustment` rewritten to set `source_id` on new layers. FifoLayersTable adds `sale_return` + `po_return` cases (`4f6fa59e`) | ✅ |
 | 1.11 | `inventory_categories` | ~~`description`~~ dropped — was written by edit dialog but no downstream reader (`021ab56b`). `updated_at` kept for audit trail | ✅ |
-| 1.12 | `inventory_check_assignments` | Why is `started_at` always empty? | ☐ |
+| 1.12 | `inventory_check_assignments` | State machine `pending → in_progress → completed` was designed but middle transition was never wired. Extended `save_inventory_check_item_count` RPC to idempotently flip pending → in_progress + stamp `started_at` + insert `user_started` log event on first count-save (`63c9ca62`) | ✅ |
 | 1.13 | `inventory_check_items` | Find redundant columns | ☐ |
 | 1.14 | `inventory_checks` | Many columns are always empty — audit and remove | ☐ |
 | 1.15 | *(more tables)* | You'll review the rest and add here later | ☐ |
