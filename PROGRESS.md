@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Table Audit Task 1.16: `inventory_check_approvals` — wire step_role role-gate (option b) + fix enum type drift**
 
 
 
