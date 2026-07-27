@@ -695,11 +695,15 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                       <span className="text-[10px] text-muted-foreground">
                         {myItems.filter((i) => i.is_counted).length}/{myItems.length} items
                       </span>
-                      {myAssignment.completed_at && (
+                      {myAssignment.completed_at ? (
                         <span className="text-[10px] text-muted-foreground ml-auto">
                           Completed {format(new Date(myAssignment.completed_at), 'dd MMM, HH:mm')}
                         </span>
-                      )}
+                      ) : myAssignment.started_at ? (
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          Started {format(new Date(myAssignment.started_at), 'dd MMM, HH:mm')}
+                        </span>
+                      ) : null}
                     </div>
                     <CountingPanel
                       checkId={check.id}
@@ -737,11 +741,15 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                         <span className="text-[10px] text-muted-foreground">
                           {myItems.filter((i) => i.is_counted).length}/{myItems.length} items
                         </span>
-                        {myAssignment.completed_at && (
+                        {myAssignment.completed_at ? (
                           <span className="text-[10px] text-muted-foreground ml-auto">
                             Completed {format(new Date(myAssignment.completed_at), 'dd MMM, HH:mm')}
                           </span>
-                        )}
+                        ) : myAssignment.started_at ? (
+                          <span className="text-[10px] text-muted-foreground ml-auto">
+                            Started {format(new Date(myAssignment.started_at), 'dd MMM, HH:mm')}
+                          </span>
+                        ) : null}
                       </div>
                       <p className="text-[11px] text-muted-foreground">
                         Categories: <strong className="text-foreground">{myAssignment.assigned_categories.join(', ')}</strong>
@@ -790,11 +798,15 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                               <span className="text-[10px] text-muted-foreground">
                                 {countedCount}/{aItems.length} items
                               </span>
-                              {a.completed_at && (
+                              {a.completed_at ? (
                                 <span className="text-[10px] text-muted-foreground ml-auto">
                                   Completed {format(new Date(a.completed_at), 'dd MMM, HH:mm')}
                                 </span>
-                              )}
+                              ) : a.started_at ? (
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  Started {format(new Date(a.started_at), 'dd MMM, HH:mm')}
+                                </span>
+                              ) : null}
                             </button>
                             {isExpanded && (
                               <div className="px-3 pb-3 pt-1 border-t">
