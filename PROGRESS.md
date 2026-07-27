@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **DB Column Cleanup Task 1.14: Drop 6 dead columns from `inventory_checks` + delete dead single-user dialog & 4 unused hooks (option a — drop `submitted_by_name` too)**
 
 
 
