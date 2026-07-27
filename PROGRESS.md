@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Hotfix: `create_inventory_receival` — remove stale `::text` cast on `receival_id`**
 
 
 
