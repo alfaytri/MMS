@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Table Audit Task 1.15: Activate `inventory_check_assignments.started_at` (UI display) and `updated_at` (BEFORE-UPDATE trigger)**
 
 
 
