@@ -40,25 +40,13 @@ Each row here is a table you want us to inspect. For each, we decide: keep / ren
 
 You gave two scenarios. We'll code up test data on staging and verify current behavior matches expected. If it doesn't, we fix the RPCs.
 
-### Scenario A — Sale draws from a single layer
+### Scenario 2A — Sale draws from multiple FIFO layers ✅
 
-**Setup:**
-- Item 1, Receival 1: received 100, remaining 5, price 10
-- Item 1, Receival 2: received 100, remaining 100, price 12
+**Trace outcome:** `deduct_fifo_layers` returned only aggregated `(total_cost, weighted_unit_cost)` — every downstream ledger row got weighted-avg cost, per-layer detail lost. Confirmed same root cause as Section 10 below.
 
-**Action:** SO for Item 1 × 10 units, delivered.
+**Fixed** in commit `2a88e334` (migration `20260727070000`) — retyped `deduct_fifo_layers` to per-layer return, swept 6 callers to write N rows per drained layer. See Section 10 for full details. Staging verify against the setup above still recommended before closing.
 
-**Expected FIFO after:**
-- Receival 1: remaining 0, price 10
-- Receival 2: remaining 95, price 12
-
-**Expected COGS (2 rows for the SO):**
-- Item 1 sold 5, cost 10
-- Item 1 sold 5, cost 12
-
-**Task:** run this on staging; confirm `fifo_cost_layers` and `cogs_entries` end up as above.
-
-Status: 🔍 (need your OK to run test data on staging)
+Status: ✅ Shipped as Section 10.
 
 ---
 
@@ -168,11 +156,11 @@ Status: 🔍 (I'll trace `useReceivals` + the receival UI and write it up; you r
 
 ---
 
-## Section 10 — Inventory stock movement fix
+## Section 10 — Inventory stock movement fix ✅
 
-**Rule:** when a movement pulls from **multiple receivals**, the current single-row movement with one `unit_cost` is wrong. It should create **one movement row per receival** because each has its own cost.
+Shipped in commit `2a88e334` (migration `20260727070000`). Retyped `deduct_fifo_layers` to return per-layer breakdown `(layer_id, source_type, source_id, qty_taken, unit_cost, total_cost)`; swept 6 callers so `cogs_entries`, `inventory_stock_movements`, and destination transfer layers now carry one row per drained FIFO layer instead of a single collapsed weighted-avg row. Also fixed `allocate_warehouse_stock` pre-existing bug (movement used caller-supplied `p_unit_cost` instead of real layer costs). `receive_transfer` mirrors source layer topology at the destination (option i). Subsumes Scenario 2A. See PROGRESS.md for full details.
 
-Status: ⚙️ (needs a code change in whatever writes `inventory_stock_movements` for multi-layer draws — I'll investigate and propose)
+Status: ✅
 
 ---
 
