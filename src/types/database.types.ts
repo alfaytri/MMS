@@ -5859,8 +5859,12 @@ export type Database = {
           p_wh_id: string
         }
         Returns: {
+          layer_id: string
+          source_type: string | null
+          source_id: string | null
+          qty_taken: number
+          unit_cost: number
           total_cost: number
-          weighted_unit_cost: number
         }[]
       }
       detach_payment_from_invoice: {
