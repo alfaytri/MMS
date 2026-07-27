@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Section 1.12 — wire `user_started` event for inventory-check assignments (extend `save_inventory_check_item_count` RPC, `useSaveItemCount`, `CountingPanel`)**
 
 
 
