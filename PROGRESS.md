@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Table Audit Task 1.17: `inventory_check_log` — ship `ALTER TYPE ... ADD VALUE 'user_started'` migration to fix latent 1.12 enum bug**
 
 
 
