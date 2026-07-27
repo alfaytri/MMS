@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **DB Column Cleanup Task 1.13: Drop `inventory_check_items.notes`, `assigned_profile_name`, `assigned_profile_id` (option a — backfill orphans first)**
 
 
 
