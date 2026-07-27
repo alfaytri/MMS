@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Section 2B: Sale return restock — reverse exact FIFO/COGS + track damaged units**
 
 
 
