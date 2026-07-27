@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Section 2A: Trace sale-delivery FIFO draw across multiple layers — verify `deduct_fifo_layers` + `cogs_entries` behavior when a single SO line spans two receivals. Read-only analysis pass; no code changes without agreement on "correct" behavior**
 
 
 
