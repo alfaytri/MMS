@@ -1399,6 +1399,7 @@ export type Database = {
           receival_id: string | null
           receival_number: string | null
           remaining_qty: number
+          source_id: string | null
           source_type: string | null
           total_unit_cost: number
           unit_cost: number
@@ -1415,6 +1416,7 @@ export type Database = {
           receival_id?: string | null
           receival_number?: string | null
           remaining_qty: number
+          source_id?: string | null
           source_type?: string | null
           total_unit_cost: number
           unit_cost: number
@@ -1431,6 +1433,7 @@ export type Database = {
           receival_id?: string | null
           receival_number?: string | null
           remaining_qty?: number
+          source_id?: string | null
           source_type?: string | null
           total_unit_cost?: number
           unit_cost?: number

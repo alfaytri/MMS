@@ -311,6 +311,7 @@ export type FifoLayer = {
   receival_number: string | null
   receival_id: string | null
   source_type: string | null
+  source_id: string | null
   date: string
   qty: number
   remaining_qty: number
@@ -536,7 +537,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('fifo_cost_layers')
-        .select('id, brand_variant_id, receival_number, receival_id, source_type, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at, warehouse_id, warehouses!fifo_cost_layers_warehouse_id_fkey(name)')
+        .select('id, brand_variant_id, receival_number, receival_id, source_type, source_id, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at, warehouse_id, warehouses!fifo_cost_layers_warehouse_id_fkey(name)')
         .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: true })
         .order('receival_number', { ascending: true })
@@ -549,6 +550,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
           receival_number: string | null
           receival_id: string | null
           source_type: string | null
+          source_id: string | null
           date: string
           qty: number
           remaining_qty: number
@@ -565,6 +567,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
           receival_number: row.receival_number,
           receival_id: row.receival_id,
           source_type: row.source_type,
+          source_id: row.source_id,
           date: row.date,
           qty: row.qty,
           remaining_qty: row.remaining_qty,

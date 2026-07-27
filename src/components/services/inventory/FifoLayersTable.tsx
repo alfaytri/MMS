@@ -66,6 +66,8 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
                       ? isInventoryReceival
                         ? <span className="text-purple-600 font-semibold">{layer.receival_number}</span>
                         : layer.receival_number
+                      : layer.source_type === 'sale_return' ? <span className="text-emerald-600">Sale Return</span>
+                      : layer.source_type === 'po_return' ? <span className="text-red-600">PO Return</span>
                       : layer.source_type === 'adjustment' ? <span className="text-amber-600">Adjustment</span>
                       : layer.source_type === 'transfer' ? <span className="text-blue-600">Transfer</span>
                       : layer.source_type === 'delivery_cancel' ? <span className="text-red-600">DEL Cancel</span>
