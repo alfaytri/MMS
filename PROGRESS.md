@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Section 1.19: Close approval bypass — remove `WhAdjustmentsTab` inline Approve/Reject shortcut; every SA must now go through the detail-page multi-step chain**
 
 
 
