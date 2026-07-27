@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Section 2A: Trace sale-delivery FIFO draw across multiple layers — verify `deduct_fifo_layers` + `cogs_entries` behavior when a single SO line spans two receivals. Read-only analysis pass; no code changes without agreement on "correct" behavior**
+🚀 Starting: **Section 10 (subsumes 2A): retype `deduct_fifo_layers` to return per-layer breakdown; sweep 6 callers (`complete_delivery_inventory`, `approve_stock_adjustment_inventory`, `dispatch_transfer`, `rpc_process_po_return_dispatch`, `allocate_warehouse_stock`, `receive_transfer`) so `cogs_entries` + `inventory_stock_movements` + destination-transfer layers get N rows per drained FIFO layer instead of 1 collapsed weighted-avg row**
 
 
 
