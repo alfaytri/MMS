@@ -145,7 +145,7 @@ async function fetchAdjustments(supabase: SupaClient, fromDate?: string, toDate?
 async function fetchInventoryChecks(supabase: SupaClient, fromDate?: string, toDate?: string) {
   let q = supabase
     .from('inventory_checks')
-    .select('check_number, warehouse_name, status, started_at, initiated_by_name, submitted_by_name, submitted_at, reviewed_by_name, reviewed_at, notes')
+    .select('check_number, warehouse_name, status, started_at, initiated_by_name, reviewed_by_name, reviewed_at, notes')
     .order('created_at', { ascending: false })
     .limit(2000)
   if (fromDate) q = q.gte('created_at', fromDate)

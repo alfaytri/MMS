@@ -440,8 +440,6 @@ export interface InventoryCheckReportRow {
   status: string
   started_at: string | null
   initiated_by_name: string | null
-  submitted_by_name: string | null
-  submitted_at: string | null
   reviewed_by_name: string | null
   reviewed_at: string | null
   notes: string | null
@@ -467,8 +465,6 @@ export function buildInventoryChecksReportHtml(input: InventoryChecksReportInput
       <td class="c">${statusBadge(r.status)}</td>
       <td>${fmtDateTime(r.started_at)}</td>
       <td>${esc(r.initiated_by_name ?? '—')}</td>
-      <td>${esc(r.submitted_by_name ?? '—')}</td>
-      <td>${fmtDateTime(r.submitted_at)}</td>
       <td>${esc(r.reviewed_by_name ?? '—')}</td>
       <td>${fmtDateTime(r.reviewed_at)}</td>
       <td>${esc(r.notes ?? '')}</td>
@@ -482,13 +478,11 @@ export function buildInventoryChecksReportHtml(input: InventoryChecksReportInput
       <th style="width:7%">Check #</th>
       <th style="width:10%">Warehouse</th>
       <th class="c" style="width:9%">Status</th>
-      <th style="width:10%">Started</th>
-      <th style="width:10%">Initiated By</th>
-      <th style="width:10%">Submitted By</th>
-      <th style="width:10%">Submitted At</th>
-      <th style="width:10%">Reviewed By</th>
-      <th style="width:10%">Reviewed At</th>
-      <th style="width:11%">Notes</th>
+      <th style="width:13%">Started</th>
+      <th style="width:13%">Initiated By</th>
+      <th style="width:13%">Reviewed By</th>
+      <th style="width:13%">Reviewed At</th>
+      <th style="width:15%">Notes</th>
     </tr></thead>
     <tbody>${tableRows}</tbody>
   </table>`

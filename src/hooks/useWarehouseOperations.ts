@@ -157,11 +157,8 @@ export type InventoryCheck = {
   initiated_by_profile_id: string | null
   initiated_by_name: string | null
   started_at: string | null
-  submitted_by_name: string | null
-  submitted_at: string | null
   reviewed_by_name: string | null
   reviewed_at: string | null
-  review_notes: string | null
   notes: string | null
   created_at: string
   items?: InventoryCheckItem[]
@@ -691,7 +688,7 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
       const supabase = createClient()
       let q = supabase
         .from('inventory_checks')
-        .select('id, check_number, warehouse_id, warehouse_name, status, submitted_by_name, submitted_at, reviewed_by_name, reviewed_at, review_notes, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at')
+        .select('id, check_number, warehouse_id, warehouse_name, status, reviewed_by_name, reviewed_at, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at')
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q.limit(100)
@@ -717,103 +714,6 @@ export function useInventoryCheck(id: string) {
     },
     enabled: !!id,
     staleTime: 2 * 60 * 1000,
-  })
-}
-
-export function useCreateInventoryCheck() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      warehouseId,
-      warehouseName,
-      notes,
-    }: {
-      warehouseId: string
-      warehouseName: string
-      notes?: string | null
-    }) => {
-      const supabase = createClient()
-      const { data: checkNumber, error: seqErr } = await supabase.rpc('generate_check_number')
-      if (seqErr) throw seqErr
-      const { data, error } = await supabase
-        .from('inventory_checks')
-        .insert({ check_number: checkNumber, warehouse_id: warehouseId, warehouse_name: warehouseName, status: 'draft', notes })
-        .select()
-        .single()
-      if (error) throw error
-      return data as InventoryCheck
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
-  })
-}
-
-export function useUpdateInventoryCheckItem() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      id,
-      countedQty,
-    }: {
-      id: string
-      countedQty: number
-    }) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('inventory_check_items')
-        .update({ counted_qty: countedQty, is_counted: true })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
-    },
-  })
-}
-
-export function useSubmitInventoryCheck() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, submittedByName }: { id: string; submittedByName: string }) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('inventory_checks')
-        .update({
-          status: 'submitted',
-          submitted_by_name: submittedByName,
-          submitted_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
-  })
-}
-
-export function useReviewInventoryCheck() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      id,
-      reviewedByName,
-      reviewNotes,
-    }: {
-      id: string
-      reviewedByName: string
-      reviewNotes?: string | null
-    }) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('inventory_checks')
-        .update({
-          status: 'reviewed',
-          reviewed_by_name: reviewedByName,
-          reviewed_at: new Date().toISOString(),
-          review_notes: reviewNotes,
-        })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
   })
 }
 

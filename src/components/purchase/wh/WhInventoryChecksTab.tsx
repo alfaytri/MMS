@@ -106,10 +106,6 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
                         by {c.initiated_by_name}
                       </span>
                     )}
-                    {/* Legacy: submitted_by_name */}
-                    {!c.initiated_by_name && c.submitted_by_name && (
-                      <span className="text-[10px] text-muted-foreground">by {c.submitted_by_name}</span>
-                    )}
                   </div>
                 </div>
 

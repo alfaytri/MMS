@@ -1756,20 +1756,14 @@ export type Database = {
         Row: {
           check_number: string
           created_at: string
-          created_by: string | null
           id: string
           initiated_by_name: string | null
           initiated_by_profile_id: string | null
           notes: string | null
-          review_notes: string | null
           reviewed_at: string | null
-          reviewed_by: string | null
           reviewed_by_name: string | null
           started_at: string | null
           status: string
-          submitted_at: string | null
-          submitted_by: string | null
-          submitted_by_name: string | null
           updated_at: string
           warehouse_id: string
           warehouse_name: string
@@ -1777,20 +1771,14 @@ export type Database = {
         Insert: {
           check_number: string
           created_at?: string
-          created_by?: string | null
           id?: string
           initiated_by_name?: string | null
           initiated_by_profile_id?: string | null
           notes?: string | null
-          review_notes?: string | null
           reviewed_at?: string | null
-          reviewed_by?: string | null
           reviewed_by_name?: string | null
           started_at?: string | null
           status?: string
-          submitted_at?: string | null
-          submitted_by?: string | null
-          submitted_by_name?: string | null
           updated_at?: string
           warehouse_id: string
           warehouse_name?: string
@@ -1798,49 +1786,22 @@ export type Database = {
         Update: {
           check_number?: string
           created_at?: string
-          created_by?: string | null
           id?: string
           initiated_by_name?: string | null
           initiated_by_profile_id?: string | null
           notes?: string | null
-          review_notes?: string | null
           reviewed_at?: string | null
-          reviewed_by?: string | null
           reviewed_by_name?: string | null
           started_at?: string | null
           status?: string
-          submitted_at?: string | null
-          submitted_by?: string | null
-          submitted_by_name?: string | null
           updated_at?: string
           warehouse_id?: string
           warehouse_name?: string
         }
         Relationships: [
           {
-            foreignKeyName: "inventory_checks_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "inventory_checks_initiated_by_profile_id_fkey"
             columns: ["initiated_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_checks_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_checks_submitted_by_fkey"
-            columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
