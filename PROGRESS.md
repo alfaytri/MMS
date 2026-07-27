@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Table Audit Task 1.18: `stock_adjustments` — drop 3 dead columns (`deleted_at`, `created_by`, `approved_by`) + remove dead `useCreateStockAdjustment` hook + rewrite `action_stock_adjustment_step` RPC**
 
 
 
