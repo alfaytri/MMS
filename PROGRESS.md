@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Section 1.10 — add `source_id` to `fifo_cost_layers` + wire writers for full source traceability**
 
 
 
