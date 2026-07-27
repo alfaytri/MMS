@@ -1630,8 +1630,6 @@ export type Database = {
       }
       inventory_check_items: {
         Row: {
-          assigned_profile_id: string | null
-          assigned_profile_name: string | null
           assignment_id: string | null
           brand: string
           brand_variant_id: string
@@ -1642,7 +1640,6 @@ export type Database = {
           id: string
           is_counted: boolean
           item_name: string
-          notes: string | null
           sku: string | null
           system_qty: number
           system_qty_at_close: number | null
@@ -1651,8 +1648,6 @@ export type Database = {
           variance_type: string | null
         }
         Insert: {
-          assigned_profile_id?: string | null
-          assigned_profile_name?: string | null
           assignment_id?: string | null
           brand: string
           brand_variant_id: string
@@ -1663,7 +1658,6 @@ export type Database = {
           id?: string
           is_counted?: boolean
           item_name: string
-          notes?: string | null
           sku?: string | null
           system_qty?: number
           system_qty_at_close?: number | null
@@ -1672,8 +1666,6 @@ export type Database = {
           variance_type?: string | null
         }
         Update: {
-          assigned_profile_id?: string | null
-          assigned_profile_name?: string | null
           assignment_id?: string | null
           brand?: string
           brand_variant_id?: string
@@ -1684,7 +1676,6 @@ export type Database = {
           id?: string
           is_counted?: boolean
           item_name?: string
-          notes?: string | null
           sku?: string | null
           system_qty?: number
           system_qty_at_close?: number | null
@@ -1693,13 +1684,6 @@ export type Database = {
           variance_type?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "inventory_check_items_assigned_profile_id_fkey"
-            columns: ["assigned_profile_id"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "inventory_check_items_assignment_id_fkey"
             columns: ["assignment_id"]

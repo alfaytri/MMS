@@ -179,11 +179,8 @@ export type InventoryCheckItem = {
   is_counted: boolean
   variance: number | null
   variance_type: string | null
-  notes: string | null
   assignment_id: string | null
   category_name: string | null
-  assigned_profile_id: string | null
-  assigned_profile_name: string | null
   system_qty_at_close: number | null
 }
 
@@ -1108,8 +1105,6 @@ export function useStartInventoryCheck() {
             system_qty: item.qty,
             is_counted: false,
             category_name: item.category_name,
-            assigned_profile_id: a.profileId,
-            assigned_profile_name: a.profileName,
           }))
           const { error: itemsErr } = await supabase.from('inventory_check_items').insert(itemRows)
           if (itemsErr) throw itemsErr

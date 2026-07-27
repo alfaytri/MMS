@@ -482,24 +482,14 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   const isInitiator = currentProfile?.id === check.initiated_by_profile_id
   const canSeeAll = isInitiator || !myAssignment
 
-  // Group items by assignment for manager view
-  // Primary: match by assignment_id. Fallback: match by assigned_profile_id.
+  // Group items by assignment for manager view — match on assignment_id.
   const byAssignment = useMemo(() => {
     const itms = detail?.items ?? []
     const map = new Map<string, InventoryCheckItem[]>()
     for (const a of assignments) { map.set(a.id, []) }
-    const unmatched: InventoryCheckItem[] = []
     for (const item of itms) {
       if (item.assignment_id && map.has(item.assignment_id)) {
         map.get(item.assignment_id)!.push(item)
-      } else {
-        unmatched.push(item)
-      }
-    }
-    for (const item of unmatched) {
-      const match = assignments.find((a) => a.profile_id === item.assigned_profile_id)
-      if (match) {
-        map.get(match.id)!.push(item)
       }
     }
     return map
