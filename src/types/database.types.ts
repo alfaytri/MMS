@@ -1473,7 +1473,6 @@ export type Database = {
       inventory_categories: {
         Row: {
           created_at: string | null
-          description: string | null
           id: string
           name_ar: string | null
           name_en: string
@@ -1486,7 +1485,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          description?: string | null
           id?: string
           name_ar?: string | null
           name_en: string
@@ -1499,7 +1497,6 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          description?: string | null
           id?: string
           name_ar?: string | null
           name_en?: string

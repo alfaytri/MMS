@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { useCreateInventoryCategory, useUpdateInventoryCategory, type InventoryCategory } from '@/hooks/useInventory'
@@ -36,7 +35,6 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [nameEn, setNameEn] = useState('')
   const [nameAr, setNameAr] = useState('')
   const [sku, setSku] = useState('')
-  const [description, setDescription] = useState('')
   const [l1Id, setL1Id] = useState<string | null>(null)
   const [l2Id, setL2Id] = useState<string | null>(null)
   const [l3Id, setL3Id] = useState<string | null>(null)
@@ -48,7 +46,6 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       setNameEn(category?.name_en ?? '')
       setNameAr(category?.name_ar ?? '')
       setSku(category?.sku ?? '')
-      setDescription(category?.description ?? '')
 
       const targetId = isEdit ? (category?.parent_id ?? null) : (defaultParentId ?? null)
       if (targetId && flat.length > 0) {
@@ -106,7 +103,6 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       name_en: nameEn.trim(),
       name_ar: nameAr.trim() || null,
       sku: sku.trim() || null,
-      description: description.trim() || null,
       parent_id: parentId || null,
     }
 
@@ -230,18 +226,6 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
               </div>
             </div>
 
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label htmlFor="cat-description" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description</Label>
-              <Textarea
-                id="cat-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add notes or description"
-                rows={3}
-                className="resize-none"
-              />
-            </div>
           </div>
 
           <DialogFooter className="pt-4 mt-4 border-t border-border">
