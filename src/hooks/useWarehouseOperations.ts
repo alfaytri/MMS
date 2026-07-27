@@ -518,30 +518,6 @@ export function useCreateStockAdjustmentV2() {
   })
 }
 
-export function useApproveStockAdjustment() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, approvedByName }: { id: string; approvedByName: string }) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .rpc('approve_stock_adjustment_inventory', {
-          p_adjustment_id: id,
-          p_approved_by: approvedByName,
-        })
-      if (error) throw new Error(error.message)
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsGrouped })
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariants })
-      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
-    },
-  })
-}
-
 export function useActionStockAdjustmentStep() {
   const qc = useQueryClient()
   return useMutation({

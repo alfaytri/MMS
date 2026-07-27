@@ -9,16 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ItemTreeCell } from './ItemTreeCell'
-import { useStockAdjustments, useApproveStockAdjustment, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
+import { useStockAdjustments, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
 import { useAllCategoriesFlat, breadcrumb as categoryBreadcrumb } from '@/hooks/useInventoryTree'
 import { WhAdjustmentDetailDialog } from './WhAdjustmentDetailDialog'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
-import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
-import { toast } from 'sonner'
-import { queryKeys } from '@/lib/queryKeys'
 import { WarehouseReportButton } from './WarehouseReportButton'
 
 type StockAdjustmentRow = {
@@ -70,8 +66,6 @@ interface Props {
 export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouses, currentProfile }: Props) {
   const { data: adjustments = [] } = useStockAdjustments()
   const { data: categoriesFlat = [] } = useAllCategoriesFlat()
-  const approve = useApproveStockAdjustment()
-  const qc = useQueryClient()
   const [photoUrls, setPhotoUrls] = useState<string[] | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -106,36 +100,6 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     const start = (page - 1) * PAGE_SIZE
     return filteredAdjustments.slice(start, start + PAGE_SIZE)
   }, [filteredAdjustments, page])
-
-  const reject = useMutation({
-    mutationFn: async (id: string) => {
-      const supabase = createClient()
-      const { error } = await supabase.from('stock_adjustments').update({ status: 'rejected' }).eq('id', id)
-      if (error) throw error
-      return id
-    },
-    onSuccess: async (id) => {
-      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
-      const supabase = createClient()
-      const { data: adj } = await supabase.from('stock_adjustments').select('requested_by').eq('id', id).single()
-      if (adj?.requested_by) {
-        await supabase.from('notifications').insert({
-          profile_id: adj.requested_by,
-          type: 'stock_adj_rejected',
-          title: 'Stock adjustment has been rejected',
-          related_id: id,
-          related_type: 'stock_adjustment',
-        })
-        qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
-      }
-    },
-  })
-
-  function canApprove(adj: StockAdjustmentRow) {
-    const wh = warehouses.find(w => w.id === adj.warehouse_id)
-    if (!wh || wh.responsible_persons.length === 0) return true
-    return wh.responsible_persons.some((rp: { profile_id: string }) => rp.profile_id === currentProfile?.id)
-  }
 
   const FILTER_TABS: Array<{ value: StatusFilter; label: string; count: number }> = [
     { value: 'all',              label: 'All',      count: counts.all },
@@ -331,45 +295,14 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                     )}
                   </TableCell>
                   <TableCell className="text-right py-2.5" onClick={(e) => e.stopPropagation()}>
-                    {hasChain ? (
-                      <Button
-                        size="sm" variant="ghost"
-                        className="h-6 px-1.5 gap-1 text-[10px]"
-                        onClick={() => setDetailId(adj.id)}
-                      >
-                        <Eye className="h-3 w-3" />
-                        View
-                      </Button>
-                    ) : adj.status === 'pending_approval' && canApprove(adj) ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="sm" variant="outline"
-                          className="h-6 text-[10px] text-success border-success/30 hover:bg-success/10"
-                          onClick={() => approve.mutate(
-                            { id: adj.id, approvedByName: currentProfile?.full_name ?? 'Manager' },
-                            { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error(e.message) },
-                          )}
-                          disabled={approve.isPending}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm" variant="outline"
-                          className="h-6 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => reject.mutate(adj.id, {
-                            onSuccess: () => toast.success('Rejected'),
-                            onError:  (e) => toast.error(e.message),
-                          })}
-                          disabled={reject.isPending}
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">
-                        {adj.status === 'pending_approval' ? 'Awaiting approval' : adj.approved_by_name ?? '—'}
-                      </span>
-                    )}
+                    <Button
+                      size="sm" variant="ghost"
+                      className="h-6 px-1.5 gap-1 text-[10px]"
+                      onClick={() => setDetailId(adj.id)}
+                    >
+                      <Eye className="h-3 w-3" />
+                      View
+                    </Button>
                   </TableCell>
                 </TableRow>
               )
