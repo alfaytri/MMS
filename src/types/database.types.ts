@@ -1529,7 +1529,7 @@ export type Database = {
           status: string
           step_label: string
           step_order: number
-          step_role: Database["public"]["Enums"]["inventory_check_step_role"]
+          step_role: string
         }
         Insert: {
           action_at?: string | null
@@ -1542,7 +1542,7 @@ export type Database = {
           status?: string
           step_label: string
           step_order: number
-          step_role: Database["public"]["Enums"]["inventory_check_step_role"]
+          step_role: string
         }
         Update: {
           action_at?: string | null
@@ -1555,7 +1555,7 @@ export type Database = {
           status?: string
           step_label?: string
           step_order?: number
-          step_role?: Database["public"]["Enums"]["inventory_check_step_role"]
+          step_role?: string
         }
         Relationships: [
           {

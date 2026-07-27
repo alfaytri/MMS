@@ -1082,12 +1082,13 @@ export function useCompleteAssignment() {
         const steps = (chainSteps ?? []) as Array<{ step_order: number; step_role: string; step_label: string }>
         if (steps.length === 0) throw new Error('No approval steps configured for inv_check workflow')
 
-        // Types still declare step_role as the (now-dropped) enum union;
-        // cast through unknown until types are regenerated post-unpause.
+        // step_role is stored as text in the DB (migration 20260726130000
+        // reverted the Pass 1 enum — workflow admins can configure any role
+        // slug). database.types.ts matches: `step_role: string`.
         const chainRows = steps.map((s) => ({ check_id: checkId, ...s, status: 'pending' as const }))
         const { error: chainInsertErr } = await supabase
           .from('inventory_check_approvals')
-          .insert(chainRows as unknown as import('@/types/database.types').DBInsert<'inventory_check_approvals'>[])
+          .insert(chainRows)
         if (chainInsertErr) throw chainInsertErr
 
         await supabase.from('inventory_checks').update({ status: 'pending_approval' }).eq('id', checkId)

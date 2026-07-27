@@ -28,6 +28,8 @@ import type { InventoryCheck, InventoryCheckItem, PostCountMovement } from '@/ho
 import { cn } from '@/lib/utils'
 import { ItemTreeCell } from './ItemTreeCell'
 import type { Profile } from '@/hooks/useProfiles'
+import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
+import { useWorkflowSteps } from '@/hooks/useWorkflowSteps'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
@@ -425,6 +427,20 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   const { data: logEntries = [] }  = useInventoryCheckLog(check.id)
   const { data: approvals = [] }   = useInventoryCheckApprovals(check.id)
   const { data: generatedSAs = [] } = useInventoryCheckGeneratedSAs(check.id)
+  const { data: mySlots = [] }     = useMyApprovalSlotRoles()
+  const { data: workflowSteps = [] } = useWorkflowSteps()
+
+  // Strict per-step role gating for the inv_check approval chain — mirrors
+  // WhAdjustmentDetailDialog.canActOnStep. inventory_check_approvals.step_role
+  // stores a slug (step_key from approval_workflow_steps); resolve it back
+  // to the human role name and check the caller's approval-slot roles.
+  const myApprovalRolesByName = useMemo(() => new Set(mySlots.map((s) => s.name)), [mySlots])
+  const canActOnStep = useMemo(() => (stepRole: string): boolean => {
+    const step = workflowSteps.find((s) => s.workflow === 'inv_check' && s.step_key === stepRole)
+    if (!step) return false
+    const roleName = step.custom_roles?.name ?? step.step_label
+    return myApprovalRolesByName.has(roleName)
+  }, [workflowSteps, myApprovalRolesByName])
   const approveStep                = useApproveCheckStep()
 
   const items = detail?.items ?? []
@@ -1094,32 +1110,38 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                       )}
 
                       {isActive && activeApprovalStep?.id === step.id && (
-                        <div className="pl-7 space-y-2">
-                          <Textarea
-                            placeholder="Reason (required for rejection)..."
-                            className="text-xs min-h-[52px]"
-                            value={reviewNotes}
-                            onChange={(e) => setReviewNotes(e.target.value)}
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm" variant="outline"
-                              className="h-7 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
-                              disabled={!!approvingStep || !reviewNotes.trim()}
-                              onClick={() => handleApproval(step.id, 'rejected')}
-                            >
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-7 text-[10px] bg-success text-success-foreground hover:bg-success/90"
-                              disabled={!!approvingStep}
-                              onClick={() => handleApproval(step.id, 'approved')}
-                            >
-                              {approvingStep === step.id ? 'Saving…' : 'Approve'}
-                            </Button>
+                        canActOnStep(step.step_role) ? (
+                          <div className="pl-7 space-y-2">
+                            <Textarea
+                              placeholder="Reason (required for rejection)..."
+                              className="text-xs min-h-[52px]"
+                              value={reviewNotes}
+                              onChange={(e) => setReviewNotes(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm" variant="outline"
+                                className="h-7 text-[10px] text-destructive border-destructive/30 hover:bg-destructive/10"
+                                disabled={!!approvingStep || !reviewNotes.trim()}
+                                onClick={() => handleApproval(step.id, 'rejected')}
+                              >
+                                Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-7 text-[10px] bg-success text-success-foreground hover:bg-success/90"
+                                disabled={!!approvingStep}
+                                onClick={() => handleApproval(step.id, 'approved')}
+                              >
+                                {approvingStep === step.id ? 'Saving…' : 'Approve'}
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <p className="pl-7 text-[10px] text-muted-foreground italic">
+                            Awaiting <span className="font-medium">{step.step_label}</span> — you don&apos;t hold this role.
+                          </p>
+                        )
                       )}
                     </div>
                   )
