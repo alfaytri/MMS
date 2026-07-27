@@ -1329,23 +1329,39 @@ export function useSaveItemCount() {
       checkId: _checkId,
       countedQty,
       varianceType,
+      assignmentId,
+      profileId,
+      profileName,
     }: {
       itemId: string
       checkId: string
       countedQty: number
       varianceType: string | null
+      // Optional assignment context — when the counter is saving their own
+      // assignment's items, pass these so the RPC atomically transitions
+      // pending → in_progress + writes a 'user_started' log event on the
+      // very first save. Idempotent: only fires when status is still 'pending'.
+      assignmentId?: string | null
+      profileId?: string | null
+      profileName?: string | null
     }) => {
       const supabase = createClient()
       // variance is a generated column on inventory_check_items — DB computes it from counted_qty - system_qty
       const { error } = await supabase.rpc('save_inventory_check_item_count', {
-        p_item_id:       itemId,
-        p_counted_qty:   countedQty,
-        p_variance_type: varianceType ?? '',
+        p_item_id:        itemId,
+        p_counted_qty:    countedQty,
+        p_variance_type:  varianceType ?? '',
+        p_assignment_id:  assignmentId ?? undefined,
+        p_profile_id:     profileId ?? undefined,
+        p_profile_name:   profileName ?? undefined,
       })
       if (error) throw error
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckDetail(vars.checkId) })
+      // Refresh the log so the fresh 'user_started' event shows up on the Timeline tab.
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckLog(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckAssignments(vars.checkId) })
     },
   })
 }

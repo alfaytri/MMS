@@ -71,6 +71,7 @@ function statusLabel(s: string) {
 
 function EventIcon({ type }: { type: string }) {
   if (type === 'initialized')     return <Milestone   className="h-3.5 w-3.5 text-primary" />
+  if (type === 'user_started')    return <Clock       className="h-3.5 w-3.5 text-blue-600" />
   if (type === 'user_completed')  return <CheckCircle2 className="h-3.5 w-3.5 text-success" />
   if (type === 'all_counted')     return <CheckCircle2 className="h-3.5 w-3.5 text-success" />
   if (type === 'approved')        return <CheckCircle2 className="h-3.5 w-3.5 text-success" />
@@ -82,6 +83,7 @@ function EventIcon({ type }: { type: string }) {
 function eventLabel(type: string, meta?: Record<string, unknown> | null) {
   const map: Record<string, string> = {
     initialized:     'Check initialized',
+    user_started:    'Started counting',
     user_completed:  'Completed their count',
     all_counted:     'All counters done — moved to approval',
     approved:        'Check approved',
@@ -235,6 +237,13 @@ function CountingPanel({
           checkId,
           countedQty:   parseFloat(countedStr),
           varianceType: varianceTypeMap.get(itemId) ?? null,
+          // Pass assignment + profile so the RPC can idempotently flip
+          // pending → in_progress and emit the 'user_started' log event
+          // on the very first save. Only meaningful when the counter is
+          // saving their own assignment (readOnly=false path).
+          assignmentId: !readOnly ? assignmentId ?? null : null,
+          profileId:    !readOnly ? currentProfile?.id ?? null : null,
+          profileName:  !readOnly ? currentProfile?.full_name ?? null : null,
         })
       }
       setCountMap(new Map())

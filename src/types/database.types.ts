@@ -6185,6 +6185,9 @@ export type Database = {
           p_counted_qty: number
           p_item_id: string
           p_variance_type: string
+          p_assignment_id?: string
+          p_profile_id?: string
+          p_profile_name?: string
         }
         Returns: undefined
       }
