@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Task 2: Phase 2 — sale_order_lines_summary view + swap progress helpers**
 
 
 
