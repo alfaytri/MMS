@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Hotfix 3: `create_inventory_receival` carve — qty snapshot integrity + NULL landed guard + two movement rows**
 
 
 
