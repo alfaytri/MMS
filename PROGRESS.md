@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.2 done, next up 6.3 historical backfill)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.3: Phase 6 historical backfill (replacements → CN resolutions → damaged movements → auto-close)**
 
 
 
