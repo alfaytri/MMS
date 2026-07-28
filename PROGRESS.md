@@ -245,7 +245,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6 complete: 10 sub-tasks shipped, security audit filed, Phase 7 backlog doc filed for the dual-ledger design gap)_
+🚀 Starting: **Phase 7 — Dual-Ledger for Damaged Units** — implementation plan drafting + Sub-task 7.1 DB scaffolding (two separate customer + inventory ledger tables, auto-migrate historical write-off-only returns with a "Compensation not recorded" chip, extend ReplacementDeliveryDialog with per-row Disposition dropdown)
 
 
 
