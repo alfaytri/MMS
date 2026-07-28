@@ -47,7 +47,6 @@ export type Database = {
           entity_id: string
           entity_type: string
           id: string
-          ip_address: string | null
           module: string | null
           new_data: Json | null
           old_data: Json | null
@@ -61,7 +60,6 @@ export type Database = {
           entity_id: string
           entity_type: string
           id?: string
-          ip_address?: string | null
           module?: string | null
           new_data?: Json | null
           old_data?: Json | null
@@ -75,7 +73,6 @@ export type Database = {
           entity_id?: string
           entity_type?: string
           id?: string
-          ip_address?: string | null
           module?: string | null
           new_data?: Json | null
           old_data?: Json | null
@@ -217,7 +214,6 @@ export type Database = {
           match_note: string | null
           match_status: string | null
           qty: number | null
-          team_name: string | null
           total: number | null
           unit_price: number | null
         }
@@ -229,7 +225,6 @@ export type Database = {
           match_note?: string | null
           match_status?: string | null
           qty?: number | null
-          team_name?: string | null
           total?: number | null
           unit_price?: number | null
         }
@@ -241,7 +236,6 @@ export type Database = {
           match_note?: string | null
           match_status?: string | null
           qty?: number | null
-          team_name?: string | null
           total?: number | null
           unit_price?: number | null
         }
@@ -734,7 +728,7 @@ export type Database = {
           description: string | null
           id: string
           invoice_line_id: string | null
-          line_type: string
+          line_type: Database["public"]["Enums"]["credit_debit_line_type"]
           qty: number
           sku: string | null
           total: number | null
@@ -748,7 +742,7 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_line_id?: string | null
-          line_type?: string
+          line_type?: Database["public"]["Enums"]["credit_debit_line_type"]
           qty: number
           sku?: string | null
           total?: number | null
@@ -762,7 +756,7 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_line_id?: string | null
-          line_type?: string
+          line_type?: Database["public"]["Enums"]["credit_debit_line_type"]
           qty?: number
           sku?: string | null
           total?: number | null
@@ -801,7 +795,9 @@ export type Database = {
           refund_method: string | null
           refund_method_id: string | null
           refund_reference: string | null
-          resolution_type: string | null
+          resolution_type:
+            | Database["public"]["Enums"]["credit_note_resolution_type"]
+            | null
           source_return_id: string | null
           status: Database["public"]["Enums"]["credit_note_status"] | null
           total_amount: number
@@ -822,7 +818,9 @@ export type Database = {
           refund_method?: string | null
           refund_method_id?: string | null
           refund_reference?: string | null
-          resolution_type?: string | null
+          resolution_type?:
+            | Database["public"]["Enums"]["credit_note_resolution_type"]
+            | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
           total_amount?: number
@@ -843,13 +841,22 @@ export type Database = {
           refund_method?: string | null
           refund_method_id?: string | null
           refund_reference?: string | null
-          resolution_type?: string | null
+          resolution_type?:
+            | Database["public"]["Enums"]["credit_note_resolution_type"]
+            | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
           total_amount?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_notes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
           {
             foreignKeyName: "credit_notes_customer_id_fkey"
             columns: ["customer_id"]
@@ -1249,7 +1256,7 @@ export type Database = {
           debit_note_id: string
           description: string | null
           id: string
-          line_type: string
+          line_type: Database["public"]["Enums"]["credit_debit_line_type"]
           qty: number
           sku: string | null
           total: number | null
@@ -1262,7 +1269,7 @@ export type Database = {
           debit_note_id: string
           description?: string | null
           id?: string
-          line_type?: string
+          line_type?: Database["public"]["Enums"]["credit_debit_line_type"]
           qty: number
           sku?: string | null
           total?: number | null
@@ -1275,7 +1282,7 @@ export type Database = {
           debit_note_id?: string
           description?: string | null
           id?: string
-          line_type?: string
+          line_type?: Database["public"]["Enums"]["credit_debit_line_type"]
           qty?: number
           sku?: string | null
           total?: number | null
@@ -1711,7 +1718,7 @@ export type Database = {
         Row: {
           check_id: string
           created_at: string
-          event_type: string
+          event_type: Database["public"]["Enums"]["inventory_check_event_type"]
           id: string
           meta: Json | null
           profile_id: string | null
@@ -1720,7 +1727,7 @@ export type Database = {
         Insert: {
           check_id: string
           created_at?: string
-          event_type: string
+          event_type: Database["public"]["Enums"]["inventory_check_event_type"]
           id?: string
           meta?: Json | null
           profile_id?: string | null
@@ -1729,7 +1736,7 @@ export type Database = {
         Update: {
           check_id?: string
           created_at?: string
-          event_type?: string
+          event_type?: Database["public"]["Enums"]["inventory_check_event_type"]
           id?: string
           meta?: Json | null
           profile_id?: string | null
@@ -1956,7 +1963,7 @@ export type Database = {
           division_id: string | null
           id: string
           item_name: string
-          movement_type: string
+          movement_type: Database["public"]["Enums"]["stock_movement_type"]
           notes: string | null
           qty: number
           reference_id: string | null
@@ -1971,7 +1978,7 @@ export type Database = {
           division_id?: string | null
           id?: string
           item_name: string
-          movement_type: string
+          movement_type: Database["public"]["Enums"]["stock_movement_type"]
           notes?: string | null
           qty: number
           reference_id?: string | null
@@ -1986,7 +1993,7 @@ export type Database = {
           division_id?: string | null
           id?: string
           item_name?: string
-          movement_type?: string
+          movement_type?: Database["public"]["Enums"]["stock_movement_type"]
           notes?: string | null
           qty?: number
           reference_id?: string | null
@@ -2490,7 +2497,7 @@ export type Database = {
           customer_id: string | null
           date: string
           deleted_at: string | null
-          direction: string
+          direction: Database["public"]["Enums"]["payment_direction"]
           exchange_rate: number
           id: string
           invoice_id: string | null
@@ -2501,7 +2508,7 @@ export type Database = {
           qb_synced: boolean | null
           reference: string | null
           source_id: string | null
-          source_type: string | null
+          source_type: Database["public"]["Enums"]["payment_source_type"] | null
           status: Database["public"]["Enums"]["payment_status"] | null
           supplier_id: string | null
           transaction_id: string | null
@@ -2522,7 +2529,7 @@ export type Database = {
           customer_id?: string | null
           date: string
           deleted_at?: string | null
-          direction?: string
+          direction?: Database["public"]["Enums"]["payment_direction"]
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
@@ -2533,7 +2540,9 @@ export type Database = {
           qb_synced?: boolean | null
           reference?: string | null
           source_id?: string | null
-          source_type?: string | null
+          source_type?:
+            | Database["public"]["Enums"]["payment_source_type"]
+            | null
           status?: Database["public"]["Enums"]["payment_status"] | null
           supplier_id?: string | null
           transaction_id?: string | null
@@ -2554,7 +2563,7 @@ export type Database = {
           customer_id?: string | null
           date?: string
           deleted_at?: string | null
-          direction?: string
+          direction?: Database["public"]["Enums"]["payment_direction"]
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
@@ -2565,7 +2574,9 @@ export type Database = {
           qb_synced?: boolean | null
           reference?: string | null
           source_id?: string | null
-          source_type?: string | null
+          source_type?:
+            | Database["public"]["Enums"]["payment_source_type"]
+            | null
           status?: Database["public"]["Enums"]["payment_status"] | null
           supplier_id?: string | null
           transaction_id?: string | null
@@ -3534,7 +3545,7 @@ export type Database = {
           received_by: string | null
           received_by_name: string | null
           source_debit_note_id: string | null
-          source_type: string
+          source_type: Database["public"]["Enums"]["receival_source_type"]
           status: Database["public"]["Enums"]["receival_status"] | null
           updated_at: string | null
           warehouse_id: string
@@ -3554,7 +3565,7 @@ export type Database = {
           received_by?: string | null
           received_by_name?: string | null
           source_debit_note_id?: string | null
-          source_type?: string
+          source_type?: Database["public"]["Enums"]["receival_source_type"]
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id: string
@@ -3574,7 +3585,7 @@ export type Database = {
           received_by?: string | null
           received_by_name?: string | null
           source_debit_note_id?: string | null
-          source_type?: string
+          source_type?: Database["public"]["Enums"]["receival_source_type"]
           status?: Database["public"]["Enums"]["receival_status"] | null
           updated_at?: string | null
           warehouse_id?: string
@@ -3681,7 +3692,7 @@ export type Database = {
           sale_order_id: string
           source_credit_note_id: string | null
           status: Database["public"]["Enums"]["sale_delivery_status"] | null
-          type: string
+          type: Database["public"]["Enums"]["sale_delivery_type"]
           updated_at: string
           warehouse_id: string | null
           warehouse_name: string | null
@@ -3698,7 +3709,7 @@ export type Database = {
           sale_order_id: string
           source_credit_note_id?: string | null
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
-          type?: string
+          type?: Database["public"]["Enums"]["sale_delivery_type"]
           updated_at?: string
           warehouse_id?: string | null
           warehouse_name?: string | null
@@ -3715,7 +3726,7 @@ export type Database = {
           sale_order_id?: string
           source_credit_note_id?: string | null
           status?: Database["public"]["Enums"]["sale_delivery_status"] | null
-          type?: string
+          type?: Database["public"]["Enums"]["sale_delivery_type"]
           updated_at?: string
           warehouse_id?: string | null
           warehouse_name?: string | null
@@ -4306,6 +4317,7 @@ export type Database = {
           restock_warehouse_id: string | null
           restocked_at: string | null
           return_number: string
+          source_delivery_id: string | null
           source_id: string
           source_type: Database["public"]["Enums"]["return_source_type"]
           status: Database["public"]["Enums"]["return_status"]
@@ -4327,6 +4339,7 @@ export type Database = {
           restock_warehouse_id?: string | null
           restocked_at?: string | null
           return_number: string
+          source_delivery_id?: string | null
           source_id: string
           source_type: Database["public"]["Enums"]["return_source_type"]
           status?: Database["public"]["Enums"]["return_status"]
@@ -4348,6 +4361,7 @@ export type Database = {
           restock_warehouse_id?: string | null
           restocked_at?: string | null
           return_number?: string
+          source_delivery_id?: string | null
           source_id?: string
           source_type?: Database["public"]["Enums"]["return_source_type"]
           status?: Database["public"]["Enums"]["return_status"]
@@ -4382,6 +4396,13 @@ export type Database = {
             referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "so_po_returns_source_delivery_id_fkey"
+            columns: ["source_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "sale_deliveries"
+            referencedColumns: ["id"]
+          },
         ]
       }
       stock_adjustment_approvals: {
@@ -4389,6 +4410,8 @@ export type Database = {
           action_at: string | null
           adjustment_id: string
           created_at: string
+          force_approved: boolean
+          force_comment: string | null
           id: string
           notes: string | null
           profile_id: string | null
@@ -4402,6 +4425,8 @@ export type Database = {
           action_at?: string | null
           adjustment_id: string
           created_at?: string
+          force_approved?: boolean
+          force_comment?: string | null
           id?: string
           notes?: string | null
           profile_id?: string | null
@@ -4415,6 +4440,8 @@ export type Database = {
           action_at?: string | null
           adjustment_id?: string
           created_at?: string
+          force_approved?: boolean
+          force_comment?: string | null
           id?: string
           notes?: string | null
           profile_id?: string | null
@@ -4443,7 +4470,7 @@ export type Database = {
       }
       stock_adjustments: {
         Row: {
-          adjustment_type: string
+          adjustment_type: Database["public"]["Enums"]["stock_adjustment_type"]
           approved_at: string | null
           approved_by_name: string | null
           brand_variant_id: string
@@ -4455,12 +4482,14 @@ export type Database = {
           reason: string
           requested_by: string | null
           requested_by_name: string | null
+          source_check_id: string | null
+          source_check_item_id: string | null
           status: string
           updated_at: string
           warehouse_id: string
         }
         Insert: {
-          adjustment_type: string
+          adjustment_type: Database["public"]["Enums"]["stock_adjustment_type"]
           approved_at?: string | null
           approved_by_name?: string | null
           brand_variant_id: string
@@ -4472,12 +4501,14 @@ export type Database = {
           reason: string
           requested_by?: string | null
           requested_by_name?: string | null
+          source_check_id?: string | null
+          source_check_item_id?: string | null
           status?: string
           updated_at?: string
           warehouse_id: string
         }
         Update: {
-          adjustment_type?: string
+          adjustment_type?: Database["public"]["Enums"]["stock_adjustment_type"]
           approved_at?: string | null
           approved_by_name?: string | null
           brand_variant_id?: string
@@ -4489,6 +4520,8 @@ export type Database = {
           reason?: string
           requested_by?: string | null
           requested_by_name?: string | null
+          source_check_id?: string | null
+          source_check_item_id?: string | null
           status?: string
           updated_at?: string
           warehouse_id?: string
@@ -4506,6 +4539,20 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_source_check_id_fkey"
+            columns: ["source_check_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_source_check_item_id_fkey"
+            columns: ["source_check_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_check_items"
             referencedColumns: ["id"]
           },
           {
@@ -5465,15 +5512,27 @@ export type Database = {
         }
         Returns: string
       }
-      add_workflow_step: {
-        Args: {
-          p_condition_types?: string[]
-          p_is_conditional?: boolean
-          p_role_name: string
-          p_workflow: string
-        }
-        Returns: Json
-      }
+      add_workflow_step:
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_is_conditional?: boolean
+              p_role_name: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_condition_types?: string[]
+              p_group_id?: string
+              p_is_conditional?: boolean
+              p_role_desc?: string
+              p_role_name: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
       add_workflow_step_for_role:
         | {
             Args: {
@@ -5705,7 +5764,7 @@ export type Database = {
           received_by: string | null
           received_by_name: string | null
           source_debit_note_id: string | null
-          source_type: string
+          source_type: Database["public"]["Enums"]["receival_source_type"]
           status: Database["public"]["Enums"]["receival_status"] | null
           updated_at: string | null
           warehouse_id: string
@@ -5860,11 +5919,11 @@ export type Database = {
         }
         Returns: {
           layer_id: string
-          source_type: string | null
-          source_id: string | null
           qty_taken: number
-          unit_cost: number
+          source_id: string
+          source_type: string
           total_cost: number
+          unit_cost: number
         }[]
       }
       detach_payment_from_invoice: {
@@ -5892,6 +5951,10 @@ export type Database = {
           p_comment?: string
           p_so_id: string
         }
+        Returns: number
+      }
+      force_approve_stock_adjustment: {
+        Args: { p_adjustment_id: string; p_comment?: string }
         Returns: number
       }
       generate_check_number: { Args: never; Returns: string }
@@ -6038,6 +6101,14 @@ export type Database = {
         Args: { p_return_id: string }
         Returns: undefined
       }
+      rpc_complete_return_inspection: {
+        Args: {
+          p_restock_warehouse_id: string
+          p_return_id: string
+          p_splits: Json
+        }
+        Returns: undefined
+      }
       rpc_customer_statement: {
         Args: {
           p_customer_id: string
@@ -6064,14 +6135,6 @@ export type Database = {
       }
       rpc_process_return_restock: {
         Args: { p_return_id: string }
-        Returns: undefined
-      }
-      rpc_complete_return_inspection: {
-        Args: {
-          p_return_id: string
-          p_splits: Json
-          p_restock_warehouse_id: string
-        }
         Returns: undefined
       }
       rpc_product_profitability: {
@@ -6114,17 +6177,26 @@ export type Database = {
         Args: { p_customer_id: string; p_phones: Json }
         Returns: undefined
       }
-      save_inventory_check_item_count: {
-        Args: {
-          p_counted_qty: number
-          p_item_id: string
-          p_variance_type: string
-          p_assignment_id?: string
-          p_profile_id?: string
-          p_profile_name?: string
-        }
-        Returns: undefined
-      }
+      save_inventory_check_item_count:
+        | {
+            Args: {
+              p_counted_qty: number
+              p_item_id: string
+              p_variance_type: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_assignment_id?: string
+              p_counted_qty: number
+              p_item_id: string
+              p_profile_id?: string
+              p_profile_name?: string
+              p_variance_type: string
+            }
+            Returns: undefined
+          }
       save_order_quotation: {
         Args: {
           p_discount_type?: string
@@ -6160,11 +6232,11 @@ export type Database = {
         }
         Returns: undefined
       }
-      set_credit_note_pdf_url: {
+      set_bill_pdf_url: {
         Args: { p_id: string; p_url: string }
         Returns: undefined
       }
-      set_bill_pdf_url: {
+      set_credit_note_pdf_url: {
         Args: { p_id: string; p_url: string }
         Returns: undefined
       }
@@ -6250,16 +6322,26 @@ export type Database = {
       approval_status: "pending" | "approved" | "rejected"
       approval_type: "margin" | "credit"
       audit_severity: "info" | "warning" | "error" | "critical"
+      credit_debit_line_type: "original" | "returned"
       credit_group_request_status:
         | "pending"
         | "approved"
         | "rejected"
         | "cancelled"
+      credit_note_resolution_type: "refund" | "replacement" | "store_credit"
       credit_note_status: "draft" | "approved" | "issued" | "redeemed"
       customer_entity_type: "individual" | "business"
       division: "maintenance" | "cleaning" | "kitchen" | "pest-control"
       instruction_content_type: "text" | "pdf"
       instruction_type: "pre-service" | "post-service"
+      inventory_check_event_type:
+        | "initialized"
+        | "user_completed"
+        | "all_counted"
+        | "approval_action"
+        | "approved"
+        | "rejected"
+        | "user_started"
       inventory_check_step_role:
         | "accounting_manager"
         | "inventory_manager"
@@ -6318,6 +6400,8 @@ export type Database = {
         | "waitlist"
         | "pending-confirmation"
         | "customer-unavailable"
+      payment_direction: "incoming" | "outgoing"
+      payment_source_type: "sale_order" | "purchase_order" | "invoice" | "bill"
       payment_status:
         | "completed"
         | "pending"
@@ -6343,6 +6427,7 @@ export type Database = {
         | "buy_x_discount_get_y"
       qc_priority: "high" | "medium" | "low"
       qc_schedule_status: "pending" | "in-progress" | "completed" | "missed"
+      receival_source_type: "purchase" | "inventory"
       receival_status: "pending_approval" | "approved" | "rejected"
       reminder_channel: "Email" | "SMS" | "WhatsApp"
       return_source_type: "sale_order" | "purchase_order"
@@ -6360,6 +6445,7 @@ export type Database = {
         | "in_progress"
         | "delivered"
         | "cancelled"
+      sale_delivery_type: "standard" | "replacement"
       sale_order_status:
         | "quotation"
         | "confirmed"
@@ -6387,6 +6473,28 @@ export type Database = {
         | "customs"
         | "delivered"
         | "delayed"
+      stock_adjustment_type:
+        | "increase"
+        | "decrease"
+        | "set"
+        | "damage"
+        | "write_off"
+      stock_movement_type:
+        | "purchase_receival"
+        | "sale_delivery"
+        | "adjustment"
+        | "transfer_in"
+        | "transfer_out"
+        | "cost_adjustment"
+        | "receival_edit"
+        | "free_receival"
+        | "sale_return"
+        | "sale_return_damaged"
+        | "purchase_return"
+        | "purchase_return_cancelled"
+        | "inventory_check"
+        | "inventory_receival_carve"
+        | "inventory_receival_new"
       tl_order_type:
         | "order"
         | "site-visit-single"
@@ -6542,17 +6650,28 @@ export const Constants = {
       approval_status: ["pending", "approved", "rejected"],
       approval_type: ["margin", "credit"],
       audit_severity: ["info", "warning", "error", "critical"],
+      credit_debit_line_type: ["original", "returned"],
       credit_group_request_status: [
         "pending",
         "approved",
         "rejected",
         "cancelled",
       ],
+      credit_note_resolution_type: ["refund", "replacement", "store_credit"],
       credit_note_status: ["draft", "approved", "issued", "redeemed"],
       customer_entity_type: ["individual", "business"],
       division: ["maintenance", "cleaning", "kitchen", "pest-control"],
       instruction_content_type: ["text", "pdf"],
       instruction_type: ["pre-service", "post-service"],
+      inventory_check_event_type: [
+        "initialized",
+        "user_completed",
+        "all_counted",
+        "approval_action",
+        "approved",
+        "rejected",
+        "user_started",
+      ],
       inventory_check_step_role: [
         "accounting_manager",
         "inventory_manager",
@@ -6617,6 +6736,8 @@ export const Constants = {
         "pending-confirmation",
         "customer-unavailable",
       ],
+      payment_direction: ["incoming", "outgoing"],
+      payment_source_type: ["sale_order", "purchase_order", "invoice", "bill"],
       payment_status: [
         "completed",
         "pending",
@@ -6645,6 +6766,7 @@ export const Constants = {
       ],
       qc_priority: ["high", "medium", "low"],
       qc_schedule_status: ["pending", "in-progress", "completed", "missed"],
+      receival_source_type: ["purchase", "inventory"],
       receival_status: ["pending_approval", "approved", "rejected"],
       reminder_channel: ["Email", "SMS", "WhatsApp"],
       return_source_type: ["sale_order", "purchase_order"],
@@ -6664,6 +6786,7 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
+      sale_delivery_type: ["standard", "replacement"],
       sale_order_status: [
         "quotation",
         "confirmed",
@@ -6693,6 +6816,30 @@ export const Constants = {
         "customs",
         "delivered",
         "delayed",
+      ],
+      stock_adjustment_type: [
+        "increase",
+        "decrease",
+        "set",
+        "damage",
+        "write_off",
+      ],
+      stock_movement_type: [
+        "purchase_receival",
+        "sale_delivery",
+        "adjustment",
+        "transfer_in",
+        "transfer_out",
+        "cost_adjustment",
+        "receival_edit",
+        "free_receival",
+        "sale_return",
+        "sale_return_damaged",
+        "purchase_return",
+        "purchase_return_cancelled",
+        "inventory_check",
+        "inventory_receival_carve",
+        "inventory_receival_new",
       ],
       tl_order_type: [
         "order",
