@@ -4,6 +4,55 @@ import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
 import type { DebitNote } from '@/types/invoice'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
+
+type ReturnResolution = 'refund' | 'replacement' | 'store_credit'
+
+/**
+ * Close the return linked to a credit note, or fall back to a direct
+ * stamp on credit_notes.resolution_type when no return is linked
+ * (invoice-adjustment CNs). rpc_close_return advances so_po_returns.status
+ * to resolved_credit / resolved_replacement in lockstep with the CN.
+ */
+async function closeReturnOrStampCredit(
+  supabase: SupabaseClient<Database>,
+  creditNoteId: string,
+  resolution: ReturnResolution,
+) {
+  const { data: cn, error: cnErr } = await supabase
+    .from('credit_notes')
+    .select('source_return_id')
+    .eq('id', creditNoteId)
+    .maybeSingle()
+  if (cnErr) throw cnErr
+
+  const returnId = cn?.source_return_id ?? null
+
+  if (returnId) {
+    const { data: ret } = await supabase
+      .from('so_po_returns')
+      .select('status')
+      .eq('id', returnId)
+      .maybeSingle()
+    if (ret?.status === 'restocked') {
+      const { error: rpcErr } = await supabase.rpc('rpc_close_return', {
+        p_return_id: returnId,
+        p_resolution: resolution,
+      })
+      if (rpcErr) throw rpcErr
+      return
+    }
+  }
+
+  // No linked return or return already closed by another path — just
+  // stamp the CN. The RPC would have thrown otherwise.
+  const { error } = await supabase
+    .from('credit_notes')
+    .update({ resolution_type: resolution })
+    .eq('id', creditNoteId)
+  if (error) throw error
+}
 
 export type CreditNoteStatus = 'draft' | 'approved' | 'issued' | 'redeemed'
 
@@ -286,16 +335,22 @@ export function useResolveCreditNoteRefund() {
       refundMethod: string
       refundReference: string
     }) => {
-      const { error } = await supabase
+      // refund_method + refund_reference are refund-specific fields that
+      // live only on credit_notes and must be written by hand. The
+      // resolution_type stamp is delegated to rpc_close_return when a
+      // return is linked (so so_po_returns.status advances in lockstep);
+      // fallback to a direct write for invoice-adjustment CNs without a
+      // linked return.
+      const { error: fieldsErr } = await supabase
         .from('credit_notes')
         .update({
-          resolution_type: 'refund',
           refund_method: input.refundMethod,
           refund_reference: input.refundReference,
         })
         .eq('id', input.creditNoteId)
+      if (fieldsErr) throw fieldsErr
 
-      if (error) throw error
+      await closeReturnOrStampCredit(supabase, input.creditNoteId, 'refund')
 
       void logActivity({
         action: 'refund Resolution Applied',
@@ -307,6 +362,11 @@ export function useResolveCreditNoteRefund() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
+      // all detail entries without needing to know which SO.
+      qc.invalidateQueries({ queryKey: ['sale-order'] })
     },
   })
 }
@@ -361,14 +421,9 @@ export function useResolveCreditNoteStoreCredit() {
 
       // Store-credit resolution marks the credit note; the "credit balance"
       // is derived from credit_notes at read time (customers.credit_balance
-      // column was dropped 2026-07-24).
-
-      const { error } = await supabase
-        .from('credit_notes')
-        .update({ resolution_type: 'store_credit' })
-        .eq('id', input.creditNoteId)
-
-      if (error) throw error
+      // column was dropped 2026-07-24). When a return is linked, rpc_close_return
+      // advances so_po_returns.status in lockstep.
+      await closeReturnOrStampCredit(supabase, input.creditNoteId, 'store_credit')
 
       void logActivity({
         action: 'store_credit Resolution Applied',
@@ -380,6 +435,11 @@ export function useResolveCreditNoteStoreCredit() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
+      // all detail entries without needing to know which SO.
+      qc.invalidateQueries({ queryKey: ['sale-order'] })
     },
   })
 }
@@ -390,12 +450,7 @@ export function useResolveCreditNoteReplacement() {
 
   return useMutation({
     mutationFn: async (creditNoteId: string) => {
-      const { error } = await supabase
-        .from('credit_notes')
-        .update({ resolution_type: 'replacement' })
-        .eq('id', creditNoteId)
-
-      if (error) throw error
+      await closeReturnOrStampCredit(supabase, creditNoteId, 'replacement')
 
       void logActivity({
         action: 'replacement Resolution Applied',
@@ -407,6 +462,11 @@ export function useResolveCreditNoteReplacement() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
+      // all detail entries without needing to know which SO.
+      qc.invalidateQueries({ queryKey: ['sale-order'] })
     },
   })
 }

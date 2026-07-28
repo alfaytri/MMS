@@ -545,20 +545,19 @@ export function useUnresolvedReturns(soId: string | null) {
     queryKey: queryKeys.saleReturns.unresolved(soId),
     enabled: !!soId,
     queryFn: async () => {
+      // A return is "unresolved" when it has been restocked but not yet
+      // closed via rpc_close_return. Once resolved, status flips to one
+      // of resolved_credit / resolved_replacement / resolved_partial.
       const { data, error } = await supabase
         .from('so_po_returns')
-        .select('*, return_lines(*), credit_notes!returns_credit_note_id_fkey(id, resolution_type)')
+        .select('*, return_lines(*)')
         .eq('source_type', 'sale_order')
         .eq('source_id', soId!)
         .eq('status', 'restocked')
         .is('deleted_at', null)
 
       if (error) throw error
-
-      return (data ?? []).filter((r) => {
-        const cn = r.credit_notes
-        return cn && cn.resolution_type === null
-      }) as unknown as (SaleReturn & { credit_notes: { id: string; resolution_type: string | null } })[]
+      return (data ?? []) as unknown as SaleReturn[]
     },
     staleTime: 30_000,
   })

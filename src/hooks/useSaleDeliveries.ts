@@ -100,6 +100,8 @@ export function useUpdateDelivery() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      // saleOrders.detail is ['sale-order', id]; root prefix covers all IDs.
+      queryClient.invalidateQueries({ queryKey: ['sale-order'] })
     },
   })
 }
@@ -156,9 +158,11 @@ export function useCompleteDelivery() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      // saleOrders.detail uses ['sale-order', id] (singular) — .all won't cover it.
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.soId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
@@ -286,20 +290,27 @@ export function useCreateReplacementDelivery() {
         if (linesErr) throw linesErr
       }
 
-      // Mark credit note as resolved
-      const { error: cnErr } = await supabase
-        .from('credit_notes')
-        .update({ resolution_type: 'replacement' })
-        .eq('id', input.creditNoteId)
-
-      if (cnErr) throw cnErr
+      // Close the return atomically — rpc_close_return sets
+      // so_po_returns.status = 'resolved_replacement' AND stamps
+      // credit_notes.resolution_type = 'replacement' in one shot so the two
+      // stay in lockstep. Only path that closes a return.
+      const { error: closeErr } = await supabase.rpc('rpc_close_return', {
+        p_return_id: input.returnId,
+        p_resolution: 'replacement',
+      })
+      if (closeErr) throw closeErr
 
       return data
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      // saleOrders.detail uses a different root key (['sale-order', id]) than
+      // saleOrders.all (['sale-orders']), so .all won't cover it. Invalidate
+      // the specific detail entry the SO detail dialog subscribes to.
+      qc.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.soId) })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
     },
   })

@@ -6131,6 +6131,10 @@ export type Database = {
         Args: { p_return_id: string }
         Returns: undefined
       }
+      rpc_close_return: {
+        Args: { p_resolution: string; p_return_id: string }
+        Returns: undefined
+      }
       rpc_complete_return_inspection: {
         Args: {
           p_restock_warehouse_id: string
@@ -6470,6 +6474,9 @@ export type Database = {
         | "dispatched"
         | "supplier_confirmed"
         | "cancelled"
+        | "resolved_credit"
+        | "resolved_replacement"
+        | "resolved_partial"
       sale_delivery_status:
         | "pending"
         | "in_progress"
@@ -6809,6 +6816,9 @@ export const Constants = {
         "dispatched",
         "supplier_confirmed",
         "cancelled",
+        "resolved_credit",
+        "resolved_replacement",
+        "resolved_partial",
       ],
       sale_delivery_status: [
         "pending",
