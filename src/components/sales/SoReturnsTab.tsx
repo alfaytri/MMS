@@ -203,6 +203,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
           onOpenChange={(o) => { if (!o) setReturnOpen(false) }}
           so={so}
           fullSO={fullSO}
+          existingReturns={soReturns}
         />
       )}
     </div>

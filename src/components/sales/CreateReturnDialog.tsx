@@ -9,7 +9,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { useCreateSaleReturn, useDeliveryBreakdownBySO, type ReturnLineCondition } from '@/hooks/useSaleReturns'
+import { useCreateSaleReturn, useDeliveryBreakdownBySO, type ReturnLineCondition, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useReturnReasons, useAddReturnReason } from '@/hooks/useReturnReasons'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
@@ -33,9 +33,12 @@ interface Props {
   onOpenChange: (open: boolean) => void
   so: SaleOrder
   fullSO: SaleOrder | null
+  // Existing returns on this SO — used to compute per-variant already-returned
+  // qty so the dialog can subtract from delivered and cap the qty inputs.
+  existingReturns: SaleReturn[]
 }
 
-export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
+export function CreateReturnDialog({ open, onOpenChange, so, fullSO, existingReturns }: Props) {
   const [mode, setMode] = useState<Mode>('direct')
   const [returnDate, setReturnDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [returnReason, setReturnReason] = useState('')
@@ -88,6 +91,21 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
     return map
   }, [breakdown])
 
+  // Per-variant already-returned qty, summed across every non-cancelled
+  // return on this SO. Inspection-mode qty counts too — those units are
+  // already earmarked, returning them again would overshoot the delivery.
+  const returnedByVariant = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const ret of existingReturns) {
+      if (ret.status === 'cancelled') continue
+      for (const line of ret.return_lines ?? []) {
+        if (!line.brand_variant_id) continue
+        map.set(line.brand_variant_id, (map.get(line.brand_variant_id) ?? 0) + line.qty)
+      }
+    }
+    return map
+  }, [existingReturns])
+
   const resetAndClose = () => {
     setMode('direct')
     setReturnReason('')
@@ -101,7 +119,13 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
     mode === 'direct' ? l.good_qty + l.damaged_qty : l.inspection_qty
 
   const nonZeroLineCount = lines.filter((l) => perLineReturnQty(l) > 0).length
-  const anyOverDelivered = lines.some((l) => perLineReturnQty(l) > l.delivered_qty)
+  const anyOverDelivered = lines.some((l) => {
+    const bvRows = l.brand_variant_id ? (breakdownByVariant.get(l.brand_variant_id) ?? []) : []
+    const totalDelivered = bvRows.reduce((s, r) => s + r.qty_delivered, 0) || l.delivered_qty
+    const alreadyReturned = l.brand_variant_id ? (returnedByVariant.get(l.brand_variant_id) ?? 0) : 0
+    const available = Math.max(0, totalDelivered - alreadyReturned)
+    return perLineReturnQty(l) > available
+  })
   const reasonOK = returnReason === '__custom__' ? !!customReason.trim() : !!returnReason.trim()
   const warehouseOK = mode === 'inspection' ? true : !!restockWarehouseId
   const canSubmit =
@@ -310,14 +334,20 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                   {lines.map((line, i) => {
                     const rows = line.brand_variant_id ? (breakdownByVariant.get(line.brand_variant_id) ?? []) : []
                     const totalDelivered = rows.reduce((s, r) => s + r.qty_delivered, 0) || line.delivered_qty
+                    const alreadyReturned = line.brand_variant_id ? (returnedByVariant.get(line.brand_variant_id) ?? 0) : 0
+                    const available = Math.max(0, totalDelivered - alreadyReturned)
                     const totalReturning = perLineReturnQty(line)
-                    const overCapacity = totalReturning > totalDelivered
+                    const overCapacity = totalReturning > available
+                    const fullyReturned = available === 0
                     return (
                       <TableRow key={i}>
                         <TableCell className="text-xs align-top">
                           <div className="font-medium">{line.item_name}</div>
                           <div className="mt-1 text-[10px] text-muted-foreground">
                             Ordered {line.ordered_qty} · Delivered {totalDelivered}
+                            {alreadyReturned > 0 && (
+                              <> · Returned {alreadyReturned} · <span className={fullyReturned ? 'text-muted-foreground' : 'text-emerald-700 font-medium'}>Available {available}</span></>
+                            )}
                           </div>
                           {rows.length > 0 && (
                             <div className="mt-0.5 space-x-1">
@@ -333,7 +363,12 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                           )}
                           {overCapacity && (
                             <div className="mt-1 text-[11px] text-destructive">
-                              Return qty ({totalReturning}) exceeds delivered ({totalDelivered})
+                              Return qty ({totalReturning}) exceeds available ({available})
+                            </div>
+                          )}
+                          {fullyReturned && (
+                            <div className="mt-1 text-[11px] text-muted-foreground italic">
+                              All delivered units already returned.
                             </div>
                           )}
                         </TableCell>
@@ -342,8 +377,8 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                           <>
                             <TableCell className="text-right align-top">
                               <input
-                                type="number" min={0} max={totalDelivered}
-                                className="w-20 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                                type="number" min={0} max={available} disabled={fullyReturned}
+                                className="w-20 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                                 value={line.good_qty}
                                 onChange={(e) => setLines((prev) => prev.map((l, j) =>
                                   j === i ? { ...l, good_qty: Math.max(0, Number(e.target.value) || 0) } : l))}
@@ -351,8 +386,8 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                             </TableCell>
                             <TableCell className="text-right align-top">
                               <input
-                                type="number" min={0} max={totalDelivered}
-                                className="w-20 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                                type="number" min={0} max={available} disabled={fullyReturned}
+                                className="w-20 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                                 value={line.damaged_qty}
                                 onChange={(e) => setLines((prev) => prev.map((l, j) =>
                                   j === i ? { ...l, damaged_qty: Math.max(0, Number(e.target.value) || 0) } : l))}
@@ -362,7 +397,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                               <input
                                 type="text"
                                 placeholder={line.damaged_qty > 0 ? 'e.g. dented' : ''}
-                                disabled={line.damaged_qty === 0}
+                                disabled={line.damaged_qty === 0 || fullyReturned}
                                 className="w-full h-7 text-xs rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                                 value={line.condition_notes}
                                 onChange={(e) => setLines((prev) => prev.map((l, j) =>
@@ -374,8 +409,8 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                           <>
                             <TableCell className="text-right align-top">
                               <input
-                                type="number" min={0} max={totalDelivered}
-                                className="w-20 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                                type="number" min={0} max={available} disabled={fullyReturned}
+                                className="w-20 h-7 text-xs text-right rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                                 value={line.inspection_qty}
                                 onChange={(e) => setLines((prev) => prev.map((l, j) =>
                                   j === i ? { ...l, inspection_qty: Math.max(0, Number(e.target.value) || 0) } : l))}
@@ -385,7 +420,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                               <input
                                 type="text"
                                 placeholder="e.g. customer reports intermittent fault"
-                                disabled={line.inspection_qty === 0}
+                                disabled={line.inspection_qty === 0 || fullyReturned}
                                 className="w-full h-7 text-xs rounded border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                                 value={line.condition_notes}
                                 onChange={(e) => setLines((prev) => prev.map((l, j) =>
@@ -407,7 +442,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
             )}
             {anyOverDelivered && (
               <p className="text-[11px] text-destructive">
-                One or more lines request more units than were delivered — fix before submitting.
+                One or more lines request more units than are available (delivered − already returned) — fix before submitting.
               </p>
             )}
           </div>
