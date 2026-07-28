@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.8 done, next up 6.9 end-to-end verification + regression sweep)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.9: end-to-end verification + regression sweep**
 
 
 
