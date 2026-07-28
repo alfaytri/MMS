@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.3 done, next up 6.4 hook rewire)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.4: Phase 6 hook rewire (route replacement/refund/store-credit through ledger RPCs; add progress hooks)**
 
 
 
