@@ -36,11 +36,12 @@ import {
 } from 'lucide-react'
 
 const STATUS_CONFIG: Record<SaleReturn['status'], { label: string; color: string; bg: string; Icon: typeof Clock }> = {
-  pending:   { label: 'Pending',   color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', Icon: Clock },
-  received:  { label: 'Received',  color: 'text-blue-700',  bg: 'bg-blue-50 border-blue-200',   Icon: Truck },
-  restocked: { label: 'Restocked', color: 'text-green-700', bg: 'bg-green-50 border-green-200', Icon: CheckCircle2 },
-  closed:    { label: 'Closed',    color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200', Icon: CheckCircle2 },
-  cancelled: { label: 'Cancelled', color: 'text-red-700',   bg: 'bg-red-50 border-red-200',     Icon: Ban },
+  pending:            { label: 'Pending',            color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',   Icon: Clock },
+  pending_inspection: { label: 'Pending Inspection', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200', Icon: AlertTriangle },
+  received:           { label: 'Received',           color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',     Icon: Truck },
+  restocked:          { label: 'Restocked',          color: 'text-green-700',  bg: 'bg-green-50 border-green-200',   Icon: CheckCircle2 },
+  closed:             { label: 'Closed',             color: 'text-slate-700',  bg: 'bg-slate-50 border-slate-200',   Icon: CheckCircle2 },
+  cancelled:          { label: 'Cancelled',          color: 'text-red-700',    bg: 'bg-red-50 border-red-200',       Icon: Ban },
 }
 
 const STATUS_NEXT: Partial<Record<SaleReturn['status'], SaleReturn['status']>> = {

@@ -4,6 +4,15 @@ import { logActivity } from '@/lib/logActivity'
 import { nextNoteId } from '@/hooks/useCreditNotes'
 import { queryKeys } from '@/lib/queryKeys'
 
+export type ReturnLineCondition = 'good' | 'damaged' | 'inspection'
+export type SaleReturnStatus =
+  | 'pending'
+  | 'pending_inspection'
+  | 'received'
+  | 'restocked'
+  | 'closed'
+  | 'cancelled'
+
 export type SaleReturn = {
   id: string
   return_number: string
@@ -18,13 +27,13 @@ export type SaleReturn = {
     item_name: string
     sku: string | null
     qty: number
-    condition: 'good' | 'damaged'
+    condition: ReturnLineCondition
     condition_notes: string | null
     created_at: string
   }[]
   restock_warehouse_id: string | null
   notes: string | null
-  status: 'pending' | 'received' | 'restocked' | 'closed' | 'cancelled'
+  status: SaleReturnStatus
   credit_note_id: string | null
   credit_note?: import('@/hooks/useCreditNotes').CreditNote | null  // full object for inline detail view
   created_by_name: string | null
@@ -69,14 +78,20 @@ export function useCreateSaleReturn() {
         item_name: string
         sku: string | null
         qty: number
-        condition: 'good' | 'damaged'
+        condition: ReturnLineCondition
         brand_variant_id: string | null
         condition_notes?: string | null
       }[]
       restock_warehouse_id: string | null
       notes: string | null
+      // If ANY item is condition='inspection', the return is created in
+      // status='pending_inspection' — restock is blocked until the
+      // inspection is completed via rpc_complete_return_inspection.
     }) => {
       const supabase = createClient()
+
+      const hasInspection = payload.items.some((i) => i.condition === 'inspection')
+      const initialStatus: SaleReturnStatus = hasInspection ? 'pending_inspection' : 'pending'
 
       // Generate return number
       const { count } = await supabase
@@ -111,7 +126,7 @@ export function useCreateSaleReturn() {
           reason: payload.reason,
           restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
-          status: 'pending',
+          status: initialStatus,
           created_by: createdById,
           created_by_name: createdByName,
         })
@@ -308,11 +323,12 @@ export function useUpdateReturnStatus() {
         queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       }
       const label: Record<SaleReturn['status'], string> = {
-        pending:   'Return Marked Pending',
-        received:  'Return Received',
-        restocked: 'Return Restocked',
-        closed:    'Return Closed',
-        cancelled: 'Return Cancelled',
+        pending:            'Return Marked Pending',
+        pending_inspection: 'Return Pending Inspection',
+        received:           'Return Received',
+        restocked:          'Return Restocked',
+        closed:             'Return Closed',
+        cancelled:          'Return Cancelled',
       }
       logActivity({
         action:    label[variables.status],
@@ -377,6 +393,97 @@ export function useCreateCreditNoteForReturn() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+    },
+  })
+}
+
+// Per-variant × per-warehouse delivered totals for a sale order.
+// Used by CreateReturnDialog to show "you shipped 5 from Birkat + 3 from
+// Industrial" so the operator knows the constraint on what can be returned.
+export type DeliveryBreakdownRow = {
+  brand_variant_id: string
+  warehouse_id: string
+  warehouse_name: string
+  qty_delivered: number
+}
+
+export function useDeliveryBreakdownBySO(soId: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.saleReturns.all, 'delivery-breakdown', soId] as const,
+    enabled: !!soId,
+    staleTime: 30 * 1000,
+    queryFn: async (): Promise<DeliveryBreakdownRow[]> => {
+      const supabase = createClient()
+      // Join sale_delivery_lines → sale_deliveries → warehouses.
+      // Only 'delivered' deliveries contribute (partials still-in-progress
+      // shouldn't count against what can be returned).
+      const { data, error } = await supabase
+        .from('sale_delivery_lines')
+        .select('brand_variant_id, qty_delivered, sale_deliveries!inner(warehouse_id, status, sale_order_id, warehouses(name))')
+        .eq('sale_deliveries.sale_order_id', soId!)
+        .eq('sale_deliveries.status', 'delivered')
+      if (error) throw error
+
+      const rows = (data ?? []) as unknown as Array<{
+        brand_variant_id: string | null
+        qty_delivered: number | null
+        sale_deliveries: { warehouse_id: string; warehouses: { name: string } | null } | null
+      }>
+
+      // Aggregate by (variant, warehouse)
+      const bucket = new Map<string, DeliveryBreakdownRow>()
+      for (const r of rows) {
+        if (!r.brand_variant_id || !r.sale_deliveries) continue
+        const key = `${r.brand_variant_id}:${r.sale_deliveries.warehouse_id}`
+        const prev = bucket.get(key)
+        if (prev) {
+          prev.qty_delivered += Number(r.qty_delivered ?? 0)
+        } else {
+          bucket.set(key, {
+            brand_variant_id: r.brand_variant_id,
+            warehouse_id: r.sale_deliveries.warehouse_id,
+            warehouse_name: r.sale_deliveries.warehouses?.name ?? '—',
+            qty_delivered: Number(r.qty_delivered ?? 0),
+          })
+        }
+      }
+      return Array.from(bucket.values())
+    },
+  })
+}
+
+// Completes an inspection return: replaces each inspection line with the
+// physical good/damaged split, assigns restock warehouse, moves status
+// pending_inspection → received. From there the normal restock flow runs.
+export type InspectionSplit = {
+  return_line_id: string
+  good_qty: number
+  damaged_qty: number
+  condition_notes?: string | null
+}
+
+export function useCompleteReturnInspection() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      returnId, splits, restockWarehouseId,
+    }: {
+      returnId: string
+      splits: InspectionSplit[]
+      restockWarehouseId: string
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('rpc_complete_return_inspection', {
+        p_return_id: returnId,
+        p_splits: splits as unknown as import('@/types/database.types').Json,
+        p_restock_warehouse_id: restockWarehouseId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
     },
   })
 }

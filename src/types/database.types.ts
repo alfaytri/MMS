@@ -6066,6 +6066,14 @@ export type Database = {
         Args: { p_return_id: string }
         Returns: undefined
       }
+      rpc_complete_return_inspection: {
+        Args: {
+          p_return_id: string
+          p_splits: Json
+          p_restock_warehouse_id: string
+        }
+        Returns: undefined
+      }
       rpc_product_profitability: {
         Args: { p_end_date: string; p_start_date: string }
         Returns: Json
@@ -6340,6 +6348,7 @@ export type Database = {
       return_source_type: "sale_order" | "purchase_order"
       return_status:
         | "pending"
+        | "pending_inspection"
         | "received"
         | "restocked"
         | "closed"
@@ -6641,6 +6650,7 @@ export const Constants = {
       return_source_type: ["sale_order", "purchase_order"],
       return_status: [
         "pending",
+        "pending_inspection",
         "received",
         "restocked",
         "closed",
