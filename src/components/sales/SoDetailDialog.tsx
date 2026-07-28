@@ -27,7 +27,7 @@ import {
   type SaleOrder,
   type SaleDelivery,
 } from '@/hooks/useSaleOrders'
-import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery } from '@/hooks/useSaleDeliveries'
+import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery, useWriteOffDamagedReturn } from '@/hooks/useSaleDeliveries'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
@@ -96,6 +96,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [selectedReturn, setSelectedReturn] = useState<SaleReturn | null>(null)
   const { data: unresolvedReturns = [] } = useUnresolvedReturns(open ? (so?.id ?? null) : null)
   const createReplacement = useCreateReplacementDelivery()
+  const writeOffDamaged = useWriteOffDamagedReturn()
 
   const current = fullSO ?? so
 
@@ -513,40 +514,41 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               returnData={selectedReturn}
               soId={current.id}
               currency={current.currency ?? 'QAR'}
-              isPending={createReplacement.isPending}
-              onConfirm={(warehouseId, _warehouseName, giftItems) => {
-                // Transitional 6.4 behavior: send every remaining return_line
-                // at full qty. Sub-task 6.5 rewrites the dialog to let the
-                // operator pick per-line qty and condition-specific handling
-                // (good -> replacement, damaged -> write-off).
-                const lines = (selectedReturn.return_lines ?? [])
-                  .filter((rl) => rl.qty > 0)
-                  .map((rl) => ({
-                    return_line_id:   rl.id,
-                    qty:              rl.qty,
-                    brand_variant_id: rl.brand_variant_id,
-                    item_name:        rl.item_name,
-                    sku:              rl.sku,
-                  }))
-                createReplacement.mutate({
-                  soId:       current.id,
-                  returnId:   selectedReturn.id,
-                  warehouseId,
-                  lines,
-                  giftItems: giftItems.map((g) => ({
-                    item_name:        g.item_name,
-                    sku:              g.sku,
-                    qty:              g.qty,
-                    brand_variant_id: g.brand_variant_id,
-                  })),
-                }, {
-                  onSuccess: () => {
+              isPending={createReplacement.isPending || writeOffDamaged.isPending}
+              onConfirm={async ({ warehouseId, lines, writeOffDamaged: shouldWriteOff, giftItems }) => {
+                try {
+                  if (lines.length > 0) {
+                    await createReplacement.mutateAsync({
+                      soId:       current.id,
+                      returnId:   selectedReturn.id,
+                      warehouseId,
+                      lines,
+                      giftItems: giftItems.map((g) => ({
+                        item_name:        g.item_name,
+                        sku:              g.sku,
+                        qty:              g.qty,
+                        brand_variant_id: g.brand_variant_id,
+                      })),
+                    })
+                  }
+                  if (shouldWriteOff) {
+                    await writeOffDamaged.mutateAsync({
+                      returnId:    selectedReturn.id,
+                      warehouseId,
+                    })
+                  }
+                  if (lines.length > 0 && shouldWriteOff) {
+                    toast.success('Replacement delivery created; damaged units written off')
+                  } else if (lines.length > 0) {
                     toast.success('Replacement delivery created')
-                    setReplacementOpen(false)
-                    setSelectedReturn(null)
-                  },
-                  onError: (e) => { toast.error((e as Error).message) },
-                })
+                  } else if (shouldWriteOff) {
+                    toast.success('Damaged units written off')
+                  }
+                  setReplacementOpen(false)
+                  setSelectedReturn(null)
+                } catch (e) {
+                  toast.error((e as Error).message)
+                }
               }}
             />
           )}
