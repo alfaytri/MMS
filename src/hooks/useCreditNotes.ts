@@ -10,15 +10,20 @@ import type { Database } from '@/types/database.types'
 type ReturnResolution = 'refund' | 'replacement' | 'store_credit'
 
 /**
- * Close the return linked to a credit note, or fall back to a direct
- * stamp on credit_notes.resolution_type when no return is linked
- * (invoice-adjustment CNs). rpc_close_return advances so_po_returns.status
- * to resolved_credit / resolved_replacement in lockstep with the CN.
+ * Resolve a credit note against the ledger. If the CN has a linked return,
+ * covers every remaining return_line at its `remaining_qty` via the
+ * appropriate action RPC (which writes ledger rows + auto-closes when
+ * fully covered). Falls back to a direct resolution_type stamp when no
+ * return is linked (invoice-adjustment CNs).
+ *
+ * Transitional 6.4 behavior — always covers ALL remaining qty in one call.
+ * Sub-task 6.6 rewrites the caller dialogs to accept explicit per-line qtys.
  */
-async function closeReturnOrStampCredit(
+async function resolveCreditNoteViaLedger(
   supabase: SupabaseClient<Database>,
   creditNoteId: string,
   resolution: ReturnResolution,
+  opts: { refundMethod?: string | null; refundReference?: string | null } = {},
 ) {
   const { data: cn, error: cnErr } = await supabase
     .from('credit_notes')
@@ -30,23 +35,46 @@ async function closeReturnOrStampCredit(
   const returnId = cn?.source_return_id ?? null
 
   if (returnId) {
-    const { data: ret } = await supabase
-      .from('so_po_returns')
-      .select('status')
-      .eq('id', returnId)
-      .maybeSingle()
-    if (ret?.status === 'restocked') {
-      const { error: rpcErr } = await supabase.rpc('rpc_close_return', {
-        p_return_id: returnId,
-        p_resolution: resolution,
-      })
-      if (rpcErr) throw rpcErr
-      return
+    // Pull the ledger's remaining qty per line for this return.
+    const { data: progress, error: progErr } = await supabase
+      .from('return_line_progress')
+      .select('return_line_id, remaining_qty')
+      .eq('return_id', returnId)
+    if (progErr) throw progErr
+
+    const lines = (progress ?? [])
+      .filter((r) => Number(r.remaining_qty) > 0)
+      .map((r) => ({ return_line_id: r.return_line_id, qty: Number(r.remaining_qty) }))
+
+    if (lines.length > 0) {
+      if (resolution === 'refund') {
+        const { error } = await supabase.rpc('rpc_record_return_refund', {
+          p_return_id: returnId,
+          p_lines: lines as unknown as never,
+          p_refund_method: opts.refundMethod ?? null,
+          p_refund_reference: opts.refundReference ?? null,
+        })
+        if (error) throw error
+        return
+      }
+      if (resolution === 'store_credit') {
+        const { error } = await supabase.rpc('rpc_record_return_store_credit', {
+          p_return_id: returnId,
+          p_lines: lines as unknown as never,
+        })
+        if (error) throw error
+        return
+      }
+      // resolution === 'replacement' shouldn't come through here — the
+      // replacement path calls useCreateReplacementDelivery directly, which
+      // takes warehouse + delivery details. If it does, fall through to the
+      // legacy stamp below to at least keep the CN coherent.
     }
   }
 
-  // No linked return or return already closed by another path — just
-  // stamp the CN. The RPC would have thrown otherwise.
+  // No linked return, everything already resolved, or replacement path
+  // called in error — stamp the CN as a best-effort so legacy readers stay
+  // coherent. Ledger is authoritative going forward.
   const { error } = await supabase
     .from('credit_notes')
     .update({ resolution_type: resolution })
@@ -350,7 +378,10 @@ export function useResolveCreditNoteRefund() {
         .eq('id', input.creditNoteId)
       if (fieldsErr) throw fieldsErr
 
-      await closeReturnOrStampCredit(supabase, input.creditNoteId, 'refund')
+      await resolveCreditNoteViaLedger(supabase, input.creditNoteId, 'refund', {
+        refundMethod: input.refundMethod,
+        refundReference: input.refundReference,
+      })
 
       void logActivity({
         action: 'refund Resolution Applied',
@@ -364,6 +395,10 @@ export function useResolveCreditNoteRefund() {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      // Progress views (['sale-returns', 'progress', returnId] and
+      // ['sale-returns', 'line-progress', returnId]) — root prefix hits both.
+      qc.invalidateQueries({ queryKey: ['sale-returns', 'progress'] })
+      qc.invalidateQueries({ queryKey: ['sale-returns', 'line-progress'] })
       // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
       // all detail entries without needing to know which SO.
       qc.invalidateQueries({ queryKey: ['sale-order'] })
@@ -423,7 +458,7 @@ export function useResolveCreditNoteStoreCredit() {
       // is derived from credit_notes at read time (customers.credit_balance
       // column was dropped 2026-07-24). When a return is linked, rpc_close_return
       // advances so_po_returns.status in lockstep.
-      await closeReturnOrStampCredit(supabase, input.creditNoteId, 'store_credit')
+      await resolveCreditNoteViaLedger(supabase, input.creditNoteId, 'store_credit')
 
       void logActivity({
         action: 'store_credit Resolution Applied',
@@ -437,6 +472,10 @@ export function useResolveCreditNoteStoreCredit() {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      // Progress views (['sale-returns', 'progress', returnId] and
+      // ['sale-returns', 'line-progress', returnId]) — root prefix hits both.
+      qc.invalidateQueries({ queryKey: ['sale-returns', 'progress'] })
+      qc.invalidateQueries({ queryKey: ['sale-returns', 'line-progress'] })
       // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
       // all detail entries without needing to know which SO.
       qc.invalidateQueries({ queryKey: ['sale-order'] })
@@ -450,7 +489,7 @@ export function useResolveCreditNoteReplacement() {
 
   return useMutation({
     mutationFn: async (creditNoteId: string) => {
-      await closeReturnOrStampCredit(supabase, creditNoteId, 'replacement')
+      await resolveCreditNoteViaLedger(supabase, creditNoteId, 'replacement')
 
       void logActivity({
         action: 'replacement Resolution Applied',
@@ -464,6 +503,10 @@ export function useResolveCreditNoteReplacement() {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      // Progress views (['sale-returns', 'progress', returnId] and
+      // ['sale-returns', 'line-progress', returnId]) — root prefix hits both.
+      qc.invalidateQueries({ queryKey: ['sale-returns', 'progress'] })
+      qc.invalidateQueries({ queryKey: ['sale-returns', 'line-progress'] })
       // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
       // all detail entries without needing to know which SO.
       qc.invalidateQueries({ queryKey: ['sale-order'] })

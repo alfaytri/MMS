@@ -562,3 +562,64 @@ export function useUnresolvedReturns(soId: string | null) {
     staleTime: 30_000,
   })
 }
+
+// ─── Phase 6 progress views ────────────────────────────────────────────────
+
+export type ReturnLineProgress = {
+  return_line_id:      string
+  return_id:           string
+  brand_variant_id:    string | null
+  item_name:           string
+  sku:                 string | null
+  returned_qty:        number
+  condition:           string
+  resolved_qty:        number
+  remaining_qty:       number
+  resolutions_by_type: Record<string, number> | null
+}
+
+export type ReturnProgress = {
+  return_id:           string
+  return_number:       string
+  status:              string
+  total_returned:      number
+  total_resolved:      number
+  total_remaining:     number
+  resolutions_by_type: Record<string, number> | null
+  coverage_status:     'in_progress' | 'fully_resolved'
+}
+
+export function useReturnLineProgress(returnId: string | null) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: queryKeys.saleReturns.lineProgress(returnId),
+    enabled: !!returnId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('return_line_progress')
+        .select('*')
+        .eq('return_id', returnId!)
+      if (error) throw error
+      return (data ?? []) as unknown as ReturnLineProgress[]
+    },
+    staleTime: 15_000,
+  })
+}
+
+export function useReturnProgress(returnId: string | null) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: queryKeys.saleReturns.progress(returnId),
+    enabled: !!returnId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('return_progress')
+        .select('*')
+        .eq('return_id', returnId!)
+        .maybeSingle()
+      if (error) throw error
+      return (data ?? null) as unknown as ReturnProgress | null
+    },
+    staleTime: 15_000,
+  })
+}

@@ -222,6 +222,15 @@ export function useDeliveryByReturnId(returnId: string | null) {
   })
 }
 
+/** Line shape for the RPC — one row per return_line we're covering. */
+export type PartialReplacementLine = {
+  return_line_id:    string
+  qty:               number
+  brand_variant_id:  string | null
+  item_name:         string
+  sku:               string | null
+}
+
 export function useCreateReplacementDelivery() {
   const qc = useQueryClient()
   const supabase = createClient()
@@ -229,107 +238,64 @@ export function useCreateReplacementDelivery() {
   return useMutation({
     mutationFn: async (input: {
       soId: string
-      warehouseId: string
-      warehouseName: string
-      returnData: { return_lines?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[] }
       returnId: string
-      creditNoteId: string
+      warehouseId: string
+      lines: PartialReplacementLine[]
       giftItems?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[]
     }) => {
-      // Aggregate return lines by variant — a two-flow return can have
-      // multiple lines per variant (good + damaged + inspection). The
-      // physical replacement is one delivery, so roll them up into a
-      // single sale_delivery_lines row per variant. Same aggregation
-      // happens in the ReplacementDeliveryDialog display.
-      const aggregatedReturnItems = new Map<string, DeliveryItem>()
-      for (const rl of input.returnData.return_lines ?? []) {
-        const key = rl.brand_variant_id ?? `noBV:${rl.item_name}:${rl.sku ?? ''}`
-        const prev = aggregatedReturnItems.get(key)
-        if (prev) {
-          prev.qty_delivered += rl.qty
-        } else {
-          aggregatedReturnItems.set(key, {
-            item_name: rl.item_name,
-            sku: rl.sku,
-            qty_delivered: rl.qty,
-            brand_variant_id: rl.brand_variant_id,
-            is_gift: false,
-          })
-        }
-      }
-
-      const items: DeliveryItem[] = [
-        ...Array.from(aggregatedReturnItems.values()),
-        ...(input.giftItems ?? []).map((gift) => ({
-          item_name: gift.item_name,
-          sku: gift.sku,
-          qty_delivered: gift.qty,
-          brand_variant_id: gift.brand_variant_id,
-          is_gift: true,
-        })),
-      ]
-
-      // Generate delivery number (sequence-based)
-      const { data: seqRow } = await supabase.rpc('next_delivery_number')
-      const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
-
-      const today = new Date().toISOString().split('T')[0]
-
-      // Create the replacement delivery (starts as pending like normal deliveries)
-      const { data, error } = await supabase
-        .from('sale_deliveries')
-        .insert({
-          delivery_number,
-          sale_order_id: input.soId,
-          warehouse_id: input.warehouseId,
-          warehouse_name: input.warehouseName,
-          date: today,
-          status: 'pending',
-          type: 'replacement',
-          return_id: input.returnId,
-          source_credit_note_id: input.creditNoteId,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Insert delivery line items
-      if (items.length > 0) {
-        const { error: linesErr } = await supabase
-          .from('sale_delivery_lines')
-          .insert(items.map((li) => ({
-            sale_delivery_id: data.id,
-            brand_variant_id: li.brand_variant_id,
-            item_name: li.item_name,
-            sku: li.sku,
-            qty_delivered: li.qty_delivered,
-          })))
-        if (linesErr) throw linesErr
-      }
-
-      // Close the return atomically — rpc_close_return sets
-      // so_po_returns.status = 'resolved_replacement' AND stamps
-      // credit_notes.resolution_type = 'replacement' in one shot so the two
-      // stay in lockstep. Only path that closes a return.
-      const { error: closeErr } = await supabase.rpc('rpc_close_return', {
+      // Delegate everything to the atomic RPC — creates sale_deliveries +
+      // sale_delivery_lines + return_line_resolutions in one transaction and
+      // auto-closes the return when total_remaining hits 0. Replaces the
+      // hand-rolled client-side sequence that produced DEL-00004 orphans.
+      const { data, error } = await supabase.rpc('rpc_create_partial_replacement', {
         p_return_id: input.returnId,
-        p_resolution: 'replacement',
+        p_warehouse_id: input.warehouseId,
+        p_lines: input.lines as unknown as never,
+        p_gift_items: (input.giftItems ?? []).map((g) => ({
+          return_line_id: null,
+          brand_variant_id: g.brand_variant_id,
+          item_name: g.item_name,
+          sku: g.sku,
+          qty: g.qty,
+        })) as unknown as never,
       })
-      if (closeErr) throw closeErr
-
-      return data
+      if (error) throw error
+      return data as unknown as string  // new sale_delivery id
     },
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
-      // saleOrders.detail uses a different root key (['sale-order', id]) than
-      // saleOrders.all (['sale-orders']), so .all won't cover it. Invalidate
-      // the specific detail entry the SO detail dialog subscribes to.
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.soId) })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.progress(variables.returnId) })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.lineProgress(variables.returnId) })
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+    },
+  })
+}
+
+/** Writes off any damaged return_lines with remaining_qty > 0 as
+ *  inventory_stock_movements(type='sale_return_damaged') + ledger rows.
+ *  Idempotent — safe to call repeatedly. */
+export function useWriteOffDamagedReturn() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (input: { returnId: string; warehouseId: string }) => {
+      const { data, error } = await supabase.rpc('rpc_write_off_return_damaged', {
+        p_return_id: input.returnId,
+        p_warehouse_id: input.warehouseId,
+      })
+      if (error) throw error
+      return data as unknown as number  // count of lines written off
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.progress(variables.returnId) })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.lineProgress(variables.returnId) })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
     },
   })
 }

@@ -514,18 +514,29 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               soId={current.id}
               currency={current.currency ?? 'QAR'}
               isPending={createReplacement.isPending}
-              onConfirm={(warehouseId, warehouseName, giftItems) => {
+              onConfirm={(warehouseId, _warehouseName, giftItems) => {
+                // Transitional 6.4 behavior: send every remaining return_line
+                // at full qty. Sub-task 6.5 rewrites the dialog to let the
+                // operator pick per-line qty and condition-specific handling
+                // (good -> replacement, damaged -> write-off).
+                const lines = (selectedReturn.return_lines ?? [])
+                  .filter((rl) => rl.qty > 0)
+                  .map((rl) => ({
+                    return_line_id:   rl.id,
+                    qty:              rl.qty,
+                    brand_variant_id: rl.brand_variant_id,
+                    item_name:        rl.item_name,
+                    sku:              rl.sku,
+                  }))
                 createReplacement.mutate({
-                  soId: current.id,
+                  soId:       current.id,
+                  returnId:   selectedReturn.id,
                   warehouseId,
-                  warehouseName,
-                  returnData: selectedReturn,
-                  returnId: selectedReturn.id,
-                  creditNoteId: selectedReturn.credit_note?.id ?? selectedReturn.credit_note_id ?? '',
+                  lines,
                   giftItems: giftItems.map((g) => ({
-                    item_name: g.item_name,
-                    sku: g.sku,
-                    qty: g.qty,
+                    item_name:        g.item_name,
+                    sku:              g.sku,
+                    qty:              g.qty,
                     brand_variant_id: g.brand_variant_id,
                   })),
                 }, {

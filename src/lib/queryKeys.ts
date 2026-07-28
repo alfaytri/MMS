@@ -425,6 +425,8 @@ export const queryKeys = {
     bySo: ['sale-returns-by-so'] as const,
     bySoId: (soId: Nullable) => ['sale-returns-by-so', soId] as const,
     unresolved: (soId: Nullable) => ['sale-returns', 'unresolved', soId] as const,
+    progress: (returnId: Nullable) => ['sale-returns', 'progress', returnId] as const,
+    lineProgress: (returnId: Nullable) => ['sale-returns', 'line-progress', returnId] as const,
   },
 
   /* ── Service Brands ───────────────────────────────────── */
