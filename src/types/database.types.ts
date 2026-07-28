@@ -896,6 +896,13 @@ export type Database = {
             foreignKeyName: "credit_notes_source_return_id_fkey"
             columns: ["source_return_id"]
             isOneToOne: false
+            referencedRelation: "return_progress"
+            referencedColumns: ["return_id"]
+          },
+          {
+            foreignKeyName: "credit_notes_source_return_id_fkey"
+            columns: ["source_return_id"]
+            isOneToOne: false
             referencedRelation: "so_po_returns"
             referencedColumns: ["id"]
           },
@@ -1377,6 +1384,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "reason_lists"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debit_notes_source_return_id_fkey"
+            columns: ["source_return_id"]
+            isOneToOne: false
+            referencedRelation: "return_progress"
+            referencedColumns: ["return_id"]
           },
           {
             foreignKeyName: "debit_notes_source_return_id_fkey"
@@ -3628,6 +3642,81 @@ export type Database = {
           },
         ]
       }
+      return_line_resolutions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credit_note_id: string | null
+          id: string
+          inventory_stock_movement_id: string | null
+          notes: string | null
+          qty: number
+          resolution_type: string
+          return_line_id: string
+          sale_delivery_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          id?: string
+          inventory_stock_movement_id?: string | null
+          notes?: string | null
+          qty: number
+          resolution_type: string
+          return_line_id: string
+          sale_delivery_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          id?: string
+          inventory_stock_movement_id?: string | null
+          notes?: string | null
+          qty?: number
+          resolution_type?: string
+          return_line_id?: string
+          sale_delivery_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_line_resolutions_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_resolutions_inventory_stock_movement_id_fkey"
+            columns: ["inventory_stock_movement_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_stock_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_resolutions_return_line_id_fkey"
+            columns: ["return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_progress"
+            referencedColumns: ["return_line_id"]
+          },
+          {
+            foreignKeyName: "return_line_resolutions_return_line_id_fkey"
+            columns: ["return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_resolutions_sale_delivery_id_fkey"
+            columns: ["sale_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "sale_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       return_lines: {
         Row: {
           brand_variant_id: string | null
@@ -3669,6 +3758,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "return_progress"
+            referencedColumns: ["return_id"]
           },
           {
             foreignKeyName: "return_lines_return_id_fkey"
@@ -3738,6 +3834,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_deliveries_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "return_progress"
+            referencedColumns: ["return_id"]
           },
           {
             foreignKeyName: "sale_deliveries_return_id_fkey"
@@ -5428,6 +5531,56 @@ export type Database = {
           },
         ]
       }
+      return_line_progress: {
+        Row: {
+          brand_variant_id: string | null
+          condition: string | null
+          item_name: string | null
+          remaining_qty: number | null
+          resolutions_by_type: Json | null
+          resolved_qty: number | null
+          return_id: string | null
+          return_line_id: string | null
+          returned_qty: number | null
+          sku: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_lines_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "return_progress"
+            referencedColumns: ["return_id"]
+          },
+          {
+            foreignKeyName: "return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "so_po_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_progress: {
+        Row: {
+          coverage_status: string | null
+          resolutions_by_type: Json | null
+          return_id: string | null
+          return_number: string | null
+          status: Database["public"]["Enums"]["return_status"] | null
+          total_remaining: number | null
+          total_resolved: number | null
+          total_returned: number | null
+        }
+        Relationships: []
+      }
       sale_order_lines_summary: {
         Row: {
           brand_variant_id: string | null
@@ -5528,6 +5681,10 @@ export type Database = {
       }
     }
     Functions: {
+      _return_resolution_status: {
+        Args: { p_return_id: string }
+        Returns: Database["public"]["Enums"]["return_status"]
+      }
       _user_has_permission: {
         Args: { p_permission: string; p_profile_id: string }
         Returns: boolean
@@ -6192,6 +6349,18 @@ export type Database = {
           supplier_name: string
           total_outstanding: number
         }[]
+      }
+      rpc_record_return_line_resolution: {
+        Args: {
+          p_credit_note_id?: string
+          p_inventory_stock_movement_id?: string
+          p_notes?: string
+          p_qty: number
+          p_resolution_type: string
+          p_return_line_id: string
+          p_sale_delivery_id?: string
+        }
+        Returns: string
       }
       rpc_sales_aging_report: {
         Args: never
