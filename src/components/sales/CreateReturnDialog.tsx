@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,8 +42,18 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
   const [customReason, setCustomReason] = useState('')
   const [returnNotes, setReturnNotes] = useState('')
   const [restockWarehouseId, setRestockWarehouseId] = useState('')
-  const [lines, setLines] = useState<LineDraft[]>(() =>
-    (fullSO?.sale_order_lines ?? []).map((li) => ({
+  const [lines, setLines] = useState<LineDraft[]>([])
+  // fullSO is fetched async by the parent (useSaleOrder). When the dialog
+  // opens it may still be undefined, so the useState initializer above
+  // gives us []. Seed lines once fullSO.sale_order_lines actually arrives
+  // — guarded by a ref so subsequent fullSO changes (e.g. cache refresh)
+  // don't clobber user edits.
+  const seededRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current) return
+    const soLines = fullSO?.sale_order_lines ?? []
+    if (soLines.length === 0) return
+    setLines(soLines.map((li) => ({
       brand_variant_id: li.brand_variant_id ?? null,
       item_name: li.item_name,
       sku: li.sku ?? null,
@@ -53,8 +63,9 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
       damaged_qty: 0,
       inspection_qty: 0,
       condition_notes: '',
-    })),
-  )
+    })))
+    seededRef.current = true
+  }, [fullSO])
 
   const createReturn = useCreateSaleReturn()
   const addReason = useAddReturnReason()
@@ -289,6 +300,13 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO }: Props) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {lines.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={mode === 'direct' ? 4 : 3} className="text-center text-xs text-muted-foreground py-6">
+                        Loading order items…
+                      </TableCell>
+                    </TableRow>
+                  )}
                   {lines.map((line, i) => {
                     const rows = line.brand_variant_id ? (breakdownByVariant.get(line.brand_variant_id) ?? []) : []
                     const totalDelivered = rows.reduce((s, r) => s + r.qty_delivered, 0) || line.delivered_qty
