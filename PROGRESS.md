@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.1 done, next up 6.2)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.2: Phase 6 action RPCs (replacement, refund, store-credit, write-off) + _maybe_close_return**
 
 
 
