@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Two-flow sale-return dialog — Direct + Inspection modes with per-condition split**
 
 
 
