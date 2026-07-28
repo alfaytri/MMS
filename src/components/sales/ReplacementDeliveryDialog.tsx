@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Gift, Plus, Trash2 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -15,6 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { type SaleReturn } from '@/hooks/useSaleReturns'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
@@ -51,6 +52,48 @@ export function ReplacementDeliveryDialog({
   const selectedWarehouse = warehouses.find((w) => w.id === warehouseId)
 
   const goodwillCost = giftItems.reduce((sum, g) => sum + g.unit_price * g.qty, 0)
+
+  // Aggregate return lines by variant — a two-flow return can have
+  // multiple lines per variant (good + damaged + inspection). The
+  // replacement is one physical delivery, so we roll them up into a
+  // single row per variant. Same aggregation happens in the hook when
+  // writing sale_delivery_lines.
+  const aggregatedLines = useMemo(() => {
+    type Row = { key: string; item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }
+    const map = new Map<string, Row>()
+    for (const l of returnData.return_lines ?? []) {
+      const key = l.brand_variant_id ?? `noBV:${l.item_name}:${l.sku ?? ''}`
+      const prev = map.get(key)
+      if (prev) {
+        prev.qty += l.qty
+      } else {
+        map.set(key, {
+          key,
+          item_name: l.item_name,
+          sku: l.sku,
+          qty: l.qty,
+          brand_variant_id: l.brand_variant_id,
+        })
+      }
+    }
+    return Array.from(map.values())
+  }, [returnData.return_lines])
+
+  const bvIds = useMemo(
+    () => aggregatedLines.map((l) => l.brand_variant_id).filter(Boolean) as string[],
+    [aggregatedLines],
+  )
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+
+  const anyShort = useMemo(() => {
+    if (!warehouseId) return false
+    return aggregatedLines.some((l) => {
+      if (!l.brand_variant_id) return false
+      const entries = whStockMap.get(l.brand_variant_id) ?? []
+      const stock = entries.find((e) => e.warehouse_id === warehouseId)?.qty ?? 0
+      return l.qty > stock
+    })
+  }, [aggregatedLines, whStockMap, warehouseId])
 
   function handlePickerChange(item: InventoryLookupResult | null) {
     setPickerValue(item)
@@ -100,8 +143,10 @@ export function ReplacementDeliveryDialog({
         <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6 px-1">
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              The following items will be sent as replacement. Items and quantities
-              match the return exactly and cannot be changed.
+              The following items will be sent as replacement. Quantities match
+              the total returned per variant (good + damaged + inspection all
+              aggregated into one line) and cannot be changed. Pick a source
+              warehouse that has enough stock to fulfill each row.
             </p>
 
             <Table>
@@ -112,17 +157,47 @@ export function ReplacementDeliveryDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(returnData.return_lines ?? []).map((item, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <div className="text-sm">{item.item_name}</div>
-                      {item.sku && (
-                        <div className="text-xs text-muted-foreground">{item.sku}</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">{item.qty}</TableCell>
-                  </TableRow>
-                ))}
+                {aggregatedLines.map((item) => {
+                  const entries = item.brand_variant_id ? (whStockMap.get(item.brand_variant_id) ?? []) : []
+                  const selectedStock = entries.find((e) => e.warehouse_id === warehouseId)?.qty ?? 0
+                  const shortInSelected = !!warehouseId && item.qty > selectedStock
+                  return (
+                    <TableRow key={item.key}>
+                      <TableCell>
+                        <div className="text-sm">{item.item_name}</div>
+                        {item.sku && (
+                          <div className="text-xs text-muted-foreground">{item.sku}</div>
+                        )}
+                        {item.brand_variant_id && (
+                          entries.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                              {entries.map((w) => {
+                                const whName = warehouses.find((wh) => wh.id === w.warehouse_id)?.name ?? '?'
+                                const isSelected = w.warehouse_id === warehouseId
+                                return (
+                                  <span
+                                    key={w.warehouse_id}
+                                    className={`text-[10px] ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
+                                  >
+                                    {whName}: <span className={`font-medium ${isSelected ? 'text-primary' : 'text-foreground'}`}>{w.qty}</span>
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-amber-600 mt-1">No stock in any warehouse</div>
+                          )
+                        )}
+                        {shortInSelected && (
+                          <div className="text-[11px] text-destructive mt-1">
+                            Selected warehouse has only {selectedStock} — {item.qty - selectedStock} short
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">{item.qty}</TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
@@ -233,14 +308,21 @@ export function ReplacementDeliveryDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => handleClose(false)}>Cancel</Button>
-          <Button
-            disabled={!warehouseId || isPending}
-            onClick={() => onConfirm(warehouseId, selectedWarehouse?.name ?? '', giftItems)}
-          >
-            {isPending ? 'Sending...' : 'Send Replacement'}
-          </Button>
+        <DialogFooter className="flex-col items-stretch sm:flex-col sm:items-stretch gap-2">
+          {anyShort && (
+            <p className="text-[11px] text-destructive text-left">
+              One or more items don&apos;t have enough stock in the selected warehouse. Pick a different warehouse or wait for restock.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => handleClose(false)}>Cancel</Button>
+            <Button
+              disabled={!warehouseId || isPending || anyShort}
+              onClick={() => onConfirm(warehouseId, selectedWarehouse?.name ?? '', giftItems)}
+            >
+              {isPending ? 'Sending...' : 'Send Replacement'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

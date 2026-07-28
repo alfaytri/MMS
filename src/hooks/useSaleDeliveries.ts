@@ -214,14 +214,30 @@ export function useCreateReplacementDelivery() {
       creditNoteId: string
       giftItems?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[]
     }) => {
+      // Aggregate return lines by variant — a two-flow return can have
+      // multiple lines per variant (good + damaged + inspection). The
+      // physical replacement is one delivery, so roll them up into a
+      // single sale_delivery_lines row per variant. Same aggregation
+      // happens in the ReplacementDeliveryDialog display.
+      const aggregatedReturnItems = new Map<string, DeliveryItem>()
+      for (const rl of input.returnData.return_lines ?? []) {
+        const key = rl.brand_variant_id ?? `noBV:${rl.item_name}:${rl.sku ?? ''}`
+        const prev = aggregatedReturnItems.get(key)
+        if (prev) {
+          prev.qty_delivered += rl.qty
+        } else {
+          aggregatedReturnItems.set(key, {
+            item_name: rl.item_name,
+            sku: rl.sku,
+            qty_delivered: rl.qty,
+            brand_variant_id: rl.brand_variant_id,
+            is_gift: false,
+          })
+        }
+      }
+
       const items: DeliveryItem[] = [
-        ...(input.returnData.return_lines ?? []).map((item) => ({
-          item_name: item.item_name,
-          sku: item.sku,
-          qty_delivered: item.qty,
-          brand_variant_id: item.brand_variant_id,
-          is_gift: false,
-        })),
+        ...Array.from(aggregatedReturnItems.values()),
         ...(input.giftItems ?? []).map((gift) => ({
           item_name: gift.item_name,
           sku: gift.sku,
