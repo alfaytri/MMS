@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.9 done, next up 6.10 security audit close-out — final Phase 6 sub-task)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.10: security audit close-out (final Phase 6 sub-task)**
 
 
 
