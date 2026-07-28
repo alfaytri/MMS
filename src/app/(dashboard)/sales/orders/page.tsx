@@ -47,27 +47,27 @@ import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function getDeliveryPct(so: SaleOrder): number {
-  const lines = so.sale_order_lines ?? []
-  const totalOrdered = lines.reduce((s, l) => s + l.qty, 0)
-  const totalDelivered = lines.reduce((s, l) => s + l.delivered_qty, 0)
+  const summary = so.sale_order_lines_summary ?? []
+  const totalOrdered = summary.reduce((s, l) => s + l.qty, 0)
+  const totalNet = summary.reduce((s, l) => s + l.net_delivered_qty, 0)
   if (totalOrdered === 0) return 0
-  return Math.min(100, Math.round((totalDelivered / totalOrdered) * 100))
+  return Math.min(100, Math.round((totalNet / totalOrdered) * 100))
 }
 
 function getDeliveryText(so: SaleOrder): string {
-  const lines = so.sale_order_lines ?? []
-  const totalOrdered = lines.reduce((s, l) => s + l.qty, 0)
-  const totalDelivered = lines.reduce((s, l) => s + l.delivered_qty, 0)
-  return `${totalDelivered}/${totalOrdered}`
+  const summary = so.sale_order_lines_summary ?? []
+  const totalOrdered = summary.reduce((s, l) => s + l.qty, 0)
+  const totalNet = summary.reduce((s, l) => s + l.net_delivered_qty, 0)
+  return `${totalNet}/${totalOrdered}`
 }
 
 function getDeliveryStatus(so: SaleOrder): 'not_delivered' | 'partial' | 'fully_delivered' {
-  const lines = so.sale_order_lines ?? []
-  if (lines.length === 0) return 'not_delivered'
-  const totalOrdered = lines.reduce((s, l) => s + l.qty, 0)
-  const totalDelivered = lines.reduce((s, l) => s + l.delivered_qty, 0)
-  if (totalDelivered === 0) return 'not_delivered'
-  if (totalDelivered >= totalOrdered) return 'fully_delivered'
+  const summary = so.sale_order_lines_summary ?? []
+  if (summary.length === 0) return 'not_delivered'
+  const totalOrdered = summary.reduce((s, l) => s + l.qty, 0)
+  const totalNet = summary.reduce((s, l) => s + l.net_delivered_qty, 0)
+  if (totalNet === 0) return 'not_delivered'
+  if (totalNet >= totalOrdered) return 'fully_delivered'
   return 'partial'
 }
 

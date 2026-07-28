@@ -5428,6 +5428,36 @@ export type Database = {
           },
         ]
       }
+      sale_order_lines_summary: {
+        Row: {
+          brand_variant_id: string | null
+          item_name: string | null
+          net_delivered_qty: number | null
+          qty: number | null
+          replacement_qty: number | null
+          returned_good_qty: number | null
+          sale_order_id: string | null
+          sale_order_line_id: string | null
+          shipped_qty: number | null
+          sku: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_order_lines_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_order_lines_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_credit_balances: {
         Row: {
           currency: string | null

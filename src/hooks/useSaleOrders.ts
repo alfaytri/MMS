@@ -45,6 +45,19 @@ export type SOLineItem = {
   } | null
 }
 
+export type SaleOrderLineSummary = {
+  sale_order_line_id:  string
+  sale_order_id:       string
+  brand_variant_id:    string | null
+  sku:                 string | null
+  item_name:           string
+  qty:                 number
+  shipped_qty:         number
+  returned_good_qty:   number
+  replacement_qty:     number
+  net_delivered_qty:   number
+}
+
 export type SaleDelivery = {
   id: string
   delivery_number: string
@@ -96,6 +109,7 @@ export type SaleOrder = {
   updated_at:               string
   deleted_at:               string | null
   sale_order_lines?:        SOLineItem[]
+  sale_order_lines_summary?: SaleOrderLineSummary[]
   sale_deliveries?:         SaleDelivery[]
   customer_name?:           string
   customer_phone?:          string
@@ -525,6 +539,22 @@ export function useSaleOrders(filters: SOFilters = {}) {
 
       const { data, error } = await q
       if (error) throw error
+
+      const orderIds = (data ?? []).map((r) => r.id)
+      const summaryByOrder = new Map<string, SaleOrderLineSummary[]>()
+      if (orderIds.length > 0) {
+        const { data: sums, error: sumErr } = await supabase
+          .from('sale_order_lines_summary')
+          .select('*')
+          .in('sale_order_id', orderIds)
+        if (sumErr) throw sumErr
+        for (const row of (sums ?? []) as unknown as SaleOrderLineSummary[]) {
+          const arr = summaryByOrder.get(row.sale_order_id) ?? []
+          arr.push(row)
+          summaryByOrder.set(row.sale_order_id, arr)
+        }
+      }
+
       return (data ?? []).map((row) => {
         const r = row as typeof row & {
           customers?: { name?: string } | null
@@ -534,6 +564,7 @@ export function useSaleOrders(filters: SOFilters = {}) {
           ...row,
           customer_name:    r.customers?.name ?? null,
           created_by_name:  r.created_by_user?.full_name ?? (row as { created_by_name?: string | null }).created_by_name ?? null,
+          sale_order_lines_summary: summaryByOrder.get(row.id) ?? [],
         }
       }) as unknown as SaleOrder[]
     },
@@ -619,6 +650,13 @@ export function useSaleOrder(id: string | null) {
           cat.ancestor_chain = getAncestorChain(cat.id)
         }
       }
+
+      const { data: sums } = await supabase
+        .from('sale_order_lines_summary')
+        .select('*')
+        .eq('sale_order_id', id!)
+      so.sale_order_lines_summary = (sums ?? []) as unknown as SaleOrderLineSummary[]
+
       return so
     },
     enabled: !!id,
