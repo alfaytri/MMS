@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -13,12 +13,13 @@ import { Separator } from '@/components/ui/separator'
 import { CreditDebitNoteDownloadButton } from './CreditDebitNoteDownloadButton'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
-import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem } from '@/hooks/useCreditNotes'
+import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem, ResolutionLineInput } from '@/hooks/useCreditNotes'
 import {
   useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit,
   useResolveCreditNoteReplacement,
   useResolveDebitNoteSupplierCredit, useResolveDebitNoteReplacement,
 } from '@/hooks/useCreditNotes'
+import { useReturnLineProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
 import type { DebitNote, DebitNoteLine } from '@/types/invoice'
 
 /** DebitNote with joined relations from useDebitNotes */
@@ -53,8 +54,11 @@ interface Props {
 
 export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referenceNumber, open, onOpenChange }: Props) {
   const [showRefundForm, setShowRefundForm] = useState(false)
+  const [showStoreCreditForm, setShowStoreCreditForm] = useState(false)
   const [refundMethod, setRefundMethod] = useState<string>('')
   const [refundReference, setRefundReference] = useState('')
+  const [refundQtyByLine, setRefundQtyByLine] = useState<Record<string, number>>({})
+  const [storeCreditQtyByLine, setStoreCreditQtyByLine] = useState<Record<string, number>>({})
   const [showReplacementReceival, setShowReplacementReceival] = useState(false)
 
   const resolveRefund = useResolveCreditNoteRefund()
@@ -64,9 +68,58 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
   const resolveDebitReplacement = useResolveDebitNoteReplacement()
   const { data: dbMethods = [] } = usePaymentMethods()
 
+  const isCredit = noteKind === 'credit'
+  const linkedReturnId = isCredit && note ? (note as CreditNote).source_return_id : null
+  const { data: lineProgress = [] } = useReturnLineProgress(open ? linkedReturnId : null)
+
+  // Build unit-price-per-return-line map by matching return_lines to CN's
+  // returned credit_note_lines by brand_variant_id (SKU/item fallback).
+  const priceByReturnLineId = useMemo(() => {
+    const map: Record<string, number> = {}
+    if (!note || !isCredit) return map
+    const returnedCnLines = ((note as CreditNote).credit_note_lines ?? [])
+      .filter((l) => l.line_type === 'returned')
+    for (const p of lineProgress) {
+      const match = returnedCnLines.find((l) => {
+        if (p.brand_variant_id && (l as unknown as { brand_variant_id?: string | null }).brand_variant_id) {
+          return (l as unknown as { brand_variant_id?: string | null }).brand_variant_id === p.brand_variant_id
+        }
+        return (l.sku ?? null) === (p.sku ?? null) && (l.description ?? '') === p.item_name
+      })
+      map[p.return_line_id] = match?.unit_price ?? 0
+    }
+    return map
+  }, [note, isCredit, lineProgress])
+
+  // Sort damaged after good for readability.
+  const progressRows: ReturnLineProgress[] = useMemo(() => {
+    return lineProgress
+      .slice()
+      .sort((a, b) => {
+        const order = (c: string) => (c === 'good' ? 0 : c === 'damaged' ? 2 : 1)
+        return order(a.condition) - order(b.condition) || a.item_name.localeCompare(b.item_name)
+      })
+  }, [lineProgress])
+
+  const anyRemaining = progressRows.some((p) => p.remaining_qty > 0)
+
+  // Pre-fill qtys with remaining when the form opens.
+  useEffect(() => {
+    if (!showRefundForm) return
+    const next: Record<string, number> = {}
+    for (const p of lineProgress) next[p.return_line_id] = p.remaining_qty > 0 ? p.remaining_qty : 0
+    setRefundQtyByLine(next)
+  }, [showRefundForm, lineProgress])
+
+  useEffect(() => {
+    if (!showStoreCreditForm) return
+    const next: Record<string, number> = {}
+    for (const p of lineProgress) next[p.return_line_id] = p.remaining_qty > 0 ? p.remaining_qty : 0
+    setStoreCreditQtyByLine(next)
+  }, [showStoreCreditForm, lineProgress])
+
   if (!note) return null
 
-  const isCredit = noteKind === 'credit'
   const isUnresolved = isCredit && note.status === 'issued' && !note.resolution_type
 
   const isDebit = noteKind === 'debit'
@@ -268,12 +321,13 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
           <div className="space-y-3 border-t pt-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resolution</p>
 
-            {!showRefundForm ? (
+            {!showRefundForm && !showStoreCreditForm && (
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setShowRefundForm(true)}
+                  disabled={!!linkedReturnId && !anyRemaining}
                 >
                   Refund
                 </Button>
@@ -290,86 +344,141 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                 >
                   {resolveCreditReplacement.isPending ? 'Processing…' : 'Send Replacement'}
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="outline">Store Credit</Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Add to Customer Credit Balance?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will add {formatCurrency(note.total_amount, note.currency ?? 'QAR')} to the
-                        customer&apos;s credit balance for use on future orders.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        disabled={resolveStoreCredit.isPending}
-                        onClick={() => {
-                          resolveStoreCredit.mutate({
-                            creditNoteId: note.id,
-                            invoiceId: (note as CreditNote).invoice_id ?? '',
-                            amount: note.total_amount,
-                          }, {
-                            onSuccess: () => { toast.success('Credit added to customer balance') },
-                            onError: (e) => { toast.error(e.message) },
-                          })
-                        }}
-                      >
-                        Confirm
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            ) : (
-              <div className="space-y-3 rounded-md border p-3">
-                <p className="text-sm font-medium">Record Refund</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Method *</label>
-                    <Select value={refundMethod} onValueChange={(v) => setRefundMethod(v ?? '')}>
-                      <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
-                      <SelectContent className="max-h-60 overflow-y-auto">
-                        {dbMethods.map((m) => (
-                          <SelectItem key={m.id} value={m.slug}>{m.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Reference</label>
-                    <Input
-                      placeholder="Transaction / cheque #"
-                      value={refundReference}
-                      onChange={(e) => setRefundReference(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button size="sm" variant="ghost" onClick={() => setShowRefundForm(false)}>Cancel</Button>
+                {linkedReturnId ? (
                   <Button
                     size="sm"
-                    disabled={!refundMethod || resolveRefund.isPending}
-                    onClick={() => {
-                      resolveRefund.mutate({
-                        creditNoteId: note.id,
-                        refundMethod,
-                        refundReference,
-                      }, {
-                        onSuccess: () => {
-                          toast.success('Refund recorded')
-                          setShowRefundForm(false)
-                        },
-                        onError: (e) => { toast.error(e.message) },
-                      })
-                    }}
+                    variant="outline"
+                    onClick={() => setShowStoreCreditForm(true)}
+                    disabled={!anyRemaining}
                   >
-                    Record Refund
+                    Store Credit
                   </Button>
-                </div>
+                ) : (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline">Store Credit</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Add to Customer Credit Balance?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will add {formatCurrency(note.total_amount, note.currency ?? 'QAR')} to the
+                          customer&apos;s credit balance for use on future orders.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={resolveStoreCredit.isPending}
+                          onClick={() => {
+                            resolveStoreCredit.mutate({
+                              creditNoteId: note.id,
+                              invoiceId: (note as CreditNote).invoice_id ?? '',
+                              amount: note.total_amount,
+                            }, {
+                              onSuccess: () => { toast.success('Credit added to customer balance') },
+                              onError: (e) => { toast.error(e.message) },
+                            })
+                          }}
+                        >
+                          Confirm
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
+            )}
+
+            {showRefundForm && (
+              <ResolutionForm
+                title="Record Refund"
+                actionLabel="Record Refund"
+                busyLabel="Recording…"
+                totalLabel="Refund total"
+                subtotalTone="text-destructive"
+                currency={note.currency ?? 'QAR'}
+                cnTotal={note.total_amount}
+                rows={progressRows}
+                qtyByLine={refundQtyByLine}
+                setQty={(id, qty) => setRefundQtyByLine((prev) => ({ ...prev, [id]: qty }))}
+                priceByLine={priceByReturnLineId}
+                linkedReturnId={linkedReturnId}
+                isPending={resolveRefund.isPending}
+                onCancel={() => setShowRefundForm(false)}
+                extraHeader={
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Method *</label>
+                      <Select value={refundMethod} onValueChange={(v) => setRefundMethod(v ?? '')}>
+                        <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {dbMethods.map((m) => (
+                            <SelectItem key={m.id} value={m.slug}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Reference</label>
+                      <Input
+                        placeholder="Transaction / cheque #"
+                        value={refundReference}
+                        onChange={(e) => setRefundReference(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                }
+                canSubmit={!!refundMethod}
+                onSubmit={(lines) => {
+                  resolveRefund.mutate({
+                    creditNoteId:    note.id,
+                    refundMethod,
+                    refundReference,
+                    lines:           linkedReturnId ? lines : undefined,
+                  }, {
+                    onSuccess: () => {
+                      toast.success('Refund recorded')
+                      setShowRefundForm(false)
+                    },
+                    onError: (e) => { toast.error(e.message) },
+                  })
+                }}
+              />
+            )}
+
+            {showStoreCreditForm && (
+              <ResolutionForm
+                title="Add to Customer Credit"
+                actionLabel="Add to Customer Credit"
+                busyLabel="Adding…"
+                totalLabel="Store credit total"
+                subtotalTone="text-blue-700 dark:text-blue-300"
+                currency={note.currency ?? 'QAR'}
+                cnTotal={note.total_amount}
+                rows={progressRows}
+                qtyByLine={storeCreditQtyByLine}
+                setQty={(id, qty) => setStoreCreditQtyByLine((prev) => ({ ...prev, [id]: qty }))}
+                priceByLine={priceByReturnLineId}
+                linkedReturnId={linkedReturnId}
+                isPending={resolveStoreCredit.isPending}
+                onCancel={() => setShowStoreCreditForm(false)}
+                canSubmit={true}
+                onSubmit={(lines) => {
+                  resolveStoreCredit.mutate({
+                    creditNoteId: note.id,
+                    invoiceId:    (note as CreditNote).invoice_id ?? '',
+                    amount:       note.total_amount,
+                    lines:        linkedReturnId ? lines : undefined,
+                  }, {
+                    onSuccess: () => {
+                      toast.success('Credit added to customer balance')
+                      setShowStoreCreditForm(false)
+                    },
+                    onError: (e) => { toast.error(e.message) },
+                  })
+                }}
+              />
             )}
           </div>
         )}
@@ -462,5 +571,161 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
 
       </DialogContent>
     </Dialog>
+  )
+}
+
+interface ResolutionFormProps {
+  title:           string
+  actionLabel:     string
+  busyLabel:       string
+  totalLabel:      string
+  subtotalTone:    string
+  currency:        string
+  cnTotal:         number
+  rows:            ReturnLineProgress[]
+  qtyByLine:       Record<string, number>
+  setQty:          (returnLineId: string, qty: number) => void
+  priceByLine:     Record<string, number>
+  linkedReturnId:  string | null
+  isPending:       boolean
+  canSubmit:       boolean
+  onCancel:        () => void
+  onSubmit:        (lines: ResolutionLineInput[]) => void
+  extraHeader?:    ReactNode
+}
+
+function ResolutionForm({
+  title, actionLabel, busyLabel, totalLabel, subtotalTone,
+  currency, cnTotal, rows, qtyByLine, setQty, priceByLine,
+  linkedReturnId, isPending, canSubmit, onCancel, onSubmit, extraHeader,
+}: ResolutionFormProps) {
+  const subtotal = useMemo(() => {
+    if (!linkedReturnId) return cnTotal
+    return rows.reduce((s, r) => {
+      const qty = qtyByLine[r.return_line_id] ?? 0
+      const price = priceByLine[r.return_line_id] ?? 0
+      return s + qty * price
+    }, 0)
+  }, [linkedReturnId, cnTotal, rows, qtyByLine, priceByLine])
+
+  const totalPickedQty = useMemo(
+    () => Object.values(qtyByLine).reduce((s, q) => s + (q || 0), 0),
+    [qtyByLine],
+  )
+
+  const overCap = linkedReturnId ? subtotal > cnTotal + 0.0001 : false
+  const needsQty = !!linkedReturnId && totalPickedQty <= 0
+
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <p className="text-sm font-medium">{title}</p>
+
+      {extraHeader}
+
+      {linkedReturnId && (
+        <div className="rounded-md border overflow-x-auto">
+          <Table className="w-full min-w-[560px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Item</TableHead>
+                <TableHead className="text-xs w-16 text-center">Returned</TableHead>
+                <TableHead className="text-xs w-20 text-center">Remaining</TableHead>
+                <TableHead className="text-xs w-24 text-right">Unit Price</TableHead>
+                <TableHead className="text-xs w-24 text-center">Qty</TableHead>
+                <TableHead className="text-xs w-28 text-right">Subtotal</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-3">
+                    Loading return progress…
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((r) => {
+                const qty = qtyByLine[r.return_line_id] ?? 0
+                const price = priceByLine[r.return_line_id] ?? 0
+                const disabled = r.remaining_qty <= 0
+                const isDamaged = r.condition === 'damaged'
+                return (
+                  <TableRow key={r.return_line_id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm truncate">{r.item_name}</div>
+                          {r.sku && (
+                            <div className="text-xs text-muted-foreground">{r.sku}</div>
+                          )}
+                        </div>
+                        {isDamaged && (
+                          <Badge variant="destructive" className="shrink-0 text-[10px]">
+                            Damaged
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-center">{r.returned_qty}</TableCell>
+                    <TableCell className="text-sm text-center">{r.remaining_qty}</TableCell>
+                    <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
+                      {formatCurrency(price, currency)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={r.remaining_qty}
+                        value={qty}
+                        disabled={disabled}
+                        onChange={(e) => {
+                          const raw = Number(e.target.value)
+                          const clamped = Math.max(0, Math.min(r.remaining_qty, Number.isFinite(raw) ? Math.floor(raw) : 0))
+                          setQty(r.return_line_id, clamped)
+                        }}
+                        className="h-8 w-20 mx-auto text-center"
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
+                      {formatCurrency(qty * price, currency)}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 text-sm">
+        <span className="text-muted-foreground">
+          CN amount: <span className="text-foreground whitespace-nowrap tabular-nums">{formatCurrency(cnTotal, currency)}</span>
+        </span>
+        <span className={cn('font-medium whitespace-nowrap tabular-nums', subtotalTone)}>
+          {totalLabel}: {formatCurrency(subtotal, currency)}
+        </span>
+      </div>
+
+      {overCap && (
+        <p className="text-[11px] text-destructive text-right">
+          Selected total exceeds the credit-note amount. Reduce quantities before continuing.
+        </p>
+      )}
+
+      <div className="flex gap-2 justify-end">
+        <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button
+          size="sm"
+          disabled={!canSubmit || isPending || overCap || needsQty}
+          onClick={() => {
+            const lines: ResolutionLineInput[] = rows
+              .filter((r) => (qtyByLine[r.return_line_id] ?? 0) > 0)
+              .map((r) => ({ return_line_id: r.return_line_id, qty: qtyByLine[r.return_line_id] ?? 0 }))
+            onSubmit(lines)
+          }}
+        >
+          {isPending ? busyLabel : actionLabel}
+        </Button>
+      </div>
+    </div>
   )
 }

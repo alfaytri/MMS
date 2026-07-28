@@ -9,21 +9,28 @@ import type { Database } from '@/types/database.types'
 
 type ReturnResolution = 'refund' | 'replacement' | 'store_credit'
 
+export type ResolutionLineInput = { return_line_id: string; qty: number }
+
 /**
- * Resolve a credit note against the ledger. If the CN has a linked return,
- * covers every remaining return_line at its `remaining_qty` via the
- * appropriate action RPC (which writes ledger rows + auto-closes when
- * fully covered). Falls back to a direct resolution_type stamp when no
- * return is linked (invoice-adjustment CNs).
+ * Resolve a credit note against the ledger.
  *
- * Transitional 6.4 behavior — always covers ALL remaining qty in one call.
- * Sub-task 6.6 rewrites the caller dialogs to accept explicit per-line qtys.
+ * - When explicit `lines` are provided (from the 6.6 per-line dialog),
+ *   record exactly those qtys against the ledger.
+ * - When `lines` is omitted and the CN has a linked return, cover every
+ *   remaining return_line at its `remaining_qty` (legacy "resolve whole
+ *   thing" behavior — still used by callers that don't need per-line control).
+ * - When no return is linked (invoice-adjustment CNs), stamp
+ *   `resolution_type` directly on the CN.
  */
 async function resolveCreditNoteViaLedger(
   supabase: SupabaseClient<Database>,
   creditNoteId: string,
   resolution: ReturnResolution,
-  opts: { refundMethod?: string | null; refundReference?: string | null } = {},
+  opts: {
+    refundMethod?:    string | null
+    refundReference?: string | null
+    lines?:           ResolutionLineInput[]
+  } = {},
 ) {
   const { data: cn, error: cnErr } = await supabase
     .from('credit_notes')
@@ -35,16 +42,20 @@ async function resolveCreditNoteViaLedger(
   const returnId = cn?.source_return_id ?? null
 
   if (returnId) {
-    // Pull the ledger's remaining qty per line for this return.
-    const { data: progress, error: progErr } = await supabase
-      .from('return_line_progress')
-      .select('return_line_id, remaining_qty')
-      .eq('return_id', returnId)
-    if (progErr) throw progErr
-
-    const lines = (progress ?? [])
-      .filter((r) => Number(r.remaining_qty) > 0)
-      .map((r) => ({ return_line_id: r.return_line_id, qty: Number(r.remaining_qty) }))
+    let lines: ResolutionLineInput[]
+    if (opts.lines && opts.lines.length > 0) {
+      lines = opts.lines.filter((l) => l.qty > 0)
+    } else {
+      // Legacy path: pull the ledger's remaining qty per line and cover it all.
+      const { data: progress, error: progErr } = await supabase
+        .from('return_line_progress')
+        .select('return_line_id, remaining_qty')
+        .eq('return_id', returnId)
+      if (progErr) throw progErr
+      lines = (progress ?? [])
+        .filter((r) => Number(r.remaining_qty) > 0)
+        .map((r) => ({ return_line_id: r.return_line_id, qty: Number(r.remaining_qty) }))
+    }
 
     if (lines.length > 0) {
       if (resolution === 'refund') {
@@ -359,16 +370,16 @@ export function useResolveCreditNoteRefund() {
 
   return useMutation({
     mutationFn: async (input: {
-      creditNoteId: string
-      refundMethod: string
+      creditNoteId:    string
+      refundMethod:    string
       refundReference: string
+      lines?:          ResolutionLineInput[]
     }) => {
       // refund_method + refund_reference are refund-specific fields that
-      // live only on credit_notes and must be written by hand. The
-      // resolution_type stamp is delegated to rpc_close_return when a
-      // return is linked (so so_po_returns.status advances in lockstep);
-      // fallback to a direct write for invoice-adjustment CNs without a
-      // linked return.
+      // live only on credit_notes and must be written by hand. The ledger
+      // rows + so_po_returns.status advance via the RPCs when a return is
+      // linked; invoice-adjustment CNs fall back to a direct stamp inside
+      // resolveCreditNoteViaLedger.
       const { error: fieldsErr } = await supabase
         .from('credit_notes')
         .update({
@@ -379,8 +390,9 @@ export function useResolveCreditNoteRefund() {
       if (fieldsErr) throw fieldsErr
 
       await resolveCreditNoteViaLedger(supabase, input.creditNoteId, 'refund', {
-        refundMethod: input.refundMethod,
+        refundMethod:    input.refundMethod,
         refundReference: input.refundReference,
+        lines:           input.lines,
       })
 
       void logActivity({
@@ -413,8 +425,9 @@ export function useResolveCreditNoteStoreCredit() {
   return useMutation({
     mutationFn: async (input: {
       creditNoteId: string
-      invoiceId: string
-      amount: number
+      invoiceId:    string
+      amount:       number
+      lines?:       ResolutionLineInput[]
     }) => {
       // Customer is only needed for the activity log. The CN is the
       // authoritative record; resolving customer isn't strictly required to
@@ -456,9 +469,11 @@ export function useResolveCreditNoteStoreCredit() {
 
       // Store-credit resolution marks the credit note; the "credit balance"
       // is derived from credit_notes at read time (customers.credit_balance
-      // column was dropped 2026-07-24). When a return is linked, rpc_close_return
-      // advances so_po_returns.status in lockstep.
-      await resolveCreditNoteViaLedger(supabase, input.creditNoteId, 'store_credit')
+      // column was dropped 2026-07-24). When a return is linked, the ledger
+      // recorder advances so_po_returns.status in lockstep once fully covered.
+      await resolveCreditNoteViaLedger(supabase, input.creditNoteId, 'store_credit', {
+        lines: input.lines,
+      })
 
       void logActivity({
         action: 'store_credit Resolution Applied',

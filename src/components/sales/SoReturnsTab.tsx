@@ -111,13 +111,21 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                       {updateReturnStatus.isPending ? '…' : nextLabel[ret.status]}
                     </Button>
                   )}
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                     ret.status === 'restocked'          ? 'bg-green-100 text-green-700' :
                     ret.status === 'received'           ? 'bg-blue-100 text-blue-700' :
                     ret.status === 'pending_inspection' ? 'bg-purple-100 text-purple-700' :
                     ret.status === 'closed'             ? 'bg-muted text-muted-foreground' :
+                    ret.status === 'resolved_replacement' ? 'bg-emerald-100 text-emerald-800' :
+                    ret.status === 'resolved_credit'      ? 'bg-emerald-100 text-emerald-800' :
+                    ret.status === 'resolved_partial'     ? 'bg-emerald-100 text-emerald-800' :
                                                           'bg-amber-100 text-amber-700'
-                  }`}>{ret.status.replace('_', ' ')}</span>
+                  }`}>{
+                    ret.status === 'resolved_replacement' ? 'Resolved · Replacement' :
+                    ret.status === 'resolved_credit'      ? 'Resolved · Credit' :
+                    ret.status === 'resolved_partial'     ? 'Resolved · Mixed' :
+                    ret.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                  }</span>
                 </div>
               </div>
 
