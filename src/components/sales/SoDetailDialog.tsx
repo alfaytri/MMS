@@ -28,6 +28,7 @@ import {
   type SaleDelivery,
 } from '@/hooks/useSaleOrders'
 import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery } from '@/hooks/useSaleDeliveries'
+import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
@@ -667,6 +668,14 @@ function EditDeliveryDialog({
   const [date, setDate] = useState(delivery.date ?? new Date().toISOString().split('T')[0])
   const [items, setItems] = useState((delivery.sale_delivery_lines ?? []).map((i) => ({ ...i })))
 
+  // Per-warehouse stock hints so the operator knows availability while
+  // editing qtys. Same pattern as SoDeliveryDialog.
+  const bvIds = useMemo(
+    () => items.map((i) => i.brand_variant_id).filter(Boolean) as string[],
+    [items],
+  )
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg max-h-[90vh] flex flex-col">
@@ -696,21 +705,51 @@ function EditDeliveryDialog({
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">Items</Label>
-            {items.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{item.item_name}</div>
-                  {item.sku && <div className="text-xs text-muted-foreground font-mono">{item.sku}</div>}
+            {items.map((item, idx) => {
+              const whEntries = item.brand_variant_id ? (whStockMap.get(item.brand_variant_id) ?? []) : []
+              const selectedWhStock = whEntries.find((w) => w.warehouse_id === warehouseId)?.qty ?? 0
+              const overSelected = warehouseId && item.qty_delivered > selectedWhStock
+              return (
+                <div key={idx} className="flex items-center gap-3 rounded-md border p-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{item.item_name}</div>
+                    {item.sku && <div className="text-xs text-muted-foreground font-mono">{item.sku}</div>}
+                    {item.brand_variant_id && (
+                      whEntries.length > 0 ? (
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                          {whEntries.map((w) => {
+                            const whName = warehouses.find((wh) => wh.id === w.warehouse_id)?.name ?? '?'
+                            const isSelected = w.warehouse_id === warehouseId
+                            return (
+                              <span
+                                key={w.warehouse_id}
+                                className={`text-[10px] ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
+                              >
+                                {whName}: <span className={`font-medium ${isSelected ? 'text-primary' : 'text-foreground'}`}>{w.qty}</span>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-amber-600 mt-0.5">No stock in any warehouse</div>
+                      )
+                    )}
+                    {overSelected && (
+                      <div className="text-[10px] text-destructive mt-0.5">
+                        Requested {item.qty_delivered} but only {selectedWhStock} in the selected warehouse
+                      </div>
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={item.qty_delivered}
+                    onChange={(e) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, qty_delivered: Math.max(0, Number(e.target.value)) } : it))}
+                    className="w-20 text-right"
+                  />
                 </div>
-                <Input
-                  type="number"
-                  min="0"
-                  value={item.qty_delivered}
-                  onChange={(e) => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, qty_delivered: Math.max(0, Number(e.target.value)) } : it))}
-                  className="w-20 text-right"
-                />
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
         <DialogFooter className="shrink-0">
