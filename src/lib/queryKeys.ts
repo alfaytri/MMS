@@ -407,6 +407,7 @@ export const queryKeys = {
   saleDeliveries: {
     all: ['sale-deliveries'] as const,
     list: (filters: unknown) => ['sale-deliveries', filters] as const,
+    byReturnId: (returnId: Nullable) => ['sale-deliveries', 'by-return', returnId] as const,
   },
 
   /* ── Sale Orders ──────────────────────────────────────── */

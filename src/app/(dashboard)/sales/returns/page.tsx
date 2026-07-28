@@ -34,14 +34,29 @@ import {
   Calendar, Package, ChevronRight, AlertTriangle, RotateCcw, Clock, Truck,
   CheckCircle2, Ban, ShoppingCart, User, Building2,
 } from 'lucide-react'
+import { useDeliveryByReturnId } from '@/hooks/useSaleDeliveries'
 
-const STATUS_CONFIG: Record<SaleReturn['status'], { label: string; color: string; bg: string; Icon: typeof Clock }> = {
-  pending:            { label: 'Pending',            color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',   Icon: Clock },
-  pending_inspection: { label: 'Pending Inspection', color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200', Icon: AlertTriangle },
-  received:           { label: 'Received',           color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',     Icon: Truck },
-  restocked:          { label: 'Restocked',          color: 'text-green-700',  bg: 'bg-green-50 border-green-200',   Icon: CheckCircle2 },
-  closed:             { label: 'Closed',             color: 'text-slate-700',  bg: 'bg-slate-50 border-slate-200',   Icon: CheckCircle2 },
-  cancelled:          { label: 'Cancelled',          color: 'text-red-700',    bg: 'bg-red-50 border-red-200',       Icon: Ban },
+function ReplacementChip({ returnId }: { returnId: string }) {
+  const { data: delivery } = useDeliveryByReturnId(returnId)
+  if (!delivery) return null
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+      <Package className="h-3 w-3" />
+      Replacement: {delivery.delivery_number}
+    </span>
+  )
+}
+
+const STATUS_CONFIG: Partial<Record<SaleReturn['status'], { label: string; color: string; bg: string; Icon: typeof Clock }>> = {
+  pending:              { label: 'Pending',              color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',   Icon: Clock },
+  pending_inspection:   { label: 'Pending Inspection',   color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200', Icon: AlertTriangle },
+  received:             { label: 'Received',             color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',     Icon: Truck },
+  restocked:            { label: 'Restocked',            color: 'text-green-700',  bg: 'bg-green-50 border-green-200',   Icon: CheckCircle2 },
+  resolved_credit:      { label: 'Resolved Credit',      color: 'text-amber-800',  bg: 'bg-amber-100 border-amber-300',  Icon: CheckCircle2 },
+  resolved_replacement: { label: 'Resolved Replacement', color: 'text-amber-800',  bg: 'bg-amber-100 border-amber-300',  Icon: CheckCircle2 },
+  resolved_partial:     { label: 'Resolved Partial',     color: 'text-amber-800',  bg: 'bg-amber-100 border-amber-300',  Icon: CheckCircle2 },
+  closed:               { label: 'Closed',               color: 'text-slate-700',  bg: 'bg-slate-50 border-slate-200',   Icon: CheckCircle2 },
+  cancelled:            { label: 'Cancelled',            color: 'text-red-700',    bg: 'bg-red-50 border-red-200',       Icon: Ban },
 }
 
 const STATUS_NEXT: Partial<Record<SaleReturn['status'], SaleReturn['status']>> = {
@@ -262,6 +277,7 @@ export default function SaleReturnsPage() {
                           <AlertTriangle className="h-2.5 w-2.5" />{damaged} damaged
                         </Badge>
                       )}
+                      <ReplacementChip returnId={ret.id} />
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {next && (

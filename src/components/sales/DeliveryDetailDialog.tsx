@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import {
   Truck, Calendar, Warehouse, User, Hash, Loader2, Download,
 } from 'lucide-react'
@@ -13,6 +14,36 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { SaleDelivery } from '@/hooks/useSaleDeliveries'
+
+/** Reads the return + its originating standard delivery so a replacement
+ *  delivery can render "Fulfills SR-XXXXX (originally shipped as DEL-YYYYY)". */
+function useReplacementSource(returnId: string | null | undefined) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['sale-delivery-replacement-source', returnId],
+    enabled: !!returnId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('so_po_returns')
+        .select('id, return_number, source_delivery_id')
+        .eq('id', returnId!)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+      let sourceDelivery: { id: string; delivery_number: string } | null = null
+      if (data.source_delivery_id) {
+        const { data: sd } = await supabase
+          .from('sale_deliveries')
+          .select('id, delivery_number')
+          .eq('id', data.source_delivery_id)
+          .maybeSingle()
+        sourceDelivery = sd ?? null
+      }
+      return { return_number: data.return_number, sourceDelivery }
+    },
+    staleTime: 30_000,
+  })
+}
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:     { label: 'Pending',     color: 'text-slate-700',  bg: 'bg-slate-50 border-slate-200' },
@@ -42,6 +73,9 @@ interface Props {
 
 export function DeliveryDetailDialog({ delivery, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
+  const { data: replacementSource } = useReplacementSource(
+    delivery?.type === 'replacement' ? delivery.return_id : null,
+  )
 
   if (!delivery) return null
 
@@ -132,8 +166,21 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
           </div>
 
           {delivery.type === 'replacement' && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2">
-              <p className="text-xs font-semibold text-amber-700">Replacement Delivery</p>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-900 dark:bg-amber-950/30">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Replacement Delivery</p>
+              {replacementSource && (
+                <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                  Fulfills return{' '}
+                  <span className="font-mono font-medium">{replacementSource.return_number}</span>
+                  {replacementSource.sourceDelivery && (
+                    <>
+                      {' '}(originally shipped as{' '}
+                      <span className="font-mono font-medium">{replacementSource.sourceDelivery.delivery_number}</span>
+                      )
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           )}
 

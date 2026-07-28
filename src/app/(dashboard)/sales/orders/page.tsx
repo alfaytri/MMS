@@ -310,13 +310,23 @@ export default function SaleOrdersPage() {
       cell: ({ row }) => {
         const pct = getDeliveryPct(row.original)
         const text = getDeliveryText(row.original)
+        const summary = row.original.sale_order_lines_summary ?? []
+        const shipped = summary.reduce((s, l) => s + l.shipped_qty, 0)
+        const returnedGood = summary.reduce((s, l) => s + l.returned_good_qty, 0)
+        const replacement = summary.reduce((s, l) => s + l.replacement_qty, 0)
+        const showSub = returnedGood > 0 || replacement > 0
         return (
-          <div className="space-y-1 w-[120px]">
+          <div className="space-y-1 w-[120px] min-h-[42px]">
             <div className="flex items-center justify-between text-xs tabular-nums">
               <span className="text-muted-foreground">{text}</span>
               <span className="font-medium">{pct}%</span>
             </div>
             <Progress value={pct} className={cn('h-2', getProgressColor(pct))} />
+            {showSub && (
+              <div className="text-[10px] leading-tight text-muted-foreground tabular-nums">
+                {shipped} shipped · {returnedGood} returned · {replacement} replaced
+              </div>
+            )}
           </div>
         )
       },

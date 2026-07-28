@@ -204,6 +204,24 @@ export function useCancelDelivery() {
   })
 }
 
+export function useDeliveryByReturnId(returnId: string | null) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: queryKeys.saleDeliveries.byReturnId(returnId),
+    enabled: !!returnId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sale_deliveries')
+        .select('id, delivery_number, status, date')
+        .eq('return_id', returnId!)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    staleTime: 30_000,
+  })
+}
+
 export function useCreateReplacementDelivery() {
   const qc = useQueryClient()
   const supabase = createClient()
