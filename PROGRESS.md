@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.5 done, next up 6.6 refund/store-credit per-line qty pickers)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.6: refund / store-credit per-line qty pickers**
 
 
 
