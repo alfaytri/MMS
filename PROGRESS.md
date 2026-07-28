@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.4 done, next up 6.5 ReplacementDeliveryDialog partial rewrite)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.5: ReplacementDeliveryDialog per-line qty + write-off checkbox**
 
 
 
