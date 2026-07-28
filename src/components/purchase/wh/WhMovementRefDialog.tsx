@@ -87,6 +87,17 @@ interface InventoryCheckData {
   reviewed_at: string | null
 }
 
+interface SaleReturnData {
+  return_number: string
+  status: string | null
+  date: string | null
+  reason: string | null
+  restock_warehouse_id: string | null
+  restock_warehouse_name: string | null
+  return_lines: Array<{ id: string; item_name: string; sku: string | null; qty: number; condition: string | null }> | null
+  sale_orders: { so_number: string; customers: { name: string } | null } | null
+}
+
 const STATUS_STYLES: Record<string, string> = {
   pending:           'bg-warning/10 text-warning border-warning/20',
   pending_approval:  'bg-warning/10 text-warning border-warning/20',
@@ -169,6 +180,56 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
           if (!data) return null
           return { type: 'inventory_check' as const, data }
         }
+        case 'return':
+        case 'sale_return': {
+          // so_po_returns.source_id is polymorphic (source_type points at
+          // sale_orders OR purchase_orders); PostgREST can't embed either, so
+          // we split the fetch: return + lines first, then the SO + customer
+          // + warehouse in parallel.
+          const { data: retRow, error: retErr } = await supabase
+            .from('so_po_returns')
+            .select(`
+              return_number, status, date, reason, source_type, source_id, restock_warehouse_id,
+              return_lines(id, item_name, sku, qty, condition)
+            `)
+            .eq('id', referenceId)
+            .maybeSingle()
+          if (retErr) throw retErr
+          if (!retRow) return null
+          if (retRow.source_type !== 'sale_order') return null
+
+          const [soRes, whRes] = await Promise.all([
+            retRow.source_id
+              ? supabase
+                  .from('sale_orders')
+                  .select('so_number, customers(name)')
+                  .eq('id', retRow.source_id as string)
+                  .maybeSingle()
+              : Promise.resolve({ data: null, error: null } as const),
+            retRow.restock_warehouse_id
+              ? supabase
+                  .from('warehouses')
+                  .select('name')
+                  .eq('id', retRow.restock_warehouse_id as string)
+                  .maybeSingle()
+              : Promise.resolve({ data: null, error: null } as const),
+          ])
+
+          const soData = (soRes.data ?? null) as { so_number: string; customers: { name: string } | null } | null
+          return {
+            type: 'sale_return' as const,
+            data: {
+              return_number:          retRow.return_number,
+              status:                 retRow.status,
+              date:                   retRow.date,
+              reason:                 retRow.reason,
+              restock_warehouse_id:   retRow.restock_warehouse_id,
+              restock_warehouse_name: whRes.data?.name ?? null,
+              return_lines:           (retRow as unknown as { return_lines: SaleReturnData['return_lines'] }).return_lines,
+              sale_orders:            soData,
+            } satisfies SaleReturnData,
+          }
+        }
         default:
           return null
       }
@@ -212,7 +273,7 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-xl min-h-[420px] sm:min-h-[520px] max-h-[85vh] overflow-y-auto p-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="flex flex-col items-center gap-2">
@@ -232,6 +293,7 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
             {result.type === 'adjustment' && <AdjustmentView data={result.data} variantMeta={variantMeta} />}
             {result.type === 'landed_cost' && <LandedCostView data={result.data} />}
             {result.type === 'inventory_check' && <InventoryCheckView data={result.data} />}
+            {result.type === 'sale_return' && <SaleReturnView data={result.data} />}
           </>
         )}
       </DialogContent>
@@ -554,6 +616,86 @@ function LandedCostView({ data }: { data: LandedCostData }) {
           <p className="text-lg font-bold tabular-nums">{data.total_amount != null ? Number(data.total_amount).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</p>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Sale Return ────────────────────────────────────────────────────────────
+
+function SaleReturnView({ data }: { data: SaleReturnData }) {
+  const items = Array.isArray(data.return_lines) ? data.return_lines : []
+  const customer = data.sale_orders?.customers?.name ?? '—'
+  const soNumber = data.sale_orders?.so_number ?? '—'
+  const totalQty = items.reduce((s, l) => s + (l.qty ?? 0), 0)
+  const damagedQty = items.filter((l) => l.condition === 'damaged').reduce((s, l) => s + (l.qty ?? 0), 0)
+  const statusLabel = (data.status ?? '').replace(/_/g, ' ')
+  return (
+    <div className="px-6 pt-6 pb-4 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center flex-shrink-0">
+          <ClipboardList className="h-5 w-5 text-destructive" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base font-semibold font-mono">{data.return_number}</h3>
+            <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
+              {statusLabel}
+            </Badge>
+            {damagedQty > 0 && (
+              <Badge className="text-[10px] px-2 py-0.5 bg-destructive/10 text-destructive border-destructive/20">
+                {damagedQty} damaged
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">Sale Return · {soNumber} · {customer}</p>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="grid grid-cols-2 gap-4">
+        <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.date ? format(new Date(data.date), 'dd MMM yyyy') : '—'} />
+        <MetaRow icon={<Warehouse className="h-3.5 w-3.5 text-muted-foreground" />} label="Restock Warehouse" value={data.restock_warehouse_name ?? '—'} />
+        {data.reason && (
+          <div className="col-span-2">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Reason</p>
+            <p className="text-sm">{data.reason}</p>
+          </div>
+        )}
+      </div>
+
+      {items.length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              Return Lines · {totalQty} unit{totalQty !== 1 ? 's' : ''}
+            </p>
+            <div className="rounded-md border overflow-hidden">
+              <div className="grid grid-cols-[1fr_80px_90px] gap-2 px-4 py-2 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Item</span>
+                <span className="text-right">Qty</span>
+                <span>Condition</span>
+              </div>
+              {items.map((l) => (
+                <div key={l.id} className="grid grid-cols-[1fr_80px_90px] gap-2 px-4 py-2 border-t text-xs items-center">
+                  <div className="min-w-0">
+                    <div className="truncate">{l.item_name}</div>
+                    {l.sku && <div className="text-[10px] text-muted-foreground">{l.sku}</div>}
+                  </div>
+                  <span className="text-right tabular-nums">{l.qty}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium w-fit ${
+                    l.condition === 'good'       ? 'bg-green-100 text-green-700' :
+                    l.condition === 'damaged'    ? 'bg-red-100 text-red-700' :
+                    l.condition === 'inspection' ? 'bg-purple-100 text-purple-700' :
+                                                   'bg-muted text-muted-foreground'
+                  }`}>{l.condition ?? '—'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
