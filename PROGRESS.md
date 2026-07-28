@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress — Phase 6.6 done, next up 6.7 SoReturnsTab + returns list ledger summary + Resolve Remaining button)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.7: SoReturnsTab card + returns list ledger summary + Resolve Remaining button**
 
 
 
