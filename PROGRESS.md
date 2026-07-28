@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Sub-task 6.1: Phase 6 DB scaffolding — return_line_resolutions table + views + core RPC**
 
 
 
