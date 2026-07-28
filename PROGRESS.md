@@ -245,7 +245,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Phase 7 — Dual-Ledger for Damaged Units** — implementation plan drafting + Sub-task 7.1 DB scaffolding (two separate customer + inventory ledger tables, auto-migrate historical write-off-only returns with a "Compensation not recorded" chip, extend ReplacementDeliveryDialog with per-row Disposition dropdown)
+🚀 In Progress: **Phase 7 — Dual-Ledger for Damaged Units** — Sub-task 7.1 DB scaffolding DONE (tables + views + backfill, all with backward-compat aliases so Phase 6 UI stays working). Awaiting user regression check on staging before proceeding to 7.2 (rewritten action RPCs).
 
 
 
