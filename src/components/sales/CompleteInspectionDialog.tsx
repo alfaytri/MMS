@@ -34,7 +34,12 @@ interface Props {
 }
 
 export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWarehouseId }: Props) {
-  const [warehouseId, setWarehouseId] = useState(suggestedWarehouseId ?? '')
+  // Default warehouse: caller override > the return's own restock warehouse
+  // (set at inspection-request time in Create Return). Falls back to empty
+  // only if neither exists.
+  const [warehouseId, setWarehouseId] = useState(
+    suggestedWarehouseId ?? ret.restock_warehouse_id ?? '',
+  )
   const [splits, setSplits] = useState<Split[]>(() =>
     (ret.return_lines ?? [])
       .filter((l) => l.condition === 'inspection')
