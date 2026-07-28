@@ -10,21 +10,66 @@ import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteD
 import { CreateReturnDialog } from '@/components/sales/CreateReturnDialog'
 import { CompleteInspectionDialog } from '@/components/sales/CompleteInspectionDialog'
 import type { CreditNote } from '@/hooks/useCreditNotes'
-import { useUpdateReturnStatus, useCreateCreditNoteForReturn, type SaleReturn } from '@/hooks/useSaleReturns'
-import { useDeliveryByReturnId } from '@/hooks/useSaleDeliveries'
+import { useUpdateReturnStatus, useCreateCreditNoteForReturn, useReturnProgress, type SaleReturn } from '@/hooks/useSaleReturns'
+import { useDeliveriesByReturnId } from '@/hooks/useSaleDeliveries'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import { PackageIcon } from 'lucide-react'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 import { formatDate } from '@/lib/utils/formatters'
 
-function ReplacementChip({ returnId }: { returnId: string }) {
-  const { data: delivery } = useDeliveryByReturnId(returnId)
-  if (!delivery) return null
+function ReplacementChips({ returnId }: { returnId: string }) {
+  const { data: deliveries = [] } = useDeliveriesByReturnId(returnId)
+  if (deliveries.length === 0) return null
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-      <PackageIcon className="h-3 w-3" />
-      Replacement: {delivery.delivery_number}
-    </span>
+    <>
+      {deliveries.map((d) => (
+        <span
+          key={d.id}
+          className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+        >
+          <PackageIcon className="h-3 w-3" />
+          Replacement: {d.delivery_number}
+        </span>
+      ))}
+    </>
+  )
+}
+
+const RESOLUTION_LABEL: Record<string, string> = {
+  replacement:  'replaced',
+  refund:       'refunded',
+  store_credit: 'store credit',
+  write_off:    'write-off',
+}
+
+function ReturnLedgerSummary({ returnId }: { returnId: string }) {
+  const { data: progress } = useReturnProgress(returnId)
+  if (!progress) return null
+  const mix = progress.resolutions_by_type ?? {}
+  const parts: string[] = [`${progress.total_returned} returned`]
+  for (const [type, qty] of Object.entries(mix)) {
+    if (qty > 0) parts.push(`${qty} ${RESOLUTION_LABEL[type] ?? type}`)
+  }
+  parts.push(`${progress.total_remaining} remaining`)
+  return (
+    <p className="text-[11px] text-muted-foreground tabular-nums">
+      {parts.join(' · ')}
+    </p>
+  )
+}
+
+function ResolveRemainingButton({ returnId, onClick }: { returnId: string; onClick: () => void }) {
+  const { data: progress } = useReturnProgress(returnId)
+  if (!progress || progress.total_remaining <= 0) return null
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-7 text-xs"
+      onClick={onClick}
+    >
+      Resolve Remaining ({progress.total_remaining})
+    </Button>
   )
 }
 
@@ -82,7 +127,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-sm font-medium">{ret.return_number}</span>
-                  <ReplacementChip returnId={ret.id} />
+                  <ReplacementChips returnId={ret.id} />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {needsInspection && (
@@ -130,6 +175,15 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
               </div>
 
               <p className="text-xs text-muted-foreground">{formatDate(ret.date)} · {ret.reason}</p>
+
+              <ReturnLedgerSummary returnId={ret.id} />
+
+              {onSendReplacement && (ret.status === 'restocked' || ret.status === 'resolved_partial' || ret.status === 'resolved_replacement' || ret.status === 'resolved_credit') && (
+                <ResolveRemainingButton
+                  returnId={ret.id}
+                  onClick={() => onSendReplacement(ret)}
+                />
+              )}
 
               <div className="rounded border overflow-x-auto">
                 <Table>

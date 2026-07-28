@@ -210,13 +210,38 @@ export function useDeliveryByReturnId(returnId: string | null) {
     queryKey: queryKeys.saleDeliveries.byReturnId(returnId),
     enabled: !!returnId,
     queryFn: async () => {
+      // A return may now have multiple replacement deliveries (post-Sub-task 6.5
+      // partial replacements). Return the most recent one for the legacy single-chip
+      // callers; use useDeliveriesByReturnId if you need the full list.
       const { data, error } = await supabase
         .from('sale_deliveries')
         .select('id, delivery_number, status, date')
         .eq('return_id', returnId!)
+        .is('deleted_at', null)
+        .order('date', { ascending: false })
+        .limit(1)
         .maybeSingle()
       if (error) throw error
       return data
+    },
+    staleTime: 30_000,
+  })
+}
+
+export function useDeliveriesByReturnId(returnId: string | null) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: [...queryKeys.saleDeliveries.byReturnId(returnId), 'list'],
+    enabled: !!returnId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sale_deliveries')
+        .select('id, delivery_number, status, date')
+        .eq('return_id', returnId!)
+        .is('deleted_at', null)
+        .order('date', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as Array<{ id: string; delivery_number: string; status: string; date: string }>
     },
     staleTime: 30_000,
   })

@@ -34,15 +34,46 @@ import {
   Calendar, Package, ChevronRight, AlertTriangle, RotateCcw, Clock, Truck,
   CheckCircle2, Ban, ShoppingCart, User, Building2,
 } from 'lucide-react'
-import { useDeliveryByReturnId } from '@/hooks/useSaleDeliveries'
+import { useDeliveriesByReturnId } from '@/hooks/useSaleDeliveries'
+import { useReturnProgress } from '@/hooks/useSaleReturns'
 
-function ReplacementChip({ returnId }: { returnId: string }) {
-  const { data: delivery } = useDeliveryByReturnId(returnId)
-  if (!delivery) return null
+function ReplacementChips({ returnId }: { returnId: string }) {
+  const { data: deliveries = [] } = useDeliveriesByReturnId(returnId)
+  if (deliveries.length === 0) return null
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-      <Package className="h-3 w-3" />
-      Replacement: {delivery.delivery_number}
+    <>
+      {deliveries.map((d) => (
+        <span
+          key={d.id}
+          className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+        >
+          <Package className="h-3 w-3" />
+          Replacement: {d.delivery_number}
+        </span>
+      ))}
+    </>
+  )
+}
+
+const RESOLUTION_LABEL: Record<string, string> = {
+  replacement:  'replaced',
+  refund:       'refunded',
+  store_credit: 'store credit',
+  write_off:    'write-off',
+}
+
+function ReturnLedgerSummary({ returnId }: { returnId: string }) {
+  const { data: progress } = useReturnProgress(returnId)
+  if (!progress) return null
+  const mix = progress.resolutions_by_type ?? {}
+  const parts: string[] = [`${progress.total_returned} returned`]
+  for (const [type, qty] of Object.entries(mix)) {
+    if (qty > 0) parts.push(`${qty} ${RESOLUTION_LABEL[type] ?? type}`)
+  }
+  parts.push(`${progress.total_remaining} remaining`)
+  return (
+    <span className="text-[11px] text-muted-foreground tabular-nums truncate">
+      {parts.join(' · ')}
     </span>
   )
 }
@@ -277,7 +308,7 @@ export default function SaleReturnsPage() {
                           <AlertTriangle className="h-2.5 w-2.5" />{damaged} damaged
                         </Badge>
                       )}
-                      <ReplacementChip returnId={ret.id} />
+                      <ReplacementChips returnId={ret.id} />
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {next && (
@@ -303,6 +334,7 @@ export default function SaleReturnsPage() {
                     <span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(ret.date)}</span>
                     <span className="inline-flex items-center gap-1"><Package className="h-3 w-3" />{totalQty} unit{totalQty !== 1 ? 's' : ''} · {(ret.return_lines ?? []).length} line{(ret.return_lines ?? []).length !== 1 ? 's' : ''}</span>
                     <span className="truncate max-w-[240px]">Reason: {ret.reason}</span>
+                    <ReturnLedgerSummary returnId={ret.id} />
                   </div>
                 </div>
               </div>
