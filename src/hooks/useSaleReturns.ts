@@ -178,12 +178,12 @@ async function createCreditNoteForReturn(
   returnId: string,
   ret: { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
 ) {
-  // 1. Fetch SO lines for unit price lookup
+  // 1. Fetch SO lines for unit price + ordered qty lookup
   const { data: soLines } = await supabase
     .from('sale_order_lines')
-    .select('item_name, sku, brand_variant_id, unit_price')
+    .select('item_name, sku, brand_variant_id, unit_price, qty')
     .eq('sale_order_id', ret.source_id)
-  const soLineArr = (soLines ?? []) as Array<{ item_name: string; sku: string | null; brand_variant_id: string | null; unit_price: number }>
+  const soLineArr = (soLines ?? []) as Array<{ item_name: string; sku: string | null; brand_variant_id: string | null; unit_price: number; qty: number }>
 
   // 2. Fetch linked invoice
   const { data: inv } = await supabase
@@ -219,17 +219,21 @@ async function createCreditNoteForReturn(
     }
   })
 
-  // 5. Build original lines from SO
+  // 5. Build original lines from SO — one row per ordered SO line at the
+  // invoiced qty × unit_price so the CN's "Original Items" section reflects
+  // what the customer was billed for before the return.
   const originalLines = soLineArr.map((l) => ({
     item_name:  l.item_name,
     sku:        l.sku ?? null,
-    qty:        0,
+    qty:        l.qty,
     unit_price: l.unit_price,
-    total:      0,
+    total:      l.qty * l.unit_price,
   }))
 
   const cnTotal = returnedLines.reduce((s, l) => s + l.total, 0)
-  const originalTotal = inv?.total_amount ?? 0
+  // Prefer the invoice's total when available; fall back to the sum of the
+  // SO lines so return-only flows (no invoice) still populate the header.
+  const originalTotal = inv?.total_amount ?? originalLines.reduce((s, l) => s + l.total, 0)
   const newTotal = originalTotal - cnTotal
 
   const credit_note_id = await nextNoteId('credit')

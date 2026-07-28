@@ -115,6 +115,18 @@ export function ReplacementDeliveryDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, lineProgress.length])
 
+  // Default the source warehouse to the return's restock warehouse so the
+  // write-off-only case can be one click. Operator can still override for the
+  // replacement path (they may want to ship from a different warehouse).
+  useEffect(() => {
+    if (!open) return
+    if (returnData.restock_warehouse_id) {
+      setWarehouseId(returnData.restock_warehouse_id)
+    } else {
+      setWarehouseId('')
+    }
+  }, [open, returnData.restock_warehouse_id])
+
   const hasDamagedRemaining = useMemo(
     () => rows.some((r) => r.condition === 'damaged' && r.remaining_qty > 0),
     [rows],

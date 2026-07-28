@@ -7,6 +7,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useCompleteReturnInspection, type InspectionSplit, type SaleReturn } from '@/hooks/useSaleReturns'
@@ -43,6 +48,8 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
       })),
   )
 
+  const [confirmDamagedOpen, setConfirmDamagedOpen] = useState(false)
+
   const { data: warehouses = [] } = useWarehouses()
   const completeInspection = useCompleteReturnInspection()
 
@@ -55,11 +62,16 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
     [splits],
   )
 
+  const totalDamaged = useMemo(
+    () => splits.reduce((s, x) => s + (x.damaged_qty || 0), 0),
+    [splits],
+  )
+
   const canSubmit =
     splits.length > 0 && !!warehouseId && !anyMismatch && !anyNegative
     && !completeInspection.isPending
 
-  function handleSubmit() {
+  function submitNow() {
     const payload: InspectionSplit[] = splits.map((s) => ({
       return_line_id: s.return_line_id,
       good_qty: s.good_qty,
@@ -77,6 +89,14 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
         onError: (err) => toast.error((err as Error).message),
       },
     )
+  }
+
+  function handleSubmit() {
+    if (totalDamaged > 0) {
+      setConfirmDamagedOpen(true)
+      return
+    }
+    submitNow()
   }
 
   return (
@@ -183,6 +203,30 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
           </Button>
         </div>
       </DialogContent>
+
+      <AlertDialog open={confirmDamagedOpen} onOpenChange={setConfirmDamagedOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Mark {totalDamaged} unit{totalDamaged === 1 ? '' : 's'} as damaged?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This decision cannot be reversed after the return is restocked. Damaged units
+              must be written off — the app does not yet have a repair or refurbishment flow.
+              Only continue if you&apos;re certain these units are unrecoverable.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back &amp; edit</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { setConfirmDamagedOpen(false); submitNow() }}
+            >
+              Confirm damaged
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

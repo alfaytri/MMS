@@ -210,13 +210,22 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(fullSO?.sale_order_lines ?? []).map((li) => {
+                      {(() => {
+                        // Map summary rows by line id so the Delivered column can
+                        // read the net_delivered (shipped − returned_good + replacement)
+                        // rather than the raw shipment counter delivered_qty.
+                        const summaryById = new Map(
+                          (fullSO?.sale_order_lines_summary ?? []).map((s) => [s.sale_order_line_id, s])
+                        )
+                        return (fullSO?.sale_order_lines ?? []).map((li) => {
                         const bv = li.inventory_item_brand_variants
                         const cat = bv?.inventory_items?.inventory_categories
                         const chain = cat?.ancestor_chain ?? []
                         const itemType = cat?.type ?? null
                         const typeBadge = itemType ? inventoryTypeBadge[itemType] : null
                         const brandName = bv?.brand ?? null
+                        const summary = summaryById.get(li.id)
+                        const netDelivered = summary?.net_delivered_qty ?? li.delivered_qty
                         return (
                         <TableRow key={li.id}>
                           <TableCell className="py-2.5">
@@ -247,11 +256,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                           <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku ?? '—'}</TableCell>
                           <TableCell className="text-right">{li.qty}</TableCell>
                           <TableCell className="text-right">{formatCurrency(li.unit_price, current?.currency ?? 'QAR')}</TableCell>
-                          <TableCell className="hidden md:table-cell text-right">{li.delivered_qty}</TableCell>
+                          <TableCell className="hidden md:table-cell text-right">
+                            <span title={summary ? `${summary.shipped_qty} shipped · ${summary.returned_good_qty} returned · ${summary.replacement_qty} replaced` : undefined}>
+                              {netDelivered}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-right font-medium">{formatCurrency(li.total, current?.currency ?? 'QAR')}</TableCell>
                         </TableRow>
                         )
-                      })}
+                        })
+                      })()}
                     </TableBody>
                   </Table>
                 </div>

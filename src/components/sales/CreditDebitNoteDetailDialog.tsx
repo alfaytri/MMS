@@ -19,7 +19,7 @@ import {
   useResolveCreditNoteReplacement,
   useResolveDebitNoteSupplierCredit, useResolveDebitNoteReplacement,
 } from '@/hooks/useCreditNotes'
-import { useReturnLineProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
+import { useReturnLineProgress, useReturnProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
 import type { DebitNote, DebitNoteLine } from '@/types/invoice'
 
 /** DebitNote with joined relations from useDebitNotes */
@@ -71,6 +71,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
   const isCredit = noteKind === 'credit'
   const linkedReturnId = isCredit && note ? (note as CreditNote).source_return_id : null
   const { data: lineProgress = [] } = useReturnLineProgress(open ? linkedReturnId : null)
+  const { data: returnProgress } = useReturnProgress(open ? linkedReturnId : null)
 
   // Build unit-price-per-return-line map by matching return_lines to CN's
   // returned credit_note_lines by brand_variant_id (SKU/item fallback).
@@ -103,24 +104,55 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
 
   const anyRemaining = progressRows.some((p) => p.remaining_qty > 0)
 
-  // Pre-fill qtys with remaining when the form opens.
+  // Pre-fill qtys with remaining when the form opens. Depend on
+  // lineProgress.length (a stable number) — the useReturnLineProgress data ?? []
+  // fallback would produce a fresh array reference every render and cause
+  // this effect to loop forever otherwise.
   useEffect(() => {
     if (!showRefundForm) return
     const next: Record<string, number> = {}
     for (const p of lineProgress) next[p.return_line_id] = p.remaining_qty > 0 ? p.remaining_qty : 0
     setRefundQtyByLine(next)
-  }, [showRefundForm, lineProgress])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRefundForm, lineProgress.length])
 
   useEffect(() => {
     if (!showStoreCreditForm) return
     const next: Record<string, number> = {}
     for (const p of lineProgress) next[p.return_line_id] = p.remaining_qty > 0 ? p.remaining_qty : 0
     setStoreCreditQtyByLine(next)
-  }, [showStoreCreditForm, lineProgress])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showStoreCreditForm, lineProgress.length])
 
   if (!note) return null
 
-  const isUnresolved = isCredit && note.status === 'issued' && !note.resolution_type
+  // Under the ledger model, the resolution_type column on credit_notes is
+  // only stamped when the return is fully covered by _maybe_close_return.
+  // Partial resolutions (e.g. 3 store_credit + 2 remaining) leave the column
+  // NULL — so gate the action UI on ledger remaining, not resolution_type,
+  // whenever a return is linked.
+  const ledgerRemaining = linkedReturnId ? (returnProgress?.total_remaining ?? null) : null
+  const ledgerMix = linkedReturnId ? (returnProgress?.resolutions_by_type ?? null) : null
+  const hasLedgerHistory = !!ledgerMix && Object.values(ledgerMix).some((qty) => qty > 0)
+  const isUnresolved = isCredit && note.status === 'issued' && (
+    linkedReturnId
+      ? (ledgerRemaining === null || ledgerRemaining > 0)  // still resolving
+      : !note.resolution_type                              // invoice-adjustment fallback
+  )
+  const isFullyResolvedViaLedger = isCredit && !!linkedReturnId && ledgerRemaining === 0
+
+  const RESOLUTION_LABEL: Record<string, string> = {
+    replacement:  'replacement',
+    refund:       'refund',
+    store_credit: 'store credit',
+    write_off:    'write-off',
+  }
+  const ledgerSummaryText = ledgerMix
+    ? Object.entries(ledgerMix)
+        .filter(([, qty]) => qty > 0)
+        .map(([type, qty]) => `${qty} ${RESOLUTION_LABEL[type] ?? type}`)
+        .join(' · ')
+    : ''
 
   const isDebit = noteKind === 'debit'
   const isDebitUnresolved = isDebit && note.status === 'issued' && !note.resolution_type
@@ -319,7 +351,17 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
         {/* ── Resolution Actions ── */}
         {isUnresolved && (
           <div className="space-y-3 border-t pt-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resolution</p>
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resolution</p>
+              {linkedReturnId && returnProgress && (
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  {hasLedgerHistory && <span>{ledgerSummaryText} · </span>}
+                  <span className={returnProgress.total_remaining > 0 ? 'text-amber-700 dark:text-amber-400 font-medium' : ''}>
+                    {returnProgress.total_remaining} of {returnProgress.total_returned} remaining
+                  </span>
+                </p>
+              )}
+            </div>
 
             {!showRefundForm && !showStoreCreditForm && (
               <div className="flex flex-wrap gap-2">
@@ -538,21 +580,24 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
         )}
 
         {/* ── Resolved State Badge ── */}
-        {note.resolution_type && (
+        {(note.resolution_type || isFullyResolvedViaLedger) && (
           <div className="border-t pt-4">
-            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-              {note.resolution_type === 'refund' && (
+            <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-200">
+              {isFullyResolvedViaLedger && hasLedgerHistory ? (
+                <span>Fully resolved via ledger — {ledgerSummaryText}
+                  {(note as CreditNote).refund_method && <> · Refund via {(note as CreditNote).refund_method?.replace(/_/g, ' ')}
+                    {(note as CreditNote).refund_reference && <> (Ref: {(note as CreditNote).refund_reference})</>}
+                  </>}
+                </span>
+              ) : note.resolution_type === 'refund' ? (
                 <span>Refunded via {(note as CreditNote).refund_method?.replace(/_/g, ' ')} — Ref: {(note as CreditNote).refund_reference || '—'}</span>
-              )}
-              {note.resolution_type === 'replacement' && (
+              ) : note.resolution_type === 'replacement' ? (
                 <span>Replacement sent</span>
-              )}
-              {note.resolution_type === 'store_credit' && (
+              ) : note.resolution_type === 'store_credit' ? (
                 <span>Added to customer credit balance</span>
-              )}
-              {note.resolution_type === 'supplier_credit' && (
+              ) : note.resolution_type === 'supplier_credit' ? (
                 <span>Supplier credit — deduct from future bills</span>
-              )}
+              ) : null}
             </div>
           </div>
         )}

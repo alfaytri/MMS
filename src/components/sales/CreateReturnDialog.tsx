@@ -304,6 +304,18 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO, existingRet
           {/* Items table */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Items</label>
+
+            {mode === 'direct' && lines.some((l) => l.damaged_qty > 0) && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-3 py-2 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                <span className="shrink-0" aria-hidden="true">⚠️</span>
+                <span>
+                  <span className="font-semibold">Damaged units cannot be recovered.</span> Once this return is restocked,
+                  damaged units must be written off — the app does not yet have a repair / refurb flow. If you&apos;re unsure,
+                  switch to <span className="font-semibold">Inspection return</span> above so a physical check can decide condition.
+                </span>
+              </div>
+            )}
+
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
