@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Hotfix 2: `create_inventory_receival` — cast `v_movement_type` to `stock_movement_type` enum**
 
 
 
