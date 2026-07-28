@@ -244,7 +244,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_(nothing in progress)_
+🚀 Starting: **Delivery/Return/Replacement Redesign Task 3: Phase 2.5 — cleanup drifted delivered_qty + SO statuses**
 
 
 
