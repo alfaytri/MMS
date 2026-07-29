@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils'
 import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem, ResolutionLineInput } from '@/hooks/useCreditNotes'
 import {
   useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit,
-  useResolveCreditNoteReplacement,
   useResolveDebitNoteSupplierCredit, useResolveDebitNoteReplacement,
 } from '@/hooks/useCreditNotes'
 import { useReturnLineProgress, useReturnProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
@@ -63,7 +62,6 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
 
   const resolveRefund = useResolveCreditNoteRefund()
   const resolveStoreCredit = useResolveCreditNoteStoreCredit()
-  const resolveCreditReplacement = useResolveCreditNoteReplacement()
   const resolveSupplierCredit = useResolveDebitNoteSupplierCredit()
   const resolveDebitReplacement = useResolveDebitNoteReplacement()
   const { data: dbMethods = [] } = usePaymentMethods()
@@ -372,19 +370,6 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                   disabled={!!linkedReturnId && !anyRemaining}
                 >
                   Refund
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={resolveCreditReplacement.isPending}
-                  onClick={() => {
-                    resolveCreditReplacement.mutate(note.id, {
-                      onSuccess: () => toast.success('Marked as replacement — create a replacement delivery from Sales'),
-                      onError: (e) => toast.error(e.message),
-                    })
-                  }}
-                >
-                  {resolveCreditReplacement.isPending ? 'Processing…' : 'Send Replacement'}
                 </Button>
                 {linkedReturnId ? (
                   <Button
