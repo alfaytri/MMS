@@ -245,7 +245,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 In Progress: **Phase 7 — Dual-Ledger for Damaged Units** — Sub-tasks 7.1 + 7.2 DONE. **Next up: Sub-task 7.3** (folded into 7.1 for atomicity — see completion entry). Then **7.4 hook rewire** (`useCreateReplacementDelivery` accepts `dispositions`, new `useRecordInventoryDisposition` hook, update `ReturnLineProgress` / `ReturnProgress` types with dual-dimension fields), **7.5 dialog per-row disposition dropdown** in `ReplacementDeliveryDialog`, **7.6 "Compensation not recorded" chip**, **7.7 E2E verification + regression sweep**, **7.8 security audit close-out**.
+🚀 In Progress: **Phase 7 Sub-task 7.4 — Hook rewire for dual-ledger.** Extending `useCreateReplacementDelivery` to accept an optional `dispositions` array (passed through as `p_dispositions` to the rewritten `rpc_create_partial_replacement`), adding a new `useRecordInventoryDisposition` mutation hook that wraps `rpc_record_inventory_disposition`, and updating the `ReturnLineProgress` + `ReturnProgress` TS types + hooks so the view's new dual-dimension fields (`customer_resolved_qty` / `customer_remaining_qty` / `inventory_resolved_qty` / `inventory_remaining_qty` / `customer_resolutions_by_type` / `inventory_dispositions_by_type` / `total_damaged` / `customer_status` / `inventory_status` / `overall_coverage_status` / `compensation_missing`) are typed and exposed to callers. Keeping the Phase 6 legacy fields on the type for backward compat until Phase 8 cleanup.
 
 
 
