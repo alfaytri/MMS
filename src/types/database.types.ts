@@ -5925,6 +5925,10 @@ export type Database = {
       }
     }
     Functions: {
+      _fx_document_booking: {
+        Args: { p_document_id: string; p_document_type: string }
+        Returns: Record<string, unknown>
+      }
       _maybe_close_return: { Args: { p_return_id: string }; Returns: undefined }
       _record_customer_resolution: {
         Args: {
@@ -6631,6 +6635,10 @@ export type Database = {
           total_outstanding: number
         }[]
       }
+      rpc_recompute_document_fx: {
+        Args: { p_document_id: string; p_document_type: string }
+        Returns: undefined
+      }
       rpc_record_inventory_disposition: {
         Args: {
           p_dispositions: Json
@@ -6665,6 +6673,15 @@ export type Database = {
           invoice_count: number
           total_outstanding: number
         }[]
+      }
+      rpc_update_document_initial_rate: {
+        Args: {
+          p_document_id: string
+          p_document_type: string
+          p_new_rate: number
+          p_reason: string
+        }
+        Returns: undefined
       }
       save_customer_phones: {
         Args: { p_customer_id: string; p_phones: Json }
