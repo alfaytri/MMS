@@ -62,8 +62,10 @@ export function useOpenDebitNotesForSupplier(supplierId: string | null) {
 }
 
 /**
- * Open (issued/approved, resolution=store_credit) credit notes for one
- * customer, joined via invoice → SO or return → SO to surface a cross-ref.
+ * Open credit notes carrying store credit for one customer. Reads the
+ * customer_open_credit_notes view — derived from the Phase 7 customer
+ * resolution ledger, so mixed-type CNs (refund + store_credit on the same
+ * CN) surface only the store-credit portion correctly.
  */
 export function useOpenCreditNotesForCustomer(customerId: string | null) {
   return useQuery({
@@ -71,101 +73,35 @@ export function useOpenCreditNotesForCustomer(customerId: string | null) {
     enabled:  !!customerId,
     queryFn: async (): Promise<OpenCreditNoteRow[]> => {
       const supabase = createClient()
-      // NOTE: We can't embed sale_orders through so_po_returns.source_id because
-      // source_id is polymorphic (sale_order OR purchase_order). PostgREST 400s
-      // when asked to auto-resolve that FK. So fetch the CN + its return + its
-      // invoice first, then batch-fetch the sale_orders separately.
       const { data, error } = await supabase
-        .from('credit_notes')
-        .select(`
-          id, credit_note_id, total_amount, status, created_at, resolution_type,
-          invoice_id, source_return_id,
-          so_invoices:invoice_id (
-            invoice_id, sale_order_id
-          ),
-          so_po_returns:source_return_id (
-            return_number, source_type, source_id
-          )
-        `)
-        .eq('resolution_type', 'store_credit')
-        .in('status', ['issued', 'approved'])
+        .from('customer_open_credit_notes')
+        .select('id, note_number, customer_id, currency, status, created_at, so_number, invoice_number, return_number, amount_remaining')
+        .eq('customer_id', customerId!)
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw new Error(error.message)
-
-      // Batch-fetch sale_orders for both the invoice.sale_order_id and the
-      // return.source_id-when-sale_order paths.
-      const soIds = new Set<string>()
-      for (const r of (data ?? []) as unknown as {
-        so_invoices: { sale_order_id: string | null } | null
-        so_po_returns: { source_type: string | null; source_id: string | null } | null
-      }[]) {
-        if (r.so_invoices?.sale_order_id) soIds.add(r.so_invoices.sale_order_id)
-        if (r.so_po_returns?.source_type === 'sale_order' && r.so_po_returns.source_id) {
-          soIds.add(r.so_po_returns.source_id)
-        }
-      }
-      const soMap: Record<string, { so_number: string; customer_id: string | null; currency: string | null }> = {}
-      if (soIds.size > 0) {
-        const { data: sos } = await supabase
-          .from('sale_orders')
-          .select('id, so_number, customer_id, currency')
-          .in('id', Array.from(soIds))
-        for (const so of (sos ?? []) as { id: string; so_number: string; customer_id: string | null; currency: string | null }[]) {
-          soMap[so.id] = so
-        }
-      }
-
-      // Subtract already-applied payments per CN so `amount` is the REMAINING
-      // balance available to redeem, not the original total.
-      const cnIds = (data ?? []).map((r) => (r as { id: string }).id)
-      const applied: Record<string, number> = {}
-      if (cnIds.length > 0) {
-        const { data: pays } = await supabase
-          .from('payments')
-          .select('credit_note_id, amount')
-          .in('credit_note_id', cnIds)
-          .eq('direction', 'incoming')
-          .is('deleted_at', null)
-        for (const p of (pays ?? []) as { credit_note_id: string | null; amount: number }[]) {
-          if (!p.credit_note_id) continue
-          applied[p.credit_note_id] = (applied[p.credit_note_id] ?? 0) + Number(p.amount ?? 0)
-        }
-      }
       const rows = (data ?? []) as unknown as {
         id: string
-        credit_note_id: string
-        total_amount: number
+        note_number: string
+        customer_id: string
+        currency: string
         status: string | null
         created_at: string
-        so_invoices: { invoice_id: string | null; sale_order_id: string | null } | null
-        so_po_returns: { return_number: string | null; source_type: string | null; source_id: string | null } | null
+        so_number: string | null
+        invoice_number: string | null
+        return_number: string | null
+        amount_remaining: number
       }[]
-      return rows
-        .map((r) => {
-          const invSoId = r.so_invoices?.sale_order_id ?? null
-          const retSoId = r.so_po_returns?.source_type === 'sale_order' ? (r.so_po_returns?.source_id ?? null) : null
-          const soRow = (invSoId && soMap[invSoId]) || (retSoId && soMap[retSoId]) || null
-          const remaining = Number(r.total_amount ?? 0) - (applied[r.id] ?? 0)
-          return {
-            row: r,
-            customer_id: soRow?.customer_id ?? null,
-            currency:    soRow?.currency ?? 'QAR',
-            reference:   soRow?.so_number ?? r.so_invoices?.invoice_id ?? r.so_po_returns?.return_number ?? null,
-            remaining,
-          }
-        })
-        .filter((x) => x.customer_id === customerId && x.remaining > 0)
-        .map((x) => ({
-          id:          x.row.id,
-          note_number: x.row.credit_note_id,
-          amount:      x.remaining,
-          currency:    x.currency,
-          created_at:  x.row.created_at,
-          status:      x.row.status,
-          reference:   x.reference,
-          detail_url:  `/sales/credit-notes?cn=${x.row.id}`,
-        }))
+      return rows.map((r) => ({
+        id:          r.id,
+        note_number: r.note_number,
+        amount:      Number(r.amount_remaining ?? 0),
+        currency:    r.currency ?? 'QAR',
+        created_at:  r.created_at,
+        status:      r.status,
+        reference:   r.so_number ?? r.invoice_number ?? r.return_number ?? null,
+        detail_url:  `/sales/credit-notes?cn=${r.id}`,
+      }))
     },
     staleTime: 30_000,
   })
