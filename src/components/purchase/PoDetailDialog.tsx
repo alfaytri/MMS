@@ -21,6 +21,7 @@ import { PoReturnsTab } from './PoReturnsTab'
 import { PoPdfButton } from './PoPdfButton'
 import type { PoPdfVariant } from '@/lib/purchase/generate-po-pdf'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
+import { DocumentExchangeTab } from '@/components/shared/DocumentExchangeTab'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
 import {
   usePurchaseOrder,
@@ -357,6 +358,9 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                 {!isViewingSnapshot && current?.po_type === 'rfq' && (
                   <TabsTrigger value="quotes">Quotes</TabsTrigger>
                 )}
+                {!isViewingSnapshot && current && current.currency && current.currency !== 'QAR' && (
+                  <TabsTrigger value="exchange">Exchange</TabsTrigger>
+                )}
               </TabsList>
 
               {/* ── Line Items ───────────────────────────────────── */}
@@ -664,6 +668,13 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       unit_price: li.unit_price,
                     }))}
                   />
+                </TabsContent>
+              )}
+
+              {/* ── Exchange (foreign-currency only) ─────────────── */}
+              {!isViewingSnapshot && current && current.currency && current.currency !== 'QAR' && (
+                <TabsContent value="exchange" className="flex-1 overflow-y-auto">
+                  <DocumentExchangeTab documentType="po" documentId={current.id} />
                 </TabsContent>
               )}
             </Tabs>

@@ -18,6 +18,7 @@ import { ReplacementDeliveryDialog } from '@/components/sales/ReplacementDeliver
 import { SoReturnsTab } from './SoReturnsTab'
 import { SoInvoiceTab } from './SoInvoiceTab'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
+import { DocumentExchangeTab } from '@/components/shared/DocumentExchangeTab'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
 import { SoApprovalBanner } from '@/components/sales/SoApprovalBanner'
 import {
@@ -193,6 +194,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 <TabsTrigger value="returns">Returns {soReturns.length > 0 && `(${soReturns.length})`}</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
                 <TabsTrigger value="invoice">Invoice</TabsTrigger>
+                {current && current.currency && current.currency !== 'QAR' && (
+                  <TabsTrigger value="exchange">Exchange</TabsTrigger>
+                )}
               </TabsList>
 
               {/* ── Items ────────────────────────────────────────── */}
@@ -463,6 +467,13 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               <TabsContent value="invoice" className="flex-1 overflow-y-auto">
                 {current && <SoInvoiceTab so={current} onClose={() => onOpenChange(false)} />}
               </TabsContent>
+
+              {/* ── Exchange (foreign-currency only) ─────────────── */}
+              {current && current.currency && current.currency !== 'QAR' && (
+                <TabsContent value="exchange" className="flex-1 overflow-y-auto">
+                  <DocumentExchangeTab documentType="so" documentId={current.id} />
+                </TabsContent>
+              )}
             </Tabs>
           )}
 
