@@ -778,17 +778,37 @@ export function useUpdateSO() {
       }
 
       // Metadata-only fields (customer notes, validity_days, terms, expected
-      // delivery, exchange rate) are safe as a direct UPDATE — none of them
-      // change credit exposure or below-cost status.
-      // Strip fields the RPC already handled or that aren't DB columns.
+      // delivery) are safe as a direct UPDATE — none of them change credit
+      // exposure or below-cost status.
+      //
+      // exchange_rate is intentionally stripped: rate is now only mutable via
+      // rpc_update_document_initial_rate (see useChangeDocumentBookedRate).
+      // total_qar is recomputed here because the SO's line-item subtotal may
+      // have been updated by apply_sale_order_edit above.
       const {
         line_items: _lineItems,
         discount_amount: _da, discount_label: _dl, discount_type: _dt,
         subtotal: _sub, total: _tot,
         intent: _intent, customer_id: _cust,
+        exchange_rate: _er,
         ...safeFields
       } = fields as Record<string, unknown>
-      void _lineItems; void _da; void _dl; void _dt; void _sub; void _tot; void _intent; void _cust
+      void _lineItems; void _da; void _dl; void _dt; void _sub; void _tot; void _intent; void _cust; void _er
+
+      // If line-items were edited, recompute total_qar using the SO's stored
+      // initial_exchange_rate (source of truth) × the new total.
+      if (line_items) {
+        const { data: soRow, error: soFetchErr } = await supabase
+          .from('sale_orders')
+          .select('initial_exchange_rate, total')
+          .eq('id', id)
+          .single()
+        if (soFetchErr) throw soFetchErr
+        const rate  = Number((soRow as any)?.initial_exchange_rate ?? 1)
+        const total = Number((soRow as any)?.total ?? 0)
+        ;(safeFields as Record<string, unknown>).total_qar = total * rate
+      }
+
       if (Object.keys(safeFields).length > 0) {
         const { error: soErr } = await supabase
           .from('sale_orders')

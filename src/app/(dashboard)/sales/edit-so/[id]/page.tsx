@@ -18,6 +18,10 @@ import {
   calcSOSubtotal, calcSOTotal, hasNegativeMargin,
 } from '@/hooks/useSaleOrders'
 import { useCurrencies } from '@/hooks/useCurrencies'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { BookedRateLockRow } from '@/components/shared/BookedRateLockRow'
+import { ChangeBookedRateDialog } from '@/components/shared/ChangeBookedRateDialog'
 
 function fmtAmt(amount: number, currency: string, symbol?: string | null) {
   const prefix = symbol ? `${symbol} ` : `${currency} `
@@ -45,6 +49,24 @@ export default function EditSOPage() {
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
   const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const [changeRateOpen, setChangeRateOpen] = useState(false)
+
+  // Currency picker is locked once any payment exists on this SO.
+  // payments.source_type is a Postgres enum — filter with 'sale_order'.
+  const supabaseClient = createClient()
+  const { data: hasAnyPayments = false } = useQuery({
+    queryKey: ['so-has-payments', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { count } = await supabaseClient
+        .from('payments')
+        .select('id', { count: 'exact', head: true })
+        .eq('source_type', 'sale_order')
+        .eq('source_id', id)
+        .is('deleted_at', null)
+      return (count ?? 0) > 0
+    },
+  })
 
   useEffect(() => {
     if (!so || initialized) return
@@ -84,6 +106,13 @@ export default function EditSOPage() {
 
     setInitialized(true)
   }, [so, initialized])
+
+  // Sync exchange rate whenever the SO row's rate changes (e.g. after
+  // ChangeBookedRateDialog succeeds and invalidates the SO query). Runs
+  // in addition to the one-shot hydrate effect above.
+  useEffect(() => {
+    if (so) setExchangeRate(so.exchange_rate ?? 1)
+  }, [so?.exchange_rate])
 
   const subtotal = calcSOSubtotal(lineItems)
   const total = calcSOTotal(subtotal, discountAmount, 'fixed')
@@ -245,8 +274,12 @@ export default function EditSOPage() {
           <div className="grid grid-cols-1 md:grid-cols-[minmax(180px,260px)_auto_auto] gap-3 items-start">
             <div className="space-y-1">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CURRENCY</label>
-              <select value={currency} onChange={(e) => setCurrency(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                disabled={hasAnyPayments}
+                title={hasAnyPayments ? 'Currency is locked once a payment has been recorded on this SO.' : undefined}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60">
                 {currencies.map((c) => (
                   <option key={c.id} value={c.code}>{c.code}{c.symbol ? ` ${c.symbol}` : ''}</option>
                 ))}
@@ -273,26 +306,19 @@ export default function EditSOPage() {
               </div>
             )}
           </div>
-          {needsExchangeRate && (
-            <div className="flex items-center gap-3">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                Exchange Rate <span className="text-destructive">*</span>{' '}
-                <span className="normal-case text-muted-foreground/70">(1 {currency} = ? QAR)</span>
-              </label>
-              <Input
-                type="number"
-                min="0.0001"
-                step="0.0001"
-                className="h-8 w-32 text-sm"
-                placeholder="e.g. 3.64"
-                value={exchangeRate || ''}
-                onChange={(e) => setExchangeRate(Number(e.target.value))}
-              />
-              {!exchangeRateValid && (
-                <span className="text-[10px] text-destructive">Required</span>
-              )}
-            </div>
-          )}
+          <BookedRateLockRow
+            currency={currency}
+            initialRate={exchangeRate}
+            onEditClick={() => setChangeRateOpen(true)}
+          />
+          <ChangeBookedRateDialog
+            documentType="so"
+            documentId={id}
+            currency={currency}
+            currentRate={exchangeRate}
+            open={changeRateOpen}
+            onOpenChange={setChangeRateOpen}
+          />
         </section>
 
         <Separator />
