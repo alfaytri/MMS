@@ -246,7 +246,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Nothing active. **Phase 8 Sub-tasks 8.1a + 8.1b complete (2026-07-29)** — both landed in one commit. Sub-task 8.6 (store_credit stamp fix) folded into 8.1b's `_maybe_close_return` rewrite and dropped from the queue. Next up in Phase 8: **8.2 — Drop `rpc_write_off_return_damaged` compat wrapper** (per plan `docs/superpowers/plans/2026-07-30-phase-8-dual-ledger-cleanup.md`). 8.1 grep verification is now clean; ready to proceed once user greenlights.
+🚀 Starting: **Phase 8 Sub-task 8.2 — Drop `rpc_write_off_return_damaged` compat wrapper** — small, low-risk retirement of the Phase 6→7 backward-compat thin wrapper. 8.1 grep already confirmed zero live callers of the RPC and zero callers of the `useWriteOffDamagedReturn` hook that fronts it (only the hook's own definition + `database.types.ts` reference remain). Migration `20260731000100_drop_legacy_writeoff_wrapper.sql` will `DROP FUNCTION` the RPC, hook definition gets removed from `src/hooks/useSaleDeliveries.ts`, types regenerated, flows-registry row flipped to `Status: Dropped` with migration ID pinned. Applying against staging (`mwvblpgbgxipvrevkeff`) via incremental `db push`.
 
 
 
