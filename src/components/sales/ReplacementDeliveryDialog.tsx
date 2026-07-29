@@ -82,7 +82,7 @@ const DISPOSITION_OPTIONS: Array<{
   hint?: string
 }> = [
   { value: 'write_off',          label: 'Write off' },
-  { value: 'restock_as_damaged', label: 'Restock as damaged', disabled: true, hint: 'Coming in Phase 8' },
+  { value: 'restock_as_damaged', label: 'Restock as damaged', disabled: true, hint: 'Coming in Phase 9' },
   { value: 'send_for_repair',    label: 'Send for repair',    disabled: true, hint: 'Coming in Phase 9' },
 ]
 
@@ -321,7 +321,7 @@ export function ReplacementDeliveryDialog({
               Good lines can be replaced from stock. Damaged lines take a
               disposition decision — write off is the only supported action
               in Phase 7 (restock as damaged and send for repair land in
-              Phase 8/9). You can save a partial resolution and finish the
+              Phase 9). You can save a partial resolution and finish the
               rest later.
             </p>
 
