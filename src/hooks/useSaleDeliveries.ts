@@ -217,7 +217,6 @@ export function useDeliveryByReturnId(returnId: string | null) {
         .from('sale_deliveries')
         .select('id, delivery_number, status, date')
         .eq('return_id', returnId!)
-        .is('deleted_at', null)
         .order('date', { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -238,7 +237,6 @@ export function useDeliveriesByReturnId(returnId: string | null) {
         .from('sale_deliveries')
         .select('id, delivery_number, status, date')
         .eq('return_id', returnId!)
-        .is('deleted_at', null)
         .order('date', { ascending: true })
       if (error) throw error
       return (data ?? []) as Array<{ id: string; delivery_number: string; status: string; date: string }>
@@ -345,29 +343,3 @@ export function useRecordInventoryDisposition() {
   })
 }
 
-/** Writes off any damaged return_lines with inventory_remaining_qty > 0
- *  as inventory_stock_movements(type='sale_return_damaged') + ledger rows.
- *  Idempotent — safe to call repeatedly. Kept for Phase 6 callers; new
- *  callers should prefer useRecordInventoryDisposition with per-line
- *  control. */
-export function useWriteOffDamagedReturn() {
-  const qc = useQueryClient()
-  const supabase = createClient()
-  return useMutation({
-    mutationFn: async (input: { returnId: string; warehouseId: string }) => {
-      const { data, error } = await supabase.rpc('rpc_write_off_return_damaged', {
-        p_return_id: input.returnId,
-        p_warehouse_id: input.warehouseId,
-      })
-      if (error) throw error
-      return data as unknown as number  // count of lines written off
-    },
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
-      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
-      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.progress(variables.returnId) })
-      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.lineProgress(variables.returnId) })
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
-    },
-  })
-}

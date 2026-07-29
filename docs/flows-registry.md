@@ -138,11 +138,8 @@ Field rules:
 ### Write Off Damaged Return (compat wrapper)
 
 - **Module:** Sales / Inventory
-- **Status:** Active — thin backward-compat wrapper (Phase 6 signature preserved)
-- **Trigger surface(s):** None in Phase 7 UI. Kept only for callers not yet migrated to `useRecordInventoryDisposition`.
-- **Primary hook(s):** [`useWriteOffDamagedReturn`](src/hooks/useSaleDeliveries.ts)
-- **RPC(s):** `rpc_write_off_return_damaged(p_return_id, p_warehouse_id)` — server-side delegates to [[Record Inventory Disposition]] with all remaining damaged qty → write_off.
-- **Deprecation plan:** Drop in Phase 8 cleanup along with the legacy `return_line_resolutions` table + bridge trigger.
+- **Status:** Dropped — Phase 8.2 (migration `20260731000100_drop_legacy_writeoff_wrapper.sql`).
+- **Historic surface:** `rpc_write_off_return_damaged(p_return_id, p_warehouse_id)` RPC + `useWriteOffDamagedReturn` hook. Both removed 2026-07-29 after 8.1 grep confirmed zero live callers; work migrated to [[Record Inventory Disposition]] with per-line control.
 
 ---
 

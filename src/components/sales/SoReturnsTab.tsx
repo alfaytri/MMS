@@ -277,20 +277,28 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
               {needsCreditNote ? (
                 <div className="flex items-center gap-2 pt-1">
                   <span className="text-xs text-muted-foreground">No credit note yet.</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    disabled={createCreditNote.isPending}
-                    onClick={() =>
-                      createCreditNote.mutate(ret, {
-                        onSuccess: () => toast.success(`Credit note created for ${ret.return_number}`),
-                        onError: () => toast.error('Failed to create credit note'),
-                      })
-                    }
-                  >
-                    {createCreditNote.isPending ? 'Creating…' : 'Create Credit Note'}
-                  </Button>
+                  {(() => {
+                    // The mutation is shared across every return card; scope the
+                    // pending state to the row actually being created by checking
+                    // the mutation's current variables.
+                    const isThisPending = createCreditNote.isPending && createCreditNote.variables?.id === ret.id
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={createCreditNote.isPending}
+                        onClick={() =>
+                          createCreditNote.mutate(ret, {
+                            onSuccess: () => toast.success(`Credit note created for ${ret.return_number}`),
+                            onError: () => toast.error('Failed to create credit note'),
+                          })
+                        }
+                      >
+                        {isThisPending ? 'Creating…' : 'Create Credit Note'}
+                      </Button>
+                    )
+                  })()}
                 </div>
               ) : ret.credit_note ? (
                 <div className="flex items-center gap-1.5 pt-1">

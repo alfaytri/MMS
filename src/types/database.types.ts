@@ -6660,10 +6660,6 @@ export type Database = {
           total_outstanding: number
         }[]
       }
-      rpc_write_off_return_damaged: {
-        Args: { p_return_id: string; p_warehouse_id: string }
-        Returns: number
-      }
       save_customer_phones: {
         Args: { p_customer_id: string; p_phones: Json }
         Returns: undefined

@@ -247,7 +247,7 @@ async function createCreditNoteForReturn(
       customer_name:    customerName,
       source_return_id: returnId,
       reason:           ret.reason,
-      status:           'issued',
+      status:           'open',
       total_amount:     cnTotal,
       original_total:   originalTotal,
       new_total:        newTotal,

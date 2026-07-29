@@ -254,7 +254,7 @@ export function useCreateCreditNote() {
           invoice_id: payload.invoice_id,
           customer_name: payload.customer_name,
           reason: payload.reason,
-          status: 'draft',
+          status: 'open',
           total_amount: totalAmount,
         })
         .select()

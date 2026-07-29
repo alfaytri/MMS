@@ -234,7 +234,7 @@ async function createDebitNoteForReturn(
       purchase_order_id: ret.source_id,
       source_return_id:  returnId,
       reason:            ret.reason,
-      status:            'issued',
+      status:            'open',
       total_amount:      dnTotal,
       original_total:    originalTotal,
       new_total:         newTotal,
