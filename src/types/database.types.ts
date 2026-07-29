@@ -771,6 +771,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "credit_note_lines_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "credit_note_lines_invoice_line_id_fkey"
             columns: ["invoice_line_id"]
             isOneToOne: false
@@ -2612,6 +2619,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payments_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payments_currency_id_fkey"
             columns: ["currency_id"]
             isOneToOne: false
@@ -3634,6 +3648,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "receivals_source_debit_note_id_fkey"
+            columns: ["source_debit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "receivals_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -3682,6 +3703,13 @@ export type Database = {
             columns: ["credit_note_id"]
             isOneToOne: false
             referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_customer_resolutions_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -3815,6 +3843,13 @@ export type Database = {
             columns: ["credit_note_id"]
             isOneToOne: false
             referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_resolutions_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -3991,6 +4026,13 @@ export type Database = {
             columns: ["source_credit_note_id"]
             isOneToOne: false
             referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_deliveries_source_credit_note_id_fkey"
+            columns: ["source_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -4613,6 +4655,13 @@ export type Database = {
             columns: ["credit_note_id"]
             isOneToOne: false
             referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -5522,7 +5571,22 @@ export type Database = {
           open_amount: number | null
           open_count: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "credit_notes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_credit_summary: {
         Row: {
@@ -5660,6 +5724,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      customer_open_credit_notes: {
+        Row: {
+          amount_remaining: number | null
+          created_at: string | null
+          currency: string | null
+          customer_id: string | null
+          id: string | null
+          invoice_number: string | null
+          note_number: string | null
+          return_number: string | null
+          so_number: string | null
+          status: Database["public"]["Enums"]["credit_note_status"] | null
+        }
+        Relationships: []
       }
       return_line_progress: {
         Row: {
@@ -5850,6 +5929,10 @@ export type Database = {
           p_warehouse_transfer_id?: string
         }
         Returns: string
+      }
+      _return_line_fifo_unit_cost: {
+        Args: { p_qty: number; p_return_id: string; p_return_line_id: string }
+        Returns: number
       }
       _return_resolution_status: {
         Args: { p_return_id: string }
@@ -6737,7 +6820,13 @@ export type Database = {
         | "rejected"
         | "cancelled"
       credit_note_resolution_type: "refund" | "replacement" | "store_credit"
-      credit_note_status: "draft" | "approved" | "issued" | "redeemed"
+      credit_note_status:
+        | "draft"
+        | "approved"
+        | "open"
+        | "in_progress"
+        | "resolved"
+        | "void"
       customer_entity_type: "individual" | "business"
       division: "maintenance" | "cleaning" | "kitchen" | "pest-control"
       instruction_content_type: "text" | "pdf"
@@ -7069,7 +7158,14 @@ export const Constants = {
         "cancelled",
       ],
       credit_note_resolution_type: ["refund", "replacement", "store_credit"],
-      credit_note_status: ["draft", "approved", "issued", "redeemed"],
+      credit_note_status: [
+        "draft",
+        "approved",
+        "open",
+        "in_progress",
+        "resolved",
+        "void",
+      ],
       customer_entity_type: ["individual", "business"],
       division: ["maintenance", "cleaning", "kitchen", "pest-control"],
       instruction_content_type: ["text", "pdf"],

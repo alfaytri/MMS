@@ -49,12 +49,12 @@ async function resolveCreditNoteViaLedger(
       // Legacy path: pull the ledger's remaining qty per line and cover it all.
       const { data: progress, error: progErr } = await supabase
         .from('return_line_progress')
-        .select('return_line_id, remaining_qty')
+        .select('return_line_id, customer_remaining_qty')
         .eq('return_id', returnId)
       if (progErr) throw progErr
       lines = (progress ?? [])
-        .filter((r) => Number(r.remaining_qty) > 0)
-        .map((r) => ({ return_line_id: r.return_line_id, qty: Number(r.remaining_qty) }))
+        .filter((r) => Number(r.customer_remaining_qty) > 0)
+        .map((r) => ({ return_line_id: r.return_line_id, qty: Number(r.customer_remaining_qty) }))
     }
 
     if (lines.length > 0) {
@@ -93,7 +93,7 @@ async function resolveCreditNoteViaLedger(
   if (error) throw error
 }
 
-export type CreditNoteStatus = 'draft' | 'approved' | 'issued' | 'redeemed'
+export type CreditNoteStatus = 'open' | 'in_progress' | 'resolved' | 'void'
 
 export type CreditNoteLine = {
   id: string
@@ -336,11 +336,9 @@ export function useApplyCreditNote() {
 
       // Excess credit is now handled via explicit "Store Credit" resolution action
 
-      await supabase
-        .from('credit_notes')
-        .update({ status: 'redeemed' })
-        .eq('id', id)
-
+      // Phase 8.1b: no longer flip CN status on apply — balance depletion is
+      // derived from the payments ledger vs the store-credit resolution rows,
+      // not from a status flag. Return-resolution lifecycle owns `status`.
       const newPaid = alreadyPaid + Math.min(cnTotal, outstanding)
       const newStatus =
         newPaid >= (inv?.total_amount ?? Infinity) ? 'paid' : 'partially_paid'
@@ -535,9 +533,11 @@ export function useResolveDebitNoteSupplierCredit() {
 
   return useMutation({
     mutationFn: async (debitNoteId: string) => {
+      // Phase 8.1b: DN has no dual-ledger (deferred to Phase 9). Both
+      // resolution_type and status flip together on the manual action.
       const { error } = await supabase
         .from('debit_notes')
-        .update({ resolution_type: 'supplier_credit' })
+        .update({ resolution_type: 'supplier_credit', status: 'resolved' })
         .eq('id', debitNoteId)
       if (error) throw error
 
@@ -546,7 +546,7 @@ export function useResolveDebitNoteSupplierCredit() {
         module: 'debit_notes',
         entity_id: debitNoteId,
         entity_type: 'debit_note',
-        new_data: { resolution_type: 'supplier_credit' } as unknown as Record<string, unknown>,
+        new_data: { resolution_type: 'supplier_credit', status: 'resolved' } as unknown as Record<string, unknown>,
       })
     },
     onSuccess: () => {
@@ -561,9 +561,11 @@ export function useResolveDebitNoteReplacement() {
 
   return useMutation({
     mutationFn: async (debitNoteId: string) => {
+      // Phase 8.1b: DN has no dual-ledger (deferred to Phase 9). Both
+      // resolution_type and status flip together on the manual action.
       const { error } = await supabase
         .from('debit_notes')
-        .update({ resolution_type: 'replacement' })
+        .update({ resolution_type: 'replacement', status: 'resolved' })
         .eq('id', debitNoteId)
       if (error) throw error
 
@@ -572,7 +574,7 @@ export function useResolveDebitNoteReplacement() {
         module: 'debit_notes',
         entity_id: debitNoteId,
         entity_type: 'debit_note',
-        new_data: { resolution_type: 'replacement' } as unknown as Record<string, unknown>,
+        new_data: { resolution_type: 'replacement', status: 'resolved' } as unknown as Record<string, unknown>,
       })
     },
     onSuccess: () => {

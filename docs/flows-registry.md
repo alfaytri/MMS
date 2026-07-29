@@ -86,7 +86,7 @@ Field rules:
 - **Primary hook(s):** [`useCreateCreditNoteForReturn`](src/hooks/useCreditNotes.ts)
 - **RPC(s):** `rpc_create_credit_note_for_return`
 - **Ledger writes:** `credit_notes` + `credit_note_lines` (original + returned lines both). No return-line ledger rows.
-- **Downstream side-effects:** CN starts in `issued` status; `so_po_returns.credit_note_id` linked.
+- **Downstream side-effects:** CN starts in `open` status (Phase 8.1b vocabulary — `open` → `in_progress` → `resolved` describes the return-resolution lifecycle); `so_po_returns.credit_note_id` linked.
 - **Related flows:** [[Record Return Refund]], [[Record Return Store Credit]]
 
 ### Create Partial Replacement (customer + inventory atomic)
@@ -97,7 +97,7 @@ Field rules:
 - **Primary hook(s):** [`useCreateReplacementDelivery`](src/hooks/useSaleDeliveries.ts)
 - **RPC(s):** `rpc_create_partial_replacement(p_return_id, p_warehouse_id, p_lines, p_gift_items, p_dispositions)`
 - **Ledger writes:** `sale_deliveries` (`type='replacement'`) + `sale_delivery_lines` + `return_line_customer_resolutions` (type=replacement) + optional `return_line_inventory_dispositions` (from `p_dispositions`) + `inventory_stock_movements` (`sale_return_damaged` for write-offs). All atomic — a disposition failure rolls back the delivery.
-- **Downstream side-effects:** `_maybe_close_return` closes only when BOTH `customer_remaining` and `inventory_remaining` reach 0.
+- **Downstream side-effects:** `_record_customer_resolution` flips linked CN status `open → in_progress` on first replacement row (Phase 8.1b). `_maybe_close_return` closes only when BOTH `customer_remaining` and `inventory_remaining` reach 0, at which point the CN status flips to `resolved` and `resolution_type` is stamped from the ledger mix. Inventory dispositions do NOT flip CN status — the customer side owns the CN lifecycle.
 - **Dialog / component:** [`ReplacementDeliveryDialog`](src/components/sales/ReplacementDeliveryDialog.tsx)
 - **Guards / preconditions:** Return status ∈ `restocked | resolved_credit | resolved_replacement | resolved_partial`, `customer_remaining > 0` on target lines.
 - **Related flows:** [[Record Inventory Disposition]], [[Record Return Refund]]
@@ -110,7 +110,7 @@ Field rules:
 - **Primary hook(s):** [`useResolveCreditNoteRefund`](src/hooks/useCreditNotes.ts) → internal `resolveCreditNoteViaLedger`
 - **RPC(s):** `rpc_record_return_refund(p_return_id, p_lines, p_refund_method, p_refund_reference)`
 - **Ledger writes:** `return_line_customer_resolutions` (type=refund) via `_record_customer_resolution`. Stamps `credit_notes.refund_method` / `refund_reference` when provided.
-- **Downstream side-effects:** `_maybe_close_return` may terminal-transition the return.
+- **Downstream side-effects:** `_record_customer_resolution` flips `credit_notes.status: open → in_progress` on first partial resolution (Phase 8.1b). `_maybe_close_return` flips it to `resolved` and stamps `resolution_type` from the customer-ledger mix when the return closes.
 - **Related flows:** [[Record Return Store Credit]], [[Create Partial Replacement (customer + inventory atomic)]]
 
 ### Record Return Store Credit
@@ -121,6 +121,7 @@ Field rules:
 - **Primary hook(s):** [`useResolveCreditNoteStoreCredit`](src/hooks/useCreditNotes.ts) → internal `resolveCreditNoteViaLedger`
 - **RPC(s):** `rpc_record_return_store_credit(p_return_id, p_lines)`
 - **Ledger writes:** `return_line_customer_resolutions` (type=store_credit) via `_record_customer_resolution`. Also adds to the customer's credit balance.
+- **Downstream side-effects:** Same as [[Record Return Refund]] — CN status auto-flips `open → in_progress → resolved` through the recorder + closer chain. On terminal, `_maybe_close_return` stamps `credit_notes.resolution_type='store_credit'` (Phase 8.6 fix — previously mis-stamped as `refund` for pure store-credit closes).
 - **Related flows:** [[Record Return Refund]]
 
 ### Record Inventory Disposition
@@ -356,10 +357,12 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 ### Resolve Debit Note as Supplier Credit
 - **Trigger:** `CreditDebitNoteDetailDialog`
 - **Hook:** [`useResolveDebitNoteSupplierCredit`](src/hooks/useCreditNotes.ts)
+- **Writes:** `debit_notes.resolution_type='supplier_credit'` AND `status='resolved'`. Manual transition — DN has no per-line supplier resolution ledger yet (dual-ledger deferred to Phase 9); until then, status flips together with resolution_type on the resolve action.
 
 ### Resolve Debit Note as Replacement
 - **Trigger:** `CreditDebitNoteDetailDialog`
 - **Hook:** [`useResolveDebitNoteReplacement`](src/hooks/useCreditNotes.ts)
+- **Writes:** `debit_notes.resolution_type='replacement'` AND `status='resolved'`. Same manual-transition pattern as [[Resolve Debit Note as Supplier Credit]].
 - **Related:** [[Create Replacement Receival]]
 
 ---
@@ -539,7 +542,7 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 ### Apply Credit Note to Invoice
 - **Trigger:** `CreditDebitNoteDetailDialog`
 - **Hook:** [`useApplyCreditNote`](src/hooks/useCreditNotes.ts)
-- **Writes:** CPAY store-credit payment, `credit_notes.status→'redeemed'`, updates invoice `payment_status`
+- **Writes:** CPAY store-credit payment, updates invoice `payment_status`. Does NOT touch `credit_notes.status` (Phase 8.1b) — balance depletion is derived from the payments ledger vs the store-credit resolution rows, not from a status flag. `status` is owned by the return-resolution lifecycle only.
 
 ### Bulk QuickBooks Sync Invoices
 - **Hook:** [`useBulkQbSyncInvoices`](src/hooks/useInvoices.ts)

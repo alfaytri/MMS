@@ -66,7 +66,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
         (cn) =>
           cn.invoice_id === selectedInvoice.id &&
           cn.status !== null &&
-          ['approved', 'issued', 'redeemed'].includes(cn.status)
+          cn.status !== 'void'
       )
       .reduce((s, cn) => s + (cn.total_amount ?? 0), 0)
   }, [allCreditNotes, selectedInvoice])

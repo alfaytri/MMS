@@ -31,10 +31,10 @@ import { usePaymentMethods } from '@/hooks/usePaymentMethods'
 import { ReplacementReceivalDialog } from '@/components/purchase/ReplacementReceivalDialog'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
-  draft:    { label: 'Draft',    className: 'bg-muted text-foreground' },
-  approved: { label: 'Approved', className: 'bg-blue-100 text-blue-700' },
-  issued:   { label: 'Issued',   className: 'bg-amber-100 text-amber-700' },
-  redeemed: { label: 'Redeemed', className: 'bg-green-100 text-green-700' },
+  open:        { label: 'Open',        className: 'bg-amber-100 text-amber-700' },
+  in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
+  resolved:    { label: 'Resolved',    className: 'bg-green-100 text-green-700' },
+  void:        { label: 'Void',        className: 'bg-muted text-muted-foreground' },
 }
 
 function conditionLabel(line: NoteDebitLineItem): string {
@@ -100,7 +100,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
       })
   }, [lineProgress])
 
-  const anyRemaining = progressRows.some((p) => p.remaining_qty > 0)
+  const anyRemaining = progressRows.some((p) => p.customer_remaining_qty > 0)
 
   // Pre-fill qtys with remaining when the form opens. Depend on
   // lineProgress.length (a stable number) — the useReturnLineProgress data ?? []
@@ -109,7 +109,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
   useEffect(() => {
     if (!showRefundForm) return
     const next: Record<string, number> = {}
-    for (const p of lineProgress) next[p.return_line_id] = p.remaining_qty > 0 ? p.remaining_qty : 0
+    for (const p of lineProgress) next[p.return_line_id] = p.customer_remaining_qty > 0 ? p.customer_remaining_qty : 0
     setRefundQtyByLine(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showRefundForm, lineProgress.length])
@@ -117,7 +117,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
   useEffect(() => {
     if (!showStoreCreditForm) return
     const next: Record<string, number> = {}
-    for (const p of lineProgress) next[p.return_line_id] = p.remaining_qty > 0 ? p.remaining_qty : 0
+    for (const p of lineProgress) next[p.return_line_id] = p.customer_remaining_qty > 0 ? p.customer_remaining_qty : 0
     setStoreCreditQtyByLine(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showStoreCreditForm, lineProgress.length])
@@ -128,15 +128,19 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
   // only stamped when the return is fully covered by _maybe_close_return.
   // Partial resolutions (e.g. 3 store_credit + 2 remaining) leave the column
   // NULL — so gate the action UI on ledger remaining, not resolution_type,
-  // whenever a return is linked.
-  const ledgerRemaining = linkedReturnId ? (returnProgress?.total_remaining ?? null) : null
-  const ledgerMix = linkedReturnId ? (returnProgress?.resolutions_by_type ?? null) : null
+  // whenever a return is linked. Under Phase 8.1b vocabulary, `open` and
+  // `in_progress` are both actionable; only `resolved` and `void` hide the
+  // action UI.
+  const ledgerRemaining = linkedReturnId ? (returnProgress?.customer_remaining ?? null) : null
+  const ledgerMix = linkedReturnId ? (returnProgress?.customer_resolutions_by_type ?? null) : null
   const hasLedgerHistory = !!ledgerMix && Object.values(ledgerMix).some((qty) => qty > 0)
-  const isUnresolved = isCredit && note.status === 'issued' && (
-    linkedReturnId
-      ? (ledgerRemaining === null || ledgerRemaining > 0)  // still resolving
-      : !note.resolution_type                              // invoice-adjustment fallback
-  )
+  const isUnresolved = isCredit
+    && note.status !== 'resolved' && note.status !== 'void'
+    && (
+      linkedReturnId
+        ? (ledgerRemaining === null || ledgerRemaining > 0)  // still resolving
+        : !note.resolution_type                              // invoice-adjustment fallback
+    )
   const isFullyResolvedViaLedger = isCredit && !!linkedReturnId && ledgerRemaining === 0
 
   const RESOLUTION_LABEL: Record<string, string> = {
@@ -185,7 +189,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
       })) as NoteDebitLineItem[],
   }
   const status = (note.status ?? 'draft') as CreditNoteStatus
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.open
   const partyLabel = isDebit ? 'Supplier' : 'Customer'
   const partyName  = isDebit
     ? ((note as DebitNoteWithJoins).supplier_name ?? '—')
@@ -354,8 +358,8 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
               {linkedReturnId && returnProgress && (
                 <p className="text-[11px] text-muted-foreground tabular-nums">
                   {hasLedgerHistory && <span>{ledgerSummaryText} · </span>}
-                  <span className={returnProgress.total_remaining > 0 ? 'text-amber-700 dark:text-amber-400 font-medium' : ''}>
-                    {returnProgress.total_remaining} of {returnProgress.total_returned} remaining
+                  <span className={returnProgress.customer_remaining > 0 ? 'text-amber-700 dark:text-amber-400 font-medium' : ''}>
+                    {returnProgress.customer_remaining} of {returnProgress.total_returned} remaining
                   </span>
                 </p>
               )}
@@ -676,7 +680,7 @@ function ResolutionForm({
               {rows.map((r) => {
                 const qty = qtyByLine[r.return_line_id] ?? 0
                 const price = priceByLine[r.return_line_id] ?? 0
-                const disabled = r.remaining_qty <= 0
+                const disabled = r.customer_remaining_qty <= 0
                 const isDamaged = r.condition === 'damaged'
                 return (
                   <TableRow key={r.return_line_id}>
@@ -696,7 +700,7 @@ function ResolutionForm({
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-center">{r.returned_qty}</TableCell>
-                    <TableCell className="text-sm text-center">{r.remaining_qty}</TableCell>
+                    <TableCell className="text-sm text-center">{r.customer_remaining_qty}</TableCell>
                     <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
                       {formatCurrency(price, currency)}
                     </TableCell>
@@ -704,12 +708,12 @@ function ResolutionForm({
                       <Input
                         type="number"
                         min={0}
-                        max={r.remaining_qty}
+                        max={r.customer_remaining_qty}
                         value={qty}
                         disabled={disabled}
                         onChange={(e) => {
                           const raw = Number(e.target.value)
-                          const clamped = Math.max(0, Math.min(r.remaining_qty, Number.isFinite(raw) ? Math.floor(raw) : 0))
+                          const clamped = Math.max(0, Math.min(r.customer_remaining_qty, Number.isFinite(raw) ? Math.floor(raw) : 0))
                           setQty(r.return_line_id, clamped)
                         }}
                         className="h-8 w-20 mx-auto text-center"

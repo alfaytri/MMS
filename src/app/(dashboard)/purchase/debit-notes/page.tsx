@@ -27,18 +27,18 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
-  draft:    { label: 'Draft',    className: 'bg-muted text-foreground' },
-  approved: { label: 'Approved', className: 'bg-blue-100 text-blue-700' },
-  issued:   { label: 'Issued',   className: 'bg-amber-100 text-amber-700' },
-  redeemed: { label: 'Redeemed', className: 'bg-green-100 text-green-700' },
+  open:        { label: 'Open',        className: 'bg-amber-100 text-amber-700' },
+  in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
+  resolved:    { label: 'Resolved',    className: 'bg-green-100 text-green-700' },
+  void:        { label: 'Void',        className: 'bg-muted text-muted-foreground' },
 }
 
 const STATUS_FILTERS: { value: '' | CreditNoteStatus; label: string }[] = [
-  { value: '',         label: 'All' },
-  { value: 'draft',    label: 'Draft' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'issued',   label: 'Issued' },
-  { value: 'redeemed', label: 'Redeemed' },
+  { value: '',            label: 'All' },
+  { value: 'open',        label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved',    label: 'Resolved' },
+  { value: 'void',        label: 'Void' },
 ]
 
 export default function DebitNotesPage() {
@@ -62,7 +62,7 @@ export default function DebitNotesPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return debitNotes.filter((n) => {
-      if (statusFilter && (n.status ?? 'issued') !== statusFilter) return false
+      if (statusFilter && (n.status ?? 'open') !== statusFilter) return false
       if (!q) return true
       const hay = [n.debit_note_id, n.supplier_name, n.po_number, n.return_number]
         .filter(Boolean).join(' ').toLowerCase()
@@ -74,13 +74,14 @@ export default function DebitNotesPage() {
   const stats = useMemo(() => {
     let totalDebit = 0
     let unresolved = 0
-    let redeemed   = 0
+    let resolved   = 0
     for (const n of debitNotes) {
       totalDebit += n.total_amount ?? 0
-      if ((n.status ?? 'issued') === 'redeemed') redeemed++
-      if (!n.resolution_type && ((n.status ?? 'issued') === 'issued' || (n.status ?? 'issued') === 'approved')) unresolved++
+      const s = n.status ?? 'open'
+      if (s === 'resolved') resolved++
+      if (!n.resolution_type && (s === 'open' || s === 'in_progress')) unresolved++
     }
-    return { total: debitNotes.length, totalDebit, unresolved, redeemed }
+    return { total: debitNotes.length, totalDebit, unresolved, resolved }
   }, [debitNotes])
 
   const columns = useMemo<ColumnDef<DebitNoteRow>[]>(() => [
@@ -235,10 +236,10 @@ export default function DebitNotesPage() {
         </div>
         <div className="rounded-lg border bg-background px-3 py-2.5">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-            <CheckCircle2 className="h-2.5 w-2.5" /> Redeemed
+            <CheckCircle2 className="h-2.5 w-2.5" /> Resolved
           </div>
-          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.redeemed > 0 && 'text-success')}>
-            {stats.redeemed}
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.resolved > 0 && 'text-success')}>
+            {stats.resolved}
           </p>
         </div>
       </div>

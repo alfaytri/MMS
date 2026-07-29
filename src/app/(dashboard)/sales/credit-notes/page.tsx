@@ -25,18 +25,18 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<CreditNoteStatus, { label: string; className: string }> = {
-  draft:    { label: 'Draft',    className: 'bg-muted text-foreground' },
-  approved: { label: 'Approved', className: 'bg-blue-100 text-blue-700' },
-  issued:   { label: 'Issued',   className: 'bg-amber-100 text-amber-700' },
-  redeemed: { label: 'Redeemed', className: 'bg-green-100 text-green-700' },
+  open:        { label: 'Open',        className: 'bg-amber-100 text-amber-700' },
+  in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
+  resolved:    { label: 'Resolved',    className: 'bg-green-100 text-green-700' },
+  void:        { label: 'Void',        className: 'bg-muted text-muted-foreground' },
 }
 
 const STATUSES: { value: CreditNoteStatus | ''; label: string }[] = [
-  { value: '',         label: 'All' },
-  { value: 'draft',    label: 'Draft' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'issued',   label: 'Issued' },
-  { value: 'redeemed', label: 'Redeemed' },
+  { value: '',            label: 'All' },
+  { value: 'open',        label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved',    label: 'Resolved' },
+  { value: 'void',        label: 'Void' },
 ]
 
 export default function CreditNotesPage() {
@@ -66,16 +66,16 @@ export default function CreditNotesPage() {
   const stats = useMemo(() => {
     const list = allCreditNotes
     let totalAmount = 0
-    let draftCount = 0
-    let issuedCount = 0
-    let redeemedCount = 0
+    let openCount = 0
+    let inProgressCount = 0
+    let resolvedCount = 0
     for (const cn of list) {
       totalAmount += cn.total_amount ?? 0
-      if (cn.status === 'draft') draftCount++
-      if (cn.status === 'issued' || cn.status === 'approved') issuedCount++
-      if (cn.status === 'redeemed') redeemedCount++
+      if (cn.status === 'open') openCount++
+      if (cn.status === 'in_progress') inProgressCount++
+      if (cn.status === 'resolved') resolvedCount++
     }
-    return { total: list.length, totalAmount, draftCount, issuedCount, redeemedCount }
+    return { total: list.length, totalAmount, openCount, inProgressCount, resolvedCount }
   }, [allCreditNotes])
 
   const detailRefNumber = detailNote
@@ -212,18 +212,18 @@ export default function CreditNotesPage() {
         </div>
         <div className="rounded-lg border bg-background px-3 py-2.5">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-            <Clock className="h-2.5 w-2.5" /> Issued / Pending
+            <Clock className="h-2.5 w-2.5" /> Open / In Progress
           </div>
-          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.issuedCount > 0 && 'text-amber-600')}>
-            {stats.issuedCount}
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', (stats.openCount + stats.inProgressCount) > 0 && 'text-amber-600')}>
+            {stats.openCount + stats.inProgressCount}
           </p>
         </div>
         <div className="rounded-lg border bg-background px-3 py-2.5">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-            <CheckCircle2 className="h-2.5 w-2.5" /> Redeemed
+            <CheckCircle2 className="h-2.5 w-2.5" /> Resolved
           </div>
-          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.redeemedCount > 0 && 'text-green-700')}>
-            {stats.redeemedCount}
+          <p className={cn('text-lg font-bold tabular-nums leading-tight', stats.resolvedCount > 0 && 'text-green-700')}>
+            {stats.resolvedCount}
           </p>
         </div>
       </div>

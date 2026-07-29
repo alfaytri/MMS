@@ -588,11 +588,6 @@ export type ReturnLineProgress = {
   sku:                 string | null
   returned_qty:        number
   condition:           string
-  // Legacy Phase 6 aliases — semantically the customer dimension.
-  resolved_qty:        number
-  remaining_qty:       number
-  resolutions_by_type: ResolutionMix
-  // Phase 7 dual-dimension fields.
   customer_resolved_qty:          number
   customer_remaining_qty:         number
   /** null for non-damaged lines — inventory dimension only applies to damaged units. */
@@ -610,12 +605,6 @@ export type ReturnProgress = {
   return_number:       string
   status:              string
   total_returned:      number
-  // Legacy Phase 6 aliases — semantically the customer dimension.
-  total_resolved:      number
-  total_remaining:     number
-  resolutions_by_type: ResolutionMix
-  coverage_status:     ReturnCoverageStatus
-  // Phase 7 dual-dimension fields.
   customer_resolved:              number
   customer_remaining:             number
   total_damaged:                  number
