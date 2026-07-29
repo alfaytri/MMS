@@ -60,7 +60,17 @@ function ReturnLedgerSummary({ returnId }: { returnId: string }) {
 
 function ResolveRemainingButton({ returnId, onClick }: { returnId: string; onClick: () => void }) {
   const { data: progress } = useReturnProgress(returnId)
-  if (!progress || progress.total_remaining <= 0) return null
+  if (!progress) return null
+  // Phase 7: a return has "remaining work" if EITHER dimension is not fully
+  // covered — customer side (refunds/store credits/replacements pending) or
+  // inventory side (damaged units still un-dispositioned).
+  const remainingTotal = (progress.customer_remaining ?? 0) + (progress.inventory_remaining ?? 0)
+  if (remainingTotal <= 0) return null
+  const label = progress.customer_remaining > 0 && progress.inventory_remaining > 0
+    ? `Resolve Remaining (${progress.customer_remaining} customer · ${progress.inventory_remaining} inventory)`
+    : progress.customer_remaining > 0
+      ? `Resolve Remaining (${progress.customer_remaining})`
+      : `Book Dispositions (${progress.inventory_remaining})`
   return (
     <Button
       size="sm"
@@ -68,7 +78,7 @@ function ResolveRemainingButton({ returnId, onClick }: { returnId: string; onCli
       className="h-7 text-xs"
       onClick={onClick}
     >
-      Resolve Remaining ({progress.total_remaining})
+      {label}
     </Button>
   )
 }
@@ -243,16 +253,6 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                   >
                     {ret.credit_note.credit_note_id}
                   </button>
-                  {onSendReplacement && !ret.credit_note.resolution_type && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs ml-2"
-                      onClick={() => onSendReplacement(ret)}
-                    >
-                      Send Replacement
-                    </Button>
-                  )}
                 </div>
               ) : null}
             </div>

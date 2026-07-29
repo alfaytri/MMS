@@ -27,7 +27,7 @@ import {
   type SaleOrder,
   type SaleDelivery,
 } from '@/hooks/useSaleOrders'
-import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery, useWriteOffDamagedReturn } from '@/hooks/useSaleDeliveries'
+import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery, useRecordInventoryDisposition } from '@/hooks/useSaleDeliveries'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
@@ -96,7 +96,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [selectedReturn, setSelectedReturn] = useState<SaleReturn | null>(null)
   const { data: unresolvedReturns = [] } = useUnresolvedReturns(open ? (so?.id ?? null) : null)
   const createReplacement = useCreateReplacementDelivery()
-  const writeOffDamaged = useWriteOffDamagedReturn()
+  const recordDisposition = useRecordInventoryDisposition()
 
   const current = fullSO ?? so
 
@@ -528,15 +528,20 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               returnData={selectedReturn}
               soId={current.id}
               currency={current.currency ?? 'QAR'}
-              isPending={createReplacement.isPending || writeOffDamaged.isPending}
-              onConfirm={async ({ warehouseId, lines, writeOffDamaged: shouldWriteOff, giftItems }) => {
+              isPending={createReplacement.isPending || recordDisposition.isPending}
+              onConfirm={async ({ warehouseId, lines, dispositions, giftItems }) => {
                 try {
+                  // Phase 7: when both replacement lines AND dispositions are
+                  // present, rpc_create_partial_replacement handles both in
+                  // one atomic call. When only dispositions, use the dedicated
+                  // rpc_record_inventory_disposition path.
                   if (lines.length > 0) {
                     await createReplacement.mutateAsync({
                       soId:       current.id,
                       returnId:   selectedReturn.id,
                       warehouseId,
                       lines,
+                      dispositions,
                       giftItems: giftItems.map((g) => ({
                         item_name:        g.item_name,
                         sku:              g.sku,
@@ -544,19 +549,20 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                         brand_variant_id: g.brand_variant_id,
                       })),
                     })
-                  }
-                  if (shouldWriteOff) {
-                    await writeOffDamaged.mutateAsync({
-                      returnId:    selectedReturn.id,
+                  } else if (dispositions.length > 0) {
+                    await recordDisposition.mutateAsync({
+                      returnId:     selectedReturn.id,
                       warehouseId,
+                      dispositions,
                     })
                   }
-                  if (lines.length > 0 && shouldWriteOff) {
-                    toast.success('Replacement delivery created; damaged units written off')
+                  const dispQty = dispositions.reduce((s, d) => s + d.qty, 0)
+                  if (lines.length > 0 && dispQty > 0) {
+                    toast.success('Replacement delivery created; damaged units dispositioned')
                   } else if (lines.length > 0) {
                     toast.success('Replacement delivery created')
-                  } else if (shouldWriteOff) {
-                    toast.success('Damaged units written off')
+                  } else if (dispQty > 0) {
+                    toast.success(`Damaged units dispositioned (${dispQty})`)
                   }
                   setReplacementOpen(false)
                   setSelectedReturn(null)

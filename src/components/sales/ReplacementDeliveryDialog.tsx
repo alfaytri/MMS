@@ -8,7 +8,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -18,6 +17,7 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { type SaleReturn, useReturnLineProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
+import type { ReturnDispositionType, ReturnLineDisposition } from '@/hooks/useSaleDeliveries'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
@@ -45,11 +45,11 @@ interface ReplacementDeliveryDialogProps {
   soId: string
   currency?: string | null
   onConfirm: (payload: {
-    warehouseId:       string
-    warehouseName:     string
-    lines:             ReplacementLineInput[]
-    writeOffDamaged:   boolean
-    giftItems:         GiftItem[]
+    warehouseId:   string
+    warehouseName: string
+    lines:         ReplacementLineInput[]
+    dispositions:  ReturnLineDisposition[]
+    giftItems:     GiftItem[]
   }) => void
   isPending: boolean
 }
@@ -57,10 +57,12 @@ interface ReplacementDeliveryDialogProps {
 function formatResolutions(mix: Record<string, number> | null): string {
   if (!mix) return '—'
   const labels: Record<string, string> = {
-    replacement:  'replacement',
-    refund:       'refund',
-    store_credit: 'store credit',
-    write_off:    'write-off',
+    replacement:        'replacement',
+    refund:             'refund',
+    store_credit:       'store credit',
+    write_off:          'write-off',
+    restock_as_damaged: 'restock (damaged)',
+    send_for_repair:    'sent for repair',
   }
   const parts = Object.entries(mix)
     .filter(([, qty]) => qty > 0)
@@ -68,13 +70,30 @@ function formatResolutions(mix: Record<string, number> | null): string {
   return parts.length === 0 ? '—' : parts.join(' · ')
 }
 
+// Phase 7 — user-selectable "no disposition" sentinel (kept out of the RPC
+// contract; local state only). Damaged lines start on 'write_off' when there
+// are inventory remaining units, and default to 'none' otherwise.
+type DispositionChoice = ReturnDispositionType | 'none'
+
+const DISPOSITION_OPTIONS: Array<{
+  value: DispositionChoice
+  label: string
+  disabled?: boolean
+  hint?: string
+}> = [
+  { value: 'write_off',          label: 'Write off' },
+  { value: 'restock_as_damaged', label: 'Restock as damaged', disabled: true, hint: 'Coming in Phase 8' },
+  { value: 'send_for_repair',    label: 'Send for repair',    disabled: true, hint: 'Coming in Phase 9' },
+]
+
 export function ReplacementDeliveryDialog({
   open, onOpenChange, returnData, currency, onConfirm, isPending,
 }: ReplacementDeliveryDialogProps) {
   const cur = currency ?? 'QAR'
   const [warehouseId, setWarehouseId] = useState('')
   const [qtyByLineId, setQtyByLineId] = useState<Record<string, number>>({})
-  const [writeOffDamaged, setWriteOffDamaged] = useState(true)
+  const [dispositionByLineId, setDispositionByLineId] = useState<Record<string, DispositionChoice>>({})
+  const [dispositionQtyByLineId, setDispositionQtyByLineId] = useState<Record<string, number>>({})
   const [giftItems, setGiftItems] = useState<GiftItem[]>([])
   const [pickerValue, setPickerValue] = useState<InventoryLookupResult | null>(null)
   const [showPicker, setShowPicker] = useState(false)
@@ -84,40 +103,54 @@ export function ReplacementDeliveryDialog({
     open ? returnData.id : null,
   )
 
-  // Enrich progress rows with the raw return_line so we still have condition_notes-adjacent
-  // detail if we ever need it. For now, progress already has item_name/sku/condition.
   const rows: ReturnLineProgress[] = useMemo(() => {
     return lineProgress
       .slice()
       .sort((a, b) => {
-        // good first, damaged second, everything else after — keeps the operator's eye on
-        // replaceable rows.
+        // Good first, damaged last, everything else in between — mirrors
+        // the operator's usual flow (replace what you can, then decide
+        // what to do with what you can't).
         const order = (c: string) => (c === 'good' ? 0 : c === 'damaged' ? 2 : 1)
         return order(a.condition) - order(b.condition) || a.item_name.localeCompare(b.item_name)
       })
   }, [lineProgress])
 
-  // Pre-fill: every good line with remaining_qty; damaged rows default 0 (and stay disabled).
+  // Pre-fill:
+  //   - Good rows: default replace qty = customer_remaining_qty.
+  //   - Damaged rows: default replace qty = 0 (operator opts in), plus
+  //     default disposition = 'write_off' if any inventory remaining,
+  //     otherwise 'none'; default disposition qty = inventory remaining.
   useEffect(() => {
     if (!open) return
-    const next: Record<string, number> = {}
+    const nextReplace:     Record<string, number> = {}
+    const nextDisposition: Record<string, DispositionChoice> = {}
+    const nextDispQty:     Record<string, number> = {}
     for (const p of lineProgress) {
-      if (p.condition === 'good' && p.remaining_qty > 0) {
-        next[p.return_line_id] = p.remaining_qty
+      const invRemaining = p.inventory_remaining_qty ?? 0
+      if (p.condition === 'good' && p.customer_remaining_qty > 0) {
+        nextReplace[p.return_line_id] = p.customer_remaining_qty
       } else {
-        next[p.return_line_id] = 0
+        // Damaged rows: leave at 0 so the operator makes a deliberate
+        // choice to send a replacement for a damaged unit (as opposed to
+        // refund/store credit through the CN).
+        nextReplace[p.return_line_id] = 0
+      }
+      if (p.condition === 'damaged') {
+        nextDisposition[p.return_line_id] = invRemaining > 0 ? 'write_off' : 'none'
+        nextDispQty[p.return_line_id]     = invRemaining
+      } else {
+        nextDisposition[p.return_line_id] = 'none'
+        nextDispQty[p.return_line_id]     = 0
       }
     }
-    setQtyByLineId(next)
-    // Only reset the write-off default when there are damaged lines left to resolve.
-    const anyDamagedRemaining = lineProgress.some((p) => p.condition === 'damaged' && p.remaining_qty > 0)
-    setWriteOffDamaged(anyDamagedRemaining)
+    setQtyByLineId(nextReplace)
+    setDispositionByLineId(nextDisposition)
+    setDispositionQtyByLineId(nextDispQty)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, lineProgress.length])
 
   // Default the source warehouse to the return's restock warehouse so the
-  // write-off-only case can be one click. Operator can still override for the
-  // replacement path (they may want to ship from a different warehouse).
+  // disposition-only case can be one click.
   useEffect(() => {
     if (!open) return
     if (returnData.restock_warehouse_id) {
@@ -128,18 +161,35 @@ export function ReplacementDeliveryDialog({
   }, [open, returnData.restock_warehouse_id])
 
   const hasDamagedRemaining = useMemo(
-    () => rows.some((r) => r.condition === 'damaged' && r.remaining_qty > 0),
+    () => rows.some((r) => r.condition === 'damaged' && (r.inventory_remaining_qty ?? 0) > 0),
     [rows],
   )
 
   const totalGoodRemaining = useMemo(
-    () => rows.filter((r) => r.condition === 'good').reduce((s, r) => s + r.remaining_qty, 0),
+    () => rows.filter((r) => r.condition === 'good').reduce((s, r) => s + r.customer_remaining_qty, 0),
     [rows],
   )
 
   const totalReplacementQty = useMemo(
     () => Object.values(qtyByLineId).reduce((s, q) => s + (q || 0), 0),
     [qtyByLineId],
+  )
+
+  const dispositions = useMemo<ReturnLineDisposition[]>(() => {
+    return rows
+      .filter((r) => r.condition === 'damaged')
+      .map((r) => {
+        const choice = dispositionByLineId[r.return_line_id] ?? 'none'
+        const qty    = dispositionQtyByLineId[r.return_line_id] ?? 0
+        if (choice === 'none' || qty <= 0) return null
+        return { return_line_id: r.return_line_id, type: choice, qty }
+      })
+      .filter((x): x is ReturnLineDisposition => x !== null)
+  }, [rows, dispositionByLineId, dispositionQtyByLineId])
+
+  const totalDispositionQty = useMemo(
+    () => dispositions.reduce((s, d) => s + d.qty, 0),
+    [dispositions],
   )
 
   const bvIds = useMemo(
@@ -164,22 +214,38 @@ export function ReplacementDeliveryDialog({
 
   const goodwillCost = giftItems.reduce((sum, g) => sum + g.unit_price * g.qty, 0)
 
-  const canSubmit = (totalReplacementQty > 0 || (writeOffDamaged && hasDamagedRemaining)) && !anyShort
-  // Warehouse only strictly required when a replacement or write-off will be created.
-  const needsWarehouse = totalReplacementQty > 0 || (writeOffDamaged && hasDamagedRemaining)
+  const canSubmit = (totalReplacementQty > 0 || totalDispositionQty > 0) && !anyShort
+  const needsWarehouse = totalReplacementQty > 0 || totalDispositionQty > 0
 
   const sendLabel = useMemo(() => {
-    if (totalReplacementQty === 0 && writeOffDamaged && hasDamagedRemaining) return 'Write off damaged only'
+    if (totalReplacementQty === 0 && totalDispositionQty > 0) {
+      return `Book ${totalDispositionQty} disposition${totalDispositionQty === 1 ? '' : 's'}`
+    }
     if (totalReplacementQty === 0) return 'Send Replacement'
     if (totalReplacementQty < totalGoodRemaining) {
       return `Send partial replacement (${totalReplacementQty} unit${totalReplacementQty === 1 ? '' : 's'})`
     }
     return `Send Replacement (${totalReplacementQty} unit${totalReplacementQty === 1 ? '' : 's'})`
-  }, [totalReplacementQty, totalGoodRemaining, writeOffDamaged, hasDamagedRemaining])
+  }, [totalReplacementQty, totalGoodRemaining, totalDispositionQty])
 
   function setLineQty(returnLineId: string, raw: number, max: number) {
     const clamped = Math.max(0, Math.min(max, Number.isFinite(raw) ? Math.floor(raw) : 0))
     setQtyByLineId((prev) => ({ ...prev, [returnLineId]: clamped }))
+  }
+
+  function setDispositionChoice(returnLineId: string, choice: DispositionChoice, invRemaining: number) {
+    setDispositionByLineId((prev) => ({ ...prev, [returnLineId]: choice }))
+    // Reset the qty to invRemaining when switching AWAY from 'none', or to 0
+    // when switching TO 'none'.
+    setDispositionQtyByLineId((prev) => ({
+      ...prev,
+      [returnLineId]: choice === 'none' ? 0 : invRemaining,
+    }))
+  }
+
+  function setDispositionQty(returnLineId: string, raw: number, max: number) {
+    const clamped = Math.max(0, Math.min(max, Number.isFinite(raw) ? Math.floor(raw) : 0))
+    setDispositionQtyByLineId((prev) => ({ ...prev, [returnLineId]: clamped }))
   }
 
   function handlePickerChange(item: InventoryLookupResult | null) {
@@ -188,11 +254,11 @@ export function ReplacementDeliveryDialog({
       setGiftItems((prev) => [
         ...prev,
         {
-          item_name: item.item_name,
-          sku: item.sku,
-          qty: 1,
+          item_name:        item.item_name,
+          sku:              item.sku,
+          qty:              1,
           brand_variant_id: item.brand_variant_id,
-          unit_price: item.selling_price,
+          unit_price:       item.selling_price,
         },
       ])
       setPickerValue(null)
@@ -217,6 +283,8 @@ export function ReplacementDeliveryDialog({
       setPickerValue(null)
       setShowPicker(false)
       setQtyByLineId({})
+      setDispositionByLineId({})
+      setDispositionQtyByLineId({})
     }
     onOpenChange(nextOpen)
   }
@@ -233,16 +301,16 @@ export function ReplacementDeliveryDialog({
       }))
     onConfirm({
       warehouseId,
-      warehouseName:   selectedWarehouse?.name ?? '',
+      warehouseName: selectedWarehouse?.name ?? '',
       lines,
-      writeOffDamaged: writeOffDamaged && hasDamagedRemaining,
+      dispositions,
       giftItems,
     })
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-full h-full rounded-none max-w-none flex flex-col md:h-auto md:max-h-[90vh] md:w-full md:max-w-3xl md:rounded-lg">
+      <DialogContent className="w-full h-full rounded-none max-w-none flex flex-col md:h-auto md:max-h-[90vh] md:w-full md:max-w-4xl md:rounded-lg">
         <DialogHeader>
           <DialogTitle>Send Replacement — {returnData.return_number}</DialogTitle>
         </DialogHeader>
@@ -250,9 +318,11 @@ export function ReplacementDeliveryDialog({
         <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-6 px-1">
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              Edit each line&apos;s replacement quantity. Damaged lines cannot be
-              replaced — check &ldquo;write off damaged&rdquo; below to book them out of stock.
-              You can save a partial replacement and resolve the remaining units later.
+              Good lines can be replaced from stock. Damaged lines take a
+              disposition decision — write off is the only supported action
+              in Phase 7 (restock as damaged and send for repair land in
+              Phase 8/9). You can save a partial resolution and finish the
+              rest later.
             </p>
 
             <div className="min-h-[8rem]">
@@ -263,7 +333,7 @@ export function ReplacementDeliveryDialog({
                     <TableHead className="w-16 text-center">Returned</TableHead>
                     <TableHead className="w-40">Already resolved</TableHead>
                     <TableHead className="w-20 text-center">Remaining</TableHead>
-                    <TableHead className="w-28 text-center">Replace this time</TableHead>
+                    <TableHead className="w-64 text-center">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -282,12 +352,23 @@ export function ReplacementDeliveryDialog({
                     </TableRow>
                   )}
                   {rows.map((r) => {
-                    const entries = r.brand_variant_id ? (whStockMap.get(r.brand_variant_id) ?? []) : []
+                    const entries      = r.brand_variant_id ? (whStockMap.get(r.brand_variant_id) ?? []) : []
                     const selectedStock = entries.find((e) => e.warehouse_id === warehouseId)?.qty ?? 0
-                    const currentQty = qtyByLineId[r.return_line_id] ?? 0
-                    const isDamaged = r.condition === 'damaged'
-                    const isDisabled = isDamaged || r.remaining_qty <= 0
+                    const currentQty    = qtyByLineId[r.return_line_id] ?? 0
+                    const isDamaged     = r.condition === 'damaged'
+                    const custRemaining = r.customer_remaining_qty
+                    const invRemaining  = r.inventory_remaining_qty ?? 0
+                    const shownRemaining = isDamaged ? invRemaining : custRemaining
+                    const shownResolved  = isDamaged ? r.inventory_dispositions_by_type : r.customer_resolutions_by_type
                     const shortInSelected = !!warehouseId && !isDamaged && currentQty > 0 && currentQty > selectedStock
+
+                    const currentDisposition = dispositionByLineId[r.return_line_id] ?? 'none'
+                    const currentDispQty     = dispositionQtyByLineId[r.return_line_id] ?? 0
+                    // Damaged rows show BOTH dimensions when they differ, so
+                    // the operator can see at a glance whether a written-off
+                    // damaged unit still owes the customer a resolution.
+                    const showBothDimensions = isDamaged && (custRemaining !== invRemaining)
+
                     return (
                       <TableRow key={r.return_line_id}>
                         <TableCell>
@@ -304,7 +385,7 @@ export function ReplacementDeliveryDialog({
                               </Badge>
                             )}
                           </div>
-                          {!isDamaged && r.brand_variant_id && (
+                          {r.brand_variant_id && (
                             entries.length > 0 ? (
                               <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                                 {entries.map((w) => {
@@ -332,19 +413,101 @@ export function ReplacementDeliveryDialog({
                         </TableCell>
                         <TableCell className="text-center text-sm">{r.returned_qty}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {formatResolutions(r.resolutions_by_type)}
+                          {isDamaged ? (
+                            <div className="space-y-0.5">
+                              <div>
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Customer</span>{' '}
+                                {formatResolutions(r.customer_resolutions_by_type)}
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Inventory</span>{' '}
+                                {formatResolutions(r.inventory_dispositions_by_type)}
+                              </div>
+                            </div>
+                          ) : (
+                            formatResolutions(shownResolved)
+                          )}
                         </TableCell>
-                        <TableCell className="text-center text-sm">{r.remaining_qty}</TableCell>
+                        <TableCell className="text-center text-sm">
+                          {showBothDimensions ? (
+                            <div className="space-y-0.5 text-[11px]">
+                              <div className={custRemaining > 0 ? 'text-amber-700 font-medium' : ''}>
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Cust</span> {custRemaining}
+                              </div>
+                              <div className={invRemaining > 0 ? 'text-amber-700 font-medium' : ''}>
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Inv</span> {invRemaining}
+                              </div>
+                            </div>
+                          ) : (
+                            shownRemaining
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={r.remaining_qty}
-                            value={currentQty}
-                            disabled={isDisabled}
-                            onChange={(e) => setLineQty(r.return_line_id, Number(e.target.value), r.remaining_qty)}
-                            className="h-8 w-20 mx-auto text-center"
-                          />
+                          {isDamaged ? (
+                            <div className="space-y-1.5">
+                              {custRemaining > 0 && (
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 w-14 text-right">Replace</span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={custRemaining}
+                                    value={currentQty}
+                                    onChange={(e) => setLineQty(r.return_line_id, Number(e.target.value), custRemaining)}
+                                    className="h-8 w-16 text-center"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex items-center justify-center gap-1.5">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 w-14 text-right">Dispose</span>
+                                <Select
+                                  value={currentDisposition}
+                                  onValueChange={(v) => setDispositionChoice(r.return_line_id, v as DispositionChoice, invRemaining)}
+                                  disabled={invRemaining <= 0}
+                                >
+                                  <SelectTrigger className="h-8 w-36 min-h-8 text-xs">
+                                    <SelectValue placeholder="Disposition" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">None (leave)</SelectItem>
+                                    {DISPOSITION_OPTIONS.map((opt) => (
+                                      <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                        disabled={opt.disabled}
+                                      >
+                                        <span className="flex items-center gap-1.5">
+                                          {opt.label}
+                                          {opt.hint && (
+                                            <span className="text-[10px] text-muted-foreground">— {opt.hint}</span>
+                                          )}
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={invRemaining}
+                                  value={currentDispQty}
+                                  disabled={currentDisposition === 'none' || invRemaining <= 0}
+                                  onChange={(e) => setDispositionQty(r.return_line_id, Number(e.target.value), invRemaining)}
+                                  className="h-8 w-14 text-center"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <Input
+                              type="number"
+                              min={0}
+                              max={custRemaining}
+                              value={currentQty}
+                              disabled={custRemaining <= 0}
+                              onChange={(e) => setLineQty(r.return_line_id, Number(e.target.value), custRemaining)}
+                              className="h-8 w-20 mx-auto text-center"
+                            />
+                          )}
                         </TableCell>
                       </TableRow>
                     )
@@ -353,25 +516,10 @@ export function ReplacementDeliveryDialog({
               </Table>
             </div>
 
-            {hasDamagedRemaining && (
-              <label className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-sm dark:border-amber-900 dark:bg-amber-950/30">
-                <Checkbox
-                  checked={writeOffDamaged}
-                  onCheckedChange={(v) => setWriteOffDamaged(v === true)}
-                  className="mt-0.5"
-                />
-                <span>
-                  <span className="font-medium text-amber-900 dark:text-amber-200">
-                    Write off remaining damaged units
-                  </span>
-                  <span className="ml-1 text-amber-800 dark:text-amber-300">
-                    ({rows.filter((r) => r.condition === 'damaged').reduce((s, r) => s + r.remaining_qty, 0)} units)
-                  </span>
-                  <span className="block text-xs text-amber-700/80 dark:text-amber-300/80">
-                    Books an inventory write-off against the source warehouse and closes those units on the return ledger.
-                  </span>
-                </span>
-              </label>
+            {hasDamagedRemaining && totalDispositionQty === 0 && (
+              <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
+                Damaged units still remaining — pick a disposition on each damaged row to book them out of stock, or leave them for later.
+              </p>
             )}
           </div>
 
