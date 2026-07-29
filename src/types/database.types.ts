@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -3800,88 +3801,6 @@ export type Database = {
           },
         ]
       }
-      return_line_resolutions: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          credit_note_id: string | null
-          id: string
-          inventory_stock_movement_id: string | null
-          notes: string | null
-          qty: number
-          resolution_type: string
-          return_line_id: string
-          sale_delivery_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          credit_note_id?: string | null
-          id?: string
-          inventory_stock_movement_id?: string | null
-          notes?: string | null
-          qty: number
-          resolution_type: string
-          return_line_id: string
-          sale_delivery_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          credit_note_id?: string | null
-          id?: string
-          inventory_stock_movement_id?: string | null
-          notes?: string | null
-          qty?: number
-          resolution_type?: string
-          return_line_id?: string
-          sale_delivery_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "return_line_resolutions_credit_note_id_fkey"
-            columns: ["credit_note_id"]
-            isOneToOne: false
-            referencedRelation: "credit_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "return_line_resolutions_credit_note_id_fkey"
-            columns: ["credit_note_id"]
-            isOneToOne: false
-            referencedRelation: "customer_open_credit_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "return_line_resolutions_inventory_stock_movement_id_fkey"
-            columns: ["inventory_stock_movement_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_stock_movements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "return_line_resolutions_return_line_id_fkey"
-            columns: ["return_line_id"]
-            isOneToOne: false
-            referencedRelation: "return_line_progress"
-            referencedColumns: ["return_line_id"]
-          },
-          {
-            foreignKeyName: "return_line_resolutions_return_line_id_fkey"
-            columns: ["return_line_id"]
-            isOneToOne: false
-            referencedRelation: "return_lines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "return_line_resolutions_sale_delivery_id_fkey"
-            columns: ["sale_delivery_id"]
-            isOneToOne: false
-            referencedRelation: "sale_deliveries"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       return_lines: {
         Row: {
           brand_variant_id: string | null
@@ -6613,18 +6532,6 @@ export type Database = {
           p_warehouse_id: string
         }
         Returns: number
-      }
-      rpc_record_return_line_resolution: {
-        Args: {
-          p_credit_note_id?: string
-          p_inventory_stock_movement_id?: string
-          p_notes?: string
-          p_qty: number
-          p_resolution_type: string
-          p_return_line_id: string
-          p_sale_delivery_id?: string
-        }
-        Returns: string
       }
       rpc_record_return_refund: {
         Args: {

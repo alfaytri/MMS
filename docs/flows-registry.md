@@ -148,7 +148,7 @@ Field rules:
 - **Ledger closure:** `_maybe_close_return(return_id)` is called at the end of every customer-ledger and inventory-ledger write. Do not duplicate closure logic in the UI.
 - **Recorders vs actions:** `_record_customer_resolution` / `_record_inventory_disposition` are internal (`service_role` only). Never call from client code — always go through a public action wrapper.
 - **RPC transactionality:** Every action wrapper is atomic — either every ledger write in the call succeeds or the whole transaction rolls back. Do not chain multiple wrappers client-side when one wrapper already covers the multi-write case (see [[Create Partial Replacement (customer + inventory atomic)]] vs the retired "delivery + then write-off" split).
-- **Backward-compat window:** During Phase 7 the bridge trigger `trg_bridge_legacy_resolution_to_dual_ledger` mirrored any legacy `return_line_resolutions` insert into the new tables. Dropped in Phase 8.3 (migration `20260731000200_drop_bridge_trigger.sql`) — the bridge had been inert since 7.2 landed. The legacy table itself is dropped in Phase 8.5.
+- **Backward-compat window:** During Phase 7 the bridge trigger `trg_bridge_legacy_resolution_to_dual_ledger` mirrored any legacy `return_line_resolutions` insert into the new tables. Dropped in Phase 8.3 (migration `20260731000200_drop_bridge_trigger.sql`) — the bridge had been inert since 7.2 landed. The legacy table + its recorder `rpc_record_return_line_resolution` were dropped in Phase 8.5 (migration `20260731000400_drop_legacy_resolutions.sql`).
 
 ---
 
