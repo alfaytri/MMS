@@ -246,7 +246,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Nothing active. **Phase 8 Sub-task 8.5 complete (2026-07-29)** — legacy `return_line_resolutions` table + orphaned recorder retired. Bridge, aliases, wrapper, and now the legacy table itself are all gone; the dual ledger stands alone. Next up: **8.7 — End-to-end verification + regression sweep** (mirrors 7.7 — walk every Phase 7 surface AFTER the legacy layer is gone, confirm every invariant holds). **8.6 was folded into 8.1b** (`_maybe_close_return` rewrite) — skipped in the queue.
+🚀 Starting: **Phase 8 Sub-task 8.7: End-to-end verification + regression sweep**. Mirrors the 7.7 walkthrough but with the legacy layer fully gone (8.2/8.3/8.4/8.5 all shipped). Walk sections A–H on staging (regression across SR-00003 / 00007..00013, fresh Direct + Inspection returns, partial replacement + per-line disposition, inventory-only disposition, Refund + Store Credit on same CN, bridge trigger absence check, cross-cutting UI compare against 7.7 baseline) + run the 4 invariants (resolved returns have 0 remaining on both dimensions; compensation_missing chip surfaces; `return_line_resolutions` no longer exists in pg_class; sale_return_damaged movements = write_off disposition rows on same day). No commit until every sub-section is green. **8.6 was folded into 8.1b** — skipped.
 
 
 
