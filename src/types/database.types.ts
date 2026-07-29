@@ -3642,6 +3642,136 @@ export type Database = {
           },
         ]
       }
+      return_line_customer_resolutions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credit_note_id: string | null
+          id: string
+          notes: string | null
+          qty: number
+          resolution_type: string
+          return_line_id: string
+          sale_delivery_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          id?: string
+          notes?: string | null
+          qty: number
+          resolution_type: string
+          return_line_id: string
+          sale_delivery_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credit_note_id?: string | null
+          id?: string
+          notes?: string | null
+          qty?: number
+          resolution_type?: string
+          return_line_id?: string
+          sale_delivery_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_line_customer_resolutions_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_customer_resolutions_return_line_id_fkey"
+            columns: ["return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_progress"
+            referencedColumns: ["return_line_id"]
+          },
+          {
+            foreignKeyName: "return_line_customer_resolutions_return_line_id_fkey"
+            columns: ["return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_customer_resolutions_sale_delivery_id_fkey"
+            columns: ["sale_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "sale_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      return_line_inventory_dispositions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          disposition_type: string
+          id: string
+          inventory_stock_movement_id: string | null
+          notes: string | null
+          qty: number
+          return_line_id: string
+          warehouse_transfer_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          disposition_type: string
+          id?: string
+          inventory_stock_movement_id?: string | null
+          notes?: string | null
+          qty: number
+          return_line_id: string
+          warehouse_transfer_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          disposition_type?: string
+          id?: string
+          inventory_stock_movement_id?: string | null
+          notes?: string | null
+          qty?: number
+          return_line_id?: string
+          warehouse_transfer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_line_inventory_disposit_inventory_stock_movement_id_fkey"
+            columns: ["inventory_stock_movement_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_stock_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_inventory_dispositions_return_line_id_fkey"
+            columns: ["return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_progress"
+            referencedColumns: ["return_line_id"]
+          },
+          {
+            foreignKeyName: "return_line_inventory_dispositions_return_line_id_fkey"
+            columns: ["return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_line_inventory_dispositions_warehouse_transfer_id_fkey"
+            columns: ["warehouse_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       return_line_resolutions: {
         Row: {
           created_at: string
@@ -5535,6 +5665,12 @@ export type Database = {
         Row: {
           brand_variant_id: string | null
           condition: string | null
+          customer_remaining_qty: number | null
+          customer_resolutions_by_type: Json | null
+          customer_resolved_qty: number | null
+          inventory_dispositions_by_type: Json | null
+          inventory_remaining_qty: number | null
+          inventory_resolved_qty: number | null
           item_name: string | null
           remaining_qty: number | null
           resolutions_by_type: Json | null
@@ -5570,11 +5706,22 @@ export type Database = {
       }
       return_progress: {
         Row: {
+          compensation_missing: boolean | null
           coverage_status: string | null
+          customer_remaining: number | null
+          customer_resolutions_by_type: Json | null
+          customer_resolved: number | null
+          customer_status: string | null
+          inventory_dispositions_by_type: Json | null
+          inventory_remaining: number | null
+          inventory_resolved: number | null
+          inventory_status: string | null
+          overall_coverage_status: string | null
           resolutions_by_type: Json | null
           return_id: string | null
           return_number: string | null
           status: Database["public"]["Enums"]["return_status"] | null
+          total_damaged: number | null
           total_remaining: number | null
           total_resolved: number | null
           total_returned: number | null
@@ -5681,6 +5828,29 @@ export type Database = {
       }
     }
     Functions: {
+      _maybe_close_return: { Args: { p_return_id: string }; Returns: undefined }
+      _record_customer_resolution: {
+        Args: {
+          p_credit_note_id?: string
+          p_notes?: string
+          p_qty: number
+          p_resolution_type: string
+          p_return_line_id: string
+          p_sale_delivery_id?: string
+        }
+        Returns: string
+      }
+      _record_inventory_disposition: {
+        Args: {
+          p_disposition_type: string
+          p_inventory_stock_movement_id?: string
+          p_notes?: string
+          p_qty: number
+          p_return_line_id: string
+          p_warehouse_transfer_id?: string
+        }
+        Returns: string
+      }
       _return_resolution_status: {
         Args: { p_return_id: string }
         Returns: Database["public"]["Enums"]["return_status"]
@@ -6300,6 +6470,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      rpc_create_partial_replacement: {
+        Args: {
+          p_dispositions?: Json
+          p_gift_items?: Json
+          p_lines: Json
+          p_return_id: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       rpc_customer_statement: {
         Args: {
           p_customer_id: string
@@ -6350,6 +6530,14 @@ export type Database = {
           total_outstanding: number
         }[]
       }
+      rpc_record_inventory_disposition: {
+        Args: {
+          p_dispositions: Json
+          p_return_id: string
+          p_warehouse_id: string
+        }
+        Returns: number
+      }
       rpc_record_return_line_resolution: {
         Args: {
           p_credit_note_id?: string
@@ -6361,6 +6549,19 @@ export type Database = {
           p_sale_delivery_id?: string
         }
         Returns: string
+      }
+      rpc_record_return_refund: {
+        Args: {
+          p_lines: Json
+          p_refund_method?: string
+          p_refund_reference?: string
+          p_return_id: string
+        }
+        Returns: undefined
+      }
+      rpc_record_return_store_credit: {
+        Args: { p_lines: Json; p_return_id: string }
+        Returns: undefined
       }
       rpc_sales_aging_report: {
         Args: never
@@ -6375,6 +6576,10 @@ export type Database = {
           invoice_count: number
           total_outstanding: number
         }[]
+      }
+      rpc_write_off_return_damaged: {
+        Args: { p_return_id: string; p_warehouse_id: string }
+        Returns: number
       }
       save_customer_phones: {
         Args: { p_customer_id: string; p_phones: Json }

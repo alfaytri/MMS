@@ -567,7 +567,18 @@ export function useUnresolvedReturns(soId: string | null) {
   })
 }
 
-// ─── Phase 6 progress views ────────────────────────────────────────────────
+// ─── Phase 6 + Phase 7 progress views ─────────────────────────────────────
+//
+// Phase 7 rebuilt these views on top of two independent ledgers (customer +
+// inventory). Phase 6 field names are preserved as backward-compat aliases
+// pointing at the customer dimension; new dual-dimension fields are
+// appended so callers can render both when the two ledgers diverge (e.g.
+// damaged units under seller-fault reasons that still owe the customer a
+// resolution but have already been dispositioned inventory-side).
+//
+// Drop the legacy aliases in Phase 8 once every reader has migrated.
+
+export type ResolutionMix = Record<string, number> | null
 
 export type ReturnLineProgress = {
   return_line_id:      string
@@ -577,20 +588,48 @@ export type ReturnLineProgress = {
   sku:                 string | null
   returned_qty:        number
   condition:           string
+  // Legacy Phase 6 aliases — semantically the customer dimension.
   resolved_qty:        number
   remaining_qty:       number
-  resolutions_by_type: Record<string, number> | null
+  resolutions_by_type: ResolutionMix
+  // Phase 7 dual-dimension fields.
+  customer_resolved_qty:          number
+  customer_remaining_qty:         number
+  /** null for non-damaged lines — inventory dimension only applies to damaged units. */
+  inventory_resolved_qty:         number | null
+  inventory_remaining_qty:        number
+  customer_resolutions_by_type:   ResolutionMix
+  inventory_dispositions_by_type: ResolutionMix
 }
+
+export type ReturnCoverageStatus = 'in_progress' | 'fully_resolved'
+export type ReturnInventoryStatus = ReturnCoverageStatus | 'not_applicable'
 
 export type ReturnProgress = {
   return_id:           string
   return_number:       string
   status:              string
   total_returned:      number
+  // Legacy Phase 6 aliases — semantically the customer dimension.
   total_resolved:      number
   total_remaining:     number
-  resolutions_by_type: Record<string, number> | null
-  coverage_status:     'in_progress' | 'fully_resolved'
+  resolutions_by_type: ResolutionMix
+  coverage_status:     ReturnCoverageStatus
+  // Phase 7 dual-dimension fields.
+  customer_resolved:              number
+  customer_remaining:             number
+  total_damaged:                  number
+  inventory_resolved:             number
+  inventory_remaining:            number
+  customer_resolutions_by_type:   ResolutionMix
+  inventory_dispositions_by_type: ResolutionMix
+  customer_status:                ReturnCoverageStatus
+  inventory_status:               ReturnInventoryStatus
+  overall_coverage_status:        ReturnCoverageStatus
+  /** True when damaged units are fully dispositioned inventory-side but
+   *  the customer received no matching compensation — bookkeeping flag
+   *  for the "Compensation not recorded" chip in Sub-task 7.6. */
+  compensation_missing:           boolean
 }
 
 export function useReturnLineProgress(returnId: string | null) {

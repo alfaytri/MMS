@@ -256,6 +256,18 @@ export type PartialReplacementLine = {
   sku:               string | null
 }
 
+/** Phase 7 — per-damaged-line disposition decision passed alongside a
+ *  replacement (or on its own via useRecordInventoryDisposition). Only
+ *  `write_off` is fully implemented today; the other two are Phase 8/9. */
+export type ReturnDispositionType = 'write_off' | 'restock_as_damaged' | 'send_for_repair'
+
+export type ReturnLineDisposition = {
+  return_line_id: string
+  type:           ReturnDispositionType
+  qty:            number
+  transfer_id?:   string | null
+}
+
 export function useCreateReplacementDelivery() {
   const qc = useQueryClient()
   const supabase = createClient()
@@ -267,11 +279,12 @@ export function useCreateReplacementDelivery() {
       warehouseId: string
       lines: PartialReplacementLine[]
       giftItems?: { item_name: string; sku: string | null; qty: number; brand_variant_id: string | null }[]
+      dispositions?: ReturnLineDisposition[]
     }) => {
       // Delegate everything to the atomic RPC — creates sale_deliveries +
-      // sale_delivery_lines + return_line_resolutions in one transaction and
-      // auto-closes the return when total_remaining hits 0. Replaces the
-      // hand-rolled client-side sequence that produced DEL-00004 orphans.
+      // sale_delivery_lines + customer_resolution rows, plus optional
+      // inventory_disposition rows for damaged lines on the same call.
+      // Auto-closes the return when BOTH dimensions hit 0.
       const { data, error } = await supabase.rpc('rpc_create_partial_replacement', {
         p_return_id: input.returnId,
         p_warehouse_id: input.warehouseId,
@@ -283,6 +296,7 @@ export function useCreateReplacementDelivery() {
           sku: g.sku,
           qty: g.qty,
         })) as unknown as never,
+        p_dispositions: (input.dispositions ?? []) as unknown as never,
       })
       if (error) throw error
       return data as unknown as string  // new sale_delivery id
@@ -296,13 +310,46 @@ export function useCreateReplacementDelivery() {
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.progress(variables.returnId) })
       qc.invalidateQueries({ queryKey: queryKeys.saleReturns.lineProgress(variables.returnId) })
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
     },
   })
 }
 
-/** Writes off any damaged return_lines with remaining_qty > 0 as
- *  inventory_stock_movements(type='sale_return_damaged') + ledger rows.
- *  Idempotent — safe to call repeatedly. */
+/** Phase 7 — after-the-fact inventory disposition for damaged returns.
+ *  Wraps rpc_record_inventory_disposition. Only `write_off` fully
+ *  implemented; other types raise "not yet implemented" server-side. */
+export function useRecordInventoryDisposition() {
+  const qc = useQueryClient()
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (input: {
+      returnId:     string
+      warehouseId:  string
+      dispositions: ReturnLineDisposition[]
+    }) => {
+      const { data, error } = await supabase.rpc('rpc_record_inventory_disposition', {
+        p_return_id:    input.returnId,
+        p_warehouse_id: input.warehouseId,
+        p_dispositions: input.dispositions as unknown as never,
+      })
+      if (error) throw error
+      return data as unknown as number  // count of dispositions processed
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.progress(variables.returnId) })
+      qc.invalidateQueries({ queryKey: queryKeys.saleReturns.lineProgress(variables.returnId) })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+    },
+  })
+}
+
+/** Writes off any damaged return_lines with inventory_remaining_qty > 0
+ *  as inventory_stock_movements(type='sale_return_damaged') + ledger rows.
+ *  Idempotent — safe to call repeatedly. Kept for Phase 6 callers; new
+ *  callers should prefer useRecordInventoryDisposition with per-line
+ *  control. */
 export function useWriteOffDamagedReturn() {
   const qc = useQueryClient()
   const supabase = createClient()
