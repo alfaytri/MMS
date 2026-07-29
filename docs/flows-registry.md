@@ -154,15 +154,521 @@ Field rules:
 
 ---
 
-## Placeholder — other modules
+## Purchase Orders
 
-Fill these in as their flows are touched:
+Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side-effect** · **Notes**). Expand to the full template when a flow is next materially changed.
 
-- **Purchase Orders** — PO lifecycle (draft → approved → dispatched → received), RFQ merge, LC allocation, PO amendment
-- **Inventory Receivals** — carve-out receival, new-stock receival, landed cost attachment
-- **Warehouse Transfers** — issue → in-transit → received
-- **Sales Deliveries** — partial delivery, confirm delivery, cancel delivery
-- **Payments / Invoices** — record payment, split invoice, credit-note application
-- **Contact Centre** — Wati inbound, 3CX call log, task creation, priority queue
+### Create Purchase Order (draft or RFQ)
+- **Trigger:** `/purchase/create-po`
+- **Hook:** [`useCreatePO`](src/hooks/usePurchaseOrders.ts)
+- **RPC(s):** none — direct table inserts
+- **Writes:** `purchase_orders`, `po_line_items`, seeds `po_rfq_quotes` when `po_type='rfq'`; `savePoSnapshot` + PO activity log
+- **Notes:** Draft or RFQ starting state. Confirmed state comes from [[Submit PO for Approval]].
 
-Do not remove these rows without filling them in.
+### Update / Amend Purchase Order
+- **Trigger:** `/purchase/edit-po/[id]`
+- **Hook:** [`useUpdatePO`](src/hooks/usePurchaseOrders.ts)
+- **Writes:** replaces `po_line_items`, recomputes totals + approval level, saves versioned snapshot
+- **Related:** [[Request PO Edit (post-approval amendment)]]
+
+### Soft-delete Purchase Order
+- **Trigger:** PO list actions
+- **Hook:** [`useSoftDeletePO`](src/hooks/usePurchaseOrders.ts)
+- **Writes:** flips `purchase_orders.deleted_at`
+
+### Submit PO for Approval
+- **Trigger:** `PoDetailDialog` → Submit
+- **Hook:** [`useSubmitPOForApproval`](src/hooks/usePurchaseOrders.ts)
+- **Writes:** `po_approvals` chain, PO status→`pending_approval`, `po_type→'confirmed'`, snapshot `po-v1`, `notifications` fan-out
+
+### Approve / Reject / Force-approve PO Step
+- **Trigger:** `/purchase/approvals` + `PoDetailDialog` review
+- **Hooks:** [`useApproveStep`, `useForceApproveStep`, `useForceApproveAllSteps`, `useRejectPO`](src/hooks/usePOApprovals.ts)
+- **RPC:** `po_approval_action`
+- **Writes:** advances `po_approvals`, flips PO status to `approved` / `rejected`, snapshots
+
+### Cancel Purchase Order
+- **Trigger:** `PoDetailDialog`
+- **Hook:** [`useCancelPO`](src/hooks/usePurchaseOrders.ts)
+- **Writes:** status→`cancelled`, snapshot
+
+### Record Supplier Payment (PO)
+- **Trigger:** `PoPaymentDialog`
+- **Hook:** [`useCreatePOPayment`](src/hooks/usePurchaseOrders.ts)
+- **RPC:** `refresh_po_status`
+- **Writes:** `payments` (SPAY-… outgoing); overpayment guard
+
+### Save RFQ Quote
+- **Trigger:** RFQ tab in `PoDetailDialog`
+- **Hook:** [`useSaveQuote`](src/hooks/useRfqQuotes.ts)
+- **Writes:** `po_rfq_quote_items`, flips `po_rfq_quotes.status→received`
+
+### Award RFQ Quote
+- **Trigger:** RFQ tab in `PoDetailDialog`
+- **Hook:** [`useAwardQuote`](src/hooks/useRfqQuotes.ts)
+- **Writes:** copies quoted prices onto `po_line_items`, recomputes PO totals, sets supplier, `po_type→'draft'`, marks winning quote awarded and rejects the rest
+
+### Delete / Submit PO Version
+- **Trigger:** `PoDetailDialog` versions panel
+- **Hooks:** [`useDeletePoVersion`, `useSubmitPoVersion`](src/hooks/usePurchaseOrders.ts)
+- **Writes:** manages `po_snapshots`; submit promotes a chosen snapshot
+
+### Request PO Edit (post-approval amendment)
+- **Trigger:** `RequestEditDialog`
+- **Hook:** [`useCreateEditRequest`](src/hooks/usePoEditRequests.ts)
+- **Writes:** `po_edit_requests`
+- **Related:** [[Review PO Edit Request]], [[Mark PO Edit Request Used]]
+
+### Review PO Edit Request
+- **Trigger:** approver panel
+- **Hook:** [`useReviewEditRequest`](src/hooks/usePoEditRequests.ts)
+- **Writes:** approves / rejects the `po_edit_requests` row
+
+### Mark PO Edit Request Used
+- **Trigger:** post-receival apply
+- **Hook:** [`useMarkEditRequestUsed`](src/hooks/usePoEditRequests.ts)
+- **Writes:** flips edit-request status once the linked receival lands
+
+---
+
+## PO Shipments
+
+### Create Shipment
+- **Trigger:** `PoShipmentDialog`
+- **Hook:** [`useCreateShipment`](src/hooks/useShipments.ts)
+- **Writes:** `shipments`
+
+### Update Shipment Status
+- **Trigger:** `PoShipmentDialog`
+- **Hook:** [`useUpdateShipmentStatus`](src/hooks/useShipments.ts)
+
+### Add Shipment Event
+- **Trigger:** dialog + 17track webhook ([src/app/api/webhooks/17track/route.ts](src/app/api/webhooks/17track/route.ts), [src/app/api/shipments/register-tracking/route.ts](src/app/api/shipments/register-tracking/route.ts))
+- **Hook:** [`useAddShipmentEvent`](src/hooks/useShipments.ts)
+- **RPC:** `append_shipment_events`
+
+### Archive Shipment
+- **Trigger:** `PoShipmentDialog`
+- **Hook:** [`useArchiveShipment`](src/hooks/useShipments.ts)
+
+---
+
+## Supplier Bills
+
+### Create Supplier Bill
+- **Trigger:** `BillFormDialog` / `CreateBillFromPODialog`
+- **Hook:** [`useCreateBill`](src/hooks/useSupplierBills.ts)
+- **Writes:** `supplier_bills` + `supplier_bill_lines`, links to PO / receival
+
+### Attach Payment to Bill
+- **Trigger:** `AttachBillDialog`
+- **Hook:** [`useAttachPaymentToBill`](src/hooks/useAttachPaymentToBill.ts)
+- **RPC:** `allocate_payment_to_bill`
+
+---
+
+## Inventory Receivals (PO receiving)
+
+### Create & Approve Receival
+- **Trigger:** `ReceivalFormDialog`
+- **Hook:** [`useCreateReceival`](src/hooks/useReceivals.ts)
+- **RPC:** `create_and_approve_receival`
+- **Writes:** `receivals` + `receival_items`, books `inventory_stock_movements` and FIFO layers
+
+### Request Receival Edit
+- **Trigger:** `ReceivalDetailDialog`
+- **Hook:** [`useRequestReceivalEdit`](src/hooks/useReceivals.ts)
+- **Writes:** `receival_edit_requests`
+
+### Approve Receival Edit
+- **Trigger:** approver flow
+- **Hook:** [`useApproveReceivalEdit`](src/hooks/useReceivals.ts)
+- **RPC:** `apply_receival_edit`
+- **Writes:** adjusts stock deltas + FIFO layers
+
+### Save Receival Edit (self-serve)
+- **Hook:** [`useSaveReceivalEdit`](src/hooks/useReceivals.ts)
+
+### Create Replacement Receival
+- **Trigger:** `ReplacementReceivalDialog`
+- **Hook:** [`useCreateReplacementReceival`](src/hooks/useReceivals.ts)
+- **RPC:** `create_and_approve_receival`
+- **Writes:** inbound replacement units against a PO return
+- **Related:** [[Resolve Debit Note as Replacement]]
+
+---
+
+## Landed Costs
+
+### Create Landed Cost
+- **Trigger:** `/purchase/landed-costs`
+- **Hook:** [`useCreateLandedCost`](src/hooks/useLandedCosts.ts)
+- **RPC:** `create_landed_cost`
+- **Writes:** `landed_costs` header
+
+### Apply / Allocate Landed Cost
+- **Hook:** [`useApplyLandedCost`](src/hooks/useLandedCosts.ts)
+- **RPC:** `allocate_landed_cost`
+- **Writes:** allocates cost across receival lines, adjusts FIFO layer cost
+
+### Revert Landed Cost
+- **Hook:** [`useRevertLandedCost`](src/hooks/useLandedCosts.ts)
+- **RPC:** `revert_landed_cost`
+- **Writes:** un-allocates and reverses FIFO cost changes
+
+### Void Landed Cost
+- **Hook:** [`useVoidLandedCost`](src/hooks/useLandedCosts.ts)
+
+---
+
+## Inventory Receivals (standalone / carve-out)
+
+### Create Standalone Inventory Receival
+- **Trigger:** `InventoryReceivalDialog`
+- **Hook:** [`useCreateInventoryReceival`](src/hooks/useInventoryReceivals.ts)
+- **Writes:** `inventory_receivals`, seeds FIFO layers, books `inventory_stock_movements`
+- **Notes:** Carve-out / no-PO new stock. `source_type='inventory_import'` seed data uses this same path.
+
+---
+
+## Purchase Returns
+
+### Create Purchase Return
+- **Trigger:** `POReturnDetailDialog` / returns list
+- **Hook:** [`useCreatePurchaseReturn`](src/hooks/usePurchaseReturns.ts)
+- **Writes:** `so_po_returns` + `return_lines` for supplier-bound goods
+
+### Dispatch PO Return
+- **Trigger:** `POReturnDetailDialog`
+- **Hook:** [`useUpdatePOReturnStatus`](src/hooks/usePurchaseReturns.ts) (dispatch branch)
+- **RPC:** `rpc_process_po_return_dispatch`
+- **Writes:** deducts FIFO layers by-layer, writes `sale_return` / dispatch movement rows
+
+### Cancel PO Return Dispatch
+- **Hook:** [`useUpdatePOReturnStatus`](src/hooks/usePurchaseReturns.ts) (cancel branch)
+- **RPC:** `rpc_cancel_po_return_dispatch`
+- **Writes:** reverses the dispatch
+
+### Issue Debit Note for PO Return
+- **Hook:** [`useCreateDebitNoteForReturn`](src/hooks/usePurchaseReturns.ts)
+- **Writes:** `debit_notes` + `debit_note_lines`
+
+### Resolve Debit Note as Supplier Credit
+- **Trigger:** `CreditDebitNoteDetailDialog`
+- **Hook:** [`useResolveDebitNoteSupplierCredit`](src/hooks/useCreditNotes.ts)
+
+### Resolve Debit Note as Replacement
+- **Trigger:** `CreditDebitNoteDetailDialog`
+- **Hook:** [`useResolveDebitNoteReplacement`](src/hooks/useCreditNotes.ts)
+- **Related:** [[Create Replacement Receival]]
+
+---
+
+## Warehouse Transfers
+
+### Create Warehouse Transfer
+- **Trigger:** `WhTransferDialog`
+- **Hook:** [`useCreateTransfer`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `create_transfer_v2`
+- **Writes:** `warehouse_transfers` + items, reserves source stock
+
+### Dispatch Warehouse Transfer (issue)
+- **Hook:** [`useDispatchTransfer`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `dispatch_transfer`
+- **Writes:** deducts source-warehouse stock, books outgoing FIFO consumption, transfer→in-transit
+
+### Receive Warehouse Transfer
+- **Hook:** [`useReceiveTransfer`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `receive_transfer`
+- **Writes:** books incoming FIFO layers at destination, handles shrinkage
+
+### Cancel Warehouse Transfer
+- **Hook:** [`useCancelTransfer`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `cancel_transfer`
+
+### Reject Warehouse Transfer
+- **Hook:** [`useRejectTransfer`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `reject_transfer_v2`
+
+---
+
+## Stock Adjustments
+
+### Create Stock Adjustment
+- **Trigger:** `WhAdjustmentDialog`
+- **Hook:** [`useCreateStockAdjustmentV2`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `create_stock_adjustment_v2`
+- **Writes:** `stock_adjustments` header + approval chain, `notifications` fan-out
+- **Notes:** Types: increase / decrease / damage / write-off.
+
+### Approve / Reject Stock Adjustment Step
+- **Trigger:** `WhAdjustmentDetailDialog`
+- **Hook:** [`useActionStockAdjustmentStep`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `action_stock_adjustment_step`
+- **Writes:** on final approval books `inventory_stock_movements` and updates stock
+
+### Force-approve Stock Adjustment
+- **Hook:** [`useForceApproveStockAdjustment`](src/hooks/useWarehouseOperations.ts)
+
+### Allocate Warehouse Stock (initial per-variant setup)
+- **Trigger:** [`BrandVariantEditDialog`](src/components/services/inventory/BrandVariantEditDialog.tsx)
+- **RPC:** `allocate_warehouse_stock`
+- **Writes:** seeds `inventory_stock` for a new variant at a warehouse
+
+---
+
+## Inventory Checks (physical count)
+
+### Start Inventory Check
+- **Trigger:** `WhInventoryCheckStartDialog`
+- **Hook:** [`useStartInventoryCheck`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `generate_check_number`
+- **Writes:** `inventory_checks` + `inventory_check_assignments` + `inventory_check_items`
+
+### Save Item Count
+- **Trigger:** check screen
+- **RPC:** `save_inventory_check_item_count`
+
+### Complete Inventory Check Assignment
+- **Hook:** [`useCompleteAssignment`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `build_inv_check_approval_chain`
+- **Writes:** closes assignment; when all done builds approval chain, snapshots, `notifications` fan-out
+
+### Approve / Reject Inventory Check Step
+- **Hook:** [`useApproveCheckStep`](src/hooks/useWarehouseOperations.ts)
+- **RPC:** `snapshot_inventory_check_system_qty` (on reject), `apply_inventory_check_adjustments` (on final approve)
+- **Writes:** books variance stock movements
+
+---
+
+## Sale Orders
+
+### Create Customer
+- **Trigger:** `CustomerDialog`
+- **Hook:** [`useCreateCustomer`](src/hooks/useSaleOrders.ts)
+- **RPC:** `save_customer_phones`
+- **Writes:** `customers` + phones, links to `credit_groups`
+
+### Update Customer
+- **Hook:** [`useUpdateCustomer`](src/hooks/useSaleOrders.ts)
+- **RPC:** `save_customer_phones` (phone sync)
+
+### Toggle Customer Active
+- **Hook:** [`useToggleCustomerActive`](src/hooks/useSaleOrders.ts)
+
+### Create Sale Order (quotation / SO)
+- **Trigger:** `/sales/create-so`
+- **Hook:** [`useCreateSO`](src/hooks/useSaleOrders.ts)
+- **RPC:** `create_sale_order`, `batch_update_reserved_qty`
+- **Writes:** `sale_orders` + `sale_order_lines`, reserves stock
+
+### Update / Amend Sale Order
+- **Trigger:** `/sales/edit-so/[id]`
+- **Hook:** [`useUpdateSO`](src/hooks/useSaleOrders.ts)
+- **Writes:** recomputes reservations against previous lines
+
+### Confirm Sale Order
+- **Trigger:** `SoDetailDialog`
+- **Hook:** [`useConfirmSO`](src/hooks/useSaleOrders.ts)
+- **Writes:** status→`confirmed`, adjusts reservations
+
+### Cancel Sale Order
+- **Trigger:** `SoDetailDialog`
+- **Hook:** [`useCancelSO`](src/hooks/useSaleOrders.ts)
+- **RPC:** `batch_update_reserved_qty`
+- **Writes:** releases reservations
+
+### Approve / Reject / Force-approve Sale Order
+- **Trigger:** `SalesApprovalDetailDialog`
+- **Hooks:** [`useApproveSO`](src/hooks/useSaleOrders.ts) and [`useSalesApprovals`](src/hooks/useSalesApprovals.ts)
+- **RPC:** `approve_sales_request`, `force_approve_sales_request`, `reject_sales_request`
+- **Notes:** Out-of-limit / credit-hold approvals.
+
+### Resubmit Sale Order (after rejection)
+- **Hook:** [`useResubmitSaleOrder`](src/hooks/useSaleOrders.ts)
+- **RPC:** `resubmit_sale_order`
+
+---
+
+## Sales Deliveries
+
+### Create Delivery (from SO)
+- **Trigger:** `SoDeliveryDialog`
+- **Hook:** [`useCreateDelivery`](src/hooks/useSaleOrders.ts)
+- **RPC:** `create_and_confirm_delivery`, `next_delivery_number`
+- **Writes:** `sale_deliveries` + lines, books stock movements
+- **Related:** [[Create Partial Replacement (customer + inventory atomic)]] uses a separate delivery path.
+
+### Update Delivery (draft edit)
+- **Trigger:** `DeliveryFormDialog`
+- **Hook:** [`useUpdateDelivery`](src/hooks/useSaleDeliveries.ts)
+
+### Complete Delivery (confirm & book stock)
+- **Trigger:** `DeliveryDetailDialog`
+- **Hook:** [`useCompleteDelivery`](src/hooks/useSaleDeliveries.ts)
+- **RPC:** `complete_delivery_inventory`
+- **Writes:** deducts FIFO layers, allocates delivery number, status→`completed`
+
+### Cancel Delivery
+- **Trigger:** `DeliveryDetailDialog`
+- **Hook:** [`useCancelDelivery`](src/hooks/useSaleDeliveries.ts)
+- **RPC:** `cancel_delivery_inventory`
+- **Writes:** restores stock, flips status
+
+---
+
+## Customer Invoices / AR
+
+### Generate Invoice from SO
+- **Trigger:** `CustomerInvoiceDetailDialog`
+- **Hook:** [`useGenerateInvoice`](src/hooks/useCustomerInvoices.ts)
+- **RPC:** `generate_invoice_from_so`
+- **Writes:** `so_invoices` + lines
+
+### Void Invoice
+- **Trigger:** `VoidInvoiceDialog`
+- **Hook:** [`useVoidInvoice`](src/hooks/useInvoices.ts)
+- **Writes:** `so_invoices.status→'void'`
+
+### Issue Credit Note against Invoice
+- **Trigger:** `CreditNoteDialog` / `CreditNoteFormDialog`
+- **Hooks:** [`useIssueCreditNote`](src/hooks/useInvoices.ts), [`useCreateCreditNote`](src/hooks/useCreditNotes.ts)
+- **Writes:** `credit_notes` + `credit_note_lines`
+- **Notes:** Distinct from [[Issue Credit Note for Sales Return]] — this is invoice-scoped, not return-scoped.
+
+### Apply Credit Note to Invoice
+- **Trigger:** `CreditDebitNoteDetailDialog`
+- **Hook:** [`useApplyCreditNote`](src/hooks/useCreditNotes.ts)
+- **Writes:** CPAY store-credit payment, `credit_notes.status→'redeemed'`, updates invoice `payment_status`
+
+### Bulk QuickBooks Sync Invoices
+- **Hook:** [`useBulkQbSyncInvoices`](src/hooks/useInvoices.ts)
+- **Notes:** External sync — QB idempotency keys tracked on the invoice row.
+
+---
+
+## Payments
+
+### Record Customer Payment
+- **Trigger:** `CustomerPaymentDialog` / `PaymentFormDialog`
+- **Hook:** [`useCreateCustomerPayment`](src/hooks/useCustomerPayments.ts)
+- **Writes:** CPAY payment, recomputes `so_invoices.payment_status`
+
+### Apply Store Credit (FIFO across CNs)
+- **Trigger:** `CreditBalanceDialog`
+- **Hook:** [`useApplyStoreCredit`](src/hooks/useCustomerPayments.ts)
+- **Writes:** one CPAY per CN consumed, method=`store_credit`
+
+### Attach Payment to Invoice
+- **Trigger:** `AttachInvoiceDialog` / `SelectInvoiceDialog`
+- **Hook:** [`useAttachPaymentToInvoice`](src/hooks/useAttachPaymentToInvoice.ts)
+- **RPC:** `attach_payment_to_invoice`
+
+### Detach Payment from Invoice
+- **Hook:** [`useDetachPaymentFromInvoice`](src/hooks/useDetachPaymentFromInvoice.ts)
+- **RPC:** `detach_payment_from_invoice`
+
+### Create Payment Plan (installments)
+- **Trigger:** `PaymentPlanDialog` (finance + purchase)
+- **Hook:** [`useCreatePaymentPlan`](src/hooks/usePaymentPlans.ts)
+- **Writes:** `payment_plans` + `payment_installments`
+
+### Settle Installment
+- **Trigger:** `PaymentPlanDialog`
+- **Hook:** [`useSettleInstallment`](src/hooks/usePaymentPlans.ts)
+- **Writes:** `payments`, installment status, closes plan when all paid
+
+---
+
+## Credit Groups (customer credit-limit approvals)
+
+### Submit Credit Group Change
+- **Trigger:** `CreditGroupPendingDialog`
+- **Hook:** [`useSubmitCreditGroupChange`](src/hooks/useCreditGroupApprovals.ts)
+- **RPC:** `submit_credit_group_change`
+
+### Approve / Reject / Force-approve Credit Group Change
+- **Hooks:** [`useApproveCreditGroupChange`, `useRejectCreditGroupChange`, `useForceApproveCreditGroupChange`](src/hooks/useCreditGroupApprovals.ts)
+- **RPCs:** `approve_credit_group_change`, `reject_credit_group_change`, `force_approve_credit_group_change`
+
+### Cancel Credit Group Change
+- **Hook:** [`useCancelCreditGroupChange`](src/hooks/useCreditGroupApprovals.ts)
+
+### Create / Update / Delete Credit Group
+- **Hooks:** [`useCreateCreditGroup`, `useUpdateCreditGroup`, `useDeleteCreditGroup`](src/hooks/useCreditGroups.ts)
+- **Notes:** Cascades to customer credit-limit resnaps — non-trivial CRUD.
+
+---
+
+## Master data with status transitions or ledger side-effects
+
+### Archive Inventory Item / Brand Variant / Category
+- **Triggers:** `ItemEditDialog`, `BrandVariantEditDialog`, `CategoryEditDialog`
+- **Hooks:** [`useArchiveInventoryItem`, `useArchiveInventoryBrandVariant`, `useArchiveInventoryCategory`](src/hooks/useInventory.ts)
+- **Notes:** Guards against archiving while reservations / stock exist.
+
+### Batch Update Selling Prices
+- **Trigger:** `BrandVariantEditDialog` price grid
+- **Hook:** [`useBatchUpdateSellingPrices`](src/hooks/useInventory.ts)
+- **RPC:** `batch_update_variant_prices`
+
+### Create User (auth + profile + roles)
+- **Trigger:** `AddUserDialog`
+- **Hook:** [`useCreateUser`](src/hooks/useProfiles.ts) → `/api/users/create`
+- **RPC:** `replace_user_custom_roles_v2`
+- **Writes:** provisions auth user, profile, division scopes
+
+### Update User / Roles
+- **Trigger:** `EditUserDialog`
+- **Hook:** [`useUpdateUser`](src/hooks/useProfiles.ts) → `/api/users/[id]`
+- **RPC:** `replace_user_custom_roles_v2`
+
+### Assign / Remove Division on Profile
+- **Hooks:** [`useAssignDivision`, `useRemoveDivision`](src/hooks/useProfiles.ts)
+
+### Assign / Remove Role
+- **Trigger:** `UserRoleDialog`
+- **Hooks:** [`useAssignRole`, `useRemoveRole`](src/hooks/useRoles.ts)
+
+### Rename Payment Method (cascading)
+- **Trigger:** [`PaymentMethodsAdmin`](src/components/master-data/PaymentMethodsAdmin.tsx)
+- **RPC:** `rename_payment_method`
+- **Writes:** cascades to historical `payments` rows
+
+### Replace Warehouse Responsible Persons
+- **Trigger:** warehouse admin
+- **Hook:** [`useWarehouseResponsiblePersons`](src/hooks/useWarehouseResponsiblePersons.ts)
+- **RPC:** `replace_warehouse_responsible_persons`
+
+---
+
+## Workflow / Approval configuration
+
+### Add / Update / Archive Workflow Step
+- **Hooks:** [`useAddWorkflowStep`, `useAddWorkflowStepForRole`, `useUpdateWorkflowStepRole`, `useUpdateWorkflowStepConditions`, `useArchiveWorkflowStep`](src/hooks/useWorkflowSteps.ts)
+- **RPCs:** `add_workflow_step`, `toggle_workflow_step`, `add_workflow_step_for_role`, `update_workflow_step_role`, `update_workflow_step_conditions`, `archive_workflow_step`
+
+### Create / Update / Delete Workflow Group
+- **Hooks:** [`useCreateWorkflowGroup`, `useUpdateWorkflowGroup`, `useDeleteWorkflowGroup`](src/hooks/useWorkflowGroups.ts)
+
+### Archive Approval Chain
+- **Hook:** [`useArchiveApprovalChain`](src/hooks/useApprovalChains.ts)
+- **Notes:** Guards against archiving chains that back active approvals.
+
+---
+
+## Notifications
+
+### Mark Notification Read / Actioned / Bulk-Actioned
+- **Trigger:** bell menu
+- **Hooks:** [`useMarkNotificationRead`, `useMarkNotificationActioned`, `useMarkAllNotificationsActioned`](src/hooks/useNotifications.ts)
+
+---
+
+## Registered placeholders — not yet implemented in code
+
+These modules are called out in project plans / seed docs but have no material flow surface yet. Do NOT delete — fill in as the code lands.
+
+- **Contact Centre** — Wati inbound handling, 3CX call log, task creation, priority queue. Only `src/types/wati.ts` types + `docs/wati-*.md` / `docs/whapi-*.md` reference material exist; no hooks or dialogs. See `project_contact_centre` memory.
+- **Quotations / Contracts** — no dedicated quotation entity yet. Quotations are represented as an SO stage and drive off [[Create Sale Order (quotation / SO)]] → [[Confirm Sale Order]]. `OrderQuotationSettingsAdmin` only edits master-data numbering.
+- **Calendar / Teams / Contracts (Phase 2 backlog)** — see `project_future_modules` memory.
