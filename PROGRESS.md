@@ -246,7 +246,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Phase 8 Sub-task 8.3 — Drop bridge trigger + `_bridge_legacy_resolution_to_dual_ledger` function** — Phase 7 interim safety net retirement. The trigger mirrored any legacy `return_line_resolutions` insert into the new dual-ledger tables during the transition window (7.1 → 7.2 gap). Zero legacy-table writes have occurred since 7.2 landed (confirmed during 7.7 section G walkthrough — bridge was already inert), and 8.1 grep confirmed no live callers write to the legacy table. Migration `20260731000200_drop_bridge_trigger.sql` drops the trigger + function. No UI changes. Applying against staging via incremental `db push`.
+🚀 Starting: **Phase 8 Sub-task 8.4 — Drop backward-compat view aliases from `v_return_line_progress` + `v_return_progress`** — retiring the Phase 6 alias columns (`resolved_qty`, `remaining_qty`, `resolutions_by_type`, `total_resolved`, `total_remaining`, `coverage_status`) that were kept as transitional aids during Phase 7. Sub-task 8.1a already migrated the last live caller off these fields, so it's now safe to drop. Migration `20260731000300_views_drop_compat_aliases.sql` rebuilds both views with only the canonical Phase 7 columns. Types regenerated post-migration; grep-verified no TS breakage. Applying against staging via incremental `db push`.
 
 
 
