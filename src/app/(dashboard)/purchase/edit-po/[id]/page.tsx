@@ -42,6 +42,10 @@ import {
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useIsAdmin } from '@/hooks/useProfiles'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { BookedRateLockRow } from '@/components/shared/BookedRateLockRow'
+import { ChangeBookedRateDialog } from '@/components/shared/ChangeBookedRateDialog'
 
 function formatAmt(amount: number, currencyCode: string, symbol?: string) {
   const prefix = symbol ?? `${currencyCode} `
@@ -79,6 +83,25 @@ export default function EditPOPage() {
   const [terms, setTerms] = useState<PoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
+  const [changeRateOpen, setChangeRateOpen] = useState(false)
+
+  // Currency picker is locked once any payment exists on this PO.
+  // payments.source_type is a Postgres enum ('purchase_order' / 'sale_order' / …)
+  // — filter with the enum value, NOT the short 'po' form used elsewhere.
+  const supabaseClient = createClient()
+  const { data: hasAnyPayments = false } = useQuery({
+    queryKey: ['po-has-payments', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { count } = await supabaseClient
+        .from('payments')
+        .select('id', { count: 'exact', head: true })
+        .eq('source_type', 'purchase_order')
+        .eq('source_id', id)
+        .is('deleted_at', null)
+      return (count ?? 0) > 0
+    },
+  })
 
   // ── Tab state ─────────────────────────────────────────────────────────────
   const currentVersion = po?.version_number ?? 1
@@ -129,6 +152,13 @@ export default function EditPOPage() {
     setActiveVersionNumber(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [po?.id])
+
+  // Sync exchange rate whenever the PO row's rate changes (e.g. after
+  // ChangeBookedRateDialog succeeds and invalidates the PO query). Separate
+  // from the main hydrate effect so it doesn't clobber other form edits.
+  useEffect(() => {
+    if (po) setExchangeRate(po.exchange_rate)
+  }, [po?.exchange_rate])
 
   // ── Computed ──────────────────────────────────────────────────────────────
   const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? `${currency} `
@@ -552,7 +582,9 @@ export default function EditPOPage() {
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="flex h-9 min-w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  disabled={hasAnyPayments}
+                  title={hasAnyPayments ? 'Currency is locked once a payment has been recorded on this PO.' : undefined}
+                  className="flex h-9 min-w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {currencies.map((c) => (
                     <option key={c.id} value={c.code}>{c.code}{c.symbol ? ` ${c.symbol}` : ''}</option>
@@ -564,6 +596,11 @@ export default function EditPOPage() {
                 <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">
                   {formatAmt(subtotal, currency, currencySymbol)}
                 </div>
+                {currency !== 'QAR' && exchangeRate > 0 && (
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    ≈ {formatAmt(subtotal * exchangeRate, 'QAR')}
+                  </p>
+                )}
               </div>
               {discountAmount > 0 && (
                 <div className="space-y-1">
@@ -571,15 +608,27 @@ export default function EditPOPage() {
                   <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">
                     {formatAmt(grandTotal, currency, currencySymbol)}
                   </div>
+                  {currency !== 'QAR' && exchangeRate > 0 && (
+                    <p className="text-[10px] text-muted-foreground tabular-nums">
+                      ≈ {formatAmt(grandTotal * exchangeRate, 'QAR')}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
-            {currency !== 'QAR' && (
-              <div className="flex items-center gap-3">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">Exchange Rate (to QAR)</label>
-                <Input type="number" min="0.0001" step="0.0001" className="h-8 w-32 text-sm" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} />
-              </div>
-            )}
+            <BookedRateLockRow
+              currency={currency}
+              initialRate={exchangeRate}
+              onEditClick={() => setChangeRateOpen(true)}
+            />
+            <ChangeBookedRateDialog
+              documentType="po"
+              documentId={id}
+              currency={currency}
+              currentRate={exchangeRate}
+              open={changeRateOpen}
+              onOpenChange={setChangeRateOpen}
+            />
           </section>
 
           <Separator />

@@ -936,7 +936,8 @@ export function useSubmitPoVersion() {
           supplier_id: payload.supplier_id,
           supplier_name: payload.supplier_name,
           currency: payload.currency,
-          exchange_rate: payload.exchange_rate,
+          // exchange_rate + initial_exchange_rate are only mutated via
+          // rpc_update_document_initial_rate — see useChangeDocumentBookedRate
           subtotal,
           total_qar,
           approval_level,
