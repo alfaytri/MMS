@@ -64,7 +64,9 @@ export default function CreatePOPage() {
   const [supplierOpen, setSupplierOpen] = useState(false)
   const [addSupplierOpen, setAddSupplierOpen] = useState(false)
   const [currency, setCurrency] = useState<string>('QAR')
-  const exchangeRate = 1
+  const [exchangeRate, setExchangeRate] = useState<number>(1)
+  const needsExchangeRate = currency !== 'QAR'
+  const exchangeRateValid = !needsExchangeRate || exchangeRate > 0
   const [lineItems, setLineItems] = useState<LineItemRow[]>([])
   const [terms, setTerms] = useState<PoTermsValues>(DEFAULT_TERMS)
   const [discountAmount, setDiscountAmount] = useState(0)
@@ -87,6 +89,11 @@ export default function CreatePOPage() {
   const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? `${currency} `
   const subtotal = lineItems.reduce((s, li) => s + li.total_price, 0)
   const grandTotal = subtotal - discountAmount
+
+  useEffect(() => {
+    if (currency === 'QAR' && exchangeRate !== 1) setExchangeRate(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency])
 
   function handleSelectSupplier(s: { id: string; name: string }) {
     setSupplierId(s.id)
@@ -199,7 +206,14 @@ export default function CreatePOPage() {
               Save as RFQ
             </Button>
           ) : (
-            <Button variant="outline" size="sm" className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50" onClick={() => saveAsType('rfq')} disabled={isPending || isPriceLoading || rfqSupplierIds.length < 1}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
+              onClick={() => saveAsType('rfq')}
+              disabled={isPending || isPriceLoading || rfqSupplierIds.length < 1 || !exchangeRateValid}
+              title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
+            >
               <Save className="h-3.5 w-3.5" />
               {isPending ? 'Please wait…' : `Save RFQ (${rfqSupplierIds.length} suppliers)`}
             </Button>
@@ -211,11 +225,24 @@ export default function CreatePOPage() {
           )}
           {!rfqMode && (
             <>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => saveAsType('draft')} disabled={isPending || isPriceLoading}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => saveAsType('draft')}
+                disabled={isPending || isPriceLoading || !exchangeRateValid}
+                title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
+              >
                 <Save className="h-3.5 w-3.5" />
                 {isPending ? 'Please wait…' : 'Save as Draft'}
               </Button>
-              <Button size="sm" className="gap-1.5" onClick={submitApproval} disabled={isPending || isPriceLoading}>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={submitApproval}
+                disabled={isPending || isPriceLoading || !exchangeRateValid}
+                title={!exchangeRateValid ? 'Enter an exchange rate before submitting.' : undefined}
+              >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
               </Button>
@@ -350,6 +377,11 @@ export default function CreatePOPage() {
               <div className="h-9 px-3 flex items-center rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px]">
                 {formatAmt(subtotal, currency, currencySymbol)}
               </div>
+              {needsExchangeRate && exchangeRateValid && (
+                <p className="text-[10px] text-muted-foreground tabular-nums">
+                  ≈ {formatAmt(subtotal * exchangeRate, 'QAR')}
+                </p>
+              )}
             </div>
 
             {/* Grand total (only when discount > 0) */}
@@ -361,9 +393,36 @@ export default function CreatePOPage() {
                 <div className="h-9 px-3 flex items-center rounded-md border border-primary/30 bg-primary/5 text-primary font-bold min-w-[120px]">
                   {formatAmt(grandTotal, currency, currencySymbol)}
                 </div>
+                {needsExchangeRate && exchangeRateValid && (
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    ≈ {formatAmt(grandTotal * exchangeRate, 'QAR')}
+                  </p>
+                )}
               </div>
             )}
           </div>
+
+          {/* Exchange Rate row — only shown for non-QAR currencies */}
+          {needsExchangeRate && (
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                Exchange Rate <span className="text-destructive">*</span>{' '}
+                <span className="normal-case text-muted-foreground/70">(1 {currency} = ? QAR)</span>
+              </label>
+              <Input
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                className="h-8 w-32 text-sm"
+                placeholder="e.g. 3.64"
+                value={exchangeRate || ''}
+                onChange={(e) => setExchangeRate(Number(e.target.value))}
+              />
+              {!exchangeRateValid && (
+                <span className="text-[10px] text-destructive">Required</span>
+              )}
+            </div>
+          )}
 
           {rfqMode && rfqSupplierIds.length > 0 && (
             <SupplierChips value={rfqSupplierIds} onChange={setRfqSupplierIds} />

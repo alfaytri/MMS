@@ -430,6 +430,7 @@ export function useCreatePO() {
           status: 'draft',
           currency: payload.currency,
           exchange_rate: payload.exchange_rate,
+          initial_exchange_rate: payload.exchange_rate,
           subtotal,
           total_qar,
           approval_level,
