@@ -1,0 +1,45 @@
+'use client'
+
+import { Lock, PencilLine } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+export function BookedRateLockRow({
+  currency,
+  initialRate,
+  onEditClick,
+  disabled,
+}: {
+  currency: string
+  initialRate: number
+  onEditClick: () => void
+  disabled?: boolean
+}) {
+  if (currency === 'QAR') return null
+  return (
+    <div className="flex items-center gap-3 min-h-9">
+      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+        Booked Rate{' '}
+        <span className="normal-case text-muted-foreground/70">
+          (1 {currency} = ? QAR)
+        </span>
+      </label>
+      <div className="h-8 px-3 flex items-center gap-2 rounded-md border bg-muted/30 text-sm font-semibold min-w-[120px] tabular-nums">
+        <Lock className="h-3 w-3 text-muted-foreground" />
+        {initialRate.toLocaleString('en-QA', {
+          minimumFractionDigits: 4,
+          maximumFractionDigits: 4,
+        })}
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5"
+        onClick={onEditClick}
+        disabled={disabled}
+      >
+        <PencilLine className="h-3.5 w-3.5" /> Edit
+      </Button>
+    </div>
+  )
+}
