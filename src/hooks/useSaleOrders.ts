@@ -804,8 +804,9 @@ export function useUpdateSO() {
           .eq('id', id)
           .single()
         if (soFetchErr) throw soFetchErr
-        const rate  = Number((soRow as any)?.initial_exchange_rate ?? 1)
-        const total = Number((soRow as any)?.total ?? 0)
+        const row = soRow as unknown as { initial_exchange_rate: number | null; total: number | null } | null
+        const rate  = Number(row?.initial_exchange_rate ?? 1)
+        const total = Number(row?.total ?? 0)
         ;(safeFields as Record<string, unknown>).total_qar = total * rate
       }
 

@@ -30,7 +30,16 @@ export function useExchangeRateChangeLog(
         .order('changed_at', { ascending: false })
         .limit(20)
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      type Row = {
+        id: string
+        old_rate: number | string
+        new_rate: number | string
+        reason: string
+        changed_at: string
+        changed_by: string | null
+        user_data: { full_name: string | null } | null
+      }
+      return ((data ?? []) as unknown as Row[]).map((r) => ({
         id: r.id,
         old_rate: Number(r.old_rate),
         new_rate: Number(r.new_rate),

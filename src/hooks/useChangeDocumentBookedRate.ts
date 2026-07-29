@@ -39,6 +39,6 @@ export function useChangeDocumentBookedRate() {
       qc.invalidateQueries({ queryKey: ['document-exchange-summary', args.documentType, args.documentId] })
       toast.success('Booked exchange rate updated')
     },
-    onError: (err: any) => toast.error(err?.message ?? 'Failed to update rate'),
+    onError: (err: Error) => toast.error(err?.message ?? 'Failed to update rate'),
   })
 }

@@ -26,7 +26,10 @@ export function CreditBalanceDialog({ open, onOpenChange, partyId, partyName, ki
   const supplierQ = useOpenDebitNotesForSupplier(kind === 'supplier' && open ? partyId : null)
   const customerQ = useOpenCreditNotesForCustomer(kind === 'customer' && open ? partyId : null)
   const isLoading = kind === 'supplier' ? supplierQ.isLoading : customerQ.isLoading
-  const rows: OpenCreditNoteRow[] = kind === 'supplier' ? (supplierQ.data ?? []) : (customerQ.data ?? [])
+  const rows = useMemo<OpenCreditNoteRow[]>(
+    () => (kind === 'supplier' ? (supplierQ.data ?? []) : (customerQ.data ?? [])),
+    [kind, supplierQ.data, customerQ.data],
+  )
 
   const grouped = useMemo(() => {
     const map = new Map<string, OpenCreditNoteRow[]>()

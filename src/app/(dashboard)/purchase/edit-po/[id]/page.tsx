@@ -158,7 +158,7 @@ export default function EditPOPage() {
   // from the main hydrate effect so it doesn't clobber other form edits.
   useEffect(() => {
     if (po) setExchangeRate(po.exchange_rate)
-  }, [po?.exchange_rate])
+  }, [po, po?.exchange_rate])
 
   // ── Computed ──────────────────────────────────────────────────────────────
   const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? `${currency} `

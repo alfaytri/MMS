@@ -112,7 +112,7 @@ export default function EditSOPage() {
   // in addition to the one-shot hydrate effect above.
   useEffect(() => {
     if (so) setExchangeRate(so.exchange_rate ?? 1)
-  }, [so?.exchange_rate])
+  }, [so, so?.exchange_rate])
 
   const subtotal = calcSOSubtotal(lineItems)
   const total = calcSOTotal(subtotal, discountAmount, 'fixed')

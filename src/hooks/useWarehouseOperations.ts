@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { sendNotifications, getApprovalScopeRecipients } from '@/lib/notify'
-import type { Database } from '@/types/database.types'
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type StockMovementType =

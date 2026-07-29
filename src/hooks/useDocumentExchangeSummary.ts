@@ -47,14 +47,37 @@ export function useDocumentExchangeSummary(
       if (!documentType || !documentId) return null
       const parentTable = documentType === 'po' ? 'purchase_orders' : 'sale_orders'
 
-      const { data: parent, error: parentErr } = await supabase
+      type ParentRow = {
+        currency: string
+        initial_exchange_rate: number | null
+        initial_rate_captured_at: string | null
+        exchange_gain: number | null
+        exchange_loss: number | null
+        exchange_net: number | null
+        total_qar: number | null
+        subtotal: number | null
+      }
+      type PaymentRow = {
+        id: string
+        date: string
+        amount: number
+        exchange_rate: number
+        amount_qar: number | null
+        exchange_gain: number
+        exchange_loss: number
+        payment_id: string | null
+        method: string
+      }
+
+      const { data: parentData, error: parentErr } = await supabase
         .from(parentTable)
         .select('id, currency, initial_exchange_rate, initial_rate_captured_at, exchange_gain, exchange_loss, exchange_net, total_qar, subtotal')
         .eq('id', documentId)
         .single()
       if (parentErr) throw parentErr
+      const parent = parentData as unknown as ParentRow
 
-      const { data: pays, error: paysErr } = await supabase
+      const { data: paysData, error: paysErr } = await supabase
         .from('payments')
         .select('id, date, amount, exchange_rate, amount_qar, exchange_gain, exchange_loss, payment_id, method')
         .eq('source_type', toSourceType(documentType))
@@ -62,26 +85,27 @@ export function useDocumentExchangeSummary(
         .is('deleted_at', null)
         .order('date', { ascending: true })
       if (paysErr) throw paysErr
+      const pays = (paysData ?? []) as unknown as PaymentRow[]
 
-      const totalForeign = Number((parent as any).subtotal ?? 0)
-      const initialRate = Number((parent as any).initial_exchange_rate ?? 1)
-      const bookedQar = Number((parent as any).total_qar ?? totalForeign * initialRate)
-      const paidForeign = (pays ?? []).reduce((s, p: any) => s + Number(p.amount), 0)
-      const paidQar = (pays ?? []).reduce((s, p: any) => s + Number(p.amount_qar ?? 0), 0)
+      const totalForeign = Number(parent.subtotal ?? 0)
+      const initialRate = Number(parent.initial_exchange_rate ?? 1)
+      const bookedQar = Number(parent.total_qar ?? totalForeign * initialRate)
+      const paidForeign = pays.reduce((s, p) => s + Number(p.amount), 0)
+      const paidQar = pays.reduce((s, p) => s + Number(p.amount_qar ?? 0), 0)
 
       return {
-        currency: (parent as any).currency,
+        currency: parent.currency,
         initialRate,
-        capturedAt: (parent as any).initial_rate_captured_at,
+        capturedAt: parent.initial_rate_captured_at,
         totalForeign,
         bookedQar,
         paidForeign,
         paidQar,
         outstandingForeign: totalForeign - paidForeign,
-        exchangeGain: Number((parent as any).exchange_gain ?? 0),
-        exchangeLoss: Number((parent as any).exchange_loss ?? 0),
-        exchangeNet: Number((parent as any).exchange_net ?? 0),
-        payments: (pays ?? []) as ExchangePaymentRow[],
+        exchangeGain: Number(parent.exchange_gain ?? 0),
+        exchangeLoss: Number(parent.exchange_loss ?? 0),
+        exchangeNet: Number(parent.exchange_net ?? 0),
+        payments: pays as ExchangePaymentRow[],
       }
     },
   })
