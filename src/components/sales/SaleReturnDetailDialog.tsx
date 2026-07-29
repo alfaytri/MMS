@@ -13,7 +13,83 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { SaleReturn } from '@/hooks/useSaleReturns'
+import { useReturnProgress } from '@/hooks/useSaleReturns'
 import { useWarehouses } from '@/hooks/useWarehouses'
+
+const RESOLUTION_LABEL: Record<string, string> = {
+  replacement:  'replaced',
+  refund:       'refunded',
+  store_credit: 'store credit',
+}
+
+const DISPOSITION_LABEL: Record<string, string> = {
+  write_off:          'write-off',
+  restock_as_damaged: 'restock (damaged)',
+  send_for_repair:    'sent for repair',
+}
+
+function ResolutionProgressPanel({ returnId }: { returnId: string }) {
+  const { data: progress } = useReturnProgress(returnId)
+  if (!progress) return null
+
+  const custMix = progress.customer_resolutions_by_type ?? {}
+  const customerParts: string[] = []
+  for (const [type, qty] of Object.entries(custMix)) {
+    if (qty > 0) customerParts.push(`${qty} ${RESOLUTION_LABEL[type] ?? type}`)
+  }
+  if (progress.customer_remaining > 0) {
+    customerParts.push(`${progress.customer_remaining} remaining`)
+  }
+
+  const invMix = progress.inventory_dispositions_by_type ?? {}
+  const inventoryParts: string[] = []
+  if (progress.total_damaged > 0) {
+    for (const [type, qty] of Object.entries(invMix)) {
+      if (qty > 0) inventoryParts.push(`${qty} ${DISPOSITION_LABEL[type] ?? type}`)
+    }
+    if (progress.inventory_remaining > 0) {
+      inventoryParts.push(`${progress.inventory_remaining} un-dispositioned`)
+    }
+  }
+
+  const hasCustomer  = customerParts.length > 0
+  const hasInventory = progress.total_damaged > 0
+  if (!hasCustomer && !hasInventory && !progress.compensation_missing) return null
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Resolution Progress
+        </p>
+        {progress.compensation_missing && (
+          <span
+            title="Damaged units were dispositioned inventory-side but the customer received no matching refund / store credit / replacement."
+            className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300"
+          >
+            Compensation not recorded
+          </span>
+        )}
+      </div>
+      <div className="space-y-1 text-sm tabular-nums">
+        <div className="flex justify-between gap-3">
+          <span className="text-muted-foreground text-[11px] uppercase tracking-wide">Customer</span>
+          <span className="text-right text-xs">
+            {hasCustomer ? customerParts.join(' · ') : '—'}
+          </span>
+        </div>
+        {hasInventory && (
+          <div className="flex justify-between gap-3">
+            <span className="text-muted-foreground text-[11px] uppercase tracking-wide">Inventory</span>
+            <span className="text-right text-xs">
+              {inventoryParts.length > 0 ? inventoryParts.join(' · ') : '—'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:   { label: 'Pending',   color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
@@ -188,6 +264,9 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
               </div>
             </div>
           </div>
+
+          {/* Resolution progress (Phase 7 dual-ledger) */}
+          <ResolutionProgressPanel returnId={ret.id} />
 
           {/* Summary */}
           {items.length > 0 && (

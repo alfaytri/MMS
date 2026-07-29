@@ -173,6 +173,20 @@ Whenever you create or modify a `<Select>` / dropdown component, you **must** ve
 
 ---
 
+# Flow Registry — Mandatory Rule
+
+Every material business flow (an operator-visible action that mutates DB state through one or more RPCs) **must** be recorded in [`docs/flows-registry.md`](docs/flows-registry.md).
+
+**Rules:**
+- Before writing a new action, hook, or RPC, `grep` the registry first. If the flow already exists, extend it — do not build a parallel path.
+- When you add a new flow, update the registry **in the same commit that ships the code**. No separate follow-up.
+- When you retire a flow, mark its entry `Status: Deprecated` and note the drop plan. Do not delete the row until the code goes with a Phase cleanup.
+- Cross-link related flows with `[[Flow name]]` so ripgrep finds them.
+
+Use the entry template at the top of the registry. Fields to fill: Module, Status, Trigger surface(s), Primary hook(s), RPC(s), Ledger writes, Downstream side-effects, Dialog/component, Guards, Related flows, Docs/plans.
+
+---
+
 # Visual Companion — Never Offer
 
 **Do NOT offer the brainstorming visual companion (browser mockups / local URL).** This project uses text-only brainstorming. Skip that offer entirely in every session.

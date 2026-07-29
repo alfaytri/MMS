@@ -39,22 +39,70 @@ const RESOLUTION_LABEL: Record<string, string> = {
   replacement:  'replaced',
   refund:       'refunded',
   store_credit: 'store credit',
-  write_off:    'write-off',
+}
+
+const DISPOSITION_LABEL: Record<string, string> = {
+  write_off:          'write-off',
+  restock_as_damaged: 'restock (damaged)',
+  send_for_repair:    'sent for repair',
 }
 
 function ReturnLedgerSummary({ returnId }: { returnId: string }) {
   const { data: progress } = useReturnProgress(returnId)
   if (!progress) return null
-  const mix = progress.resolutions_by_type ?? {}
-  const parts: string[] = [`${progress.total_returned} returned`]
-  for (const [type, qty] of Object.entries(mix)) {
-    if (qty > 0) parts.push(`${qty} ${RESOLUTION_LABEL[type] ?? type}`)
+
+  // Customer-side breakdown (always shown — every returned unit needs one).
+  const custMix = progress.customer_resolutions_by_type ?? {}
+  const customerParts: string[] = [`${progress.total_returned} returned`]
+  for (const [type, qty] of Object.entries(custMix)) {
+    if (qty > 0) customerParts.push(`${qty} ${RESOLUTION_LABEL[type] ?? type}`)
   }
-  parts.push(`${progress.total_remaining} remaining`)
+  if (progress.customer_remaining > 0) {
+    customerParts.push(`${progress.customer_remaining} remaining`)
+  }
+
+  // Inventory-side breakdown — only meaningful when the return had damaged
+  // units. Renders as a compact second line so operators see both ledgers
+  // at a glance.
+  const showInventoryLine = progress.total_damaged > 0
+  const invMix = progress.inventory_dispositions_by_type ?? {}
+  const inventoryParts: string[] = []
+  if (showInventoryLine) {
+    inventoryParts.push(`${progress.total_damaged} damaged`)
+    for (const [type, qty] of Object.entries(invMix)) {
+      if (qty > 0) inventoryParts.push(`${qty} ${DISPOSITION_LABEL[type] ?? type}`)
+    }
+    if (progress.inventory_remaining > 0) {
+      inventoryParts.push(`${progress.inventory_remaining} un-dispositioned`)
+    }
+  }
+
   return (
-    <p className="text-[11px] text-muted-foreground tabular-nums">
-      {parts.join(' · ')}
-    </p>
+    <div className="space-y-0.5">
+      <p className="text-[11px] text-muted-foreground tabular-nums">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">Customer</span>
+        {customerParts.join(' · ')}
+      </p>
+      {showInventoryLine && (
+        <p className="text-[11px] text-muted-foreground tabular-nums">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mr-1">Inventory</span>
+          {inventoryParts.join(' · ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function CompensationMissingChip({ returnId }: { returnId: string }) {
+  const { data: progress } = useReturnProgress(returnId)
+  if (!progress?.compensation_missing) return null
+  return (
+    <span
+      title="Damaged units were dispositioned inventory-side but the customer received no matching refund / store credit / replacement. Open the credit note or use Resolve Remaining to record customer compensation."
+      className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300"
+    >
+      Compensation not recorded
+    </span>
   )
 }
 
@@ -138,6 +186,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-sm font-medium">{ret.return_number}</span>
                   <ReplacementChips returnId={ret.id} />
+                  <CompensationMissingChip returnId={ret.id} />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {needsInspection && (
