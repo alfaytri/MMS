@@ -5751,9 +5751,6 @@ export type Database = {
           inventory_remaining_qty: number | null
           inventory_resolved_qty: number | null
           item_name: string | null
-          remaining_qty: number | null
-          resolutions_by_type: Json | null
-          resolved_qty: number | null
           return_id: string | null
           return_line_id: string | null
           returned_qty: number | null
@@ -5786,7 +5783,6 @@ export type Database = {
       return_progress: {
         Row: {
           compensation_missing: boolean | null
-          coverage_status: string | null
           customer_remaining: number | null
           customer_resolutions_by_type: Json | null
           customer_resolved: number | null
@@ -5796,13 +5792,10 @@ export type Database = {
           inventory_resolved: number | null
           inventory_status: string | null
           overall_coverage_status: string | null
-          resolutions_by_type: Json | null
           return_id: string | null
           return_number: string | null
           status: Database["public"]["Enums"]["return_status"] | null
           total_damaged: number | null
-          total_remaining: number | null
-          total_resolved: number | null
           total_returned: number | null
         }
         Relationships: []
