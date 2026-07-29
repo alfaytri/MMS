@@ -195,6 +195,29 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useCreatePOPayment`](src/hooks/usePurchaseOrders.ts)
 - **RPC:** `refresh_po_status`
 - **Writes:** `payments` (SPAY-… outgoing); overpayment guard
+- **Notes:** When the PO is in a foreign currency, `trg_payments_compute_fx`
+  (BEFORE INSERT/UPDATE) populates `payments.exchange_gain`/`exchange_loss`
+  by comparing `payment.amount × po.initial_exchange_rate` (booked) vs
+  `payment.amount × payment.exchange_rate` (paid). AFTER trigger
+  `trg_payments_refresh_document_fx` rolls the totals up to
+  `purchase_orders.exchange_gain`/`exchange_loss` via `rpc_recompute_document_fx`.
+  QAR-only PO/payment combinations bypass the compute (stays 0). See
+  [[Change Booked Exchange Rate (PO)]].
+
+### Change Booked Exchange Rate (PO)
+- **Trigger:** `PoDetailDialog` → Exchange tab → BookedRateLockRow Edit button;
+  also `/purchase/edit-po/[id]` → BookedRateLockRow
+- **Hook:** [`useChangeDocumentBookedRate`](src/hooks/useChangeDocumentBookedRate.ts)
+- **RPC:** `rpc_update_document_initial_rate('po', po_id, new_rate, reason)`
+- **Writes:** `purchase_orders.initial_exchange_rate` + `.exchange_rate`
+  (kept in lockstep), `.initial_rate_captured_at`, `.initial_rate_captured_by`
+  (resolved from `auth.uid()` → `user_data.id`); appends `exchange_rate_change_log`
+  row (audit); then calls `rpc_recompute_document_fx` which refreshes every
+  linked payment's FX and the PO rollup.
+- **Guards:** `p_new_rate > 0`, `char_length(trim(p_reason)) >= 5`,
+  `auth.uid()` not null, `user_data` row exists for the caller.
+- **Dialog:** [`ChangeBookedRateDialog`](src/components/shared/ChangeBookedRateDialog.tsx)
+- **Related:** [[Record Supplier Payment (PO)]]
 
 ### Save RFQ Quote
 - **Trigger:** RFQ tab in `PoDetailDialog`
@@ -272,6 +295,14 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useCreateReceival`](src/hooks/useReceivals.ts)
 - **RPC:** `create_and_approve_receival`
 - **Writes:** `receivals` + `receival_items`, books `inventory_stock_movements` and FIFO layers
+- **Notes:** For foreign-currency POs, `fifo_cost_layers.unit_cost` and
+  `inventory_stock_movements.unit_cost` are converted to QAR at receival time
+  using `po.initial_exchange_rate` (source of truth). `receival_items.unit_cost`
+  stays in the PO's currency (audit of what the operator entered).
+  `fifo_cost_layers.source_currency` + `.source_exchange_rate` are stamped for
+  audit. QAR POs unchanged (rate=1, no conversion). Going-forward only —
+  historical FIFO layers are NOT backfilled. See migration
+  `20260729214710_fx_receival_qar_conversion.sql`.
 
 ### Request Receival Edit
 - **Trigger:** `ReceivalDetailDialog`
@@ -553,6 +584,24 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Trigger:** `CustomerPaymentDialog` / `PaymentFormDialog`
 - **Hook:** [`useCreateCustomerPayment`](src/hooks/useCustomerPayments.ts)
 - **Writes:** CPAY payment, recomputes `so_invoices.payment_status`
+- **Notes:** When the source SO is in a foreign currency, `trg_payments_compute_fx`
+  populates `payments.exchange_gain`/`exchange_loss` at insert (sign flipped
+  vs supplier payments — customer gain = we received more QAR than booked).
+  Rolled up to `sale_orders.exchange_gain`/`exchange_loss` via
+  `rpc_recompute_document_fx`. See [[Change Booked Exchange Rate (SO)]].
+
+### Change Booked Exchange Rate (SO)
+- **Trigger:** `SoDetailDialog` → Exchange tab → BookedRateLockRow Edit button;
+  also `/sales/edit-so/[id]` → BookedRateLockRow
+- **Hook:** [`useChangeDocumentBookedRate`](src/hooks/useChangeDocumentBookedRate.ts)
+- **RPC:** `rpc_update_document_initial_rate('so', so_id, new_rate, reason)`
+- **Writes:** `sale_orders.initial_exchange_rate` + `.exchange_rate` (in lockstep),
+  `.initial_rate_captured_at`, `.initial_rate_captured_by`; appends
+  `exchange_rate_change_log` row; triggers `rpc_recompute_document_fx` to
+  refresh linked payments' FX + SO rollup.
+- **Guards:** same as PO variant — `p_new_rate > 0`, `reason ≥ 5 chars`, authenticated.
+- **Dialog:** [`ChangeBookedRateDialog`](src/components/shared/ChangeBookedRateDialog.tsx)
+- **Related:** [[Record Customer Payment]], [[Change Booked Exchange Rate (PO)]]
 
 ### Apply Store Credit (FIFO across CNs)
 - **Trigger:** `CreditBalanceDialog`
