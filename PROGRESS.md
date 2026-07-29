@@ -246,7 +246,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Nothing active. **Phase 8 Sub-tasks 8.3 + 8.4 complete (2026-07-29)**. Next up: **8.5 — Drop legacy `return_line_resolutions` table + orphaned recorder function**. This is the most destructive step in the plan — take a staging snapshot before applying if a rollback window matters.
+🚀 Starting: **Phase 8 Sub-task 8.5: Drop legacy `return_line_resolutions` table + orphaned recorder function**. Most destructive step in the plan — user opted to skip a pre-drop snapshot (Option C) because historical rows were already backfilled into the dual-ledger tables during Phase 7.1 and the legacy over-writes were confirmed bogus in the 7.7 reconciliation. Bridge trigger already gone (8.3); alias-column views already rebuilt (8.4); zero live code callers per 8.1 grep. Migration: `supabase/migrations/20260731000400_drop_legacy_resolutions.sql`.
 
 
 
