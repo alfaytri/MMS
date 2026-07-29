@@ -246,7 +246,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Nothing active. **Phase 8 Sub-task 8.2 complete (2026-07-29)** — compat wrapper dropped cleanly plus 4 sub-fixes (3 enum-value regressions that only surfaced under real writes + 1 shared-mutation UX flaw + 1 pre-existing `sale_deliveries.deleted_at` 400 caught during verification). Next up: **8.3 — Drop bridge trigger + `_bridge_legacy_resolution_to_dual_ledger` function** (small drop, no UI impact).
+🚀 Starting: **Phase 8 Sub-task 8.3 — Drop bridge trigger + `_bridge_legacy_resolution_to_dual_ledger` function** — Phase 7 interim safety net retirement. The trigger mirrored any legacy `return_line_resolutions` insert into the new dual-ledger tables during the transition window (7.1 → 7.2 gap). Zero legacy-table writes have occurred since 7.2 landed (confirmed during 7.7 section G walkthrough — bridge was already inert), and 8.1 grep confirmed no live callers write to the legacy table. Migration `20260731000200_drop_bridge_trigger.sql` drops the trigger + function. No UI changes. Applying against staging via incremental `db push`.
 
 
 
