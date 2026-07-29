@@ -220,14 +220,8 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                     ret.status === 'received'           ? 'bg-blue-100 text-blue-700' :
                     ret.status === 'pending_inspection' ? 'bg-purple-100 text-purple-700' :
                     ret.status === 'closed'             ? 'bg-muted text-muted-foreground' :
-                    ret.status === 'resolved_replacement' ? 'bg-emerald-100 text-emerald-800' :
-                    ret.status === 'resolved_credit'      ? 'bg-emerald-100 text-emerald-800' :
-                    ret.status === 'resolved_partial'     ? 'bg-emerald-100 text-emerald-800' :
                                                           'bg-amber-100 text-amber-700'
                   }`}>{
-                    ret.status === 'resolved_replacement' ? 'Resolved · Replacement' :
-                    ret.status === 'resolved_credit'      ? 'Resolved · Credit' :
-                    ret.status === 'resolved_partial'     ? 'Resolved · Mixed' :
                     ret.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
                   }</span>
                 </div>
@@ -237,7 +231,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
 
               <ReturnLedgerSummary returnId={ret.id} />
 
-              {onSendReplacement && (ret.status === 'restocked' || ret.status === 'resolved_partial' || ret.status === 'resolved_replacement' || ret.status === 'resolved_credit') && (
+              {onSendReplacement && ret.status === 'restocked' && (
                 <ResolveRemainingButton
                   returnId={ret.id}
                   onClick={() => onSendReplacement(ret)}

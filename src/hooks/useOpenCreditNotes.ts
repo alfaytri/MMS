@@ -32,7 +32,7 @@ export function useOpenDebitNotesForSupplier(supplierId: string | null) {
           purchase_orders:purchase_order_id ( po_number, supplier_id, currency )
         `)
         .eq('resolution_type', 'supplier_credit')
-        .in('status', ['issued', 'approved'])
+        .in('status', ['open', 'in_progress'])
         .order('created_at', { ascending: false })
         .limit(200)
       if (error) throw new Error(error.message)

@@ -148,8 +148,8 @@ export default function CreditNotesPage() {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const s = (row.getValue('status') ?? 'draft') as CreditNoteStatus
-        const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.draft
+        const s = (row.getValue('status') ?? 'open') as CreditNoteStatus
+        const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.open
         return <Badge className={cn('text-xs', cfg.className)}>{cfg.label}</Badge>
       },
     },
@@ -171,7 +171,7 @@ export default function CreditNotesPage() {
                 returnNumber={note.return_number ?? '—'}
               />
             )}
-            {(note.status === 'issued' || note.status === 'approved') && !note.resolution_type && (
+            {(note.status === 'open' || note.status === 'in_progress') && !note.resolution_type && (
               <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={(e) => { e.stopPropagation(); setApplyTarget(note) }}>
                 Apply
               </Button>
@@ -253,8 +253,8 @@ export default function CreditNotesPage() {
         isLoading={cnLoading}
         onRowClick={(note: CreditNote) => setDetailNote(note)}
         mobileCardRender={(note: CreditNote) => {
-          const s = (note.status ?? 'draft') as CreditNoteStatus
-          const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.draft
+          const s = (note.status ?? 'open') as CreditNoteStatus
+          const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.open
           return (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">

@@ -53,8 +53,13 @@ async function resolveCreditNoteViaLedger(
         .eq('return_id', returnId)
       if (progErr) throw progErr
       lines = (progress ?? [])
-        .filter((r) => Number(r.customer_remaining_qty) > 0)
-        .map((r) => ({ return_line_id: r.return_line_id, qty: Number(r.customer_remaining_qty) }))
+        .reduce<ResolutionLineInput[]>((acc, r) => {
+          const qty = Number(r.customer_remaining_qty)
+          if (r.return_line_id !== null && qty > 0) {
+            acc.push({ return_line_id: r.return_line_id, qty })
+          }
+          return acc
+        }, [])
     }
 
     if (lines.length > 0) {
@@ -62,8 +67,8 @@ async function resolveCreditNoteViaLedger(
         const { error } = await supabase.rpc('rpc_record_return_refund', {
           p_return_id: returnId,
           p_lines: lines as unknown as never,
-          p_refund_method: opts.refundMethod ?? null,
-          p_refund_reference: opts.refundReference ?? null,
+          p_refund_method: opts.refundMethod ?? undefined,
+          p_refund_reference: opts.refundReference ?? undefined,
         })
         if (error) throw error
         return

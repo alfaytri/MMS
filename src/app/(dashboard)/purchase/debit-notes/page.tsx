@@ -158,8 +158,8 @@ export default function DebitNotesPage() {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const s = (row.getValue('status') ?? 'issued') as CreditNoteStatus
-        const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.issued
+        const s = (row.getValue('status') ?? 'open') as CreditNoteStatus
+        const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.open
         return <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
       },
     },
@@ -272,8 +272,8 @@ export default function DebitNotesPage() {
         isLoading={isLoading}
         onRowClick={(note: DebitNoteRow) => setDetailNote(note)}
         mobileCardRender={(note: DebitNoteRow) => {
-          const s = (note.status ?? 'issued') as CreditNoteStatus
-          const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.issued
+          const s = (note.status ?? 'open') as CreditNoteStatus
+          const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.open
           return (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">

@@ -129,9 +129,6 @@ const STATUS_CONFIG: Partial<Record<SaleReturn['status'], { label: string; color
   pending_inspection:   { label: 'Pending Inspection',   color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200', Icon: AlertTriangle },
   received:             { label: 'Received',             color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',     Icon: Truck },
   restocked:            { label: 'Restocked',            color: 'text-green-700',  bg: 'bg-green-50 border-green-200',   Icon: CheckCircle2 },
-  resolved_credit:      { label: 'Resolved · Credit',      color: 'text-emerald-800', bg: 'bg-emerald-100 border-emerald-300', Icon: CheckCircle2 },
-  resolved_replacement: { label: 'Resolved · Replacement', color: 'text-emerald-800', bg: 'bg-emerald-100 border-emerald-300', Icon: CheckCircle2 },
-  resolved_partial:     { label: 'Resolved · Mixed',       color: 'text-emerald-800', bg: 'bg-emerald-100 border-emerald-300', Icon: CheckCircle2 },
   closed:               { label: 'Closed',               color: 'text-slate-700',  bg: 'bg-slate-50 border-slate-200',   Icon: CheckCircle2 },
   cancelled:            { label: 'Cancelled',            color: 'text-red-700',    bg: 'bg-red-50 border-red-200',       Icon: Ban },
 }
@@ -320,7 +317,7 @@ export default function SaleReturnsPage() {
       ) : (
         <div className="space-y-2">
           {(returns ?? []).map((ret) => {
-            const cfg  = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending
+            const cfg  = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending ?? { label: ret.status, color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200', Icon: Clock }
             const next = STATUS_NEXT[ret.status]
             const canCancel = ret.status === 'pending' || ret.status === 'received'
             const damaged   = (ret.return_lines ?? []).filter((i) => i.condition === 'damaged').reduce((s, i) => s + i.qty, 0)
@@ -361,7 +358,7 @@ export default function SaleReturnsPage() {
                       {next && (
                         <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px]" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: next },
-                            { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next].label}`), onError: (e) => toast.error(e.message) }
+                            { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next]?.label ?? next}`), onError: (e) => toast.error(e.message) }
                           )}>
                           {STATUS_LABEL[next]}
                         </Button>
