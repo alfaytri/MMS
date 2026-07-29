@@ -1416,6 +1416,47 @@ export type Database = {
           },
         ]
       }
+      exchange_rate_change_log: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          document_id: string
+          document_type: string
+          id: string
+          new_rate: number
+          old_rate: number
+          reason: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          document_id: string
+          document_type: string
+          id?: string
+          new_rate: number
+          old_rate: number
+          reason: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          document_id?: string
+          document_type?: string
+          id?: string
+          new_rate?: number
+          old_rate?: number
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_rate_change_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fifo_cost_layers: {
         Row: {
           brand_variant_id: string
@@ -1428,6 +1469,8 @@ export type Database = {
           receival_id: string | null
           receival_number: string | null
           remaining_qty: number
+          source_currency: string
+          source_exchange_rate: number
           source_id: string | null
           source_type: string | null
           total_unit_cost: number
@@ -1445,6 +1488,8 @@ export type Database = {
           receival_id?: string | null
           receival_number?: string | null
           remaining_qty: number
+          source_currency?: string
+          source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
           total_unit_cost: number
@@ -1462,6 +1507,8 @@ export type Database = {
           receival_id?: string | null
           receival_number?: string | null
           remaining_qty?: number
+          source_currency?: string
+          source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
           total_unit_cost?: number
@@ -2520,6 +2567,8 @@ export type Database = {
           date: string
           deleted_at: string | null
           direction: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain: number
+          exchange_loss: number
           exchange_rate: number
           id: string
           invoice_id: string | null
@@ -2552,6 +2601,8 @@ export type Database = {
           date: string
           deleted_at?: string | null
           direction?: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain?: number
+          exchange_loss?: number
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
@@ -2586,6 +2637,8 @@ export type Database = {
           date?: string
           deleted_at?: string | null
           direction?: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain?: number
+          exchange_loss?: number
           exchange_rate?: number
           id?: string
           invoice_id?: string | null
@@ -3210,9 +3263,15 @@ export type Database = {
           discount_amount: number
           discount_label: string | null
           division_id: string | null
+          exchange_gain: number
+          exchange_loss: number
+          exchange_net: number | null
           exchange_rate: number | null
           expected_delivery: string | null
           id: string
+          initial_exchange_rate: number
+          initial_rate_captured_at: string | null
+          initial_rate_captured_by: string | null
           payment_milestones: Json | null
           payment_terms: string | null
           payment_terms_notes: string | null
@@ -3248,9 +3307,15 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
+          exchange_gain?: number
+          exchange_loss?: number
+          exchange_net?: number | null
           exchange_rate?: number | null
           expected_delivery?: string | null
           id?: string
+          initial_exchange_rate?: number
+          initial_rate_captured_at?: string | null
+          initial_rate_captured_by?: string | null
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
@@ -3286,9 +3351,15 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
+          exchange_gain?: number
+          exchange_loss?: number
+          exchange_net?: number | null
           exchange_rate?: number | null
           expected_delivery?: string | null
           id?: string
+          initial_exchange_rate?: number
+          initial_rate_captured_at?: string | null
+          initial_rate_captured_by?: string | null
           payment_milestones?: Json | null
           payment_terms?: string | null
           payment_terms_notes?: string | null
@@ -3331,6 +3402,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_initial_rate_captured_by_fkey"
+            columns: ["initial_rate_captured_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
           {
@@ -4180,9 +4258,15 @@ export type Database = {
           discount_label: string | null
           discount_type: string | null
           division_id: string | null
+          exchange_gain: number
+          exchange_loss: number
+          exchange_net: number | null
           exchange_rate: number
           expected_delivery: string | null
           id: string
+          initial_exchange_rate: number
+          initial_rate_captured_at: string | null
+          initial_rate_captured_by: string | null
           notes: string | null
           payment_milestones: Json | null
           payment_terms: string | null
@@ -4193,6 +4277,7 @@ export type Database = {
           subtotal: number | null
           tax: number | null
           total: number | null
+          total_qar: number | null
           updated_at: string
           validity_days: number
           voucher_id: string | null
@@ -4214,9 +4299,15 @@ export type Database = {
           discount_label?: string | null
           discount_type?: string | null
           division_id?: string | null
+          exchange_gain?: number
+          exchange_loss?: number
+          exchange_net?: number | null
           exchange_rate?: number
           expected_delivery?: string | null
           id?: string
+          initial_exchange_rate?: number
+          initial_rate_captured_at?: string | null
+          initial_rate_captured_by?: string | null
           notes?: string | null
           payment_milestones?: Json | null
           payment_terms?: string | null
@@ -4227,6 +4318,7 @@ export type Database = {
           subtotal?: number | null
           tax?: number | null
           total?: number | null
+          total_qar?: number | null
           updated_at?: string
           validity_days?: number
           voucher_id?: string | null
@@ -4248,9 +4340,15 @@ export type Database = {
           discount_label?: string | null
           discount_type?: string | null
           division_id?: string | null
+          exchange_gain?: number
+          exchange_loss?: number
+          exchange_net?: number | null
           exchange_rate?: number
           expected_delivery?: string | null
           id?: string
+          initial_exchange_rate?: number
+          initial_rate_captured_at?: string | null
+          initial_rate_captured_by?: string | null
           notes?: string | null
           payment_milestones?: Json | null
           payment_terms?: string | null
@@ -4261,6 +4359,7 @@ export type Database = {
           subtotal?: number | null
           tax?: number | null
           total?: number | null
+          total_qar?: number | null
           updated_at?: string
           validity_days?: number
           voucher_id?: string | null
@@ -4299,6 +4398,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_orders_initial_rate_captured_by_fkey"
+            columns: ["initial_rate_captured_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
         ]
@@ -7272,8 +7378,14 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.110.0 (currently installed v2.91.3)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
 
-export type AllTables = Database["public"]["Tables"]
-export type DBTable<T extends keyof AllTables> = AllTables[T]["Row"]
-export type DBInsert<T extends keyof AllTables> = AllTables[T]["Insert"]
-export type DBUpdate<T extends keyof AllTables> = AllTables[T]["Update"]
+// ── Helper aliases (re-appended after every gen types) ────────────────
+export type DBTable<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Row']
+export type DBInsert<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Insert']
+export type DBUpdate<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Update']
+export type AllTables = keyof Database['public']['Tables']
