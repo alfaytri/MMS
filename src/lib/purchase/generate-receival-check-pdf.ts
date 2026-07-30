@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
+import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
 import {
   buildReceivalCheckHtml,
   type ReceivalCheckMode,
@@ -42,21 +43,23 @@ interface PoRow {
 }
 
 interface PoLineItemRow {
-  id:         string
-  item_name:  string
-  sku:        string | null
-  qty:        number
-  free_qty:   number | null
+  id:                string
+  item_name:         string
+  sku:               string | null
+  qty:               number
+  free_qty:          number | null
+  brand_variant_id:  string | null
 }
 
 interface ReceivalItemRow {
-  id:              string
-  receival_id:     string
-  po_line_item_id: string | null
-  item_name:       string
-  sku:             string | null
-  qty_received:    number
-  is_free:         boolean
+  id:                string
+  receival_id:       string
+  po_line_item_id:   string | null
+  item_name:         string
+  sku:               string | null
+  qty_received:      number
+  is_free:           boolean
+  brand_variant_id:  string | null
 }
 
 interface ReceivalRow {
@@ -100,7 +103,7 @@ export async function generateReceivalCheckPdf(
   // ── Fetch PO line items ─────────────────────────────────────────────
   const { data: poLineItems, error: pliErr } = await supabase
     .from('po_line_items')
-    .select('id, item_name, sku, qty, free_qty')
+    .select('id, item_name, sku, qty, free_qty, brand_variant_id')
     .eq('po_id', poUuid)
     .order('id', { ascending: true })
   if (pliErr) {
@@ -191,15 +194,16 @@ export async function generateReceivalCheckPdf(
       remainingAfter,
       remainingAfterFree,
       isLoose:            false,
+      brandVariantId:     li.brand_variant_id,
     })
   }
 
   if (mode === 'per_receival' && targetReceival) {
     const looseItems = (targetReceival.receival_items ?? []).filter((ri) => ri.po_line_item_id === null)
-    const grouped = new Map<string, { paid: number; free: number; name: string; sku: string | null }>()
+    const grouped = new Map<string, { paid: number; free: number; name: string; sku: string | null; bvId: string | null }>()
     for (const ri of looseItems) {
       const key = `${ri.item_name}|${ri.sku ?? ''}`
-      const g = grouped.get(key) ?? { paid: 0, free: 0, name: ri.item_name, sku: ri.sku }
+      const g = grouped.get(key) ?? { paid: 0, free: 0, name: ri.item_name, sku: ri.sku, bvId: ri.brand_variant_id }
       if (ri.is_free) g.free += ri.qty_received
       else            g.paid += ri.qty_received
       grouped.set(key, g)
@@ -217,7 +221,20 @@ export async function generateReceivalCheckPdf(
         remainingAfter:     0,
         remainingAfterFree: 0,
         isLoose:            true,
+        brandVariantId:     g.bvId,
       })
+    }
+  }
+
+  // Hydrate Arabic names — bulk fetch by brand_variant_id and stamp on rows.
+  const arMap = await fetchArabicNamesByBrandVariant(
+    supabase,
+    rows.map((r) => r.brandVariantId ?? null),
+  )
+  for (const row of rows) {
+    if (row.brandVariantId) {
+      const ar = arMap.get(row.brandVariantId)
+      if (ar) row.itemNameAr = ar
     }
   }
 

@@ -18,10 +18,11 @@ import {
 } from '@/lib/pdf/pdf-fonts'
 
 export interface InvoiceLineItem {
-  description: string
-  qty:         number | null
-  unit_price:  number | null
-  total:       number | null
+  description:    string
+  description_ar?: string | null
+  qty:            number | null
+  unit_price:     number | null
+  total:          number | null
 }
 
 export interface InvoicePayment {
@@ -84,6 +85,7 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
     <tr>
       <td class="cell-item">
         <div class="item-name">${escapeHtml(li.description)}</div>
+        ${li.description_ar ? `<div class="item-name-ar">${escapeHtml(li.description_ar)}</div>` : ''}
       </td>
       <td class="cell-num">${escapeHtml(li.qty == null ? '—' : String(li.qty))}</td>
       <td class="cell-num">${escapeHtml(fmtMoney(li.unit_price))}</td>

@@ -17,6 +17,16 @@ import {
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
+import { fetchArabicNamesByEnglishName } from '@/lib/pdf/arabic-names'
+
+async function hydrateInvoiceArabic(
+  client: SupabaseClient,
+  lines:  InvoiceLineItem[],
+): Promise<InvoiceLineItem[]> {
+  if (lines.length === 0) return lines
+  const map = await fetchArabicNamesByEnglishName(client, lines.map((l) => l.description))
+  return lines.map((l) => ({ ...l, description_ar: map.get(l.description) ?? null }))
+}
 
 function storageKeyFor(invoiceDisplayId: string): string {
   return `${invoiceDisplayId.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`
@@ -121,7 +131,7 @@ export async function generateInvoicePdf(
       return phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? null
     })(),
     so_number:      inv.sale_orders?.so_number ?? null,
-    lines:          inv.invoice_line_items ?? [],
+    lines:          await hydrateInvoiceArabic(supabase, inv.invoice_line_items ?? []),
     subtotal,
     discount,
     total_amount:   totalAmount,

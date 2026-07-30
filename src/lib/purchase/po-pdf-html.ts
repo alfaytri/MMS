@@ -26,13 +26,14 @@ export type PoPdfVariant = 'rfq' | 'draft' | 'po' | 'confirmed'
 // ── Interfaces ─────────────────────────────────────────────────────────────
 
 export interface PoLineItem {
-  item_name:    string
-  item_name_ar?: string | null
-  sku:          string | null
-  qty:          number
-  unit:         string
-  unit_price:   number
-  total_price:  number
+  item_name:         string
+  item_name_ar?:     string | null
+  brand_variant_id?: string | null
+  sku:               string | null
+  qty:               number
+  unit:              string
+  unit_price:        number
+  total_price:       number
 }
 
 export interface PoPayment {

@@ -10,6 +10,7 @@ import {
 
 export interface DeliveryNoteItem {
   itemName:     string
+  itemNameAr?:  string | null
   sku:          string | null
   qtyDelivered: number
 }
@@ -70,6 +71,7 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
         <td class="cell-num">${rowIdx}</td>
         <td class="cell-item">
           <div class="item-name">${esc(item.itemName)}</div>
+          ${item.itemNameAr ? `<div class="item-name-ar">${esc(item.itemNameAr)}</div>` : ''}
           ${item.sku ? `<div class="item-sku">${esc(item.sku)}</div>` : ''}
         </td>
         <td class="cell-num">${fmtQty(item.qtyDelivered)}</td>

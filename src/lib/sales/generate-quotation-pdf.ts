@@ -24,6 +24,7 @@ import {
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
+import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
 
 // SO numbers like "SO-00088" don't contain slashes, but normalise anyway.
 function storageKeyFor(soNumber: string): string {
@@ -51,6 +52,18 @@ interface SaleOrderRow {
   sale_order_lines:         QuotationLineItem[] | null
 }
 
+async function hydrateArabic<T extends { item_name_ar: string | null; brand_variant_id?: string | null }>(
+  client: SupabaseClient,
+  lines:  T[],
+): Promise<T[]> {
+  if (lines.length === 0) return lines
+  const map = await fetchArabicNamesByBrandVariant(client, lines.map((l) => l.brand_variant_id))
+  return lines.map((l) => ({
+    ...l,
+    item_name_ar: l.item_name_ar ?? (l.brand_variant_id ? map.get(l.brand_variant_id) ?? null : null),
+  }))
+}
+
 export interface GenerateQuotationPdfResult {
   url:         string
   storageKey:  string
@@ -75,7 +88,7 @@ export async function generateQuotationPdf(
       delivery_terms, delivery_terms_notes,
       customer_notes, created_at, quotation_pdf_url,
       customers(name, phone),
-      sale_order_lines(item_name, item_name_ar, sku, qty, unit, unit_price, total, line_type)
+      sale_order_lines(item_name, item_name_ar, sku, qty, unit, unit_price, total, line_type, brand_variant_id)
     `)
     .eq('id', saleOrderId)
     .single<SaleOrderRow>()
@@ -108,7 +121,7 @@ export async function generateQuotationPdf(
     currency:                 so.currency,
     customer_name:            so.customers?.name  ?? '',
     customer_phone:           so.customers?.phone ?? null,
-    lines:                    so.sale_order_lines ?? [],
+    lines:                    await hydrateArabic(supabase, so.sale_order_lines ?? []),
     subtotal:                 Number(so.subtotal ?? 0),
     discount_amount_resolved: Number(so.discount_amount_resolved ?? 0),
     discount_label:           so.discount_label,

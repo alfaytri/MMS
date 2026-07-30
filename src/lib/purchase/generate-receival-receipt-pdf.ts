@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
+import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
 import {
   buildReceivalReceiptHtml,
   type ReceivalReceiptItem,
@@ -29,12 +30,13 @@ interface ReceivalRow {
   received_by_name: string | null
   receipt_pdf_url:  string | null
   receival_items:   Array<{
-    id:              string
-    item_name:       string
-    sku:             string | null
-    qty_received:    number
-    unit_cost:       number
-    is_free:         boolean | null
+    id:                string
+    item_name:         string
+    sku:               string | null
+    qty_received:      number
+    unit_cost:         number
+    is_free:           boolean | null
+    brand_variant_id:  string | null
   }> | null
   purchase_orders:  { po_number: string; supplier_name: string; division_id: string | null } | null
   warehouses:       { name: string } | null
@@ -52,7 +54,7 @@ export async function generateReceivalReceiptPdf(
     .select(`
       id, receival_number, po_id, warehouse_id, date, notes, received_by_name,
       receipt_pdf_url,
-      receival_items(id, item_name, sku, qty_received, unit_cost, is_free),
+      receival_items(id, item_name, sku, qty_received, unit_cost, is_free, brand_variant_id),
       purchase_orders!receivals_po_id_fkey(po_number, supplier_name, division_id),
       warehouses!receivals_warehouse_id_fkey(name)
     `)
@@ -73,8 +75,11 @@ export async function generateReceivalReceiptPdf(
     }
   }
 
-  const items: ReceivalReceiptItem[] = (rcv.receival_items ?? []).map(ri => ({
+  const rawItems = rcv.receival_items ?? []
+  const arMap = await fetchArabicNamesByBrandVariant(supabase, rawItems.map((r) => r.brand_variant_id))
+  const items: ReceivalReceiptItem[] = rawItems.map(ri => ({
     itemName:    ri.item_name,
+    itemNameAr:  ri.brand_variant_id ? arMap.get(ri.brand_variant_id) ?? null : null,
     sku:         ri.sku,
     qtyReceived: ri.qty_received,
     unitCost:    ri.unit_cost,

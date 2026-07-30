@@ -17,10 +17,23 @@ import {
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
+import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
 
 export type { PoPdfVariant } from '@/lib/purchase/po-pdf-html'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+async function hydratePoArabic(
+  client: SupabaseClient,
+  lines:  PoLineItem[],
+): Promise<PoLineItem[]> {
+  if (lines.length === 0) return lines
+  const map = await fetchArabicNamesByBrandVariant(client, lines.map((l) => l.brand_variant_id))
+  return lines.map((l) => ({
+    ...l,
+    item_name_ar: l.item_name_ar ?? (l.brand_variant_id ? map.get(l.brand_variant_id) ?? null : null),
+  }))
+}
 
 /** Hash format: "count:totalPaid" — cheap, deterministic, catches any payment change. */
 function computePaymentHash(payments: PoPayment[]): string {
@@ -107,7 +120,7 @@ export async function generatePoPdf(
       supplier_name, supplier_id, division_id, payment_terms, delivery_terms,
       quote_deadline, vendor_notes,
       pdf_rfq_url, pdf_draft_url, pdf_po_url, pdf_confirmed_url, pdf_payment_hash,
-      po_line_items(item_name, sku, qty, unit, unit_price, total_price)
+      po_line_items(item_name, sku, qty, unit, unit_price, total_price, brand_variant_id)
     `)
     .eq('id', poUuid)
     .single<PoRow>()
@@ -201,7 +214,7 @@ export async function generatePoPdf(
     supplier_phone:    supplierPhone,
     rfq_number:        rfqNumber,
     status:            po.status,
-    lines:             po.po_line_items ?? [],
+    lines:             await hydratePoArabic(supabase, po.po_line_items ?? []),
     subtotal:          Number(po.subtotal        ?? 0),
     discount_amount:   Number(po.discount_amount ?? 0),
     total_qar:         totalQar,
@@ -373,7 +386,7 @@ async function renderSnapshotPdf(
     supplier_phone:    supplierPhone,
     rfq_number:        rfqNumber,
     status:            po.status,
-    lines,
+    lines:             await hydratePoArabic(supabase, lines),
     subtotal,
     discount_amount:   discountAmount,
     total_qar:         totalQar,

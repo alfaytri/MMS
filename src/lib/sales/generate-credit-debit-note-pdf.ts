@@ -13,6 +13,7 @@ import {
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
+import { fetchArabicNamesByEnglishName } from '@/lib/pdf/arabic-names'
 
 function storageKeyFor(noteDisplayId: string): string {
   return `${noteDisplayId.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`
@@ -229,18 +230,21 @@ export async function generateCreditDebitNotePdf(
     ? (supplierName ?? '—')
     : (customerName ?? '—')
 
-  const returnedLines: NoteReturnedLine[] = allLines
-    .filter((l) => l.line_type === 'returned')
-    .map((l) => ({
-      item_name:       l.description ?? 'Item',
-      item_name_ar:    '',
-      sku:             l.sku ?? '',
-      qty:             l.qty,
-      unit_price:      l.unit_price,
-      total:           l.total ?? l.qty * l.unit_price,
-      condition:       (l.condition as NoteReturnedLine['condition']) ?? undefined,
-      condition_notes: l.condition_notes ?? undefined,
-    }))
+  const returnedRawLines = allLines.filter((l) => l.line_type === 'returned')
+  const arMap = await fetchArabicNamesByEnglishName(
+    supabase,
+    returnedRawLines.map((l) => l.description),
+  )
+  const returnedLines: NoteReturnedLine[] = returnedRawLines.map((l) => ({
+    item_name:       l.description ?? 'Item',
+    item_name_ar:    (l.description ? arMap.get(l.description) ?? '' : ''),
+    sku:             l.sku ?? '',
+    qty:             l.qty,
+    unit_price:      l.unit_price,
+    total:           l.total ?? l.qty * l.unit_price,
+    condition:       (l.condition as NoteReturnedLine['condition']) ?? undefined,
+    condition_notes: l.condition_notes ?? undefined,
+  }))
   const creditDebitTotal = returnedLines.reduce((acc, l) => acc + l.total, 0)
 
   // ── 4. Build & render ────────────────────────────────────────────────

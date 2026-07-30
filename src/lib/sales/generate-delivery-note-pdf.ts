@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
+import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
 import {
   buildDeliveryNoteHtml,
   type DeliveryNoteItem,
@@ -26,9 +27,10 @@ interface DeliveryRow {
   warehouse_name:  string | null
   date:            string
   sale_delivery_lines: Array<{
-    item_name:     string
-    sku:           string | null
-    qty_delivered: number
+    item_name:        string
+    sku:              string | null
+    qty_delivered:    number
+    brand_variant_id: string | null
   }> | null
   status:          string | null
   created_by_name: string | null
@@ -49,7 +51,7 @@ export async function generateDeliveryNotePdf(
     .select(`
       id, delivery_number, sale_order_id, warehouse_name, date,
       status, created_by_name, type, pdf_url,
-      sale_delivery_lines(item_name, sku, qty_delivered),
+      sale_delivery_lines(item_name, sku, qty_delivered, brand_variant_id),
       sale_orders(so_number, division_id, customers(name))
     `)
     .eq('id', deliveryId)
@@ -69,8 +71,11 @@ export async function generateDeliveryNotePdf(
     }
   }
 
-  const items: DeliveryNoteItem[] = (del.sale_delivery_lines ?? []).map(i => ({
+  const rawLines = del.sale_delivery_lines ?? []
+  const arMap = await fetchArabicNamesByBrandVariant(supabase, rawLines.map((l) => l.brand_variant_id))
+  const items: DeliveryNoteItem[] = rawLines.map(i => ({
     itemName:     i.item_name,
+    itemNameAr:   i.brand_variant_id ? arMap.get(i.brand_variant_id) ?? null : null,
     sku:          i.sku,
     qtyDelivered: i.qty_delivered,
   }))

@@ -9,10 +9,11 @@ import {
 } from '@/lib/pdf/pdf-fonts'
 
 export interface BillLineItem {
-  description:  string
-  qty:          number | null
-  unit_price:   number
-  total:        number
+  description:    string
+  description_ar?: string | null
+  qty:            number | null
+  unit_price:     number
+  total:          number
 }
 
 export interface BillPaymentRow {
@@ -94,6 +95,7 @@ export function buildBillHtml(input: BuildBillHtmlInput): string {
       <td class="cell-num">${i + 1}</td>
       <td class="cell-item">
         <div class="item-name">${escapeHtml(li.description)}</div>
+        ${li.description_ar ? `<div class="item-name-ar">${escapeHtml(li.description_ar)}</div>` : ''}
       </td>
       <td class="cell-num">${li.qty ?? '—'}</td>
       <td class="cell-num">${escapeHtml(fmtMoney(li.unit_price, currency))}</td>

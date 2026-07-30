@@ -24,6 +24,8 @@ export type ReceivalCheckMode = 'per_receival' | 'blank'
 
 export interface ReceivalCheckRow {
   itemName:              string
+  itemNameAr?:           string | null
+  brandVariantId?:       string | null
   sku:                   string | null
   ordered:               number | null   // null for loose (non-PO-line) items
   orderedFree:           number
@@ -84,6 +86,7 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
       ? `<div class="item-name" style="padding-left:14px">↳ <span class="free-tag">Free</span></div>`
       : `
         <div class="item-name">${escapeHtml(r.itemName)}</div>
+        ${r.itemNameAr ? `<div class="item-name-ar">${escapeHtml(r.itemNameAr)}</div>` : ''}
         ${r.sku ? `<div class="item-sku">${escapeHtml(r.sku)}</div>` : ''}`
 
     if (isPerReceival) {
@@ -237,7 +240,7 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
       <span class="value blank"></span>
     </div>
     <div class="field">
-      <span class="label">PO # in Odoo:</span>
+      <span class="label">PO #:</span>
       <span class="value">${escapeHtml(poNumber)}</span>
     </div>
     <div class="field">

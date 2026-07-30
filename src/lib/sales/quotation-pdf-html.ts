@@ -22,14 +22,15 @@ import {
 } from '@/lib/pdf/pdf-fonts'
 
 export interface QuotationLineItem {
-  item_name:    string
-  item_name_ar: string | null
-  sku:          string | null
-  qty:          number
-  unit:         string
-  unit_price:   number
-  total:        number
-  line_type:    string
+  item_name:         string
+  item_name_ar:      string | null
+  brand_variant_id?: string | null
+  sku:               string | null
+  qty:               number
+  unit:              string
+  unit_price:        number
+  total:             number
+  line_type:         string
 }
 
 export interface BuildQuotationHtmlInput {

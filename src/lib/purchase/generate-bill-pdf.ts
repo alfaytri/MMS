@@ -4,6 +4,16 @@ import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { buildBillHtml, type BillLineItem, type BillPaymentRow } from '@/lib/purchase/bill-pdf-html'
+import { fetchArabicNamesByEnglishName } from '@/lib/pdf/arabic-names'
+
+async function hydrateBillArabic(
+  client: SupabaseClient<Database>,
+  lines:  BillLineItem[],
+): Promise<BillLineItem[]> {
+  if (lines.length === 0) return lines
+  const map = await fetchArabicNamesByEnglishName(client, lines.map((l) => l.description))
+  return lines.map((l) => ({ ...l, description_ar: map.get(l.description) ?? null }))
+}
 
 export interface GenerateBillPdfResult {
   url:         string
@@ -55,7 +65,7 @@ export async function generateBillPdf(
 
   const supplier = bill.suppliers
   const po = bill.purchase_orders
-  const lineItems = (bill.bill_line_items ?? []) as BillLineItem[]
+  const lineItems = await hydrateBillArabic(supabase, (bill.bill_line_items ?? []) as BillLineItem[])
   const currency = po?.currency ?? 'QAR'
 
   // Bill payments come from three sources:
