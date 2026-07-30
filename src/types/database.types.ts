@@ -6939,6 +6939,17 @@ export type Database = {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
       }
+      rpc_return_damaged_from_repair: {
+        Args: {
+          p_notes?: string
+          p_outcome: string
+          p_qty_good: number
+          p_qty_writeoff: number
+          p_repair_cost?: number
+          p_transfer_id: string
+        }
+        Returns: undefined
+      }
       rpc_sales_aging_report: {
         Args: never
         Returns: {
@@ -7307,6 +7318,7 @@ export type Database = {
         | "inventory_check"
         | "inventory_receival_carve"
         | "inventory_receival_new"
+        | "damaged_return_from_repair_as_good"
       tl_order_type:
         | "order"
         | "site-visit-single"
@@ -7659,6 +7671,7 @@ export const Constants = {
         "inventory_check",
         "inventory_receival_carve",
         "inventory_receival_new",
+        "damaged_return_from_repair_as_good",
       ],
       tl_order_type: [
         "order",
