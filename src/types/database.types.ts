@@ -6243,6 +6243,7 @@ export type Database = {
           p_notes?: string
           p_qty: number
           p_return_line_id: string
+          p_warehouse_id?: string
           p_warehouse_transfer_id?: string
         }
         Returns: string

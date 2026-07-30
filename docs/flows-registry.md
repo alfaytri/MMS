@@ -127,13 +127,14 @@ Field rules:
 ### Record Inventory Disposition
 
 - **Module:** Sales / Inventory
-- **Status:** Active — Phase 7.2 new action
+- **Status:** Active — Phase 7.2 new action; extended Phase 9.3 (`restock_as_damaged`)
 - **Trigger surface(s):** `ReplacementDeliveryDialog` (dispositions-only submit — no replacement lines).
 - **Primary hook(s):** [`useRecordInventoryDisposition`](src/hooks/useSaleDeliveries.ts)
-- **RPC(s):** `rpc_record_inventory_disposition(p_return_id, p_warehouse_id, p_dispositions)`
-- **Ledger writes:** For each `{return_line_id, type='write_off', qty}` entry: `inventory_stock_movements(movement_type='sale_return_damaged')` + `return_line_inventory_dispositions` via `_record_inventory_disposition`. `restock_as_damaged` (Phase 8) and `send_for_repair` (Phase 9) raise "not yet implemented".
-- **Guards / preconditions:** Return_line must be `condition='damaged'`; qty ≤ `inventory_remaining_qty`.
-- **Related flows:** [[Create Partial Replacement (customer + inventory atomic)]], [[Write Off Damaged Return (compat wrapper)]]
+- **RPC(s):** `rpc_record_inventory_disposition(p_return_id, p_warehouse_id, p_dispositions)`; disposition dispatch also lives inline in `rpc_create_partial_replacement(p_return_id, p_warehouse_id, p_lines, p_gift_items, p_dispositions)`.
+- **Ledger writes:** For `{return_line_id, type='write_off', qty}`: `inventory_stock_movements(movement_type='sale_return_damaged')` + `return_line_inventory_dispositions` via `_record_inventory_disposition`. For `{return_line_id, type='restock_as_damaged', qty, notes?}` (Phase 9.3, migration `20260802000400_rpc_restock_as_damaged.sql`): `return_line_inventory_dispositions` (both FKs null) + `inventory_damaged_stock_layers` (FIFO layer, cost via `_return_line_fifo_unit_cost`) + `inventory_damaged_stock` (weighted-avg upsert) + `inventory_damaged_movements(movement_type='restock_as_damaged_in')`, all booked inside `_record_inventory_disposition` itself (not the caller) once it validates the condition/qty guards. `send_for_repair` (Phase 9.4) still raises "not yet implemented".
+- **Guards / preconditions:** Return_line must be `condition='damaged'`; qty ≤ `inventory_remaining_qty`. `restock_as_damaged` additionally requires a non-null `p_warehouse_id` (the operator-chosen damaged-stock warehouse — NOT `so_po_returns.restock_warehouse_id`).
+- **Related flows:** [[Create Partial Replacement (customer + inventory atomic)]], [[Write Off Damaged Return (compat wrapper)]], [[Repair Vendor CRUD (auto-provisioned virtual warehouse)]]
+- **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md)
 
 ### Write Off Damaged Return (compat wrapper)
 
