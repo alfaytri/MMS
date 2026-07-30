@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -6220,6 +6195,14 @@ export type Database = {
       }
     }
     Functions: {
+      _consume_damaged_stock_fifo: {
+        Args: {
+          p_brand_variant_id: string
+          p_qty: number
+          p_warehouse_id: string
+        }
+        Returns: undefined
+      }
       _fx_document_booking: {
         Args: { p_document_id: string; p_document_type: string }
         Returns: Record<string, unknown>
@@ -6970,6 +6953,16 @@ export type Database = {
           total_outstanding: number
         }[]
       }
+      rpc_send_damaged_for_repair: {
+        Args: {
+          p_expected_return_date: string
+          p_notes?: string
+          p_repair_vendor_id: string
+          p_return_line_disposition_id: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       rpc_update_document_initial_rate: {
         Args: {
           p_document_id: string
@@ -7459,9 +7452,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -7696,11 +7686,8 @@ export const Constants = {
   },
 } as const
 
-// ── Helper aliases (re-appended after every gen types) ────────────────
-export type DBTable<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Row']
-export type DBInsert<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Insert']
-export type DBUpdate<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Update']
+// ─── Helper aliases (re-appended after supabase gen types wipes them) ───
 export type AllTables = keyof Database['public']['Tables']
+export type DBTable<T extends AllTables> = Database['public']['Tables'][T]['Row']
+export type DBInsert<T extends AllTables> = Database['public']['Tables'][T]['Insert']
+export type DBUpdate<T extends AllTables> = Database['public']['Tables'][T]['Update']
