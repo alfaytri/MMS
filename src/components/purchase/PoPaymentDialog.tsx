@@ -18,15 +18,16 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
 
   const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
 
-  const totalPaidQar = payments.reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const showExchangeRate = po.currency !== 'QAR'
 
   const totalInCurrency = showExchangeRate && po.exchange_rate > 0
     ? po.total_qar / po.exchange_rate
     : po.total_qar
-  const paidInCurrency = showExchangeRate && po.exchange_rate > 0
-    ? totalPaidQar / po.exchange_rate
-    : totalPaidQar
+  // Sum payment amounts in the PO's own currency directly. Do NOT round-trip
+  // through QAR (that divided QAR-paid at each payment's own rate by the PO's
+  // booked rate, producing a fake "paid in currency" figure that ignored the
+  // rate variance — reported as an incorrect Due on PO-2026-07-015).
+  const paidInCurrency = payments.reduce((s, p) => s + p.amount, 0)
 
   function handleSubmit(values: PaymentFormValues) {
     const rate = values.exchange_rate ?? po.exchange_rate ?? 1
