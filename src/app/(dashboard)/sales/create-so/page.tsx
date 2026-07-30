@@ -22,6 +22,7 @@ import {
 } from '@/hooks/useSaleOrders'
 import { useCreditGroups } from '@/hooks/useCreditGroups'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useCompanies } from '@/hooks/useCompanies'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
@@ -50,16 +51,23 @@ export default function CreateSOPage() {
   const { data: currencies = [] } = useCurrencies()
 
   const { divisions } = useUserDivisionScope()
+  const { activeDivisionId } = useActiveDivision()
   const { data: companies = [] } = useCompanies()
   const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')
 
-  // Auto-select when only one division is visible
+  // Auto-select in this order: (1) user's active division (if it's in scope),
+  // (2) sole division when only one is available.
   useEffect(() => {
-    if (divisions.length === 1 && !divisionId) {
+    if (divisionId) return
+    if (activeDivisionId && divisions.some((d) => d.id === activeDivisionId)) {
+      setDivisionId(activeDivisionId)
+      return
+    }
+    if (divisions.length === 1) {
       setDivisionId(divisions[0].id)
     }
-  }, [divisions, divisionId])
+  }, [divisions, divisionId, activeDivisionId])
 
   const companiesWithDivisions = useMemo(() => {
     const map = new Map<string, { companyName: string; items: typeof divisions }>()

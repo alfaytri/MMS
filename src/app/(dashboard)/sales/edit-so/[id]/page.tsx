@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { BookedRateLockRow } from '@/components/shared/BookedRateLockRow'
 import { ChangeBookedRateDialog } from '@/components/shared/ChangeBookedRateDialog'
+import { DivisionMismatchChip } from '@/components/layout/DivisionMismatchChip'
 
 function fmtAmt(amount: number, currency: string, symbol?: string | null) {
   const prefix = symbol ? `${symbol} ` : `${currency} `
@@ -202,7 +203,10 @@ export default function EditSOPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-lg font-semibold">Edit {so.so_number}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-semibold">Edit {so.so_number}</h1>
+              <DivisionMismatchChip recordDivisionId={so.division_id} />
+            </div>
             <p className="text-xs text-muted-foreground">
               {so.customer_name} · Quotation
             </p>

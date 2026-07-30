@@ -37,6 +37,7 @@ import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { useCreateWarehouse, useUpdateWarehouse, type Warehouse } from '@/hooks/useWarehouses'
 import { useResponsiblePersonCandidates, useWarehouseResponsiblePersons, useReplaceWarehouseResponsiblePersons } from '@/hooks/useWarehouseResponsiblePersons'
 import { useDivisions } from '@/hooks/useDivisions'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 
 const warehouseSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -60,6 +61,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
   const { data: currentRPs = [] } = useWarehouseResponsiblePersons(warehouse?.id ?? null)
   const replaceRPs = useReplaceWarehouseResponsiblePersons()
   const { data: divisions = [] } = useDivisions()
+  const { activeDivisionId } = useActiveDivision()
   const isPending = create.isPending || update.isPending || replaceRPs.isPending
 
   const [selectedRPIds, setSelectedRPIds] = useState<string[]>([])
@@ -79,15 +81,21 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         division_id: warehouse.division_id ?? '',
       })
     } else {
+      const defaultDivision =
+        (activeDivisionId && divisions.some((d) => d.id === activeDivisionId))
+          ? activeDivisionId
+          : divisions.length === 1
+            ? divisions[0].id
+            : ''
       form.reset({
         name: '',
         location: '',
-        division_id: divisions.length === 1 ? divisions[0].id : '',
+        division_id: defaultDivision,
       })
     }
     setSelectedRPIds([])
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on identity (id), not object reference
-  }, [open, warehouse?.id, form, divisions])
+  }, [open, warehouse?.id, form, divisions, activeDivisionId])
 
   useEffect(() => {
     if (open && warehouse && currentRPs.length > 0) {

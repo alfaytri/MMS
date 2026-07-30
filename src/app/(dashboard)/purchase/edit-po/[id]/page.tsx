@@ -30,6 +30,7 @@ import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { PoVersionTabs } from '@/components/purchase/PoVersionTabs'
 import { stageOf, type Stage } from '@/lib/poVersionHelper'
 import { PoVersionBanner } from '@/components/purchase/PoVersionBanner'
+import { DivisionMismatchChip } from '@/components/layout/DivisionMismatchChip'
 import {
   usePurchaseOrder,
   usePoVersions,
@@ -465,9 +466,10 @@ export default function EditPOPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-lg font-semibold">{po.po_number}</h1>
               <Badge variant="outline" className="text-xs font-mono">v{currentVersion}</Badge>
+              <DivisionMismatchChip recordDivisionId={po.division_id} />
             </div>
             <Badge
               className={`text-[10px] mt-0.5 ${po.status === 'draft' ? 'bg-muted text-foreground' : po.status === 'pending_approval' ? 'bg-amber-100 text-amber-700' : po.status === 'approved' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}

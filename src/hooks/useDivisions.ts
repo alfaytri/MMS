@@ -7,7 +7,7 @@ export type Division = DBTable<'company_divisions'>
 export type DivisionInsert = DBInsert<'company_divisions'>
 export type DivisionUpdate = DBUpdate<'company_divisions'>
 
-/** Active divisions only — used across the app for DivisionFilter, selectors, etc. */
+/** Active divisions only — used across the app for the division switcher, selectors, etc. */
 export function useDivisions() {
   return useQuery({
     queryKey: queryKeys.divisions.all,

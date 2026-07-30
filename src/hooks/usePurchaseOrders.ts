@@ -237,8 +237,6 @@ export interface POFilters {
   poType?: POType | ''
   dateFrom?: string
   dateTo?: string
-  divisionId?: string | null
-  divisionIds?: string[]
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -262,12 +260,6 @@ export function usePurchaseOrders(filters: POFilters = {}) {
         const safe = filters.search.replace(/%/g, '\\%')
         query = query.or(`po_number.ilike.%${safe}%,supplier_name.ilike.%${safe}%`)
       }
-      if (filters.divisionId) {
-        query = query.eq('division_id', filters.divisionId)
-      } else if (filters.divisionIds && filters.divisionIds.length > 0) {
-        query = query.in('division_id', filters.divisionIds)
-      }
-
       const { data, error } = await query.limit(50)
       if (error) throw error
       return data as PurchaseOrder[]

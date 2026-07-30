@@ -41,8 +41,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DatePicker } from '@/components/ui/date-picker'
 import { cn } from '@/lib/utils'
-import { DivisionFilter, type DivisionFilterValue } from '@/components/shared/DivisionFilter'
-import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -176,16 +174,14 @@ export default function SaleOrdersPage() {
   const [dateTo, setDateTo] = useState('')
   const [deliveryFilter, setDeliveryFilter] = useState('')
   const [detailSO, setDetailSO] = useState<SaleOrder | null>(null)
-  const [divisionFilter, setDivisionFilter] = useState<DivisionFilterValue>({ companyId: null, divisionId: null })
 
-  const { isSuperViewer, divisions } = useUserDivisionScope()
   const { data: customers } = useCustomers()
 
   const confirmSO = useConfirmSO()
   const cancelSO = useCancelSO()
   const { data: paidMap } = useSOPaymentTotals()
 
-  const hasActiveFilters = !!(search || statusFilter.size > 0 || customerFilter || dateFrom || dateTo || deliveryFilter || divisionFilter.companyId || divisionFilter.divisionId)
+  const hasActiveFilters = !!(search || statusFilter.size > 0 || customerFilter || dateFrom || dateTo || deliveryFilter)
 
   function clearFilters() {
     setSearch('')
@@ -194,7 +190,6 @@ export default function SaleOrdersPage() {
     setDateFrom('')
     setDateTo('')
     setDeliveryFilter('')
-    setDivisionFilter({ companyId: null, divisionId: null })
   }
 
   function toggleStatus(s: SOStatus) {
@@ -206,25 +201,11 @@ export default function SaleOrdersPage() {
     })
   }
 
-  const divisionQueryProps = useMemo(() => {
-    if (!isSuperViewer) return {}
-    if (divisionFilter.divisionId) return { divisionId: divisionFilter.divisionId }
-    if (divisionFilter.companyId) {
-      return {
-        divisionIds: divisions
-          .filter((d) => d.company_id === divisionFilter.companyId)
-          .map((d) => d.id),
-      }
-    }
-    return {}
-  }, [isSuperViewer, divisionFilter, divisions])
-
   const { data: orders, isLoading } = useSaleOrders({
     search,
     statuses: statusFilter.size > 0 ? Array.from(statusFilter) : undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
-    ...divisionQueryProps,
   })
 
   const filtered = useMemo(() => {
@@ -576,7 +557,6 @@ export default function SaleOrdersPage() {
             </Select>
 
             {/* Division filter (super viewers only) */}
-            <DivisionFilter value={divisionFilter} onChange={setDivisionFilter} />
 
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" className="min-h-11 md:min-h-0" onClick={clearFilters}>
