@@ -91,7 +91,7 @@ export function brandHeaderHtml(logoDataUrlOrBrand: string | BrandHeaderInput): 
   const brand: BrandHeaderInput = typeof logoDataUrlOrBrand === 'string'
     ? {
         logoDataUrl:   logoDataUrlOrBrand,
-        companyNameEn: 'ALFAYTRI',
+        companyNameEn: 'AL FAYTRI',
         companyNameAr: 'الفيتري',
         addressEn:     'Trading and Building Maintenance\nOffice 18, Building 19, Street 185, Zone 55\nDoha, Qatar | P.O. Box 45069\nTrading: 44214420 | Maintenance: 44190600\ninfo@alfaytri.com | www.alfaytri.com',
         addressAr:     'لتجارة وصيانة المباني\nمكتب ١٨ ، مبنى ١٩ ، شارع ١٨٥ ، منطقة ٥٥\nالدوحة ، قطر | ص.ب ٤٥٠٦٩\nالتداول: ٤٤٢١٤٤٢٠ | الصيانة: ٤٤١٩٠٦٠٠\ninfo@alfaytri.com | www.alfaytri.com',

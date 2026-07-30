@@ -10,7 +10,7 @@ export function TopNavSkeleton() {
     <header className="sticky top-0 z-50 h-14 bg-background border-b border-border flex items-center px-4 gap-2">
       <div className="flex items-center gap-2 text-primary font-bold mr-4 shrink-0">
         <Wrench className="h-5 w-5" />
-        <span className="text-sm">Alfaytri</span>
+        <span className="text-sm">Al Faytri</span>
       </div>
       <nav className="flex items-center gap-1 flex-1 overflow-x-auto" aria-hidden>
         <div className="h-6 w-24 rounded-md bg-muted animate-pulse" />

@@ -15,7 +15,7 @@ import type { CustomerPayment } from '@/hooks/useCustomerPayments'
 import type { Division } from '@/hooks/useDivisions'
 import type { Company } from '@/hooks/useCompanies'
 
-const FALLBACK_COMPANY = 'Alfaytri Maintenance'
+const FALLBACK_COMPANY = 'Al Faytri Maintenance'
 
 type Props = {
   invoice: ArInvoice

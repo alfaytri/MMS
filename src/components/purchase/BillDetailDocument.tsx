@@ -74,7 +74,7 @@ export function BillDetailDocument({
       <BillDetailSection>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold leading-tight">Alfaytri</h1>
+            <h1 className="text-xl font-bold leading-tight">Al Faytri</h1>
           </div>
           <div className="text-right shrink-0">
             <h2 className="text-2xl font-bold" dir="rtl">فاتورة مشتريات</h2>
@@ -381,7 +381,7 @@ export function BillDetailDocument({
       {/* 12. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
-          Alfaytri
+          Al Faytri
           {' · '}
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>
         </p>

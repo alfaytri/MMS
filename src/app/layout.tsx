@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'MMS — Maintenance Management System',
-  description: 'Internal management system for Alfaytri Maintenance',
+  description: 'Internal management system for Al Faytri Maintenance',
 }
 
 export default function RootLayout({

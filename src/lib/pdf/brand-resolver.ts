@@ -66,7 +66,7 @@ export async function resolveBrand(
       footerDataUrl: staticAssets.footer,
       addressEn:     FALLBACK_ADDR_EN,
       addressAr:     FALLBACK_ADDR_AR,
-      companyNameEn: 'ALFAYTRI',
+      companyNameEn: 'AL FAYTRI',
       companyNameAr: 'الفيتري',
       footerMotto:   null,
     }
@@ -91,7 +91,7 @@ export async function resolveBrand(
   const addressEn = div?.address_en ?? co?.address_en ?? FALLBACK_ADDR_EN
   const addressAr = div?.address_ar ?? co?.address_ar ?? FALLBACK_ADDR_AR
   const motto     = div?.footer_motto ?? co?.footer_motto ?? null
-  const nameEn    = co?.name_en ?? 'ALFAYTRI'
+  const nameEn    = co?.name_en ?? 'AL FAYTRI'
   const nameAr    = co?.name_ar ?? 'الفيتري'
 
   const [logoData, stampData] = await Promise.all([
