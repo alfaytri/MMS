@@ -3930,6 +3930,60 @@ export type Database = {
           },
         ]
       }
+      repair_vendors: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+          virtual_warehouse_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          virtual_warehouse_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          virtual_warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_vendors_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_vendors_virtual_warehouse_id_fkey"
+            columns: ["virtual_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       return_line_customer_resolutions: {
         Row: {
           created_at: string
@@ -5608,14 +5662,19 @@ export type Database = {
           dispatched_by_name: string | null
           dispatched_by_profile_id: string | null
           division_id: string | null
+          expected_return_date: string | null
           from_warehouse_id: string
           id: string
           notes: string | null
           received_at: string | null
           received_by_name: string | null
           received_by_profile_id: string | null
+          repair_cost: number | null
+          repair_vendor_id: string | null
+          source_return_line_disposition_id: string | null
           status: Database["public"]["Enums"]["transfer_status"] | null
           to_warehouse_id: string
+          transfer_kind: string
           transfer_number: string
           updated_at: string | null
         }
@@ -5634,14 +5693,19 @@ export type Database = {
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
           division_id?: string | null
+          expected_return_date?: string | null
           from_warehouse_id: string
           id?: string
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
           received_by_profile_id?: string | null
+          repair_cost?: number | null
+          repair_vendor_id?: string | null
+          source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_warehouse_id: string
+          transfer_kind?: string
           transfer_number: string
           updated_at?: string | null
         }
@@ -5660,14 +5724,19 @@ export type Database = {
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
           division_id?: string | null
+          expected_return_date?: string | null
           from_warehouse_id?: string
           id?: string
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
           received_by_profile_id?: string | null
+          repair_cost?: number | null
+          repair_vendor_id?: string | null
+          source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_warehouse_id?: string
+          transfer_kind?: string
           transfer_number?: string
           updated_at?: string | null
         }
@@ -5722,6 +5791,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warehouse_transfers_repair_vendor_id_fkey"
+            columns: ["repair_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "repair_vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_source_return_line_disposition_id_fkey"
+            columns: ["source_return_line_disposition_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_inventory_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "warehouse_transfers_to_warehouse_id_fkey"
             columns: ["to_warehouse_id"]
             isOneToOne: false
@@ -5733,31 +5816,37 @@ export type Database = {
       warehouses: {
         Row: {
           created_at: string | null
-          division_id: string
+          division_id: string | null
           id: string
+          is_virtual: boolean
           item_count: number | null
           location: string | null
           name: string
+          repair_vendor_id: string | null
           total_value: number | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
-          division_id: string
+          division_id?: string | null
           id?: string
+          is_virtual?: boolean
           item_count?: number | null
           location?: string | null
           name: string
+          repair_vendor_id?: string | null
           total_value?: number | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
-          division_id?: string
+          division_id?: string | null
           id?: string
+          is_virtual?: boolean
           item_count?: number | null
           location?: string | null
           name?: string
+          repair_vendor_id?: string | null
           total_value?: number | null
           updated_at?: string | null
         }
@@ -5767,6 +5856,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouses_repair_vendor_fk"
+            columns: ["repair_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "repair_vendors"
             referencedColumns: ["id"]
           },
         ]
