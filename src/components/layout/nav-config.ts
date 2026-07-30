@@ -95,6 +95,12 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Dead Stock Report', href: '/purchase/dead-stock',   icon: 'BarChart3',  permission: 'purchase.dead_stock.view' },
         ],
       },
+      {
+        label: 'WAREHOUSE OPS',
+        items: [
+          { label: 'Repair Vendors', href: '/warehouse/repair-vendors', icon: 'Wrench', permission: 'warehouse.access' },
+        ],
+      },
     ],
   },
 ]
