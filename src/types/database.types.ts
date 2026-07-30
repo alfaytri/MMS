@@ -1890,6 +1890,195 @@ export type Database = {
           },
         ]
       }
+      inventory_damaged_movements: {
+        Row: {
+          brand_variant_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          qty: number
+          source_return_line_disposition_id: string | null
+          source_transfer_id: string | null
+          unit_cost: number
+          warehouse_id: string
+        }
+        Insert: {
+          brand_variant_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          qty: number
+          source_return_line_disposition_id?: string | null
+          source_transfer_id?: string | null
+          unit_cost?: number
+          warehouse_id: string
+        }
+        Update: {
+          brand_variant_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          qty?: number
+          source_return_line_disposition_id?: string | null
+          source_transfer_id?: string | null
+          unit_cost?: number
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_damaged_movements_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_source_return_line_disposition_fkey"
+            columns: ["source_return_line_disposition_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_inventory_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_source_transfer_id_fkey"
+            columns: ["source_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_transfers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_damaged_stock: {
+        Row: {
+          brand_variant_id: string
+          qty: number
+          updated_at: string
+          warehouse_id: string
+          weighted_unit_cost: number
+        }
+        Insert: {
+          brand_variant_id: string
+          qty?: number
+          updated_at?: string
+          warehouse_id: string
+          weighted_unit_cost?: number
+        }
+        Update: {
+          brand_variant_id?: string
+          qty?: number
+          updated_at?: string
+          warehouse_id?: string
+          weighted_unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_damaged_stock_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_damaged_stock_layers: {
+        Row: {
+          brand_variant_id: string
+          created_by: string | null
+          id: string
+          layered_at: string
+          qty_received: number
+          qty_remaining: number
+          source_return_line_id: string | null
+          unit_cost: number
+          warehouse_id: string
+        }
+        Insert: {
+          brand_variant_id: string
+          created_by?: string | null
+          id?: string
+          layered_at?: string
+          qty_received: number
+          qty_remaining: number
+          source_return_line_id?: string | null
+          unit_cost: number
+          warehouse_id: string
+        }
+        Update: {
+          brand_variant_id?: string
+          created_by?: string | null
+          id?: string
+          layered_at?: string
+          qty_received?: number
+          qty_remaining?: number
+          source_return_line_id?: string | null
+          unit_cost?: number
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_source_return_line_id_fkey"
+            columns: ["source_return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_progress"
+            referencedColumns: ["return_line_id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_source_return_line_id_fkey"
+            columns: ["source_return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_item_brand_variants: {
         Row: {
           average_cost: number | null
@@ -5103,6 +5292,7 @@ export type Database = {
       }
       user_data: {
         Row: {
+          active_division_id: string | null
           auth_user_id: string
           avatar_url: string | null
           created_at: string
@@ -5122,6 +5312,7 @@ export type Database = {
           user_type: Database["public"]["Enums"]["user_type"]
         }
         Insert: {
+          active_division_id?: string | null
           auth_user_id: string
           avatar_url?: string | null
           created_at?: string
@@ -5141,6 +5332,7 @@ export type Database = {
           user_type?: Database["public"]["Enums"]["user_type"]
         }
         Update: {
+          active_division_id?: string | null
           auth_user_id?: string
           avatar_url?: string | null
           created_at?: string
@@ -5159,7 +5351,15 @@ export type Database = {
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_data_active_division_id_fkey"
+            columns: ["active_division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouse_reorder_points: {
         Row: {
@@ -6739,6 +6939,10 @@ export type Database = {
           p_service_ids: string[]
           p_warranty_months?: number
         }
+        Returns: undefined
+      }
+      set_active_division: {
+        Args: { p_division_id: string }
         Returns: undefined
       }
       set_bill_pdf_url: {
