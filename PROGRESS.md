@@ -258,6 +258,8 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 **Phase 9** — Damaged Stock Dispositions + DN Dual-Ledger — plan at `docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md`. Branch `feature/phase-9-damaged-stock` (off deploy/warehouse-shipping). DB target STAGING. Milestone gate hard-stop after 9.7.
 
+🚀 Starting: **Phase 9 Task 9.6: UI — enable dispositions + repair vendors CRUD + SendForRepairDialog**
+
 | # | Task | Status |
 |---|---|---|
 | 9.0 | Staging alignment (verify) | ✅ |
