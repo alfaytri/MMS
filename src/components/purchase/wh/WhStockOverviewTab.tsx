@@ -408,7 +408,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
 
       {/* Item-type tabs */}
       <Tabs value={activeType} onValueChange={(v) => setActiveType(v as ItemTypeValue)}>
-        <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
+        <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap md:overflow-visible md:whitespace-normal md:w-fit">
           {ITEM_TYPE_TABS.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7 min-h-9 md:min-h-0">
               <span className="md:hidden">{tab.short}</span>
