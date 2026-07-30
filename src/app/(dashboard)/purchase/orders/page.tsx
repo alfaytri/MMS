@@ -437,12 +437,11 @@ export default function PurchaseOrdersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {po.po_type === 'rfq' && po.rfq_supplier_ids?.length ? (
-                          <Badge variant="secondary" className="text-xs">
-                            {po.rfq_supplier_ids.length} supplier{po.rfq_supplier_ids.length > 1 ? 's' : ''}
+                        <span className="font-medium">{po.supplier_name}</span>
+                        {po.po_type === 'rfq' && (po.rfq_supplier_ids?.length ?? 0) > 1 && (
+                          <Badge variant="secondary" className="text-[10px] ml-1.5">
+                            + {(po.rfq_supplier_ids?.length ?? 0) - 1} more
                           </Badge>
-                        ) : (
-                          <span className="font-medium">{po.supplier_name}</span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">

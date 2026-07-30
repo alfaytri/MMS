@@ -22,7 +22,6 @@ import {
 import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLineItemsEditor'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
-import { SupplierMultiSelect, SupplierChips } from '@/components/purchase/SupplierMultiSelect'
 import { useCreatePO, useSubmitPOForApproval, type CreatePOPayload } from '@/hooks/usePurchaseOrders'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
@@ -63,9 +62,6 @@ export default function CreatePOPage() {
       setDivisionId(divisions[0].id)
     }
   }, [divisions, divisionId, activeDivisionId])
-
-  const [rfqMode, setRfqMode] = useState(false)
-  const [rfqSupplierIds, setRfqSupplierIds] = useState<string[]>([])
 
   const [supplierId, setSupplierId] = useState('')
   const [supplierName, setSupplierName] = useState('')
@@ -143,12 +139,7 @@ export default function CreatePOPage() {
 
   function validate() {
     if (isMultiDivision && !divisionId) { toast.error('Select a division before creating the order.'); return false }
-    if (rfqMode) {
-      if (rfqSupplierIds.length === 0) { toast.error('Select at least one supplier for the RFQ'); return false }
-      if (!terms.quote_deadline) { toast.error('Set a "Please Quote By" date for the RFQ'); return false }
-    } else {
-      if (!supplierId) { toast.error('Please select a supplier'); return false }
-    }
+    if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
     const missingItems = lineItems.filter((li) => !li.brand_variant_id)
     if (missingItems.length > 0) {
@@ -166,8 +157,8 @@ export default function CreatePOPage() {
   function saveAsType(poType: 'draft' | 'rfq') {
     if (!validate()) return
     const base = buildPayload()
-    const payload: CreatePOPayload = (poType === 'rfq' && rfqMode)
-      ? { ...base, supplier_id: rfqSupplierIds[0] ?? '', supplier_name: '', rfq_supplier_ids: rfqSupplierIds, po_type: poType }
+    const payload: CreatePOPayload = poType === 'rfq'
+      ? { ...base, rfq_supplier_ids: [supplierId], po_type: poType }
       : { ...base, po_type: poType }
     createPO.mutate(payload, {
       onSuccess: () => { toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders') },
@@ -208,54 +199,38 @@ export default function CreatePOPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!rfqMode ? (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRfqMode(true)} disabled={isPending || isPriceLoading}>
-              <Save className="h-3.5 w-3.5" />
-              Save as RFQ
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
-              onClick={() => saveAsType('rfq')}
-              disabled={isPending || isPriceLoading || rfqSupplierIds.length < 1 || !exchangeRateValid}
-              title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
-            >
-              <Save className="h-3.5 w-3.5" />
-              {isPending ? 'Please wait…' : `Save RFQ (${rfqSupplierIds.length} suppliers)`}
-            </Button>
-          )}
-          {rfqMode && (
-            <Button variant="ghost" size="sm" onClick={() => { setRfqMode(false); setRfqSupplierIds([]) }}>
-              Cancel RFQ
-            </Button>
-          )}
-          {!rfqMode && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => saveAsType('draft')}
-                disabled={isPending || isPriceLoading || !exchangeRateValid}
-                title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
-              >
-                <Save className="h-3.5 w-3.5" />
-                {isPending ? 'Please wait…' : 'Save as Draft'}
-              </Button>
-              <Button
-                size="sm"
-                className="gap-1.5"
-                onClick={submitApproval}
-                disabled={isPending || isPriceLoading || !exchangeRateValid}
-                title={!exchangeRateValid ? 'Enter an exchange rate before submitting.' : undefined}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
-              </Button>
-            </>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
+            onClick={() => saveAsType('rfq')}
+            disabled={isPending || isPriceLoading || !exchangeRateValid}
+            title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
+          >
+            <Save className="h-3.5 w-3.5" />
+            Save as RFQ
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => saveAsType('draft')}
+            disabled={isPending || isPriceLoading || !exchangeRateValid}
+            title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
+          >
+            <Save className="h-3.5 w-3.5" />
+            {isPending ? 'Please wait…' : 'Save as Draft'}
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={submitApproval}
+            disabled={isPending || isPriceLoading || !exchangeRateValid}
+            title={!exchangeRateValid ? 'Enter an exchange rate before submitting.' : undefined}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
+          </Button>
         </div>
       </div>
 
@@ -292,23 +267,10 @@ export default function CreatePOPage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-3 items-start">
-            {/* Supplier — single combobox or multi-select in RFQ mode */}
-            {rfqMode ? (
-              <div className="space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  SUPPLIERS * <span className="text-orange-600">(RFQ — select multiple)</span>
-                </label>
-                <SupplierMultiSelect
-                  value={rfqSupplierIds}
-                  onChange={setRfqSupplierIds}
-                  hideChips
-                />
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  SUPPLIER *
-                </label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                SUPPLIER *
+              </label>
                 <div className="flex gap-2">
                   <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
                     <PopoverTrigger
@@ -356,8 +318,7 @@ export default function CreatePOPage() {
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
-            )}
+            </div>
 
             {/* Currency */}
             <div className="space-y-1">
@@ -432,10 +393,6 @@ export default function CreatePOPage() {
             </div>
           )}
 
-          {rfqMode && rfqSupplierIds.length > 0 && (
-            <SupplierChips value={rfqSupplierIds} onChange={setRfqSupplierIds} />
-          )}
-
         </section>
 
         <Separator />
@@ -491,9 +448,7 @@ export default function CreatePOPage() {
         <Separator />
 
         {/* ④⑤ Payment & Delivery Terms */}
-        {!rfqMode && (
-          <PoTermsSection value={terms} onChange={setTerms} rfqMode={rfqMode} />
-        )}
+        <PoTermsSection value={terms} onChange={setTerms} />
 
         <Separator />
 
