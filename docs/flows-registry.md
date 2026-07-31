@@ -193,7 +193,7 @@ Field rules:
 ### Warehouse Sub-Container Auto-Provision (planned)
 
 - **Module:** Warehouse / Inventory
-- **Status:** Planned — Phase A + B + C.1 (schema tightening minus NOT NULL) + C.2.a (helper + division-sync triggers) shipped 2026-07-31; C.1's premature NOT NULL flip reverted after regression risk surfaced. Phase C.2.b–C.2.f (RPC sweep across receival, return-restock, transfer lifecycle, adjustments, deduct_fifo, damaged-side RPCs, then re-apply NOT NULL) + C.3 (RLS policies) + D (UI) + E (drop legacy) pending.
+- **Status:** Planned — Phase A + B + C.1 + C.2 (a/b/c/d/e/f — full RPC sweep + NOT NULL flip) shipped 2026-07-31. Phase C.3 (RLS policies) + D (UI) + E (drop legacy) pending.
 - **Trigger surface(s):** Every write path that lands stock in a warehouse (receival, transfer receive, sale return restock, damaged-side dispositions). All resolved through the shared helper `public._find_or_create_sub_container(warehouse_id, division_id)` from Phase C.
 - **Primary hook(s):** N/A (Phase A schema only; hooks appear in Phase D).
 - **RPC(s):** `_find_or_create_sub_container(uuid, uuid)` (Phase C). No public RPCs in Phase A.
@@ -203,7 +203,7 @@ Field rules:
 - **Guards / preconditions:** N/A in Phase A. From Phase B: every warehouse must have a default sub-container per hosted division before Phase C flips FK columns NOT NULL.
 - **Related flows:** [[Division Switcher]] (JWT active_division_id claim narrows sub-container visibility via `is_division_visible()`), all Phase 9 damaged-side flows (they'll pick up sub-container resolution during Phase C's RPC sweep).
 - **Docs / plans:** [docs/warehouse-model-v2-design.md](docs/warehouse-model-v2-design.md); Phase A plan `docs/superpowers/plans/2026-07-31-warehouse-model-v2-phase-a.md`.
-- **Migrations:** Phase A → `20260803000100`; Phase B → `20260803000200`; Phase C.1 → `20260803000300` + `20260803000400` (revert of premature NOT NULL); Phase C.2.a → `20260803000500`. Phases C.2.b / C.2.c / C.2.d / C.2.e / C.2.f / C.3 / D / E → TBD.
+- **Migrations:** Phase A → `20260803000100`; Phase B → `20260803000200`; Phase C.1 → `20260803000300` + `_000400` (NOT NULL revert); Phase C.2 → `20260803000500` (C.2.a helper + triggers) + `_000600` (C.2.b receival + return-restock) + `_000700` (C.2.c transfer lifecycle) + `_000800` (C.2.d adjustments + deduct_fifo) + `_000900` (C.2.e damaged-side) + `_001000` (C.2.f re-flip NOT NULL). Phases C.3 / D / E → TBD.
 - **Notes:** Warehouses were previously tied to exactly one division via `warehouses.division_id`. This flow's design lets a single physical warehouse host multiple divisions' stock through per-division sub-containers, with RLS granting cross-division visibility only to `warehouse_responsible_persons`. Strict isolation: a warehouse with no sub-container visible to the caller does not render for that caller.
 
 ---
