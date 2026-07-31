@@ -44,6 +44,7 @@ export function useSendDamagedForRepair() {
       qc.invalidateQueries({ queryKey: queryKeys.damagedStock.all })
       qc.invalidateQueries({ queryKey: queryKeys.damagedStock.movementsAll })
       qc.invalidateQueries({ queryKey: queryKeys.damagedStock.outForRepairAll })
+      qc.invalidateQueries({ queryKey: queryKeys.damagedStock.pendingRepairAssignmentAll })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
       if (variables.returnId) {
         qc.invalidateQueries({ queryKey: queryKeys.saleReturns.progress(variables.returnId) })

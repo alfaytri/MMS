@@ -549,6 +549,7 @@ export const queryKeys = {
     movements: (filters: unknown) => ['damaged-movements', filters] as const,
     outForRepairAll: ['damaged-out-for-repair'] as const,
     outForRepair: (filters: unknown) => ['damaged-out-for-repair', filters] as const,
+    pendingRepairAssignmentAll: ['damaged-pending-repair-assignment'] as const,
   },
 
   /* ── Warehouse Operations ─────────────────────────────── */
