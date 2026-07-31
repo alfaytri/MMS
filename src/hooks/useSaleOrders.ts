@@ -79,12 +79,14 @@ export type SaleDelivery = {
   created_at: string
   type: 'standard' | 'replacement'
   return_id: string | null
+  source_credit_note_id: string | null
 }
 
 export type SaleOrder = {
   id:                       string
   so_number:                string
   customer_id:              string
+  division_id:              string | null
   status:                   SOStatus
   subtotal:                 number
   tax:                      number

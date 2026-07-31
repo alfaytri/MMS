@@ -49,6 +49,8 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { DeliveryFormDialog } from '@/components/sales/DeliveryFormDialog'
+import type { SaleDelivery as HookSaleDelivery } from '@/hooks/useSaleDeliveries'
 
 const inventoryTypeBadge: Record<string, { label: string; className: string }> = {
   'products':    { label: 'Product',    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -75,6 +77,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
   const [confirmDeliveryId, setConfirmDeliveryId] = useState<string | null>(null)
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null)
+  const [formDeliveryId, setFormDeliveryId] = useState<string | null>(null)
 
   const cancelSO = useCancelSO()
   const [cancelSOOpen, setCancelSOOpen] = useState(false)
@@ -339,7 +342,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                                 size="sm"
                                 className="h-7 text-xs"
                                 disabled={completeDelivery.isPending}
-                                onClick={() => setConfirmDeliveryId(d.id)}
+                                onClick={() => {
+                                  // When the SO has no division set (legacy or replacement flows),
+                                  // the operator must pick a sub-container explicitly — route to
+                                  // the full DeliveryFormDialog which shows the picker.
+                                  if (!current?.division_id) {
+                                    setFormDeliveryId(d.id)
+                                  } else {
+                                    setConfirmDeliveryId(d.id)
+                                  }
+                                }}
                               >
                                 Delivered
                               </Button>
@@ -665,6 +677,20 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delivery form (used when SO has no division and the operator must pick a sub-container) */}
+      {formDeliveryId && (() => {
+        const del = (fullSO?.sale_deliveries ?? []).find((d) => d.id === formDeliveryId)
+        if (!del) return null
+        return (
+          <DeliveryFormDialog
+            key={formDeliveryId}
+            open={!!formDeliveryId}
+            onOpenChange={(o) => { if (!o) setFormDeliveryId(null) }}
+            delivery={del as unknown as HookSaleDelivery}
+          />
+        )
+      })()}
 
       {/* Edit Delivery dialog */}
       {editDeliveryId && (() => {

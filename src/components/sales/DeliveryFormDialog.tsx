@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCompleteDelivery, type SaleDelivery, type DeliveryItem } from '@/hooks/useSaleDeliveries'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { useSaleOrders } from '@/hooks/useSaleOrders'
 
@@ -27,11 +30,27 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
   const { data: orders } = useSaleOrders()
 
   const [warehouseId, setWarehouseId] = useState(delivery.warehouse_id ?? '')
+  const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [lines, setLines] = useState<DraftLine[]>([])
   const [saving, setSaving] = useState(false)
 
   const so = (orders ?? []).find((o) => o.id === delivery.sale_order_id)
   const linkedInvoice = (invoices ?? []).find((inv) => inv.sale_order_id === delivery.sale_order_id)
+  const soDivisionId = so?.division_id ?? null
+
+  const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const eligibleSubs = useMemo(() => {
+    const active = allSubs.filter((sc) => sc.is_active)
+    if (soDivisionId === null) return active
+    return active.filter((sc) => sc.division_id === soDivisionId)
+  }, [allSubs, soDivisionId])
+
+  useEffect(() => {
+    if (eligibleSubs.length === 1) setSubContainerId(eligibleSubs[0].id)
+    else if (eligibleSubs.length === 0) setSubContainerId(null)
+    else if (subContainerId && !eligibleSubs.some((sc) => sc.id === subContainerId)) setSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId, soDivisionId, eligibleSubs.length])
 
   useEffect(() => {
     const items = (delivery.sale_delivery_lines as DeliveryItem[]) ?? []
@@ -51,6 +70,14 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
 
   const submit = async () => {
     if (!warehouseId) { toast.error('Select a warehouse'); return }
+    if (eligibleSubs.length === 0) {
+      toast.error('No sub-container available for this delivery')
+      return
+    }
+    if (eligibleSubs.length > 1 && !subContainerId) {
+      toast.error('Pick a sub-container before submitting')
+      return
+    }
     setSaving(true)
     try {
       const remainingItems: DeliveryItem[] = lines
@@ -65,6 +92,7 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
       await completeDelivery.mutateAsync({
         deliveryId: delivery.id,
         soId: delivery.sale_order_id,
+        subContainerId,
         remainingItems,
       })
       toast.success('Delivery completed')
@@ -94,6 +122,41 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
               </SelectContent>
             </Select>
           </div>
+
+          {warehouseId && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap min-h-7">
+              <span className="inline-flex items-center gap-1 flex-shrink-0">
+                <Package className="h-3 w-3" />
+                Sub-container{soDivisionId === null ? ' *' : ''}:
+              </span>
+              {eligibleSubs.length === 0 ? (
+                <span className="italic text-destructive">
+                  No active sub-container in this warehouse for the SO&apos;s division.
+                  {soDivisionId !== null && ' Add one under Master Data → Warehouses.'}
+                </span>
+              ) : eligibleSubs.length === 1 ? (
+                <>
+                  <span className="font-medium text-foreground truncate max-w-[400px]" title={eligibleSubs[0].name}>
+                    {eligibleSubs[0].name}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">Auto</Badge>
+                </>
+              ) : (
+                <Select value={subContainerId ?? ''} onValueChange={(v) => setSubContainerId(v || null)}>
+                  <SelectTrigger className="h-7 text-xs w-auto min-w-[240px] max-w-[400px]">
+                    <SelectValue placeholder="Pick a sub-container…" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {eligibleSubs.map((sc) => (
+                      <SelectItem key={sc.id} value={sc.id}>
+                        {sc.name}{sc.division_name ? ` — ${sc.division_name}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           {lines.length > 0 && (
             <div className="overflow-x-auto">
