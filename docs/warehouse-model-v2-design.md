@@ -239,6 +239,31 @@ Maintenance sends 5 units of item X from Warehouse A (Maintenance sub-container)
 - **RPC integration tests (Phase C):** for each RPC modified — feed a PO / return / adjustment / transfer with a known division context, verify the sub-container is picked correctly and the movement rows carry it.
 - **UI smoke (Phase D):** for each persona, walk the golden path — receival → delivery → transfer — and verify only the correct sub-containers are pickable / visible.
 
+## Virtual-warehouse sub-container decision (added 2026-07-31)
+
+**Decision:** Option A Variant 1 — `warehouse_sub_containers.division_id` is nullable, but only for sub-containers whose parent warehouse is virtual.
+
+**Context:** Phase B's backfill left 4 `warehouse_transfers` rows with a NULL sub-container FK on the repair-vendor side (2 `damaged_repair_out` with NULL `to_sub_container_id`, 2 `damaged_repair_return_*` with NULL `from_sub_container_id`). Repair-vendor virtual warehouses have `division_id = NULL` and no division ever "owns" units sitting at a vendor, so no real sub-container fits.
+
+**Alternatives considered and rejected:**
+- **Nullable sub-container FK on transfer rows + CHECK constraint (Option B)** — leaves NULL landmines scattered across multiple high-traffic columns. Every reader has to remember "might be NULL if the counterpart is virtual." Small papercuts everywhere.
+- **Separate `from_repair_vendor_id` / `to_repair_vendor_id` FK columns (Option C)** — bloats every transfer row with columns used only sometimes. Discriminator logic per `transfer_kind` distributes across every read.
+- **Fake `System / Repairs` division (Option A Variant 2)** — zero NULLs but adds pretend rows to `company_divisions` that operators can see; every division dropdown has to filter it out.
+- **Drop virtual warehouses entirely; give repair a dedicated table (Option D)** — cleanest long-term but ~1 week of Phase 9 refactor for a benefit that only pays back over years. Punted to a possible future phase, not this design.
+
+**Implementation shape for Phase C:**
+- `ALTER TABLE warehouse_sub_containers ALTER COLUMN division_id DROP NOT NULL`.
+- Add CHECK `division_id IS NOT NULL OR (SELECT is_virtual FROM warehouses WHERE id = warehouse_id) = TRUE` — real warehouses still require a division.
+- Extend `_repair_vendor_provision_warehouse` trigger (from `20260802000200_repair_vendors.sql`) to also create one sub-container per newly-provisioned virtual warehouse, `division_id = NULL`, name = `"<Repair Vendor Name>"`.
+- One-off migration: create sub-containers for the 2 existing virtual warehouses on staging + backfill the 4 orphan transfer rows.
+- Then flip stock/transfer `sub_container_id` columns to NOT NULL.
+
+**RLS composition:** the `is_sub_container_visible()` helper already needed a special case for virtual warehouses (design §Policies row `warehouses (virtual, is_virtual = TRUE)` = visible to all authenticated). That same branch handles virtual sub-containers.
+
+**Read-time semantics:** `"which division owns this stock?"` = `sub_container.division_id`. NULL means "no division — units are at a repair vendor." Semantically true, not a bug.
+
+---
+
 ## Scope boundary — what this design does NOT include
 
 - **Not:** operator-visible multi-container-per-division (schema allows it; UI ships single-per-pair with an "advanced" flag for a later phase if needed).
