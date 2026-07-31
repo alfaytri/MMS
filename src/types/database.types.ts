@@ -358,6 +358,7 @@ export type Database = {
           qty: number
           sale_delivery_id: string | null
           sale_order_id: string | null
+          source_id: string | null
           source_type: string
           total_cost: number
           unit_cost: number
@@ -373,6 +374,7 @@ export type Database = {
           qty: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_id?: string | null
           source_type?: string
           total_cost: number
           unit_cost: number
@@ -388,6 +390,7 @@ export type Database = {
           qty?: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_id?: string | null
           source_type?: string
           total_cost?: number
           unit_cost?: number
@@ -426,6 +429,13 @@ export type Database = {
             columns: ["sale_order_id"]
             isOneToOne: false
             referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "fifo_cost_layers"
             referencedColumns: ["id"]
           },
         ]
@@ -1447,7 +1457,7 @@ export type Database = {
           source_exchange_rate: number
           source_id: string | null
           source_type: string | null
-          sub_container_id: string | null
+          sub_container_id: string
           total_unit_cost: number
           unit_cost: number
           warehouse_id: string | null
@@ -1467,7 +1477,7 @@ export type Database = {
           source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
-          sub_container_id?: string | null
+          sub_container_id: string
           total_unit_cost: number
           unit_cost: number
           warehouse_id?: string | null
@@ -1487,7 +1497,7 @@ export type Database = {
           source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
-          sub_container_id?: string | null
+          sub_container_id?: string
           total_unit_cost?: number
           unit_cost?: number
           warehouse_id?: string | null
@@ -2211,7 +2221,7 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           sku: string | null
-          sub_container_id: string | null
+          sub_container_id: string
           unit_cost: number
           warehouse_id: string | null
         }
@@ -2227,7 +2237,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
-          sub_container_id?: string | null
+          sub_container_id: string
           unit_cost?: number
           warehouse_id?: string | null
         }
@@ -2243,7 +2253,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
-          sub_container_id?: string | null
+          sub_container_id?: string
           unit_cost?: number
           warehouse_id?: string | null
         }
@@ -3760,7 +3770,7 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku: string | null
-          sub_container_id: string | null
+          sub_container_id: string
           unit_cost: number
         }
         Insert: {
@@ -3774,7 +3784,7 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku?: string | null
-          sub_container_id?: string | null
+          sub_container_id: string
           unit_cost: number
         }
         Update: {
@@ -3788,7 +3798,7 @@ export type Database = {
           qty_received?: number
           receival_id?: string
           sku?: string | null
-          sub_container_id?: string | null
+          sub_container_id?: string
           unit_cost?: number
         }
         Relationships: [
@@ -4135,7 +4145,9 @@ export type Database = {
           id: string
           item_name: string
           qty: number
+          receival_item_id: string | null
           return_id: string
+          sale_delivery_line_id: string | null
           sku: string | null
         }
         Insert: {
@@ -4146,7 +4158,9 @@ export type Database = {
           id?: string
           item_name?: string
           qty?: number
+          receival_item_id?: string | null
           return_id: string
+          sale_delivery_line_id?: string | null
           sku?: string | null
         }
         Update: {
@@ -4157,7 +4171,9 @@ export type Database = {
           id?: string
           item_name?: string
           qty?: number
+          receival_item_id?: string | null
           return_id?: string
+          sale_delivery_line_id?: string | null
           sku?: string | null
         }
         Relationships: [
@@ -4166,6 +4182,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_receival_item_id_fkey"
+            columns: ["receival_item_id"]
+            isOneToOne: false
+            referencedRelation: "receival_items"
             referencedColumns: ["id"]
           },
           {
@@ -4180,6 +4203,13 @@ export type Database = {
             columns: ["return_id"]
             isOneToOne: false
             referencedRelation: "so_po_returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_sale_delivery_line_id_fkey"
+            columns: ["sale_delivery_line_id"]
+            isOneToOne: false
+            referencedRelation: "sale_delivery_lines"
             referencedColumns: ["id"]
           },
         ]
@@ -5039,7 +5069,7 @@ export type Database = {
           source_check_id: string | null
           source_check_item_id: string | null
           status: string
-          sub_container_id: string | null
+          sub_container_id: string
           updated_at: string
           warehouse_id: string
         }
@@ -5059,7 +5089,7 @@ export type Database = {
           source_check_id?: string | null
           source_check_item_id?: string | null
           status?: string
-          sub_container_id?: string | null
+          sub_container_id: string
           updated_at?: string
           warehouse_id: string
         }
@@ -5079,7 +5109,7 @@ export type Database = {
           source_check_id?: string | null
           source_check_item_id?: string | null
           status?: string
-          sub_container_id?: string | null
+          sub_container_id?: string
           updated_at?: string
           warehouse_id?: string
         }
@@ -5515,21 +5545,21 @@ export type Database = {
         Row: {
           allocated_qty: number
           brand_variant_id: string
-          sub_container_id: string | null
+          sub_container_id: string
           updated_at: string
           warehouse_id: string
         }
         Insert: {
           allocated_qty?: number
           brand_variant_id: string
-          sub_container_id?: string | null
+          sub_container_id: string
           updated_at?: string
           warehouse_id: string
         }
         Update: {
           allocated_qty?: number
           brand_variant_id?: string
-          sub_container_id?: string | null
+          sub_container_id?: string
           updated_at?: string
           warehouse_id?: string
         }
@@ -5615,7 +5645,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
-          division_id: string
+          division_id: string | null
           id: string
           is_active: boolean
           name: string
@@ -5625,7 +5655,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
-          division_id: string
+          division_id?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -5635,7 +5665,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
-          division_id?: string
+          division_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -5678,7 +5708,7 @@ export type Database = {
           shrinkage_qty: number
           shrinkage_reason: string | null
           sku: string | null
-          sub_container_id: string | null
+          sub_container_id: string
           transfer_id: string
           unit_cost: number
         }
@@ -5693,7 +5723,7 @@ export type Database = {
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null
-          sub_container_id?: string | null
+          sub_container_id: string
           transfer_id: string
           unit_cost?: number
         }
@@ -5708,7 +5738,7 @@ export type Database = {
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null
-          sub_container_id?: string | null
+          sub_container_id?: string
           transfer_id?: string
           unit_cost?: number
         }
@@ -5753,7 +5783,7 @@ export type Database = {
           dispatched_by_profile_id: string | null
           division_id: string | null
           expected_return_date: string | null
-          from_sub_container_id: string | null
+          from_sub_container_id: string
           from_warehouse_id: string
           id: string
           notes: string | null
@@ -5764,7 +5794,7 @@ export type Database = {
           repair_vendor_id: string | null
           source_return_line_disposition_id: string | null
           status: Database["public"]["Enums"]["transfer_status"] | null
-          to_sub_container_id: string | null
+          to_sub_container_id: string
           to_warehouse_id: string
           transfer_kind: string
           transfer_number: string
@@ -5786,7 +5816,7 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           division_id?: string | null
           expected_return_date?: string | null
-          from_sub_container_id?: string | null
+          from_sub_container_id: string
           from_warehouse_id: string
           id?: string
           notes?: string | null
@@ -5797,7 +5827,7 @@ export type Database = {
           repair_vendor_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
-          to_sub_container_id?: string | null
+          to_sub_container_id: string
           to_warehouse_id: string
           transfer_kind?: string
           transfer_number: string
@@ -5819,7 +5849,7 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           division_id?: string | null
           expected_return_date?: string | null
-          from_sub_container_id?: string | null
+          from_sub_container_id?: string
           from_warehouse_id?: string
           id?: string
           notes?: string | null
@@ -5830,7 +5860,7 @@ export type Database = {
           repair_vendor_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
-          to_sub_container_id?: string | null
+          to_sub_container_id?: string
           to_warehouse_id?: string
           transfer_kind?: string
           transfer_number?: string
@@ -6349,6 +6379,10 @@ export type Database = {
         Returns: undefined
       }
       _current_user_data_id: { Args: never; Returns: string }
+      _find_or_create_sub_container: {
+        Args: { p_division_id: string; p_warehouse_id: string }
+        Returns: string
+      }
       _fx_document_booking: {
         Args: { p_document_id: string; p_document_type: string }
         Returns: Record<string, unknown>
@@ -6593,7 +6627,11 @@ export type Database = {
       }
       cleanup_old_notifications: { Args: never; Returns: number }
       complete_delivery_inventory: {
-        Args: { p_delivery_id: string; p_so_id: string }
+        Args: {
+          p_delivery_id: string
+          p_so_id: string
+          p_sub_container_id?: string
+        }
         Returns: undefined
       }
       create_and_approve_receival: {
@@ -6604,6 +6642,7 @@ export type Database = {
           p_po_id: string
           p_receival_number: string
           p_received_by_name: string
+          p_sub_container_id?: string
           p_warehouse_id: string
         }
         Returns: Json
@@ -6633,6 +6672,7 @@ export type Database = {
           p_notes: string
           p_qty: number
           p_source_layer_id: string
+          p_sub_container_id: string
           p_unit_cost: number
           p_warehouse_id: string
         }
@@ -6785,9 +6825,11 @@ export type Database = {
           p_created_by_name?: string
           p_created_by_profile_id?: string
           p_date: string
+          p_from_sub_container_id?: string
           p_from_warehouse_id: string
           p_items: Json
           p_notes?: string
+          p_to_sub_container_id?: string
           p_to_warehouse_id: string
         }
         Returns: string
@@ -6800,8 +6842,9 @@ export type Database = {
       deduct_fifo_layers: {
         Args: {
           p_bv_id: string
-          p_is_transfer?: boolean
+          p_is_transfer: boolean
           p_qty: number
+          p_sub_container_id?: string
           p_wh_id: string
         }
         Returns: {
@@ -6809,6 +6852,7 @@ export type Database = {
           qty_taken: number
           source_id: string
           source_type: string
+          sub_container_id: string
           total_cost: number
           unit_cost: number
         }[]
@@ -6908,6 +6952,10 @@ export type Database = {
         Args: { p_profile_id: string; p_warehouse_id: string }
         Returns: boolean
       }
+      is_sub_container_visible: {
+        Args: { p_sub_container_id: string }
+        Returns: boolean
+      }
       mark_overdue_bills: { Args: never; Returns: undefined }
       mark_overdue_invoices: { Args: never; Returns: undefined }
       next_delivery_number: { Args: never; Returns: string }
@@ -6994,7 +7042,7 @@ export type Database = {
       }
       rpc_complete_return_inspection: {
         Args: {
-          p_restock_warehouse_id: string
+          p_restock_warehouse_id?: string
           p_return_id: string
           p_splits: Json
         }
@@ -7845,8 +7893,7 @@ export const Constants = {
   },
 } as const
 
-// ─── Helper aliases (re-appended after supabase gen types wipes them) ───
+export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
+export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
+export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
 export type AllTables = keyof Database['public']['Tables']
-export type DBTable<T extends AllTables> = Database['public']['Tables'][T]['Row']
-export type DBInsert<T extends AllTables> = Database['public']['Tables'][T]['Insert']
-export type DBUpdate<T extends AllTables> = Database['public']['Tables'][T]['Update']

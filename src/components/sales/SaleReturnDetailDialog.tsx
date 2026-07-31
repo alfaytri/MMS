@@ -14,7 +14,10 @@ import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { SaleReturn } from '@/hooks/useSaleReturns'
 import { useReturnProgress } from '@/hooks/useSaleReturns'
+import { useReturnLineSources } from '@/hooks/useReturnLineSources'
+import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useMemo } from 'react'
 
 const RESOLUTION_LABEL: Record<string, string> = {
   replacement:  'replaced',
@@ -122,9 +125,16 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
   const { data: warehouses } = useWarehouses()
 
-  if (!ret) return null
+  const items = ret?.return_lines ?? []
+  const saleDeliveryLineIds = useMemo(
+    () => items
+      .map((i) => (i as { sale_delivery_line_id?: string | null }).sale_delivery_line_id)
+      .filter((v): v is string => !!v),
+    [items]
+  )
+  const { data: sourceMaps } = useReturnLineSources([], saleDeliveryLineIds, ret?.id ?? null)
 
-  const items = ret.return_lines ?? []
+  if (!ret) return null
   const goodItems = items.filter(i => i.condition === 'good')
   const damagedItems = items.filter(i => i.condition === 'damaged')
   const totalQty = items.reduce((sum, i) => sum + i.qty, 0)
@@ -233,31 +243,37 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
                     <tr className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
                       <th className="px-3 py-2 text-left font-medium">Item</th>
                       <th className="px-3 py-2 text-left font-medium">SKU</th>
+                      <th className="px-3 py-2 text-left font-medium">Source</th>
                       <th className="px-3 py-2 text-right font-medium">Qty</th>
                       <th className="px-3 py-2 text-center font-medium">Condition</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {items.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-muted/20">
-                        <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums">{item.qty}</td>
-                        <td className="px-3 py-2.5 text-center">
-                          <Badge
-                            variant="outline"
-                            className={cn('text-xs', item.condition === 'damaged'
-                              ? 'border-red-200 bg-red-50 text-red-700'
-                              : 'border-green-200 bg-green-50 text-green-700'
-                            )}
-                          >
-                            {item.condition}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
+                    {items.map((item, idx) => {
+                      const sdlid = (item as { sale_delivery_line_id?: string | null }).sale_delivery_line_id ?? null
+                      const info = sdlid ? sourceMaps?.delivery.get(sdlid) : undefined
+                      return (
+                        <tr key={idx} className="hover:bg-muted/20">
+                          <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
+                          <td className="px-3 py-2.5"><ReturnLineSourceBadges info={info} /></td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">{item.qty}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <Badge
+                              variant="outline"
+                              className={cn('text-xs', item.condition === 'damaged'
+                                ? 'border-red-200 bg-red-50 text-red-700'
+                                : 'border-green-200 bg-green-50 text-green-700'
+                              )}
+                            >
+                              {item.condition}
+                            </Badge>
+                          </td>
+                        </tr>
+                      )
+                    })}
                     {items.length === 0 && (
-                      <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">No items found</td></tr>
+                      <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No items found</td></tr>
                     )}
                   </tbody>
                 </table>

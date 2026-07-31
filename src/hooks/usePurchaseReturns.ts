@@ -14,6 +14,99 @@ export type POReturnItem = {
   brand_variant_id: string | null
   condition: 'defective' | 'damaged' | 'other'
   condition_notes: string | null
+  receival_item_id: string | null
+}
+
+export type ReceivalItemForReturn = {
+  receival_item_id:      string
+  receival_id:           string
+  receival_number:       string
+  received_at:           string
+  warehouse_id:          string
+  warehouse_name:        string
+  sub_container_id:      string | null
+  sub_container_name:    string | null
+  brand_variant_id:      string
+  item_name:             string
+  sku:                   string | null
+  received_qty:          number
+  already_returned_qty:  number
+  returnable_qty:        number
+}
+
+export function useReceivalItemsForPo(poId: string | null) {
+  return useQuery({
+    queryKey: ['receival-items-for-po', poId],
+    enabled:  !!poId,
+    queryFn:  async () => {
+      const supabase = createClient()
+      const { data: receivals, error: rErr } = await supabase
+        .from('receivals')
+        .select('id, receival_number, created_at, warehouse_id, warehouses(name), receival_items(id, brand_variant_id, item_name, sku, qty_received, sub_container_id, warehouse_sub_containers(name))')
+        .eq('po_id', poId!)
+      if (rErr) throw rErr
+
+      type ReceivalItemRow = {
+        id:                string
+        brand_variant_id:  string
+        item_name:         string
+        sku:               string | null
+        qty_received:      number
+        sub_container_id:  string | null
+        warehouse_sub_containers?: { name?: string | null } | null
+      }
+      type ReceivalRow = {
+        id:              string
+        receival_number: string
+        created_at:      string
+        warehouse_id:    string
+        warehouses?:     { name?: string | null } | null
+        receival_items?: ReceivalItemRow[]
+      }
+
+      const typed = (receivals ?? []) as unknown as ReceivalRow[]
+      const itemIds = typed.flatMap((r) => (r.receival_items ?? []).map((ri) => ri.id))
+
+      const returnedMap = new Map<string, number>()
+      if (itemIds.length > 0) {
+        const { data: prior, error: pErr } = await supabase
+          .from('return_lines')
+          .select('receival_item_id, qty')
+          .in('receival_item_id', itemIds)
+        if (pErr) throw pErr
+        for (const row of prior ?? []) {
+          if (row.receival_item_id) {
+            returnedMap.set(row.receival_item_id, (returnedMap.get(row.receival_item_id) ?? 0) + (row.qty ?? 0))
+          }
+        }
+      }
+
+      const rows: ReceivalItemForReturn[] = []
+      for (const r of typed) {
+        for (const ri of r.receival_items ?? []) {
+          const already = returnedMap.get(ri.id) ?? 0
+          rows.push({
+            receival_item_id:     ri.id,
+            receival_id:          r.id,
+            receival_number:      r.receival_number,
+            received_at:          r.created_at,
+            warehouse_id:         r.warehouse_id,
+            warehouse_name:       r.warehouses?.name ?? '—',
+            sub_container_id:     ri.sub_container_id,
+            sub_container_name:   ri.warehouse_sub_containers?.name ?? null,
+            brand_variant_id:     ri.brand_variant_id,
+            item_name:            ri.item_name,
+            sku:                  ri.sku,
+            received_qty:         ri.qty_received,
+            already_returned_qty: already,
+            returnable_qty:       Math.max(ri.qty_received - already, 0),
+          })
+        }
+      }
+      return rows.sort((a, b) => a.received_at.localeCompare(b.received_at))
+    },
+    staleTime: 30_000,
+  })
 }
 
 export type POReturn = {
@@ -108,6 +201,12 @@ export function useCreatePurchaseReturn() {
       notes: string | null
     }) => {
       const supabase = createClient()
+
+      const missingLink = payload.items.find((it) => !it.receival_item_id)
+      if (missingLink) {
+        throw new Error(`Every return line must reference a receival. Missing on: ${missingLink.item_name}`)
+      }
+
       const { count } = await supabase
         .from('so_po_returns')
         .select('*', { count: 'exact', head: true })
@@ -141,6 +240,7 @@ export function useCreatePurchaseReturn() {
             condition: item.condition,
             brand_variant_id: item.brand_variant_id,
             condition_notes: item.condition_notes ?? null,
+            receival_item_id: item.receival_item_id,
           })))
         if (linesErr) throw linesErr
       }

@@ -127,7 +127,7 @@ export function useCompleteDelivery() {
         .rpc('complete_delivery_inventory', {
           p_delivery_id: deliveryId,
           p_so_id: soId,
-          p_sub_container_id: subContainerId ?? null,
+          p_sub_container_id: subContainerId ?? undefined,
         })
       if (error) throw new Error(error.message)
 

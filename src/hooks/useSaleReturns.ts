@@ -30,6 +30,7 @@ export type SaleReturn = {
     condition: ReturnLineCondition
     condition_notes: string | null
     created_at: string
+    sale_delivery_line_id: string | null
   }[]
   restock_warehouse_id: string | null
   notes: string | null
@@ -67,6 +68,121 @@ export function useSaleReturns(filters: { search?: string; status?: string } = {
   })
 }
 
+export type DeliveryLineForReturn = {
+  sale_delivery_line_id: string
+  sale_delivery_id:      string
+  delivery_number:       string
+  delivered_at:          string
+  warehouse_id:          string
+  warehouse_name:        string
+  sub_container_id:      string | null
+  sub_container_name:    string | null
+  brand_variant_id:      string
+  item_name:             string
+  sku:                   string | null
+  delivered_qty:         number
+  already_returned_qty:  number
+  returnable_qty:        number
+}
+
+/**
+ * Returns one row per (sale_delivery_line, sub-container) source for an SO.
+ * Sub-container derived per-delivery via cogs_entries.source_id → fifo_cost_layers.
+ */
+export function useSaleDeliveryLinesForSo(soId: string | null) {
+  return useQuery({
+    queryKey: ['sale-delivery-lines-for-so', soId],
+    enabled:  !!soId,
+    queryFn:  async () => {
+      const supabase = createClient()
+
+      const { data: deliveries, error: dErr } = await supabase
+        .from('sale_deliveries')
+        .select('id, delivery_number, date, warehouse_id, warehouse_name, status, sale_delivery_lines(id, brand_variant_id, item_name, sku, qty_delivered)')
+        .eq('sale_order_id', soId!)
+        .eq('status', 'delivered')
+      if (dErr) throw dErr
+
+      type DeliveryRow = {
+        id:              string
+        delivery_number: string
+        date:            string
+        warehouse_id:    string
+        warehouse_name:  string
+        sale_delivery_lines?: Array<{
+          id:               string
+          brand_variant_id: string | null
+          item_name:        string
+          sku:              string | null
+          qty_delivered:    number
+        }>
+      }
+      const typed = (deliveries ?? []) as unknown as DeliveryRow[]
+
+      // Sub-container per delivery via cogs_entries.source_id → fifo_cost_layers
+      const deliveryIds = typed.map((d) => d.id)
+      const subContainerByDelivery = new Map<string, { id: string | null; name: string | null }>()
+      if (deliveryIds.length > 0) {
+        const { data: cogs } = await supabase
+          .from('cogs_entries')
+          .select('sale_delivery_id, source_id, fifo_cost_layers(sub_container_id, warehouse_sub_containers(name))')
+          .in('sale_delivery_id', deliveryIds)
+        type CogsRow = { sale_delivery_id: string; fifo_cost_layers?: { sub_container_id: string | null; warehouse_sub_containers?: { name?: string | null } | null } | null }
+        for (const row of (cogs ?? []) as unknown as CogsRow[]) {
+          if (!subContainerByDelivery.has(row.sale_delivery_id)) {
+            subContainerByDelivery.set(row.sale_delivery_id, {
+              id:   row.fifo_cost_layers?.sub_container_id ?? null,
+              name: row.fifo_cost_layers?.warehouse_sub_containers?.name ?? null,
+            })
+          }
+        }
+      }
+
+      // Prior returns per delivery_line
+      const lineIds = typed.flatMap((d) => (d.sale_delivery_lines ?? []).map((l) => l.id))
+      const returnedMap = new Map<string, number>()
+      if (lineIds.length > 0) {
+        const { data: prior } = await supabase
+          .from('return_lines')
+          .select('sale_delivery_line_id, qty')
+          .in('sale_delivery_line_id', lineIds)
+        for (const row of prior ?? []) {
+          if (row.sale_delivery_line_id) {
+            returnedMap.set(row.sale_delivery_line_id, (returnedMap.get(row.sale_delivery_line_id) ?? 0) + (row.qty ?? 0))
+          }
+        }
+      }
+
+      const rows: DeliveryLineForReturn[] = []
+      for (const d of typed) {
+        const sc = subContainerByDelivery.get(d.id) ?? { id: null, name: null }
+        for (const sdl of d.sale_delivery_lines ?? []) {
+          if (!sdl.brand_variant_id) continue
+          const already = returnedMap.get(sdl.id) ?? 0
+          rows.push({
+            sale_delivery_line_id: sdl.id,
+            sale_delivery_id:      d.id,
+            delivery_number:       d.delivery_number,
+            delivered_at:          d.date,
+            warehouse_id:          d.warehouse_id,
+            warehouse_name:        d.warehouse_name,
+            sub_container_id:      sc.id,
+            sub_container_name:    sc.name,
+            brand_variant_id:      sdl.brand_variant_id,
+            item_name:             sdl.item_name,
+            sku:                   sdl.sku,
+            delivered_qty:         sdl.qty_delivered,
+            already_returned_qty:  already,
+            returnable_qty:        Math.max(sdl.qty_delivered - already, 0),
+          })
+        }
+      }
+      return rows.sort((a, b) => a.delivered_at.localeCompare(b.delivered_at))
+    },
+    staleTime: 30_000,
+  })
+}
+
 export function useCreateSaleReturn() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -75,6 +191,7 @@ export function useCreateSaleReturn() {
       date: string
       reason: string
       items: {
+        sale_delivery_line_id: string | null
         item_name: string
         sku: string | null
         qty: number
@@ -89,6 +206,11 @@ export function useCreateSaleReturn() {
       // inspection is completed via rpc_complete_return_inspection.
     }) => {
       const supabase = createClient()
+
+      const missingLink = payload.items.find((it) => !it.sale_delivery_line_id)
+      if (missingLink) {
+        throw new Error(`Every return line must reference a delivery. Missing on: ${missingLink.item_name}`)
+      }
 
       const hasInspection = payload.items.some((i) => i.condition === 'inspection')
       const initialStatus: SaleReturnStatus = hasInspection ? 'pending_inspection' : 'pending'
@@ -146,6 +268,7 @@ export function useCreateSaleReturn() {
             condition: item.condition,
             brand_variant_id: item.brand_variant_id,
             condition_notes: item.condition_notes ?? null,
+            sale_delivery_line_id: item.sale_delivery_line_id,
           })))
         if (linesErr) throw linesErr
       }
@@ -474,13 +597,13 @@ export function useCompleteReturnInspection() {
     }: {
       returnId: string
       splits: InspectionSplit[]
-      restockWarehouseId: string
+      restockWarehouseId?: string | null
     }) => {
       const supabase = createClient()
       const { error } = await supabase.rpc('rpc_complete_return_inspection', {
         p_return_id: returnId,
         p_splits: splits as unknown as import('@/types/database.types').Json,
-        p_restock_warehouse_id: restockWarehouseId,
+        p_restock_warehouse_id: restockWarehouseId ?? undefined,
       })
       if (error) throw error
     },
