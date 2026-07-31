@@ -251,7 +251,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-**Warehouse Model v2 (feature/warehouse-model-v2)** — Phases A + B + C.1 + all of C.2 (a–f) + C.3 shipped end-to-end. Every stock-writing RPC populates `sub_container_id`; both RLS layers (`is_division_visible()` and the new `is_sub_container_visible()`) enforce read/write access. Next: **operator smoke test** on staging to confirm the new RLS layer doesn't over-restrict any existing flow (RP cross-division read, single-division scope narrowing, virtual repair-vendor visibility). Then Phase D (UI), E (drop legacy).
+**Warehouse Model v2 (feature/warehouse-model-v2)** — 🚀 Starting: **Phase D.1: Master Data → Warehouses UI**. Phases A + B + C.1 + C.2 (a–f) + C.3 shipped; operator smoke test passed (all 7 personas match design). Now shipping the first operator-visible slice: nested sub-container CRUD under each warehouse + WarehouseFormDialog swaps `division_id` picker for `company_id`. Plan: `docs/superpowers/plans/2026-07-31-warehouse-model-v2-phase-d1.md`. No DB migrations in D.1 — RLS from Phase C.3 already gates the writes.
 
 **Phase 9.7 shipped, Phase 9 damaged-side merged to `deploy/warehouse-shipping`.** Milestone gate — hard stop before Phase 9.8 for user E2E verification of the full damaged-side flow (restock → send-for-repair → return-from-repair with good/writeoff/mixed outcomes) in staging. Next task after gate lifts: Phase 9.8 (DN dual-ledger schema + views) on a fresh branch.
 
