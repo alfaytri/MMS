@@ -193,7 +193,7 @@ Field rules:
 ### Warehouse Sub-Container Auto-Provision (planned)
 
 - **Module:** Warehouse / Inventory
-- **Status:** Planned — Phase A (schema) shipped 2026-07-31; Phase B (backfill) + C (writes) + D (UI) + E (drop legacy) pending.
+- **Status:** Planned — Phase A (schema) + Phase B (backfill) shipped 2026-07-31; Phase C (writes + NOT NULL + virtual-warehouse decision) + D (UI) + E (drop legacy) pending.
 - **Trigger surface(s):** Every write path that lands stock in a warehouse (receival, transfer receive, sale return restock, damaged-side dispositions). All resolved through the shared helper `public._find_or_create_sub_container(warehouse_id, division_id)` from Phase C.
 - **Primary hook(s):** N/A (Phase A schema only; hooks appear in Phase D).
 - **RPC(s):** `_find_or_create_sub_container(uuid, uuid)` (Phase C). No public RPCs in Phase A.
@@ -203,7 +203,7 @@ Field rules:
 - **Guards / preconditions:** N/A in Phase A. From Phase B: every warehouse must have a default sub-container per hosted division before Phase C flips FK columns NOT NULL.
 - **Related flows:** [[Division Switcher]] (JWT active_division_id claim narrows sub-container visibility via `is_division_visible()`), all Phase 9 damaged-side flows (they'll pick up sub-container resolution during Phase C's RPC sweep).
 - **Docs / plans:** [docs/warehouse-model-v2-design.md](docs/warehouse-model-v2-design.md); Phase A plan `docs/superpowers/plans/2026-07-31-warehouse-model-v2-phase-a.md`.
-- **Migrations:** Phase A → `20260803000100_warehouse_model_v2_phase_a.sql`. Phases B–E → TBD.
+- **Migrations:** Phase A → `20260803000100_warehouse_model_v2_phase_a.sql`; Phase B → `20260803000200_warehouse_model_v2_phase_b.sql`. Phases C–E → TBD.
 - **Notes:** Warehouses were previously tied to exactly one division via `warehouses.division_id`. This flow's design lets a single physical warehouse host multiple divisions' stock through per-division sub-containers, with RLS granting cross-division visibility only to `warehouse_responsible_persons`. Strict isolation: a warehouse with no sub-container visible to the caller does not render for that caller.
 
 ---
