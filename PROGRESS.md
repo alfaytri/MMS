@@ -251,7 +251,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-**Warehouse Model v2 (feature/warehouse-model-v2)** — Phases A + B + C.1 + entire C.2 (a through f) shipped end-to-end. Every stock-writing RPC on staging populates `sub_container_id`; the 8 sub_container_id columns are NOT NULL. Next: **Phase C.3** (new RLS `is_sub_container_visible()` policies stacked on top of existing `is_division_visible()` gates + operator smoke test). Then Phase D (UI), E (drop legacy).
+**Warehouse Model v2 (feature/warehouse-model-v2)** — 🚀 Starting: **Warehouse Model v2 Phase C.3: `is_sub_container_visible()` helper + additive RLS policies**. Phases A + B + C.1 + entire C.2 (a through f) shipped end-to-end. Every stock-writing RPC on staging populates `sub_container_id`; the 8 sub_container_id columns are NOT NULL. Now stacking new sub-container-scoped RLS on top of the existing `is_division_visible()` policies (belt-and-braces, both must pass). Then Phase D (UI), E (drop legacy).
 
 **Phase 9.7 shipped, Phase 9 damaged-side merged to `deploy/warehouse-shipping`.** Milestone gate — hard stop before Phase 9.8 for user E2E verification of the full damaged-side flow (restock → send-for-repair → return-from-repair with good/writeoff/mixed outcomes) in staging. Next task after gate lifts: Phase 9.8 (DN dual-ledger schema + views) on a fresh branch.
 
