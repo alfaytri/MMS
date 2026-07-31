@@ -250,6 +250,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Phase 9 Task 9.7: UI — Damaged Stock overview page + Return-from-Repair dialog** — creates `/warehouse/damaged-stock` (On-hand / Out for repair / Movements tabs) + `ReturnFromRepairDialog` wrapping `rpc_return_damaged_from_repair`, plus the division_id backfill for `damaged_repair_out` transfers flagged in the 9.6 RLS audit. Milestone gate — hard stop after this task for user E2E verification before 9.8.
+
 Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR #2). Ready to merge to main after production catch-up (see below).
 
 **Follow-ups outside the branch:**
