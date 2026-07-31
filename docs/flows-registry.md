@@ -190,6 +190,22 @@ Field rules:
 - **Migrations:** `20260802000600_rpc_return_from_repair.sql`, `20260802000610_fix_rpc_return_from_repair_items_column.sql` (column-name hotfix), `20260802000660_fix_damaged_rpcs_user_data_lookup.sql` (auth.uid→user_data.id lookup fix), `20260802000700_damaged_transfers_division_id_backfill.sql` (Phase 9.7 — recreates the RPC one more time to stamp `division_id` on the two inbound return transfers, closing the RLS leak from the 9.6 audit).
 - **Notes:** Two intentional departures from the plan doc: (1) plan used `notes` JSON strings to link inbound transfers back to the outbound; this uses the existing `warehouse_transfers.source_return_line_disposition_id` column instead — the 9.2 CHECK permits it for the return kinds, and it's queryable via a normal join instead of text-JSON parsing. (2) Plan assumed a `_add_good_stock_layer` helper; that helper does not exist, so the good-stock addition is inlined using the receival/adjustment pattern (fifo_cost_layers + stock_level bump + stock movement + recalc_average_cost). New `stock_movement_type` enum value `damaged_return_from_repair_as_good` added by this migration.
 
+### Warehouse Sub-Container Auto-Provision (planned)
+
+- **Module:** Warehouse / Inventory
+- **Status:** Planned — Phase A (schema) shipped 2026-07-31; Phase B (backfill) + C (writes) + D (UI) + E (drop legacy) pending.
+- **Trigger surface(s):** Every write path that lands stock in a warehouse (receival, transfer receive, sale return restock, damaged-side dispositions). All resolved through the shared helper `public._find_or_create_sub_container(warehouse_id, division_id)` from Phase C.
+- **Primary hook(s):** N/A (Phase A schema only; hooks appear in Phase D).
+- **RPC(s):** `_find_or_create_sub_container(uuid, uuid)` (Phase C). No public RPCs in Phase A.
+- **Ledger writes:** N/A in Phase A. From Phase C: every stock row acquires `sub_container_id`; `warehouses.company_id` becomes NOT NULL.
+- **Downstream side-effects:** N/A in Phase A. From Phase C: RLS policy `is_sub_container_visible(sub_container_id)` gates all stock-table reads on top of the existing `is_division_visible()` policies.
+- **Dialog / component:** N/A in Phase A (UI arrives in Phase D — nested sub-container editor under Master Data → Warehouses).
+- **Guards / preconditions:** N/A in Phase A. From Phase B: every warehouse must have a default sub-container per hosted division before Phase C flips FK columns NOT NULL.
+- **Related flows:** [[Division Switcher]] (JWT active_division_id claim narrows sub-container visibility via `is_division_visible()`), all Phase 9 damaged-side flows (they'll pick up sub-container resolution during Phase C's RPC sweep).
+- **Docs / plans:** [docs/warehouse-model-v2-design.md](docs/warehouse-model-v2-design.md); Phase A plan `docs/superpowers/plans/2026-07-31-warehouse-model-v2-phase-a.md`.
+- **Migrations:** Phase A → `20260803000100_warehouse_model_v2_phase_a.sql`. Phases B–E → TBD.
+- **Notes:** Warehouses were previously tied to exactly one division via `warehouses.division_id`. This flow's design lets a single physical warehouse host multiple divisions' stock through per-division sub-containers, with RLS granting cross-division visibility only to `warehouse_responsible_persons`. Strict isolation: a warehouse with no sub-container visible to the caller does not render for that caller.
+
 ---
 
 ## Cross-flow patterns
