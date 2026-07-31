@@ -52,6 +52,7 @@ import {
   CheckSquare,
   LayoutDashboard,
   TrendingUp,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -108,7 +109,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileCheck, Clock, Truck, UserCheck, ClipboardList, CheckCircle, Ship,
   Calculator, BarChart3, RotateCcw, Package, PackageCheck, FileX, FileX2,
   PackageOpen, Wallet, MapPin, Calendar, Crown, ShieldCheck, CheckSquare,
-  LayoutDashboard, TrendingUp,
+  LayoutDashboard, TrendingUp, AlertTriangle,
 }
 
 function canAccess(
@@ -161,7 +162,7 @@ function DropdownPanel({
       )}
       style={{ top: pos.top, left: pos.left }}
     >
-      <div className="max-h-[calc(100vh-5rem)] overflow-y-auto">
+      <div className="max-h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden">
         {children}
       </div>
     </div>,

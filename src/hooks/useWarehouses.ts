@@ -16,15 +16,30 @@ export type Warehouse = DBTable<'warehouses'> & {
 export type WarehouseInsert = DBInsert<'warehouses'>
 export type WarehouseUpdate = DBUpdate<'warehouses'>
 
-export function useWarehouses() {
+/**
+ * Fetch warehouses. By default excludes virtual warehouses (repair-vendor
+ * shadows introduced in Phase 9.2). Virtual warehouses are internal-only
+ * transfer targets — they must NOT appear in operator warehouse pickers
+ * (restock, receival source, delivery source, transfer picker, etc.). The
+ * only surface that legitimately needs them is Master Data → Warehouses
+ * (for admin visibility); that page opts in with `{ includeVirtual: true }`.
+ */
+export function useWarehouses(options?: { includeVirtual?: boolean }) {
+  const includeVirtual = options?.includeVirtual ?? false
   return useQuery({
-    queryKey: queryKeys.warehouses.all,
+    queryKey: [...queryKeys.warehouses.all, { includeVirtual }],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      let q = supabase
         .from('warehouses')
         .select('*, company_divisions(name), warehouse_responsible_persons(profile_id, user_data(full_name))')
         .order('name')
+      if (!includeVirtual) {
+        // is_virtual defaults to false, but be explicit — legacy rows and
+        // any future virtual-flag additions must be filtered too.
+        q = q.or('is_virtual.is.null,is_virtual.eq.false')
+      }
+      const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((row) => {
         const { warehouse_responsible_persons, company_divisions, ...rest } = row as typeof row & {

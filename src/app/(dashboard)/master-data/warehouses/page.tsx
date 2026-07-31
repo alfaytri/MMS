@@ -50,7 +50,9 @@ function WarehousesPageInner() {
     setActiveTab('stock')
   }
 
-  const { data: warehouses = [] } = useWarehouses()
+  // Master data view opts in to virtual warehouses (repair-vendor shadows)
+  // so admins can inspect them; operator pickers elsewhere exclude by default.
+  const { data: warehouses = [] } = useWarehouses({ includeVirtual: true })
   const { data: currentProfile } = useCurrentUserProfile()
   const { data: transfers = [] } = useWarehouseTransfers()
   const { data: receivalsDeliveries = [] } = useReceivalsAndDeliveries()

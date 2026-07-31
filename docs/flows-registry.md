@@ -127,19 +127,68 @@ Field rules:
 ### Record Inventory Disposition
 
 - **Module:** Sales / Inventory
-- **Status:** Active — Phase 7.2 new action
+- **Status:** Active — Phase 7.2 new action; extended Phase 9.3 (`restock_as_damaged`)
 - **Trigger surface(s):** `ReplacementDeliveryDialog` (dispositions-only submit — no replacement lines).
 - **Primary hook(s):** [`useRecordInventoryDisposition`](src/hooks/useSaleDeliveries.ts)
-- **RPC(s):** `rpc_record_inventory_disposition(p_return_id, p_warehouse_id, p_dispositions)`
-- **Ledger writes:** For each `{return_line_id, type='write_off', qty}` entry: `inventory_stock_movements(movement_type='sale_return_damaged')` + `return_line_inventory_dispositions` via `_record_inventory_disposition`. `restock_as_damaged` (Phase 8) and `send_for_repair` (Phase 9) raise "not yet implemented".
-- **Guards / preconditions:** Return_line must be `condition='damaged'`; qty ≤ `inventory_remaining_qty`.
-- **Related flows:** [[Create Partial Replacement (customer + inventory atomic)]], [[Write Off Damaged Return (compat wrapper)]]
+- **RPC(s):** `rpc_record_inventory_disposition(p_return_id, p_warehouse_id, p_dispositions)`; disposition dispatch also lives inline in `rpc_create_partial_replacement(p_return_id, p_warehouse_id, p_lines, p_gift_items, p_dispositions)`.
+- **Ledger writes:** For `{return_line_id, type='write_off', qty}`: `inventory_stock_movements(movement_type='sale_return_damaged')` + `return_line_inventory_dispositions` via `_record_inventory_disposition`. For `{return_line_id, type='restock_as_damaged', qty, notes?}` (Phase 9.3, migration `20260802000400_rpc_restock_as_damaged.sql`): `return_line_inventory_dispositions` (both FKs null) + `inventory_damaged_stock_layers` (FIFO layer, cost via `_return_line_fifo_unit_cost`) + `inventory_damaged_stock` (weighted-avg upsert) + `inventory_damaged_movements(movement_type='restock_as_damaged_in')`, all booked inside `_record_inventory_disposition` itself (not the caller) once it validates the condition/qty guards. For `{return_line_id, type='send_for_repair', qty, notes?}` (Phase 9.4, migration `20260802000500_rpc_send_for_repair.sql`): `return_line_inventory_dispositions` ONLY (both FKs null initially — `warehouse_transfer_id` is populated later by the [[Send Damaged for Repair]] follow-up RPC once the operator picks a vendor). No damaged-stock side-effects at disposition time; the physical restock + transfer both happen inside `rpc_send_damaged_for_repair`.
+- **Guards / preconditions:** Return_line must be `condition='damaged'`; qty ≤ `inventory_remaining_qty`. `restock_as_damaged` and `send_for_repair` both require a non-null `p_warehouse_id` (the operator-chosen damaged-stock warehouse — NOT `so_po_returns.restock_warehouse_id`). For `send_for_repair` the warehouse is where the units will be sourced from during the follow-up vendor step.
+- **Related flows:** [[Create Partial Replacement (customer + inventory atomic)]], [[Write Off Damaged Return (compat wrapper)]], [[Repair Vendor CRUD (auto-provisioned virtual warehouse)]]
+- **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md)
 
 ### Write Off Damaged Return (compat wrapper)
 
 - **Module:** Sales / Inventory
 - **Status:** Dropped — Phase 8.2 (migration `20260731000100_drop_legacy_writeoff_wrapper.sql`).
 - **Historic surface:** `rpc_write_off_return_damaged(p_return_id, p_warehouse_id)` RPC + `useWriteOffDamagedReturn` hook. Both removed 2026-07-29 after 8.1 grep confirmed zero live callers; work migrated to [[Record Inventory Disposition]] with per-line control.
+
+### Repair Vendor CRUD (auto-provisioned virtual warehouse)
+
+- **Module:** Warehouse
+- **Status:** Active (DB shipped Phase 9.2 · 2026-07-30; UI in Phase 9.6)
+- **Trigger surface(s):** `/warehouse/repair-vendors` page (Phase 9.6). Also invoked indirectly by the send-for-repair flow to look up vendors.
+- **Primary hook(s):** `useRepairVendors`, `useCreateRepairVendor`, `useUpdateRepairVendor` (Phase 9.6).
+- **RPC(s):** None — direct table inserts/updates on `repair_vendors`. Trigger `trg_repair_vendor_provision_warehouse` runs the derived side-effect.
+- **Ledger writes:** `repair_vendors`; `warehouses` (via trigger — one virtual row per vendor).
+- **Downstream side-effects:** On repair_vendors INSERT, `_repair_vendor_provision_warehouse()` (SECURITY DEFINER) creates a `warehouses` row named `Repair: <vendor>` with `is_virtual=true, repair_vendor_id=NEW.id, division_id=NULL` (conditional CHECK on `warehouses` — virtual warehouses are shared across divisions). Vendor's `virtual_warehouse_id` back-linked.
+- **Dialog / component:** `RepairVendorFormDialog` (Phase 9.6).
+- **Guards / preconditions:** `name` UNIQUE; SECURITY DEFINER trigger bypasses the caller's INSERT policy on `warehouses`.
+- **Related flows:** [[Send Damaged for Repair]] (Phase 9.4), [[Return Damaged from Repair]] (Phase 9.5).
+- **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md) — Sub-task 9.2.
+- **Migrations:** `20260802000200_repair_vendors.sql`, `20260802000300_damaged_transfers.sql`, `20260802000350_warehouses_division_virtual_fix.sql`, `20260802000360_repair_vendor_trigger_security_definer.sql`.
+- **Notes:** Repair vendors are deliberately NOT in `suppliers` — repair shops are not goods vendors. The virtual warehouse gives the send/return-from-repair transfer flow (Phase 9.4–9.5) a real `warehouse_id` target so damaged units can be tracked while off-site.
+
+### Send Damaged for Repair
+
+- **Module:** Warehouse / Sales
+- **Status:** Active (DB shipped Phase 9.4 · 2026-07-30; SendForRepairDialog shipped Phase 9.6 · 2026-07-31; Pending Vendor Assignment list shipped Phase 9.7 · 2026-07-31)
+- **Trigger surface(s):** (1) Pending Vendor Assignment amber section on `/warehouse/damaged-stock` Out-for-Repair tab (Phase 9.7) — lists every `return_line_inventory_dispositions` row where `disposition_type='send_for_repair' AND warehouse_transfer_id IS NULL`. Each row has an "Assign Vendor" button that opens `SendForRepairDialog` prefilled with warehouse + item context. (2) Direct invocation from `ReplacementDeliveryDialog` deferred to the pending list — the disposition saves without a vendor, operator picks it up from the overview page.
+- **Primary hook(s):** `useSendDamagedForRepair` (Phase 9.6).
+- **RPC(s):** `rpc_send_damaged_for_repair(p_return_line_disposition_id, p_repair_vendor_id, p_warehouse_id, p_expected_return_date, p_notes)`.
+- **Ledger writes:** (a) If damaged stock at `(p_warehouse_id, brand_variant_id)` is short of `qty`: `inventory_damaged_stock_layers` (FIFO layer, cost via `_return_line_fifo_unit_cost`) + `inventory_damaged_stock` (weighted-avg upsert) + `inventory_damaged_movements(movement_type='restock_as_damaged_in')` — an implicit restock leg attributed to THIS disposition. (b) `warehouse_transfers(transfer_kind='damaged_repair_out', status='in_transit', repair_vendor_id, source_return_line_disposition_id, expected_return_date, from_warehouse_id=p_warehouse_id, to_warehouse_id=vendor.virtual_warehouse_id)`. (c) `warehouse_transfer_items` normalized row. (d) FIFO consume via `_consume_damaged_stock_fifo(p_warehouse_id, brand_variant_id, qty)` decrements layers + aggregate. (e) `inventory_damaged_movements(movement_type='send_for_repair_out')` linked to both the disposition and the transfer. (f) `return_line_inventory_dispositions.warehouse_transfer_id` UPDATE stamps the disposition-to-transfer link.
+- **Downstream side-effects:** Damaged stock at source warehouse decreases; virtual repair-vendor warehouse now logically holds the units (though no aggregate row is written there — the transfer row is the record of location). Return status is unaffected here — closure was already decided by the disposition-creation step.
+- **Dialog / component:** `SendForRepairDialog` (Phase 9.6).
+- **Guards / preconditions:** Disposition must have `disposition_type='send_for_repair'` and `warehouse_transfer_id IS NULL` (never linked before). Vendor must exist and be `is_active`. Source warehouse must NOT be the vendor's virtual warehouse. FIFO consume raises if `inventory_damaged_stock_layers` cannot cover the qty (should never happen after the implicit-restock branch runs).
+- **Related flows:** [[Record Inventory Disposition (post-restock)]] (creates the disposition row this RPC consumes), [[Repair Vendor CRUD (auto-provisioned virtual warehouse)]], [[Return Damaged from Repair]] (Phase 9.5).
+- **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md) — Sub-task 9.4.
+- **Migrations:** `20260802000500_rpc_send_for_repair.sql`, `20260802000660_fix_damaged_rpcs_user_data_lookup.sql` (auth.uid→user_data.id lookup), `20260802000700_damaged_transfers_division_id_backfill.sql` (Phase 9.7 — backfills existing rows + recreates the RPC so future INSERTs stamp `division_id` on the outbound transfer).
+- **Notes:** Two-step UX by design — disposition + vendor choice are decoupled so an operator can record "these 3 units are going for repair" without knowing which vendor yet. The `return_line_inventory_dispositions_link_matches_type` CHECK was relaxed in 9.4 to allow `warehouse_transfer_id` NULL for `send_for_repair` (9.3's version required it NOT NULL, which blocked the two-step flow).
+
+### Return Damaged from Repair
+
+- **Module:** Warehouse / Sales
+- **Status:** Active (DB shipped Phase 9.5 · 2026-07-30; UI shipped Phase 9.7 · 2026-07-31)
+- **Trigger surface(s):** "Return from Repair" action button on rows in the Out-for-Repair section of `/warehouse/damaged-stock` (Phase 9.7). Opens `ReturnFromRepairDialog` for outcome + qty inputs.
+- **Primary hook(s):** `useReturnFromRepair` (exported from `src/hooks/useDamagedStockOverview.ts`, Phase 9.7).
+- **RPC(s):** `rpc_return_damaged_from_repair(p_transfer_id, p_outcome, p_qty_good, p_qty_writeoff, p_repair_cost, p_notes)`. `p_outcome ∈ {good, writeoff, mixed}` acts as a sanity check on the qty inputs — the RPC raises if the outcome doesn't match the qtys.
+- **Ledger writes:** For `p_qty_good > 0`: (a) `fifo_cost_layers` fresh layer at source warehouse with `source_type='damaged_repair_return', source_id=<outbound transfer id>`, `unit_cost = original_unit_cost + (p_repair_cost / p_qty_good)` — repair cost amortized across good units only; (b) `inventory_item_brand_variants.stock_level += qty_good`; (c) `inventory_stock_movements(movement_type='damaged_return_from_repair_as_good')` — NEW enum value added by this migration; (d) `recalc_average_cost(variant_id)` weighted-avg recompute; (e) `warehouse_transfers` row (from=vendor virtual warehouse, to=source, `transfer_kind='damaged_repair_return_good'`, `status='received'`, `repair_cost=<p_repair_cost>`, `source_return_line_disposition_id` = same disposition as the outbound); (f) `warehouse_transfer_items` normalized child row. For `p_qty_writeoff > 0`: (a) `inventory_damaged_movements(movement_type='return_from_repair_as_writeoff')` linked to both disposition and outbound transfer — writeoff units use the ORIGINAL unit cost (no repair-cost inheritance; that spend is sunk); (b) `warehouse_transfers` row with `transfer_kind='damaged_repair_return_writeoff', status='received'` — no stock added, but the row exists so the Damaged Stock overview page's join logic doesn't have to special-case the "outcome had no good units" shape; (c) `warehouse_transfer_items` normalized child row with `received_qty=0`. Finally: outbound transfer UPDATE to `status='received', received_at=now(), received_by_profile_id=auth.uid(), repair_cost=<p_repair_cost>`.
+- **Downstream side-effects:** Damaged stock at source warehouse is not affected by this RPC directly (the `send_for_repair_out` movement already decremented it in 9.4; good units return to `inventory_stock` not damaged stock). Good units are immediately available for normal sale. The vendor's virtual warehouse still doesn't hold any aggregate stock — the transfer rows are the record of location.
+- **Dialog / component:** `ReturnFromRepairDialog` (Phase 9.7). Client-side validation must enforce `qty_good + qty_writeoff == transfer_qty`.
+- **Guards / preconditions:** Outbound transfer must have `transfer_kind='damaged_repair_out'` and `status='in_transit'`. `qty_good + qty_writeoff` must equal the outbound transfer's qty (server-side). `p_repair_cost >= 0`. Outcome sanity: `good` requires qty_writeoff=0, `writeoff` requires qty_good=0, `mixed` requires both > 0.
+- **Related flows:** [[Send Damaged for Repair]] (produces the outbound transfer this RPC consumes), [[Record Inventory Disposition (post-restock)]] (originates the disposition both transfers share).
+- **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md) — Sub-task 9.5.
+- **Migrations:** `20260802000600_rpc_return_from_repair.sql`, `20260802000610_fix_rpc_return_from_repair_items_column.sql` (column-name hotfix), `20260802000660_fix_damaged_rpcs_user_data_lookup.sql` (auth.uid→user_data.id lookup fix), `20260802000700_damaged_transfers_division_id_backfill.sql` (Phase 9.7 — recreates the RPC one more time to stamp `division_id` on the two inbound return transfers, closing the RLS leak from the 9.6 audit).
+- **Notes:** Two intentional departures from the plan doc: (1) plan used `notes` JSON strings to link inbound transfers back to the outbound; this uses the existing `warehouse_transfers.source_return_line_disposition_id` column instead — the 9.2 CHECK permits it for the return kinds, and it's queryable via a normal join instead of text-JSON parsing. (2) Plan assumed a `_add_good_stock_layer` helper; that helper does not exist, so the good-stock addition is inlined using the receival/adjustment pattern (fifo_cost_layers + stock_level bump + stock movement + recalc_average_cost). New `stock_movement_type` enum value `damaged_return_from_repair_as_good` added by this migration.
 
 ---
 

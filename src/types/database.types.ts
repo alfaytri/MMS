@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -1883,6 +1858,195 @@ export type Database = {
           },
           {
             foreignKeyName: "inventory_checks_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_damaged_movements: {
+        Row: {
+          brand_variant_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          qty: number
+          source_return_line_disposition_id: string | null
+          source_transfer_id: string | null
+          unit_cost: number
+          warehouse_id: string
+        }
+        Insert: {
+          brand_variant_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          qty: number
+          source_return_line_disposition_id?: string | null
+          source_transfer_id?: string | null
+          unit_cost?: number
+          warehouse_id: string
+        }
+        Update: {
+          brand_variant_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          qty?: number
+          source_return_line_disposition_id?: string | null
+          source_transfer_id?: string | null
+          unit_cost?: number
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_damaged_movements_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_source_return_line_disposition_fkey"
+            columns: ["source_return_line_disposition_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_inventory_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_source_transfer_id_fkey"
+            columns: ["source_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_transfers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_damaged_stock: {
+        Row: {
+          brand_variant_id: string
+          qty: number
+          updated_at: string
+          warehouse_id: string
+          weighted_unit_cost: number
+        }
+        Insert: {
+          brand_variant_id: string
+          qty?: number
+          updated_at?: string
+          warehouse_id: string
+          weighted_unit_cost?: number
+        }
+        Update: {
+          brand_variant_id?: string
+          qty?: number
+          updated_at?: string
+          warehouse_id?: string
+          weighted_unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_damaged_stock_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_damaged_stock_layers: {
+        Row: {
+          brand_variant_id: string
+          created_by: string | null
+          id: string
+          layered_at: string
+          qty_received: number
+          qty_remaining: number
+          source_return_line_id: string | null
+          unit_cost: number
+          warehouse_id: string
+        }
+        Insert: {
+          brand_variant_id: string
+          created_by?: string | null
+          id?: string
+          layered_at?: string
+          qty_received: number
+          qty_remaining: number
+          source_return_line_id?: string | null
+          unit_cost: number
+          warehouse_id: string
+        }
+        Update: {
+          brand_variant_id?: string
+          created_by?: string | null
+          id?: string
+          layered_at?: string
+          qty_received?: number
+          qty_remaining?: number
+          source_return_line_id?: string | null
+          unit_cost?: number
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_source_return_line_id_fkey"
+            columns: ["source_return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_progress"
+            referencedColumns: ["return_line_id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_source_return_line_id_fkey"
+            columns: ["source_return_line_id"]
+            isOneToOne: false
+            referencedRelation: "return_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
@@ -3741,6 +3905,60 @@ export type Database = {
           },
         ]
       }
+      repair_vendors: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+          virtual_warehouse_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          virtual_warehouse_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          virtual_warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_vendors_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_vendors_virtual_warehouse_id_fkey"
+            columns: ["virtual_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       return_line_customer_resolutions: {
         Row: {
           created_at: string
@@ -5103,6 +5321,7 @@ export type Database = {
       }
       user_data: {
         Row: {
+          active_division_id: string | null
           auth_user_id: string
           avatar_url: string | null
           created_at: string
@@ -5122,6 +5341,7 @@ export type Database = {
           user_type: Database["public"]["Enums"]["user_type"]
         }
         Insert: {
+          active_division_id?: string | null
           auth_user_id: string
           avatar_url?: string | null
           created_at?: string
@@ -5141,6 +5361,7 @@ export type Database = {
           user_type?: Database["public"]["Enums"]["user_type"]
         }
         Update: {
+          active_division_id?: string | null
           auth_user_id?: string
           avatar_url?: string | null
           created_at?: string
@@ -5159,7 +5380,15 @@ export type Database = {
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_data_active_division_id_fkey"
+            columns: ["active_division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouse_reorder_points: {
         Row: {
@@ -5408,14 +5637,19 @@ export type Database = {
           dispatched_by_name: string | null
           dispatched_by_profile_id: string | null
           division_id: string | null
+          expected_return_date: string | null
           from_warehouse_id: string
           id: string
           notes: string | null
           received_at: string | null
           received_by_name: string | null
           received_by_profile_id: string | null
+          repair_cost: number | null
+          repair_vendor_id: string | null
+          source_return_line_disposition_id: string | null
           status: Database["public"]["Enums"]["transfer_status"] | null
           to_warehouse_id: string
+          transfer_kind: string
           transfer_number: string
           updated_at: string | null
         }
@@ -5434,14 +5668,19 @@ export type Database = {
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
           division_id?: string | null
+          expected_return_date?: string | null
           from_warehouse_id: string
           id?: string
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
           received_by_profile_id?: string | null
+          repair_cost?: number | null
+          repair_vendor_id?: string | null
+          source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_warehouse_id: string
+          transfer_kind?: string
           transfer_number: string
           updated_at?: string | null
         }
@@ -5460,14 +5699,19 @@ export type Database = {
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
           division_id?: string | null
+          expected_return_date?: string | null
           from_warehouse_id?: string
           id?: string
           notes?: string | null
           received_at?: string | null
           received_by_name?: string | null
           received_by_profile_id?: string | null
+          repair_cost?: number | null
+          repair_vendor_id?: string | null
+          source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_warehouse_id?: string
+          transfer_kind?: string
           transfer_number?: string
           updated_at?: string | null
         }
@@ -5522,6 +5766,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warehouse_transfers_repair_vendor_id_fkey"
+            columns: ["repair_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "repair_vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_source_return_line_disposition_id_fkey"
+            columns: ["source_return_line_disposition_id"]
+            isOneToOne: false
+            referencedRelation: "return_line_inventory_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "warehouse_transfers_to_warehouse_id_fkey"
             columns: ["to_warehouse_id"]
             isOneToOne: false
@@ -5533,31 +5791,37 @@ export type Database = {
       warehouses: {
         Row: {
           created_at: string | null
-          division_id: string
+          division_id: string | null
           id: string
+          is_virtual: boolean
           item_count: number | null
           location: string | null
           name: string
+          repair_vendor_id: string | null
           total_value: number | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
-          division_id: string
+          division_id?: string | null
           id?: string
+          is_virtual?: boolean
           item_count?: number | null
           location?: string | null
           name: string
+          repair_vendor_id?: string | null
           total_value?: number | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
-          division_id?: string
+          division_id?: string | null
           id?: string
+          is_virtual?: boolean
           item_count?: number | null
           location?: string | null
           name?: string
+          repair_vendor_id?: string | null
           total_value?: number | null
           updated_at?: string | null
         }
@@ -5567,6 +5831,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouses_repair_vendor_fk"
+            columns: ["repair_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "repair_vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -5924,6 +6195,14 @@ export type Database = {
       }
     }
     Functions: {
+      _consume_damaged_stock_fifo: {
+        Args: {
+          p_brand_variant_id: string
+          p_qty: number
+          p_warehouse_id: string
+        }
+        Returns: undefined
+      }
       _fx_document_booking: {
         Args: { p_document_id: string; p_document_type: string }
         Returns: Record<string, unknown>
@@ -5947,6 +6226,7 @@ export type Database = {
           p_notes?: string
           p_qty: number
           p_return_line_id: string
+          p_warehouse_id?: string
           p_warehouse_transfer_id?: string
         }
         Returns: string
@@ -6659,6 +6939,17 @@ export type Database = {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
       }
+      rpc_return_damaged_from_repair: {
+        Args: {
+          p_notes?: string
+          p_outcome: string
+          p_qty_good: number
+          p_qty_writeoff: number
+          p_repair_cost?: number
+          p_transfer_id: string
+        }
+        Returns: undefined
+      }
       rpc_sales_aging_report: {
         Args: never
         Returns: {
@@ -6672,6 +6963,16 @@ export type Database = {
           invoice_count: number
           total_outstanding: number
         }[]
+      }
+      rpc_send_damaged_for_repair: {
+        Args: {
+          p_expected_return_date: string
+          p_notes?: string
+          p_repair_vendor_id: string
+          p_return_line_disposition_id: string
+          p_warehouse_id: string
+        }
+        Returns: string
       }
       rpc_update_document_initial_rate: {
         Args: {
@@ -6739,6 +7040,10 @@ export type Database = {
           p_service_ids: string[]
           p_warranty_months?: number
         }
+        Returns: undefined
+      }
+      set_active_division: {
+        Args: { p_division_id: string }
         Returns: undefined
       }
       set_bill_pdf_url: {
@@ -7013,6 +7318,7 @@ export type Database = {
         | "inventory_check"
         | "inventory_receival_carve"
         | "inventory_receival_new"
+        | "damaged_return_from_repair_as_good"
       tl_order_type:
         | "order"
         | "site-visit-single"
@@ -7158,9 +7464,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -7368,6 +7671,7 @@ export const Constants = {
         "inventory_check",
         "inventory_receival_carve",
         "inventory_receival_new",
+        "damaged_return_from_repair_as_good",
       ],
       tl_order_type: [
         "order",
@@ -7395,11 +7699,8 @@ export const Constants = {
   },
 } as const
 
-// ── Helper aliases (re-appended after every gen types) ────────────────
-export type DBTable<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Row']
-export type DBInsert<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Insert']
-export type DBUpdate<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Update']
+// ─── Helper aliases (re-appended after supabase gen types wipes them) ───
 export type AllTables = keyof Database['public']['Tables']
+export type DBTable<T extends AllTables> = Database['public']['Tables'][T]['Row']
+export type DBInsert<T extends AllTables> = Database['public']['Tables'][T]['Insert']
+export type DBUpdate<T extends AllTables> = Database['public']['Tables'][T]['Update']

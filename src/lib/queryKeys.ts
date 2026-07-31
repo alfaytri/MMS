@@ -534,6 +534,24 @@ export const queryKeys = {
     all: ['warehouses'] as const,
   },
 
+  /* ── Repair Vendors (Phase 9.6) ───────────────────────── */
+  repairVendors: {
+    all: ['repair-vendors'] as const,
+    active: ['repair-vendors', 'active'] as const,
+    detail: (id: Nullable) => ['repair-vendors', id] as const,
+  },
+
+  /* ── Damaged Stock (Phase 9.6–9.7) ────────────────────── */
+  damagedStock: {
+    all: ['damaged-stock'] as const,
+    byWarehouse: (warehouseId: Nullable) => ['damaged-stock', { warehouseId }] as const,
+    movementsAll: ['damaged-movements'] as const,
+    movements: (filters: unknown) => ['damaged-movements', filters] as const,
+    outForRepairAll: ['damaged-out-for-repair'] as const,
+    outForRepair: (filters: unknown) => ['damaged-out-for-repair', filters] as const,
+    pendingRepairAssignmentAll: ['damaged-pending-repair-assignment'] as const,
+  },
+
   /* ── Warehouse Operations ─────────────────────────────── */
   warehouseOps: {
     stockMovements: (warehouseId: Nullable, limit: number) =>

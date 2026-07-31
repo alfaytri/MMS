@@ -82,8 +82,8 @@ const DISPOSITION_OPTIONS: Array<{
   hint?: string
 }> = [
   { value: 'write_off',          label: 'Write off' },
-  { value: 'restock_as_damaged', label: 'Restock as damaged', disabled: true, hint: 'Coming in Phase 9' },
-  { value: 'send_for_repair',    label: 'Send for repair',    disabled: true, hint: 'Coming in Phase 9' },
+  { value: 'restock_as_damaged', label: 'Restock as damaged' },
+  { value: 'send_for_repair',    label: 'Send for repair' },
 ]
 
 export function ReplacementDeliveryDialog({
@@ -319,10 +319,11 @@ export function ReplacementDeliveryDialog({
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
               Good lines can be replaced from stock. Damaged lines take a
-              disposition decision — write off is the only supported action
-              in Phase 7 (restock as damaged and send for repair land in
-              Phase 9). You can save a partial resolution and finish the
-              rest later.
+              disposition decision — write off, restock as damaged, or send
+              for repair. Send-for-repair records the decision now; the
+              vendor + expected return date get picked in a follow-up step
+              from the Damaged Stock overview. You can save a partial
+              resolution and finish the rest later.
             </p>
 
             <div className="min-h-[8rem]">
@@ -465,7 +466,7 @@ export function ReplacementDeliveryDialog({
                                   onValueChange={(v) => setDispositionChoice(r.return_line_id, v as DispositionChoice, invRemaining)}
                                   disabled={invRemaining <= 0}
                                 >
-                                  <SelectTrigger className="h-8 w-36 min-h-8 text-xs">
+                                  <SelectTrigger className="h-8 w-48 min-h-8 text-xs">
                                     <SelectValue placeholder="Disposition" />
                                   </SelectTrigger>
                                   <SelectContent>
