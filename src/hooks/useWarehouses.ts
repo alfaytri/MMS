@@ -12,6 +12,7 @@ export type WarehouseResponsiblePerson = {
 export type Warehouse = DBTable<'warehouses'> & {
   responsible_persons: WarehouseResponsiblePerson[]
   division_name: string | null
+  company_name: string | null
 }
 export type WarehouseInsert = DBInsert<'warehouses'>
 export type WarehouseUpdate = DBUpdate<'warehouses'>
@@ -32,7 +33,9 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
       const supabase = createClient()
       let q = supabase
         .from('warehouses')
-        .select('*, company_divisions(name), warehouse_responsible_persons(profile_id, user_data(full_name))')
+        .select(
+          '*, company_divisions(name), companies(name_en), warehouse_responsible_persons(profile_id, user_data(full_name))'
+        )
         .order('name')
       if (!includeVirtual) {
         // is_virtual defaults to false, but be explicit — legacy rows and
@@ -42,13 +45,15 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
       const { data, error } = await q
       if (error) throw error
       return (data ?? []).map((row) => {
-        const { warehouse_responsible_persons, company_divisions, ...rest } = row as typeof row & {
-          company_divisions: { name: string } | null
-          warehouse_responsible_persons: Array<{
-            profile_id: string
-            user_data: { full_name: string | null } | null
-          }>
-        }
+        const { warehouse_responsible_persons, company_divisions, companies, ...rest } =
+          row as typeof row & {
+            company_divisions: { name: string } | null
+            companies: { name_en: string } | null
+            warehouse_responsible_persons: Array<{
+              profile_id: string
+              user_data: { full_name: string | null } | null
+            }>
+          }
         const rps = (warehouse_responsible_persons ?? []).map((rp) => ({
           profile_id: rp.profile_id,
           full_name: rp.user_data?.full_name ?? null,
@@ -57,6 +62,7 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
           ...rest,
           responsible_persons: rps,
           division_name: company_divisions?.name ?? null,
+          company_name: companies?.name_en ?? null,
         }
       }) as Warehouse[]
     },

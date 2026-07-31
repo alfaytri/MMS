@@ -50,6 +50,7 @@ export const NAV_TREE: TreeNode[] = [
           { key: 'warehouse.access', label: 'Access Warehouse Module', description: 'Show the Warehouse link in Master Data and grant access to the warehouse page' },
           { key: 'purchase.warehouses.view', label: 'View Warehouse Operations', description: 'Access stock levels, movements, and transfers' },
           { key: 'purchase.warehouses.manage', label: 'Manage Warehouse Operations', description: 'Create transfers, adjustments, and inventory checks' },
+          { key: 'warehouse.responsible_person', label: 'Warehouse RP (assignable)', description: 'Users holding this role can be assigned as a Warehouse Responsible Person for one or more warehouses (dispatch / receive transfers, count checks, etc.)' },
         ],
         children: [
           {
@@ -59,7 +60,6 @@ export const NAV_TREE: TreeNode[] = [
             permissions: [
               { key: 'warehouse.warehouses.view', label: 'View Warehouses Tab', description: 'See the Warehouses tab listing physical warehouses' },
               { key: 'warehouse.settings.manage', label: 'Manage WH Settings', description: 'Edit warehouses, assign Warehouse RPs, configure reorder points' },
-              { key: 'warehouse.responsible_person', label: 'Warehouse RP (assignable)', description: 'Users holding this role can be assigned as a Warehouse Responsible Person for one or more warehouses (dispatch / receive transfers, count checks, etc.)' },
             ],
           },
           {
