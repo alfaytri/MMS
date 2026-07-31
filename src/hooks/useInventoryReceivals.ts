@@ -9,6 +9,7 @@ export type InventoryReceivalMode = 'carve' | 'new_stock'
 export type CreateInventoryReceivalPayload = {
   mode: InventoryReceivalMode
   warehouse_id: string
+  sub_container_id: string
   brand_variant_id: string
   qty: number
   unit_cost: number
@@ -113,6 +114,7 @@ export function useCreateInventoryReceival() {
           p_source_layer_id: payload.source_layer_id,
           p_date: payload.date,
           p_notes: payload.notes,
+          p_sub_container_id: payload.sub_container_id,
         },
       )
       if (error) throw error
