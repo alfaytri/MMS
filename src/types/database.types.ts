@@ -1447,6 +1447,7 @@ export type Database = {
           source_exchange_rate: number
           source_id: string | null
           source_type: string | null
+          sub_container_id: string | null
           total_unit_cost: number
           unit_cost: number
           warehouse_id: string | null
@@ -1466,6 +1467,7 @@ export type Database = {
           source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
+          sub_container_id?: string | null
           total_unit_cost: number
           unit_cost: number
           warehouse_id?: string | null
@@ -1485,6 +1487,7 @@ export type Database = {
           source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
+          sub_container_id?: string | null
           total_unit_cost?: number
           unit_cost?: number
           warehouse_id?: string | null
@@ -1509,6 +1512,13 @@ export type Database = {
             columns: ["receival_id"]
             isOneToOne: false
             referencedRelation: "receivals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -2201,6 +2211,7 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           sku: string | null
+          sub_container_id: string | null
           unit_cost: number
           warehouse_id: string | null
         }
@@ -2216,6 +2227,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
+          sub_container_id?: string | null
           unit_cost?: number
           warehouse_id?: string | null
         }
@@ -2231,6 +2243,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
+          sub_container_id?: string | null
           unit_cost?: number
           warehouse_id?: string | null
         }
@@ -2247,6 +2260,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_movements_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -3740,6 +3760,7 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku: string | null
+          sub_container_id: string | null
           unit_cost: number
         }
         Insert: {
@@ -3753,6 +3774,7 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku?: string | null
+          sub_container_id?: string | null
           unit_cost: number
         }
         Update: {
@@ -3766,6 +3788,7 @@ export type Database = {
           qty_received?: number
           receival_id?: string
           sku?: string | null
+          sub_container_id?: string | null
           unit_cost?: number
         }
         Relationships: [
@@ -3795,6 +3818,13 @@ export type Database = {
             columns: ["receival_id"]
             isOneToOne: false
             referencedRelation: "receivals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receival_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
         ]
@@ -5009,6 +5039,7 @@ export type Database = {
           source_check_id: string | null
           source_check_item_id: string | null
           status: string
+          sub_container_id: string | null
           updated_at: string
           warehouse_id: string
         }
@@ -5028,6 +5059,7 @@ export type Database = {
           source_check_id?: string | null
           source_check_item_id?: string | null
           status?: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id: string
         }
@@ -5047,6 +5079,7 @@ export type Database = {
           source_check_id?: string | null
           source_check_item_id?: string | null
           status?: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id?: string
         }
@@ -5077,6 +5110,13 @@ export type Database = {
             columns: ["source_check_item_id"]
             isOneToOne: false
             referencedRelation: "inventory_check_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -5475,18 +5515,21 @@ export type Database = {
         Row: {
           allocated_qty: number
           brand_variant_id: string
+          sub_container_id: string | null
           updated_at: string
           warehouse_id: string
         }
         Insert: {
           allocated_qty?: number
           brand_variant_id: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id: string
         }
         Update: {
           allocated_qty?: number
           brand_variant_id?: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id?: string
         }
@@ -5496,6 +5539,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_stock_allocations_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -5561,6 +5611,61 @@ export type Database = {
         }
         Relationships: []
       }
+      warehouse_sub_containers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          division_id: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          division_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          division_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_sub_containers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouse_transfer_items: {
         Row: {
           brand_variant_id: string
@@ -5573,6 +5678,7 @@ export type Database = {
           shrinkage_qty: number
           shrinkage_reason: string | null
           sku: string | null
+          sub_container_id: string | null
           transfer_id: string
           unit_cost: number
         }
@@ -5587,6 +5693,7 @@ export type Database = {
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null
+          sub_container_id?: string | null
           transfer_id: string
           unit_cost?: number
         }
@@ -5601,6 +5708,7 @@ export type Database = {
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null
+          sub_container_id?: string | null
           transfer_id?: string
           unit_cost?: number
         }
@@ -5610,6 +5718,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfer_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -5638,6 +5753,7 @@ export type Database = {
           dispatched_by_profile_id: string | null
           division_id: string | null
           expected_return_date: string | null
+          from_sub_container_id: string | null
           from_warehouse_id: string
           id: string
           notes: string | null
@@ -5648,6 +5764,7 @@ export type Database = {
           repair_vendor_id: string | null
           source_return_line_disposition_id: string | null
           status: Database["public"]["Enums"]["transfer_status"] | null
+          to_sub_container_id: string | null
           to_warehouse_id: string
           transfer_kind: string
           transfer_number: string
@@ -5669,6 +5786,7 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           division_id?: string | null
           expected_return_date?: string | null
+          from_sub_container_id?: string | null
           from_warehouse_id: string
           id?: string
           notes?: string | null
@@ -5679,6 +5797,7 @@ export type Database = {
           repair_vendor_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
+          to_sub_container_id?: string | null
           to_warehouse_id: string
           transfer_kind?: string
           transfer_number: string
@@ -5700,6 +5819,7 @@ export type Database = {
           dispatched_by_profile_id?: string | null
           division_id?: string | null
           expected_return_date?: string | null
+          from_sub_container_id?: string | null
           from_warehouse_id?: string
           id?: string
           notes?: string | null
@@ -5710,6 +5830,7 @@ export type Database = {
           repair_vendor_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
+          to_sub_container_id?: string | null
           to_warehouse_id?: string
           transfer_kind?: string
           transfer_number?: string
@@ -5752,6 +5873,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warehouse_transfers_from_sub_container_id_fkey"
+            columns: ["from_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "warehouse_transfers_from_warehouse_id_fkey"
             columns: ["from_warehouse_id"]
             isOneToOne: false
@@ -5780,6 +5908,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warehouse_transfers_to_sub_container_id_fkey"
+            columns: ["to_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "warehouse_transfers_to_warehouse_id_fkey"
             columns: ["to_warehouse_id"]
             isOneToOne: false
@@ -5790,6 +5925,7 @@ export type Database = {
       }
       warehouses: {
         Row: {
+          company_id: string | null
           created_at: string | null
           division_id: string | null
           id: string
@@ -5802,6 +5938,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           division_id?: string | null
           id?: string
@@ -5814,6 +5951,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           division_id?: string | null
           id?: string
@@ -5826,6 +5964,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "warehouses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "warehouses_division_id_fkey"
             columns: ["division_id"]
@@ -6203,6 +6348,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      _current_user_data_id: { Args: never; Returns: string }
       _fx_document_booking: {
         Args: { p_document_id: string; p_document_type: string }
         Returns: Record<string, unknown>
