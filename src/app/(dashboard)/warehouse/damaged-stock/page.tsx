@@ -222,6 +222,7 @@ function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Warehouse</th>
+                <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Source Sub-container</th>
                 <th className="px-3 py-2 text-left font-medium">Item</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">SKU</th>
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
@@ -233,6 +234,7 @@ function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
               {data.map((r) => (
                 <tr key={r.key}>
                   <td className="px-3 py-2 font-medium">{r.warehouse_name}</td>
+                  <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.source_sub_container_name ?? '—'}</td>
                   <td className="px-3 py-2">
                     <div className="truncate max-w-xs">{r.item_name}</div>
                     <div className="md:hidden text-[11px] text-muted-foreground">{r.sku || '—'}</div>
@@ -292,6 +294,7 @@ function OutForRepairTab({
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-left font-medium">Vendor</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Warehouse</th>
+                <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Source Sub-container</th>
                 <th className="px-3 py-2 text-left font-medium">Expected Return</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Dispatched</th>
                 <th className="px-3 py-2 text-right font-medium">Action</th>
@@ -308,6 +311,7 @@ function OutForRepairTab({
                   <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
                   <td className="px-3 py-2">{r.repair_vendor_name}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.from_warehouse_name}</td>
+                  <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.from_sub_container_name ?? '—'}</td>
                   <td className="px-3 py-2 text-xs">{formatDate(r.expected_return_date)}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDateTime(r.dispatched_at)}</td>
                   <td className="px-3 py-2 text-right">
@@ -365,6 +369,7 @@ function MovementsTab({ query }: { query: ReturnType<typeof useDamagedMovements>
                   <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Date/Time</th>
                   <th className="px-3 py-2 text-left font-medium">Type</th>
                   <th className="px-3 py-2 text-left font-medium">Warehouse</th>
+                  <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Source Sub-container</th>
                   <th className="px-3 py-2 text-left font-medium">Item</th>
                   <th className="px-3 py-2 text-right font-medium">Qty</th>
                   <th className="px-3 py-2 text-right font-medium">Unit Cost</th>
@@ -386,6 +391,7 @@ function MovementsTab({ query }: { query: ReturnType<typeof useDamagedMovements>
                       </div>
                     </td>
                     <td className="px-3 py-2">{r.warehouse_name}</td>
+                    <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.source_sub_container_name ?? '—'}</td>
                     <td className="px-3 py-2">
                       <div className="truncate max-w-xs">{r.item_name}</div>
                       <div className="text-[11px] text-muted-foreground">{r.sku || '—'}</div>
