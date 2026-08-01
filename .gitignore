@@ -76,6 +76,7 @@ odoo_viewers/
 /scripts/*
 !/scripts/build_final_schema.mjs
 !/scripts/build_test_workbook.mjs
+!/scripts/build-flows-visualizer.mjs
 !/scripts/test-cases/
 temp_*.sql
 
