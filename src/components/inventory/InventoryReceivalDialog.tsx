@@ -39,6 +39,8 @@ import { cn } from '@/lib/utils'
 
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useBrandVariantCategory } from '@/hooks/useBrandVariantCategory'
+import { useCategorySubContainer } from '@/hooks/useCategorySubContainer'
 import { Badge } from '@/components/ui/badge'
 import { Package } from 'lucide-react'
 import {
@@ -101,6 +103,11 @@ export function InventoryReceivalDialog({
   const { data: warehouses = [] } = useWarehouses()
   const { data: subs = [] } = useWarehouseSubContainers(warehouseId || null)
   const activeSubs = useMemo(() => subs.filter((s) => s.is_active), [subs])
+  // D.8 — resolve the variant's category → default sub-container so we can
+  // pre-fill the picker. Header warehouse always wins; pre-fill only lands
+  // when the resolved sub belongs to the currently-picked warehouse.
+  const { data: variantCategoryId } = useBrandVariantCategory(open ? brandVariantId : null)
+  const { data: resolvedSub } = useCategorySubContainer(variantCategoryId)
   const { data: layers = [] } = useFifoLayersForVariant(
     mode === 'carve' ? brandVariantId : null,
     mode === 'carve' ? warehouseId || null : null,
@@ -108,18 +115,28 @@ export function InventoryReceivalDialog({
   const createMutation = useCreateInventoryReceival()
 
   // Auto-pick when exactly one active sub-container exists; clear otherwise
-  // so a stale selection can't survive a warehouse change.
+  // so a stale selection can't survive a warehouse change. When the category
+  // resolves to a sub inside the currently-picked warehouse, pre-fill that
+  // instead (D.8) — operator can override.
   useEffect(() => {
     if (activeSubs.length === 1) {
       form.setValue('sub_container_id', activeSubs[0].id)
-    } else {
-      const current = form.getValues('sub_container_id')
-      if (current && !activeSubs.some((s) => s.id === current)) {
-        form.setValue('sub_container_id', '')
-      }
+      return
+    }
+    const current = form.getValues('sub_container_id')
+    if (current && !activeSubs.some((s) => s.id === current)) {
+      form.setValue('sub_container_id', '')
+    }
+    if (
+      resolvedSub &&
+      resolvedSub.warehouse_id === warehouseId &&
+      activeSubs.some((s) => s.id === resolvedSub.sub_container_id) &&
+      !form.getValues('sub_container_id')
+    ) {
+      form.setValue('sub_container_id', resolvedSub.sub_container_id)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [warehouseId, activeSubs.length])
+  }, [warehouseId, activeSubs.length, resolvedSub?.sub_container_id, resolvedSub?.warehouse_id])
 
   // Pre-fill unit cost when source layer selected
   useEffect(() => {

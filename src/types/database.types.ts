@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -12,6 +11,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -1529,6 +1553,13 @@ export type Database = {
             foreignKeyName: "fifo_cost_layers_sub_container_id_fkey"
             columns: ["sub_container_id"]
             isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
@@ -1544,6 +1575,7 @@ export type Database = {
       inventory_categories: {
         Row: {
           created_at: string | null
+          default_sub_container_id: string | null
           id: string
           name_ar: string | null
           name_en: string
@@ -1556,6 +1588,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          default_sub_container_id?: string | null
           id?: string
           name_ar?: string | null
           name_en: string
@@ -1568,6 +1601,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          default_sub_container_id?: string | null
           id?: string
           name_ar?: string | null
           name_en?: string
@@ -1579,6 +1613,20 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_categories_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "inventory_categories_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_categories_parent_id_fkey"
             columns: ["parent_id"]
@@ -1879,6 +1927,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_checks_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
           },
           {
             foreignKeyName: "inventory_checks_sub_container_id_fkey"
@@ -2282,6 +2337,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_movements_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
           },
           {
             foreignKeyName: "inventory_stock_movements_sub_container_id_fkey"
@@ -3845,6 +3907,13 @@ export type Database = {
             foreignKeyName: "receival_items_sub_container_id_fkey"
             columns: ["sub_container_id"]
             isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "receival_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
@@ -4003,6 +4072,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_vendors_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
           },
           {
             foreignKeyName: "repair_vendors_sub_container_id_fkey"
@@ -5167,6 +5243,13 @@ export type Database = {
             foreignKeyName: "stock_adjustments_sub_container_id_fkey"
             columns: ["sub_container_id"]
             isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
@@ -5596,6 +5679,13 @@ export type Database = {
             foreignKeyName: "warehouse_stock_allocations_sub_container_id_fkey"
             columns: ["sub_container_id"]
             isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_stock_allocations_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
@@ -5664,6 +5754,13 @@ export type Database = {
           warehouse_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
           {
             foreignKeyName: "warehouse_stock_summary_sub_container_fk"
             columns: ["sub_container_id"]
@@ -5781,6 +5878,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfer_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
           },
           {
             foreignKeyName: "warehouse_transfer_items_sub_container_id_fkey"
@@ -5938,6 +6042,13 @@ export type Database = {
             foreignKeyName: "warehouse_transfers_from_sub_container_id_fkey"
             columns: ["from_sub_container_id"]
             isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_from_sub_container_id_fkey"
+            columns: ["from_sub_container_id"]
+            isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
@@ -5968,6 +6079,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "return_line_inventory_dispositions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_to_sub_container_id_fkey"
+            columns: ["to_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
           },
           {
             foreignKeyName: "warehouse_transfers_to_sub_container_id_fkey"
@@ -6406,6 +6524,13 @@ export type Database = {
             foreignKeyName: "warehouse_stock_summary_sub_container_fk"
             columns: ["sub_container_id"]
             isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
@@ -6423,14 +6548,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fifo_cost_layers_sub_container_id_fkey"
-            columns: ["sub_container_id"]
-            isOneToOne: false
-            referencedRelation: "warehouse_sub_containers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fifo_cost_layers_warehouse_id_fkey"
+            foreignKeyName: "warehouse_sub_containers_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
@@ -7102,6 +7220,10 @@ export type Database = {
         Args: { p_profile_ids: string[]; p_warehouse_id: string }
         Returns: undefined
       }
+      resolve_category_sub_container: {
+        Args: { p_category_id: string }
+        Returns: string
+      }
       resubmit_sale_order: { Args: { p_so_id: string }; Returns: Json }
       revert_landed_cost: {
         Args: { p_lc_id: string; p_performer_name?: string }
@@ -7724,6 +7846,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
