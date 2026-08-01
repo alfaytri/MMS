@@ -9,10 +9,19 @@ export type WarehouseResponsiblePerson = {
   full_name: string | null
 }
 
+export type WarehouseSubContainerBreakdown = {
+  sub_container_id: string
+  sub_container_name: string
+  is_active: boolean
+  item_count: number
+  total_value: number
+}
+
 export type Warehouse = DBTable<'warehouses'> & {
   responsible_persons: WarehouseResponsiblePerson[]
   division_name: string | null
   company_name: string | null
+  sub_container_breakdown: WarehouseSubContainerBreakdown[]
 }
 export type WarehouseInsert = DBInsert<'warehouses'>
 export type WarehouseUpdate = DBUpdate<'warehouses'>
@@ -42,8 +51,33 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
         // any future virtual-flag additions must be filtered too.
         q = q.or('is_virtual.is.null,is_virtual.eq.false')
       }
-      const { data, error } = await q
+      // Fan out the warehouse fetch and the sub-container breakdown fetch in
+      // parallel — the breakdown feeds WhWarehousesTab card totals (D.9).
+      const [{ data, error }, { data: breakdownRows, error: breakdownErr }] =
+        await Promise.all([
+          q,
+          supabase
+            .from('warehouse_sub_container_totals')
+            .select('warehouse_id, sub_container_id, sub_container_name, sub_container_is_active, item_count, total_value')
+            .order('total_value', { ascending: false }),
+        ])
       if (error) throw error
+      if (breakdownErr) throw breakdownErr
+
+      const breakdownByWh = new Map<string, WarehouseSubContainerBreakdown[]>()
+      for (const b of breakdownRows ?? []) {
+        if (!b.warehouse_id || !b.sub_container_id) continue
+        const arr = breakdownByWh.get(b.warehouse_id) ?? []
+        arr.push({
+          sub_container_id: b.sub_container_id,
+          sub_container_name: b.sub_container_name ?? 'Unnamed',
+          is_active: b.sub_container_is_active ?? true,
+          item_count: Number(b.item_count ?? 0),
+          total_value: Number(b.total_value ?? 0),
+        })
+        breakdownByWh.set(b.warehouse_id, arr)
+      }
+
       return (data ?? []).map((row) => {
         const { warehouse_responsible_persons, company_divisions, companies, ...rest } =
           row as typeof row & {
@@ -63,6 +97,7 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
           responsible_persons: rps,
           division_name: company_divisions?.name ?? null,
           company_name: companies?.name_en ?? null,
+          sub_container_breakdown: breakdownByWh.get(rest.id) ?? [],
         }
       }) as Warehouse[]
     },

@@ -44,9 +44,13 @@ function WarehousesPageInner() {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
     searchParams.get('warehouse') ?? undefined,
   )
+  const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(
+    searchParams.get('sub_container') ?? null,
+  )
 
-  function handleViewStock(warehouseId: string) {
+  function handleViewStock(warehouseId: string, subContainerId?: string | null) {
     setSelectedWarehouseId(warehouseId)
+    setSelectedSubContainerId(subContainerId ?? null)
     setActiveTab('stock')
   }
 
@@ -203,7 +207,7 @@ function WarehousesPageInner() {
           )}
           {visibleTabs.has('stock') && (
             <TabsContent value="stock" className="mt-0">
-              <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={selectedWarehouseId} />
+              <WhStockOverviewTab warehouses={warehouses} initialWarehouseId={selectedWarehouseId} initialSubContainerId={selectedSubContainerId} />
             </TabsContent>
           )}
           {visibleTabs.has('transfers') && (

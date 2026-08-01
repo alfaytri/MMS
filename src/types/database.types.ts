@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -11,31 +12,6 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
   }
   public: {
     Tables: {
@@ -6425,6 +6401,33 @@ export type Database = {
           },
         ]
       }
+      warehouse_sub_container_totals: {
+        Row: {
+          item_count: number | null
+          sub_container_id: string | null
+          sub_container_is_active: boolean | null
+          sub_container_name: string | null
+          total_qty: number | null
+          total_value: number | null
+          warehouse_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fifo_cost_layers_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _consume_damaged_stock_fifo: {
@@ -7711,9 +7714,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -7948,7 +7948,7 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.111.0 (currently installed v2.91.3)
+
 export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

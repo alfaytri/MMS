@@ -4,14 +4,17 @@ import React, { useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, Building2, Wrench } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, Boxes, Wrench } from 'lucide-react'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 
 interface Props {
   warehouses: Warehouse[]
-  onViewStock?: (warehouseId: string) => void
+  onViewStock?: (warehouseId: string, subContainerId?: string | null) => void
 }
+
+const ALL_SUBS = '__all__'
 
 const SEGMENT_COLORS = [
   'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500',
@@ -37,6 +40,8 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
 
   // Track which warehouse cards have their stock tree expanded
   const [expandedWh, setExpandedWh] = useState<Set<string>>(new Set())
+  // Per-card sub-container filter. Missing key = "All"; string = sub_container_id.
+  const [selectedSubByWh, setSelectedSubByWh] = useState<Record<string, string>>({})
   // Virtual section starts collapsed; the operator opens it to peek at repair activity
   const [virtualOpen, setVirtualOpen] = useState(false)
 
@@ -44,8 +49,15 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
     setExpandedWh((prev) => { const n = new Set(prev); if (n.has(id)) { n.delete(id) } else { n.add(id) } return n })
   }
 
-  function viewStock(warehouseId: string) {
-    onViewStock?.(warehouseId)
+  function setSubForWh(warehouseId: string, subId: string) {
+    setSelectedSubByWh((prev) => {
+      if (subId === ALL_SUBS) { const { [warehouseId]: _drop, ...rest } = prev; return rest }
+      return { ...prev, [warehouseId]: subId }
+    })
+  }
+
+  function viewStock(warehouseId: string, subContainerId?: string | null) {
+    onViewStock?.(warehouseId, subContainerId ?? null)
   }
 
   if (warehouses.length === 0) {
@@ -61,6 +73,13 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
   function renderCard(wh: Warehouse) {
     const isExpanded = expandedWh.has(wh.id)
     const isVirtual = wh.is_virtual
+    const breakdown = wh.sub_container_breakdown ?? []
+    const selectedSubId = selectedSubByWh[wh.id] ?? null
+    const selectedSub = selectedSubId ? breakdown.find((sc) => sc.sub_container_id === selectedSubId) ?? null : null
+    // When a sub is selected, header shows THAT sub's numbers. Otherwise warehouse totals.
+    const displayItemCount = selectedSub ? selectedSub.item_count : (wh.item_count ?? 0)
+    const displayValue     = selectedSub ? selectedSub.total_value : (wh.total_value ?? 0)
+    const hasBreakdown = breakdown.length > 0
     return (
       <Card key={wh.id} className="hover:shadow-md transition-shadow">
         <CardHeader className="pb-2">
@@ -72,12 +91,31 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {wh.division_name && (
+          {hasBreakdown ? (
             <div className="flex items-center gap-1.5 text-xs">
-              <Building2 className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <Boxes className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <Select value={selectedSubId ?? ALL_SUBS} onValueChange={(v) => setSubForWh(wh.id, v)}>
+                <SelectTrigger className="h-7 min-h-0 text-xs px-2 py-0 border-dashed hover:border-solid focus:ring-1 flex-1 w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_SUBS} className="text-xs">
+                    All sub-containers{breakdown.length > 0 ? ` (${breakdown.length})` : ''}
+                  </SelectItem>
+                  {breakdown.map((sc) => (
+                    <SelectItem key={sc.sub_container_id} value={sc.sub_container_id} className="text-xs">
+                      {sc.sub_container_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : wh.division_name ? (
+            <div className="flex items-center gap-1.5 text-xs">
+              <Boxes className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
               <span className="font-medium text-foreground">{wh.division_name}</span>
             </div>
-          )}
+          ) : null}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3 flex-shrink-0" />
             {wh.location ?? 'No location set'}
@@ -101,16 +139,31 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
           <div className="pt-2 border-t flex justify-between items-center">
             <div className="flex items-center gap-1 text-xs">
               <Package className="h-3.5 w-3.5 text-primary" />
-              {(wh.item_count ?? 0).toLocaleString('en-QA')} items
+              {displayItemCount.toLocaleString('en-QA')} items
             </div>
             <div className="flex items-center gap-1 text-xs">
               <DollarSign className="h-3.5 w-3.5 text-success" />
-              QR {(wh.total_value ?? 0).toLocaleString('en-QA')}
+              QR {displayValue.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
+          {/* Sub-container breakdown — shown only when "All" is picked AND there's more than one sub */}
+          {!selectedSub && breakdown.length > 1 && (
+            <div className="space-y-1 pt-1 pl-1 border-l-2 border-primary/20 ml-0.5">
+              {breakdown.map((sc) => (
+                <div key={sc.sub_container_id} className="flex justify-between items-center gap-2 text-[11px] pl-2">
+                  <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
+                  <span className="flex items-center gap-2 text-muted-foreground tabular-nums flex-shrink-0">
+                    <span>{sc.item_count.toLocaleString('en-QA')} items</span>
+                    <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Expand / collapse stock tree */}
-          {(wh.item_count ?? 0) > 0 && (
+          {displayItemCount > 0 && (
             <div className="pt-1">
               <Button
                 variant="ghost"
@@ -118,14 +171,14 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                 className="h-7 min-h-11 md:min-h-0 text-xs w-full justify-between gap-1 text-muted-foreground hover:text-foreground"
                 onClick={() => toggleExpand(wh.id)}
               >
-                <span>{isExpanded ? 'Hide items' : 'Show items'}</span>
+                <span>{isExpanded ? 'Hide items' : selectedSub ? `Show items in ${selectedSub.sub_container_name}` : 'Show items'}</span>
                 {isExpanded
                   ? <ChevronUp   className="h-3 w-3" />
                   : <ChevronDown className="h-3 w-3" />}
               </Button>
               {isExpanded && (
                 <div className="mt-2 max-h-[320px] overflow-y-auto rounded-md">
-                  <WarehouseStockTree warehouseId={wh.id} warehouses={warehouses} />
+                  <WarehouseStockTree warehouseId={wh.id} warehouses={warehouses} subContainerId={selectedSubId} />
                 </div>
               )}
             </div>
@@ -136,7 +189,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               variant="ghost"
               size="sm"
               className="h-7 min-h-11 md:min-h-0 text-xs w-full justify-end gap-1 text-muted-foreground hover:text-foreground"
-              onClick={() => viewStock(wh.id)}
+              onClick={() => viewStock(wh.id, selectedSubId)}
             >
               View in Stock Overview
               <ArrowRight className="h-3 w-3" />

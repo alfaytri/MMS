@@ -20,6 +20,7 @@ const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits:
 interface Props {
   warehouses: Warehouse[]
   initialWarehouseId?: string
+  initialSubContainerId?: string | null
 }
 
 interface BrandEntry {
@@ -175,6 +176,7 @@ function collectAllKeys(tree: CategoryGroup[]) {
 export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   warehouses,
   initialWarehouseId,
+  initialSubContainerId,
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
@@ -184,7 +186,9 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
 
-  const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(null)
+  const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(
+    initialSubContainerId ?? null,
+  )
   const { data: subs = [] } = useWarehouseSubContainers(selectedWarehouseId ?? null)
   const activeSubs = useMemo(() => subs.filter((sc) => sc.is_active), [subs])
 
@@ -193,7 +197,13 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   }, [initialWarehouseId])
 
   useEffect(() => {
+    if (initialSubContainerId !== undefined) setSelectedSubContainerId(initialSubContainerId)
+  }, [initialSubContainerId])
+
+  useEffect(() => {
     if (!selectedWarehouseId) { setSelectedSubContainerId(null); return }
+    // If caller pre-selected a sub-container, don't overwrite it here.
+    if (initialSubContainerId) return
     if (activeSubs.length === 1) setSelectedSubContainerId(activeSubs[0].id)
     else if (!activeSubs.some((sc) => sc.id === selectedSubContainerId)) setSelectedSubContainerId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
