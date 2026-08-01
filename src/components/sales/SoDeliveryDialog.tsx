@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { useCreateDelivery, type SaleOrder, type SOLineItem } from '@/hooks/useSaleOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 
 const TYPE_BADGE: Record<string, { label: string; className: string }> = {
   'products':    { label: 'Product',    className: 'bg-blue-100 text-blue-700' },
@@ -35,11 +36,25 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
     () => (so.sale_order_lines ?? []).map((l) => l.brand_variant_id).filter(Boolean) as string[],
     [so.sale_order_lines],
   )
-  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
 
   const [warehouseId, setWarehouseId] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [qtys, setQtys] = useState<Record<string, number>>({})
+
+  // Resolve the sub-container the delivery will drain from so the stock chip
+  // reflects that sub-container's qty, not the warehouse-wide total.
+  const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const resolvedSubContainerId = useMemo(() => {
+    if (!warehouseId) return null
+    const eligible = activeSubs.filter((sc) => sc.is_active)
+    if (eligible.length === 0) return null
+    if (eligible.length === 1) return eligible[0].id
+    if (!so.division_id) return null
+    const match = eligible.find((sc) => sc.division_id === so.division_id)
+    return match?.id ?? null
+  }, [activeSubs, warehouseId, so.division_id])
+
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds, resolvedSubContainerId)
 
   useEffect(() => {
     if (open) {

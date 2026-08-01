@@ -37,6 +37,7 @@ export type StockMovement = {
 
 export type WarehouseStockItem = {
   warehouse_id: string
+  sub_container_id: string | null
   brand_variant_id: string
   item_name: string
   brand: string | null
@@ -249,17 +250,21 @@ export function useStockMovements({
   })
 }
 
-export function useWarehouseStock(warehouseId?: string) {
+export function useWarehouseStock(warehouseId?: string, subContainerId?: string | null) {
   return useQuery({
-    queryKey: queryKeys.warehouseOps.warehouseStock(warehouseId),
+    queryKey: queryKeys.warehouseOps.warehouseStock(warehouseId ?? null, subContainerId ?? null),
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
         .from('warehouse_stock_view')
-        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
+        .select('warehouse_id, sub_container_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q.limit(warehouseId ? 1500 : 5000)
+      if (subContainerId) q = q.eq('sub_container_id', subContainerId)
+      // With sub-container broken out, one variant can now produce multiple
+      // rows per warehouse. Bump the ceiling proportionally.
+      const cap = warehouseId ? (subContainerId ? 1500 : 5000) : 20000
+      const { data, error } = await q.limit(cap)
       if (error) throw error
       return (data ?? []) as WarehouseStockItem[]
     },
@@ -272,22 +277,44 @@ export function useWarehouseStockSummary(warehouseId: string | null): {
   isLoading: boolean
 } {
   const { data: items = [], isLoading } = useWarehouseStock(warehouseId ?? undefined)
-  const data = useMemo(
-    () => new Map(items.map((item) => [item.brand_variant_id, item.qty])),
-    [items],
-  )
+  const data = useMemo(() => {
+    // Post-D.5: one variant can have multiple sub-container rows in the
+    // same warehouse. Sum them so consumers get a warehouse-level total.
+    const map = new Map<string, number>()
+    for (const item of items) {
+      map.set(item.brand_variant_id, (map.get(item.brand_variant_id) ?? 0) + item.qty)
+    }
+    return map
+  }, [items])
   return { data, isLoading }
 }
 
-export function useWarehouseStockByItems(brandVariantIds: string[]) {
-  const { data: allStock = [], isLoading } = useWarehouseStock()
+export function useWarehouseStockByItems(
+  brandVariantIds: string[],
+  subContainerId?: string | null,
+) {
+  const { data: allStock = [], isLoading } = useWarehouseStock(undefined, subContainerId)
   const data = useMemo(() => {
     const idSet = new Set(brandVariantIds)
-    const map = new Map<string, { warehouse_id: string; warehouse_name?: string; qty: number }[]>()
+    // Roll sub-container rows up to per-warehouse qty. When
+    // subContainerId is set, allStock is already filtered, so the rollup
+    // is a no-op (one entry per warehouse).
+    const perWhKey = new Map<string, { warehouse_id: string; qty: number }>()
     for (const s of allStock) {
       if (!idSet.has(s.brand_variant_id) || s.qty <= 0) continue
-      if (!map.has(s.brand_variant_id)) map.set(s.brand_variant_id, [])
-      map.get(s.brand_variant_id)!.push({ warehouse_id: s.warehouse_id, qty: s.qty })
+      const key = `${s.brand_variant_id}|${s.warehouse_id}`
+      const existing = perWhKey.get(key)
+      if (existing) {
+        existing.qty += s.qty
+      } else {
+        perWhKey.set(key, { warehouse_id: s.warehouse_id, qty: s.qty })
+      }
+    }
+    const map = new Map<string, { warehouse_id: string; warehouse_name?: string; qty: number }[]>()
+    for (const [key, entry] of perWhKey.entries()) {
+      const bvId = key.split('|')[0]
+      if (!map.has(bvId)) map.set(bvId, [])
+      map.get(bvId)!.push(entry)
     }
     return map
   }, [allStock, brandVariantIds])

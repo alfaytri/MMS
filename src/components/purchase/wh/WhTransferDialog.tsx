@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Bell, Plus, Trash2, Package, ChevronsUpDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
@@ -92,44 +91,33 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toId, eligibleToSubs.length])
 
-  // Per D.4 plan: `useWarehouseStock` doesn't yet expose sub_container_id (D.5),
-  // so scope availability by a direct sum over fifo_cost_layers for the picked
-  // source sub-container. Falls back to the warehouse-wide sourceStock (for
-  // item names / cost) when no sub-container is resolved yet.
-  const { data: sourceStock = [] } = useWarehouseStock(fromId || undefined)
+  // D.5: sub_container_id is now a first-class column on warehouse_stock_view.
+  // Pass fromSubContainerId directly so the source stock reads are scoped at
+  // the DB level — the D.4 stopgap fifo_cost_layers query is retired.
+  const { data: sourceStock = [] } = useWarehouseStock(fromId || undefined, fromSubContainerId)
   const { data: fullStock = [] } = useWarehouseStock()
   const { data: reorderPoints = [] } = useReorderPoints(toId || undefined)
 
-  const { data: subContainerStock = [] } = useQuery({
-    queryKey: ['sub-container-stock', fromSubContainerId],
-    queryFn: async () => {
-      if (!fromSubContainerId) return [] as Array<{ brand_variant_id: string; remaining_qty: number }>
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('fifo_cost_layers')
-        .select('brand_variant_id, remaining_qty')
-        .eq('sub_container_id', fromSubContainerId)
-        .gt('remaining_qty', 0)
-        .limit(5000)
-      if (error) throw error
-      return (data ?? []) as Array<{ brand_variant_id: string; remaining_qty: number }>
-    },
-    enabled: !!fromSubContainerId,
-    staleTime: 60_000,
-  })
-
   const availableQtyMap = useMemo(() => {
     const map = new Map<string, number>()
-    for (const row of subContainerStock) {
-      map.set(row.brand_variant_id, (map.get(row.brand_variant_id) ?? 0) + row.remaining_qty)
+    for (const row of sourceStock) {
+      map.set(row.brand_variant_id, (map.get(row.brand_variant_id) ?? 0) + (row.available_qty ?? 0))
     }
     return map
-  }, [subContainerStock])
+  }, [sourceStock])
 
-  const destStockMap = useMemo(
-    () => new Map(fullStock.filter((s) => s.warehouse_id === toId).map((s) => [s.brand_variant_id, s])),
-    [fullStock, toId],
-  )
+  // Destination qty rolled up across every sub-container of the target
+  // warehouse. Post-D.5 the view produces one row per sub-container, so
+  // Map(bv → row) alone would drop peer subs. Sum qty into a small record.
+  const destStockMap = useMemo(() => {
+    const map = new Map<string, { qty: number }>()
+    for (const s of fullStock) {
+      if (s.warehouse_id !== toId) continue
+      const cur = map.get(s.brand_variant_id)
+      map.set(s.brand_variant_id, { qty: (cur?.qty ?? 0) + (s.qty ?? 0) })
+    }
+    return map
+  }, [fullStock, toId])
 
   const reorderMap = useMemo(
     () => new Map(reorderPoints.map((rp) => [rp.brand_variant_id, rp.reorder_point])),

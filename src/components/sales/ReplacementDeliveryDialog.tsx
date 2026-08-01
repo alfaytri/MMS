@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
 import { type SaleReturn, useReturnLineProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
@@ -219,7 +220,20 @@ export function ReplacementDeliveryDialog({
     () => rows.map((r) => r.brand_variant_id).filter(Boolean) as string[],
     [rows],
   )
-  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+
+  // Scope the stock chip to the picked replacement warehouse's sub-container
+  // when it can be resolved unambiguously (single active sub). Multi-sub
+  // warehouses fall back to the aggregated warehouse total — replacement is
+  // deliberately operator-choice for the source, so we don't try to force a
+  // sub-container derivation from return context.
+  const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const resolvedSubContainerId = useMemo(() => {
+    if (!warehouseId) return null
+    const eligible = activeSubs.filter((sc) => sc.is_active)
+    return eligible.length === 1 ? eligible[0].id : null
+  }, [warehouseId, activeSubs])
+
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds, resolvedSubContainerId)
 
   const anyShort = useMemo(() => {
     if (!warehouseId) return false

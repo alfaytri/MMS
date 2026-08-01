@@ -4,6 +4,24 @@ import { logActivity } from '@/lib/logActivity'
 import type { DBTable, DBInsert } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
+/**
+ * D.1 auto-creates sub-containers with the name "<Warehouse> — <Division>",
+ * which duplicates whatever warehouse is already selected in the parent UI.
+ * This helper strips the prefix (case-insensitive) so filter rows show the
+ * distinguishing bit only. Custom-named sub-containers pass through
+ * unchanged.
+ */
+export function shortenSubContainerName(subName: string, warehouseName?: string | null): string {
+  if (!warehouseName) return subName
+  const wh = warehouseName.trim().toLowerCase()
+  const trimmed = subName.trim()
+  if (trimmed.toLowerCase().startsWith(wh)) {
+    const rest = trimmed.slice(warehouseName.length).replace(/^\s*[—–-]\s*/, '')
+    return rest || trimmed
+  }
+  return trimmed
+}
+
 export type WarehouseSubContainer = DBTable<'warehouse_sub_containers'> & {
   division_name: string | null
 }

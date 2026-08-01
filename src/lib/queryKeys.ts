@@ -563,8 +563,8 @@ export const queryKeys = {
   warehouseOps: {
     stockMovements: (warehouseId: Nullable, limit: number) =>
       ['stock_movements', { warehouseId, limit }] as const,
-    warehouseStock: (warehouseId: Nullable) =>
-      ['warehouse_stock', warehouseId] as const,
+    warehouseStock: (warehouseId: Nullable, subContainerId?: Nullable) =>
+      ['warehouse_stock', warehouseId, subContainerId ?? null] as const,
     warehouseStockAll: ['warehouse_stock'] as const,
     warehouseTransfers: ['warehouse_transfers'] as const,
     warehouseTransfersByStatus: (status?: Nullable) =>

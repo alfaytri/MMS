@@ -5634,6 +5634,7 @@ export type Database = {
           item_type: string | null
           qty: number
           sku: string | null
+          sub_container_id: string
           subcategory_name: string | null
           total_value: number
           unit: string | null
@@ -5651,6 +5652,7 @@ export type Database = {
           item_type?: string | null
           qty?: number
           sku?: string | null
+          sub_container_id: string
           subcategory_name?: string | null
           total_value?: number
           unit?: string | null
@@ -5668,13 +5670,22 @@ export type Database = {
           item_type?: string | null
           qty?: number
           sku?: string | null
+          sub_container_id?: string
           subcategory_name?: string | null
           total_value?: number
           unit?: string | null
           updated_at?: string
           warehouse_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouse_sub_containers: {
         Row: {
@@ -6364,6 +6375,7 @@ export type Database = {
           item_type: string | null
           qty: number | null
           sku: string | null
+          sub_container_id: string | null
           subcategory_name: string | null
           total_value: number | null
           unit: string | null
@@ -6380,6 +6392,7 @@ export type Database = {
           item_type?: string | null
           qty?: number | null
           sku?: string | null
+          sub_container_id?: string | null
           subcategory_name?: string | null
           total_value?: number | null
           unit?: string | null
@@ -6396,12 +6409,21 @@ export type Database = {
           item_type?: string | null
           qty?: number | null
           sku?: string | null
+          sub_container_id?: string | null
           subcategory_name?: string | null
           total_value?: number | null
           unit?: string | null
           warehouse_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -7028,7 +7050,11 @@ export type Database = {
       refresh_all_stock_summaries: { Args: never; Returns: undefined }
       refresh_po_status: { Args: { p_po_id: string }; Returns: undefined }
       refresh_stock_summary_row: {
-        Args: { p_brand_variant_id: string; p_warehouse_id: string }
+        Args: {
+          p_brand_variant_id: string
+          p_sub_container_id: string
+          p_warehouse_id: string
+        }
         Returns: undefined
       }
       reject_credit_group_change: {
@@ -7217,26 +7243,17 @@ export type Database = {
         Args: { p_customer_id: string; p_phones: Json }
         Returns: undefined
       }
-      save_inventory_check_item_count:
-        | {
-            Args: {
-              p_counted_qty: number
-              p_item_id: string
-              p_variance_type: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_assignment_id?: string
-              p_counted_qty: number
-              p_item_id: string
-              p_profile_id?: string
-              p_profile_name?: string
-              p_variance_type: string
-            }
-            Returns: undefined
-          }
+      save_inventory_check_item_count: {
+        Args: {
+          p_assignment_id?: string
+          p_counted_qty: number
+          p_item_id: string
+          p_profile_id?: string
+          p_profile_name?: string
+          p_variance_type: string
+        }
+        Returns: undefined
+      }
       save_order_quotation: {
         Args: {
           p_discount_type?: string
@@ -7931,6 +7948,7 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.111.0 (currently installed v2.91.3)
 export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

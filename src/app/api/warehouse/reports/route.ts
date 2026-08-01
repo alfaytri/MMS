@@ -66,7 +66,7 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
     .order('subcategory_name', { ascending: true })
     .order('item_name', { ascending: true })
   if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-  const { data, error } = await q.limit(5000)
+  const { data, error } = await q.limit(20000)
   if (error) throw error
 
   let warehouseName = 'All Warehouses'
@@ -75,10 +75,52 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
     warehouseName = wh?.name ?? warehouseName
   }
 
-  return {
-    warehouseName,
-    rows: (data ?? []) as StockOverviewRow[],
+  // Post-D.5 the view returns one row per (warehouse, sub_container, variant).
+  // Roll sub_container rows up per (warehouse, item identity) so the report
+  // shape matches the pre-D.5 behaviour: one row per warehouse-item pair.
+  const rolled = new Map<string, StockOverviewRow & { _qty: number; _cost_weighted: number }>()
+  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+    const key = `${r.warehouse_id ?? ''}|${r.item_name ?? ''}|${r.brand ?? ''}|${r.sku ?? ''}`
+    const qty = Number(r.qty ?? 0)
+    const avg = Number(r.avg_cost ?? 0)
+    const val = Number(r.total_value ?? 0)
+    const existing = rolled.get(key)
+    if (!existing) {
+      rolled.set(key, {
+        category_name: (r.category_name as string | null) ?? null,
+        subcategory_name: (r.subcategory_name as string | null) ?? null,
+        item_name: (r.item_name as string) ?? '',
+        brand: (r.brand as string | null) ?? null,
+        sku: (r.sku as string | null) ?? null,
+        item_type: (r.item_type as string | null) ?? null,
+        qty,
+        avg_cost: avg,
+        total_value: val,
+        _qty: qty,
+        _cost_weighted: avg * qty,
+      })
+      continue
+    }
+    existing.qty += qty
+    existing.total_value += val
+    existing._qty += qty
+    existing._cost_weighted += avg * qty
+    existing.avg_cost = existing._qty > 0 ? existing._cost_weighted / existing._qty : 0
   }
+
+  const rows: StockOverviewRow[] = Array.from(rolled.values()).map((r) => ({
+    category_name: r.category_name,
+    subcategory_name: r.subcategory_name,
+    item_name: r.item_name,
+    brand: r.brand,
+    sku: r.sku,
+    item_type: r.item_type,
+    qty: r.qty,
+    avg_cost: r.avg_cost,
+    total_value: r.total_value,
+  }))
+
+  return { warehouseName, rows }
 }
 
 async function fetchTransfers(supabase: SupaClient, fromDate?: string, toDate?: string) {
@@ -161,23 +203,58 @@ async function fetchStockValue(supabase: SupaClient) {
     .select('warehouse_id, item_name, brand, sku, qty, avg_cost, total_value, category_name, subcategory_name, item_type')
     .order('category_name', { ascending: true })
     .order('item_name', { ascending: true })
-    .limit(5000)
+    .limit(20000)
   if (error) throw error
 
   const { data: warehouses } = await supabase.from('warehouses').select('id, name')
   const whMap = new Map((warehouses ?? []).map((w: { id: string; name: string }) => [w.id, w.name]))
 
-  const rows: StockValueReportRow[] = (data ?? []).map((r: Record<string, unknown>) => ({
-    category_name: r.category_name as string | null,
-    subcategory_name: r.subcategory_name as string | null,
-    item_name: r.item_name as string,
-    brand: r.brand as string | null,
-    sku: r.sku as string | null,
-    item_type: r.item_type as string | null,
-    qty: r.qty as number,
-    avg_cost: r.avg_cost as number,
-    total_value: r.total_value as number,
-    warehouse_name: whMap.get(r.warehouse_id as string) ?? '—',
+  // Post-D.5 the view produces one row per (warehouse, sub_container, variant).
+  // Roll sub_container rows up per (warehouse, item identity) so the value
+  // report shape matches pre-D.5 — one row per warehouse-item pair.
+  const rolled = new Map<string, StockValueReportRow & { _qty: number; _cost_weighted: number }>()
+  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+    const whId = (r.warehouse_id as string) ?? ''
+    const key = `${whId}|${r.item_name ?? ''}|${r.brand ?? ''}|${r.sku ?? ''}`
+    const qty = Number(r.qty ?? 0)
+    const avg = Number(r.avg_cost ?? 0)
+    const val = Number(r.total_value ?? 0)
+    const existing = rolled.get(key)
+    if (!existing) {
+      rolled.set(key, {
+        category_name: (r.category_name as string | null) ?? null,
+        subcategory_name: (r.subcategory_name as string | null) ?? null,
+        item_name: (r.item_name as string) ?? '',
+        brand: (r.brand as string | null) ?? null,
+        sku: (r.sku as string | null) ?? null,
+        item_type: (r.item_type as string | null) ?? null,
+        qty,
+        avg_cost: avg,
+        total_value: val,
+        warehouse_name: whMap.get(whId) ?? '—',
+        _qty: qty,
+        _cost_weighted: avg * qty,
+      })
+      continue
+    }
+    existing.qty += qty
+    existing.total_value += val
+    existing._qty += qty
+    existing._cost_weighted += avg * qty
+    existing.avg_cost = existing._qty > 0 ? existing._cost_weighted / existing._qty : 0
+  }
+
+  const rows: StockValueReportRow[] = Array.from(rolled.values()).map((r) => ({
+    category_name: r.category_name,
+    subcategory_name: r.subcategory_name,
+    item_name: r.item_name,
+    brand: r.brand,
+    sku: r.sku,
+    item_type: r.item_type,
+    qty: r.qty,
+    avg_cost: r.avg_cost,
+    total_value: r.total_value,
+    warehouse_name: r.warehouse_name,
   }))
   return { rows }
 }

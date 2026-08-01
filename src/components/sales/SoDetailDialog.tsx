@@ -30,6 +30,7 @@ import {
 } from '@/hooks/useSaleOrders'
 import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery, useRecordInventoryDisposition } from '@/hooks/useSaleDeliveries'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
@@ -744,7 +745,19 @@ function EditDeliveryDialog({
     () => items.map((i) => i.brand_variant_id).filter(Boolean) as string[],
     [items],
   )
-  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+
+  // Scope the qty chip to the picked warehouse's sub-container when it can be
+  // resolved unambiguously — a single active sub means the delivery will land
+  // there. When the warehouse has multiple subs and we don't have SO division
+  // context here, pass null and fall back to the warehouse-aggregated total.
+  const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const resolvedSubContainerId = useMemo(() => {
+    if (!warehouseId) return null
+    const eligible = activeSubs.filter((sc) => sc.is_active)
+    return eligible.length === 1 ? eligible[0].id : null
+  }, [warehouseId, activeSubs])
+
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds, resolvedSubContainerId)
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>

@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { useStockValueCogsSummary } from '@/hooks/useStockValueCogsSummary'
 import { CogsDetailDialog } from './CogsDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
@@ -223,6 +224,15 @@ function FifoDetail({
 export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses }: Props) {
   const [search, setSearch] = useState('')
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined)
+  const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(null)
+  const { data: subs = [] } = useWarehouseSubContainers(selectedWarehouseId ?? null)
+  const activeSubs = useMemo(() => subs.filter((sc) => sc.is_active), [subs])
+  useEffect(() => {
+    if (!selectedWarehouseId) { setSelectedSubContainerId(null); return }
+    if (activeSubs.length === 1) setSelectedSubContainerId(activeSubs[0].id)
+    else if (!activeSubs.some((sc) => sc.id === selectedSubContainerId)) setSelectedSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWarehouseId, activeSubs.length])
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
   // Default: products with the most recently created receival float to the top.
   const [sortField, setSortField] = useState<SortField>('latest_receival')
@@ -235,7 +245,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
   const queryClient = useQueryClient()
 
-  const { data: allStock = [], isLoading } = useWarehouseStock(selectedWarehouseId)
+  const { data: allStock = [], isLoading } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
   const { data: cogsMap } = useStockValueCogsSummary(null)
 
 
@@ -464,7 +474,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
         {/* Item type tabs */}
         <Tabs value={activeType} onValueChange={(v) => setActiveType(v as ItemTypeValue)}>
-          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
+          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto md:overflow-x-visible whitespace-nowrap">
             {ITEM_TYPE_TABS.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7 min-h-9 md:min-h-0">
                 <span className="md:hidden">{tab.short}</span>
@@ -502,6 +512,32 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
               ))}
             </SelectContent>
           </Select>
+
+          {selectedWarehouseId && activeSubs.length > 1 && (
+            <Select
+              value={selectedSubContainerId ?? '__all__'}
+              onValueChange={(v) => setSelectedSubContainerId(v === '__all__' ? null : (v ?? null))}
+            >
+              <SelectTrigger className="min-w-[140px] max-w-[180px] h-8 text-xs truncate">
+                <SelectValue placeholder="All subs" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                <SelectItem value="__all__" className="text-xs">All sub-containers</SelectItem>
+                {activeSubs.map((sc) => (
+                  <SelectItem key={sc.id} value={sc.id} className="text-xs">
+                    {shortenSubContainerName(sc.name, selectedWarehouse?.name)}
+                    {sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {selectedWarehouseId && activeSubs.length === 1 && (
+            <Badge variant="outline" className="text-[10px] h-8 px-2 flex-shrink-0 gap-1 truncate max-w-[160px]" title={activeSubs[0].name}>
+              <span className="truncate">{shortenSubContainerName(activeSubs[0].name, selectedWarehouse?.name)}</span>
+              <span className="text-[9px] text-muted-foreground ml-0.5 flex-shrink-0">Auto</span>
+            </Badge>
+          )}
 
           {selectedWarehouse && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">

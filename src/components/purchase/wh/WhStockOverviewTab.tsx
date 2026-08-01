@@ -5,11 +5,13 @@ import { Layers, Package, DollarSign, Search, X, ChevronRight, ChevronDown, Chev
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { cn } from '@/lib/utils'
 
@@ -182,15 +184,26 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
 
+  const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(null)
+  const { data: subs = [] } = useWarehouseSubContainers(selectedWarehouseId ?? null)
+  const activeSubs = useMemo(() => subs.filter((sc) => sc.is_active), [subs])
+
   useEffect(() => {
     setSelectedWarehouseId(initialWarehouseId)
   }, [initialWarehouseId])
 
   useEffect(() => {
+    if (!selectedWarehouseId) { setSelectedSubContainerId(null); return }
+    if (activeSubs.length === 1) setSelectedSubContainerId(activeSubs[0].id)
+    else if (!activeSubs.some((sc) => sc.id === selectedSubContainerId)) setSelectedSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWarehouseId, activeSubs.length])
+
+  useEffect(() => {
     setExpanded(new Set())
   }, [activeType])
 
-  const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId)
+  const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
   const { data: fullStock = [] } = useWarehouseStock()
 
   const warehouseBreakdown = useMemo(() => {
@@ -446,6 +459,33 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             ))}
           </SelectContent>
         </Select>
+
+        {selectedWarehouseId && activeSubs.length > 1 && (
+          <Select
+            value={selectedSubContainerId ?? '__all__'}
+            onValueChange={(v) => setSelectedSubContainerId(v === '__all__' ? null : (v ?? null))}
+          >
+            <SelectTrigger className="min-w-[140px] max-w-[180px] h-8 text-xs truncate">
+              <SelectValue placeholder="All subs" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60 overflow-y-auto">
+              <SelectItem value="__all__" className="text-xs">All sub-containers</SelectItem>
+              {activeSubs.map((sc) => (
+                <SelectItem key={sc.id} value={sc.id} className="text-xs">
+                  {shortenSubContainerName(sc.name, selectedWarehouse?.name)}
+                  {sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {selectedWarehouseId && activeSubs.length === 1 && (
+          <Badge variant="outline" className="text-[10px] h-8 px-2 flex-shrink-0 gap-1 truncate max-w-[160px]" title={activeSubs[0].name}>
+            <Package className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{shortenSubContainerName(activeSubs[0].name, selectedWarehouse?.name)}</span>
+            <span className="text-[9px] text-muted-foreground ml-0.5 flex-shrink-0">Auto</span>
+          </Badge>
+        )}
 
         {selectedWarehouse && (
           <Button
