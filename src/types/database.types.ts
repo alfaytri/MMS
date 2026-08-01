@@ -6480,44 +6480,11 @@ export type Database = {
           qty: number | null
           sku: string | null
           sub_container_id: string | null
+          sub_container_name: string | null
           subcategory_name: string | null
           total_value: number | null
           unit: string | null
           warehouse_id: string | null
-        }
-        Insert: {
-          allocated_qty?: number | null
-          available_qty?: number | null
-          avg_cost?: number | null
-          brand?: string | null
-          brand_variant_id?: string | null
-          category_name?: string | null
-          item_name?: string | null
-          item_type?: string | null
-          qty?: number | null
-          sku?: string | null
-          sub_container_id?: string | null
-          subcategory_name?: string | null
-          total_value?: number | null
-          unit?: string | null
-          warehouse_id?: string | null
-        }
-        Update: {
-          allocated_qty?: number | null
-          available_qty?: number | null
-          avg_cost?: number | null
-          brand?: string | null
-          brand_variant_id?: string | null
-          category_name?: string | null
-          item_name?: string | null
-          item_type?: string | null
-          qty?: number | null
-          sku?: string | null
-          sub_container_id?: string | null
-          subcategory_name?: string | null
-          total_value?: number | null
-          unit?: string | null
-          warehouse_id?: string | null
         }
         Relationships: [
           {

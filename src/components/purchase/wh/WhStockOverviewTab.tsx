@@ -76,6 +76,8 @@ type ItemTypeValue = typeof ITEM_TYPE_TABS[number]['value']
 
 // ─── Reusable stock tooltip ───────────────────────────────────────────────────
 
+type TooltipRow = { label: string; subLabel?: string | null; qty: number }
+
 function StockTooltip({
   qty,
   title,
@@ -83,9 +85,24 @@ function StockTooltip({
 }: {
   qty: number
   title: string
-  rows: { label: string; qty: number }[]
+  rows: TooltipRow[]
 }) {
   if (rows.length === 0) return <span>{qty}</span>
+
+  // D.10 — group rows by `label` (typically warehouse name). When more than
+  // one row shares the same label, render a warehouse header with the
+  // sub-container rows indented underneath. When each label appears once and
+  // has no subLabel (e.g. Stock by Brand), fall back to the original flat
+  // rendering.
+  const groups = new Map<string, { label: string; total: number; rows: TooltipRow[] }>()
+  for (const r of rows) {
+    const g = groups.get(r.label)
+    if (g) { g.total += r.qty; g.rows.push(r) }
+    else { groups.set(r.label, { label: r.label, total: r.qty, rows: [r] }) }
+  }
+  const grouped = Array.from(groups.values())
+  const anySub = grouped.some((g) => g.rows.some((r) => !!r.subLabel))
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -102,15 +119,39 @@ function StockTooltip({
             {title}
           </p>
         </div>
-        <div className="px-3 py-2 space-y-1.5 max-h-[300px] overflow-y-auto">
-          {rows.map((r) => (
-            <div key={r.label} className="flex items-center justify-between gap-6 text-xs">
-              <span className="text-muted-foreground">{r.label}</span>
-              <span className={`font-semibold tabular-nums ${r.qty > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
-                {r.qty}
-              </span>
-            </div>
-          ))}
+        <div className="px-3 py-2 space-y-2 max-h-[300px] overflow-y-auto">
+          {anySub ? (
+            grouped.map((g) => (
+              <div key={g.label} className="space-y-0.5">
+                <div className="flex items-center justify-between gap-6 text-xs">
+                  <span className="font-medium text-foreground">{g.label}</span>
+                  <span className={`font-semibold tabular-nums ${g.total > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {g.total}
+                  </span>
+                </div>
+                {g.rows.map((r, idx) => (
+                  <div
+                    key={`${g.label}:${r.subLabel ?? 'none'}:${idx}`}
+                    className="flex items-center justify-between gap-6 text-[11px] pl-3"
+                  >
+                    <span className="text-muted-foreground truncate">
+                      {r.subLabel ?? '— no sub —'}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{r.qty}</span>
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            rows.map((r, idx) => (
+              <div key={`${r.label}:${idx}`} className="flex items-center justify-between gap-6 text-xs">
+                <span className="text-muted-foreground">{r.label}</span>
+                <span className={`font-semibold tabular-nums ${r.qty > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {r.qty}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </TooltipContent>
     </Tooltip>
@@ -216,13 +257,17 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
   const { data: fullStock = [] } = useWarehouseStock()
 
+  // D.10 — row shape now carries `subLabel` so StockTooltip can render a
+  // two-level warehouse × sub-container breakdown. Same brand_variant_id in
+  // two subs of one warehouse produces two rows, not one merged bucket.
   const warehouseBreakdown = useMemo(() => {
-    const map = new Map<string, { label: string; qty: number }[]>()
+    const map = new Map<string, TooltipRow[]>()
     for (const item of fullStock) {
       if (!map.has(item.brand_variant_id)) map.set(item.brand_variant_id, [])
       const wh = warehouses.find((w) => w.id === item.warehouse_id)
       map.get(item.brand_variant_id)!.push({
         label: wh?.name ?? 'Unknown Warehouse',
+        subLabel: item.sub_container_name,
         qty: item.qty,
       })
     }
