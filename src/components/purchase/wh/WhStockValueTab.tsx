@@ -341,12 +341,18 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
       entry.totalQty += row.qty ?? 0
       entry.totalValue += row.total_value ?? 0
-      entry.warehouses.push({
-        warehouseId: row.warehouse_id,
-        warehouseName: warehouseMap.get(row.warehouse_id) ?? 'Unknown',
-        qty: row.qty ?? 0,
-        value: row.total_value ?? 0,
-      })
+      const existingWh = entry.warehouses.find((w) => w.warehouseId === row.warehouse_id)
+      if (existingWh) {
+        existingWh.qty += row.qty ?? 0
+        existingWh.value += row.total_value ?? 0
+      } else {
+        entry.warehouses.push({
+          warehouseId: row.warehouse_id,
+          warehouseName: warehouseMap.get(row.warehouse_id) ?? 'Unknown',
+          qty: row.qty ?? 0,
+          value: row.total_value ?? 0,
+        })
+      }
     }
 
     for (const entry of map.values()) {
