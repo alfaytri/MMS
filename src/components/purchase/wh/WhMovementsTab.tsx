@@ -33,6 +33,13 @@ const MOVEMENT_STYLES: Record<string, string> = {
   transfer_in:                 'bg-accent/10 text-accent-foreground',
   transfer_out:                'bg-secondary text-secondary-foreground',
   transfer_shrinkage:          'bg-destructive/10 text-destructive',
+  // D.13 — damaged-side types
+  damaged_return_from_repair_as_good: 'bg-success/10 text-success',
+  restock_as_damaged_in:              'bg-destructive/10 text-destructive',
+  send_for_repair_out:                'bg-warning/10 text-warning',
+  return_from_repair_as_writeoff:     'bg-destructive/10 text-destructive',
+  damaged_write_off:                  'bg-destructive/10 text-destructive',
+  damaged_adjust:                     'bg-primary/10 text-primary',
 }
 
 const MOVEMENT_LABELS: Record<string, string> = {
@@ -49,10 +56,18 @@ const MOVEMENT_LABELS: Record<string, string> = {
   transfer_in:               'Transfer In',
   transfer_out:              'Transfer Out',
   transfer_shrinkage:        'Transfer Shrinkage',
+  // D.13 — damaged-side types
+  damaged_return_from_repair_as_good: 'Return from Repair (Good)',
+  restock_as_damaged_in:              'Restock as Damaged',
+  send_for_repair_out:                'Send for Repair',
+  return_from_repair_as_writeoff:     'Return from Repair (Write-off)',
+  damaged_write_off:                  'Damaged Write-off',
+  damaged_adjust:                     'Damaged Adjustment',
 }
 
-// Only user-facing types in the filter dropdown (A→Z)
-const MOVEMENT_TYPES = [
+// Filter dropdown, grouped by stream (good-stock types first, then
+// damaged-side types) so the operator can eyeball what belongs where.
+const GOOD_MOVEMENT_TYPES = [
   'adjustment',
   'free_receival',
   'purchase_receival',
@@ -62,6 +77,14 @@ const MOVEMENT_TYPES = [
   'sale_return_damaged',
   'transfer_in',
   'transfer_out',
+  'damaged_return_from_repair_as_good',
+]
+const DAMAGED_MOVEMENT_TYPES = [
+  'restock_as_damaged_in',
+  'send_for_repair_out',
+  'return_from_repair_as_writeoff',
+  'damaged_write_off',
+  'damaged_adjust',
 ]
 
 // ─── Reference type → human label + optional route ──────────────────────────
@@ -91,6 +114,10 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
   const [warehouseFilter, setWarehouseFilter] = useState('all')
   const [subContainerFilter, setSubContainerFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
+  // D.13 — stream filter: 'all' | 'good' | 'damaged'. The Warehouses →
+  // Movements tab is the single unified movement view now (Damaged Stock
+  // page's Movements tab was dropped).
+  const [streamFilter, setStreamFilter] = useState<'all' | 'good' | 'damaged'>('all')
 
   // Sub-containers for the picked warehouse (for the optional filter dropdown)
   const subWhId = warehouseFilter !== 'all' ? warehouseFilter : null
@@ -150,14 +177,15 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
       const matchWh = warehouseFilter === 'all' || m.warehouse_id === warehouseFilter
       const matchSub = subContainerFilter === 'all' || m.sub_container_id === subContainerFilter
       const matchType = typeFilter === 'all' || m.movement_type === typeFilter
-      return matchSearch && matchWh && matchSub && matchType
+      const matchStream = streamFilter === 'all' || m.stream === streamFilter
+      return matchSearch && matchWh && matchSub && matchType && matchStream
     })
-  }, [movements, search, warehouseFilter, subContainerFilter, typeFilter])
+  }, [movements, search, warehouseFilter, subContainerFilter, typeFilter, streamFilter])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [search, warehouseFilter, subContainerFilter, typeFilter])
+  useEffect(() => { setPage(1) }, [search, warehouseFilter, subContainerFilter, typeFilter, streamFilter])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filtered.slice(start, start + PAGE_SIZE)
@@ -202,13 +230,28 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
             </SelectContent>
           </Select>
         )}
+        <Select value={streamFilter} onValueChange={v => setStreamFilter((v ?? 'all') as 'all' | 'good' | 'damaged')}>
+          <SelectTrigger className="min-w-[140px] h-8 text-xs">
+            <SelectValue placeholder="All Streams" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">All Streams</SelectItem>
+            <SelectItem value="good" className="text-xs">Good stock</SelectItem>
+            <SelectItem value="damaged" className="text-xs">Damaged stock</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
           <SelectTrigger className="min-w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">
             <SelectItem value="all" className="text-xs">All Types</SelectItem>
-            {MOVEMENT_TYPES.map(t => (
+            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Good stock</div>
+            {GOOD_MOVEMENT_TYPES.map(t => (
+              <SelectItem key={t} value={t} className="text-xs">{MOVEMENT_LABELS[t]}</SelectItem>
+            ))}
+            <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-t mt-1">Damaged stock</div>
+            {DAMAGED_MOVEMENT_TYPES.map(t => (
               <SelectItem key={t} value={t} className="text-xs">{MOVEMENT_LABELS[t]}</SelectItem>
             ))}
           </SelectContent>
@@ -246,6 +289,11 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                 <Badge className={`text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
                   {MOVEMENT_LABELS[m.movement_type] ?? m.movement_type?.replace(/_/g, ' ')}
                 </Badge>
+                {m.stream === 'damaged' && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-destructive/40 text-destructive">
+                    Damaged
+                  </Badge>
+                )}
                 {refCfg && m.reference_id ? (
                   <span
                     className="text-[10px] text-primary hover:underline cursor-pointer"
@@ -313,9 +361,16 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge className={`text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
-                        {MOVEMENT_LABELS[m.movement_type] ?? m.movement_type?.replace(/_/g, ' ')}
-                      </Badge>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Badge className={`text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
+                          {MOVEMENT_LABELS[m.movement_type] ?? m.movement_type?.replace(/_/g, ' ')}
+                        </Badge>
+                        {m.stream === 'damaged' && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-destructive/40 text-destructive">
+                            Damaged
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs text-right tabular-nums">{m.qty}</TableCell>
                     <TableCell className="text-xs text-right tabular-nums">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>

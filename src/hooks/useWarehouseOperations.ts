@@ -19,6 +19,15 @@ export type StockMovementType =
   | 'purchase_return'
   | 'purchase_return_cancelled'
   | 'transfer_shrinkage'
+  | 'damaged_return_from_repair_as_good'
+  // D.13 — types that live in `inventory_damaged_movements`, unioned into
+  // the same feed by useStockMovements so the Warehouses → Movements tab
+  // shows both good- and damaged-side history in one stream.
+  | 'restock_as_damaged_in'
+  | 'send_for_repair_out'
+  | 'return_from_repair_as_writeoff'
+  | 'damaged_write_off'
+  | 'damaged_adjust'
 
 export type StockMovement = {
   id: string
@@ -35,6 +44,12 @@ export type StockMovement = {
   reference_id: string | null
   notes: string | null
   created_at: string
+  // D.13 — 'damaged' means the row was sourced from
+  // `inventory_damaged_movements`; 'good' from `inventory_stock_movements`.
+  // Used by the UI stream chip + filter, and by the sub-container display
+  // (damaged rows have no direct sub_container_id — the name is resolved
+  // via the D.11 source-transfer chain).
+  stream: 'good' | 'damaged'
 }
 
 export type WarehouseStockItem = {
@@ -253,18 +268,128 @@ export function useStockMovements({
     queryKey: queryKeys.warehouseOps.stockMovements(warehouseId, limit),
     queryFn: async () => {
       const supabase = createClient()
-      let q = supabase
+
+      // D.13 — fetch both good-stock and damaged-stock movements in parallel,
+      // then merge + sort by created_at desc + trim to `limit`. The
+      // Warehouses → Movements tab is the single unified movement view now;
+      // the Damaged Stock page's own Movements tab was dropped.
+      let goodQ = supabase
         .from('inventory_stock_movements')
         .select('id, warehouse_id, sub_container_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at, warehouse_sub_containers:sub_container_id(name)')
         .order('created_at', { ascending: false })
         .limit(limit)
-      if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
-      if (error) throw error
-      return (data ?? []).map((r) => {
+      if (warehouseId) goodQ = goodQ.eq('warehouse_id', warehouseId)
+
+      // Damaged movements have no direct sub_container_id column (per D.5.a).
+      // The source is resolved through the D.11 chain: prefer the direct
+      // `source_transfer_id → warehouse_transfers.from_sub_container` join;
+      // fall back via `source_return_line_disposition_id →
+      // return_line_inventory_dispositions.warehouse_transfer_id →
+      // warehouse_transfers.from_sub_container`.
+      let damagedQ = supabase
+        .from('inventory_damaged_movements')
+        .select(`
+          id,
+          warehouse_id,
+          brand_variant_id,
+          movement_type,
+          qty,
+          unit_cost,
+          notes,
+          created_at,
+          source_transfer_id,
+          source_return_line_disposition_id,
+          inventory_item_brand_variants (
+            brand,
+            code,
+            inventory_items ( name_en, sku )
+          ),
+          direct_transfer:source_transfer_id (
+            from_sub_container_id,
+            warehouse_sub_containers:from_sub_container_id ( name )
+          ),
+          disposition:source_return_line_disposition_id (
+            warehouse_transfer_id,
+            warehouse_transfers:warehouse_transfer_id (
+              from_sub_container_id,
+              warehouse_sub_containers:from_sub_container_id ( name )
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (warehouseId) damagedQ = damagedQ.eq('warehouse_id', warehouseId)
+
+      const [
+        { data: goodRows,    error: goodErr    },
+        { data: damagedRows, error: damagedErr },
+      ] = await Promise.all([goodQ, damagedQ])
+      if (goodErr)    throw goodErr
+      if (damagedErr) throw damagedErr
+
+      const good: StockMovement[] = (goodRows ?? []).map((r) => {
         const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
-        return { ...rest, sub_container_name: warehouse_sub_containers?.name ?? null }
+        return {
+          ...rest,
+          sub_container_name: warehouse_sub_containers?.name ?? null,
+          stream: 'good',
+        }
       }) as StockMovement[]
+
+      const damaged: StockMovement[] = (damagedRows ?? []).map((r: any) => {
+        // Resolve the source-chain sub-container name (direct wins, then
+        // disposition), matching the D.11 damaged-stock page behaviour.
+        const direct = r.direct_transfer?.warehouse_sub_containers?.name ?? null
+        const viaDisp = r.disposition?.warehouse_transfers?.warehouse_sub_containers?.name ?? null
+        const subName = direct ?? viaDisp
+
+        // Damaged-side items — pull the display name via the brand-variant
+        // join so the Item column looks the same as good-stock rows even
+        // though `inventory_damaged_movements` has no `item_name` / `sku`
+        // columns of its own.
+        const bv = r.inventory_item_brand_variants
+        const baseName = bv?.inventory_items?.name_en ?? ''
+        const brand    = bv?.brand ?? ''
+        const itemName = brand ? `${baseName} — ${brand}` : baseName || 'Unknown item'
+        const baseSku  = bv?.inventory_items?.sku ?? ''
+        const code     = bv?.code ?? ''
+        const sku      = baseSku && code ? `${baseSku}-${code}` : baseSku || code || null
+
+        // Best-effort reference for the Ref column: the outbound transfer if
+        // present, else the disposition. Reference dialog already handles
+        // `transfer` and can degrade for unknown types.
+        const referenceType: string | null =
+          r.source_transfer_id ? 'transfer' :
+          r.source_return_line_disposition_id ? 'return' :
+          null
+        const referenceId: string | null =
+          r.source_transfer_id ?? r.source_return_line_disposition_id ?? null
+
+        return {
+          id: r.id,
+          warehouse_id: r.warehouse_id,
+          // Damaged tables carry no sub_container_id column. The name comes
+          // from the chain; leaving id null keeps the sub-container filter
+          // from unintentionally matching a good-stock sub with the same name.
+          sub_container_id: null,
+          sub_container_name: subName,
+          brand_variant_id: r.brand_variant_id,
+          item_name: itemName,
+          sku,
+          movement_type: r.movement_type as StockMovementType,
+          qty: Number(r.qty ?? 0),
+          unit_cost: Number(r.unit_cost ?? 0),
+          reference_type: referenceType,
+          reference_id: referenceId,
+          notes: r.notes ?? null,
+          created_at: r.created_at,
+          stream: 'damaged',
+        }
+      })
+
+      const merged = [...good, ...damaged]
+      merged.sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+      return merged.slice(0, limit)
     },
     staleTime: 2 * 60 * 1000,
   })
