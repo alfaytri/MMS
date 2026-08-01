@@ -110,8 +110,8 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
 
   return (
     <div className="p-4 md:p-6 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)} className="min-w-0">
           <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
             {FILTER_TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="text-xs px-3 h-7 gap-1">
@@ -131,7 +131,9 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
             ))}
           </TabsList>
         </Tabs>
-        <WarehouseReportButton reportType="adjustments" label="Report" />
+        <div className="flex-shrink-0">
+          <WarehouseReportButton reportType="adjustments" label="Report" />
+        </div>
       </div>
 
       {/* ── Mobile card list (< md) ─────────────────────────────────── */}

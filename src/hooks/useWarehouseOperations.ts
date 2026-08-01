@@ -97,6 +97,8 @@ export type WarehouseTransfer = {
 export type CreateTransferPayload = {
   from_warehouse_id: string
   to_warehouse_id: string
+  from_sub_container_id?: string | null
+  to_sub_container_id?: string | null
   date: string
   items: Array<{ brand_variant_id: string; item_name: string; sku: string | null; qty: number; unit_cost: number }>
   notes?: string | null
@@ -322,6 +324,8 @@ export function useCreateTransfer() {
       const { data, error } = await supabase.rpc('create_transfer_v2', {
         p_from_warehouse_id: payload.from_warehouse_id,
         p_to_warehouse_id: payload.to_warehouse_id,
+        p_from_sub_container_id: payload.from_sub_container_id ?? undefined,
+        p_to_sub_container_id: payload.to_sub_container_id ?? undefined,
         p_date: payload.date,
         p_items: payload.items,
         p_notes: payload.notes ?? undefined,
@@ -466,6 +470,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
 
 export type CreateAdjustmentV2Payload = {
   warehouseId: string
+  subContainerId?: string | null
   brandVariantId: string
   adjustmentType: 'increase' | 'decrease' | 'damage' | 'write_off'
   qty: number
@@ -491,6 +496,7 @@ export function useCreateStockAdjustmentV2() {
         p_photo_urls:        payload.photoUrls,
         p_requested_by:      payload.requestedBy as string,
         p_requested_by_name: payload.requestedByName as string,
+        p_sub_container_id:  payload.subContainerId ?? undefined,
       })
       if (error) {
         const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')
@@ -883,6 +889,7 @@ export function usePostCountMovements(checkId: string, warehouseId: string | und
 
 type StartCheckPayload = {
   warehouseId: string
+  subContainerId?: string | null
   warehouseName: string
   initiatedByProfileId: string | null
   initiatedByName: string | null
@@ -916,6 +923,7 @@ export function useStartInventoryCheck() {
         .insert({
           check_number: checkNumber as string,
           warehouse_id: payload.warehouseId,
+          sub_container_id: payload.subContainerId ?? null,
           warehouse_name: payload.warehouseName,
           status: 'in_progress',
           initiated_by_profile_id: payload.initiatedByProfileId,

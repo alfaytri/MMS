@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { ClipboardCheck, Users, ChevronRight, ChevronDown } from 'lucide-react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { ClipboardCheck, Users, ChevronRight, ChevronDown, Package } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -10,9 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { useWarehouseStock, useStartInventoryCheck } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useProfiles } from '@/hooks/useProfiles'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface Props {
@@ -37,14 +40,53 @@ function distributeCategories(categories: string[], users: UserOption[]): Map<st
 export function WhInventoryCheckStartDialog({ warehouses, currentProfile, children }: Props) {
   const [open, setOpen]             = useState(false)
   const [warehouseId, setWarehouseId] = useState('')
+  const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [notes, setNotes]           = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [step, setStep]             = useState<1 | 2>(1)
 
   const { data: allProfiles = [] } = useProfiles()
-  const { data: stock = [] }       = useWarehouseStock(warehouseId || undefined)
+  const { data: warehouseStock = [] } = useWarehouseStock(warehouseId || undefined)
   const startCheck                 = useStartInventoryCheck()
+
+  const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const eligibleSubs = useMemo(() => allSubs.filter((sc) => sc.is_active), [allSubs])
+
+  useEffect(() => {
+    if (eligibleSubs.length === 1) setSubContainerId(eligibleSubs[0].id)
+    else if (eligibleSubs.length === 0) setSubContainerId(null)
+    else if (subContainerId && !eligibleSubs.some((sc) => sc.id === subContainerId)) setSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId, eligibleSubs.length])
+
+  // Scope the count list to the picked sub-container's FIFO layers. Falls
+  // back to warehouse-wide until a sub-container is resolved so the picker
+  // doesn't blink empty on first render.
+  const { data: subContainerLayers = [] } = useQuery({
+    queryKey: ['inv-check-sub-container-stock', subContainerId],
+    queryFn: async () => {
+      if (!subContainerId) return [] as Array<{ brand_variant_id: string }>
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('fifo_cost_layers')
+        .select('brand_variant_id')
+        .eq('sub_container_id', subContainerId)
+        .gt('remaining_qty', 0)
+        .limit(5000)
+      if (error) throw error
+      return (data ?? []) as Array<{ brand_variant_id: string }>
+    },
+    enabled: !!subContainerId,
+    staleTime: 60_000,
+  })
+
+  const scopedBvIds = useMemo(() => new Set(subContainerLayers.map((l) => l.brand_variant_id)), [subContainerLayers])
+
+  const stock = useMemo(
+    () => (subContainerId ? warehouseStock.filter((s) => scopedBvIds.has(s.brand_variant_id)) : warehouseStock),
+    [warehouseStock, subContainerId, scopedBvIds],
+  )
 
   const activeProfiles = useMemo(
     () => allProfiles.filter((p) => p.is_active !== false).map((p): UserOption => ({
@@ -81,11 +123,13 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
 
   function handleClose() {
     setOpen(false)
-    setWarehouseId(''); setSelectedUserIds(new Set()); setNotes(''); setStep(1)
+    setWarehouseId(''); setSubContainerId(null); setSelectedUserIds(new Set()); setNotes(''); setStep(1)
   }
 
   async function handleStart() {
     if (!warehouseId || selectedUsers.length === 0) return
+    if (eligibleSubs.length === 0) { toast.error('Warehouse has no active sub-container'); return }
+    if (eligibleSubs.length > 1 && !subContainerId) { toast.error('Pick a sub-container'); return }
     setSubmitting(true)
     try {
       const wh = warehouses.find((w) => w.id === warehouseId)
@@ -107,6 +151,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
 
       await startCheck.mutateAsync({
         warehouseId,
+        subContainerId,
         warehouseName:         wh?.name ?? '',
         initiatedByProfileId:  currentProfile?.id ?? null,
         initiatedByName:       currentProfile?.full_name ?? null,
@@ -124,7 +169,8 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
   }
 
   const warehouseName = warehouses.find((w) => w.id === warehouseId)?.name ?? ''
-  const canAdvance    = !!warehouseId && selectedUsers.length > 0
+  const subResolved   = eligibleSubs.length > 0 && (eligibleSubs.length === 1 || !!subContainerId)
+  const canAdvance    = !!warehouseId && subResolved && selectedUsers.length > 0
 
   return (
     <>
@@ -162,6 +208,37 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
                       ))}
                     </SelectContent>
                   </Select>
+                  {warehouseId && (
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap min-h-7 pt-0.5">
+                      <span className="inline-flex items-center gap-1 flex-shrink-0">
+                        <Package className="h-3 w-3" />
+                        Sub-container:
+                      </span>
+                      {eligibleSubs.length === 0 ? (
+                        <span className="italic text-destructive">No active sub-container in this warehouse.</span>
+                      ) : eligibleSubs.length === 1 ? (
+                        <>
+                          <span className="font-medium text-foreground truncate max-w-[380px]" title={eligibleSubs[0].name}>
+                            {eligibleSubs[0].name}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">Auto</Badge>
+                        </>
+                      ) : (
+                        <Select value={subContainerId ?? ''} onValueChange={(v) => { setSubContainerId(v || null); setSelectedUserIds(new Set()) }}>
+                          <SelectTrigger className="h-7 text-[11px] w-auto min-w-[220px] max-w-[380px]">
+                            <SelectValue placeholder="Pick sub-container…" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60 overflow-y-auto">
+                            {eligibleSubs.map((sc) => (
+                              <SelectItem key={sc.id} value={sc.id} className="text-[11px]">
+                                {sc.name}{sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* User assignment */}

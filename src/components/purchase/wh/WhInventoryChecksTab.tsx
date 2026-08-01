@@ -44,14 +44,14 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Header with new check button */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold">Inventory Checks</h3>
           <p className="text-[10px] text-muted-foreground">
             Team-based physical stock counts with multi-step approval
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <WarehouseReportButton reportType="inventory-checks" label="Report" />
           <WhInventoryCheckStartDialog warehouses={warehouses} currentProfile={currentProfile}>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 min-h-11 md:min-h-0 text-xs">

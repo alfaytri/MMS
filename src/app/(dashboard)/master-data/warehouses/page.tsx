@@ -94,7 +94,7 @@ function WarehousesPageInner() {
         description="Stock overview, transfers, adjustments & movements"
         actions={
           <>
-            {visibleTabs.has('adjustments') && (
+            {activeTab === 'adjustments' && visibleTabs.has('adjustments') && (
               <WhAdjustmentDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
                 <Button size="sm" variant="outline" className="gap-1.5 min-h-11 md:min-h-0">
                   <ClipboardList className="h-3.5 w-3.5" />
@@ -103,7 +103,7 @@ function WarehousesPageInner() {
                 </Button>
               </WhAdjustmentDialog>
             )}
-            {visibleTabs.has('transfers') && (
+            {activeTab === 'transfers' && visibleTabs.has('transfers') && (
               <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
                 <Button size="sm" variant="outline" className="gap-1.5 min-h-11 md:min-h-0">
                   <ArrowRightLeft className="h-3.5 w-3.5" />

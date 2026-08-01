@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -1834,6 +1859,7 @@ export type Database = {
           reviewed_by_name: string | null
           started_at: string | null
           status: string
+          sub_container_id: string | null
           updated_at: string
           warehouse_id: string
           warehouse_name: string
@@ -1849,6 +1875,7 @@ export type Database = {
           reviewed_by_name?: string | null
           started_at?: string | null
           status?: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id: string
           warehouse_name?: string
@@ -1864,6 +1891,7 @@ export type Database = {
           reviewed_by_name?: string | null
           started_at?: string | null
           status?: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id?: string
           warehouse_name?: string
@@ -1874,6 +1902,13 @@ export type Database = {
             columns: ["initiated_by_profile_id"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_checks_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -6812,6 +6847,7 @@ export type Database = {
           p_reason: string
           p_requested_by: string
           p_requested_by_name: string
+          p_sub_container_id?: string
           p_warehouse_id: string
         }
         Returns: string
@@ -7658,6 +7694,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -7892,7 +7931,6 @@ export const Constants = {
     },
   },
 } as const
-
 export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

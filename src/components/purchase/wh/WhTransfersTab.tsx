@@ -338,9 +338,11 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   return (
     <>
       <div className="p-4 md:p-6 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold">Transfers</h3>
-          <WarehouseReportButton reportType="transfers" label="Report" />
+          <div className="flex-shrink-0">
+            <WarehouseReportButton reportType="transfers" label="Report" />
+          </div>
         </div>
         {paged.map((t) => {
           const showDispatch = canDispatch(t)
