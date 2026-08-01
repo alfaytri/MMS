@@ -50,9 +50,20 @@ function WarehousesPageInner() {
     setActiveTab('stock')
   }
 
-  // Master data view opts in to virtual warehouses (repair-vendor shadows)
-  // so admins can inspect them; operator pickers elsewhere exclude by default.
-  const { data: warehouses = [] } = useWarehouses({ includeVirtual: true })
+  // Fetch ALL warehouses (including repair-vendor virtual shadows) at the page
+  // level, then split per tab policy (D.6.a):
+  //   - warehousesStandard (no virtual) → Warehouses card grid, Stock Overview,
+  //     Stock Value, new-adjustment picker, new-transfer picker. Repair
+  //     vendors have their own send/return flow; they must not appear in
+  //     general stock/pick surfaces.
+  //   - warehousesAll → Transfers / Adjustments / Inv Checks / Movements /
+  //     Receivals & Deliveries list views. Operators still need to see
+  //     historical repair activity in ledger views.
+  const { data: warehousesAll = [] } = useWarehouses({ includeVirtual: true })
+  const warehouses = useMemo(
+    () => warehousesAll.filter((w) => !w.is_virtual),
+    [warehousesAll],
+  )
   const { data: currentProfile } = useCurrentUserProfile()
   const { data: transfers = [] } = useWarehouseTransfers()
   const { data: receivalsDeliveries = [] } = useReceivalsAndDeliveries()
@@ -187,7 +198,7 @@ function WarehousesPageInner() {
         <div className="flex-1 overflow-auto">
           {visibleTabs.has('warehouses') && (
             <TabsContent value="warehouses" className="mt-0 p-4 md:p-6">
-              <WhWarehousesTab warehouses={warehouses} onViewStock={handleViewStock} />
+              <WhWarehousesTab warehouses={warehousesAll} onViewStock={handleViewStock} />
             </TabsContent>
           )}
           {visibleTabs.has('stock') && (
@@ -197,17 +208,17 @@ function WarehousesPageInner() {
           )}
           {visibleTabs.has('transfers') && (
             <TabsContent value="transfers" className="mt-0">
-              <WhTransfersTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+              <WhTransfersTab warehouses={warehousesAll} currentProfile={currentProfile ?? null} />
             </TabsContent>
           )}
           {visibleTabs.has('adjustments') && (
             <TabsContent value="adjustments" className="mt-0">
-              <WhAdjustmentsTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+              <WhAdjustmentsTab warehouses={warehousesAll} currentProfile={currentProfile ?? null} />
             </TabsContent>
           )}
           {visibleTabs.has('checks') && (
             <TabsContent value="checks" className="mt-0">
-              <WhInventoryChecksTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+              <WhInventoryChecksTab warehouses={warehousesAll} currentProfile={currentProfile ?? null} />
             </TabsContent>
           )}
           {visibleTabs.has('stock-value') && (
@@ -217,12 +228,12 @@ function WarehousesPageInner() {
           )}
           {visibleTabs.has('movements') && (
             <TabsContent value="movements" className="mt-0">
-              <WhMovementsTab warehouses={warehouses} />
+              <WhMovementsTab warehouses={warehousesAll} />
             </TabsContent>
           )}
           {visibleTabs.has('receivals') && (
             <TabsContent value="receivals" className="mt-0">
-              <ReceivalsDeliveriesTab warehouses={warehouses} currentProfile={currentProfile ?? null} />
+              <ReceivalsDeliveriesTab warehouses={warehousesAll} currentProfile={currentProfile ?? null} />
             </TabsContent>
           )}
         </div>
