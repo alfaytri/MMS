@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ItemTreeCell } from './ItemTreeCell'
 import { useStockAdjustments, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { useAllCategoriesFlat, breadcrumb as categoryBreadcrumb } from '@/hooks/useInventoryTree'
 import { WhAdjustmentDetailDialog } from './WhAdjustmentDetailDialog'
 import type { Warehouse } from '@/hooks/useWarehouses'
@@ -20,6 +21,8 @@ import { WarehouseReportButton } from './WarehouseReportButton'
 type StockAdjustmentRow = {
   id: string
   warehouse_id: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   brand_variant_id: string
   adjustment_type: string
   qty: number
@@ -112,7 +115,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
     <div className="p-4 md:p-6 space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)} className="min-w-0">
-          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
+          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto md:overflow-x-visible whitespace-nowrap">
             {FILTER_TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="text-xs px-3 h-7 gap-1">
                 {t.label}
@@ -210,6 +213,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
               <TableHead className="text-xs w-[22%]">Item</TableHead>
               <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
+              <TableHead className="text-xs hidden xl:table-cell">Sub-container</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs text-right">Qty</TableHead>
               <TableHead className="text-xs hidden lg:table-cell">Reason</TableHead>
@@ -222,7 +226,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           <TableBody>
             {filteredAdjustments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="p-0">
+                <TableCell colSpan={11} className="p-0">
                   <EmptyState
                     title={
                       statusFilter === 'all'
@@ -271,6 +275,11 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                     {adj.created_at ? format(new Date(adj.created_at), 'dd MMM') : '—'}
                   </TableCell>
                   <TableCell className="text-xs py-2.5 hidden lg:table-cell">{adj.warehouses?.name ?? '—'}</TableCell>
+                  <TableCell className="text-xs py-2.5 hidden xl:table-cell">
+                    {adj.sub_container_name
+                      ? shortenSubContainerName(adj.sub_container_name, adj.warehouses?.name ?? '')
+                      : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell className="py-2.5">
                     <Badge className={`text-[10px] px-1.5 py-0 capitalize ${TYPE_STYLES[adj.adjustment_type] ?? ''}`}>
                       {adj.adjustment_type?.replace(/_/g, ' ')}

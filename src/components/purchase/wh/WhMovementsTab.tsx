@@ -13,6 +13,7 @@ import { WhMovementRefDialog } from './WhMovementRefDialog'
 import { WhStockDetailDialog } from './WhStockDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { useStockMovements, useWarehouseStock, StockMovement } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { format } from 'date-fns'
 
@@ -88,7 +89,20 @@ interface Props {
 export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }: Props) {
   const [search, setSearch] = useState('')
   const [warehouseFilter, setWarehouseFilter] = useState('all')
+  const [subContainerFilter, setSubContainerFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
+
+  // Sub-containers for the picked warehouse (for the optional filter dropdown)
+  const subWhId = warehouseFilter !== 'all' ? warehouseFilter : null
+  const { data: subs = [] } = useWarehouseSubContainers(subWhId)
+  const activeSubs = useMemo(() => subs.filter((sc) => sc.is_active), [subs])
+  const subWhName = useMemo(() => warehouses.find((w) => w.id === subWhId)?.name ?? '', [warehouses, subWhId])
+
+  useEffect(() => {
+    // Reset sub-container filter whenever the warehouse changes; a stale sub
+    // id from a previously picked warehouse would otherwise hide every row.
+    setSubContainerFilter('all')
+  }, [warehouseFilter])
   const [refDialog, setRefDialog] = useState<{ type: string; id: string } | null>(null)
   const [stockDialog, setStockDialog] = useState<{
     brandVariantId: string; itemName: string; category: string | null; subcategory: string | null; itemType: string | null
@@ -134,15 +148,16 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
         m.item_name?.toLowerCase().includes(q) ||
         m.sku?.toLowerCase().includes(q)
       const matchWh = warehouseFilter === 'all' || m.warehouse_id === warehouseFilter
+      const matchSub = subContainerFilter === 'all' || m.sub_container_id === subContainerFilter
       const matchType = typeFilter === 'all' || m.movement_type === typeFilter
-      return matchSearch && matchWh && matchType
+      return matchSearch && matchWh && matchSub && matchType
     })
-  }, [movements, search, warehouseFilter, typeFilter])
+  }, [movements, search, warehouseFilter, subContainerFilter, typeFilter])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [search, warehouseFilter, typeFilter])
+  useEffect(() => { setPage(1) }, [search, warehouseFilter, subContainerFilter, typeFilter])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filtered.slice(start, start + PAGE_SIZE)
@@ -172,6 +187,21 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
             ))}
           </SelectContent>
         </Select>
+        {activeSubs.length > 1 && (
+          <Select value={subContainerFilter} onValueChange={v => setSubContainerFilter(v ?? 'all')}>
+            <SelectTrigger className="min-w-[160px] h-8 text-xs">
+              <SelectValue placeholder="All Sub-containers" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60 overflow-y-auto">
+              <SelectItem value="all" className="text-xs">All Sub-containers</SelectItem>
+              {activeSubs.map((sc) => (
+                <SelectItem key={sc.id} value={sc.id} className="text-xs">
+                  {shortenSubContainerName(sc.name, subWhName)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
           <SelectTrigger className="min-w-[160px] h-8 text-xs">
             <SelectValue placeholder="All Types" />
@@ -249,13 +279,14 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
               <TableHead className="text-xs text-right">Stock</TableHead>
               <TableHead className="text-xs text-right hidden lg:table-cell">Stock Value</TableHead>
               <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
+              <TableHead className="text-xs hidden xl:table-cell">Sub-container</TableHead>
               <TableHead className="text-xs">Ref</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="p-0">
+                <TableCell colSpan={11} className="p-0">
                   <EmptyState title="No movements found" />
                 </TableCell>
               </TableRow>
@@ -334,6 +365,11 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                       )}
                     </TableCell>
                     <TableCell className="text-xs hidden lg:table-cell">{warehouseMap.get(m.warehouse_id) ?? '—'}</TableCell>
+                    <TableCell className="text-xs hidden xl:table-cell">
+                      {m.sub_container_name
+                        ? shortenSubContainerName(m.sub_container_name, warehouseMap.get(m.warehouse_id) ?? '')
+                        : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell className="text-xs">
                       {refCfg ? (
                         m.reference_id ? (

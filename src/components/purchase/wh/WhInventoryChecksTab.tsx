@@ -5,6 +5,7 @@ import { ClipboardCheck, Users, CheckCircle2, Clock, XCircle, Eye, ChevronLeft, 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useInventoryChecks } from '@/hooks/useWarehouseOperations'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { format } from 'date-fns'
@@ -100,6 +101,11 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-[10px] text-muted-foreground">{c.warehouse_name}</span>
+                    {c.sub_container_name && (
+                      <span className="text-[10px] text-muted-foreground border border-border rounded px-1 py-0.5">
+                        {shortenSubContainerName(c.sub_container_name, c.warehouse_name ?? '')}
+                      </span>
+                    )}
                     {c.initiated_by_name && (
                       <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                         <Users className="h-2.5 w-2.5" />

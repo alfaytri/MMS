@@ -23,6 +23,8 @@ export type StockMovementType =
 export type StockMovement = {
   id: string
   warehouse_id: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   brand_variant_id: string
   item_name: string
   sku: string | null
@@ -75,6 +77,10 @@ export type WarehouseTransfer = {
   transfer_number: string
   from_warehouse_id: string
   to_warehouse_id: string
+  from_sub_container_id: string | null
+  to_sub_container_id: string | null
+  from_sub_container_name: string | null
+  to_sub_container_name: string | null
   status: TransferStatus
   created_by_name: string | null
   created_by_profile_id: string | null
@@ -110,6 +116,8 @@ export type CreateTransferPayload = {
 export type StockAdjustment = {
   id: string
   warehouse_id: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   brand_variant_id: string
   adjustment_type: string
   qty: number
@@ -144,6 +152,8 @@ export type InventoryCheck = {
   check_number: string
   warehouse_id: string
   warehouse_name: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   status: string
   initiated_by_profile_id: string | null
   initiated_by_name: string | null
@@ -216,6 +226,12 @@ export type ReceivalDelivery = {
   reference: string // po_id (inbound) | sale_order_id (outbound)
   warehouseId: string
   warehouseName: string
+  // Inbound: sub-container name(s) from receival_items — one entry per DISTINCT
+  // sub_container the receival touched. Almost always length 1 in practice.
+  // Outbound: [] — sale_deliveries has no header sub_container_id column
+  // (D.3 stamped only the movement). Sub-container is visible via Movements
+  // tab or the delivery detail dialog.
+  subContainerNames: string[]
   counterparty: string // supplier name (inbound) | customer name (outbound)
   date: string
   items: { name: string; sku: string; qty: number; brand_variant_id?: string | null }[]
@@ -238,13 +254,16 @@ export function useStockMovements({
       const supabase = createClient()
       let q = supabase
         .from('inventory_stock_movements')
-        .select('id, warehouse_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at')
+        .select('id, warehouse_id, sub_container_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at, warehouse_sub_containers:sub_container_id(name)')
         .order('created_at', { ascending: false })
         .limit(limit)
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as StockMovement[]
+      return (data ?? []).map((r) => {
+        const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
+        return { ...rest, sub_container_name: warehouse_sub_containers?.name ?? null }
+      }) as StockMovement[]
     },
     staleTime: 2 * 60 * 1000,
   })
@@ -330,13 +349,25 @@ export function useWarehouseTransfers({ status }: { status?: TransferStatus } = 
         .from('warehouse_transfers')
         .select(`
   *, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name),
+  from_sub_container:from_sub_container_id(name),
+  to_sub_container:to_sub_container_id(name),
   transfer_items:warehouse_transfer_items(*)
 `)
         .order('created_at', { ascending: false })
       if (status) q = q.eq('status', status)
       const { data, error } = await q.limit(50)
       if (error) throw error
-      return (data ?? []) as unknown as WarehouseTransfer[]
+      return (data ?? []).map((r) => {
+        const { from_sub_container, to_sub_container, ...rest } = r as typeof r & {
+          from_sub_container: { name: string } | null
+          to_sub_container: { name: string } | null
+        }
+        return {
+          ...rest,
+          from_sub_container_name: from_sub_container?.name ?? null,
+          to_sub_container_name: to_sub_container?.name ?? null,
+        }
+      }) as unknown as WarehouseTransfer[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -478,6 +509,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
         .select(`
           *,
           warehouses(name),
+          warehouse_sub_containers:sub_container_id(name),
           inventory_item_brand_variants(brand, inventory_items(name_en, sku, inventory_categories(id, name_en, type))),
           stock_adjustment_approvals(
             id, adjustment_id, step_order, step_role, step_label, status,
@@ -489,7 +521,10 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q.limit(100)
       if (error) throw error
-      return (data ?? []) as unknown as StockAdjustment[]
+      return (data ?? []).map((r) => {
+        const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
+        return { ...rest, sub_container_name: warehouse_sub_containers?.name ?? null }
+      }) as unknown as StockAdjustment[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -668,12 +703,15 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
       const supabase = createClient()
       let q = supabase
         .from('inventory_checks')
-        .select('id, check_number, warehouse_id, warehouse_name, status, reviewed_by_name, reviewed_at, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at')
+        .select('id, check_number, warehouse_id, warehouse_name, sub_container_id, status, reviewed_by_name, reviewed_at, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at, warehouse_sub_containers:sub_container_id(name)')
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q.limit(100)
       if (error) throw error
-      return (data ?? []) as InventoryCheck[]
+      return (data ?? []).map((r) => {
+        const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
+        return { ...rest, sub_container_name: warehouse_sub_containers?.name ?? null }
+      }) as InventoryCheck[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -706,7 +744,7 @@ export function useReceivalsAndDeliveries() {
       const [receivalsRes, deliveriesRes] = await Promise.all([
         supabase
           .from('receivals')
-          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id)')
+          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id, sub_container_id, warehouse_sub_containers:sub_container_id(name))')
           .order('date', { ascending: false }),
         supabase
           .from('sale_deliveries')
@@ -717,21 +755,30 @@ export function useReceivalsAndDeliveries() {
       if (receivalsRes.error) throw receivalsRes.error
       if (deliveriesRes.error) throw deliveriesRes.error
 
-      const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r) => ({
-        id: r.id,
-        direction: 'inbound' as const,
-        docNumber: r.receival_number ?? '',
-        reference: r.purchase_orders?.po_number ?? '',
-        warehouseId: r.warehouse_id ?? '',
-        warehouseName: r.warehouses?.name ?? '',
-        counterparty: r.purchase_orders?.supplier_name ?? '',
-        date: r.date ?? '',
-        items: Array.isArray(r.receival_items)
-          ? r.receival_items.map((ri) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null }))
-          : [],
-        itemCount: Array.isArray(r.receival_items) ? r.receival_items.length : 0,
-        status: r.status ?? 'pending',
-      }))
+      const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r) => {
+        const rItems = Array.isArray(r.receival_items) ? r.receival_items : []
+        const subNames = Array.from(
+          new Set(
+            rItems
+              .map((ri) => (ri as unknown as { warehouse_sub_containers?: { name: string } | null }).warehouse_sub_containers?.name)
+              .filter((n): n is string => !!n),
+          ),
+        )
+        return {
+          id: r.id,
+          direction: 'inbound' as const,
+          docNumber: r.receival_number ?? '',
+          reference: r.purchase_orders?.po_number ?? '',
+          warehouseId: r.warehouse_id ?? '',
+          warehouseName: r.warehouses?.name ?? '',
+          subContainerNames: subNames,
+          counterparty: r.purchase_orders?.supplier_name ?? '',
+          date: r.date ?? '',
+          items: rItems.map((ri) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null })),
+          itemCount: rItems.length,
+          status: r.status ?? 'pending',
+        }
+      })
 
       const outbound: ReceivalDelivery[] = (deliveriesRes.data ?? []).map((d) => ({
         id: d.id,
@@ -740,6 +787,9 @@ export function useReceivalsAndDeliveries() {
         reference: d.sale_orders?.so_number ?? '',
         warehouseId: d.warehouse_id ?? '',
         warehouseName: d.warehouse_name ?? '',
+        // sale_deliveries has no header sub_container_id — D.3 stamped only the
+        // movement. Left empty here; see Movements tab or delivery detail dialog.
+        subContainerNames: [],
         counterparty: d.sale_orders?.customers?.name ?? '',
         date: d.date ?? '',
         items: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.map((di) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
