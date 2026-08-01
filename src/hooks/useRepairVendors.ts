@@ -2,8 +2,11 @@
  * Phase 9.6 — Repair vendors CRUD hooks.
  *
  * `repair_vendors` is a plain table (no RPCs — direct inserts/updates).
- * The `_repair_vendor_provision_warehouse` AFTER-INSERT trigger auto-creates
- * a virtual `warehouses` row per vendor and back-links `virtual_warehouse_id`.
+ * Post-D.6.b: `_repair_vendor_provision_warehouse` is a BEFORE-INSERT trigger
+ * that creates a `warehouse_sub_containers` row for the vendor under the
+ * SHARED "Repair" warehouse (`is_virtual=true`, one row for all vendors) and
+ * stamps `virtual_warehouse_id` + `sub_container_id` on the incoming NEW row.
+ * The insert returns the fully-populated row — no separate refetch needed.
  * List queries include a `.limit(500)` per docs/supabase-budget.md.
  */
 
@@ -41,8 +44,8 @@ export function useCreateRepairVendor() {
   return useMutation({
     mutationFn: async (values: Pick<RepairVendorInsert, 'name' | 'phone' | 'address' | 'notes'>) => {
       const supabase = createClient()
-      // INSERT returns the pre-trigger row (virtual_warehouse_id null).
-      // Refetch afterwards to pick up the back-linked warehouse id.
+      // Post-D.6.b: BEFORE-INSERT trigger stamps virtual_warehouse_id +
+      // sub_container_id, so the returned row is fully populated.
       const { data, error } = await supabase
         .from('repair_vendors')
         .insert({

@@ -3966,6 +3966,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          sub_container_id: string
           updated_at: string
           virtual_warehouse_id: string | null
         }
@@ -3978,6 +3979,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          sub_container_id: string
           updated_at?: string
           virtual_warehouse_id?: string | null
         }
@@ -3990,6 +3992,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          sub_container_id?: string
           updated_at?: string
           virtual_warehouse_id?: string | null
         }
@@ -3999,6 +4002,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_vendors_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
