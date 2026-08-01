@@ -14,6 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
 const SRC = path.join(REPO_ROOT, 'docs', 'flows-registry.md')
 const OUT = path.join(REPO_ROOT, 'docs', 'flows-visualizer.html')
+const EXAMPLES_SRC = path.join(REPO_ROOT, 'docs', 'flow-examples.json')
 
 // ─── Parser ────────────────────────────────────────────────────────────────
 
@@ -241,7 +242,56 @@ function renderTableHopDiagram(tables) {
   return `<div class="diagram">${chips}</div>`
 }
 
-function renderFlowCard(flow, allFlowSlugs) {
+function renderExampleSection(example, allFlowSlugs) {
+  if (!example) return ''
+  const inputJson = escapeHtml(JSON.stringify(example.input ?? {}, null, 2))
+  const writesHtml = (example.writes ?? []).map(w => {
+    const cols = w.columns
+      ? Object.entries(w.columns).map(([k, v]) => `
+          <div class="ex-col">
+            <span class="ex-col-key">${escapeHtml(k)}</span>
+            <span class="ex-col-val">${renderInline(String(v), allFlowSlugs)}</span>
+          </div>`).join('')
+      : ''
+    const notes = w.notes
+      ? `<div class="ex-write-notes">${renderInline(w.notes, allFlowSlugs)}</div>`
+      : ''
+    return `
+      <div class="ex-write">
+        <div class="ex-write-header">
+          <span class="ex-table">${escapeHtml(w.table)}</span>
+          <span class="ex-action">${escapeHtml(w.action)}</span>
+        </div>
+        ${cols ? `<div class="ex-cols">${cols}</div>` : ''}
+        ${notes}
+      </div>`
+  }).join('')
+  const uiHtml = (example.ui_after ?? []).map(line => `
+    <li>${renderInline(line, allFlowSlugs)}</li>`).join('')
+  return `
+    <details class="ex-details">
+      <summary class="ex-summary">
+        <span class="ex-summary-label">Example</span>
+        <span class="ex-summary-hint">click to expand · sample input · DB writes · UI outcome</span>
+      </summary>
+      <div class="ex-body">
+        <div class="ex-block">
+          <div class="ex-block-title">Input (operator payload)</div>
+          <pre class="ex-json"><code>${inputJson}</code></pre>
+        </div>
+        <div class="ex-block">
+          <div class="ex-block-title">DB writes</div>
+          ${writesHtml || '<div class="ex-empty">No writes recorded.</div>'}
+        </div>
+        <div class="ex-block">
+          <div class="ex-block-title">UI after</div>
+          <ul class="ex-ui">${uiHtml || '<li class="ex-empty">No UI outcomes recorded.</li>'}</ul>
+        </div>
+      </div>
+    </details>`
+}
+
+function renderFlowCard(flow, allFlowSlugs, examples) {
   const slug = slugify(flow.title)
   const f = flow.fields
   const status = (f.status ?? '').toLowerCase()
@@ -252,6 +302,7 @@ function renderFlowCard(flow, allFlowSlugs) {
   const writes = f.writes ?? ''
   const sideEffects = f.side_effects ?? ''
   const tables = extractTables(writes + '\n' + sideEffects)
+  const example = examples[slug] ?? null
 
   const FIELD_ORDER = [
     ['module', 'Module'],
@@ -289,11 +340,12 @@ function renderFlowCard(flow, allFlowSlugs) {
     </div>`).join('')
 
   return `
-    <article id="flow-${slug}" class="flow-card" data-section="${escapeHtml(flow.section)}" data-title="${escapeHtml(flow.title.toLowerCase())}">
+    <article id="flow-${slug}" class="flow-card" data-section="${escapeHtml(flow.section)}" data-title="${escapeHtml(flow.title.toLowerCase())}" data-has-example="${example ? '1' : '0'}">
       <header class="flow-header">
         <div class="flow-title-row">
           <h3 class="flow-title">${escapeHtml(flow.title)}</h3>
           <span class="badge ${statusClass}">${escapeHtml(f.status ?? 'Active')}</span>
+          ${example ? '<span class="badge badge-example">Example</span>' : ''}
         </div>
         <div class="flow-section">${escapeHtml(flow.section)}</div>
       </header>
@@ -305,10 +357,11 @@ function renderFlowCard(flow, allFlowSlugs) {
         ${fieldRows}
         ${extraRows}
       </div>
+      ${renderExampleSection(example, allFlowSlugs)}
     </article>`
 }
 
-function render(parsed) {
+function render(parsed, examples) {
   // Collect all flow slugs so wikilinks can resolve.
   const allFlowSlugs = new Set()
   for (const sec of parsed) {
@@ -316,6 +369,7 @@ function render(parsed) {
   }
 
   const totalFlows = parsed.reduce((s, sec) => s + sec.flows.length, 0)
+  const totalExamples = Object.keys(examples).filter(k => !k.startsWith('$')).length
 
   const nav = parsed.map(sec => {
     const links = sec.flows.map(f => `
@@ -331,7 +385,7 @@ function render(parsed) {
   const cards = parsed.map(sec => `
     <section class="section" id="section-${slugify(sec.section)}">
       <h2 class="section-heading">${escapeHtml(sec.section)}</h2>
-      ${sec.flows.map(f => renderFlowCard(f, allFlowSlugs)).join('')}
+      ${sec.flows.map(f => renderFlowCard(f, allFlowSlugs, examples)).join('')}
     </section>
   `).join('')
 
@@ -612,15 +666,151 @@ function render(parsed) {
     text-align: center;
     color: var(--text-muted);
   }
+
+  .badge-example {
+    background: var(--secondary);
+    color: white;
+  }
+
+  .ex-details {
+    margin-top: 14px;
+    border-top: 1px dashed var(--border);
+    padding-top: 12px;
+  }
+  .ex-summary {
+    cursor: pointer;
+    padding: 6px 10px;
+    background: var(--code-bg);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    list-style: none;
+    user-select: none;
+  }
+  .ex-summary::-webkit-details-marker { display: none; }
+  .ex-summary::before {
+    content: '▸';
+    color: var(--secondary);
+    font-size: 12px;
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+  details[open] .ex-summary::before { transform: rotate(90deg); }
+  .ex-summary-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--secondary);
+  }
+  .ex-summary-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  .ex-body {
+    padding: 12px 4px 4px;
+    display: grid;
+    gap: 14px;
+  }
+  .ex-block-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .ex-json {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.5;
+    overflow-x: auto;
+    color: var(--text);
+  }
+
+  .ex-write {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--secondary);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+  .ex-write-header {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .ex-table {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .ex-action {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    background: var(--secondary);
+    color: white;
+    border-radius: 3px;
+  }
+  .ex-cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 4px 12px;
+    font-size: 11.5px;
+    margin-top: 4px;
+  }
+  .ex-col-key {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    color: var(--text-muted);
+    margin-right: 6px;
+  }
+  .ex-col-key::after { content: ':'; }
+  .ex-col-val {
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  .ex-write-notes {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dotted var(--border);
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .ex-ui {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+  .ex-ui li { margin-bottom: 3px; }
+  .ex-empty { color: var(--text-muted); font-style: italic; font-size: 11.5px; }
 </style>
 </head>
 <body>
 <div class="top">
-  <div class="brand">MMS Flows <span class="brand-sub">generated ${generated} · ${totalFlows} flows</span></div>
+  <div class="brand">MMS Flows <span class="brand-sub">generated ${generated} · ${totalFlows} flows · ${totalExamples} with examples</span></div>
   <input class="search" id="search" placeholder="Search flow name, table, hook…" autocomplete="off">
 </div>
 <div class="chips" id="chips">
   <button class="chip active" data-filter-section="__all__">All <span class="chip-count">${totalFlows}</span></button>
+  <button class="chip" data-filter-section="__examples__">With examples <span class="chip-count">${totalExamples}</span></button>
   ${moduleChips}
 </div>
 <div class="layout">
@@ -649,8 +839,12 @@ function render(parsed) {
     for (const card of cards) {
       const sec = card.dataset.section
       const title = card.dataset.title
+      const hasExample = card.dataset.hasExample === '1'
       const body = card.innerText.toLowerCase()
-      const sectionMatch = activeSection === '__all__' || sec === activeSection
+      let sectionMatch
+      if (activeSection === '__all__') sectionMatch = true
+      else if (activeSection === '__examples__') sectionMatch = hasExample
+      else sectionMatch = sec === activeSection
       const searchMatch = !q || title.includes(q) || body.includes(q)
       const show = sectionMatch && searchMatch
       card.classList.toggle('hidden', !show)
@@ -699,10 +893,32 @@ function render(parsed) {
 
 const md = fs.readFileSync(SRC, 'utf8')
 const parsed = parseMarkdown(md)
-const html = render(parsed)
+
+// Load example fixtures. Missing file → empty examples map (Phase A behavior).
+let examples = {}
+if (fs.existsSync(EXAMPLES_SRC)) {
+  try {
+    examples = JSON.parse(fs.readFileSync(EXAMPLES_SRC, 'utf8'))
+  } catch (err) {
+    console.error(`Failed to parse ${EXAMPLES_SRC}: ${err.message}`)
+    process.exit(1)
+  }
+}
+
+const html = render(parsed, examples)
 fs.writeFileSync(OUT, html, 'utf8')
 
 const totalFlows = parsed.reduce((s, sec) => s + sec.flows.length, 0)
+const totalExamples = Object.keys(examples).filter(k => !k.startsWith('$')).length
 console.log(`Wrote ${OUT}`)
-console.log(`  ${parsed.length} sections, ${totalFlows} flows`)
+console.log(`  ${parsed.length} sections, ${totalFlows} flows, ${totalExamples} with examples`)
 for (const sec of parsed) console.log(`    ${sec.section} — ${sec.flows.length} flows`)
+
+// Warn about fixtures that don't match any flow (typo guard).
+const allSlugs = new Set()
+for (const sec of parsed) for (const f of sec.flows) allSlugs.add(slugify(f.title))
+const orphans = Object.keys(examples).filter(k => !k.startsWith('$') && !allSlugs.has(k))
+if (orphans.length > 0) {
+  console.warn(`\nWARN — ${orphans.length} example fixture(s) don't match any flow slug:`)
+  for (const o of orphans) console.warn(`  - ${o}`)
+}
