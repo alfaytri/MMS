@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Phase D.14 wrap-up — Codex review batch (D.12 + D.14) + push branch + PR to `main`** — D.14 shipped and verified on staging (5-sub-container tenant, template downloads with all dropdowns wired, upload/preview/import round-trips clean, defaults stamped on new items). D.12 + D.14 migrations still staging-only; prod catch-up alongside D.6–D.13. Next: full-branch regression sweep, Codex review, push + PR.
+🚀 Starting: **Warehouse Model v2 Phase F — Damaged Stock On-hand actions (Send for Repair + Write off)** — brainstorming and design first. Scope: two new RPCs (`rpc_send_damaged_stock_for_repair` — consumes from `inventory_damaged_stock` at picked (warehouse, sub_container), creates `damaged_repair_out` transfer with `source_return_line_disposition_id=NULL`; `rpc_write_off_damaged_stock` — consumes damaged pile, logs `inventory_damaged_movements` with `movement_type='writeoff'`). UI: per-row Send for Repair + Write off buttons on `/warehouse/damaged-stock` → On-hand. Send-for-Repair reuses existing dialog with a `mode='from-on-hand'` prop + qty input + sub-container picker when the variant's damaged stock spans multiple subs. Return-from-repair path already covers ad-hoc transfers (uses `warehouse_transfers.from_sub_container_id`, no disposition needed). Damaged-qty counter auto-syncs via the follow-up #7 trigger. Phase E smoke follow-ups shipped (3 commits pushed to origin `feature/warehouse-model-v2`, HEAD `3b6e3966`).
 
 ---
 
