@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
-  RotateCcw, Calendar, Warehouse, User, Hash, Loader2, Download, AlertTriangle,
+  RotateCcw, Calendar, User, Hash, Loader2, Download, AlertTriangle,
 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -16,7 +16,6 @@ import type { SaleReturn } from '@/hooks/useSaleReturns'
 import { useReturnProgress } from '@/hooks/useSaleReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
-import { useWarehouses } from '@/hooks/useWarehouses'
 import { useMemo } from 'react'
 
 const RESOLUTION_LABEL: Record<string, string> = {
@@ -123,7 +122,6 @@ interface Props {
 
 export function SaleReturnDetailDialog({ ret, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
-  const { data: warehouses } = useWarehouses()
 
   const items = ret?.return_lines ?? []
   const saleDeliveryLineIds = useMemo(
@@ -192,18 +190,13 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
         {/* Body */}
         <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Meta grid */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Meta grid — per-line source (delivery # + warehouse + sub-container)
+              now lives in the items table below via ReturnLineSourceBadges. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetaCard
               icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
               label="Date"
               value={ret.date ? formatDate(ret.date) : '—'}
-            />
-            <MetaCard
-              icon={<Warehouse className="h-4 w-4 text-muted-foreground" />}
-              label="Warehouse"
-              value={ret.restock_warehouse_id
-                ? (warehouses ?? []).find((w) => w.id === ret.restock_warehouse_id)?.name ?? 'Assigned'
-                : 'Pending inspection'}
             />
             <MetaCard
               icon={<User className="h-4 w-4 text-muted-foreground" />}

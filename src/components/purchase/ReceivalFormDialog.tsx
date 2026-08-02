@@ -314,10 +314,14 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
   const poDivisionId = selectedPO?.division_id ?? null
 
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
-  const eligibleSubs = useMemo(
-    () => allSubs.filter((sc) => sc.is_active && sc.division_id === poDivisionId),
-    [allSubs, poDivisionId]
-  )
+  const eligibleSubs = useMemo(() => {
+    const active = allSubs.filter((sc) => sc.is_active)
+    // Legacy POs (pre-Division Switcher) have NULL division_id — offer every
+    // active sub in the warehouse and require an explicit pick. When the PO
+    // is division-scoped, filter to matching subs.
+    if (poDivisionId === null) return active
+    return active.filter((sc) => sc.division_id === poDivisionId)
+  }, [allSubs, poDivisionId])
 
   useEffect(() => {
     if (eligibleSubs.length === 1) {
@@ -522,16 +526,17 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
 
-          {warehouseId && poDivisionId && (
+          {warehouseId && (
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
                 <Package className="h-2.5 w-2.5" />
-                Sub-container
+                Sub-container{poDivisionId === null ? ' *' : ''}
               </Label>
               {eligibleSubs.length === 0 ? (
                 <p className="text-xs text-muted-foreground border rounded-md py-2 px-3 bg-muted/30">
-                  No active sub-container in this warehouse for the PO&apos;s division.
-                  One will be auto-created when you submit.
+                  {poDivisionId === null
+                    ? 'No active sub-container in this warehouse.'
+                    : "No active sub-container in this warehouse for the PO's division. One will be auto-created when you submit."}
                 </p>
               ) : eligibleSubs.length === 1 ? (
                 <div className="flex items-center gap-2 border rounded-md py-2 px-3 bg-muted/30 min-h-9">

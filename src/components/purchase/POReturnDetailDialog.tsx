@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
-  RotateCcw, Calendar, Warehouse, User, Hash, Loader2, Download,
+  RotateCcw, Calendar, User, Hash, Loader2, Download,
 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import type { POReturn } from '@/hooks/usePurchaseReturns'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useReturnLineSources } from '@/hooks/useReturnLineSources'
+import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:            { label: 'Pending',            color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
@@ -54,6 +56,15 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
   const { data: warehouses = [] } = useWarehouses()
   const bvIds = useMemo(() => (ret?.return_lines ?? []).map((i) => i.brand_variant_id).filter(Boolean) as string[], [ret?.return_lines])
   const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+
+  // Per-line provenance — each return line points at the receival_items row
+  // it came from (D.4.a). Batch-resolve the ref# + warehouse + sub-container
+  // labels so the items table can show a source badge trio per row.
+  const receivalIds = useMemo(
+    () => (ret?.return_lines ?? []).map((l) => l.receival_item_id).filter((x): x is string => !!x),
+    [ret?.return_lines],
+  )
+  const { data: sources } = useReturnLineSources(receivalIds, [], ret?.id ?? null)
 
   if (!ret) return null
 
@@ -111,17 +122,13 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
 
         {/* Body */}
         <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* Meta grid */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Meta grid — per-line source now lives in the items table below
+              via ReturnLineSourceBadges (each line points at its receival). */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetaCard
               icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
               label="Date"
               value={ret.date ? formatDate(ret.date) : '—'}
-            />
-            <MetaCard
-              icon={<Warehouse className="h-4 w-4 text-muted-foreground" />}
-              label="Warehouse"
-              value={ret.restock_warehouse_id ? (warehouses.find((w) => w.id === ret.restock_warehouse_id)?.name ?? 'Assigned') : 'No dispatch warehouse'}
             />
             <MetaCard
               icon={<User className="h-4 w-4 text-muted-foreground" />}
@@ -153,12 +160,14 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                       <th className="px-3 py-2 text-left font-medium">SKU</th>
                       <th className="px-3 py-2 text-right font-medium">Qty</th>
                       <th className="px-3 py-2 text-center font-medium">Condition</th>
+                      <th className="px-3 py-2 text-left font-medium">Source</th>
                       <th className="px-3 py-2 text-left font-medium">Stock by Warehouse</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {items.map((item, idx) => {
                       const cond = CONDITION_CONFIG[item.condition] ?? CONDITION_CONFIG.other
+                      const sourceInfo = item.receival_item_id ? sources?.receival.get(item.receival_item_id) ?? null : null
                       return (
                         <tr key={idx} className="hover:bg-muted/20">
                           <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
@@ -168,6 +177,9 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                             <Badge variant="outline" className={cn('text-xs', cond.className)}>
                               {cond.label}
                             </Badge>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <ReturnLineSourceBadges info={sourceInfo} />
                           </td>
                           <td className="px-3 py-2.5">
                             {item.brand_variant_id && (() => {
@@ -190,7 +202,7 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                       )
                     })}
                     {items.length === 0 && (
-                      <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No items found</td></tr>
+                      <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No items found</td></tr>
                     )}
                   </tbody>
                 </table>

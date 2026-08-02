@@ -117,7 +117,6 @@ export type POReturn = {
   date: string
   reason: string
   return_lines?: POReturnItem[]
-  restock_warehouse_id: string | null
   notes: string | null
   status: POReturnStatus
   dispatched_at: string | null
@@ -197,7 +196,6 @@ export function useCreatePurchaseReturn() {
       date: string
       reason: string
       items: POReturnItem[]
-      restock_warehouse_id: string | null
       notes: string | null
     }) => {
       const supabase = createClient()
@@ -213,6 +211,10 @@ export function useCreatePurchaseReturn() {
         .eq('source_type', 'purchase_order')
       const return_number = `PR-${String((count ?? 0) + 1).padStart(5, '0')}`
 
+      // Post-D.4.a: `so_po_returns.restock_warehouse_id` is intentionally left
+      // NULL. Provenance lives per-line on `return_lines.receival_item_id`
+      // (which points back to the exact receival + sub-container). The column
+      // remains for legacy pre-D.4.a rows only.
       const { data, error } = await supabase
         .from('so_po_returns')
         .insert({
@@ -221,7 +223,6 @@ export function useCreatePurchaseReturn() {
           source_id: payload.source_id,
           date: payload.date,
           reason: payload.reason,
-          restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
           status: 'pending',
         })

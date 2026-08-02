@@ -219,7 +219,6 @@ export default function PurchaseReturnsPage() {
       toast.error('All lines in a single return must come from the same warehouse. Split into separate returns.')
       return
     }
-    const restockWarehouseId = warehousesInUse[0] ?? null
 
     createReturn.mutate(
       {
@@ -235,7 +234,6 @@ export default function PurchaseReturnsPage() {
           condition:        i.condition,
           condition_notes:  i.condition_notes,
         })),
-        restock_warehouse_id: restockWarehouseId,
         notes: notes || null,
       },
       {
