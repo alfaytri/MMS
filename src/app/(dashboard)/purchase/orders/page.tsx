@@ -26,6 +26,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { toast } from 'sonner'
 
 const STATUS_OPTIONS: { value: POStatus | ''; label: string }[] = [
@@ -109,6 +110,7 @@ export default function PurchaseOrdersPage() {
   const [createBillPOId, setCreateBillPOId] = useState<string | null>(null)
 
   const cancelPO = useCancelPO()
+  const { activeDivisionId } = useActiveDivision()
 
   const { data: orders, isLoading } = usePurchaseOrders({
     search,
@@ -119,19 +121,30 @@ export default function PurchaseOrdersPage() {
   const { data: suppliers } = useSuppliers()
 
   // ── Stats ──────────────────────────────────────────────────────────────────
+  // Stats scope follows the active-division filter so the top cards match
+  // what the list below shows.
   const stats = useMemo(() => {
-    const all = orders ?? []
+    const all = (orders ?? []).filter(
+      (o) => !activeDivisionId || o.division_id == null || o.division_id === activeDivisionId,
+    )
     return {
       total: all.length,
       pendingApproval: all.filter((o) => o.status === 'pending_approval').length,
       inReceival: all.filter((o) => ['approved', 'partially_received'].includes(o.status)).length,
       totalValue: all.reduce((s, o) => s + (o.total_qar ?? 0), 0),
     }
-  }, [orders])
+  }, [orders, activeDivisionId])
 
   // ── Client-side filtering ─────────────────────────────────────────────────
+  // Phase E follow-up: hide POs whose division_id doesn't match the active
+  // division. Admin bypasses RLS so all divisions' POs land in `orders`;
+  // this filter mirrors the /purchase/returns picker (legacy null-division
+  // POs always show; "All Divisions" shows everything).
   const filtered = useMemo(() => {
     let result = orders ?? []
+    if (activeDivisionId) {
+      result = result.filter((o) => o.division_id == null || o.division_id === activeDivisionId)
+    }
     if (statusFilter.size > 0) result = result.filter((o) => statusFilter.has(o.status))
     if (supplierFilter) result = result.filter((o) => o.supplier_id === supplierFilter)
     if (receivalFilter) result = result.filter((o) => getReceivalStatus(o) === receivalFilter)
@@ -144,7 +157,7 @@ export default function PurchaseOrdersPage() {
       })
     }
     return result
-  }, [orders, statusFilter, supplierFilter, receivalFilter, paymentFilter])
+  }, [orders, activeDivisionId, statusFilter, supplierFilter, receivalFilter, paymentFilter])
 
   const hasActiveFilters = !!(search || statusFilter.size > 0 || supplierFilter || dateFrom || dateTo || receivalFilter || paymentFilter || poTypeFilter)
 

@@ -21,6 +21,12 @@ export type SendForRepairPayload = {
   warehouseId:         string
   expectedReturnDate:  string   // ISO date (YYYY-MM-DD)
   notes?:              string | null
+  /**
+   * Operator's authoritative choice of source division when the RPC's own
+   * derive cascade (return → SO/PO → cogs_entries → single sub-container)
+   * can't disambiguate. Passed through as p_source_division_id.
+   */
+  sourceDivisionId?:   string | null
   /** Passed only for cache-invalidation scope. Not sent to the RPC. */
   returnId?:           string | null
 }
@@ -36,6 +42,7 @@ export function useSendDamagedForRepair() {
         p_warehouse_id:               payload.warehouseId,
         p_expected_return_date:       payload.expectedReturnDate,
         p_notes:                      payload.notes ?? undefined,
+        p_source_division_id:         payload.sourceDivisionId ?? undefined,
       })
       if (error) throw error
       return data as unknown as string  // new warehouse_transfers.id

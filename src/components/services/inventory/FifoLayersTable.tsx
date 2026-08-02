@@ -73,10 +73,20 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
                       : layer.source_type === 'delivery_cancel' ? <span className="text-red-600">DEL Cancel</span>
                       : layer.source_type === 'stock_check' ? <span className="text-purple-600">Stock Check</span>
                       : layer.source_type === 'gap_fill' ? <span className="text-muted-foreground">Gap Fill</span>
+                      : layer.source_type === 'damaged_repair_return' ? <span className="text-orange-600">Return from Repair</span>
                       : <span className="text-muted-foreground">Manual</span>}
                   </TableCell>
                   <TableCell className="text-[11px]">
-                    {layer.warehouse_name ?? <span className="text-muted-foreground">—</span>}
+                    {layer.warehouse_name ? (
+                      <div className="flex flex-col leading-tight">
+                        <span>{layer.warehouse_name}</span>
+                        {layer.sub_container_name && (
+                          <span className="text-[10px] text-muted-foreground">{layer.sub_container_name}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-[11px]">{formatDate(layer.date)}</TableCell>
                   <TableCell className="text-right text-[11px]">{layer.qty}</TableCell>
