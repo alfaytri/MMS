@@ -261,7 +261,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-**Phase D.12 partial** — Tasks 1 + 2 + 3 shipped. Remaining: **Task 4** — "Shared from `<div>`" chip next to shared items on the cascade picker + item detail rows within the picker (source division name comes from the sub-container holding the stock); if an item has stock in multiple divisions, show BOTH pools as separate rows with per-division qty + chip. **Task 5** — COGS routing via internal transfer journal at FIFO cost: when Kitchen sells and the FIFO deduction pulls from Maintenance's sub-container, book the cogs_entry to Kitchen (consumer) not Maintenance (owner). Cleanest way: add `consumer_division_id` column to `cogs_entries` defaulting to sub-container's division but overridable by caller; complete-delivery RPC passes SO's division as consumer_division_id. Reports read `consumer_division_id` for P&L split; `warehouse_sub_containers.division_id` still shows physical location. See `HANDOVER.md` for the full Task 4–5 breakdown.
+🚀 Starting: **Phase D.12 Task 4: Shared-from chip in cascade picker** — cascade variant popover splits each brand variant into one row per division holding stock; each row shows the division name + qty; rows whose division !== active render a "Shared from `<div>`" chip in orange next to the qty. New hook `useVariantStockByDivision(itemId)` fetches the per-variant per-division breakdown when an item is picked. Selection still passes the variant_id only (division routing at COGS lands in Task 5).
 
 ---
 
