@@ -260,6 +260,10 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Phase D.12 Task 3: cascade picker division-aware filter** — `CascadeInventorySelector` (and any parallel sales-side cascade caller) filters the inventory tree to items the active division can legitimately consume: EITHER the division owns stock in a sub-container the caller can see, OR the item's `shared_with_division_ids` contains the active division AND the item has stock somewhere. Categories with no matching items collapse recursively. Client-side filter only — no RLS changes on stock tables in this task; consumption at the RPC layer stays as-is until COGS routing lands in Task 5.
+
+---
+
 **Phase D.12 partial** — Tasks 1 + 2 shipped. Remaining: **Task 3** — cascade picker (`CascadeInventorySelector`) division-aware filter so a division only sees items with accessible stock (own sub-container OR item's `shared_with_division_ids` contains active division); **Task 4** — "Shared from `<div>`" chip on cascade rows + item detail; **Task 5** — COGS routing via internal transfer journal at FIFO cost. See `HANDOVER.md` for the full Task 3–5 breakdown.
 
 ---
