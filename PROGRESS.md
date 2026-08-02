@@ -263,7 +263,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Phase D.12 wrap-up — Codex review batch (Tasks 1–5) + push branch + PR to `main`** — all five D.12 tasks shipped and verified on staging (see below). Staging COGS spot-check on DEL-00033 confirmed `consumer_division_id = Kitchen`, `division_id = Kitchen` (trigger mirror), and physical trace back to Maintenance's sub-container. Prod migrations still behind (D.12 000800/000900/001000 staging-only). Next: same-division / non-shared delivery regression sweep, then Codex review of the full D.12 diff, then `git push -u` + PR.
+🚀 Starting: **Phase D.14 Task 1: Bulk inventory import — DB migration (`inventory_items.default_sub_container_id` + `default_warehouse_id`)** — nullable FK columns + partial indexes. Informational routing defaults stamped by the D.14 Excel importer; receival/delivery dialogs may pre-fill from them but aren't required to. Plan: `docs/superpowers/plans/2026-08-02-warehouse-model-v2-phase-d14-bulk-inventory-import.md`. D.12 wrap-up (Codex review + PR to main + prod migration catch-up) deferred behind D.14 per operator direction.
 
 ---
 
