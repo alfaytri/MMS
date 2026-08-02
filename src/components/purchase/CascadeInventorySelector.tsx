@@ -24,6 +24,7 @@ import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTr
 import { useBrandVariantAncestry } from '@/hooks/useBrandVariantAncestry'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useCascadeAccessibleItems } from '@/hooks/useCascadeAccessibleItems'
+import { useVariantStockByDivision, type VariantDivisionPool } from '@/hooks/useVariantStockByDivision'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import type { LineType } from './PoLineItemsEditor'
 import {
@@ -208,6 +209,12 @@ export function CascadeInventorySelector({
     useInventoryItemsByCategory(selectedCategory?.id ?? null)
   const { data: variants = [], isLoading: varsLoading } =
     useInventoryBrandVariants(selectedItem?.id ?? null)
+  // Phase D.12 Task 4 — per-variant per-division stock breakdown so each
+  // variant row can expand into one row per division holding stock, with
+  // a "Shared from <div>" chip on rows whose division !== active.
+  const { data: variantPools } = useVariantStockByDivision(
+    filterByActiveDivision ? selectedItem?.id ?? null : null,
+  )
 
   // Phase D.12 Task 3 — division-aware filter (opt-in via `filterByActiveDivision`).
   // When active, the tree collapses to only branches containing accessible items.
@@ -567,24 +574,40 @@ export function CascadeInventorySelector({
                         ))}
                       </div>
                     ) : (
-                      items.map((item) => (
-                        <CommandItem
-                          key={item.id}
-                          value={item.name_en}
-                          onSelect={() => {
-                            setSelectedItem(item)
-                            onChange(null)
-                            setItemOpen(false)
-                          }}
-                          className="text-xs"
-                        >
-                          <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
-                          <div>
-                            <div>{item.name_en}</div>
-                            {item.name_ar && <div className="text-muted-foreground">{item.name_ar}</div>}
-                          </div>
-                        </CommandItem>
-                      ))
+                      items.map((item) => {
+                        // Share-only when the filter is active and the item
+                        // is accessible but not owned by the active division.
+                        const isShareOnly =
+                          filterByActiveDivision &&
+                          !!activeDivisionId &&
+                          accessibility.accessibleItemIds?.has(item.id) === true &&
+                          !accessibility.ownedItemIds.has(item.id)
+                        return (
+                          <CommandItem
+                            key={item.id}
+                            value={item.name_en}
+                            onSelect={() => {
+                              setSelectedItem(item)
+                              onChange(null)
+                              setItemOpen(false)
+                            }}
+                            className="text-xs"
+                          >
+                            <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="truncate">{item.name_en}</span>
+                                {isShareOnly && (
+                                  <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
+                                    Shared
+                                  </span>
+                                )}
+                              </div>
+                              {item.name_ar && <div className="text-muted-foreground truncate">{item.name_ar}</div>}
+                            </div>
+                          </CommandItem>
+                        )
+                      })
                     )}
                   </CommandGroup>
                 </Command>
@@ -613,7 +636,7 @@ export function CascadeInventorySelector({
             </span>
             <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
+          <PopoverContent className="w-72 p-0" align="start">
             {isVarCreating ? (
               <CascadeNewVariantForm
                 itemId={selectedItem!.id}
@@ -635,19 +658,63 @@ export function CascadeInventorySelector({
                         ))}
                       </div>
                     ) : (
-                      variants.map((v) => (
-                        <CommandItem
-                          key={v.id}
-                          value={`${v.brand} ${v.code ?? ''}`}
-                          onSelect={() => handleVariantSelect(v)}
-                          className="text-xs"
-                        >
-                          <div>
-                            <div className="font-medium">{v.brand}</div>
-                            {v.code && <div className="text-muted-foreground">{v.code}</div>}
-                          </div>
-                        </CommandItem>
-                      ))
+                      variants.flatMap((v) => {
+                        const pools = variantPools?.get(v.id) ?? []
+                        // Fall back to a single row when the pool breakdown
+                        // isn't available (filter off, still loading, or the
+                        // variant has zero stock anywhere).
+                        if (pools.length === 0) {
+                          return [(
+                            <CommandItem
+                              key={v.id}
+                              value={`${v.brand} ${v.code ?? ''}`}
+                              onSelect={() => handleVariantSelect(v)}
+                              className="text-xs"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{v.brand}</div>
+                                {v.code && <div className="text-muted-foreground truncate">{v.code}</div>}
+                              </div>
+                            </CommandItem>
+                          )]
+                        }
+                        return pools.map((pool: VariantDivisionPool) => {
+                          const isShared =
+                            !!activeDivisionId &&
+                            pool.division_id !== null &&
+                            pool.division_id !== activeDivisionId
+                          const divisionLabel = pool.division_name ?? '—'
+                          const available = Math.max(0, pool.qty - pool.reserved)
+                          return (
+                            <CommandItem
+                              key={`${v.id}:${pool.division_id ?? 'nodiv'}`}
+                              value={`${v.brand} ${v.code ?? ''} ${divisionLabel}`}
+                              onSelect={() => handleVariantSelect(v)}
+                              className="text-xs"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-medium truncate">{v.brand}</span>
+                                  {isShared && (
+                                    <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
+                                      Shared from {divisionLabel}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
+                                  {v.code && <span className="truncate">{v.code}</span>}
+                                  {v.code && <span>·</span>}
+                                  {!isShared && <span className="truncate">{divisionLabel}</span>}
+                                  {!isShared && <span>·</span>}
+                                  <span className={cn(available > 0 ? 'text-success font-medium' : '')}>
+                                    {available.toLocaleString()} avail
+                                  </span>
+                                </div>
+                              </div>
+                            </CommandItem>
+                          )
+                        })
+                      })
                     )}
                   </CommandGroup>
                 </Command>

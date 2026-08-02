@@ -14,6 +14,13 @@ export interface CascadeAccessibleItems {
    * caller opted out via the enabled flag).
    */
   accessibleItemIds: Set<string> | null
+  /**
+   * Items where the active division is the physical owner (holds stock).
+   * Empty when the filter isn't applied. Used to distinguish share-only
+   * items from owned ones so the picker can render a "Shared" chip on
+   * the item row.
+   */
+  ownedItemIds: Set<string>
   itemCategoryMap: Map<string, string>
   isLoading: boolean
 }
@@ -123,7 +130,7 @@ export function useCascadeAccessibleItems(
     for (const it of items) itemCategoryMap.set(it.id, it.category_id)
 
     if (!effectiveEnabled) {
-      return { accessibleItemIds: null, itemCategoryMap, isLoading: false }
+      return { accessibleItemIds: null, ownedItemIds: new Set(), itemCategoryMap, isLoading: false }
     }
 
     // Only report loading when there's nothing to render yet — background
@@ -151,6 +158,6 @@ export function useCascadeAccessibleItems(
     const accessible = new Set<string>(ownedByActive)
     for (const id of sharedToActive) if (hasStockAnywhere.has(id)) accessible.add(id)
 
-    return { accessibleItemIds: accessible, itemCategoryMap, isLoading }
+    return { accessibleItemIds: accessible, ownedItemIds: ownedByActive, itemCategoryMap, isLoading }
   }, [effectiveEnabled, activeDivisionId, itemsQuery.data, itemsQuery.isLoading, stockQuery.data, stockQuery.isLoading])
 }
