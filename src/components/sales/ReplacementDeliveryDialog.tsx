@@ -586,6 +586,7 @@ export function ReplacementDeliveryDialog({
                   lineType="products"
                   value={pickerValue}
                   onChange={handlePickerChange}
+                  filterByActiveDivision
                 />
               </div>
             )}
