@@ -1456,7 +1456,6 @@ export type Database = {
           brand_variant_id: string
           created_at: string | null
           date: string
-          division_id: string | null
           id: string
           landed_cost_per_unit: number | null
           qty: number
@@ -1476,7 +1475,6 @@ export type Database = {
           brand_variant_id: string
           created_at?: string | null
           date: string
-          division_id?: string | null
           id?: string
           landed_cost_per_unit?: number | null
           qty: number
@@ -1496,7 +1494,6 @@ export type Database = {
           brand_variant_id?: string
           created_at?: string | null
           date?: string
-          division_id?: string | null
           id?: string
           landed_cost_per_unit?: number | null
           qty?: number
@@ -1518,13 +1515,6 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fifo_cost_layers_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -2293,7 +2283,6 @@ export type Database = {
         Row: {
           brand_variant_id: string
           created_at: string
-          division_id: string | null
           id: string
           item_name: string
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
@@ -2309,7 +2298,6 @@ export type Database = {
         Insert: {
           brand_variant_id: string
           created_at?: string
-          division_id?: string | null
           id?: string
           item_name: string
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
@@ -2325,7 +2313,6 @@ export type Database = {
         Update: {
           brand_variant_id?: string
           created_at?: string
-          division_id?: string | null
           id?: string
           item_name?: string
           movement_type?: Database["public"]["Enums"]["stock_movement_type"]
@@ -2344,13 +2331,6 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_stock_movements_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -3850,7 +3830,6 @@ export type Database = {
         Row: {
           brand_variant_id: string | null
           created_at: string | null
-          division_id: string | null
           id: string
           is_free: boolean | null
           item_name: string
@@ -3864,7 +3843,6 @@ export type Database = {
         Insert: {
           brand_variant_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_free?: boolean | null
           item_name: string
@@ -3878,7 +3856,6 @@ export type Database = {
         Update: {
           brand_variant_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_free?: boolean | null
           item_name?: string
@@ -3895,13 +3872,6 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receival_items_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -5932,7 +5902,6 @@ export type Database = {
           dispatched_at: string | null
           dispatched_by_name: string | null
           dispatched_by_profile_id: string | null
-          division_id: string | null
           expected_return_date: string | null
           from_sub_container_id: string
           from_warehouse_id: string
@@ -5965,7 +5934,6 @@ export type Database = {
           dispatched_at?: string | null
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
-          division_id?: string | null
           expected_return_date?: string | null
           from_sub_container_id: string
           from_warehouse_id: string
@@ -5998,7 +5966,6 @@ export type Database = {
           dispatched_at?: string | null
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
-          division_id?: string | null
           expected_return_date?: string | null
           from_sub_container_id?: string
           from_warehouse_id?: string
@@ -6044,13 +6011,6 @@ export type Database = {
             columns: ["dispatched_by_profile_id"]
             isOneToOne: false
             referencedRelation: "user_data"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_transfers_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -6122,7 +6082,6 @@ export type Database = {
         Row: {
           company_id: string | null
           created_at: string | null
-          division_id: string | null
           id: string
           is_virtual: boolean
           item_count: number | null
@@ -6135,7 +6094,6 @@ export type Database = {
         Insert: {
           company_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_virtual?: boolean
           item_count?: number | null
@@ -6148,7 +6106,6 @@ export type Database = {
         Update: {
           company_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_virtual?: boolean
           item_count?: number | null
@@ -6164,13 +6121,6 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouses_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {

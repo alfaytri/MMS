@@ -376,14 +376,21 @@ export async function POST(req: NextRequest) {
 
   const supabase = createClient(SUPA_URL, SUPA_KEY)
 
+  // Phase E — warehouses.division_id is gone. Derive from any active
+  // sub-container the caller is querying against; falls back to null (report
+  // still renders with a generic tenant-wide brand).
   let resolvedDivisionId: string | null = divisionId ?? null
   if (!resolvedDivisionId && warehouseId) {
-    const { data: wh } = await supabase
-      .from('warehouses')
+    const { data: sc } = await supabase
+      .from('warehouse_sub_containers')
       .select('division_id')
-      .eq('id', warehouseId)
+      .eq('warehouse_id', warehouseId)
+      .eq('is_active', true)
+      .not('division_id', 'is', null)
+      .order('created_at')
+      .limit(1)
       .maybeSingle()
-    resolvedDivisionId = wh?.division_id ?? null
+    resolvedDivisionId = sc?.division_id ?? null
   }
 
   const [fonts, brand] = await Promise.all([loadPdfFonts(), resolveBrand(resolvedDivisionId, supabase)])

@@ -131,26 +131,21 @@ export function useReturnLineSources(
             const wh = warehouseByDelivery.get(deliveryId)
             if (!wh) continue
 
-            let divisionForThisWh: string | null = fallbackDivision
-            if (!divisionForThisWh) {
-              const { data: w } = await supabase
-                .from('warehouses')
-                .select('division_id')
-                .eq('id', wh)
-                .maybeSingle()
-              divisionForThisWh = w?.division_id ?? null
-            }
-
-            if (!divisionForThisWh) continue
-
-            const { data: subContainers } = await supabase
+            // Phase E: warehouses.division_id is gone. When fallbackDivision
+            // (from return/SO) is null we fall through to any active sub of
+            // the warehouse — it's a best-effort display label; the write
+            // side's per-line derive still owns correctness.
+            let query = supabase
               .from('warehouse_sub_containers')
               .select('name')
               .eq('warehouse_id', wh)
-              .eq('division_id', divisionForThisWh)
               .eq('is_active', true)
               .order('created_at', { ascending: true })
               .limit(1)
+            if (fallbackDivision) {
+              query = query.eq('division_id', fallbackDivision)
+            }
+            const { data: subContainers } = await query
             const scName = (subContainers ?? [])[0]?.name ?? null
             if (scName) subContainerByDelivery.set(deliveryId, scName)
           }

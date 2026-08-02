@@ -40,10 +40,18 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
     queryKey: [...queryKeys.warehouses.all, { includeVirtual }],
     queryFn: async () => {
       const supabase = createClient()
+      // Phase E: warehouses.division_id is gone. The embedded
+      // `company_divisions(name)` join relied on that FK — dropping it 400s
+      // every subsequent read. `division_name` on the returned rows is now
+      // always null (per-warehouse division doesn't exist anymore — a
+      // warehouse hosts N per-division sub-containers). Callers that used
+      // it (WhWarehousesTab, master-data admin page) already fall through
+      // to null-safe rendering; the field stays on the type for source
+      // compatibility until the next sweep.
       let q = supabase
         .from('warehouses')
         .select(
-          '*, company_divisions(name), companies(name_en), warehouse_responsible_persons(profile_id, user_data(full_name))'
+          '*, companies(name_en), warehouse_responsible_persons(profile_id, user_data(full_name))'
         )
         .order('name')
       if (!includeVirtual) {
@@ -53,7 +61,13 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
       }
       // Fan out the warehouse fetch and the sub-container breakdown fetch in
       // parallel — the breakdown feeds WhWarehousesTab card totals (D.9).
-      const [{ data, error }, { data: breakdownRows, error: breakdownErr }] =
+      // Phase E: don't fail the whole warehouse list if the breakdown view
+      // errors — WhWarehousesTab degrades gracefully to empty breakdowns
+      // whereas every other picker (PO Receive, delivery, transfer, etc.)
+      // stops working entirely if warehouses returns nothing. A hard failure
+      // here manifested as an empty Warehouse dropdown on PO Receive after
+      // the Phase E column drops.
+      const [{ data, error }, breakdownRes] =
         await Promise.all([
           q,
           supabase
@@ -62,7 +76,11 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
             .order('total_value', { ascending: false }),
         ])
       if (error) throw error
-      if (breakdownErr) throw breakdownErr
+      const breakdownRows = breakdownRes.error ? [] : breakdownRes.data
+      if (breakdownRes.error) {
+        // eslint-disable-next-line no-console
+        console.warn('[useWarehouses] sub-container breakdown fetch failed — cards will show without breakdowns:', breakdownRes.error.message)
+      }
 
       const breakdownByWh = new Map<string, WarehouseSubContainerBreakdown[]>()
       for (const b of breakdownRows ?? []) {
@@ -79,9 +97,8 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
       }
 
       return (data ?? []).map((row) => {
-        const { warehouse_responsible_persons, company_divisions, companies, ...rest } =
+        const { warehouse_responsible_persons, companies, ...rest } =
           row as typeof row & {
-            company_divisions: { name: string } | null
             companies: { name_en: string } | null
             warehouse_responsible_persons: Array<{
               profile_id: string
@@ -95,7 +112,7 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
         return {
           ...rest,
           responsible_persons: rps,
-          division_name: company_divisions?.name ?? null,
+          division_name: null,
           company_name: companies?.name_en ?? null,
           sub_container_breakdown: breakdownByWh.get(rest.id) ?? [],
         }

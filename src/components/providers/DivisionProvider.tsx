@@ -143,7 +143,7 @@ export function DivisionProvider({ children }: { children: ReactNode }) {
     setActiveDivisionState(null)
     void (async () => {
       const supabase = createClient()
-      await supabase.rpc('set_active_division', { p_division_id: null })
+      await supabase.rpc('set_active_division', { p_division_id: null as unknown as string })
       await supabase.auth.refreshSession()
     })()
   }, [isReady, activeDivisionId, availableDivisions])
@@ -160,7 +160,7 @@ export function DivisionProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = createClient()
       const { error: rpcError } = await supabase.rpc('set_active_division', {
-        p_division_id: divisionId,
+        p_division_id: divisionId as unknown as string,
       })
       if (rpcError) throw rpcError
 

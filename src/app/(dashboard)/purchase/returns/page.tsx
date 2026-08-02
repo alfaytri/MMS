@@ -28,6 +28,7 @@ import {
   type ReceivalItemForReturn,
 } from '@/hooks/usePurchaseReturns'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useReceivals } from '@/hooks/useReceivals'
 import { usePurchaseOrders, usePurchaseOrder } from '@/hooks/usePurchaseOrders'
 import { POReturnDetailDialog } from '@/components/purchase/POReturnDetailDialog'
@@ -84,8 +85,20 @@ export default function PurchaseReturnsPage() {
     condition_notes:  string | null
   }>>([])
 
+  const { activeDivisionId } = useActiveDivision()
   const { data: returns, isLoading } = usePurchaseReturns({ status: statusFilter || undefined })
   const { data: purchaseOrders } = usePurchaseOrders({})
+
+  // Phase E follow-up: hide POs whose division_id doesn't match the caller's
+  // active division. Pre-Phase-E, cross-division POs still showed on the
+  // returns page but return_lines RLS blocked the detail fetch → the row
+  // rendered but every action threw. Filter both the picker AND the existing
+  // returns list by the active division so the surface is coherent.
+  const divisionMatchesPo = (poDivisionId: string | null | undefined): boolean => {
+    if (!activeDivisionId) return true          // no active division → show everything
+    if (!poDivisionId)     return true          // legacy PO with no division → show (owner intent)
+    return poDivisionId === activeDivisionId
+  }
   const { data: reasons = [] } = useReturnReasons('po_return')
   const { data: selectedPO } = usePurchaseOrder(poId || null)
   const { data: allReceivals } = useReceivals({ status: 'approved', source_type: 'purchase' })
@@ -100,11 +113,14 @@ export default function PurchaseReturnsPage() {
     return set
   }, [allReceivals])
 
-  // PO lookup for enriching return list rows with supplier/po#
+  // PO lookup for enriching return list rows with supplier/po#. Store
+  // division_id so we can gate the return list on active-division match
+  // (Phase E follow-up — pre-cleanup, cross-division returns rendered
+  // but their detail fetches blew up).
   const poById = useMemo(() => {
-    const map = new Map<string, { po_number: string; supplier_name: string | null }>()
+    const map = new Map<string, { po_number: string; supplier_name: string | null; division_id: string | null }>()
     for (const p of purchaseOrders ?? []) {
-      map.set(p.id, { po_number: p.po_number, supplier_name: p.supplier_name ?? null })
+      map.set(p.id, { po_number: p.po_number, supplier_name: p.supplier_name ?? null, division_id: p.division_id ?? null })
     }
     return map
   }, [purchaseOrders])
@@ -121,17 +137,25 @@ export default function PurchaseReturnsPage() {
   const filtered = useMemo(() => {
     const list = returns ?? []
     const q = search.trim().toLowerCase()
-    if (!q) return list
-    return list.filter((r) => {
+    const divisionScoped = list.filter((r) => {
+      const poRef = poById.get(r.source_id)
+      return divisionMatchesPo(poRef?.division_id)
+    })
+    if (!q) return divisionScoped
+    return divisionScoped.filter((r) => {
       const poRef = poById.get(r.source_id)
       const hay = [r.return_number, poRef?.po_number, poRef?.supplier_name]
         .filter(Boolean).join(' ').toLowerCase()
       return hay.includes(q)
     })
-  }, [returns, search, poById])
+    // divisionMatchesPo is a stable closure over activeDivisionId, tracked below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returns, search, poById, activeDivisionId])
 
   const stats = useMemo(() => {
-    const list = returns ?? []
+    // Match the list's division scope — stats shouldn't count returns whose
+    // POs the caller can't act on.
+    const list = (returns ?? []).filter((r) => divisionMatchesPo(poById.get(r.source_id)?.division_id))
     let pending = 0, dispatched = 0, confirmed = 0
     for (const r of list) {
       if (r.status === 'pending')            pending++
@@ -139,7 +163,8 @@ export default function PurchaseReturnsPage() {
       if (r.status === 'supplier_confirmed') confirmed++
     }
     return { total: list.length, pending, dispatched, confirmed }
-  }, [returns])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- divisionMatchesPo is a stable closure over activeDivisionId
+  }, [returns, poById, activeDivisionId])
 
   // Populate items from the receival_items candidates (one row per receival, sub-container-scoped).
   // Guard against no-op updates to avoid infinite re-renders when TanStack returns
@@ -376,7 +401,8 @@ export default function PurchaseReturnsPage() {
                   <SelectContent className="max-h-72 overflow-y-auto">
                     {(() => {
                       const eligible = (purchaseOrders ?? []).filter((o) =>
-                        receivablePoIds.has(o.id) || (o.po_line_items ?? []).some((l) => l.received_qty > 0)
+                        divisionMatchesPo(o.division_id) &&
+                        (receivablePoIds.has(o.id) || (o.po_line_items ?? []).some((l) => l.received_qty > 0))
                       )
                       if (eligible.length === 0) {
                         return (
