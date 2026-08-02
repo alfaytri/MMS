@@ -26,6 +26,87 @@ export type WarehouseSubContainer = DBTable<'warehouse_sub_containers'> & {
   division_name: string | null
 }
 
+export type ActiveSubContainerRow = {
+  sub_container_id:   string
+  sub_container_name: string
+  warehouse_id:       string
+  warehouse_name:     string
+  division_id:        string | null
+  division_name:      string | null
+}
+
+/**
+ * Phase D.14 — every active, non-virtual-warehouse sub-container the caller
+ * can see. Powers the "Warehouse — Sub-container (Division)" composite
+ * dropdown in the bulk inventory import template. RLS-scoped: Kitchen
+ * operators bulk-importing shared inventory won't see Maintenance's
+ * sub-containers here — that's correct; sharing metadata gets applied
+ * post-import via the D.12 item-edit surface.
+ */
+export function useAllActiveSubContainers() {
+  return useQuery({
+    queryKey: ['warehouse-sub-containers', 'active-all'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      // Two-pass fetch: PostgREST's nested-FK join can 400 silently when
+      // ambient RLS + implicit relationships disagree. Fetching the parent
+      // tables separately and stitching client-side is boring but reliable.
+      const { data: subs, error } = await supabase
+        .from('warehouse_sub_containers')
+        .select('id, name, warehouse_id, division_id')
+        .eq('is_active', true)
+        .limit(500)
+      if (error) throw error
+      const rawSubs = (subs ?? []) as Array<{
+        id:           string
+        name:         string
+        warehouse_id: string
+        division_id:  string | null
+      }>
+      if (rawSubs.length === 0) return []
+
+      const whIds  = Array.from(new Set(rawSubs.map((s) => s.warehouse_id)))
+      const divIds = Array.from(new Set(rawSubs.map((s) => s.division_id).filter((v): v is string => !!v)))
+
+      const [{ data: whs }, { data: divs }] = await Promise.all([
+        supabase.from('warehouses').select('id, name, is_virtual').in('id', whIds).limit(500),
+        divIds.length > 0
+          ? supabase.from('company_divisions').select('id, name').in('id', divIds).limit(500)
+          : Promise.resolve({ data: [] as Array<{ id: string; name: string }> }),
+      ])
+
+      const whMap  = new Map<string, { name: string; is_virtual: boolean | null }>()
+      for (const w of (whs ?? []) as Array<{ id: string; name: string; is_virtual: boolean | null }>) {
+        whMap.set(w.id, { name: w.name, is_virtual: w.is_virtual })
+      }
+      const divMap = new Map<string, string>()
+      for (const d of (divs ?? []) as Array<{ id: string; name: string }>) {
+        divMap.set(d.id, d.name)
+      }
+
+      const rows: ActiveSubContainerRow[] = []
+      for (const s of rawSubs) {
+        const wh = whMap.get(s.warehouse_id)
+        if (wh?.is_virtual) continue
+        rows.push({
+          sub_container_id:   s.id,
+          sub_container_name: s.name,
+          warehouse_id:       s.warehouse_id,
+          warehouse_name:     wh?.name ?? '?',
+          division_id:        s.division_id,
+          division_name:      s.division_id ? (divMap.get(s.division_id) ?? null) : null,
+        })
+      }
+      return rows.sort((a, b) => {
+        const wCmp = a.warehouse_name.localeCompare(b.warehouse_name)
+        if (wCmp !== 0) return wCmp
+        return a.sub_container_name.localeCompare(b.sub_container_name)
+      })
+    },
+  })
+}
+
 export function useWarehouseSubContainers(warehouseId?: string | null) {
   return useQuery({
     queryKey: queryKeys.warehouseSubContainers.byWarehouse(warehouseId ?? null),

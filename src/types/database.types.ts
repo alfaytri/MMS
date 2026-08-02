@@ -2208,6 +2208,8 @@ export type Database = {
           category_id: string
           cost_price: number | null
           created_at: string | null
+          default_sub_container_id: string | null
+          default_warehouse_id: string | null
           id: string
           linked_services_count: number | null
           name_ar: string | null
@@ -2224,6 +2226,8 @@ export type Database = {
           category_id: string
           cost_price?: number | null
           created_at?: string | null
+          default_sub_container_id?: string | null
+          default_warehouse_id?: string | null
           id?: string
           linked_services_count?: number | null
           name_ar?: string | null
@@ -2240,6 +2244,8 @@ export type Database = {
           category_id?: string
           cost_price?: number | null
           created_at?: string | null
+          default_sub_container_id?: string | null
+          default_warehouse_id?: string | null
           id?: string
           linked_services_count?: number | null
           name_ar?: string | null
@@ -2258,6 +2264,27 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "inventory_items_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_default_warehouse_id_fkey"
+            columns: ["default_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
