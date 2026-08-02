@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -374,6 +349,7 @@ export type Database = {
       cogs_entries: {
         Row: {
           brand_variant_id: string
+          consumer_division_id: string | null
           created_at: string
           date: string
           division_id: string | null
@@ -390,6 +366,7 @@ export type Database = {
         }
         Insert: {
           brand_variant_id: string
+          consumer_division_id?: string | null
           created_at?: string
           date?: string
           division_id?: string | null
@@ -406,6 +383,7 @@ export type Database = {
         }
         Update: {
           brand_variant_id?: string
+          consumer_division_id?: string | null
           created_at?: string
           date?: string
           division_id?: string | null
@@ -426,6 +404,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumer_division_id_fkey"
+            columns: ["consumer_division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -6805,19 +6790,34 @@ export type Database = {
         }
         Returns: Json
       }
-      create_and_confirm_delivery: {
-        Args: {
-          p_date: string
-          p_items: Json
-          p_so_id: string
-          p_warehouse_id: string
-          p_warehouse_name: string
-        }
-        Returns: {
-          delivery_number: string
-          id: string
-        }[]
-      }
+      create_and_confirm_delivery:
+        | {
+            Args: {
+              p_date: string
+              p_items: Json
+              p_so_id: string
+              p_warehouse_id: string
+              p_warehouse_name: string
+            }
+            Returns: {
+              delivery_number: string
+              id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_date: string
+              p_items: Json
+              p_so_id: string
+              p_sub_container_id?: string
+              p_warehouse_id: string
+              p_warehouse_name: string
+            }
+            Returns: {
+              delivery_number: string
+              id: string
+            }[]
+          }
       create_customer_with_phone: {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
@@ -7096,6 +7096,23 @@ export type Database = {
           lc_adjustment_count: number
           lc_adjustments_total: number
           sold_at_sale_total: number
+        }[]
+      }
+      get_warehouse_names: {
+        Args: { p_ids: string[] }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
+      get_warehouse_sub_containers: {
+        Args: { p_warehouse_id: string }
+        Returns: {
+          division_id: string
+          division_name: string
+          id: string
+          is_active: boolean
+          name: string
         }[]
       }
       has_admin_permission: { Args: never; Returns: boolean }
@@ -7816,9 +7833,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -8054,6 +8068,7 @@ export const Constants = {
   },
 } as const
 
+// ─── Helper aliases (re-appended after every supabase gen types) ──────────
 export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

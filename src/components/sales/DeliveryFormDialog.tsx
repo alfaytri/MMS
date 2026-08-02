@@ -14,6 +14,7 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { useSaleOrders } from '@/hooks/useSaleOrders'
+import { useDeliveryLineItemShares } from '@/hooks/useDeliveryLineItemShares'
 
 type Props = {
   open: boolean
@@ -39,11 +40,26 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
   const soDivisionId = so?.division_id ?? null
 
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+
+  // Phase D.12 Task 5 — widen the sub-container filter when every delivered
+  // line's item is shared to the SO's division. In that case the RPC accepts
+  // a sub-container from any division (Kitchen sells shared Maintenance
+  // stock; COGS still books to Kitchen via consumer_division_id).
+  const lineVariantIds = useMemo(() => {
+    const ids = new Set<string>()
+    const items = (delivery.sale_delivery_lines as DeliveryItem[]) ?? []
+    for (const it of items) if (it.brand_variant_id) ids.add(it.brand_variant_id)
+    return Array.from(ids)
+  }, [delivery])
+  const { allShared } = useDeliveryLineItemShares(lineVariantIds)
+  const crossDivisionAllowed = soDivisionId !== null && allShared(soDivisionId)
+
   const eligibleSubs = useMemo(() => {
     const active = allSubs.filter((sc) => sc.is_active)
     if (soDivisionId === null) return active
+    if (crossDivisionAllowed) return active
     return active.filter((sc) => sc.division_id === soDivisionId)
-  }, [allSubs, soDivisionId])
+  }, [allSubs, soDivisionId, crossDivisionAllowed])
 
   useEffect(() => {
     if (eligibleSubs.length === 1) setSubContainerId(eligibleSubs[0].id)

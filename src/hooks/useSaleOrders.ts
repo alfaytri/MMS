@@ -971,16 +971,18 @@ export function useCreateDelivery() {
       warehouse_name: string
       date: string
       items: { item_name: string; sku: string | null; qty_delivered: number; brand_variant_id: string | null }[]
+      sub_container_id?: string | null
     }) => {
       const supabase = createClient()
 
       const { data, error } = await supabase
         .rpc('create_and_confirm_delivery', {
-          p_so_id:          payload.so_id,
-          p_warehouse_id:   payload.warehouse_id,
-          p_warehouse_name: payload.warehouse_name,
-          p_date:           payload.date,
-          p_items:          payload.items,
+          p_so_id:            payload.so_id,
+          p_warehouse_id:     payload.warehouse_id,
+          p_warehouse_name:   payload.warehouse_name,
+          p_date:             payload.date,
+          p_items:            payload.items,
+          p_sub_container_id: payload.sub_container_id ?? undefined,
         })
         .single()
       if (error) throw error

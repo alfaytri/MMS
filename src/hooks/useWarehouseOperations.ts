@@ -439,30 +439,65 @@ export function useWarehouseStockByItems(
   subContainerId?: string | null,
 ) {
   const { data: allStock = [], isLoading } = useWarehouseStock(undefined, subContainerId)
-  const data = useMemo(() => {
+
+  // Roll up first — needed to know which warehouse ids to name-lookup.
+  const perWhRollup = useMemo(() => {
     const idSet = new Set(brandVariantIds)
-    // Roll sub-container rows up to per-warehouse qty. When
-    // subContainerId is set, allStock is already filtered, so the rollup
-    // is a no-op (one entry per warehouse).
     const perWhKey = new Map<string, { warehouse_id: string; qty: number }>()
     for (const s of allStock) {
       if (!idSet.has(s.brand_variant_id) || s.qty <= 0) continue
       const key = `${s.brand_variant_id}|${s.warehouse_id}`
       const existing = perWhKey.get(key)
-      if (existing) {
-        existing.qty += s.qty
-      } else {
-        perWhKey.set(key, { warehouse_id: s.warehouse_id, qty: s.qty })
-      }
+      if (existing) existing.qty += s.qty
+      else perWhKey.set(key, { warehouse_id: s.warehouse_id, qty: s.qty })
     }
+    return perWhKey
+  }, [allStock, brandVariantIds])
+
+  const warehouseIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const entry of perWhRollup.values()) set.add(entry.warehouse_id)
+    return Array.from(set)
+  }, [perWhRollup])
+
+  // Fetch names by id so cross-division warehouses (not in the caller's
+  // useWarehouses() list) still resolve to a readable label instead of "?".
+  // Phase D.12 Task 5 surfaced this: Kitchen consuming shared Maintenance
+  // stock previously rendered "?: 46" on the Create Delivery dialog because
+  // the `warehouses` table is division-RLS-scoped. `get_warehouse_names`
+  // is a SECURITY DEFINER RPC that bypasses that scope — names are non-
+  // sensitive, and if the caller can see the stock row through the view
+  // they can see the warehouse name too.
+  const { data: whNames } = useQuery({
+    queryKey: ['warehouse-names-by-id', [...warehouseIds].sort().join('|')],
+    enabled: warehouseIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_warehouse_names', {
+        p_ids: warehouseIds,
+      })
+      if (error) throw error
+      const m = new Map<string, string>()
+      for (const row of (data ?? []) as Array<{ id: string; name: string }>) {
+        m.set(row.id, row.name ?? '')
+      }
+      return m
+    },
+  })
+
+  const data = useMemo(() => {
     const map = new Map<string, { warehouse_id: string; warehouse_name?: string; qty: number }[]>()
-    for (const [key, entry] of perWhKey.entries()) {
+    for (const [key, entry] of perWhRollup.entries()) {
       const bvId = key.split('|')[0]
+      const name = whNames?.get(entry.warehouse_id)
+      const enriched = { ...entry, warehouse_name: name }
       if (!map.has(bvId)) map.set(bvId, [])
-      map.get(bvId)!.push(entry)
+      map.get(bvId)!.push(enriched)
     }
     return map
-  }, [allStock, brandVariantIds])
+  }, [perWhRollup, whNames])
+
   return { data, isLoading }
 }
 

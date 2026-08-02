@@ -13,7 +13,8 @@ import { cn } from '@/lib/utils'
 import { useCreateDelivery, type SaleOrder, type SOLineItem } from '@/hooks/useSaleOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 
 const TYPE_BADGE: Record<string, { label: string; className: string }> = {
   'products':    { label: 'Product',    className: 'bg-blue-100 text-blue-700' },
@@ -38,31 +39,84 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
   )
 
   const [warehouseId, setWarehouseId] = useState('')
+  const [subContainerId, setSubContainerId] = useState<string>('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [qtys, setQtys] = useState<Record<string, number>>({})
 
-  // Resolve the sub-container the delivery will drain from so the stock chip
-  // reflects that sub-container's qty, not the warehouse-wide total.
-  const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
-  const resolvedSubContainerId = useMemo(() => {
-    if (!warehouseId) return null
-    const eligible = activeSubs.filter((sc) => sc.is_active)
-    if (eligible.length === 0) return null
-    if (eligible.length === 1) return eligible[0].id
-    if (!so.division_id) return null
-    const match = eligible.find((sc) => sc.division_id === so.division_id)
-    return match?.id ?? null
-  }, [activeSubs, warehouseId, so.division_id])
+  // Phase D.12 Task 5 — sub-container options for the picked warehouse via a
+  // SECURITY DEFINER RPC that bypasses the division-scoped RLS on
+  // warehouse_sub_containers, so a Kitchen operator can see Maintenance's
+  // sub-containers when picking Maintenance's warehouse for a shared item.
+  const { data: subContainers = [] } = useQuery({
+    queryKey: ['sub-containers-by-warehouse', warehouseId || null],
+    enabled: !!warehouseId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_warehouse_sub_containers', {
+        p_warehouse_id: warehouseId,
+      })
+      if (error) throw error
+      return (data ?? []) as Array<{
+        id: string
+        name: string
+        division_id: string | null
+        division_name: string | null
+        is_active: boolean
+      }>
+    },
+  })
+  const activeSubContainers = useMemo(
+    () => subContainers.filter((sc) => sc.is_active),
+    [subContainers],
+  )
 
-  const { data: whStockMap } = useWarehouseStockByItems(bvIds, resolvedSubContainerId)
+  // Phase D.12 Task 5 — before a sub-container is picked, show per-warehouse
+  // totals so the operator can see WHERE stock lives (including cross-division
+  // shared pools). Once a sub-container is picked (or auto-picked for the
+  // single-sub warehouses), narrow the badge to that sub-container's qty so
+  // the delivered quantity reflects what's actually available in the chosen
+  // physical location.
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds, subContainerId || null)
+
+  // Phase D.12 Task 5 — the warehouses table has division-scoped RLS, so
+  // Kitchen's useWarehouses() list won't include the Maintenance warehouse
+  // where shared Split AC stock lives. useWarehouseStockByItems already
+  // enriches each stock entry with warehouse_name via a SECURITY DEFINER
+  // lookup, so we can just harvest the extras straight from whStockMap.
+  const warehouseOptions = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string }>()
+    if (Array.isArray(warehouses)) {
+      for (const w of warehouses) byId.set(w.id, { id: w.id, name: w.name })
+    }
+    for (const arr of whStockMap.values()) {
+      for (const w of arr) {
+        if (byId.has(w.warehouse_id)) continue
+        if (!w.warehouse_name) continue
+        byId.set(w.warehouse_id, { id: w.warehouse_id, name: w.warehouse_name })
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [warehouses, whStockMap])
 
   useEffect(() => {
     if (open) {
       setWarehouseId('')
+      setSubContainerId('')
       setDate(new Date().toISOString().split('T')[0])
       setQtys({})
     }
   }, [open])
+
+  // Reset sub-container on warehouse change; auto-pick when there's only one.
+  useEffect(() => {
+    setSubContainerId((prev) => {
+      if (!warehouseId) return ''
+      if (activeSubContainers.length === 1) return activeSubContainers[0].id
+      if (prev && activeSubContainers.some((sc) => sc.id === prev)) return prev
+      return ''
+    })
+  }, [warehouseId, activeSubContainers])
 
   function maxDeliverable(line: SOLineItem): number {
     return Math.max(0, line.qty - line.delivered_qty)
@@ -70,13 +124,17 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
 
   function handleSubmit() {
     if (!warehouseId) { toast.error('Select a warehouse'); return }
+    if (activeSubContainers.length > 1 && !subContainerId) {
+      toast.error('Select a sub-container')
+      return
+    }
     const items = lines
       .map((l) => ({ ...l, deliveryQty: qtys[l.id] ?? 0 }))
       .filter((l) => l.deliveryQty > 0)
 
     if (items.length === 0) { toast.error('Enter qty for at least one item'); return }
 
-    const warehouse = warehouses?.find((w) => w.id === warehouseId)
+    const warehouse = warehouseOptions.find((w) => w.id === warehouseId)
 
     createDelivery.mutate(
       {
@@ -90,6 +148,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
           qty_delivered: i.deliveryQty,
           brand_variant_id: i.brand_variant_id,
         })),
+        sub_container_id: subContainerId || null,
       },
       {
         onSuccess: () => {
@@ -121,7 +180,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
               >
                 <option value="">Select warehouse…</option>
-                {(warehouses ?? []).map((w) => (
+                {warehouseOptions.map((w) => (
                   <option key={w.id} value={w.id}>{w.name}</option>
                 ))}
               </select>
@@ -131,6 +190,42 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
               <Input id="delivery-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
+
+          {/* Sub-container picker — required when the picked warehouse has more
+              than one active sub-container. Phase D.12 Task 5. */}
+          {warehouseId && activeSubContainers.length > 0 && (
+            <div className="space-y-1">
+              <Label htmlFor="delivery-sub-container">
+                Sub-container {activeSubContainers.length > 1 && <span className="text-destructive">*</span>}
+              </Label>
+              {activeSubContainers.length === 1 ? (
+                <div className="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 text-sm min-h-9">
+                  <span className="truncate">
+                    {activeSubContainers[0].name}
+                    {activeSubContainers[0].division_name && (
+                      <span className="text-muted-foreground ml-1">— {activeSubContainers[0].division_name}</span>
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  id="delivery-sub-container"
+                  value={subContainerId}
+                  onChange={(e) => setSubContainerId(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="">Select sub-container…</option>
+                  {activeSubContainers.map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      {sc.name}
+                      {sc.division_name ? ` — ${sc.division_name}` : ''}
+                      {so.division_id && sc.division_id !== so.division_id ? ' (shared)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* Line items */}
           <div className="space-y-2">
@@ -171,7 +266,10 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
                       return whEntries.length > 0 ? (
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                           {whEntries.map((w) => {
-                            const whName = (warehouses ?? []).find((wh) => wh.id === w.warehouse_id)?.name ?? '?'
+                            const whName =
+                              w.warehouse_name ||
+                              (warehouses ?? []).find((wh) => wh.id === w.warehouse_id)?.name ||
+                              '?'
                             return (
                               <span key={w.warehouse_id} className="text-[10px] text-muted-foreground">
                                 {whName}: <span className="font-medium text-foreground">{w.qty}</span>
@@ -190,6 +288,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
                     max={max}
                     value={qtys[line.id] ?? 0}
                     onChange={(e) => setQtys((prev) => ({ ...prev, [line.id]: Math.min(max, Math.max(0, Number(e.target.value))) }))}
+                    onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                     className="w-20 text-right"
                     disabled={max === 0}
                   />
