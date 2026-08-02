@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Strip native number-input spinners across the app — mouse wheel scrolls
+   were mutating quantity + credit fields, and the up/down chevrons burn
+   horizontal space in tight dialog rows. Keyboard arrows still work. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
