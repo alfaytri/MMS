@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, ArrowRight } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Wrench, XCircle } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Button } from '@/components/ui/button'
@@ -11,9 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ReturnFromRepairDialog } from '@/components/warehouse/ReturnFromRepairDialog'
 import { SendForRepairDialog } from '@/components/warehouse/SendForRepairDialog'
+import { SendDamagedStockForRepairDialog } from '@/components/warehouse/SendDamagedStockForRepairDialog'
+import { WriteOffDamagedStockDialog } from '@/components/warehouse/WriteOffDamagedStockDialog'
 import {
   useDamagedOnHand, useOutForRepair,
   usePendingRepairAssignments,
+  type DamagedOnHandRow,
   type OutForRepairRow, type PendingRepairAssignmentRow,
 } from '@/hooks/useDamagedStockOverview'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
@@ -38,6 +41,8 @@ export default function DamagedStockPage() {
 
   const [returnDialog, setReturnDialog] = useState<OutForRepairRow | null>(null)
   const [assignDialog, setAssignDialog] = useState<PendingRepairAssignmentRow | null>(null)
+  const [sendFromOnHand, setSendFromOnHand] = useState<DamagedOnHandRow | null>(null)
+  const [writeOffFromOnHand, setWriteOffFromOnHand] = useState<DamagedOnHandRow | null>(null)
 
   return (
     <PageWrapper>
@@ -62,7 +67,11 @@ export default function DamagedStockPage() {
 
         {/* ── On-hand tab ────────────────────────────────────────────── */}
         <TabsContent value="on-hand" className="min-h-[400px]">
-          <OnHandTab query={onHand} />
+          <OnHandTab
+            query={onHand}
+            onSendForRepair={(row) => setSendFromOnHand(row)}
+            onWriteOff={(row) => setWriteOffFromOnHand(row)}
+          />
         </TabsContent>
 
         {/* ── Out for repair tab ─────────────────────────────────────── */}
@@ -105,6 +114,34 @@ export default function DamagedStockPage() {
           qty={assignDialog.qty}
           returnId={assignDialog.return_id}
           onComplete={() => setAssignDialog(null)}
+        />
+      )}
+
+      {sendFromOnHand && (
+        <SendDamagedStockForRepairDialog
+          open={!!sendFromOnHand}
+          onOpenChange={(v) => { if (!v) setSendFromOnHand(null) }}
+          warehouseId={sendFromOnHand.warehouse_id}
+          warehouseName={sendFromOnHand.warehouse_name}
+          brandVariantId={sendFromOnHand.brand_variant_id}
+          itemName={sendFromOnHand.item_name}
+          sku={sendFromOnHand.sku}
+          onHandQty={sendFromOnHand.qty}
+          onComplete={() => setSendFromOnHand(null)}
+        />
+      )}
+
+      {writeOffFromOnHand && (
+        <WriteOffDamagedStockDialog
+          open={!!writeOffFromOnHand}
+          onOpenChange={(v) => { if (!v) setWriteOffFromOnHand(null) }}
+          warehouseId={writeOffFromOnHand.warehouse_id}
+          warehouseName={writeOffFromOnHand.warehouse_name}
+          brandVariantId={writeOffFromOnHand.brand_variant_id}
+          itemName={writeOffFromOnHand.item_name}
+          sku={writeOffFromOnHand.sku}
+          onHandQty={writeOffFromOnHand.qty}
+          onComplete={() => setWriteOffFromOnHand(null)}
         />
       )}
     </PageWrapper>
@@ -175,7 +212,13 @@ function PendingRepairAssignmentSection({
 }
 
 // ─── On-hand tab ────────────────────────────────────────────────────────
-function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
+function OnHandTab({
+  query, onSendForRepair, onWriteOff,
+}: {
+  query:            ReturnType<typeof useDamagedOnHand>
+  onSendForRepair:  (row: DamagedOnHandRow) => void
+  onWriteOff:       (row: DamagedOnHandRow) => void
+}) {
   const { data = [], isLoading, error } = query
 
   const summary = useMemo(() => {
@@ -214,6 +257,7 @@ function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-right font-medium">Weighted Unit Cost</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Last Updated</th>
+                <th className="px-3 py-2 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -229,6 +273,30 @@ function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
                   <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{nfCost.format(r.weighted_unit_cost)}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDate(r.updated_at)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950"
+                        onClick={() => onSendForRepair(r)}
+                        title="Send for repair"
+                      >
+                        <Wrench className="h-4 w-4" />
+                        <span className="sr-only">Send for repair</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950"
+                        onClick={() => onWriteOff(r)}
+                        title="Write off"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        <span className="sr-only">Write off</span>
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

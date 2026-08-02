@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -5150,6 +5175,7 @@ export type Database = {
           requested_by_name: string | null
           source_check_id: string | null
           source_check_item_id: string | null
+          source_pile: string
           status: string
           sub_container_id: string
           updated_at: string
@@ -5170,6 +5196,7 @@ export type Database = {
           requested_by_name?: string | null
           source_check_id?: string | null
           source_check_item_id?: string | null
+          source_pile?: string
           status?: string
           sub_container_id: string
           updated_at?: string
@@ -5190,6 +5217,7 @@ export type Database = {
           requested_by_name?: string | null
           source_check_id?: string | null
           source_check_item_id?: string | null
+          source_pile?: string
           status?: string
           sub_container_id?: string
           updated_at?: string
@@ -7294,6 +7322,19 @@ export type Database = {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
       }
+      rpc_request_damaged_writeoff: {
+        Args: {
+          p_brand_variant_id: string
+          p_notes: string
+          p_qty: number
+          p_reason: string
+          p_requested_by: string
+          p_requested_by_name: string
+          p_sub_container_id: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       rpc_return_damaged_from_repair: {
         Args: {
           p_notes?: string
@@ -7325,6 +7366,19 @@ export type Database = {
           p_notes?: string
           p_repair_vendor_id: string
           p_return_line_disposition_id: string
+          p_source_division_id?: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
+      rpc_send_damaged_stock_for_repair: {
+        Args: {
+          p_brand_variant_id: string
+          p_expected_return_date: string
+          p_notes?: string
+          p_qty: number
+          p_repair_vendor_id: string
+          p_source_division_id: string
           p_warehouse_id: string
         }
         Returns: string
@@ -7810,6 +7864,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
