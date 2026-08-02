@@ -2227,6 +2227,7 @@ export type Database = {
           linked_services_count: number | null
           name_ar: string | null
           name_en: string
+          shared_with_division_ids: string[]
           sku: string
           sort_order: number
           status: string
@@ -2242,6 +2243,7 @@ export type Database = {
           linked_services_count?: number | null
           name_ar?: string | null
           name_en: string
+          shared_with_division_ids?: string[]
           sku: string
           sort_order?: number
           status?: string
@@ -2257,6 +2259,7 @@ export type Database = {
           linked_services_count?: number | null
           name_ar?: string | null
           name_en?: string
+          shared_with_division_ids?: string[]
           sku?: string
           sort_order?: number
           status?: string
