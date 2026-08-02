@@ -262,7 +262,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-**Phase D.12 partial** — Tasks 1 + 2 + 3 + 4 shipped. Remaining: **Task 5** — COGS routing via internal transfer journal at FIFO cost: when Kitchen sells and the FIFO deduction pulls from Maintenance's sub-container, book the cogs_entry to Kitchen (consumer) not Maintenance (owner). Cleanest way: add `consumer_division_id` column to `cogs_entries` defaulting to sub-container's division but overridable by caller; complete-delivery RPC passes SO's division as consumer_division_id. Reports read `consumer_division_id` for P&L split; `warehouse_sub_containers.division_id` still shows physical location. **This needs careful accounting review before shipping.** See `HANDOVER.md` for the full Task 5 breakdown.
+🚀 Starting: **Phase D.12 Task 5: COGS routing to consumer division** — add `consumer_division_id uuid` column to `cogs_entries` (nullable, FK to `divisions`, defaults to sub-container's `division_id` when unset). `complete_delivery_inventory` RPC extended to accept + stamp `consumer_division_id` from the SO's `division_id` (Kitchen sells from Maintenance-shared stock → COGS booked to Kitchen, physical stock still lives in Maintenance's sub-container). Backfill existing rows from `sub_container_id → division_id`. Reports (P&L by division / cogs summary hooks) switched to read `consumer_division_id`. Cancel-delivery paths preserved so reversals unwind against the consumer, not the physical owner.
 
 ---
 
