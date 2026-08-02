@@ -111,7 +111,7 @@ export function SendForRepairDialog({
             <Label htmlFor="sfr-vendor">Repair Vendor *</Label>
             <Select
               value={vendorId}
-              onValueChange={setVendorId}
+              onValueChange={(v) => v && setVendorId(v)}
               disabled={vendorsLoading || vendors.length === 0}
             >
               <SelectTrigger id="sfr-vendor" className="w-full h-10">

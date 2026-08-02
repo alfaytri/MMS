@@ -35,7 +35,7 @@ export function useSendDamagedForRepair() {
         p_repair_vendor_id:           payload.repairVendorId,
         p_warehouse_id:               payload.warehouseId,
         p_expected_return_date:       payload.expectedReturnDate,
-        p_notes:                      payload.notes ?? null,
+        p_notes:                      payload.notes ?? undefined,
       })
       if (error) throw error
       return data as unknown as string  // new warehouse_transfers.id

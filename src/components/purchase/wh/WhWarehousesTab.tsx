@@ -94,7 +94,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
           {hasBreakdown ? (
             <div className="flex items-center gap-1.5 text-xs">
               <Boxes className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-              <Select value={selectedSubId ?? ALL_SUBS} onValueChange={(v) => setSubForWh(wh.id, v)}>
+              <Select value={selectedSubId ?? ALL_SUBS} onValueChange={(v) => v && setSubForWh(wh.id, v)}>
                 <SelectTrigger className="h-7 min-h-0 text-xs px-2 py-0 border-dashed hover:border-solid focus:ring-1 flex-1 w-auto">
                   <SelectValue />
                 </SelectTrigger>

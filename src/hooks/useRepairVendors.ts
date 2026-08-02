@@ -46,6 +46,9 @@ export function useCreateRepairVendor() {
       const supabase = createClient()
       // Post-D.6.b: BEFORE-INSERT trigger stamps virtual_warehouse_id +
       // sub_container_id, so the returned row is fully populated.
+      // Cast payload: the BEFORE-INSERT trigger stamps virtual_warehouse_id
+      // + sub_container_id post-D.6.b, but the generated Insert type treats
+      // both as required. Cast documents the intentional under-specification.
       const { data, error } = await supabase
         .from('repair_vendors')
         .insert({
@@ -53,7 +56,7 @@ export function useCreateRepairVendor() {
           phone: values.phone?.trim() || null,
           address: values.address?.trim() || null,
           notes: values.notes?.trim() || null,
-        })
+        } as unknown as RepairVendorInsert)
         .select('*')
         .single()
       if (error) throw error
