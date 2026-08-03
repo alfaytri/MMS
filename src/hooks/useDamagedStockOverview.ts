@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Phase 9.7 — Damaged-stock overview hooks + return-from-repair mutation.
  *

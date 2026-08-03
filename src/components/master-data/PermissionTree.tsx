@@ -7,7 +7,7 @@ import {
   Package, Warehouse as WarehouseIcon, UserCog, ScrollText, Settings,
   Layers, ArrowRightLeft, ClipboardList, ClipboardCheck, TrendingUp,
   Activity, Truck, UserCheck, Building2, Wrench,
-  BookOpen, Ship, Calculator, Receipt,
+  Ship, Calculator, Receipt,
   PackageOpen, FileX2, RotateCcw, FileText, PackageCheck,
   CheckCircle, ShieldCheck, Upload, Download,
   Flame, HandCoins, AlertTriangle,

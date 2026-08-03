@@ -337,6 +337,7 @@ export function useStockMovements({
         }
       }) as StockMovement[]
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const damaged: StockMovement[] = (damagedRows ?? []).map((r: any) => {
         // Resolve the source-chain sub-container name (direct wins, then
         // disposition), matching the D.11 damaged-stock page behaviour.
@@ -890,7 +891,7 @@ export function useInventoryCheck(id: string) {
         .eq('id', id)
         .single()
       if (error) throw error
-      return data as InventoryCheck
+      return { ...data, sub_container_name: null } as unknown as InventoryCheck
     },
     enabled: !!id,
     staleTime: 2 * 60 * 1000,
@@ -1212,7 +1213,7 @@ export function useStartInventoryCheck() {
         profile_name: payload.initiatedByName,
       })
 
-      return check as InventoryCheck
+      return { ...check, sub_container_name: null } as unknown as InventoryCheck
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks }),
   })

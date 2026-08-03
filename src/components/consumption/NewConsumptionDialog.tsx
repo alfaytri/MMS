@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, ArrowRight, ChevronsUpDown, HandCoins, Package, Paperclip,
+  AlertTriangle, ChevronsUpDown, HandCoins, Package, Paperclip,
   Plus, Trash2, Upload, X,
 } from 'lucide-react'
 import { toast } from 'sonner'

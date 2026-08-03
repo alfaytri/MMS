@@ -86,7 +86,6 @@ export function useWarehouses(options?: { includeVirtual?: boolean; excludeKinds
       if (error) throw error
       const breakdownRows = breakdownRes.error ? [] : breakdownRes.data
       if (breakdownRes.error) {
-        // eslint-disable-next-line no-console
         console.warn('[useWarehouses] sub-container breakdown fetch failed — cards will show without breakdowns:', breakdownRes.error.message)
       }
 

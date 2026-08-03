@@ -31,7 +31,7 @@ export async function fetchArabicNamesByBrandVariant(
   if (error || !data) return new Map()
 
   const map = new Map<string, string>()
-  for (const row of data as Array<{ id: string; inventory_items: { name_ar: string | null } | null }>) {
+  for (const row of data as unknown as Array<{ id: string; inventory_items: { name_ar: string | null } | null }>) {
     const ar = row.inventory_items?.name_ar
     if (ar) map.set(row.id, ar)
   }

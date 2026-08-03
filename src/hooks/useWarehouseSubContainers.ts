@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
-import type { DBTable, DBInsert } from '@/types/database.types'
+import type { DBTable } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
@@ -167,6 +167,7 @@ export function useWarehouseSubContainersAdmin(warehouseId?: string | null) {
         responsible_person_name:         r.responsible_person_name,
         responsible_person_phone:        r.responsible_person_phone,
         created_at:                      r.created_at,
+        created_by:                      null,
         updated_at:                      r.updated_at,
       }))
     },
@@ -199,9 +200,9 @@ export function useCreateWarehouseSubContainer() {
       const { data, error } = await supabase.rpc('rpc_upsert_warehouse_sub_container', {
         p_warehouse_id: values.warehouse_id,
         p_name:         values.name.trim(),
-        p_division_id:  values.division_id,
+        p_division_id:  values.division_id ?? undefined,
         p_is_active:    true,
-        p_responsible_person_profile_id: values.responsible_person_profile_id ?? null,
+        p_responsible_person_profile_id: values.responsible_person_profile_id ?? undefined,
       })
       if (error) throw mapSubDbError(error)
       const newId = data as unknown as string
@@ -253,7 +254,7 @@ export function useUpdateWarehouseSubContainer() {
         .eq('id', id)
         .maybeSingle()
       if (directRow) {
-        current = directRow as typeof current
+        current = directRow as unknown as typeof current
       } else {
         const { data: adminList } = await supabase.rpc('get_warehouse_sub_containers_admin', {
           p_warehouse_id: values.warehouse_id,
@@ -274,12 +275,12 @@ export function useUpdateWarehouseSubContainer() {
         p_warehouse_id: values.warehouse_id,
         p_id:           id,
         p_name:         (values.name ?? current.name).trim(),
-        p_division_id:  values.division_id ?? current.division_id,
+        p_division_id:  (values.division_id ?? current.division_id) ?? undefined,
         p_is_active:    values.is_active   ?? current.is_active,
         p_responsible_person_profile_id:
-          values.responsible_person_profile_id === undefined
+          (values.responsible_person_profile_id === undefined
             ? current.responsible_person_profile_id
-            : values.responsible_person_profile_id,
+            : values.responsible_person_profile_id) ?? undefined,
       })
       if (error) throw mapSubDbError(error)
 

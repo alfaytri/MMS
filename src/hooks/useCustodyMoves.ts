@@ -109,9 +109,9 @@ export function useCreateCustodyAssign() {
         p_source_sub_container_id: payload.source_sub_container_id,
         p_dest_sub_container_id:   payload.dest_sub_container_id,
         p_items:                   payload.items,
-        p_notes:                   payload.notes ?? null,
-        p_created_by_profile_id:   payload.created_by_profile_id ?? null,
-        p_created_by_name:         payload.created_by_name ?? null,
+        p_notes:                   payload.notes ?? undefined,
+        p_created_by_profile_id:   payload.created_by_profile_id ?? undefined,
+        p_created_by_name:         payload.created_by_name ?? undefined,
       })
       if (error) throw new Error(error.message)
       return data as unknown as string
@@ -138,8 +138,8 @@ export function useDispatchCustodyAssign() {
       const supabase = createClient()
       const { error } = await supabase.rpc('rpc_dispatch_custody_assign', {
         p_transfer_id:              payload.transfer_id,
-        p_dispatched_by_profile_id: payload.dispatched_by_profile_id ?? null,
-        p_dispatched_by_name:       payload.dispatched_by_name ?? null,
+        p_dispatched_by_profile_id: payload.dispatched_by_profile_id ?? undefined,
+        p_dispatched_by_name:       payload.dispatched_by_name ?? undefined,
       })
       if (error) throw new Error(error.message)
     },
@@ -165,8 +165,8 @@ export function useAcceptCustodyAssign() {
       const supabase = createClient()
       const { error } = await supabase.rpc('rpc_accept_custody_assign', {
         p_transfer_id:            payload.transfer_id,
-        p_accepted_by_profile_id: payload.accepted_by_profile_id ?? null,
-        p_accepted_by_name:       payload.accepted_by_name ?? null,
+        p_accepted_by_profile_id: payload.accepted_by_profile_id ?? undefined,
+        p_accepted_by_name:       payload.accepted_by_name ?? undefined,
       })
       if (error) throw new Error(error.message)
     },
@@ -199,9 +199,9 @@ export function useCreateCustodyReturn() {
         p_dest_warehouse_id:       payload.dest_warehouse_id,
         p_dest_sub_container_id:   payload.dest_sub_container_id,
         p_items:                   payload.items,
-        p_notes:                   payload.notes ?? null,
-        p_created_by_profile_id:   payload.created_by_profile_id ?? null,
-        p_created_by_name:         payload.created_by_name ?? null,
+        p_notes:                   payload.notes ?? undefined,
+        p_created_by_profile_id:   payload.created_by_profile_id ?? undefined,
+        p_created_by_name:         payload.created_by_name ?? undefined,
       })
       if (error) throw new Error(error.message)
       return data as unknown as string

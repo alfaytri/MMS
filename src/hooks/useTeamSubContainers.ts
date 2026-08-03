@@ -13,7 +13,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
-import type { DBUpdate } from '@/types/database.types'
 
 export type TeamRow = {
   id:                              string
@@ -86,7 +85,7 @@ export function useCreateTeam() {
         p_name:        payload.name.trim(),
         p_division_id: payload.division_id,
         p_is_active:   true,
-        p_responsible_person_profile_id: payload.responsible_person_profile_id ?? null,
+        p_responsible_person_profile_id: payload.responsible_person_profile_id ?? undefined,
       })
       if (error) throw mapDbError(error, 'team')
       return data as unknown as string
@@ -121,9 +120,9 @@ export function useUpdateTeam() {
         p_division_id:  payload.division_id ?? current.division_id,
         p_is_active:    payload.is_active   ?? current.is_active,
         p_responsible_person_profile_id:
-          payload.responsible_person_profile_id === undefined
+          (payload.responsible_person_profile_id === undefined
             ? current.responsible_person_profile_id
-            : payload.responsible_person_profile_id,
+            : payload.responsible_person_profile_id) ?? undefined,
       })
       if (error) throw mapDbError(error, 'team')
       return data as unknown as string

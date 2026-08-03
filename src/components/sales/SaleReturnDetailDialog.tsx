@@ -123,7 +123,7 @@ interface Props {
 export function SaleReturnDetailDialog({ ret, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
 
-  const items = ret?.return_lines ?? []
+  const items = useMemo(() => ret?.return_lines ?? [], [ret])
   const saleDeliveryLineIds = useMemo(
     () => items
       .map((i) => (i as { sale_delivery_line_id?: string | null }).sale_delivery_line_id)

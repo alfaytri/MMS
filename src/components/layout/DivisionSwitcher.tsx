@@ -12,8 +12,6 @@ import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useCompanies } from '@/hooks/useCompanies'
 import { cn } from '@/lib/utils'
 
-const ALL_SENTINEL = '__all__'
-
 interface GroupedDivisions {
   companyId:   string | null
   companyName: string
