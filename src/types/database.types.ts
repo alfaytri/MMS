@@ -7517,6 +7517,14 @@ export type Database = {
         Args: { p_lc_id: string; p_performer_name?: string }
         Returns: undefined
       }
+      rpc_accept_custody_assign: {
+        Args: {
+          p_accepted_by_name?: string
+          p_accepted_by_profile_id?: string
+          p_transfer_id: string
+        }
+        Returns: undefined
+      }
       rpc_cancel_consumption: {
         Args: { p_consumption_id: string }
         Returns: undefined
@@ -7536,6 +7544,30 @@ export type Database = {
           p_splits: Json
         }
         Returns: undefined
+      }
+      rpc_create_custody_assign: {
+        Args: {
+          p_created_by_name?: string
+          p_created_by_profile_id?: string
+          p_dest_sub_container_id: string
+          p_items: Json
+          p_notes?: string
+          p_source_sub_container_id: string
+          p_source_warehouse_id: string
+        }
+        Returns: string
+      }
+      rpc_create_custody_return: {
+        Args: {
+          p_created_by_name?: string
+          p_created_by_profile_id?: string
+          p_dest_sub_container_id: string
+          p_dest_warehouse_id: string
+          p_items: Json
+          p_notes?: string
+          p_source_sub_container_id: string
+        }
+        Returns: string
       }
       rpc_create_partial_replacement: {
         Args: {
