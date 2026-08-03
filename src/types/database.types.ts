@@ -7501,6 +7501,10 @@ export type Database = {
         Args: { p_lc_id: string; p_performer_name?: string }
         Returns: undefined
       }
+      rpc_cancel_consumption: {
+        Args: { p_consumption_id: string }
+        Returns: undefined
+      }
       rpc_cancel_po_return_dispatch: {
         Args: { p_return_id: string }
         Returns: undefined
@@ -7547,6 +7551,20 @@ export type Database = {
         Returns: Json
       }
       rpc_financial_dashboard: { Args: never; Returns: Json }
+      rpc_post_consumption: {
+        Args: {
+          p_attachments: string[]
+          p_consumer_customer_id: string
+          p_consumer_place_sub_id: string
+          p_consumer_team_sub_id: string
+          p_consumer_type: string
+          p_lines: Json
+          p_notes: string
+          p_source_sub_container_id: string
+          p_source_warehouse_id: string
+        }
+        Returns: string
+      }
       rpc_process_po_return_dispatch: {
         Args: { p_return_id: string }
         Returns: undefined
