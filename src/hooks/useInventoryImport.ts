@@ -251,7 +251,6 @@ export function useInventoryImport() {
         rowIndex: number
         defaultWarehouseId: string | null
         defaultSubContainerId: string | null
-        imageUrl: string | null
       }
       const itemGroups = new Map<string, ItemGroupInfo>()
       for (const row of validRows) {
@@ -266,7 +265,6 @@ export function useInventoryImport() {
             rowIndex: row.rowIndex,
             defaultWarehouseId:    row.subContainer?.warehouse_id ?? null,
             defaultSubContainerId: row.subContainer?.sub_container_id ?? null,
-            imageUrl:              row.imageUrl?.trim() ? row.imageUrl.trim() : null,
           })
         }
       }
@@ -312,7 +310,6 @@ export function useInventoryImport() {
           category_id: p.categoryId,
           default_warehouse_id:     p.info.defaultWarehouseId,
           default_sub_container_id: p.info.defaultSubContainerId,
-          image_url:                p.info.imageUrl,
           status: 'active' as const,
           sort_order: 0,
         }))
@@ -342,7 +339,6 @@ export function useInventoryImport() {
                   category_id: p.categoryId,
                   default_warehouse_id:     p.info.defaultWarehouseId,
                   default_sub_container_id: p.info.defaultSubContainerId,
-                  image_url:                p.info.imageUrl,
                   status: 'active',
                   sort_order: 0,
                 })

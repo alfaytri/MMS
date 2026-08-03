@@ -42,9 +42,6 @@ export type ImportRow = {
   brand: string
   costPrice: number
   sellingPrice: number
-  /** Optional catalog photo URL (public https). Stored as-is on the
-   *  item row; no image processing on the import path. */
-  imageUrl: string
   /** Composite label operator picked; parsed to ids in `subContainer` below. */
   warehouseSubLabel: string
   /** Resolved from `warehouseSubLabel` at parse time (null if unresolved). */
@@ -95,7 +92,6 @@ export const FIXED_HEADERS = [
   'Brand',
   'Cost Price',
   'Selling Price',
-  'Image URL',
   'Warehouse — Sub-container',
 ] as const
 
@@ -166,7 +162,6 @@ export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<v
     16, // Brand
     12, // Cost Price
     14, // Selling Price
-    50, // Image URL
     40, // Warehouse — Sub-container
   ]
   importSheet.columns = widths.map((w) => ({ width: w }))
@@ -185,9 +180,9 @@ export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<v
   const sampleSub = opts.subContainers[0]
   const sampleLabel = sampleSub ? formatSubContainerLabel(sampleSub) : ''
   const examples: Array<Record<string, string | number>> = [
-    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'ABB',       cost: 15, sell: 25, imageUrl: '', label: sampleLabel },
-    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'Schneider', cost: 18, sell: 28, imageUrl: '', label: sampleLabel },
-    { c1: 'Filters',    c2: '',         c3: '',      type: 'spare-parts', name: 'Water Filter Cartridge', nameAr: 'فلتر مياه',      unit: 'Piece', brand: 'Daikin',    cost: 8,  sell: 14, imageUrl: '', label: sampleLabel },
+    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'ABB',       cost: 15, sell: 25, label: sampleLabel },
+    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'Schneider', cost: 18, sell: 28, label: sampleLabel },
+    { c1: 'Filters',    c2: '',         c3: '',      type: 'spare-parts', name: 'Water Filter Cartridge', nameAr: 'فلتر مياه',      unit: 'Piece', brand: 'Daikin',    cost: 8,  sell: 14, label: sampleLabel },
   ]
   for (const ex of examples) {
     const cats: string[] = []
@@ -204,7 +199,6 @@ export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<v
       ex.brand,
       ex.cost,
       ex.sell,
-      ex.imageUrl,
       ex.label,
     ])
   }
@@ -429,7 +423,6 @@ export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow
         const idxBrand   = findCol('brand')
         const idxCost    = findCol('cost price')
         const idxSell    = findCol('selling price')
-        const idxImage   = findCol('image url')
         const idxSub     = findCol('warehouse — sub-container')
 
         const missing: string[] = []
@@ -467,7 +460,6 @@ export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow
             brand:     toText(row[idxBrand]),
             costPrice:    toNumber(row[idxCost]),
             sellingPrice: toNumber(row[idxSell]),
-            imageUrl:     idxImage >= 0 ? toText(row[idxImage]) : '',
             warehouseSubLabel,
             subContainer,
           })
@@ -530,20 +522,6 @@ export function validateRows(rows: ImportRow[]): ValidatedRow[] {
       errors.push('Selling Price must be a number.')
     } else if (row.sellingPrice < 0) {
       errors.push('Selling Price must be ≥ 0.')
-    }
-
-    // Image URL — optional. If present, must be an https:// URL that
-    // parses. Anything else (e.g. a bare filename, a local path, http://)
-    // gets flagged so operators catch bad staging before import.
-    if (row.imageUrl) {
-      try {
-        const u = new URL(row.imageUrl)
-        if (u.protocol !== 'https:') {
-          errors.push('Image URL must start with https://')
-        }
-      } catch {
-        errors.push('Image URL is not a valid URL.')
-      }
     }
 
     if (!row.warehouseSubLabel) {
