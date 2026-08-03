@@ -7725,6 +7725,7 @@ export type Database = {
         | "inventory_receival_carve"
         | "inventory_receival_new"
         | "damaged_return_from_repair_as_good"
+        | "consumption"
       tl_order_type:
         | "order"
         | "site-visit-single"
@@ -8081,6 +8082,7 @@ export const Constants = {
         "inventory_receival_carve",
         "inventory_receival_new",
         "damaged_return_from_repair_as_good",
+        "consumption",
       ],
       tl_order_type: [
         "order",
