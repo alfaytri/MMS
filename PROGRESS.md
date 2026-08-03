@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Teams + Places + Consumption Task 3 — consumption_entries + consumption_lines tables + cogs_entries nullable columns + RLS** on `feature/field-inventory-and-consumption`. Task 2 (transfer_kind + stock_movement_type enum extensions) applied to staging + committed at `2392ade3`. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
+🚀 Next: **Teams + Places + Consumption Task 4 — rpc_post_consumption + rpc_cancel_consumption** on `feature/field-inventory-and-consumption`. Task 3 (consumption_entries + consumption_lines + cogs_entries nullable columns + RLS + number generator) applied to staging + committed at `4cb608c0`. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
 
 **Phase G — Receival FX conversion** (parked). Deferred until after the field-inventory + consumption module lands.
 
