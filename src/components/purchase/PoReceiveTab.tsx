@@ -291,7 +291,9 @@ export function PoReceiveTab({
               <TableHead className="text-right w-[90px]">Received</TableHead>
               <TableHead className="text-right w-[100px]">Remaining</TableHead>
               <TableHead className="text-right w-[120px]">Receive Qty</TableHead>
-              <TableHead className="w-[80px] hidden sm:table-cell">Unit Cost</TableHead>
+              <TableHead className="w-[110px] hidden sm:table-cell">
+                Unit Cost <span className="text-[10px] font-normal text-muted-foreground">({po.currency ?? 'QAR'})</span>
+              </TableHead>
               <TableHead className="w-[48px]" />
             </TableRow>
           </TableHeader>
@@ -339,7 +341,14 @@ export function PoReceiveTab({
                       )}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-right text-sm tabular-nums">
-                    {row.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
+                    <div className="flex flex-col items-end leading-tight">
+                      <span>{po.currency ?? 'QAR'} {row.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}</span>
+                      {po.currency !== 'QAR' && po.exchange_rate && po.exchange_rate !== 1 && (
+                        <span className="text-[10px] text-muted-foreground/70">
+                          ≈ QAR {(row.unitCost * po.exchange_rate).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <button
@@ -366,7 +375,7 @@ export function PoReceiveTab({
                 <TableCell className="text-right text-sm text-success font-medium">{fi.qty}</TableCell>
                 <TableCell colSpan={3} className="text-xs text-success italic">Free (not on PO)</TableCell>
                 <TableCell className="hidden sm:table-cell text-right text-sm tabular-nums">
-                  {fi.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
+                  QAR {fi.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
                 </TableCell>
                 <TableCell>
                   <button
@@ -473,10 +482,10 @@ export function PoReceiveTab({
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Unit Cost
-                    <span className="font-normal normal-case ml-1">(from inventory)</span>
+                    <span className="font-normal normal-case ml-1">(from inventory, QAR)</span>
                   </Label>
                   <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm tabular-nums">
-                    {nonPoLookup.cost_price.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    QAR {nonPoLookup.cost_price.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>

@@ -612,8 +612,12 @@ function LandedCostView({ data }: { data: LandedCostData }) {
         <MetaRow icon={<Receipt className="h-3.5 w-3.5 text-muted-foreground" />} label="Description" value={data.description ?? '—'} />
         <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.date ? format(new Date(data.date), 'dd MMM yyyy') : data.created_at ? format(new Date(data.created_at), 'dd MMM yyyy') : '—'} />
         <div className="rounded-lg border px-3 py-2.5 text-center col-span-2">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Total Amount ({data.currency ?? 'QAR'})</p>
-          <p className="text-lg font-bold tabular-nums">{data.total_amount != null ? Number(data.total_amount).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Total Amount</p>
+          <p className="text-lg font-bold tabular-nums">
+            {data.total_amount != null
+              ? `${data.currency ?? 'QAR'} ${Number(data.total_amount).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : '—'}
+          </p>
         </div>
       </div>
     </div>

@@ -289,7 +289,7 @@ export function ApprovalChainsTab() {
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Min Amount (QAR)</TableHead>
-                  <TableHead>Max Amount</TableHead>
+                  <TableHead>Max Amount (QAR)</TableHead>
                   <TableHead>Required Roles</TableHead>
                   {isAdmin && <TableHead className="w-20" />}
                 </TableRow>
@@ -356,10 +356,12 @@ export function ApprovalChainsTab() {
                     return (
                       <TableRow key={tier.id}>
                         <TableCell className="font-mono text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell>{Number(tier.min_amount).toLocaleString('en-QA')}</TableCell>
-                        <TableCell>
+                        <TableCell className="tabular-nums">
+                          QAR {Number(tier.min_amount).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="tabular-nums">
                           {tier.max_amount ? (
-                            Number(tier.max_amount).toLocaleString('en-QA')
+                            <>QAR {Number(tier.max_amount).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-muted-foreground">
                               <InfinityIcon className="h-3.5 w-3.5" />

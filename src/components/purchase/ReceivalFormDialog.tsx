@@ -56,16 +56,33 @@ function formatAmount(n: number, currency: string) {
   return `${currency} ${n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+// Formats a number in the PO's currency and, when the PO isn't QAR, also
+// returns the QAR equivalent computed at the PO's booked exchange rate.
+// Used on unit-cost cells so operators see both the amount they're paying
+// the supplier AND the QAR value that will land in inventory / P&L.
+function formatUnitCostWithQar(
+  amount:       number,
+  currency:     string,
+  exchangeRate: number | null | undefined,
+): { primary: string; qar: string | null } {
+  const primary = formatAmount(amount, currency)
+  if (currency === 'QAR' || !exchangeRate || exchangeRate === 1) return { primary, qar: null }
+  const qarAmount = amount * exchangeRate
+  return { primary, qar: `≈ ${formatAmount(qarAmount, 'QAR')}` }
+}
+
 // ─── Item card ─────────────────────────────────────────────────────────────────
 
 function ItemCard({
-  line, idx, onChange, currency,
+  line, idx, onChange, currency, exchangeRate,
 }: {
-  line:     DraftLine
-  idx:      number
-  onChange: (idx: number, patch: Partial<DraftLine>) => void
-  currency: string
+  line:         DraftLine
+  idx:          number
+  onChange:     (idx: number, patch: Partial<DraftLine>) => void
+  currency:     string
+  exchangeRate: number | null | undefined
 }) {
+  const unitCostFormatted = formatUnitCostWithQar(line.unit_cost, currency, exchangeRate)
   const [freeOpen, setFreeOpen] = useState(false)
   const [freeInput, setFreeInput] = useState('')
 
@@ -157,9 +174,17 @@ function ItemCard({
             onChange={(e) => onChange(idx, { qty_received: Number(e.target.value) })}
           />
 
-          {/* Unit cost — locked */}
-          <div className="h-8 w-full flex items-center justify-end px-2 rounded-md border bg-muted/40 text-xs tabular-nums text-muted-foreground">
-            {line.unit_cost.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {/* Unit cost — locked. Shows PO currency prefix always; when PO
+              currency ≠ QAR also shows the QAR equivalent on a second line
+              so operators see both what they're paying and what lands in
+              inventory / P&L. */}
+          <div
+            className={`w-full flex flex-col items-end justify-center px-2 rounded-md border bg-muted/40 text-xs tabular-nums text-muted-foreground ${unitCostFormatted.qar ? 'py-1 h-auto min-h-9' : 'h-8'}`}
+          >
+            <span className="leading-tight">{unitCostFormatted.primary}</span>
+            {unitCostFormatted.qar && (
+              <span className="text-[10px] text-muted-foreground/70 leading-tight">{unitCostFormatted.qar}</span>
+            )}
           </div>
 
           {/* Free-items gift button */}
@@ -274,9 +299,9 @@ function NonPoFreeItemDialog({
                 <Input type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="h-9 text-xs" />
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Unit cost <span className="text-muted-foreground/60 normal-case">(from inventory)</span></Label>
+                <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Unit cost <span className="text-muted-foreground/60 normal-case">(from inventory, QAR)</span></Label>
                 <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-xs tabular-nums">
-                  {lookup.cost_price.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatAmount(lookup.cost_price, 'QAR')}
                 </div>
               </div>
             </div>
@@ -641,6 +666,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
                     idx={idx}
                     onChange={(i, patch) => setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)))}
                     currency={currency}
+                    exchangeRate={selectedPO?.exchange_rate ?? null}
                   />
                 ))}
               </div>
@@ -702,6 +728,11 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
             <div>
               <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Total cost</div>
               <p className="font-bold tabular-nums">{formatAmount(summary.totalCost, currency)}</p>
+              {selectedPO?.exchange_rate && currency !== 'QAR' && selectedPO.exchange_rate !== 1 && (
+                <p className="text-[10px] text-muted-foreground/70 tabular-nums font-normal">
+                  ≈ {formatAmount(summary.totalCost * selectedPO.exchange_rate, 'QAR')}
+                </p>
+              )}
             </div>
             <div>
               <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Discrepancies</div>
