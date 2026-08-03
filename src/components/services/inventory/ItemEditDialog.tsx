@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X, Plus, ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Plus, ChevronDown, ChevronRight, Users, Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -10,9 +10,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { useCreateInventoryItem, useUpdateInventoryItem, useUpsertInventoryItemAttributes, type InventoryItem } from '@/hooks/useInventory'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useItemStockByDivision } from '@/hooks/useItemStockByDivision'
+import { compressImageBeforeUpload } from '@/lib/compressImage'
+import { createClient } from '@/lib/supabase/client'
+
+const PHOTO_BUCKET = 'inventory-item-photos'
 
 const UNITS = ['Piece', 'Kg', 'Litre', 'Set', 'Box', 'Metre', 'Roll', 'Pair', 'Other']
 
@@ -36,6 +41,9 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const [unit, setUnit] = useState('Piece')
   const [chips, setChips] = useState<string[]>([])
   const [chipInput, setChipInput] = useState('')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   // D.12 — cross-division sharing. Empty list = no additional sharing (default).
   const [sharedWith, setSharedWith] = useState<string[]>([])
   const [shareOpen, setShareOpen] = useState(false)
@@ -51,11 +59,46 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       setUnit(item?.unit ?? 'Piece')
       setChips([])
       setChipInput('')
+      setImageUrl((item as unknown as { image_url?: string | null } | null | undefined)?.image_url ?? null)
+      setUploading(false)
       const shared = (item as unknown as { shared_with_division_ids?: string[] } | null | undefined)?.shared_with_division_ids ?? []
       setSharedWith(shared)
       setShareOpen(shared.length > 0)
     }
   }, [open, item])
+
+  async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Photo too large — maximum 10 MB')
+      return
+    }
+    setUploading(true)
+    try {
+      const compressed = await compressImageBeforeUpload(file)
+      const supabase = createClient()
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const folder = item?.id ?? 'pending'
+      const sanitized = compressed.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${year}/${month}/${folder}/${now.getTime()}-${sanitized}`
+      const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, compressed)
+      if (error) throw error
+      const { data: pub } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path)
+      setImageUrl(pub.publicUrl)
+    } catch (err) {
+      toast.error(`Photo upload failed: ${(err as Error).message}`)
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  function handlePhotoRemove() {
+    setImageUrl(null)
+  }
 
   function addChip() {
     const val = chipInput.trim()
@@ -77,6 +120,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       name_ar: nameAr.trim() || null,
       sku: sku.trim(),
       unit,
+      image_url: imageUrl,
       shared_with_division_ids: sharedWith,
     }
 
@@ -116,6 +160,50 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
           <DialogTitle>{isEdit ? 'Edit Item' : 'New Item'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Photo — thumbnail + change / remove */}
+          <div className="flex items-start gap-3">
+            <ItemPhoto url={imageUrl} name={nameEn} size={64} />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <Label className="text-xs">Photo</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoPick}
+              />
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px] gap-1"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading || isPending}
+                >
+                  {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  {uploading ? 'Uploading…' : imageUrl ? 'Change photo' : 'Add photo'}
+                </Button>
+                {imageUrl && !uploading && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[11px] gap-1 text-muted-foreground hover:text-destructive"
+                    onClick={handlePhotoRemove}
+                    disabled={isPending}
+                  >
+                    <X className="h-3 w-3" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                JPG / PNG, up to 10 MB. Auto-compressed to ~1600 px on the longest edge.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="item-name-en">Name (English) *</Label>
@@ -265,7 +353,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || uploading}>
               {isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Item'}
             </Button>
           </DialogFooter>
