@@ -5791,6 +5791,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          team_id: string | null
           updated_at: string
           warehouse_id: string
         }
@@ -5801,6 +5802,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          team_id?: string | null
           updated_at?: string
           warehouse_id: string
         }
@@ -5811,6 +5813,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          team_id?: string | null
           updated_at?: string
           warehouse_id?: string
         }
@@ -6118,6 +6121,7 @@ export type Database = {
           repair_vendor_id: string | null
           total_value: number | null
           updated_at: string | null
+          warehouse_kind: string
         }
         Insert: {
           company_id?: string | null
@@ -6130,6 +6134,7 @@ export type Database = {
           repair_vendor_id?: string | null
           total_value?: number | null
           updated_at?: string | null
+          warehouse_kind?: string
         }
         Update: {
           company_id?: string | null
@@ -6142,6 +6147,7 @@ export type Database = {
           repair_vendor_id?: string | null
           total_value?: number | null
           updated_at?: string | null
+          warehouse_kind?: string
         }
         Relationships: [
           {
