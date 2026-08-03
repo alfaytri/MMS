@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { useDivisions } from '@/hooks/useDivisions'
+import { useAllProfiles } from '@/hooks/useProfiles'
 import { useCreatePlace, useUpdatePlace, type PlaceRow } from '@/hooks/usePlaceSubContainers'
 
 interface Props {
@@ -31,29 +32,39 @@ export function PlaceFormDialog({ open, onOpenChange, place }: Props) {
   const isEdit = !!place
 
   const { data: divisions = [] } = useDivisions()
+  const { data: users = [] }     = useAllProfiles()
   const create = useCreatePlace()
   const update = useUpdatePlace()
 
-  const [name, setName] = useState('')
-  const [divisionId, setDivisionId] = useState('')
+  const [name, setName]                   = useState('')
+  const [divisionId, setDivisionId]       = useState('')
+  const [responsibleId, setResponsibleId] = useState<string>('')
 
   useEffect(() => {
     if (!open) return
     if (place) {
       setName(place.name)
       setDivisionId(place.division_id)
+      setResponsibleId(place.responsible_person_profile_id ?? '')
     } else {
       setName('')
       setDivisionId(divisions.length === 1 ? divisions[0].id : '')
+      setResponsibleId('')
     }
   }, [open, place, divisions])
 
   const canSubmit = name.trim().length > 0 && !!divisionId && !(create.isPending || update.isPending)
 
   function handleSubmit() {
+    const responsible = responsibleId ? responsibleId : null
     if (isEdit && place) {
       update.mutate(
-        { id: place.id, name: name.trim(), division_id: divisionId },
+        {
+          id: place.id,
+          name: name.trim(),
+          division_id: divisionId,
+          responsible_person_profile_id: responsible,
+        },
         {
           onSuccess: () => { toast.success('Place updated'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -61,7 +72,11 @@ export function PlaceFormDialog({ open, onOpenChange, place }: Props) {
       )
     } else {
       create.mutate(
-        { name: name.trim(), division_id: divisionId },
+        {
+          name: name.trim(),
+          division_id: divisionId,
+          responsible_person_profile_id: responsible,
+        },
         {
           onSuccess: () => { toast.success('Place created'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -115,6 +130,29 @@ export function PlaceFormDialog({ open, onOpenChange, place }: Props) {
             </Select>
             <p className="text-[11px] text-muted-foreground">
               Place stock is bookkept under this division.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="place-responsible">Responsible person</Label>
+            <Select
+              value={responsibleId || 'none'}
+              onValueChange={(v) => setResponsibleId(v === 'none' ? '' : v)}
+            >
+              <SelectTrigger id="place-responsible" className="w-full h-10">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="none">Unassigned</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.full_name?.trim() || u.email || 'Unnamed user'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Physical custodian of this place&apos;s stock. Accepts inbound custody assigns and initiates returns.
             </p>
           </div>
         </div>

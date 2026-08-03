@@ -247,6 +247,95 @@ Behavior (one transaction):
 
 Currently `/warehouses` shows all warehouses. Add a UI-level filter (no DB change): `useWarehouses` accepts `kinds?: WarehouseKind[]` (default excludes `'repair'`, `'teams'`, `'places'`). The dedicated pages fetch by kind explicitly.
 
+### Migration 6 — responsible person on sub-containers (2026-08-03 addition)
+
+Every Team + Place sub-container gets a nullable `responsible_person_profile_id` (FK to `user_data.id`). This person is the physical custodian of the stock riding in that sub — they accept inbound custody assigns and initiate returns.
+
+```sql
+ALTER TABLE public.warehouse_sub_containers
+  ADD COLUMN IF NOT EXISTS responsible_person_profile_id uuid
+    REFERENCES public.user_data(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_wsc_responsible_person
+  ON public.warehouse_sub_containers (responsible_person_profile_id)
+  WHERE responsible_person_profile_id IS NOT NULL;
+```
+
+Extend `rpc_upsert_team_or_place` with `p_responsible_person_profile_id uuid DEFAULT NULL`. Extend `get_teams_master_list` + `get_places_master_list` to return the resolved responsible-person name + phone.
+
+Picker scope: any active user (no division filter). Cardinality: one person per sub (single column, not link table).
+
+### Migration 7 — custody move RPCs
+
+Custody moves are lightweight transfers between real warehouses and the shared Teams / Places virtual warehouses. Unlike normal `create_transfer_v2` → dispatch → receive, custody uses a 2-step model with the sub-container's responsible person as the accepting party.
+
+**`rpc_create_custody_assign`** — WH → Team/Place. Called by admin or source-WH field RP.
+
+```
+rpc_create_custody_assign(
+  p_source_warehouse_id       uuid,
+  p_source_sub_container_id   uuid,
+  p_dest_sub_container_id     uuid,     -- must belong to a warehouse_kind IN ('teams','places')
+  p_items                     jsonb,    -- [{brand_variant_id, qty}, ...]
+  p_notes                     text,
+  p_created_by_profile_id     uuid,
+  p_created_by_name           text
+) RETURNS uuid  -- warehouse_transfers.id
+```
+
+Effects (one transaction):
+1. Validate `p_dest_sub_container_id` belongs to a warehouse with `warehouse_kind IN ('teams','places')` and is active.
+2. Insert `warehouse_transfers` with `transfer_kind='custody_assign'`, `status='in_transit'`, `dispatched_at=now()`, `dispatched_by_*` from caller.
+3. For each line: `deduct_fifo_layers` scoped to source sub; insert `warehouse_transfer_items`; insert `inventory_stock_movements` `movement_type='transfer_out'`, `reference_type='transfer'`, sub-scoped to source.
+4. Returns transfer id.
+
+**`rpc_accept_custody_assign`** — Team/Place responsible person confirms receipt.
+
+```
+rpc_accept_custody_assign(
+  p_transfer_id            uuid,
+  p_accepted_by_profile_id uuid,
+  p_accepted_by_name       text
+) RETURNS void
+```
+
+Effects:
+1. Load transfer + FOR UPDATE; must be `kind='custody_assign'` and `status='in_transit'`.
+2. Permission gate: caller must be the destination sub's `responsible_person_profile_id`, OR have `inventory_manager` role (via `has_inventory_manager_role`).
+3. For each `warehouse_transfer_items` row: insert a new `fifo_cost_layers` row on the destination sub (unit_cost = the item's stored unit_cost, source_type = 'custody_assign', source_id = transfer_id); insert `inventory_stock_movements` `transfer_in` on destination.
+4. Flip transfer to `status='completed'`, stamp `received_by_*` + `received_at=now()`.
+
+**`rpc_create_custody_return`** — Team/Place → WH. Called by the source custody sub's responsible person (or an inventory manager).
+
+```
+rpc_create_custody_return(
+  p_source_sub_container_id  uuid,     -- must belong to teams/places virtual WH
+  p_dest_warehouse_id        uuid,
+  p_dest_sub_container_id    uuid,     -- destination sub in the real WH
+  p_items                    jsonb,
+  p_notes                    text,
+  p_created_by_profile_id    uuid,
+  p_created_by_name          text
+) RETURNS uuid
+```
+
+Effects:
+1. Permission gate: `p_created_by_profile_id` must equal source sub's `responsible_person_profile_id` OR have inventory-manager role.
+2. Validate source sub belongs to `teams`/`places` warehouse; validate dest sub belongs to `p_dest_warehouse_id`.
+3. Insert transfer with `kind='custody_return'`, `status='in_transit'`, dispatched-stamped.
+4. For each line: deduct FIFO from source custody sub; insert transfer items; insert `transfer_out` movement.
+5. Returns transfer id.
+
+The existing `receive_transfer` RPC handles the receive-on-real-WH step of a return (destination is a real WH so the standard field-RP check applies).
+
+Cancellation of an in-flight custody assign is handled by the existing `cancel_transfer` RPC — no new code needed.
+
+### UI additions for the responsible-person + acceptance flow
+
+- **Master Data → Teams** page: new "Responsible Person" column + picker in the create/edit dialog. Picker shows all active users, searchable by name/phone.
+- **Master Data → Places** page: same.
+- **`/warehouse/custody` cards**: show responsible person's name + phone under the sub-container name. If the current user IS the responsible person AND there's an `in_transit` `custody_assign` transfer inbound to this sub, show a **"Pending your acceptance"** badge + an **Accept** button that calls `rpc_accept_custody_assign`.
+
 ## UI
 
 ### `/master-data/teams` (new)

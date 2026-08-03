@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -6064,6 +6039,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          responsible_person_profile_id: string | null
           team_id: string | null
           updated_at: string
           warehouse_id: string
@@ -6075,6 +6051,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          responsible_person_profile_id?: string | null
           team_id?: string | null
           updated_at?: string
           warehouse_id: string
@@ -6086,6 +6063,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          responsible_person_profile_id?: string | null
           team_id?: string | null
           updated_at?: string
           warehouse_id?: string
@@ -6103,6 +6081,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_responsible_person_profile_id_fkey"
+            columns: ["responsible_person_profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
           {
@@ -7383,6 +7368,9 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          responsible_person_name: string
+          responsible_person_phone: string
+          responsible_person_profile_id: string
           updated_at: string
         }[]
       }
@@ -7404,6 +7392,9 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          responsible_person_name: string
+          responsible_person_phone: string
+          responsible_person_profile_id: string
           team_id: string
           updated_at: string
         }[]
@@ -7722,6 +7713,7 @@ export type Database = {
           p_is_active?: boolean
           p_kind: string
           p_name: string
+          p_responsible_person_profile_id?: string
         }
         Returns: string
       }
@@ -8198,9 +8190,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],

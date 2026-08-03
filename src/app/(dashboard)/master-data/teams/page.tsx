@@ -118,6 +118,7 @@ export default function TeamsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Team</TableHead>
+                      <TableHead>Responsible Person</TableHead>
                       <TableHead className="w-28 text-center">Status</TableHead>
                       <TableHead className="w-32 text-right">Actions</TableHead>
                     </TableRow>
@@ -126,6 +127,18 @@ export default function TeamsPage() {
                     {rows.map((t) => (
                       <TableRow key={t.id}>
                         <TableCell className="font-medium">{t.name}</TableCell>
+                        <TableCell className="text-xs">
+                          {t.responsible_person_name ? (
+                            <div className="flex flex-col">
+                              <span className="text-foreground">{t.responsible_person_name}</span>
+                              {t.responsible_person_phone && (
+                                <span className="text-[11px] text-muted-foreground">{t.responsible_person_phone}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="italic text-muted-foreground">Unassigned</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge
                             variant={t.is_active ? 'default' : 'secondary'}

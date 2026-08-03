@@ -116,6 +116,7 @@ export default function PlacesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Place</TableHead>
+                      <TableHead>Responsible Person</TableHead>
                       <TableHead className="w-28 text-center">Status</TableHead>
                       <TableHead className="w-32 text-right">Actions</TableHead>
                     </TableRow>
@@ -124,6 +125,18 @@ export default function PlacesPage() {
                     {rows.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell className="font-medium font-mono text-sm">{p.name}</TableCell>
+                        <TableCell className="text-xs">
+                          {p.responsible_person_name ? (
+                            <div className="flex flex-col">
+                              <span className="text-foreground">{p.responsible_person_name}</span>
+                              {p.responsible_person_phone && (
+                                <span className="text-[11px] text-muted-foreground">{p.responsible_person_phone}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="italic text-muted-foreground">Unassigned</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge
                             variant={p.is_active ? 'default' : 'secondary'}

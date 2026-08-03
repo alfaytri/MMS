@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { useDivisions } from '@/hooks/useDivisions'
+import { useAllProfiles } from '@/hooks/useProfiles'
 import { useCreateTeam, useUpdateTeam, type TeamRow } from '@/hooks/useTeamSubContainers'
 
 interface Props {
@@ -30,29 +31,40 @@ export function TeamFormDialog({ open, onOpenChange, team }: Props) {
   const isEdit = !!team
 
   const { data: divisions = [] } = useDivisions()
+  const { data: users = [] }     = useAllProfiles()
   const create = useCreateTeam()
   const update = useUpdateTeam()
 
-  const [name, setName] = useState('')
+  const [name, setName]             = useState('')
   const [divisionId, setDivisionId] = useState('')
+  // '' sentinel = no responsible person; any uuid = assigned.
+  const [responsibleId, setResponsibleId] = useState<string>('')
 
   useEffect(() => {
     if (!open) return
     if (team) {
       setName(team.name)
       setDivisionId(team.division_id)
+      setResponsibleId(team.responsible_person_profile_id ?? '')
     } else {
       setName('')
       setDivisionId(divisions.length === 1 ? divisions[0].id : '')
+      setResponsibleId('')
     }
   }, [open, team, divisions])
 
   const canSubmit = name.trim().length > 0 && !!divisionId && !(create.isPending || update.isPending)
 
   function handleSubmit() {
+    const responsible = responsibleId ? responsibleId : null
     if (isEdit && team) {
       update.mutate(
-        { id: team.id, name: name.trim(), division_id: divisionId },
+        {
+          id: team.id,
+          name: name.trim(),
+          division_id: divisionId,
+          responsible_person_profile_id: responsible,
+        },
         {
           onSuccess: () => { toast.success('Team updated'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -60,7 +72,11 @@ export function TeamFormDialog({ open, onOpenChange, team }: Props) {
       )
     } else {
       create.mutate(
-        { name: name.trim(), division_id: divisionId },
+        {
+          name: name.trim(),
+          division_id: divisionId,
+          responsible_person_profile_id: responsible,
+        },
         {
           onSuccess: () => { toast.success('Team created'); onOpenChange(false) },
           onError:   (err) => toast.error(err.message),
@@ -111,6 +127,29 @@ export function TeamFormDialog({ open, onOpenChange, team }: Props) {
             </Select>
             <p className="text-[11px] text-muted-foreground">
               Team stock is bookkept under this division. Later this will link to a real teams table.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="team-responsible">Responsible person</Label>
+            <Select
+              value={responsibleId || 'none'}
+              onValueChange={(v) => setResponsibleId(v === 'none' ? '' : v)}
+            >
+              <SelectTrigger id="team-responsible" className="w-full h-10">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="none">Unassigned</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.full_name?.trim() || u.email || 'Unnamed user'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Physical custodian of this team&apos;s stock. Accepts inbound custody assigns and initiates returns.
             </p>
           </div>
         </div>
