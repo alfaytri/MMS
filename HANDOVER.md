@@ -1,155 +1,138 @@
-# Session Handover — 2026-08-02 (Phase E smoke in progress)
+# Handover — Teams + Places + Consumption
 
-**Read this first.** Phase E code + DB migrations are **committed and staged-applied**. The last 4 commits on `feature/warehouse-model-v2` are Phase E (`3ed6f61a`, `85f0fcd5`, `4db6abae`, `a43a18be`). What remains is the smoke walk on staging, plus a small batch of follow-up fixes surfaced during that walk (uncommitted, waiting on operator "working" before commit).
+**Branch:** `feature/field-inventory-and-consumption`
+**Base:** `deploy/warehouse-shipping`
+**Plan:** [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md)
+**Last touched:** 2026-08-03
 
-## Resume prompt
+## How to resume
 
-Paste this in a fresh conversation:
+1. Read [PROGRESS.md](PROGRESS.md) — the `## 🔄 In Progress` block points at Task 9.
+2. Read the plan doc above end-to-end. It's been amended twice this session; the current version is authoritative.
+3. Read this handover for what changed vs. the plan and where the sharp edges are.
+4. Skim `git log --oneline` from `b83d420c` forward — every commit has a self-contained message explaining what it did.
 
-```
-I'm continuing MMS work on feature/warehouse-model-v2. Phase E migrations
-and code are shipped; smoke walk is 3-of-7 flows confirmed. Four fixes
-surfaced during the walk are staged locally, uncommitted. Read
-HANDOVER.md, then continue from "Immediate next steps".
-```
+## Status
 
-## Where we are
+- ✅ **Task 1** — warehouse_kind enum + team_id column (`20260815000100`)
+- ✅ **Task 2** — transfer_kind + stock_movement_type enum extensions (`20260815000200`)
+- ✅ **Task 3** — consumption_entries + consumption_lines + cogs_entries extension (`20260815000300`)
+- ✅ **Task 4** — `rpc_post_consumption` + `rpc_cancel_consumption` (`20260815000400`)
+- ✅ **Task 5** — types regen
+- ✅ **Task 6** — `useWarehouses({ kinds })` filter (already existed as `excludeKinds`)
+- ✅ **Task 7** — Master Data → Places page (later removed in the consolidation step, see below)
+- ✅ **Task 8** — `/warehouse/custody` page + assign/return dialogs (shipped in 3 sub-commits, then twice revised — see chronology below)
+- ⏭️ **Task 9** — `/consumption` page + New Consumption dialog with 3-sec cooldown ← **NEXT**
+- ⏭️ **Task 10** — nav + routing polish
+- ⏭️ **Task 11** — manual smoke on staging + security audit
 
-Phase E dropped the denormalized `division_id` column from every stock-carrying table + `warehouses.division_id`. Post-Phase-E:
-- Warehouses belong to a **company**, not a division.
-- Per-division stock lives in **`warehouse_sub_containers`** only.
-- Division is derived per-row from `sub_container_id → warehouse_sub_containers.division_id`.
+## Task 8 chronology (8 commits worth reading)
 
-### DB — 4 migrations applied to staging `mwvblpgbgxipvrevkeff`
-
-| File | Purpose |
+| Commit | Scope |
 |---|---|
-| `20260810000100_phase_e_rpc_rewrites.sql` | Rewrites 6 RPCs (`approve_stock_adjustment_inventory`, `create_stock_adjustment_v2`, `rpc_process_return_restock`, `rpc_create_partial_replacement`, `rpc_send_damaged_for_repair`, `rpc_return_damaged_from_repair`). 3 more (`cancel_delivery_inventory`, `complete_delivery_inventory`, `create_and_approve_receival`) needed zero changes — they only read `sale_orders.division_id` / `purchase_orders.division_id` (which stay) and never stamped `division_id` on stock rows explicitly (the trigger did). |
-| `20260810000200_phase_e_drop_division_scope_policies.sql` | Drops every `division_scope_*_r` RESTRICTIVE policy on 7 stock tables + `warehouses`. Parallel `sub_container_scope_*_r` policies (Phase C.3) already cover the same access surface. |
-| `20260810000300_phase_e_drop_division_sync_triggers.sql` | Drops 6 sync-triggers + 4 trigger functions with `CASCADE`. Also caught a stray `trg_receivals_set_division` on `receivals`. |
-| `20260810000400_phase_e_drop_division_id_columns.sql` | Drops `division_id` from `fifo_cost_layers`, `inventory_stock_movements`, `warehouse_stock_allocations`, `stock_adjustments`, `receival_items`, `warehouse_transfer_items`, `warehouse_transfers`, `warehouses`. Three of those tables never had the column — `IF EXISTS` swallowed them. |
+| `1217a39d` | 8a — `responsible_person_profile_id` column on warehouse_sub_containers + master-list RPC extension + Teams/Places master-data pickers |
+| `b3ec0c92` | Activate/Deactivate confirm dialog on Teams + Places pages (later moot after consolidation) |
+| `c59f9c93` | 8b — `rpc_create_custody_assign` / `rpc_accept_custody_assign` / `rpc_create_custody_return` (initial 2-step model) |
+| `8b23c7ae` | 8c — `/warehouse/custody` page, CustodyAssignDialog, CustodyReturnDialog, useCustodyMoves hook, nav wiring, admin bypass in RPCs, friendly error strings |
+| `19423ce6` | **Reshape to 3-step flow** — `rpc_create_custody_assign` rewritten to be REQUEST-ONLY (no FIFO deduct); new `rpc_dispatch_custody_assign` for the middle step. Card banner now shows "Awaiting dispatch" (amber) vs "In transit" (blue) with correct action button gating |
+| `63502422` | Fix cross-division item visibility on the standard Transfers page — `sub_container_scope_select_r` on `warehouse_transfer_items` widened to admit rows visible via either endpoint's sub, mirroring the parent transfer's policy |
+| `fe21bb83` | WhMovementRefDialog shows sub-container names under warehouse names in From/To boxes |
+| (latest) | **Consolidation refactor** — deleted `/master-data/teams`, `/master-data/places`, `/warehouse/repair-vendors` pages + their nav entries. Enhanced `SubContainerFormDialog` with responsible-person picker + `WarehouseSubContainersSection` with responsible-person display + reactivate flow. New `rpc_upsert_warehouse_sub_container` (generic upsert) + `get_warehouse_sub_containers_admin` (cross-division list). All sub-container management now happens on the Warehouses admin page. |
 
-## Phase E smoke walk — current status (3 of 7 confirmed)
+## Key state to know before touching anything
 
-| # | Flow | Status | Evidence |
-|---|---|---|---|
-| 1 | **DEL-00034** — same-division delivery | ✅ Verified | `cogs_entries.consumer_division_id = Kitchen`, `sub_container.division = Maintenance` (D.12 shared path preserved) |
-| 2 | **DEL-00036** — post-share delivery | ✅ Verified | `consumer_division_id = Kitchen`, `sub_container.division = Kitchen` |
-| 3 | **PO Receive warehouse dropdown** | ✅ Verified | Populates after the `useWarehouses` embed fix |
-| 4 | **Inventory Check** (IC-2026-00005 / Birkat Alawamer / Kitchen) | ✅ Verified | Reconciliation showed count variance rows (`+33`, `-5`); Pending Approval landed on `field_rp` with no Phase-E-shaped errors |
-| 5 | **PO Returns cross-division filter** | ⏳ Pending | Switch active division off PO-2026-07-004's owner → PO should disappear from `/purchase/returns` list AND New Return picker. Switch back → reappears. |
-| 6 | **PO receival end-to-end** | ⏳ Pending | Receive stock into a warehouse → new `fifo_cost_layers` row with `sub_container_id`. No "column division_id does not exist" error. |
-| 7 | **Stock adjustment** (create + approve) | ⏳ Pending | Sub-container picker required. Approve must not fall through to the removed `warehouses.division_id` branch. |
-| 8 | **Sale return restock** | ⏳ Pending | Good-condition return → new `fifo_cost_layers` row without `division_id` column, sub-container-scoped. |
-| 9 | **Send-for-repair + return-from-repair** | ⏳ Pending | Full damaged-side flow. Resulting `warehouse_transfers` row has no `division_id`. |
+### Custody flow — final shape
 
-If any RPC raises `column division_id does not exist` or `relation warehouse_xxx has no fkey ...` — that's a Phase E miss. Paste the exact error; the fix is usually another `pg_get_functiondef` fetch + one-line delta.
+1. **Request** — `rpc_create_custody_assign(source_wh, source_sub, dest_sub, items, ...)`. Called by destination custody sub's responsible person OR `_has_custody_admin_role`. Inserts `warehouse_transfers` header + line items only, `status='pending'`. **No FIFO movement.**
+2. **Dispatch** — `rpc_dispatch_custody_assign(transfer_id, ...)`. Called by source WH field RP (`is_field_rp_of`) OR `_has_custody_admin_role`. Deducts source FIFO scoped to source sub, emits `transfer_out` movements, stamps weighted `unit_cost` on line items, flips to `in_transit`.
+3. **Accept** — `rpc_accept_custody_assign(transfer_id, ...)`. Called by destination sub responsible person OR `_has_custody_admin_role`. Creates FIFO layers on destination sub + `transfer_in` movements, flips to `received`.
 
-## Follow-up fixes surfaced during smoke — STAGED, NOT COMMITTED
+Return direction is a 2-step flow: `rpc_create_custody_return` (deducts custody FIFO + creates `in_transit` transfer) → standard `receive_transfer` on the destination real WH (the existing app rule "same person cannot dispatch and receive" applies — that's intentional).
 
-Operator noted three UI/scoping gaps during the smoke walk. All four items below were fixed in this session and are waiting on "working" before commit.
+`_has_custody_admin_role(profile_id)` returns true for `inventory_manager` role OR any `custom_roles.is_system_admin=true` (Owner, Admin).
 
-### 1. FIFO layers table — sub-container column
-**Symptom:** Cost-layer expander on an inventory item showed only the warehouse name ("Birkat Alawamer Warehouse"). Operator needs to see the source sub-container too.
+### Sub-container admin
 
-**Files:**
-- `src/hooks/useInventory.ts` — `useFifoLayers` query extended to embed `warehouse_sub_containers:sub_container_id(name)` alongside the existing `warehouses(name)` join. `FifoLayer` type gains `sub_container_id` + `sub_container_name`. Mapper reads `row.warehouse_sub_containers?.name`.
-- `src/components/services/inventory/FifoLayersTable.tsx` — Warehouse cell now renders as a two-line cell: warehouse name on top, sub-container name underneath in muted `text-[10px]`. Falls back to `—` when warehouse_name is null.
+- **Read (admin)**: `useWarehouseSubContainersAdmin(warehouseId)` via `get_warehouse_sub_containers_admin` — bypasses RLS, joins responsible person, cross-division. Used only by `WarehouseSubContainersSection`.
+- **Read (operator-facing)**: `useWarehouseSubContainers(warehouseId)` — direct-table, RLS-scoped. Used by transfer / delivery / custody pickers. Do NOT swap these to the admin variant; they need division scoping.
+- **Write**: `useCreateWarehouseSubContainer` / `useUpdateWarehouseSubContainer` / `useReactivateWarehouseSubContainer` / `useDeactivateWarehouseSubContainer` all go through `rpc_upsert_warehouse_sub_container` (generic upsert). Deactivate/reactivate now take `{id, warehouse_id}` (changed from just `id`).
+- Legacy `useTeams`, `usePlaces`, `useRepairVendors` still exist — Custody page + damaged-repair flow depend on them. Do NOT delete.
 
-### 2. PO create cascade — filter by active division
-**Symptom:** With Kitchen active, the "Category…" dropdown on `/purchase/create-po` still listed Maintenance-only items (AC Unit, Water Heater, etc.).
+### Migrations landed
 
-**Root cause:** `CascadeInventorySelector` has a `filterByActiveDivision` prop that's opt-in. It was wired on sales (`SoLineItemsEditor`, `ReplacementDeliveryDialog`) but not on purchase.
+| Version | What |
+|---|---|
+| `20260815000100` | warehouse_kind enum (teams, places) + team_id column + seed rows |
+| `20260815000200` | transfer_kind extension (custody_assign, custody_return) + stock_movement_type extension (consumption) |
+| `20260815000300` | consumption_entries + consumption_lines tables + cogs_entries columns + RLS |
+| `20260815000400` | rpc_post_consumption + rpc_cancel_consumption |
+| `20260815000500` | get_teams_master_list + get_places_master_list |
+| `20260815000600` | rpc_upsert_team_or_place |
+| `20260815000700` | param reorder fix |
+| `20260815000800` | responsible_person_profile_id column + extended upsert + extended master-list RPCs |
+| `20260815000900` | rpc_create_custody_assign + rpc_accept_custody_assign + rpc_create_custody_return (initial 2-step; superseded by 001100) |
+| `20260815001000` | `_has_custody_admin_role` helper + friendly error strings on all custody RPCs |
+| `20260815001100` | 3-step flow: rewrote rpc_create_custody_assign to request-only + added rpc_dispatch_custody_assign |
+| `20260815001200` | Widened `sub_container_scope_select_r` policy on warehouse_transfer_items so cross-division transfers show items to both sides |
+| `20260815001300` | rpc_upsert_warehouse_sub_container + get_warehouse_sub_containers_admin — powers the consolidated Warehouses admin page |
 
-**Design rationale** for the opt-in original: POs are placed *before* stock exists, so buying for another division was historically allowed. Operator explicitly asked for the filter on PO too — POs should be scoped to the active division just like SOs.
+## Sharp edges — must know before Task 9
 
-**File:** `src/components/purchase/PoLineItemsEditor.tsx` — added `filterByActiveDivision` prop to the `<CascadeInventorySelector>` render at line ~234. Nothing else needed (the cascade already handles the filter internally via `useCascadeAccessibleItems`).
+- **`_has_custody_admin_role(profile_id)`** — reuse for any Task 9 permission gates.
+- **`rpc_post_consumption`** has NO role gate — any signed-in user can post. That's per plan design; do NOT tighten without asking the operator.
+- **`generate_consumption_number()`** returns `CE-#####`.
+- **`cogs_entries`** columns `consumer_type` / `consumer_team_sub_id` / `consumer_place_sub_id` / `consumer_customer_id` / `consumption_id` are all in place. RPC stamps them per line.
+- **Attachments storage bucket**: `consumption-attachments` — **NOT confirmed created**. Check on Supabase Storage before wiring the file upload UI; create with `public: false` + RLS policies restricting to authenticated users.
 
-### 3. `/purchase/orders` list + stat cards — scope to active division
-**Symptom:** PO-2026-07-004 (Kitchen) was visible under Maintenance on the PO list. Admin bypasses RLS so all divisions' POs surface unless the client filters.
+## Task 9 — what to build
 
-**File:** `src/app/(dashboard)/purchase/orders/page.tsx`
-- Imported `useActiveDivision`.
-- `filtered` memo prepends a division predicate: `!activeDivisionId || o.division_id == null || o.division_id === activeDivisionId`. Legacy null-division POs always show; "All Divisions" shows everything.
-- `stats` memo uses the same predicate so the four cards match the list below.
-- Mirrors the `divisionMatchesPo` pattern from `/purchase/returns`.
+Per the plan's UI section for `/consumption`:
 
-### 4. PROGRESS.md + EOD updated
-- PROGRESS.md `## ✅ Completed` gets a new top entry describing the four fixes + Inv Check verified. Phase E smoke ledger now records 3-of-7 flows confirmed.
-- EOD-2026-08-02.md gets item #7 covering the same.
+- List page: table of consumption entries (CE-##### · date · source · consumer · total). Filters: status, date range, consumer_type.
+- Top-right **New Consumption** → dialog:
+  - **Source** — Warehouse dropdown (all kinds including teams / places — plan says "the Consumption dialog's source picker sees all four") + sub-container picker.
+  - **Consumer** — segmented control: Team / Customer Site / Customer / Internal + matching picker.
+  - **Lines** — cascade item picker + qty column. Weighted FIFO cost preview once source sub is set.
+  - **Notes + attachments** — Supabase Storage upload.
+  - **Amber warning** — "Posting a consumption immediately deducts stock and books COGS. Not reversible without manual cancellation."
+  - **Confirm button** with a 3-second cooldown countdown chip. Disabled for the first 3s of dialog open OR after every edit.
 
-`git status` at handover:
+Also wire the **Consume** button on the Custody card (currently a `handleConsumeStub` toast in `src/app/(dashboard)/warehouse/custody/page.tsx`) to open this dialog pre-filled with the sub as source.
 
-```
- M src/app/(dashboard)/purchase/orders/page.tsx
- M src/app/(dashboard)/purchase/returns/page.tsx        [pre-existing, separate work]
- M src/components/purchase/POReturnDetailDialog.tsx     [pre-existing, separate work]
- M src/components/purchase/PoLineItemsEditor.tsx
- M src/components/purchase/PoReturnsTab.tsx             [pre-existing, separate work]
- M src/components/purchase/ReceivalFormDialog.tsx       [pre-existing, separate work]
- M src/components/sales/SaleReturnDetailDialog.tsx      [pre-existing, separate work]
- M src/components/services/inventory/FifoLayersTable.tsx
- M src/hooks/useInventory.ts
- M src/hooks/usePurchaseReturns.ts                      [pre-existing, separate work]
- M PROGRESS.md
- M EOD/EOD-2026-08-02.md
-```
+## Files most likely to touch in Task 9
 
-The 5 files tagged `[pre-existing, separate work]` were already modified when this session started — they touch returns/receival dialogs and are NOT part of Phase E or these four fixes. Leave them for their own commit.
+- `src/app/(dashboard)/consumption/page.tsx` (new)
+- `src/components/consumption/NewConsumptionDialog.tsx` (new)
+- `src/components/consumption/ConsumptionDetailDialog.tsx` (new — for row click)
+- `src/hooks/useConsumption.ts` (new — wraps `rpc_post_consumption` + `rpc_cancel_consumption` + list query)
+- `src/app/(dashboard)/warehouse/custody/page.tsx` — replace the `handleConsumeStub` toast with a real open handler
+- `src/components/layout/nav-config.ts` — add Consumption entry (under Purchase & Sales, near Custody)
+- `src/lib/queryKeys.ts` — `consumption` namespace already exists
 
-## Immediate next steps (in order)
+## Testing status
 
-1. **Operator verifies the four fixes on staging:**
-   - FIFO layer table shows warehouse + sub-container two-line cell.
-   - PO create with Kitchen active hides Maintenance-only categories.
-   - `/purchase/orders` list + stat cards collapse to active-division POs; "All Divisions" restores.
-   - Inventory Check still opens and completes (regression check — the Phase E RPC touched adjustments, not IC).
-2. **Walk the remaining 5 Phase E smoke flows** (rows 5–9 above). Fix any errors that surface.
-3. **Commit the four fixes** — code first, PROGRESS.md + EOD alone after, per protocol:
-   ```
-   git add src/hooks/useInventory.ts src/components/services/inventory/FifoLayersTable.tsx \
-           src/components/purchase/PoLineItemsEditor.tsx src/app/\(dashboard\)/purchase/orders/page.tsx
-   git commit -m "feat(ui): FIFO sub-container column + division-scoped PO surfaces"
-   git add PROGRESS.md EOD/EOD-2026-08-02.md
-   git commit -m "docs: update PROGRESS.md — Phase E smoke follow-ups + Inv Check verified"
-   ```
-4. **Deal with the 5 pre-existing modified files** — their own review/commit, separate from Phase E.
-5. **`git push origin feature/warehouse-model-v2`** once all remaining smoke flows land.
-6. **Codex review** of the whole branch.
-7. **PR to `main`**.
-8. **Prod migration catch-up** — one big push of D.6.a → Phase E migrations after Codex clears.
+- ✅ Task 8 fully verified by operator on staging: request → dispatch → accept round-trip, return round-trip (including the standard Transfers page receival), admin bypass works, non-admin can't act on someone else's card, cross-division transfer items visible on Transfers page, sub-container names appear in From/To boxes.
+- ⏭️ Consolidated Warehouses admin page — pending operator verification. Test path: Master Data → Warehouses admin page → expand Teams virtual warehouse → click Add → new form has responsible-person picker → save → row appears with responsible person shown → activate/deactivate toggle with confirm dialog. Repeat for Places virtual + Repair virtual (Repair should hide the Division picker in the form).
+- ⏭️ Task 9 UI — not started.
 
-## Rules to keep following
+## Commit protocol reminders
 
-- **Commit policy:** never commit until operator confirms working.
-- **PROGRESS.md protocol:** task complete → commit code, update PROGRESS + security audit, commit docs alone.
-- **Function bodies from live DB:** every RPC in Mig A was sourced from `pg_get_functiondef`, not from a stale migration file.
-- **Types regen:** always strip CLI stderr leaks + re-append helper aliases.
-- **No browser tools / no build:** stick to typecheck + operator manual verification.
-- **EOD:** append every completed task; finalize on "EOD" with blockers.
+- Every task = code commit + separate PROGRESS.md commit. Do not batch.
+- Commit trailer must have both authors:
+  ```
+  Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
+  Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+  ```
+- `npx supabase db push` for every migration. Never ask the user to run SQL.
+- After every `supabase gen types` run, re-append the DBTable / DBInsert / DBUpdate / AllTables helper aliases at the bottom of `src/types/database.types.ts`.
 
-## Deferred / parked
+## Environment gotchas
 
-- **D.6.b prod migration catch-up** — staging is many migrations ahead of prod: D.6.a/D.6.b, D.7, D.8, D.9, D.10, D.11, D.13, D.12 (3 migs), D.14 (1 mig), Phase E (4 migs). Push as one operation after Codex clears.
-- **Codex review of the whole `feature/warehouse-model-v2` branch** — many commits ahead of origin at push time.
-- **Pre-existing tsc errors** — 3 baseline errors (2 `InventoryCheck` casts at `useWarehouseOperations.ts:892,1214`; 1 `arabic-names.ts:34` cast). Every Phase-E-caused error was fixed; these three predate the phase.
-- **Follow-up UX polish** — the cascade picker's "N in stock" chip on the SO create page still shows tenant-wide stock, not per-division. Consider a division-scoped stock hint in a later phase.
-- **`useDamagedMovements` dead export** in `useDamagedStockOverview.ts`.
-- **URL sync** for the damaged-stock page's `stream=damaged` deep link.
-- **Flow Visualizer polish.**
+- Type gen: `npx supabase gen types typescript --linked --schema public` (use `--linked`, not `--project-id` — that path 500s intermittently and clobbers the file).
+- Never use `Date.now()` / `Math.random()` in migrations; use `now()` inside SQL.
+- Windows line endings — git will warn "LF will be replaced by CRLF" on every commit. Ignore.
 
-## Session recap so far
+## Open questions for the operator
 
-Shipped end-to-end on `feature/warehouse-model-v2` this session:
-
-1. **D.12 Tasks 1–5** — sharing metadata, master-list filter chips, cascade division filter, "Shared from" chips, COGS consumer-division routing. Verified on DEL-00033.
-2. **UI polish pair** — number-input spinner strip + credit-only partial payments (commit `6ea98b9f`).
-3. **D.14 Bulk Excel import** — exceljs writer with dropdowns, variable-depth category columns, routing defaults stamped on import (commits `a417720f`, `a74519b6`, `dfc37832`).
-4. **Phase E** — 4 migrations applied, 6 RPCs rewritten, 8 code files updated. Committed in `3ed6f61a` + `85f0fcd5` + `4db6abae` + `a43a18be`.
-5. **Phase E smoke follow-ups** — 4 fixes staged (this file, section above). Waiting on operator confirm.
-
-Branch is many commits ahead of `origin/feature/warehouse-model-v2` (last push `de81570d`, current HEAD `a43a18be` + 4 uncommitted follow-up fixes on top). Push once all 7 smoke flows land.
-
----
-
-Phase E's last mile: 5 more smoke walks, 1 commit for the follow-up fixes, 1 commit for docs, then push. Then the whole `feature/warehouse-model-v2` branch is ready for Codex + PR to `main`.
+- Consumption attachments bucket — does it exist? If not, create as `consumption-attachments` (public: false; RLS restricting to authenticated users).
+- Nav placement for `/consumption` — under Purchase & Sales? Same group as Custody? Plan says "Purchase & Sales (or Operations)" — go with Purchase & Sales unless operator says otherwise.
