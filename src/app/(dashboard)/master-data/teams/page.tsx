@@ -13,6 +13,16 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/shared/EmptyState'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { TeamFormDialog } from '@/components/master-data/TeamFormDialog'
 import { useTeams, useUpdateTeam, type TeamRow } from '@/hooks/useTeamSubContainers'
 
@@ -26,6 +36,7 @@ export default function TeamsPage() {
   const [search, setSearch]     = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing]   = useState<TeamRow | null>(null)
+  const [confirmToggle, setConfirmToggle] = useState<TeamRow | null>(null)
 
   const { data: teams = [], isLoading } = useTeams()
   const toggle = useUpdateTeam()
@@ -58,12 +69,20 @@ export default function TeamsPage() {
     setEditing(t)
     setFormOpen(true)
   }
-  function handleToggleActive(t: TeamRow) {
+  function handleConfirmToggle() {
+    const t = confirmToggle
+    if (!t) return
     toggle.mutate(
       { id: t.id, is_active: !t.is_active },
       {
-        onSuccess: () => toast.success(t.is_active ? 'Team deactivated' : 'Team reactivated'),
-        onError:   (err) => toast.error(err.message),
+        onSuccess: () => {
+          toast.success(t.is_active ? 'Team deactivated' : 'Team reactivated')
+          setConfirmToggle(null)
+        },
+        onError: (err) => {
+          toast.error(err.message)
+          setConfirmToggle(null)
+        },
       },
     )
   }
@@ -152,7 +171,7 @@ export default function TeamsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleToggleActive(t)}
+                              onClick={() => setConfirmToggle(t)}
                               disabled={toggle.isPending}
                               className="h-8 text-xs"
                             >
@@ -183,6 +202,31 @@ export default function TeamsPage() {
         onOpenChange={setFormOpen}
         team={editing}
       />
+
+      <AlertDialog open={!!confirmToggle} onOpenChange={(o) => !o && setConfirmToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmToggle?.is_active ? `Deactivate ${confirmToggle?.name}?` : `Reactivate ${confirmToggle?.name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmToggle?.is_active
+                ? 'This team will stop appearing on the Custody page and consumption pickers. Existing stock stays on its books until returned or consumed.'
+                : 'This team will start appearing again on the Custody page and consumption pickers.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={toggle.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmToggle}
+              disabled={toggle.isPending}
+              className={confirmToggle?.is_active ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            >
+              {toggle.isPending ? 'Saving…' : (confirmToggle?.is_active ? 'Deactivate' : 'Reactivate')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageWrapper>
   )
 }

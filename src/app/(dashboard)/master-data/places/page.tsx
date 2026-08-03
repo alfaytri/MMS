@@ -13,6 +13,16 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/shared/EmptyState'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { PlaceFormDialog } from '@/components/master-data/PlaceFormDialog'
 import { usePlaces, useUpdatePlace, type PlaceRow } from '@/hooks/usePlaceSubContainers'
 
@@ -25,6 +35,7 @@ export default function PlacesPage() {
   const [search, setSearch]     = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing]   = useState<PlaceRow | null>(null)
+  const [confirmToggle, setConfirmToggle] = useState<PlaceRow | null>(null)
 
   const { data: places = [], isLoading } = usePlaces()
   const toggle = useUpdatePlace()
@@ -56,12 +67,20 @@ export default function PlacesPage() {
     setEditing(p)
     setFormOpen(true)
   }
-  function handleToggleActive(p: PlaceRow) {
+  function handleConfirmToggle() {
+    const p = confirmToggle
+    if (!p) return
     toggle.mutate(
       { id: p.id, is_active: !p.is_active },
       {
-        onSuccess: () => toast.success(p.is_active ? 'Place deactivated' : 'Place reactivated'),
-        onError:   (err) => toast.error(err.message),
+        onSuccess: () => {
+          toast.success(p.is_active ? 'Place deactivated' : 'Place reactivated')
+          setConfirmToggle(null)
+        },
+        onError: (err) => {
+          toast.error(err.message)
+          setConfirmToggle(null)
+        },
       },
     )
   }
@@ -150,7 +169,7 @@ export default function PlacesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleToggleActive(p)}
+                              onClick={() => setConfirmToggle(p)}
                               disabled={toggle.isPending}
                               className="h-8 text-xs"
                             >
@@ -181,6 +200,31 @@ export default function PlacesPage() {
         onOpenChange={setFormOpen}
         place={editing}
       />
+
+      <AlertDialog open={!!confirmToggle} onOpenChange={(o) => !o && setConfirmToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmToggle?.is_active ? `Deactivate ${confirmToggle?.name}?` : `Reactivate ${confirmToggle?.name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmToggle?.is_active
+                ? 'This place will stop appearing on the Custody page and consumption pickers. Existing stock stays on its books until returned or consumed.'
+                : 'This place will start appearing again on the Custody page and consumption pickers.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={toggle.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmToggle}
+              disabled={toggle.isPending}
+              className={confirmToggle?.is_active ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            >
+              {toggle.isPending ? 'Saving…' : (confirmToggle?.is_active ? 'Deactivate' : 'Reactivate')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageWrapper>
   )
 }

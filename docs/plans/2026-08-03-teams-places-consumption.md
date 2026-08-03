@@ -342,9 +342,11 @@ Cancellation of an in-flight custody assign is handled by the existing `cancel_t
 
 Table of Teams sub-containers grouped by division. Each row: name (e.g. "Team 1"), division, is_active, team_id (empty until Teams module ships). Actions: create, rename, deactivate. Nothing about stock — that's the Custody page.
 
+**Activate/Deactivate confirmation** (2026-08-03 addition): the Activate / Deactivate button opens an `AlertDialog` before firing the mutation. Deactivate copy calls out the consequences ("This team will stop appearing on the Custody page + consumption picker. Existing stock stays on its books until returned or consumed."); Activate copy is friendlier ("This team will start appearing again in Custody + consumption pickers."). No dialog for rename / responsible-person edits — those go through the existing form.
+
 ### `/master-data/places` (new)
 
-Table of Places sub-containers. Each row: name (used as the code, e.g. "F004"), division, is_active. Same CRUD shape as Teams.
+Table of Places sub-containers. Each row: name (used as the code, e.g. "F004"), division, is_active. Same CRUD shape as Teams, including the same Activate/Deactivate confirmation dialog.
 
 ### `/warehouse/custody` (new)
 
