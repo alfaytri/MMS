@@ -69,6 +69,7 @@ export type WarehouseStockItem = {
   item_type: string | null
   allocated_qty: number
   available_qty: number
+  image_url: string | null
 }
 
 export type TransferStatus = 'pending' | 'in_transit' | 'received' | 'rejected' | 'cancelled'
@@ -402,7 +403,7 @@ export function useWarehouseStock(warehouseId?: string, subContainerId?: string 
       const supabase = createClient()
       let q = supabase
         .from('warehouse_stock_view')
-        .select('warehouse_id, sub_container_id, sub_container_name, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
+        .select('warehouse_id, sub_container_id, sub_container_name, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty, image_url')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       if (subContainerId) q = q.eq('sub_container_id', subContainerId)

@@ -160,6 +160,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       qty:           fromSubContainerId ? (availableQtyMap.get(s.brand_variant_id) ?? 0) : s.available_qty,
       destQty:       destStockMap.get(s.brand_variant_id)?.qty,
       reorderPoint:  reorderMap.get(s.brand_variant_id) ?? 0,
+      imageUrl:      s.image_url ?? null,
     })),
     [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId],
   )

@@ -85,6 +85,7 @@ export function CustodyReturnDialog({
       brand:    s.brand ?? null,
       sku:      s.sku ?? null,
       category: s.category_name ?? null,
+      imageUrl: s.image_url ?? null,
       qty:      availableQtyMap.get(s.brand_variant_id) ?? 0,
     })),
     [sourceStock, availableQtyMap],

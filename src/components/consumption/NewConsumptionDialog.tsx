@@ -122,6 +122,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
       category:      s.category_name ?? null,
       qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
       reorderPoint:  0,
+      imageUrl:      s.image_url ?? null,
     })),
     [sourceStock, availableQtyMap],
   )

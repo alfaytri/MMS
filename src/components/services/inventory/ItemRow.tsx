@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { BrandVariantRow } from './BrandVariantRow'
 import { ItemEditDialog } from './ItemEditDialog'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
@@ -72,7 +73,12 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
               ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             }
-            <div>
+            <ItemPhoto
+              url={(item as unknown as { image_url?: string | null }).image_url ?? null}
+              name={item.name_en}
+              size={40}
+            />
+            <div className="min-w-0">
               <span className="text-sm font-medium text-blue-600">{item.name_en}</span>
               {item.name_ar && (
                 <div className="text-[10px] text-muted-foreground" dir="rtl">{item.name_ar}</div>

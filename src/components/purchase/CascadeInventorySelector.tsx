@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import {
   useInventoryItemsByCategory,
   useInventoryBrandVariants,
@@ -594,6 +595,12 @@ export function CascadeInventorySelector({
                             className="text-xs"
                           >
                             <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
+                            <ItemPhoto
+                              url={(item as unknown as { image_url?: string | null }).image_url ?? null}
+                              name={item.name_en}
+                              size={32}
+                              className="mr-2"
+                            />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className="truncate">{item.name_en}</span>

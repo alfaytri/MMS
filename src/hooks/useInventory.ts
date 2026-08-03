@@ -262,6 +262,7 @@ export interface BrandVariantGrouped {
   catId: string
   catName: string
   catType: string
+  imageUrl: string | null
 }
 
 /** All brand variants with item + category info — used for the hierarchical link picker. */
@@ -273,7 +274,7 @@ export function useAllBrandVariantsGrouped(enabled = true) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_item_brand_variants')
-        .select('id, brand, cost_price, inventory_items(id, name_en, sku, inventory_categories(id, name_en, type))')
+        .select('id, brand, cost_price, inventory_items(id, name_en, sku, image_url, inventory_categories(id, name_en, type))')
         .order('brand')
       if (error) throw error
       const rows = (data ?? []) as Array<{
@@ -284,6 +285,7 @@ export function useAllBrandVariantsGrouped(enabled = true) {
           id: string
           name_en: string
           sku: string
+          image_url: string | null
           inventory_categories: { id: string; name_en: string; type: string } | null
         } | null
       }>
@@ -297,6 +299,7 @@ export function useAllBrandVariantsGrouped(enabled = true) {
         catId: r.inventory_items?.inventory_categories?.id ?? '__none__',
         catName: r.inventory_items?.inventory_categories?.name_en ?? 'Uncategorised',
         catType: r.inventory_items?.inventory_categories?.type ?? '',
+        imageUrl: r.inventory_items?.image_url ?? null,
       }))
     },
     staleTime: 5 * 60 * 1000,

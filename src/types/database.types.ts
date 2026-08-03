@@ -2532,6 +2532,7 @@ export type Database = {
           default_sub_container_id: string | null
           default_warehouse_id: string | null
           id: string
+          image_url: string | null
           linked_services_count: number | null
           name_ar: string | null
           name_en: string
@@ -2550,6 +2551,7 @@ export type Database = {
           default_sub_container_id?: string | null
           default_warehouse_id?: string | null
           id?: string
+          image_url?: string | null
           linked_services_count?: number | null
           name_ar?: string | null
           name_en: string
@@ -2568,6 +2570,7 @@ export type Database = {
           default_sub_container_id?: string | null
           default_warehouse_id?: string | null
           id?: string
+          image_url?: string | null
           linked_services_count?: number | null
           name_ar?: string | null
           name_en?: string
@@ -6790,6 +6793,7 @@ export type Database = {
           brand: string | null
           brand_variant_id: string | null
           category_name: string | null
+          image_url: string | null
           item_name: string | null
           item_type: string | null
           qty: number | null

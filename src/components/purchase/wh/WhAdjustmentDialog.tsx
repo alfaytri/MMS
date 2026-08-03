@@ -67,6 +67,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       brand:    v.brand ?? null,
       sku:      v.itemSku ?? null,
       category: v.catName ?? null,
+      imageUrl: v.imageUrl,
     })),
     [allVariants],
   )

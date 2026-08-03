@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { Package } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { ItemPhoto } from '@/components/shared/ItemPhoto'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,10 @@ export interface PickerItem {
   qty?: number
   destQty?: number
   reorderPoint?: number
+  /** Public URL of the item's catalog photo. If null the picker renders
+   *  a Package-icon placeholder in its place. Same photo for every brand
+   *  variant of the same item — the photo lives on inventory_items. */
+  imageUrl?: string | null
 }
 
 interface Props {
@@ -168,15 +173,22 @@ export function WhItemPicker({
             <div className="divide-y">
               {Array.from(visibleItemGroups.values()).map(({ cat, name, variants }) => {
                 const showCatLabel = searching || selectedCategory === '__all'
+                // Every variant of the same item shares the same photo
+                // (it lives on inventory_items). Grab it from the first
+                // variant that has one.
+                const itemImageUrl = variants.find((v) => v.imageUrl)?.imageUrl ?? null
                 return (
                   <div key={`${cat}||${name}`} className="px-3 py-2 space-y-1.5">
-                    <div className="min-w-0">
-                      {showCatLabel && cat && (
-                        <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
-                          {cat}
-                        </span>
-                      )}
-                      <p className="text-[11px] font-medium truncate">{name}</p>
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        {showCatLabel && cat && (
+                          <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
+                            {cat}
+                          </span>
+                        )}
+                        <p className="text-[11px] font-medium truncate">{name}</p>
+                      </div>
+                      <ItemPhoto url={itemImageUrl} name={name} size={48} />
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {variants.map((v) => {
