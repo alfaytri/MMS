@@ -374,7 +374,12 @@ export type Database = {
       cogs_entries: {
         Row: {
           brand_variant_id: string
+          consumer_customer_id: string | null
           consumer_division_id: string | null
+          consumer_place_sub_id: string | null
+          consumer_team_sub_id: string | null
+          consumer_type: string | null
+          consumption_id: string | null
           created_at: string
           date: string
           division_id: string | null
@@ -391,7 +396,12 @@ export type Database = {
         }
         Insert: {
           brand_variant_id: string
+          consumer_customer_id?: string | null
           consumer_division_id?: string | null
+          consumer_place_sub_id?: string | null
+          consumer_team_sub_id?: string | null
+          consumer_type?: string | null
+          consumption_id?: string | null
           created_at?: string
           date?: string
           division_id?: string | null
@@ -408,7 +418,12 @@ export type Database = {
         }
         Update: {
           brand_variant_id?: string
+          consumer_customer_id?: string | null
           consumer_division_id?: string | null
+          consumer_place_sub_id?: string | null
+          consumer_team_sub_id?: string | null
+          consumer_type?: string | null
+          consumption_id?: string | null
           created_at?: string
           date?: string
           division_id?: string | null
@@ -432,10 +447,59 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cogs_entries_consumer_customer_id_fkey"
+            columns: ["consumer_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumer_customer_id_fkey"
+            columns: ["consumer_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cogs_entries_consumer_division_id_fkey"
             columns: ["consumer_division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumer_place_sub_id_fkey"
+            columns: ["consumer_place_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumer_place_sub_id_fkey"
+            columns: ["consumer_place_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumer_team_sub_id_fkey"
+            columns: ["consumer_team_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumer_team_sub_id_fkey"
+            columns: ["consumer_team_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumption_id_fkey"
+            columns: ["consumption_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_entries"
             referencedColumns: ["id"]
           },
           {
@@ -642,6 +706,215 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consumption_entries: {
+        Row: {
+          attachments: string[]
+          cancelled_at: string | null
+          cancelled_by: string | null
+          ce_number: string
+          consumer_customer_id: string | null
+          consumer_place_sub_id: string | null
+          consumer_team_sub_id: string | null
+          consumer_type: string
+          created_at: string
+          created_by: string | null
+          date: string
+          division_id: string | null
+          id: string
+          notes: string | null
+          posted_at: string | null
+          posted_by: string | null
+          source_sub_container_id: string
+          source_warehouse_id: string
+          status: string
+        }
+        Insert: {
+          attachments?: string[]
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          ce_number: string
+          consumer_customer_id?: string | null
+          consumer_place_sub_id?: string | null
+          consumer_team_sub_id?: string | null
+          consumer_type: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          division_id?: string | null
+          id?: string
+          notes?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          source_sub_container_id: string
+          source_warehouse_id: string
+          status?: string
+        }
+        Update: {
+          attachments?: string[]
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          ce_number?: string
+          consumer_customer_id?: string | null
+          consumer_place_sub_id?: string | null
+          consumer_team_sub_id?: string | null
+          consumer_type?: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          division_id?: string | null
+          id?: string
+          notes?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          source_sub_container_id?: string
+          source_warehouse_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consumption_entries_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_consumer_customer_id_fkey"
+            columns: ["consumer_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_consumer_customer_id_fkey"
+            columns: ["consumer_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_consumer_place_sub_id_fkey"
+            columns: ["consumer_place_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_consumer_place_sub_id_fkey"
+            columns: ["consumer_place_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_consumer_team_sub_id_fkey"
+            columns: ["consumer_team_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_consumer_team_sub_id_fkey"
+            columns: ["consumer_team_sub_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_source_sub_container_id_fkey"
+            columns: ["source_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_source_sub_container_id_fkey"
+            columns: ["source_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_source_warehouse_id_fkey"
+            columns: ["source_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consumption_lines: {
+        Row: {
+          brand_variant_id: string
+          consumption_id: string
+          created_at: string
+          id: string
+          item_name: string
+          qty: number
+          sku: string | null
+          total_cost: number | null
+          unit_cost: number | null
+        }
+        Insert: {
+          brand_variant_id: string
+          consumption_id: string
+          created_at?: string
+          id?: string
+          item_name: string
+          qty: number
+          sku?: string | null
+          total_cost?: number | null
+          unit_cost?: number | null
+        }
+        Update: {
+          brand_variant_id?: string
+          consumption_id?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          qty?: number
+          sku?: string | null
+          total_cost?: number | null
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consumption_lines_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_lines_consumption_id_fkey"
+            columns: ["consumption_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -7059,6 +7332,7 @@ export type Database = {
         Returns: number
       }
       generate_check_number: { Args: never; Returns: string }
+      generate_consumption_number: { Args: never; Returns: string }
       generate_contract_id: { Args: never; Returns: string }
       generate_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
       generate_order_quotation_id: { Args: never; Returns: string }
