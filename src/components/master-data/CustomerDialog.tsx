@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Upload, FileCheck2, X, Lock, Plus, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -138,10 +139,13 @@ export function CustomerDialog({
     const supabase = createClient()
     setUploading(slot)
     try {
-      const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      // Credit-doc scans are often phone photos — compress images before
+      // upload. CR / ID scans typically arrive as PDFs and pass through.
+      const toUpload = await compressImageBeforeUpload(file)
+      const sanitized = toUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const folder = customer?.id ?? 'pending'
       const path = `${folder}/${Date.now()}-${slot}-${sanitized}`
-      const { error } = await supabase.storage.from(BUCKET).upload(path, file)
+      const { error } = await supabase.storage.from(BUCKET).upload(path, toUpload)
       if (error) throw error
       return { path, name: file.name }
     } catch (err) {

@@ -685,6 +685,64 @@ export type Database = {
           },
         ]
       }
+      consumption_edit_requests: {
+        Row: {
+          consumption_id: string
+          created_at: string
+          id: string
+          reason: string
+          requested_by: string
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          consumption_id: string
+          created_at?: string
+          id?: string
+          reason: string
+          requested_by: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          consumption_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          requested_by?: string
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consumption_edit_requests_consumption_id_fkey"
+            columns: ["consumption_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_edit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_edit_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consumption_entries: {
         Row: {
           attachments: string[]
@@ -7619,6 +7677,10 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: Json
       }
+      rpc_decide_consumption_edit: {
+        Args: { p_comment?: string; p_decision: string; p_request_id: string }
+        Returns: undefined
+      }
       rpc_dispatch_custody_assign: {
         Args: {
           p_dispatched_by_name?: string
@@ -7696,6 +7758,10 @@ export type Database = {
       rpc_record_return_store_credit: {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
+      }
+      rpc_request_consumption_edit: {
+        Args: { p_consumption_id: string; p_reason: string }
+        Returns: string
       }
       rpc_request_damaged_writeoff: {
         Args: {

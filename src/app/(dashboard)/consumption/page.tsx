@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { HandCoins, MapPin, Package, Plus, User2, Users2 } from 'lucide-react'
+import { HandCoins, MapPin, Package, Plus, Users2 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
@@ -39,11 +39,10 @@ const STATUS_CONFIG: Record<ConsumptionStatus, { label: string; className: strin
 }
 
 const CONSUMER_TYPES: { value: ConsumerType | 'all'; label: string }[] = [
-  { value: 'all',           label: 'All consumers' },
-  { value: 'team',          label: 'Team' },
-  { value: 'customer_site', label: 'Customer Site' },
-  { value: 'customer',      label: 'Customer' },
-  { value: 'internal',      label: 'Internal' },
+  { value: 'all',      label: 'All consumers' },
+  { value: 'team',     label: 'Team' },
+  { value: 'place',    label: 'Place' },
+  { value: 'internal', label: 'Internal' },
 ]
 
 const STATUSES: { value: ConsumptionStatus | 'all'; label: string }[] = [
@@ -53,9 +52,8 @@ const STATUSES: { value: ConsumptionStatus | 'all'; label: string }[] = [
 ]
 
 function ConsumerIcon({ type }: { type: ConsumerType }) {
-  if (type === 'team')          return <Users2   className="h-3 w-3 text-muted-foreground" />
-  if (type === 'customer_site') return <MapPin   className="h-3 w-3 text-muted-foreground" />
-  if (type === 'customer')      return <User2    className="h-3 w-3 text-muted-foreground" />
+  if (type === 'team')  return <Users2  className="h-3 w-3 text-muted-foreground" />
+  if (type === 'place') return <MapPin  className="h-3 w-3 text-muted-foreground" />
   return <Package className="h-3 w-3 text-muted-foreground" />
 }
 
@@ -118,7 +116,7 @@ export default function ConsumptionPage() {
           <div className="min-w-0">
             <div className="text-xs font-medium truncate">{row.original.consumer_display}</div>
             <div className="text-[10px] text-muted-foreground capitalize">
-              {row.original.consumer_type.replace('_', ' ')}
+              {row.original.consumer_type}
             </div>
           </div>
         </div>

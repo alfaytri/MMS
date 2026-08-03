@@ -24,7 +24,6 @@ import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useTeams } from '@/hooks/useTeamSubContainers'
 import { usePlaces } from '@/hooks/usePlaceSubContainers'
-import { useCustomers } from '@/hooks/useSaleOrders'
 import {
   useCreateConsumption,
   uploadConsumptionAttachment,
@@ -86,9 +85,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
   const [consumerType,     setConsumerType]     = useState<ConsumerType>('team')
   const [consumerTeamSub,  setConsumerTeamSub]  = useState<string>('')
   const [consumerPlaceSub, setConsumerPlaceSub] = useState<string>('')
-  const [consumerCustomer, setConsumerCustomer] = useState<string>('')
-  const [customerSearch,   setCustomerSearch]   = useState('')
-  const { data: customers = [] } = useCustomers(customerSearch)
 
   const activeTeams  = useMemo(() => teams.filter((t) => t.is_active), [teams])
   const activePlaces = useMemo(() => places.filter((p) => p.is_active), [places])
@@ -162,8 +158,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
       setConsumerType('team')
       setConsumerTeamSub('')
       setConsumerPlaceSub('')
-      setConsumerCustomer('')
-      setCustomerSearch('')
       setRows([{ brand_variant_id: '', qty: '' }])
       setOpenPickerIdx(null)
       setNotes('')
@@ -238,11 +232,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
 
   // ── Consumer validation
   const consumerResolved = useMemo(() => {
-    if (consumerType === 'team')          return !!consumerTeamSub
-    if (consumerType === 'customer_site') return !!consumerPlaceSub
-    if (consumerType === 'customer')      return !!consumerCustomer
+    if (consumerType === 'team')  return !!consumerTeamSub
+    if (consumerType === 'place') return !!consumerPlaceSub
     return true // internal — no picker
-  }, [consumerType, consumerTeamSub, consumerPlaceSub, consumerCustomer])
+  }, [consumerType, consumerTeamSub, consumerPlaceSub])
 
   // ── Submit gate
   const hasValidRows        = rows.some((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
@@ -262,11 +255,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
     cooldownRemaining <= 0
 
   const consumerLabel = useMemo(() => {
-    if (consumerType === 'team')          return activeTeams.find((t)  => t.id === consumerTeamSub)?.name ?? null
-    if (consumerType === 'customer_site') return activePlaces.find((p) => p.id === consumerPlaceSub)?.name ?? null
-    if (consumerType === 'customer')      return customers.find((c) => c.id === consumerCustomer)?.name ?? null
-    return 'Internal'
-  }, [consumerType, consumerTeamSub, consumerPlaceSub, consumerCustomer, activeTeams, activePlaces, customers])
+    if (consumerType === 'team')  return activeTeams.find((t)  => t.id === consumerTeamSub)?.name ?? null
+    if (consumerType === 'place') return activePlaces.find((p) => p.id === consumerPlaceSub)?.name ?? null
+    return 'Internal use'
+  }, [consumerType, consumerTeamSub, consumerPlaceSub, activeTeams, activePlaces])
 
   const linesTotal = useMemo(() => {
     return rows.reduce((sum, r) => {
@@ -299,9 +291,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
         source_warehouse_id:     srcWhId,
         source_sub_container_id: srcSubId,
         consumer_type:           consumerType,
-        consumer_team_sub_id:    consumerType === 'team'          ? consumerTeamSub  : null,
-        consumer_place_sub_id:   consumerType === 'customer_site' ? consumerPlaceSub : null,
-        consumer_customer_id:    consumerType === 'customer'      ? consumerCustomer : null,
+        consumer_team_sub_id:    consumerType === 'team'  ? consumerTeamSub  : null,
+        consumer_place_sub_id:   consumerType === 'place' ? consumerPlaceSub : null,
         notes:                   notes.trim() || null,
         attachments:             attachments,
         lines,
@@ -407,12 +398,11 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
           {/* Consumer */}
           <div className="space-y-2">
             <Label className="text-[11px] font-medium">Consumer</Label>
-            <div className="grid grid-cols-4 gap-1 rounded-md border bg-muted/30 p-1">
+            <div className="grid grid-cols-3 gap-1 rounded-md border bg-muted/30 p-1">
               {([
-                { key: 'team',           label: 'Team' },
-                { key: 'customer_site',  label: 'Customer Site' },
-                { key: 'customer',       label: 'Customer' },
-                { key: 'internal',       label: 'Internal' },
+                { key: 'team',     label: 'Team' },
+                { key: 'place',    label: 'Place' },
+                { key: 'internal', label: 'Internal' },
               ] as { key: ConsumerType; label: string }[]).map((opt) => (
                 <button
                   key={opt.key}
@@ -448,10 +438,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
                   </SelectContent>
                 </Select>
               )}
-              {consumerType === 'customer_site' && (
+              {consumerType === 'place' && (
                 <Select value={consumerPlaceSub} onValueChange={(v) => { setConsumerPlaceSub(v ?? ''); bumpCooldown() }}>
                   <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Pick a customer site…" />
+                    <SelectValue placeholder="Pick a place…" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
                     {activePlaces.length === 0 && (
@@ -465,32 +455,9 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
                   </SelectContent>
                 </Select>
               )}
-              {consumerType === 'customer' && (
-                <div className="space-y-1">
-                  <Input
-                    className="h-8 text-[11px]"
-                    placeholder="Search customer by name…"
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                  />
-                  <Select value={consumerCustomer} onValueChange={(v) => { setConsumerCustomer(v ?? ''); bumpCooldown() }}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Pick a customer…" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60 overflow-y-auto">
-                      {customers.length === 0 && (
-                        <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No matches</div>
-                      )}
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               {consumerType === 'internal' && (
                 <div className="h-9 flex items-center rounded-md border bg-muted/40 px-2.5 text-[11px] text-muted-foreground italic">
-                  Booked as internal consumption — no consumer FK.
+                  Internal use — office supplies, samples, tool wear, expiry write-off. No external recipient.
                 </div>
               )}
             </div>

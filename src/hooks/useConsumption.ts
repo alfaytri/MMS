@@ -16,10 +16,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { compressImageBeforeUpload } from '@/lib/compressImage'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-export type ConsumerType = 'team' | 'customer_site' | 'customer' | 'internal'
+export type ConsumerType = 'team' | 'place' | 'internal'
 
 export type ConsumptionStatus = 'draft' | 'posted' | 'cancelled'
 
@@ -45,7 +46,6 @@ export type ConsumptionListRow = {
   consumer_type:             ConsumerType
   consumer_team_sub_id:      string | null
   consumer_place_sub_id:     string | null
-  consumer_customer_id:      string | null
   consumer_display:          string
   notes:                     string | null
   attachments:               string[]
@@ -81,7 +81,6 @@ type RawRow = {
   consumer_type:             ConsumerType
   consumer_team_sub_id:      string | null
   consumer_place_sub_id:     string | null
-  consumer_customer_id:      string | null
   notes:                     string | null
   attachments:               string[] | null
   posted_at:                 string | null
@@ -90,7 +89,6 @@ type RawRow = {
   source_sub:        { name: string | null }                | null
   team_sub:          { name: string | null }                | null
   place_sub:         { name: string | null }                | null
-  customer:          { name: string | null }                | null
   posted_by_user:    { full_name: string | null }           | null
   cancelled_by_user: { full_name: string | null }           | null
   division:          { name: string | null }                | null
@@ -105,9 +103,8 @@ function mapRow(row: RawRow): ConsumptionListRow {
   )
 
   let consumer_display = 'Internal'
-  if (row.consumer_type === 'team')          consumer_display = row.team_sub?.name  ?? '(team removed)'
-  if (row.consumer_type === 'customer_site') consumer_display = row.place_sub?.name ?? '(place removed)'
-  if (row.consumer_type === 'customer')      consumer_display = row.customer?.name ?? '(customer removed)'
+  if (row.consumer_type === 'team')  consumer_display = row.team_sub?.name  ?? '(team removed)'
+  if (row.consumer_type === 'place') consumer_display = row.place_sub?.name ?? '(place removed)'
 
   return {
     id:                        row.id,
@@ -121,7 +118,6 @@ function mapRow(row: RawRow): ConsumptionListRow {
     consumer_type:             row.consumer_type,
     consumer_team_sub_id:      row.consumer_team_sub_id,
     consumer_place_sub_id:     row.consumer_place_sub_id,
-    consumer_customer_id:      row.consumer_customer_id,
     consumer_display,
     notes:                     row.notes,
     attachments:               row.attachments ?? [],
@@ -138,13 +134,12 @@ function mapRow(row: RawRow): ConsumptionListRow {
 const LIST_SELECT = `
   id, ce_number, date, status,
   source_warehouse_id, source_sub_container_id,
-  consumer_type, consumer_team_sub_id, consumer_place_sub_id, consumer_customer_id,
+  consumer_type, consumer_team_sub_id, consumer_place_sub_id,
   notes, attachments, posted_at, cancelled_at,
   source_warehouse:source_warehouse_id(name),
   source_sub:source_sub_container_id(name),
   team_sub:consumer_team_sub_id(name),
   place_sub:consumer_place_sub_id(name),
-  customer:consumer_customer_id(name),
   posted_by_user:posted_by(full_name),
   cancelled_by_user:cancelled_by(full_name),
   division:division_id(name),
@@ -237,7 +232,6 @@ export function useCreateConsumption() {
       consumer_type:            ConsumerType
       consumer_team_sub_id?:    string | null
       consumer_place_sub_id?:   string | null
-      consumer_customer_id?:    string | null
       notes?:                   string | null
       attachments?:             string[]
       lines:                    PostConsumptionLine[]
@@ -253,7 +247,9 @@ export function useCreateConsumption() {
         p_consumer_type:           payload.consumer_type,
         p_consumer_team_sub_id:    payload.consumer_team_sub_id  ?? null,
         p_consumer_place_sub_id:   payload.consumer_place_sub_id ?? null,
-        p_consumer_customer_id:    payload.consumer_customer_id  ?? null,
+        // Customer branch dropped in Task 9 revision — RPC signature keeps
+        // the tail param for schema stability but the DB always nulls it.
+        p_consumer_customer_id:    null,
         p_notes:                   payload.notes ?? null,
         p_attachments:             payload.attachments ?? [],
         p_lines:                   payload.lines,
@@ -295,19 +291,208 @@ export function useCancelConsumption() {
 
 // ─── 5. Storage — attachments ──────────────────────────────────────────
 
+// ─── 6. Consumption edit requests (Request Cancellation approval flow) ─
+
+export type ConsumptionEditRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export type ConsumptionEditRequest = {
+  id:                string
+  consumption_id:    string
+  requested_by:      string
+  requester_name:    string | null
+  reason:            string
+  status:            ConsumptionEditRequestStatus
+  reviewed_by:       string | null
+  reviewer_name:     string | null
+  reviewed_at:       string | null
+  review_comment:    string | null
+  created_at:        string
+}
+
+type RawEditRequest = {
+  id:              string
+  consumption_id:  string
+  requested_by:    string
+  reason:          string
+  status:          ConsumptionEditRequestStatus
+  reviewed_by:     string | null
+  reviewed_at:     string | null
+  review_comment:  string | null
+  created_at:      string
+  requester:  { full_name: string | null } | null
+  reviewer:   { full_name: string | null } | null
+}
+
+function mapEditRequest(row: RawEditRequest): ConsumptionEditRequest {
+  return {
+    id:              row.id,
+    consumption_id:  row.consumption_id,
+    requested_by:    row.requested_by,
+    requester_name:  row.requester?.full_name ?? null,
+    reason:          row.reason,
+    status:          row.status,
+    reviewed_by:     row.reviewed_by,
+    reviewer_name:   row.reviewer?.full_name ?? null,
+    reviewed_at:     row.reviewed_at,
+    review_comment:  row.review_comment,
+    created_at:      row.created_at,
+  }
+}
+
+const EDIT_REQUEST_SELECT = `
+  id, consumption_id, requested_by, reason, status,
+  reviewed_by, reviewed_at, review_comment, created_at,
+  requester:requested_by(full_name),
+  reviewer:reviewed_by(full_name)
+`
+
+/** All requests (any status) for one consumption, newest-first. */
+export function useConsumptionEditRequests(consumptionId: string | null) {
+  return useQuery({
+    queryKey: ['consumption-edit-requests', consumptionId],
+    enabled: !!consumptionId,
+    queryFn: async (): Promise<ConsumptionEditRequest[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('consumption_edit_requests')
+        .select(EDIT_REQUEST_SELECT)
+        .eq('consumption_id', consumptionId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data as unknown as RawEditRequest[]).map(mapEditRequest)
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
+/** Every pending consumption edit request across the app — for the approvals page. */
+export function usePendingConsumptionEditRequests() {
+  return useQuery({
+    queryKey: ['consumption-edit-requests', 'pending'],
+    queryFn: async (): Promise<ConsumptionEditRequest[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('consumption_edit_requests')
+        .select(EDIT_REQUEST_SELECT)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (error) throw error
+      return (data as unknown as RawEditRequest[]).map(mapEditRequest)
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
+export function useRequestConsumptionEdit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { consumption_id: string; reason: string }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_request_consumption_edit', {
+        p_consumption_id: payload.consumption_id,
+        p_reason:         payload.reason,
+      })
+      if (error) throw new Error(error.message)
+      return data as unknown as string
+    },
+    onSuccess: (_data, payload) => {
+      qc.invalidateQueries({ queryKey: ['consumption-edit-requests', payload.consumption_id] })
+      qc.invalidateQueries({ queryKey: ['consumption-edit-requests', 'pending'] })
+    },
+  })
+}
+
+export function useDecideConsumptionEdit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      request_id:      string
+      decision:        'approved' | 'rejected'
+      comment?:        string | null
+      consumption_id?: string   // for cache invalidation
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('rpc_decide_consumption_edit', {
+        p_request_id: payload.request_id,
+        p_decision:   payload.decision,
+        p_comment:    payload.comment ?? undefined,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: (_data, payload) => {
+      qc.invalidateQueries({ queryKey: ['consumption-edit-requests'] })
+      if (payload.consumption_id) {
+        qc.invalidateQueries({ queryKey: queryKeys.consumption.detail(payload.consumption_id) })
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.consumption.all })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+    },
+  })
+}
+
+/**
+ * Does the caller hold a role configured as an active step on the
+ * `consumption_edit` workflow? Mirrors the RLS UPDATE policy so the UI
+ * can decide whether to show Approve/Reject buttons.
+ */
+export function useCanApproveConsumptionEdit() {
+  return useQuery({
+    queryKey: ['consumption-edit-can-approve'],
+    queryFn: async (): Promise<boolean> => {
+      const supabase = createClient()
+      const { data: userRes } = await supabase.auth.getUser()
+      if (!userRes.user) return false
+      const { data, error } = await supabase
+        .from('user_data')
+        .select(`
+          user_custom_roles(
+            custom_roles!inner(
+              approval_workflow_steps!inner(workflow, archived_at)
+            )
+          )
+        `)
+        .eq('auth_user_id', userRes.user.id)
+        .maybeSingle()
+      if (error) return false
+      type Row = {
+        user_custom_roles?: Array<{
+          custom_roles?: {
+            approval_workflow_steps?: Array<{ workflow: string; archived_at: string | null }>
+          }
+        }>
+      }
+      const roles = (data as Row | null)?.user_custom_roles ?? []
+      return roles.some((r) =>
+        (r.custom_roles?.approval_workflow_steps ?? []).some(
+          (s) => s.workflow === 'consumption_edit' && s.archived_at === null,
+        ),
+      )
+    },
+    staleTime: 60 * 1000,
+  })
+}
+
+// ─── 7. Storage — attachments ──────────────────────────────────────────
+
 const BUCKET = 'consumption-attachments'
 
 export async function uploadConsumptionAttachment(file: File): Promise<string> {
   if (file.size > 10 * 1024 * 1024) {
     throw new Error('File too large — maximum 10 MB')
   }
+  // Downscale images before upload — phone photos are typically 4-8 MB
+  // and the attachment viewer doesn't need the full 12 MP frame.
+  const toUpload = await compressImageBeforeUpload(file)
   const supabase = createClient()
   const now = new Date()
   const year  = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
-  const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const sanitized = toUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_')
   const path = `${year}/${month}/${now.getTime()}-${sanitized}`
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file)
+  const { error } = await supabase.storage.from(BUCKET).upload(path, toUpload)
   if (error) throw new Error(error.message)
   return path
 }

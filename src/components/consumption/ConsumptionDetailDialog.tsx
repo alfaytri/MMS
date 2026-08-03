@@ -2,27 +2,24 @@
 
 import { useState } from 'react'
 import {
-  AlertTriangle, Ban, Calendar, ExternalLink, HandCoins, MapPin, Package,
-  Paperclip, User2, Users2, Warehouse,
+  AlertTriangle, Calendar, ExternalLink, HandCoins, MapPin, Package,
+  Paperclip, Send, Users2, Warehouse,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   useConsumption,
-  useCancelConsumption,
   useConsumptionAttachmentUrls,
+  useConsumptionEditRequests,
+  useCanApproveConsumptionEdit,
   type ConsumerType,
 } from '@/hooks/useConsumption'
+import { ConsumptionEditRequestBanner } from './ConsumptionEditRequestBanner'
+import { RequestConsumptionEditDialog } from './RequestConsumptionEditDialog'
 
 interface Props {
   open:         boolean
@@ -44,16 +41,14 @@ function formatDate(iso: string | null): string {
 }
 
 function ConsumerIcon({ type }: { type: ConsumerType }) {
-  if (type === 'team')          return <Users2   className="h-3.5 w-3.5" />
-  if (type === 'customer_site') return <MapPin   className="h-3.5 w-3.5" />
-  if (type === 'customer')      return <User2    className="h-3.5 w-3.5" />
+  if (type === 'team')  return <Users2 className="h-3.5 w-3.5" />
+  if (type === 'place') return <MapPin className="h-3.5 w-3.5" />
   return <Package className="h-3.5 w-3.5" />
 }
 
 function consumerTypeLabel(type: ConsumerType): string {
-  if (type === 'team')          return 'Team'
-  if (type === 'customer_site') return 'Customer Site'
-  if (type === 'customer')      return 'Customer'
+  if (type === 'team')  return 'Team'
+  if (type === 'place') return 'Place'
   return 'Internal'
 }
 
@@ -70,25 +65,20 @@ function StatusBadge({ status }: { status: 'draft' | 'posted' | 'cancelled' }) {
 export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: Props) {
   const { data, isLoading }        = useConsumption(consumptionId)
   const { data: signedUrls = {} }  = useConsumptionAttachmentUrls(data?.attachments)
-  const cancel                     = useCancelConsumption()
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  const { data: editRequests = [] } = useConsumptionEditRequests(consumptionId)
+  const { data: canApprove = false } = useCanApproveConsumptionEdit()
+  const [requestOpen, setRequestOpen] = useState(false)
 
   const total = (data?.lines ?? []).reduce(
     (sum, l) => sum + (l.total_cost ?? (l.qty * (l.unit_cost ?? 0))),
     0,
   )
 
-  async function handleCancel() {
-    if (!consumptionId) return
-    try {
-      await cancel.mutateAsync(consumptionId)
-      toast.success('Consumption cancelled — stock restored')
-      setConfirmOpen(false)
-      onOpenChange(false)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to cancel')
-    }
-  }
+  const latestRequest = editRequests[0] ?? null
+  const hasPending    = latestRequest?.status === 'pending'
+  // Show the "Request Cancellation" trigger only when the entry is
+  // posted AND there is no pending request already in flight.
+  const canRequestEdit = data?.status === 'posted' && !hasPending
 
   return (
     <>
@@ -159,6 +149,13 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                       . Stock has been restored to the source sub-container.
                     </div>
                   </div>
+                )}
+
+                {/* Edit-request banner — surfaces the most-recent request
+                    (pending shows Approve/Decline to authorized users;
+                    approved / rejected shows a compact status line). */}
+                {latestRequest && (
+                  <ConsumptionEditRequestBanner request={latestRequest} canReview={canApprove} />
                 )}
 
                 {/* Lines */}
@@ -245,17 +242,21 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
 
           <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg gap-2 sm:gap-2 flex-row items-center justify-between sm:justify-between">
             <div>
-              {data?.status === 'posted' && (
+              {canRequestEdit && (
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   size="sm"
-                  className="text-[11px] h-8 gap-1"
-                  onClick={() => setConfirmOpen(true)}
-                  disabled={cancel.isPending}
+                  className="text-[11px] h-8 gap-1 border-warning/40 text-warning-foreground hover:bg-warning/10"
+                  onClick={() => setRequestOpen(true)}
                 >
-                  <Ban className="h-3 w-3" />
-                  Cancel consumption
+                  <Send className="h-3 w-3" />
+                  Request cancellation
                 </Button>
+              )}
+              {hasPending && (
+                <span className="text-[10px] text-muted-foreground italic">
+                  A cancellation request is awaiting review
+                </span>
               )}
             </div>
             <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => onOpenChange(false)}>
@@ -265,22 +266,12 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this consumption?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Restores each drained FIFO layer to the source sub-container and reverses the COGS booking. If the original layers have been purged the restore lands on <span className="font-medium">{data?.source_sub_container_name ?? 'the source sub-container'}</span> as a fallback.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancel.isPending}>Keep it</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel} disabled={cancel.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {cancel.isPending ? 'Cancelling…' : 'Yes, cancel'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RequestConsumptionEditDialog
+        open={requestOpen}
+        onOpenChange={setRequestOpen}
+        consumptionId={consumptionId}
+        ceNumber={data?.ce_number ?? null}
+      />
     </>
   )
 }

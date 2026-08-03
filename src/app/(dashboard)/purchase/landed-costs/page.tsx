@@ -9,6 +9,7 @@ import { LcCogsPostedPanel } from '@/components/landed-costs/LcCogsPostedPanel'
 import { toast } from 'sonner'
 import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { InfoPopover } from '@/components/shared/InfoPopover'
@@ -728,16 +729,20 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     setUploadingLines((prev) => new Set(prev).add(lineIndex))
     try {
       const supabase = createClient()
+      // Bill photos snapped on a phone are typically 4-6 MB — downscale
+      // before upload so the 5 MB ceiling above rarely bites and storage
+      // stays lean. PDF scans pass through untouched.
+      const toUpload = await compressImageBeforeUpload(file)
       const now = new Date()
       const year = now.getFullYear()
       const month = String(now.getMonth() + 1).padStart(2, '0')
-      const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const sanitized = toUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const path = `${year}/${month}/${Date.now()}-${sanitized}`
       const oldPath = lines[lineIndex]?.bill_path
       if (oldPath) {
         await supabase.storage.from('lc-bills').remove([oldPath])
       }
-      const { error } = await supabase.storage.from('lc-bills').upload(path, file)
+      const { error } = await supabase.storage.from('lc-bills').upload(path, toUpload)
       if (error) throw error
       setLines((l) =>
         l.map((line, idx) => (idx === lineIndex ? { ...line, bill_path: path } : line)),
