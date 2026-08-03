@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Teams + Places + Consumption module Task 1 — warehouse_kind values + seed rows + team_id column** on new branch `feature/field-inventory-and-consumption` (branched off `deploy/warehouse-shipping` at `98b555d2`). Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md). Reuses the D.6.b Repair-vendor pattern — two new shared virtual warehouses (`Teams`, `Places`) with per-team / per-site sub-containers grouped by division. Deploy branch was merged with all Phase D/E/F work at commit `98b555d2` earlier this session.
+🚀 Next: **Teams + Places + Consumption Task 2 — transfer_kind + stock_movement_type enum extensions** on `feature/field-inventory-and-consumption`. Task 1 (warehouse_kind column + Teams/Places seed rows + team_id column) applied to staging + committed at `826fbade`. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
 
 **Phase G — Receival FX conversion** (parked). Deferred until after the field-inventory + consumption module lands.
 
