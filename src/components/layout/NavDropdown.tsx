@@ -55,6 +55,7 @@ import {
   TrendingUp,
   AlertTriangle,
   HandCoins,
+  Flame,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -111,7 +112,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileCheck, Clock, Truck, UserCheck, ClipboardList, CheckCircle, Ship,
   Calculator, BarChart3, RotateCcw, Package, PackageCheck, FileX, FileX2,
   PackageOpen, Wallet, MapPin, Calendar, Crown, ShieldCheck, CheckSquare,
-  LayoutDashboard, TrendingUp, AlertTriangle,
+  LayoutDashboard, TrendingUp, AlertTriangle, HandCoins, Flame,
 }
 
 function canAccess(

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CustodyAssignDialog } from '@/components/warehouse/custody/CustodyAssignDialog'
 import { CustodyReturnDialog } from '@/components/warehouse/custody/CustodyReturnDialog'
+import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useTeams } from '@/hooks/useTeamSubContainers'
@@ -198,6 +199,7 @@ function CustodyCard({
   const [expanded, setExpanded]     = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [returnOpen, setReturnOpen] = useState(false)
+  const [consumeOpen, setConsumeOpen] = useState(false)
 
   const { data: profile } = useCurrentUserProfile()
   const { data: perms }   = usePermissions()
@@ -253,12 +255,6 @@ function CustodyCard({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to dispatch custody request')
     }
-  }
-
-  function handleConsumeStub() {
-    toast('Consume from custody', {
-      description: 'The New Consumption dialog ships in Task 9 — hook up when the /consumption page lands.',
-    })
   }
 
   return (
@@ -423,7 +419,7 @@ function CustodyCard({
           size="sm"
           variant="ghost"
           className="h-7 text-[11px] gap-1"
-          onClick={handleConsumeStub}
+          onClick={() => setConsumeOpen(true)}
           disabled={stockRows.length === 0}
         >
           <HandCoins className="h-3 w-3" /> Consume
@@ -446,6 +442,18 @@ function CustodyCard({
           sourceSubName={sub.name}
           sourceWhId={virtualWhId}
           sourceKindLabel={kindLabel}
+        />
+      )}
+      {virtualWhId && (
+        <NewConsumptionDialog
+          open={consumeOpen}
+          onOpenChange={setConsumeOpen}
+          presetSource={{
+            warehouseId:      virtualWhId,
+            subContainerId:   sub.id,
+            subContainerName: sub.name,
+            kindLabel,
+          }}
         />
       )}
     </div>
