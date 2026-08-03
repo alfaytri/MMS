@@ -47,11 +47,14 @@ interface ReceivalData {
 interface TransferData {
   transfer_number: string
   status: string | null
+  transfer_kind: string | null
   date: string | null
   dispatched_by_name: string | null
   received_by_name: string | null
   from_warehouse: { name: string } | null
   to_warehouse: { name: string } | null
+  from_sub_container: { name: string | null } | null
+  to_sub_container: { name: string | null } | null
   transfer_items: Array<{ id: string; item_name: string; requested_qty: number; dispatched_qty: number | null; received_qty: number | null }> | null
 }
 
@@ -142,7 +145,7 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
         case 'transfer': {
           const { data, error } = await supabase
             .from('warehouse_transfers')
-            .select('*, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name), transfer_items:warehouse_transfer_items(*)')
+            .select('*, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name), from_sub_container:from_sub_container_id(name), to_sub_container:to_sub_container_id(name), transfer_items:warehouse_transfer_items(*)')
             .eq('id', referenceId)
             .maybeSingle()
           if (error) throw error
@@ -458,12 +461,22 @@ function TransferView({ data }: { data: TransferData }) {
         <div className="flex items-center gap-3 px-2">
           <div className="flex-1 text-center rounded-lg border bg-muted/20 py-3">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">From</p>
-            <p className="text-sm font-semibold">{data.from_warehouse?.name ?? '—'}</p>
+            <p className="text-sm font-semibold truncate" title={data.from_warehouse?.name ?? ''}>{data.from_warehouse?.name ?? '—'}</p>
+            {data.from_sub_container?.name && (
+              <p className="text-[11px] text-muted-foreground mt-0.5 truncate" title={data.from_sub_container.name}>
+                {data.from_sub_container.name}
+              </p>
+            )}
           </div>
           <ArrowRightLeft className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <div className="flex-1 text-center rounded-lg border bg-muted/20 py-3">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">To</p>
-            <p className="text-sm font-semibold">{data.to_warehouse?.name ?? '—'}</p>
+            <p className="text-sm font-semibold truncate" title={data.to_warehouse?.name ?? ''}>{data.to_warehouse?.name ?? '—'}</p>
+            {data.to_sub_container?.name && (
+              <p className="text-[11px] text-muted-foreground mt-0.5 truncate" title={data.to_sub_container.name}>
+                {data.to_sub_container.name}
+              </p>
+            )}
           </div>
         </div>
 
