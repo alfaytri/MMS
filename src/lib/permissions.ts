@@ -3,7 +3,7 @@ import type { LucideProps } from 'lucide-react'
 import {
   Database, ShoppingCart, ClipboardList,
   FileText, Receipt, Users, Settings2, Headphones,
-  BarChart2, Package,
+  BarChart2, Package, Flame,
 } from 'lucide-react'
 
 export type PermissionEntry = {
@@ -112,13 +112,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
           { key: 'master_data.services.view',    label: 'View Services',           description: 'Access the services catalog and pricing' },
           { key: 'master_data.services.manage',  label: 'Manage Services',         description: 'Create, edit, and delete service definitions' },
           { key: 'master_data.services.approve', label: 'Approve Service Changes', description: 'Review and approve/reject service change requests' },
-        ],
-      },
-      {
-        label: 'Subscription Packages',
-        permissions: [
-          { key: 'master_data.subscriptions.view',   label: 'View Subscriptions',   description: 'Access subscription packages list and details' },
-          { key: 'master_data.subscriptions.manage', label: 'Manage Subscriptions', description: 'Create, edit, and delete subscription packages' },
         ],
       },
       {
@@ -331,6 +324,37 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    module: 'Operations',
+    icon: asFC(Flame),
+    permissions: [
+      { key: 'operations.access', label: 'Access Operations Dropdown', description: 'Show the Operations dropdown in the top nav' },
+    ],
+    sections: [
+      {
+        label: 'Custody',
+        permissions: [
+          { key: 'custody.teams.view',  label: 'View Teams Custody',  description: 'See the Teams tab on the Custody page (stock in team custody)' },
+          { key: 'custody.places.view', label: 'View Places Custody', description: 'See the Places tab on the Custody page (stock at customer sites)' },
+        ],
+      },
+      {
+        label: 'Consumption',
+        permissions: [
+          { key: 'consumption.view',   label: 'View Consumption',   description: 'Access the consumption entries list and detail dialog' },
+          { key: 'consumption.create', label: 'Create Consumption', description: 'Post new consumption entries (deducts stock + books COGS)' },
+          { key: 'consumption.cancel', label: 'Cancel Consumption', description: 'Cancel a posted consumption or approve a cancellation request' },
+        ],
+      },
+      {
+        label: 'Damaged Stock',
+        permissions: [
+          { key: 'damaged_stock.on_hand.view',        label: 'View On-hand Damaged',   description: 'See the On-hand tab on the Damaged Stock page' },
+          { key: 'damaged_stock.out_for_repair.view', label: 'View Out for Repair',    description: 'See the Out for Repair tab on the Damaged Stock page' },
+        ],
+      },
+    ],
+  },
+  {
     module: 'Orders',
     icon: asFC(ClipboardList),
     permissions: [
@@ -486,6 +510,7 @@ const MODULE_KEY_MAP: Record<string, string> = {
   'Master Data':          'master_data',
   'Purchase & Sales':     'purchase_sales',
   'Warehouse':            'warehouse',
+  'Operations':           'operations',
   'Orders':               'orders',
   'Contracts':            'contracts',
   'Invoices & Payments':  'finance',
@@ -501,7 +526,7 @@ function getEnabledModules(): Set<string> | null {
   return new Set(raw.split(',').map((s) => s.trim()))
 }
 
-const BRANCH_ENABLED_MODULES = new Set(['master_data', 'purchase_sales', 'warehouse'])
+const BRANCH_ENABLED_MODULES = new Set(['master_data', 'purchase_sales', 'warehouse', 'operations'])
 
 export const ACTIVE_PERMISSION_GROUPS: PermissionGroup[] = (() => {
   const enabled = getEnabledModules() ?? BRANCH_ENABLED_MODULES

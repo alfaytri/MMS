@@ -19,6 +19,7 @@ import {
   type DamagedOnHandRow,
   type OutForRepairRow, type PendingRepairAssignmentRow,
 } from '@/hooks/useDamagedStockOverview'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
 // formatDateTime is used by the Out-for-Repair table row's dispatched-at
 // column. Badge / movementBadgeClass / movementLabel were removed with the
@@ -44,6 +45,10 @@ export default function DamagedStockPage() {
   const [sendFromOnHand, setSendFromOnHand] = useState<DamagedOnHandRow | null>(null)
   const [writeOffFromOnHand, setWriteOffFromOnHand] = useState<DamagedOnHandRow | null>(null)
 
+  const canSeeOnHand   = useHasPermission('damaged_stock.on_hand.view')
+  const canSeeOutRepair = useHasPermission('damaged_stock.out_for_repair.view')
+  const defaultTab = canSeeOnHand ? 'on-hand' : canSeeOutRepair ? 'out-for-repair' : 'on-hand'
+
   return (
     <PageWrapper>
       <PageHeader
@@ -59,32 +64,36 @@ export default function DamagedStockPage() {
         }
       />
 
-      <Tabs defaultValue="on-hand" className="flex flex-col gap-4 w-full">
+      <Tabs defaultValue={defaultTab} className="flex flex-col gap-4 w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="on-hand">On-hand</TabsTrigger>
-          <TabsTrigger value="out-for-repair">Out for Repair</TabsTrigger>
+          {canSeeOnHand && <TabsTrigger value="on-hand">On-hand</TabsTrigger>}
+          {canSeeOutRepair && <TabsTrigger value="out-for-repair">Out for Repair</TabsTrigger>}
         </TabsList>
 
         {/* ── On-hand tab ────────────────────────────────────────────── */}
-        <TabsContent value="on-hand" className="min-h-[400px]">
-          <OnHandTab
-            query={onHand}
-            onSendForRepair={(row) => setSendFromOnHand(row)}
-            onWriteOff={(row) => setWriteOffFromOnHand(row)}
-          />
-        </TabsContent>
+        {canSeeOnHand && (
+          <TabsContent value="on-hand" className="min-h-[400px]">
+            <OnHandTab
+              query={onHand}
+              onSendForRepair={(row) => setSendFromOnHand(row)}
+              onWriteOff={(row) => setWriteOffFromOnHand(row)}
+            />
+          </TabsContent>
+        )}
 
         {/* ── Out for repair tab ─────────────────────────────────────── */}
-        <TabsContent value="out-for-repair" className="min-h-[400px] space-y-6">
-          <PendingRepairAssignmentSection
-            query={pending}
-            onAssign={(row) => setAssignDialog(row)}
-          />
-          <OutForRepairTab
-            query={outRepair}
-            onReturn={(row) => setReturnDialog(row)}
-          />
-        </TabsContent>
+        {canSeeOutRepair && (
+          <TabsContent value="out-for-repair" className="min-h-[400px] space-y-6">
+            <PendingRepairAssignmentSection
+              query={pending}
+              onAssign={(row) => setAssignDialog(row)}
+            />
+            <OutForRepairTab
+              query={outRepair}
+              onReturn={(row) => setReturnDialog(row)}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       {returnDialog && (

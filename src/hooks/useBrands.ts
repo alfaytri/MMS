@@ -13,7 +13,7 @@ export type Brand = {
 
 export function useBrands() {
   return useQuery({
-    queryKey: queryKeys.brandGroups.brands,
+    queryKey: queryKeys.brands.all,
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -55,7 +55,7 @@ export function useCreateBrand() {
       return data as Brand
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.brandGroups.brands })
+      queryClient.invalidateQueries({ queryKey: queryKeys.brands.all })
     },
   })
 }

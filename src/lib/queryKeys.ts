@@ -480,15 +480,6 @@ export const queryKeys = {
     detail: (visitId: Nullable) => ['site-visit-detail', visitId] as const,
   },
 
-  /* ── Subscription Packages ────────────────────────────── */
-  subscriptionPackages: {
-    all: ['subscription_packages'] as const,
-    list: (includeArchived?: boolean) =>
-      ['subscription_packages', { includeArchived }] as const,
-    services: (packageId: Nullable) =>
-      ['subscription_package_services', packageId] as const,
-  },
-
   /* ── Supplier Bills ───────────────────────────────────── */
   supplierBills: {
     all: ['supplier-bills'] as const,
@@ -614,10 +605,9 @@ export const queryKeys = {
       ['warehouse_transfer_items', transferId] as const,
   },
 
-  /* ── Brand Groups (admin page) ──────────────────────────── */
-  brandGroups: {
-    all: ['brand-groups'] as const,
-    brands: ['brands'] as const,
+  /* ── Brands (catalog) ─────────────────────────────────── */
+  brands: {
+    all: ['brands'] as const,
   },
 
   /* ── LC Attached (page-level) ─────────────────────────── */

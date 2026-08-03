@@ -10,6 +10,7 @@ import {
   BookOpen, Ship, Calculator, Receipt,
   PackageOpen, FileX2, RotateCcw, FileText, PackageCheck,
   CheckCircle, ShieldCheck, Upload, Download,
+  Flame, HandCoins, AlertTriangle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -192,15 +193,6 @@ export const NAV_TREE: TreeNode[] = [
             permissions: [
               { key: 'master_data.service_customers.view', label: 'View Service Customers', description: 'Access the service customers list and details' },
               { key: 'master_data.service_customers.manage', label: 'Manage Service Customers', description: 'Create, edit, and delete service customer records' },
-            ],
-          },
-          {
-            id: 'md-admin-subs',
-            label: 'Subscription Packages',
-            icon: BookOpen,
-            permissions: [
-              { key: 'master_data.subscriptions.view', label: 'View Subscriptions', description: 'Access subscription packages list and details' },
-              { key: 'master_data.subscriptions.manage', label: 'Manage Subscriptions', description: 'Create, edit, and delete subscription packages' },
             ],
           },
         ],
@@ -399,6 +391,44 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'purchase.dead_stock.view', label: 'View Dead Stock Report', description: 'Access the dead stock and slow-moving inventory report' },
             ],
           },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'operations',
+    label: 'Operations',
+    icon: Flame,
+    permissions: [
+      { key: 'operations.access', label: 'Access Operations Dropdown', description: 'Show the Operations dropdown in the top nav' },
+    ],
+    children: [
+      {
+        id: 'ops-custody',
+        label: 'Custody',
+        icon: HandCoins,
+        permissions: [
+          { key: 'custody.teams.view',  label: 'View Teams Custody',  description: 'See the Teams tab on the Custody page (stock in team custody)' },
+          { key: 'custody.places.view', label: 'View Places Custody', description: 'See the Places tab on the Custody page (stock at customer sites)' },
+        ],
+      },
+      {
+        id: 'ops-consumption',
+        label: 'Consumption',
+        icon: Flame,
+        permissions: [
+          { key: 'consumption.view',   label: 'View Consumption',   description: 'Access the consumption entries list and detail dialog' },
+          { key: 'consumption.create', label: 'Create Consumption', description: 'Post new consumption entries (deducts stock + books COGS)' },
+          { key: 'consumption.cancel', label: 'Cancel Consumption', description: 'Cancel a posted consumption or approve a cancellation request' },
+        ],
+      },
+      {
+        id: 'ops-damaged-stock',
+        label: 'Damaged Stock',
+        icon: AlertTriangle,
+        permissions: [
+          { key: 'damaged_stock.on_hand.view',        label: 'View On-hand Damaged',   description: 'See the On-hand tab on the Damaged Stock page' },
+          { key: 'damaged_stock.out_for_repair.view', label: 'View Out for Repair',    description: 'See the Out for Repair tab on the Damaged Stock page' },
         ],
       },
     ],

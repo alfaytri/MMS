@@ -25,7 +25,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/master-data/customers',          permission: 'master_data.customers.view' },
   { pathPrefix: '/master-data/suppliers',          permission: 'master_data.suppliers.view' },
   { pathPrefix: '/master-data/inventory',          permission: 'master_data.inventory.view' },
-  { pathPrefix: '/master-data/subscriptions',      permission: 'master_data.subscriptions.view' },
   { pathPrefix: '/master-data/credit-groups',      permission: 'master_data.admin.view' },
 
   // ── Orders ─────────────────────────────────────────────────────────────
@@ -75,6 +74,11 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/sales/edit-so',            permission: 'sales.orders.manage' },
   { pathPrefix: '/sales/create-so',    permission: 'sales.orders.manage' },
   { pathPrefix: '/sales/orders',       permission: 'sales.orders.view' },
+
+  // ── Operations ─────────────────────────────────────────────────────────
+  { pathPrefix: '/consumption',              permission: 'consumption.view' },
+  { pathPrefix: '/warehouse/custody',        permission: ['custody.teams.view', 'custody.places.view'] },
+  { pathPrefix: '/warehouse/damaged-stock',  permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },
 
   // ── Teams / Map / Calendar / Team Leader ──────────────────────────────
   { pathPrefix: '/map',         permission: 'teams.map.view' },

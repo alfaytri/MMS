@@ -95,12 +95,18 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Dead Stock Report', href: '/purchase/dead-stock',   icon: 'BarChart3',  permission: 'purchase.dead_stock.view' },
         ],
       },
+    ],
+  },
+  {
+    label: 'Operations',
+    icon: 'Flame',
+    permission: 'operations.access',
+    groups: [
       {
-        label: 'WAREHOUSE OPS',
         items: [
-          { label: 'Custody',        href: '/warehouse/custody',        icon: 'HandCoins',     permission: 'warehouse.access' },
-          { label: 'Consumption',    href: '/consumption',              icon: 'Flame',         permission: 'warehouse.access' },
-          { label: 'Damaged Stock',  href: '/warehouse/damaged-stock',  icon: 'AlertTriangle', permission: 'warehouse.access' },
+          { label: 'Custody',       href: '/warehouse/custody',        icon: 'HandCoins',     permission: ['custody.teams.view', 'custody.places.view'] },
+          { label: 'Consumption',   href: '/consumption',              icon: 'Flame',         permission: 'consumption.view' },
+          { label: 'Damaged Stock', href: '/warehouse/damaged-stock',  icon: 'AlertTriangle', permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },
         ],
       },
     ],

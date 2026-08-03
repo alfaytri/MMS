@@ -21,7 +21,7 @@ import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useTeams } from '@/hooks/useTeamSubContainers'
 import { usePlaces } from '@/hooks/usePlaceSubContainers'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-import { usePermissions } from '@/hooks/usePermissions'
+import { usePermissions, useHasPermission } from '@/hooks/usePermissions'
 import {
   usePendingCustodyAssigns,
   useAcceptCustodyAssign,
@@ -60,6 +60,10 @@ export default function CustodyPage() {
   // field RP of a specific source warehouse (for the Dispatch button gate).
   const realWarehouses = useMemo(() => warehouses.filter((w) => !w.is_virtual), [warehouses])
 
+  const canSeeTeams  = useHasPermission('custody.teams.view')
+  const canSeePlaces = useHasPermission('custody.places.view')
+  const defaultTab   = canSeeTeams ? 'teams' : canSeePlaces ? 'places' : 'teams'
+
   return (
     <PageWrapper>
       <PageHeader
@@ -67,22 +71,30 @@ export default function CustodyPage() {
         description="Stock that has left the warehouse and lives with a team or at a client site. Assign from a warehouse, return unused stock, or consume on a job."
       />
 
-      <Tabs defaultValue="teams" className="flex flex-col gap-4">
+      <Tabs defaultValue={defaultTab} className="flex flex-col gap-4">
         <TabsList className="self-start">
-          <TabsTrigger value="teams" className="gap-1.5">
-            <Users2 className="h-3.5 w-3.5" /> Teams
-          </TabsTrigger>
-          <TabsTrigger value="places" className="gap-1.5">
-            <MapPin className="h-3.5 w-3.5" /> Places
-          </TabsTrigger>
+          {canSeeTeams && (
+            <TabsTrigger value="teams" className="gap-1.5">
+              <Users2 className="h-3.5 w-3.5" /> Teams
+            </TabsTrigger>
+          )}
+          {canSeePlaces && (
+            <TabsTrigger value="places" className="gap-1.5">
+              <MapPin className="h-3.5 w-3.5" /> Places
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="teams" className="mt-0">
-          <CustodyTab kind="team" virtualWhId={teamsWh?.id ?? null} realWarehouses={realWarehouses} />
-        </TabsContent>
-        <TabsContent value="places" className="mt-0">
-          <CustodyTab kind="place" virtualWhId={placesWh?.id ?? null} realWarehouses={realWarehouses} />
-        </TabsContent>
+        {canSeeTeams && (
+          <TabsContent value="teams" className="mt-0">
+            <CustodyTab kind="team" virtualWhId={teamsWh?.id ?? null} realWarehouses={realWarehouses} />
+          </TabsContent>
+        )}
+        {canSeePlaces && (
+          <TabsContent value="places" className="mt-0">
+            <CustodyTab kind="place" virtualWhId={placesWh?.id ?? null} realWarehouses={realWarehouses} />
+          </TabsContent>
+        )}
       </Tabs>
     </PageWrapper>
   )

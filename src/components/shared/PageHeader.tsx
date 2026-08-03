@@ -6,6 +6,7 @@ interface PageHeaderProps {
   title: string
   description?: string
   titleAfter?: ReactNode
+  breadcrumb?: ReactNode
   action?: {
     label: string
     onClick: () => void
@@ -14,10 +15,13 @@ interface PageHeaderProps {
   actions?: ReactNode
 }
 
-export function PageHeader({ title, description, titleAfter, action, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, titleAfter, breadcrumb, action, actions }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
+        {breadcrumb && (
+          <div className="text-[11px] text-muted-foreground mb-1">{breadcrumb}</div>
+        )}
         <div className="flex items-center gap-1.5">
           <h1 className="text-2xl 2xl:text-3xl font-bold text-foreground">{title}</h1>
           {titleAfter}

@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { HandCoins, MapPin, Package, Plus, Users2 } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronRight, HandCoins, MapPin, Package, Plus, Users2 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { Button } from '@/components/ui/button'
@@ -74,6 +76,7 @@ export default function ConsumptionPage() {
 
   const [newOpen, setNewOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const canCreate = useHasPermission('consumption.create')
 
   const totals = useMemo(() => {
     const posted = rows.filter((r) => r.status === 'posted')
@@ -158,10 +161,21 @@ export default function ConsumptionPage() {
       <PageHeader
         title="Consumption"
         description="Deducts stock from a source location and books COGS to a team, customer site, customer, or internal use."
+        breadcrumb={
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1">
+            <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
+            <ChevronRight className="h-3 w-3" />
+            <span>Operations</span>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-foreground font-medium">Consumption</span>
+          </nav>
+        }
         actions={
-          <Button size="sm" onClick={() => setNewOpen(true)} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> New Consumption
-          </Button>
+          canCreate ? (
+            <Button size="sm" onClick={() => setNewOpen(true)} className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> New Consumption
+            </Button>
+          ) : null
         }
       />
 
@@ -221,11 +235,11 @@ export default function ConsumptionPage() {
           icon: <HandCoins className="h-6 w-6 text-muted-foreground" />,
           title: 'No consumption entries yet',
           description: 'Post a consumption to deduct stock and book COGS to a consumer.',
-          action: (
+          action: canCreate ? (
             <Button size="sm" onClick={() => setNewOpen(true)} className="gap-1.5">
               <Plus className="h-3.5 w-3.5" /> New Consumption
             </Button>
-          ),
+          ) : undefined,
         }}
       />
 
