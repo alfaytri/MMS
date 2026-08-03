@@ -63,7 +63,9 @@ function WarehousesPageInner() {
   //   - warehousesAll → Transfers / Adjustments / Inv Checks / Movements /
   //     Receivals & Deliveries list views. Operators still need to see
   //     historical repair activity in ledger views.
-  const { data: warehousesAll = [] } = useWarehouses({ includeVirtual: true })
+  // Show real warehouses + Repair, but hide Teams / Places — those have
+  // their own admin pages under Master Data.
+  const { data: warehousesAll = [] } = useWarehouses({ includeVirtual: true, excludeKinds: ['teams', 'places'] })
   const warehouses = useMemo(
     () => warehousesAll.filter((w) => !w.is_virtual),
     [warehousesAll],

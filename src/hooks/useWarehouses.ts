@@ -34,10 +34,11 @@ export type WarehouseUpdate = DBUpdate<'warehouses'>
  * only surface that legitimately needs them is Master Data → Warehouses
  * (for admin visibility); that page opts in with `{ includeVirtual: true }`.
  */
-export function useWarehouses(options?: { includeVirtual?: boolean }) {
+export function useWarehouses(options?: { includeVirtual?: boolean; excludeKinds?: string[] }) {
   const includeVirtual = options?.includeVirtual ?? false
+  const excludeKinds   = options?.excludeKinds ?? []
   return useQuery({
-    queryKey: [...queryKeys.warehouses.all, { includeVirtual }],
+    queryKey: [...queryKeys.warehouses.all, { includeVirtual, excludeKinds: excludeKinds.slice().sort().join(',') }],
     queryFn: async () => {
       const supabase = createClient()
       // Phase E: warehouses.division_id is gone. The embedded
@@ -58,6 +59,13 @@ export function useWarehouses(options?: { includeVirtual?: boolean }) {
         // is_virtual defaults to false, but be explicit — legacy rows and
         // any future virtual-flag additions must be filtered too.
         q = q.or('is_virtual.is.null,is_virtual.eq.false')
+      }
+      if (excludeKinds.length > 0) {
+        // Teams and Places kinds ship as is_virtual=true so they're already
+        // filtered when includeVirtual=false. This is only meaningful when
+        // includeVirtual=true (Master Data → Warehouses) to keep Repair
+        // visible while hiding Teams/Places from the admin overview.
+        q = q.not('warehouse_kind', 'in', `(${excludeKinds.map((k) => `"${k}"`).join(',')})`)
       }
       // Fan out the warehouse fetch and the sub-container breakdown fetch in
       // parallel — the breakdown feeds WhWarehousesTab card totals (D.9).
