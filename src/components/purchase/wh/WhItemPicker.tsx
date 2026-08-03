@@ -109,7 +109,7 @@ export function WhItemPicker({
   const totalItems = items.length
 
   return (
-    <div className="flex flex-col h-[480px] w-[720px] max-w-[92vw]">
+    <div className="flex flex-col h-[min(480px,var(--available-height,85vh))] w-[720px] max-w-[92vw]">
       {/* Search bar */}
       <div className="px-3 py-2 border-b bg-background">
         <Input

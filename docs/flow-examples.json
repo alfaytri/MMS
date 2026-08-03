@@ -1,0 +1,312 @@
+{
+  "$schema": "flow-examples fixtures — keyed by flow slug (slugify(title)). Each fixture is optional; missing → the card renders no Example section. Fields: input (any JSON — the operator-visible payload), writes (array of {table, action, columns?, notes?}), ui_after (array of strings — bullet list). Regenerate the visualizer with `node scripts/build-flows-visualizer.mjs` after edits.",
+
+  "create-sales-return-direct": {
+    "input": {
+      "so_id": "so-abc-123",
+      "customer_id": "cust-xyz-789",
+      "restock_warehouse_id": "wh-birkat-01",
+      "lines": [
+        { "sale_order_line_id": "sol-001", "qty": 2, "condition": "good", "reason": "customer changed mind" },
+        { "sale_order_line_id": "sol-002", "qty": 1, "condition": "damaged", "reason": "arrived scratched" }
+      ]
+    },
+    "writes": [
+      {
+        "table": "so_po_returns",
+        "action": "INSERT",
+        "columns": {
+          "id": "ret-SR00042",
+          "return_number": "SR-00042",
+          "sale_order_id": "so-abc-123",
+          "customer_id": "cust-xyz-789",
+          "restock_warehouse_id": "wh-birkat-01",
+          "status": "pending",
+          "created_by_profile_id": "<auth.uid()>"
+        }
+      },
+      {
+        "table": "return_lines",
+        "action": "INSERT × 2",
+        "columns": {
+          "return_id": "ret-SR00042",
+          "sale_order_line_id": "sol-001 / sol-002",
+          "qty": "2 / 1",
+          "condition": "good / damaged",
+          "customer_remaining_qty": "2 / 1",
+          "inventory_remaining_qty": "2 / 1"
+        },
+        "notes": "One row per submitted line. `customer_remaining_qty` + `inventory_remaining_qty` seed the dual-ledger counters (Phase 7)."
+      }
+    ],
+    "ui_after": [
+      "Return row `SR-00042` appears in `/sales/returns` list with status `Pending`.",
+      "`SoDetailDialog` → Returns tab shows the new return under the SO with two lines.",
+      "SO status stays `delivered` (returns don't roll the parent SO back).",
+      "Yellow banner on the damaged line signals that a resolution is required (Layer 1)."
+    ]
+  },
+
+  "complete-delivery-confirm-book-stock": {
+    "input": {
+      "delivery_id": "del-DEL00131",
+      "sale_order_id": "so-abc-123",
+      "warehouse_id": "wh-birkat-01",
+      "sub_container_id": "sc-maint-01",
+      "lines": [
+        { "sale_order_line_id": "sol-001", "brand_variant_id": "bv-99", "qty": 5, "unit_cost": 12.50 }
+      ]
+    },
+    "writes": [
+      {
+        "table": "sale_deliveries",
+        "action": "UPDATE",
+        "columns": {
+          "id": "del-DEL00131",
+          "status": "completed",
+          "delivery_number": "DEL-00131",
+          "completed_at": "<now()>"
+        }
+      },
+      {
+        "table": "inventory_stock_movements",
+        "action": "INSERT",
+        "columns": {
+          "warehouse_id": "wh-birkat-01",
+          "sub_container_id": "sc-maint-01",
+          "brand_variant_id": "bv-99",
+          "movement_type": "sale_delivery",
+          "qty": -5,
+          "unit_cost": 12.50,
+          "reference_type": "sale_delivery",
+          "reference_id": "del-DEL00131"
+        }
+      },
+      {
+        "table": "fifo_cost_layers",
+        "action": "UPDATE (deduct_fifo_layers)",
+        "columns": {
+          "remaining_qty": "decremented across oldest-first layers until 5 units consumed"
+        },
+        "notes": "RPC `deduct_fifo_layers` walks layers by `layered_at ASC`, decrementing `remaining_qty` per layer. Sub-container-scoped since D.3."
+      },
+      {
+        "table": "cogs_entries",
+        "action": "INSERT",
+        "columns": {
+          "brand_variant_id": "bv-99",
+          "warehouse_id": "wh-birkat-01",
+          "sub_container_id": "sc-maint-01",
+          "qty": 5,
+          "unit_cost": 12.50,
+          "sale_delivery_id": "del-DEL00131",
+          "source_id": "<oldest FIFO layer consumed>"
+        },
+        "notes": "One row per FIFO layer consumed (may split into N cogs rows if the qty spans layers)."
+      },
+      {
+        "table": "warehouse_stock_summary",
+        "action": "REFRESH (trigger)",
+        "columns": { "qty": "-5", "total_value": "-62.50" },
+        "notes": "Trigger `trg_alloc_stock_summary` recomputes the (warehouse, sub, variant) aggregate."
+      }
+    ],
+    "ui_after": [
+      "Delivery status flips to `Completed`; DEL number stamped.",
+      "SO progresses on the delivery timeline. If all lines delivered, SO → `delivered`.",
+      "Warehouses → Stock Value: Birkat Maintenance drops by 5 × 12.50 = 62.50.",
+      "Warehouses → Movements: new `sale_delivery` row with `-5` qty and reference chip linking back to the delivery.",
+      "Reports → COGS reflects the new cogs entry against the SO."
+    ]
+  },
+
+  "send-damaged-for-repair": {
+    "input": {
+      "p_return_line_disposition_id": "disp-001",
+      "p_repair_vendor_id": "rv-alpha",
+      "p_warehouse_id": "wh-birkat-01",
+      "p_expected_return_date": "2026-08-15",
+      "p_notes": "capacitor board replacement"
+    },
+    "writes": [
+      {
+        "table": "warehouse_transfers",
+        "action": "INSERT",
+        "columns": {
+          "transfer_number": "TR-00088",
+          "transfer_kind": "damaged_repair_out",
+          "status": "in_transit",
+          "from_warehouse_id": "wh-birkat-01",
+          "from_sub_container_id": "sc-birkat-maint",
+          "to_warehouse_id": "wh-repair-shared",
+          "to_sub_container_id": "sc-repair-alpha (vendor's sub in shared Repair)",
+          "repair_vendor_id": "rv-alpha",
+          "source_return_line_disposition_id": "disp-001",
+          "expected_return_date": "2026-08-15"
+        },
+        "notes": "Since D.6.b, `to_warehouse_id` is always the shared Repair warehouse and `to_sub_container_id` picks out the vendor's sub."
+      },
+      {
+        "table": "warehouse_transfer_items",
+        "action": "INSERT",
+        "columns": {
+          "transfer_id": "<new>",
+          "brand_variant_id": "bv-99",
+          "requested_qty": 3,
+          "sub_container_id": "sc-birkat-maint"
+        }
+      },
+      {
+        "table": "inventory_damaged_stock",
+        "action": "UPDATE (weighted-avg upsert)",
+        "columns": { "qty": "-3", "weighted_unit_cost": "unchanged (removal only)" }
+      },
+      {
+        "table": "inventory_damaged_stock_layers",
+        "action": "UPDATE (_consume_damaged_stock_fifo)",
+        "columns": { "qty_remaining": "decremented across oldest layers until 3 units consumed" }
+      },
+      {
+        "table": "inventory_damaged_movements",
+        "action": "INSERT",
+        "columns": {
+          "movement_type": "send_for_repair_out",
+          "warehouse_id": "wh-birkat-01",
+          "qty": 3,
+          "source_return_line_disposition_id": "disp-001",
+          "source_transfer_id": "<new transfer id>"
+        },
+        "notes": "This is the row D.11 uses to derive the source sub-container: the transfer's `from_sub_container_id → warehouse_sub_containers.name`."
+      },
+      {
+        "table": "return_line_inventory_dispositions",
+        "action": "UPDATE",
+        "columns": { "id": "disp-001", "warehouse_transfer_id": "<new transfer id>" },
+        "notes": "Closes the two-step Send-for-Repair flow: disposition is now linked to a concrete transfer."
+      }
+    ],
+    "ui_after": [
+      "Pending Vendor Assignment section on `/warehouse/damaged-stock` → Out for Repair loses this row.",
+      "Out for Repair table gains a new row: `TR-00088 · vendor Alpha · qty 3 · expected 15 Aug`.",
+      "Warehouses → Movements (Stream = Damaged): `Send for Repair` row appears with `Damaged` chip and Maintenance sub-container column populated.",
+      "Return status unchanged — closure was already recorded when the disposition was created."
+    ]
+  },
+
+  "record-customer-payment": {
+    "input": {
+      "so_id": "so-abc-123",
+      "amount": 1250.00,
+      "currency": "QAR",
+      "payment_method_id": "pm-bank-transfer",
+      "payment_date": "2026-08-01",
+      "reference": "SO transfer 8842211",
+      "invoice_ids": ["inv-SO-INV-00042"]
+    },
+    "writes": [
+      {
+        "table": "payments",
+        "action": "INSERT",
+        "columns": {
+          "id": "pay-CPAY-00201",
+          "payment_number": "CPAY-00201",
+          "amount": 1250.00,
+          "currency": "QAR",
+          "source_type": "sale_order",
+          "source_id": "so-abc-123",
+          "payment_method_id": "pm-bank-transfer"
+        }
+      },
+      {
+        "table": "invoice_payments",
+        "action": "INSERT",
+        "columns": {
+          "payment_id": "pay-CPAY-00201",
+          "invoice_id": "inv-SO-INV-00042",
+          "amount_applied": 1250.00
+        },
+        "notes": "One row per invoice the payment is allocated to."
+      },
+      {
+        "table": "so_invoices",
+        "action": "UPDATE (recompute payment_status)",
+        "columns": { "id": "inv-SO-INV-00042", "payment_status": "paid or partially_paid" }
+      },
+      {
+        "table": "payments (FX trigger)",
+        "action": "TRIGGER (foreign-currency SOs only)",
+        "columns": {
+          "exchange_gain": "computed from so.initial_exchange_rate vs payment.exchange_rate",
+          "exchange_loss": "same, opposite sign"
+        },
+        "notes": "`trg_payments_compute_fx` runs BEFORE INSERT. QAR-QAR combinations skip the compute (stays 0). AFTER trigger rolls totals up to `sale_orders.exchange_gain`/`.exchange_loss`."
+      }
+    ],
+    "ui_after": [
+      "New CPAY row in Customer Payments list.",
+      "Invoice row moves from `Open` / `Partially Paid` → `Paid` if the payment closes the balance.",
+      "SO detail dialog shows the payment under the Payments tab with a link to the CPAY.",
+      "Reports → Aged AR drops by 1,250 in the customer's bucket."
+    ]
+  },
+
+  "create-warehouse-transfer": {
+    "input": {
+      "from_warehouse_id": "wh-birkat-01",
+      "from_sub_container_id": "sc-birkat-maint",
+      "to_warehouse_id": "wh-industrial-02",
+      "to_sub_container_id": "sc-industrial-maint",
+      "date": "2026-08-01",
+      "notes": "restock Industrial Maintenance",
+      "lines": [
+        { "brand_variant_id": "bv-99", "requested_qty": 10, "unit_cost": 12.50 }
+      ]
+    },
+    "writes": [
+      {
+        "table": "warehouse_transfers",
+        "action": "INSERT",
+        "columns": {
+          "transfer_number": "TR-00089",
+          "transfer_kind": "good_stock",
+          "status": "pending",
+          "from_warehouse_id": "wh-birkat-01",
+          "from_sub_container_id": "sc-birkat-maint",
+          "to_warehouse_id": "wh-industrial-02",
+          "to_sub_container_id": "sc-industrial-maint",
+          "division_id": "<derived from source sub-container>"
+        }
+      },
+      {
+        "table": "warehouse_transfer_items",
+        "action": "INSERT",
+        "columns": {
+          "transfer_id": "<new>",
+          "brand_variant_id": "bv-99",
+          "requested_qty": 10,
+          "unit_cost": 12.50,
+          "sub_container_id": "sc-birkat-maint (source)"
+        }
+      },
+      {
+        "table": "warehouse_stock_allocations",
+        "action": "INSERT (reserve)",
+        "columns": {
+          "warehouse_id": "wh-birkat-01",
+          "sub_container_id": "sc-birkat-maint",
+          "brand_variant_id": "bv-99",
+          "reserved_qty": 10,
+          "reservation_type": "transfer",
+          "reservation_id": "<new transfer id>"
+        },
+        "notes": "Reservation, not deduction. Physical stock stays at the source until dispatch."
+      }
+    ],
+    "ui_after": [
+      "Warehouses → Transfers list: new row `TR-00089 · Pending · Birkat Maintenance → Industrial Maintenance`.",
+      "Source warehouse's available_qty for `bv-99` drops by 10 (reserved); on-hand qty unchanged.",
+      "Destination warehouse shows nothing yet — physical stock moves at Dispatch.",
+      "No `inventory_stock_movements` row yet; that comes at Dispatch."
+    ]
+  }
+}

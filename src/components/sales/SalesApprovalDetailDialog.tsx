@@ -71,17 +71,18 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
               <Badge variant="outline">Iteration #{slip.iteration}</Badge>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Total: {slip.so.total.toLocaleString('en-QA')}
+              Total: {slip.so.currency} {slip.so.total.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
-          {/* Trigger payload */}
+          {/* Trigger payload — margin / credit thresholds are stored + compared in QAR
+              (credit-limit + avg_cost are QAR baseline), regardless of the SO's own currency. */}
           <div className="rounded-md border-l-4 border-amber-500 bg-amber-500/5 p-3 text-xs space-y-1">
             {slip.approval_type === 'credit' ? (
               <>
-                <div>Available credit: {Number(payload.available ?? 0).toLocaleString('en-QA')}</div>
+                <div>Available credit: QAR {Number(payload.available ?? 0).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 <div className="font-medium text-amber-700">
-                  Over limit by: {Number(payload.overage ?? 0).toLocaleString('en-QA')}
+                  Over limit by: QAR {Number(payload.overage ?? 0).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </>
             ) : (
@@ -89,7 +90,7 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
                 <div className="font-medium">Below-cost lines:</div>
                 {(Array.isArray(payload.lines) ? payload.lines : []).map((l, i) => (
                   <div key={i} className="text-amber-700">
-                    {l.item_name}: unit {Number(l.unit_price).toLocaleString('en-QA')} &lt; avg cost {Number(l.avg_cost).toLocaleString('en-QA')}
+                    {l.item_name}: unit QAR {Number(l.unit_price).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &lt; avg cost QAR {Number(l.avg_cost).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 ))}
               </>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ArrowRight, Bell, Plus, Trash2, Package, ChevronsUpDown } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
@@ -25,9 +25,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Badge } from '@/components/ui/badge'
 import { WhItemPicker, type PickerItem } from './WhItemPicker'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { Profile } from '@/hooks/useProfiles'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import {
   useWarehouseStock,
   useCreateTransfer,
@@ -58,6 +60,8 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const [open, setOpen] = useState(false)
   const [fromId, setFromId] = useState('')
   const [toId, setToId] = useState('')
+  const [fromSubContainerId, setFromSubContainerId] = useState<string | null>(null)
+  const [toSubContainerId, setToSubContainerId] = useState<string | null>(null)
   const [rows, setRows] = useState<TransferRow[]>([{ brand_variant_id: '', qty: '' }])
   const [notes, setNotes] = useState('')
   const [pendingFromId, setPendingFromId] = useState<string | null>(null)
@@ -68,28 +72,69 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const toWh = warehouses.find((w) => w.id === toId)
   const fromWh = warehouses.find((w) => w.id === fromId)
 
-  const { data: sourceStock = [] } = useWarehouseStock(fromId || undefined)
+  const { data: fromSubs = [] } = useWarehouseSubContainers(fromId || null)
+  const { data: toSubs = [] } = useWarehouseSubContainers(toId || null)
+  const eligibleFromSubs = useMemo(() => fromSubs.filter((sc) => sc.is_active), [fromSubs])
+  const eligibleToSubs = useMemo(() => toSubs.filter((sc) => sc.is_active), [toSubs])
+
+  useEffect(() => {
+    if (eligibleFromSubs.length === 1) setFromSubContainerId(eligibleFromSubs[0].id)
+    else if (eligibleFromSubs.length === 0) setFromSubContainerId(null)
+    else if (fromSubContainerId && !eligibleFromSubs.some((sc) => sc.id === fromSubContainerId)) setFromSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromId, eligibleFromSubs.length])
+
+  useEffect(() => {
+    if (eligibleToSubs.length === 1) setToSubContainerId(eligibleToSubs[0].id)
+    else if (eligibleToSubs.length === 0) setToSubContainerId(null)
+    else if (toSubContainerId && !eligibleToSubs.some((sc) => sc.id === toSubContainerId)) setToSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toId, eligibleToSubs.length])
+
+  // D.5: sub_container_id is now a first-class column on warehouse_stock_view.
+  // Pass fromSubContainerId directly so the source stock reads are scoped at
+  // the DB level — the D.4 stopgap fifo_cost_layers query is retired.
+  const { data: sourceStock = [] } = useWarehouseStock(fromId || undefined, fromSubContainerId)
   const { data: fullStock = [] } = useWarehouseStock()
   const { data: reorderPoints = [] } = useReorderPoints(toId || undefined)
 
-  const availableQtyMap = useMemo(
-    () => new Map(sourceStock.map((item) => [item.brand_variant_id, item.available_qty])),
-    [sourceStock],
-  )
+  const availableQtyMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const row of sourceStock) {
+      map.set(row.brand_variant_id, (map.get(row.brand_variant_id) ?? 0) + (row.available_qty ?? 0))
+    }
+    return map
+  }, [sourceStock])
 
-  const destStockMap = useMemo(
-    () => new Map(fullStock.filter((s) => s.warehouse_id === toId).map((s) => [s.brand_variant_id, s])),
-    [fullStock, toId],
-  )
+  // Destination qty rolled up across every sub-container of the target
+  // warehouse. Post-D.5 the view produces one row per sub-container, so
+  // Map(bv → row) alone would drop peer subs. Sum qty into a small record.
+  const destStockMap = useMemo(() => {
+    const map = new Map<string, { qty: number }>()
+    for (const s of fullStock) {
+      if (s.warehouse_id !== toId) continue
+      const cur = map.get(s.brand_variant_id)
+      map.set(s.brand_variant_id, { qty: (cur?.qty ?? 0) + (s.qty ?? 0) })
+    }
+    return map
+  }, [fullStock, toId])
 
   const reorderMap = useMemo(
     () => new Map(reorderPoints.map((rp) => [rp.brand_variant_id, rp.reorder_point])),
     [reorderPoints],
   )
 
+  // Restrict to items that actually have stock in the picked source
+  // sub-container (falls back to warehouse-wide until a sub-container is
+  // resolved so the empty picker doesn't blink).
+  const scopedSourceStock = useMemo(
+    () => (fromSubContainerId ? sourceStock.filter((s) => availableQtyMap.has(s.brand_variant_id)) : sourceStock),
+    [sourceStock, fromSubContainerId, availableQtyMap],
+  )
+
   const itemsByPriority = useMemo(() => {
-    if (!toId) return sourceStock
-    return [...sourceStock].sort((a, b) => {
+    if (!toId) return scopedSourceStock
+    return [...scopedSourceStock].sort((a, b) => {
       const aDest = destStockMap.get(a.brand_variant_id)
       const bDest = destStockMap.get(b.brand_variant_id)
       const aRP = reorderMap.get(a.brand_variant_id) ?? 0
@@ -99,7 +144,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       if (aPriority !== bPriority) return aPriority - bPriority
       return (a.item_name ?? '').localeCompare(b.item_name ?? '')
     })
-  }, [sourceStock, toId, destStockMap, reorderMap])
+  }, [scopedSourceStock, toId, destStockMap, reorderMap])
 
   const sourceFieldRPs = fromWh?.responsible_persons ?? []
 
@@ -112,11 +157,11 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       brand:         s.brand ?? null,
       sku:           s.sku ?? null,
       category:      s.category_name ?? null,
-      qty:           s.available_qty,
+      qty:           fromSubContainerId ? (availableQtyMap.get(s.brand_variant_id) ?? 0) : s.available_qty,
       destQty:       destStockMap.get(s.brand_variant_id)?.qty,
       reorderPoint:  reorderMap.get(s.brand_variant_id) ?? 0,
     })),
-    [itemsByPriority, destStockMap, reorderMap],
+    [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId],
   )
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -125,6 +170,8 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
     setOpen(false)
     setFromId('')
     setToId('')
+    setFromSubContainerId(null)
+    setToSubContainerId(null)
     setRows([{ brand_variant_id: '', qty: '' }])
     setNotes('')
     setOpenItemIdx(null)
@@ -186,12 +233,18 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
 
   const hasValidationErrors = rowErrors.some((e) => e !== null)
   const hasValidRows = rows.some((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
-  const canSubmit = !!fromId && !!toId && hasValidRows && !hasValidationErrors
+  const fromSubResolved = eligibleFromSubs.length > 0 && (eligibleFromSubs.length === 1 || !!fromSubContainerId)
+  const toSubResolved = eligibleToSubs.length > 0 && (eligibleToSubs.length === 1 || !!toSubContainerId)
+  const canSubmit = !!fromId && !!toId && fromSubResolved && toSubResolved && hasValidRows && !hasValidationErrors
 
   // ─── Submit ────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
     if (!fromId || !toId) return
+    if (eligibleFromSubs.length === 0) { toast.error('Source warehouse has no active sub-container'); return }
+    if (eligibleFromSubs.length > 1 && !fromSubContainerId) { toast.error('Pick a source sub-container'); return }
+    if (eligibleToSubs.length === 0) { toast.error('Destination warehouse has no active sub-container'); return }
+    if (eligibleToSubs.length > 1 && !toSubContainerId) { toast.error('Pick a destination sub-container'); return }
     try {
       const validRows = rows
         .filter((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
@@ -209,6 +262,8 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       const transferId = await createTransfer.mutateAsync({
         from_warehouse_id: fromId,
         to_warehouse_id: toId,
+        from_sub_container_id: fromSubContainerId,
+        to_sub_container_id: toSubContainerId,
         date: new Date().toISOString().split('T')[0],
         items: validRows,
         notes: notes || null,
@@ -299,6 +354,71 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
               </div>
             </div>
 
+            {/* ── Sub-container rows (stacked so long names never collide) ── */}
+            {fromId && (
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap min-h-7">
+                <span className="inline-flex items-center gap-1 flex-shrink-0">
+                  <Package className="h-3 w-3" />
+                  From sub-container:
+                </span>
+                {eligibleFromSubs.length === 0 ? (
+                  <span className="italic text-destructive">No active sub-container in this warehouse.</span>
+                ) : eligibleFromSubs.length === 1 ? (
+                  <>
+                    <span className="font-medium text-foreground truncate max-w-[420px]" title={eligibleFromSubs[0].name}>
+                      {eligibleFromSubs[0].name}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">Auto</Badge>
+                  </>
+                ) : (
+                  <Select value={fromSubContainerId ?? ''} onValueChange={(v) => setFromSubContainerId(v || null)}>
+                    <SelectTrigger className="h-7 text-[11px] w-auto min-w-[220px] max-w-[420px]">
+                      <SelectValue placeholder="Pick source sub-container…" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      {eligibleFromSubs.map((sc) => (
+                        <SelectItem key={sc.id} value={sc.id} className="text-[11px]">
+                          {sc.name}{sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {toId && (
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap min-h-7">
+                <span className="inline-flex items-center gap-1 flex-shrink-0">
+                  <Package className="h-3 w-3" />
+                  To sub-container:
+                </span>
+                {eligibleToSubs.length === 0 ? (
+                  <span className="italic text-destructive">No active sub-container in this warehouse.</span>
+                ) : eligibleToSubs.length === 1 ? (
+                  <>
+                    <span className="font-medium text-foreground truncate max-w-[420px]" title={eligibleToSubs[0].name}>
+                      {eligibleToSubs[0].name}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">Auto</Badge>
+                  </>
+                ) : (
+                  <Select value={toSubContainerId ?? ''} onValueChange={(v) => setToSubContainerId(v || null)}>
+                    <SelectTrigger className="h-7 text-[11px] w-auto min-w-[220px] max-w-[420px]">
+                      <SelectValue placeholder="Pick destination sub-container…" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      {eligibleToSubs.map((sc) => (
+                        <SelectItem key={sc.id} value={sc.id} className="text-[11px]">
+                          {sc.name}{sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
             {/* ── Notification banner ── */}
             {!!fromId && !!toId && sourceFieldRPs.length > 0 && (
               <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-primary/5 border border-primary/15 text-[11px]">
@@ -316,7 +436,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                 <Label className="text-[11px] font-medium">Items</Label>
                 {fromId && (
                   <span className="text-[10px] text-muted-foreground">
-                    {sourceStock.length} in stock
+                    {scopedSourceStock.length} in stock
                   </span>
                 )}
               </div>
@@ -355,7 +475,12 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                             )}
                             <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
                           </PopoverTrigger>
-                          <PopoverContent className="p-0 w-auto" align="start">
+                          <PopoverContent
+                            className="p-0 w-auto"
+                            align="start"
+                            side="bottom"
+                            collisionAvoidance={{ side: 'none' }}
+                          >
                             <WhItemPicker
                               items={pickerItems}
                               selectedIds={selectedIds}

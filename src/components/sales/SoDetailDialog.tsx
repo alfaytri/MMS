@@ -30,6 +30,7 @@ import {
 } from '@/hooks/useSaleOrders'
 import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery, useRecordInventoryDisposition } from '@/hooks/useSaleDeliveries'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
 import { useCustomerPayments } from '@/hooks/useCustomerPayments'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
@@ -49,6 +50,8 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { DeliveryFormDialog } from '@/components/sales/DeliveryFormDialog'
+import type { SaleDelivery as HookSaleDelivery } from '@/hooks/useSaleDeliveries'
 
 const inventoryTypeBadge: Record<string, { label: string; className: string }> = {
   'products':    { label: 'Product',    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -75,6 +78,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
   const [confirmDeliveryId, setConfirmDeliveryId] = useState<string | null>(null)
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null)
+  const [formDeliveryId, setFormDeliveryId] = useState<string | null>(null)
 
   const cancelSO = useCancelSO()
   const [cancelSOOpen, setCancelSOOpen] = useState(false)
@@ -339,7 +343,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                                 size="sm"
                                 className="h-7 text-xs"
                                 disabled={completeDelivery.isPending}
-                                onClick={() => setConfirmDeliveryId(d.id)}
+                                onClick={() => {
+                                  // When the SO has no division set (legacy or replacement flows),
+                                  // the operator must pick a sub-container explicitly — route to
+                                  // the full DeliveryFormDialog which shows the picker.
+                                  if (!current?.division_id) {
+                                    setFormDeliveryId(d.id)
+                                  } else {
+                                    setConfirmDeliveryId(d.id)
+                                  }
+                                }}
                               >
                                 Delivered
                               </Button>
@@ -666,6 +679,20 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delivery form (used when SO has no division and the operator must pick a sub-container) */}
+      {formDeliveryId && (() => {
+        const del = (fullSO?.sale_deliveries ?? []).find((d) => d.id === formDeliveryId)
+        if (!del) return null
+        return (
+          <DeliveryFormDialog
+            key={formDeliveryId}
+            open={!!formDeliveryId}
+            onOpenChange={(o) => { if (!o) setFormDeliveryId(null) }}
+            delivery={del as unknown as HookSaleDelivery}
+          />
+        )
+      })()}
+
       {/* Edit Delivery dialog */}
       {editDeliveryId && (() => {
         const del = (fullSO?.sale_deliveries ?? []).find((d) => d.id === editDeliveryId)
@@ -718,7 +745,19 @@ function EditDeliveryDialog({
     () => items.map((i) => i.brand_variant_id).filter(Boolean) as string[],
     [items],
   )
-  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+
+  // Scope the qty chip to the picked warehouse's sub-container when it can be
+  // resolved unambiguously — a single active sub means the delivery will land
+  // there. When the warehouse has multiple subs and we don't have SO division
+  // context here, pass null and fall back to the warehouse-aggregated total.
+  const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const resolvedSubContainerId = useMemo(() => {
+    if (!warehouseId) return null
+    const eligible = activeSubs.filter((sc) => sc.is_active)
+    return eligible.length === 1 ? eligible[0].id : null
+  }, [warehouseId, activeSubs])
+
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds, resolvedSubContainerId)
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>

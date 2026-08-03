@@ -144,13 +144,17 @@ export function PaymentFormDialog({
     : rawOutstanding
   const progressPct = totalAmount > 0 ? Math.min(100, (paidAmount / totalAmount) * 100) : 0
 
-  // When outstandingOverride === 0, the whole invoice is being paid by a
-  // parent flow (e.g. store credit) and the cash amount is legitimately 0.
-  // Otherwise the amount must be positive.
-  const allowZeroAmount = outstandingOverride === 0
+  // Allow amount = 0 whenever a parent flow (store credit) is contributing
+  // to the payment — the credit redemption on its own is a valid submission,
+  // even when it only covers part of the outstanding. The submit button is
+  // still gated on rawOutstanding > 0, and the parent's own credit-applied
+  // amount is what makes the submission meaningful.
+  const allowZeroAmount = outstandingOverride !== undefined && outstandingOverride < rawOutstanding
   const paymentSchema = z.object({
     amount: allowZeroAmount
-      ? z.coerce.number().min(0, 'Amount cannot be negative').max(0.01, 'No additional payment needed')
+      ? z.coerce.number()
+          .min(0, 'Amount cannot be negative')
+          .max(outstanding + 0.01, `Amount exceeds remaining (${currency} ${outstanding.toLocaleString('en', { minimumFractionDigits: 2 })})`)
       : z.coerce.number()
           .positive('Amount must be positive')
           .max(outstanding + 0.01, `Amount exceeds outstanding (${currency} ${outstanding.toLocaleString('en', { minimumFractionDigits: 2 })})`),

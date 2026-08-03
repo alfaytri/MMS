@@ -10,8 +10,10 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, ShoppingCart, Truck, Package2 } from 'lucide-react'
 import { format } from 'date-fns'
 
+// COGS entries are stored in QAR (post-Section-10 FX pipeline). Prefix so
+// the user can never mistake the number for another currency.
 const fmtVal = (n: number) =>
-  n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  `QAR ${n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 interface CogsEntry {
   id: string

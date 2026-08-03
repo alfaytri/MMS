@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -14,9 +14,12 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Pencil, Check } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Pencil, Check, Package } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCreateReplacementReceival, type ReplacementReceivalItem } from '@/hooks/useReceivals'
+import { usePurchaseOrder } from '@/hooks/usePurchaseOrders'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import type { NoteDebitLineItem } from '@/hooks/useCreditNotes'
 import type { DebitNote, DebitNoteLine } from '@/types/invoice'
 import { formatCurrency } from '@/lib/utils/formatters'
@@ -64,7 +67,28 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
     }))
   )
   const [warehouseId, setWarehouseId] = useState('')
+  const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const { data: po } = usePurchaseOrder(debitNote.purchase_order_id ?? null)
+  const poDivisionId = po?.division_id ?? null
+
+  const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const eligibleSubs = useMemo(
+    () => allSubs.filter((sc) => sc.is_active && sc.division_id === poDivisionId),
+    [allSubs, poDivisionId]
+  )
+
+  useEffect(() => {
+    if (eligibleSubs.length === 1) {
+      setSubContainerId(eligibleSubs[0].id)
+    } else if (eligibleSubs.length === 0) {
+      setSubContainerId(null)
+    } else if (subContainerId && !eligibleSubs.some((sc) => sc.id === subContainerId)) {
+      setSubContainerId(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId, poDivisionId, eligibleSubs.length])
 
   const updateItem = (idx: number, patch: Partial<DraftItem>) => {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)))
@@ -79,6 +103,10 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
   const submit = async () => {
     if (!warehouseId) {
       toast.error('Select a warehouse')
+      return
+    }
+    if (eligibleSubs.length > 1 && !subContainerId) {
+      toast.error('Pick a sub-container before submitting')
       return
     }
     if (items.length === 0) {
@@ -107,6 +135,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
       await createReplacement.mutateAsync({
         po_id: debitNote.purchase_order_id,
         warehouse_id: warehouseId,
+        sub_container_id: subContainerId,
         debit_note_id: debitNote.id,
         items: payloadItems,
       })
@@ -144,6 +173,43 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
               </SelectContent>
             </Select>
           </div>
+
+          {warehouseId && poDivisionId && (
+            <div className="space-y-1">
+              <Label className="flex items-center gap-1.5">
+                <Package className="h-3 w-3" />
+                Sub-container
+              </Label>
+              {eligibleSubs.length === 0 ? (
+                <p className="text-xs text-muted-foreground border rounded-md py-2 px-3 bg-muted/30">
+                  No active sub-container in this warehouse for the PO&apos;s division.
+                  One will be auto-created when you submit.
+                </p>
+              ) : eligibleSubs.length === 1 ? (
+                <div className="flex items-center gap-2 border rounded-md py-2 px-3 bg-muted/30 min-h-9">
+                  <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm font-medium truncate">{eligibleSubs[0].name}</span>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                    Auto-selected
+                  </Badge>
+                </div>
+              ) : (
+                <Select
+                  value={subContainerId ?? ''}
+                  onValueChange={(v) => setSubContainerId(v || null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick a sub-container" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {eligibleSubs.map((sc) => (
+                      <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           <div className="rounded-md border">
             <Table className="w-full min-w-[600px]">

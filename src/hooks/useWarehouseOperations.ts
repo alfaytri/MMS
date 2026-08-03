@@ -19,10 +19,21 @@ export type StockMovementType =
   | 'purchase_return'
   | 'purchase_return_cancelled'
   | 'transfer_shrinkage'
+  | 'damaged_return_from_repair_as_good'
+  // D.13 — types that live in `inventory_damaged_movements`, unioned into
+  // the same feed by useStockMovements so the Warehouses → Movements tab
+  // shows both good- and damaged-side history in one stream.
+  | 'restock_as_damaged_in'
+  | 'send_for_repair_out'
+  | 'return_from_repair_as_writeoff'
+  | 'damaged_write_off'
+  | 'damaged_adjust'
 
 export type StockMovement = {
   id: string
   warehouse_id: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   brand_variant_id: string
   item_name: string
   sku: string | null
@@ -33,10 +44,18 @@ export type StockMovement = {
   reference_id: string | null
   notes: string | null
   created_at: string
+  // D.13 — 'damaged' means the row was sourced from
+  // `inventory_damaged_movements`; 'good' from `inventory_stock_movements`.
+  // Used by the UI stream chip + filter, and by the sub-container display
+  // (damaged rows have no direct sub_container_id — the name is resolved
+  // via the D.11 source-transfer chain).
+  stream: 'good' | 'damaged'
 }
 
 export type WarehouseStockItem = {
   warehouse_id: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   brand_variant_id: string
   item_name: string
   brand: string | null
@@ -74,6 +93,10 @@ export type WarehouseTransfer = {
   transfer_number: string
   from_warehouse_id: string
   to_warehouse_id: string
+  from_sub_container_id: string | null
+  to_sub_container_id: string | null
+  from_sub_container_name: string | null
+  to_sub_container_name: string | null
   status: TransferStatus
   created_by_name: string | null
   created_by_profile_id: string | null
@@ -97,6 +120,8 @@ export type WarehouseTransfer = {
 export type CreateTransferPayload = {
   from_warehouse_id: string
   to_warehouse_id: string
+  from_sub_container_id?: string | null
+  to_sub_container_id?: string | null
   date: string
   items: Array<{ brand_variant_id: string; item_name: string; sku: string | null; qty: number; unit_cost: number }>
   notes?: string | null
@@ -107,6 +132,8 @@ export type CreateTransferPayload = {
 export type StockAdjustment = {
   id: string
   warehouse_id: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   brand_variant_id: string
   adjustment_type: string
   qty: number
@@ -141,6 +168,8 @@ export type InventoryCheck = {
   check_number: string
   warehouse_id: string
   warehouse_name: string
+  sub_container_id: string | null
+  sub_container_name: string | null
   status: string
   initiated_by_profile_id: string | null
   initiated_by_name: string | null
@@ -213,6 +242,12 @@ export type ReceivalDelivery = {
   reference: string // po_id (inbound) | sale_order_id (outbound)
   warehouseId: string
   warehouseName: string
+  // Inbound: sub-container name(s) from receival_items — one entry per DISTINCT
+  // sub_container the receival touched. Almost always length 1 in practice.
+  // Outbound: [] — sale_deliveries has no header sub_container_id column
+  // (D.3 stamped only the movement). Sub-container is visible via Movements
+  // tab or the delivery detail dialog.
+  subContainerNames: string[]
   counterparty: string // supplier name (inbound) | customer name (outbound)
   date: string
   items: { name: string; sku: string; qty: number; brand_variant_id?: string | null }[]
@@ -233,31 +268,148 @@ export function useStockMovements({
     queryKey: queryKeys.warehouseOps.stockMovements(warehouseId, limit),
     queryFn: async () => {
       const supabase = createClient()
-      let q = supabase
+
+      // D.13 — fetch both good-stock and damaged-stock movements in parallel,
+      // then merge + sort by created_at desc + trim to `limit`. The
+      // Warehouses → Movements tab is the single unified movement view now;
+      // the Damaged Stock page's own Movements tab was dropped.
+      let goodQ = supabase
         .from('inventory_stock_movements')
-        .select('id, warehouse_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at')
+        .select('id, warehouse_id, sub_container_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at, warehouse_sub_containers:sub_container_id(name)')
         .order('created_at', { ascending: false })
         .limit(limit)
-      if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q
-      if (error) throw error
-      return (data ?? []) as StockMovement[]
+      if (warehouseId) goodQ = goodQ.eq('warehouse_id', warehouseId)
+
+      // Damaged movements have no direct sub_container_id column (per D.5.a).
+      // The source is resolved through the D.11 chain: prefer the direct
+      // `source_transfer_id → warehouse_transfers.from_sub_container` join;
+      // fall back via `source_return_line_disposition_id →
+      // return_line_inventory_dispositions.warehouse_transfer_id →
+      // warehouse_transfers.from_sub_container`.
+      let damagedQ = supabase
+        .from('inventory_damaged_movements')
+        .select(`
+          id,
+          warehouse_id,
+          brand_variant_id,
+          movement_type,
+          qty,
+          unit_cost,
+          notes,
+          created_at,
+          source_transfer_id,
+          source_return_line_disposition_id,
+          inventory_item_brand_variants (
+            brand,
+            code,
+            inventory_items ( name_en, sku )
+          ),
+          direct_transfer:source_transfer_id (
+            from_sub_container_id,
+            warehouse_sub_containers:from_sub_container_id ( name )
+          ),
+          disposition:source_return_line_disposition_id (
+            warehouse_transfer_id,
+            warehouse_transfers:warehouse_transfer_id (
+              from_sub_container_id,
+              warehouse_sub_containers:from_sub_container_id ( name )
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (warehouseId) damagedQ = damagedQ.eq('warehouse_id', warehouseId)
+
+      const [
+        { data: goodRows,    error: goodErr    },
+        { data: damagedRows, error: damagedErr },
+      ] = await Promise.all([goodQ, damagedQ])
+      if (goodErr)    throw goodErr
+      if (damagedErr) throw damagedErr
+
+      const good: StockMovement[] = (goodRows ?? []).map((r) => {
+        const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
+        return {
+          ...rest,
+          sub_container_name: warehouse_sub_containers?.name ?? null,
+          stream: 'good',
+        }
+      }) as StockMovement[]
+
+      const damaged: StockMovement[] = (damagedRows ?? []).map((r: any) => {
+        // Resolve the source-chain sub-container name (direct wins, then
+        // disposition), matching the D.11 damaged-stock page behaviour.
+        const direct = r.direct_transfer?.warehouse_sub_containers?.name ?? null
+        const viaDisp = r.disposition?.warehouse_transfers?.warehouse_sub_containers?.name ?? null
+        const subName = direct ?? viaDisp
+
+        // Damaged-side items — pull the display name via the brand-variant
+        // join so the Item column looks the same as good-stock rows even
+        // though `inventory_damaged_movements` has no `item_name` / `sku`
+        // columns of its own.
+        const bv = r.inventory_item_brand_variants
+        const baseName = bv?.inventory_items?.name_en ?? ''
+        const brand    = bv?.brand ?? ''
+        const itemName = brand ? `${baseName} — ${brand}` : baseName || 'Unknown item'
+        const baseSku  = bv?.inventory_items?.sku ?? ''
+        const code     = bv?.code ?? ''
+        const sku      = baseSku && code ? `${baseSku}-${code}` : baseSku || code || null
+
+        // Best-effort reference for the Ref column: the outbound transfer if
+        // present, else the disposition. Reference dialog already handles
+        // `transfer` and can degrade for unknown types.
+        const referenceType: string | null =
+          r.source_transfer_id ? 'transfer' :
+          r.source_return_line_disposition_id ? 'return' :
+          null
+        const referenceId: string | null =
+          r.source_transfer_id ?? r.source_return_line_disposition_id ?? null
+
+        return {
+          id: r.id,
+          warehouse_id: r.warehouse_id,
+          // Damaged tables carry no sub_container_id column. The name comes
+          // from the chain; leaving id null keeps the sub-container filter
+          // from unintentionally matching a good-stock sub with the same name.
+          sub_container_id: null,
+          sub_container_name: subName,
+          brand_variant_id: r.brand_variant_id,
+          item_name: itemName,
+          sku,
+          movement_type: r.movement_type as StockMovementType,
+          qty: Number(r.qty ?? 0),
+          unit_cost: Number(r.unit_cost ?? 0),
+          reference_type: referenceType,
+          reference_id: referenceId,
+          notes: r.notes ?? null,
+          created_at: r.created_at,
+          stream: 'damaged',
+        }
+      })
+
+      const merged = [...good, ...damaged]
+      merged.sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+      return merged.slice(0, limit)
     },
     staleTime: 2 * 60 * 1000,
   })
 }
 
-export function useWarehouseStock(warehouseId?: string) {
+export function useWarehouseStock(warehouseId?: string, subContainerId?: string | null) {
   return useQuery({
-    queryKey: queryKeys.warehouseOps.warehouseStock(warehouseId),
+    queryKey: queryKeys.warehouseOps.warehouseStock(warehouseId ?? null, subContainerId ?? null),
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
         .from('warehouse_stock_view')
-        .select('warehouse_id, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
+        .select('warehouse_id, sub_container_id, sub_container_name, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
-      const { data, error } = await q.limit(warehouseId ? 1500 : 5000)
+      if (subContainerId) q = q.eq('sub_container_id', subContainerId)
+      // With sub-container broken out, one variant can now produce multiple
+      // rows per warehouse. Bump the ceiling proportionally.
+      const cap = warehouseId ? (subContainerId ? 1500 : 5000) : 20000
+      const { data, error } = await q.limit(cap)
       if (error) throw error
       return (data ?? []) as WarehouseStockItem[]
     },
@@ -270,25 +422,82 @@ export function useWarehouseStockSummary(warehouseId: string | null): {
   isLoading: boolean
 } {
   const { data: items = [], isLoading } = useWarehouseStock(warehouseId ?? undefined)
-  const data = useMemo(
-    () => new Map(items.map((item) => [item.brand_variant_id, item.qty])),
-    [items],
-  )
+  const data = useMemo(() => {
+    // Post-D.5: one variant can have multiple sub-container rows in the
+    // same warehouse. Sum them so consumers get a warehouse-level total.
+    const map = new Map<string, number>()
+    for (const item of items) {
+      map.set(item.brand_variant_id, (map.get(item.brand_variant_id) ?? 0) + item.qty)
+    }
+    return map
+  }, [items])
   return { data, isLoading }
 }
 
-export function useWarehouseStockByItems(brandVariantIds: string[]) {
-  const { data: allStock = [], isLoading } = useWarehouseStock()
-  const data = useMemo(() => {
+export function useWarehouseStockByItems(
+  brandVariantIds: string[],
+  subContainerId?: string | null,
+) {
+  const { data: allStock = [], isLoading } = useWarehouseStock(undefined, subContainerId)
+
+  // Roll up first — needed to know which warehouse ids to name-lookup.
+  const perWhRollup = useMemo(() => {
     const idSet = new Set(brandVariantIds)
-    const map = new Map<string, { warehouse_id: string; warehouse_name?: string; qty: number }[]>()
+    const perWhKey = new Map<string, { warehouse_id: string; qty: number }>()
     for (const s of allStock) {
       if (!idSet.has(s.brand_variant_id) || s.qty <= 0) continue
-      if (!map.has(s.brand_variant_id)) map.set(s.brand_variant_id, [])
-      map.get(s.brand_variant_id)!.push({ warehouse_id: s.warehouse_id, qty: s.qty })
+      const key = `${s.brand_variant_id}|${s.warehouse_id}`
+      const existing = perWhKey.get(key)
+      if (existing) existing.qty += s.qty
+      else perWhKey.set(key, { warehouse_id: s.warehouse_id, qty: s.qty })
+    }
+    return perWhKey
+  }, [allStock, brandVariantIds])
+
+  const warehouseIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const entry of perWhRollup.values()) set.add(entry.warehouse_id)
+    return Array.from(set)
+  }, [perWhRollup])
+
+  // Fetch names by id so cross-division warehouses (not in the caller's
+  // useWarehouses() list) still resolve to a readable label instead of "?".
+  // Phase D.12 Task 5 surfaced this: Kitchen consuming shared Maintenance
+  // stock previously rendered "?: 46" on the Create Delivery dialog because
+  // the `warehouses` table is division-RLS-scoped. `get_warehouse_names`
+  // is a SECURITY DEFINER RPC that bypasses that scope — names are non-
+  // sensitive, and if the caller can see the stock row through the view
+  // they can see the warehouse name too.
+  const { data: whNames } = useQuery({
+    queryKey: ['warehouse-names-by-id', [...warehouseIds].sort().join('|')],
+    enabled: warehouseIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_warehouse_names', {
+        p_ids: warehouseIds,
+      })
+      if (error) throw error
+      const m = new Map<string, string>()
+      for (const row of (data ?? []) as Array<{ id: string; name: string }>) {
+        m.set(row.id, row.name ?? '')
+      }
+      return m
+    },
+  })
+
+  const data = useMemo(() => {
+    const map = new Map<string, { warehouse_id: string; warehouse_name?: string; qty: number }[]>()
+    for (const [key, entry] of perWhRollup.entries()) {
+      const bvId = key.split('|')[0]
+      const name = whNames?.get(entry.warehouse_id)
+      const enriched = { ...entry, warehouse_name: name }
+      if (!map.has(bvId)) map.set(bvId, [])
+      map.get(bvId)!.push(enriched)
     }
     return map
-  }, [allStock, brandVariantIds])
+  }, [perWhRollup, whNames])
+
   return { data, isLoading }
 }
 
@@ -301,13 +510,25 @@ export function useWarehouseTransfers({ status }: { status?: TransferStatus } = 
         .from('warehouse_transfers')
         .select(`
   *, from_warehouse:from_warehouse_id(name), to_warehouse:to_warehouse_id(name),
+  from_sub_container:from_sub_container_id(name),
+  to_sub_container:to_sub_container_id(name),
   transfer_items:warehouse_transfer_items(*)
 `)
         .order('created_at', { ascending: false })
       if (status) q = q.eq('status', status)
       const { data, error } = await q.limit(50)
       if (error) throw error
-      return (data ?? []) as unknown as WarehouseTransfer[]
+      return (data ?? []).map((r) => {
+        const { from_sub_container, to_sub_container, ...rest } = r as typeof r & {
+          from_sub_container: { name: string } | null
+          to_sub_container: { name: string } | null
+        }
+        return {
+          ...rest,
+          from_sub_container_name: from_sub_container?.name ?? null,
+          to_sub_container_name: to_sub_container?.name ?? null,
+        }
+      }) as unknown as WarehouseTransfer[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -322,6 +543,8 @@ export function useCreateTransfer() {
       const { data, error } = await supabase.rpc('create_transfer_v2', {
         p_from_warehouse_id: payload.from_warehouse_id,
         p_to_warehouse_id: payload.to_warehouse_id,
+        p_from_sub_container_id: payload.from_sub_container_id ?? undefined,
+        p_to_sub_container_id: payload.to_sub_container_id ?? undefined,
         p_date: payload.date,
         p_items: payload.items,
         p_notes: payload.notes ?? undefined,
@@ -447,6 +670,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
         .select(`
           *,
           warehouses(name),
+          warehouse_sub_containers:sub_container_id(name),
           inventory_item_brand_variants(brand, inventory_items(name_en, sku, inventory_categories(id, name_en, type))),
           stock_adjustment_approvals(
             id, adjustment_id, step_order, step_role, step_label, status,
@@ -458,7 +682,10 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q.limit(100)
       if (error) throw error
-      return (data ?? []) as unknown as StockAdjustment[]
+      return (data ?? []).map((r) => {
+        const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
+        return { ...rest, sub_container_name: warehouse_sub_containers?.name ?? null }
+      }) as unknown as StockAdjustment[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -466,6 +693,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
 
 export type CreateAdjustmentV2Payload = {
   warehouseId: string
+  subContainerId?: string | null
   brandVariantId: string
   adjustmentType: 'increase' | 'decrease' | 'damage' | 'write_off'
   qty: number
@@ -491,6 +719,7 @@ export function useCreateStockAdjustmentV2() {
         p_photo_urls:        payload.photoUrls,
         p_requested_by:      payload.requestedBy as string,
         p_requested_by_name: payload.requestedByName as string,
+        p_sub_container_id:  payload.subContainerId ?? undefined,
       })
       if (error) {
         const cleanMessage = error.message.replace(/^P\d{4}:\s*/, '')
@@ -635,12 +864,15 @@ export function useInventoryChecks({ warehouseId }: { warehouseId?: string } = {
       const supabase = createClient()
       let q = supabase
         .from('inventory_checks')
-        .select('id, check_number, warehouse_id, warehouse_name, status, reviewed_by_name, reviewed_at, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at')
+        .select('id, check_number, warehouse_id, warehouse_name, sub_container_id, status, reviewed_by_name, reviewed_at, notes, created_at, initiated_by_profile_id, initiated_by_name, started_at, warehouse_sub_containers:sub_container_id(name)')
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q.limit(100)
       if (error) throw error
-      return (data ?? []) as InventoryCheck[]
+      return (data ?? []).map((r) => {
+        const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
+        return { ...rest, sub_container_name: warehouse_sub_containers?.name ?? null }
+      }) as InventoryCheck[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -673,7 +905,7 @@ export function useReceivalsAndDeliveries() {
       const [receivalsRes, deliveriesRes] = await Promise.all([
         supabase
           .from('receivals')
-          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id)')
+          .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id, sub_container_id, warehouse_sub_containers:sub_container_id(name))')
           .order('date', { ascending: false }),
         supabase
           .from('sale_deliveries')
@@ -684,21 +916,30 @@ export function useReceivalsAndDeliveries() {
       if (receivalsRes.error) throw receivalsRes.error
       if (deliveriesRes.error) throw deliveriesRes.error
 
-      const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r) => ({
-        id: r.id,
-        direction: 'inbound' as const,
-        docNumber: r.receival_number ?? '',
-        reference: r.purchase_orders?.po_number ?? '',
-        warehouseId: r.warehouse_id ?? '',
-        warehouseName: r.warehouses?.name ?? '',
-        counterparty: r.purchase_orders?.supplier_name ?? '',
-        date: r.date ?? '',
-        items: Array.isArray(r.receival_items)
-          ? r.receival_items.map((ri) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null }))
-          : [],
-        itemCount: Array.isArray(r.receival_items) ? r.receival_items.length : 0,
-        status: r.status ?? 'pending',
-      }))
+      const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r) => {
+        const rItems = Array.isArray(r.receival_items) ? r.receival_items : []
+        const subNames = Array.from(
+          new Set(
+            rItems
+              .map((ri) => (ri as unknown as { warehouse_sub_containers?: { name: string } | null }).warehouse_sub_containers?.name)
+              .filter((n): n is string => !!n),
+          ),
+        )
+        return {
+          id: r.id,
+          direction: 'inbound' as const,
+          docNumber: r.receival_number ?? '',
+          reference: r.purchase_orders?.po_number ?? '',
+          warehouseId: r.warehouse_id ?? '',
+          warehouseName: r.warehouses?.name ?? '',
+          subContainerNames: subNames,
+          counterparty: r.purchase_orders?.supplier_name ?? '',
+          date: r.date ?? '',
+          items: rItems.map((ri) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null })),
+          itemCount: rItems.length,
+          status: r.status ?? 'pending',
+        }
+      })
 
       const outbound: ReceivalDelivery[] = (deliveriesRes.data ?? []).map((d) => ({
         id: d.id,
@@ -707,6 +948,9 @@ export function useReceivalsAndDeliveries() {
         reference: d.sale_orders?.so_number ?? '',
         warehouseId: d.warehouse_id ?? '',
         warehouseName: d.warehouse_name ?? '',
+        // sale_deliveries has no header sub_container_id — D.3 stamped only the
+        // movement. Left empty here; see Movements tab or delivery detail dialog.
+        subContainerNames: [],
         counterparty: d.sale_orders?.customers?.name ?? '',
         date: d.date ?? '',
         items: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.map((di) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],
@@ -883,6 +1127,7 @@ export function usePostCountMovements(checkId: string, warehouseId: string | und
 
 type StartCheckPayload = {
   warehouseId: string
+  subContainerId?: string | null
   warehouseName: string
   initiatedByProfileId: string | null
   initiatedByName: string | null
@@ -916,6 +1161,7 @@ export function useStartInventoryCheck() {
         .insert({
           check_number: checkNumber as string,
           warehouse_id: payload.warehouseId,
+          sub_container_id: payload.subContainerId ?? null,
           warehouse_name: payload.warehouseName,
           status: 'in_progress',
           initiated_by_profile_id: payload.initiatedByProfileId,

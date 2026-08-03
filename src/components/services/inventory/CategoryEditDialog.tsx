@@ -10,6 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Badge } from '@/components/ui/badge'
 import { useCreateInventoryCategory, useUpdateInventoryCategory, type InventoryCategory } from '@/hooks/useInventory'
 import { useInventoryTree, ancestors, allDescendantIds } from '@/hooks/useInventoryTree'
+import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useCategorySubContainer } from '@/hooks/useCategorySubContainer'
+import { createClient } from '@/lib/supabase/client'
 
 const TYPE_LABELS: Record<string, string> = {
   'products': 'Products',
@@ -38,14 +42,30 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [l1Id, setL1Id] = useState<string | null>(null)
   const [l2Id, setL2Id] = useState<string | null>(null)
   const [l3Id, setL3Id] = useState<string | null>(null)
+  const [warehouseId, setWarehouseId] = useState<string | null>(null)
+  const [subContainerId, setSubContainerId] = useState<string | null>(null)
 
   const parentId = l3Id ?? l2Id ?? l1Id ?? null
+
+  // D.8 — warehouse/sub-container pickers (standard warehouses only; virtual
+  // warehouses like the shared Repair container are already excluded by
+  // useWarehouses() default).
+  const { data: warehouses = [] } = useWarehouses()
+  const { data: subContainers = [] } = useWarehouseSubContainers(warehouseId)
+  const activeSubs = useMemo(() => subContainers.filter((s) => s.is_active), [subContainers])
+
+  // Hint: when default_sub_container_id is null, what would resolution return
+  // by walking up the parent chain?
+  const { data: inheritedResolved } = useCategorySubContainer(
+    subContainerId ? null : parentId,
+  )
 
   useEffect(() => {
     if (open) {
       setNameEn(category?.name_en ?? '')
       setNameAr(category?.name_ar ?? '')
       setSku(category?.sku ?? '')
+      setSubContainerId(category?.default_sub_container_id ?? null)
 
       const targetId = isEdit ? (category?.parent_id ?? null) : (defaultParentId ?? null)
       if (targetId && flat.length > 0) {
@@ -61,6 +81,30 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       setL1Id(null); setL2Id(null); setL3Id(null)
     }
   }, [open, category, defaultParentId, isEdit, flat])
+
+  // On open in edit mode with a stored sub-container, look up its warehouse
+  // once so the warehouse picker lands on the right row. Runs a single query
+  // per open — the useWarehouseSubContainers hook only fetches under a known
+  // warehouseId, so we can't rely on it to seed the warehouse.
+  useEffect(() => {
+    if (!open) return
+    const seed = category?.default_sub_container_id ?? null
+    if (!seed) {
+      setWarehouseId(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('warehouse_sub_containers')
+        .select('warehouse_id')
+        .eq('id', seed)
+        .maybeSingle()
+      if (!cancelled) setWarehouseId(data?.warehouse_id ?? null)
+    })()
+    return () => { cancelled = true }
+  }, [open, category])
 
   const excludeIds = useMemo(() => {
     const set = new Set<string>()
@@ -104,6 +148,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       name_ar: nameAr.trim() || null,
       sku: sku.trim() || null,
       parent_id: parentId || null,
+      default_sub_container_id: subContainerId || null,
     }
 
     if (isEdit && category) {
@@ -211,6 +256,75 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                 <Label htmlFor="cat-name-ar" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Name (Arabic)</Label>
                 <Input id="cat-name-ar" value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" placeholder="اسم الفئة" className="h-10" />
               </div>
+            </div>
+
+            {/* Default sub-container — routing hint for the receival dialog */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Default Sub-container
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  value={warehouseId ?? '__none__'}
+                  onValueChange={(v) => {
+                    if (v === '__none__') {
+                      setWarehouseId(null)
+                      setSubContainerId(null)
+                    } else {
+                      setWarehouseId(v)
+                      setSubContainerId(null)
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-10 w-full min-w-0">
+                    <span className="truncate">
+                      {warehouseId
+                        ? warehouses.find((w) => w.id === warehouseId)?.name ?? 'Select'
+                        : 'Inherit from parent'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    <SelectItem value="__none__">Inherit from parent</SelectItem>
+                    {warehouses.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={subContainerId ?? '__none__'}
+                  onValueChange={(v) => setSubContainerId(v === '__none__' ? null : v)}
+                  disabled={!warehouseId || activeSubs.length === 0}
+                >
+                  <SelectTrigger className="h-10 w-full min-w-0">
+                    <span className="truncate">
+                      {!warehouseId
+                        ? '—'
+                        : subContainerId
+                          ? activeSubs.find((s) => s.id === subContainerId)?.name ?? 'Select'
+                          : 'Pick a sub-container'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    <SelectItem value="__none__">None</SelectItem>
+                    {activeSubs.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                        {s.division_name ? ` — ${s.division_name}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {!subContainerId && inheritedResolved && (
+                <p className="text-[10px] text-muted-foreground">
+                  Inherits from parent chain: <span className="font-medium text-foreground">{inheritedResolved.warehouse_name} · {inheritedResolved.sub_container_name}</span>
+                </p>
+              )}
+              {!subContainerId && !inheritedResolved && (
+                <p className="text-[10px] text-muted-foreground">
+                  Optional — used by the receival dialog to pre-fill the destination. If null anywhere in the chain, operator picks manually.
+                </p>
+              )}
             </div>
 
             {/* SKU + Type — side by side */}

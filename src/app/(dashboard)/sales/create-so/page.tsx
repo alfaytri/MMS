@@ -56,15 +56,15 @@ export default function CreateSOPage() {
   const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')
 
-  // Auto-select in this order: (1) user's active division (if it's in scope),
-  // (2) sole division when only one is available.
+  // Mirror the profile-menu division switcher: whenever the active division
+  // changes (or on first load), sync this form's Division field. Falls back
+  // to the sole in-scope division when the user has just one.
   useEffect(() => {
-    if (divisionId) return
     if (activeDivisionId && divisions.some((d) => d.id === activeDivisionId)) {
       setDivisionId(activeDivisionId)
       return
     }
-    if (divisions.length === 1) {
+    if (!divisionId && divisions.length === 1) {
       setDivisionId(divisions[0].id)
     }
   }, [divisions, divisionId, activeDivisionId])

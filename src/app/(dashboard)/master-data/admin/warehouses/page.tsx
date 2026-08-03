@@ -1,18 +1,18 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, ChevronDown, ChevronRight, Package, WarehouseIcon, MapPin, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
-import { DataTable } from '@/components/shared/DataTable'
-import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { WarehouseFormDialog } from '@/components/master-data/WarehouseFormDialog'
+import { WarehouseSubContainersSection } from '@/components/master-data/WarehouseSubContainersSection'
 import { useWarehouses, useDeleteWarehouse, type Warehouse } from '@/hooks/useWarehouses'
 import { formatNumber } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,9 +37,31 @@ export default function WarehousesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Warehouse | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Warehouse | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const { data: warehouses, isLoading } = useWarehouses()
+  // Master data view includes virtual warehouses so admins can manage their
+  // sub-containers (repair-vendor shadows).
+  const { data: warehouses = [], isLoading } = useWarehouses({ includeVirtual: true })
   const deleteWarehouse = useDeleteWarehouse()
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return warehouses
+    const q = search.trim().toLowerCase()
+    return warehouses.filter((w) =>
+      w.name.toLowerCase().includes(q)
+      || (w.location ?? '').toLowerCase().includes(q)
+      || (w.company_name ?? '').toLowerCase().includes(q)
+    )
+  }, [warehouses, search])
+
+  function toggleExpand(id: string) {
+    setExpanded((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  }
 
   function handleDelete() {
     if (!deleteTarget) return
@@ -55,113 +77,11 @@ export default function WarehousesPage() {
     })
   }
 
-  const columns = useMemo<ColumnDef<Warehouse>[]>(
-    () => [
-      {
-        accessorKey: 'name',
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
-        cell: ({ row }) => <span className="font-medium">{row.getValue('name')}</span>,
-      },
-      {
-        id: 'division',
-        accessorFn: (row) => row.division_name,
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Division" />,
-        cell: ({ row }) => {
-          const name = row.original.division_name
-          return name ? (
-            <span className="text-xs">{name}</span>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )
-        },
-      },
-      {
-        accessorKey: 'location',
-        header: 'Location',
-        cell: ({ row }) =>
-          row.getValue('location') || <span className="text-muted-foreground">—</span>,
-      },
-      {
-        id: 'responsible_persons',
-        header: () => (
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help border-b border-dashed border-muted-foreground/40">Warehouse RPs</span>
-              </TooltipTrigger>
-              <TooltipContent side="top"><p className="text-xs">Warehouse Responsible Persons</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ),
-        cell: ({ row }) => {
-          const wh = row.original
-          return (
-            <span className="text-xs">
-              {wh.responsible_persons.length > 0
-                ? wh.responsible_persons.map((rp: { full_name: string | null }) => rp.full_name).filter(Boolean).join(', ')
-                : <span className="text-muted-foreground">Unassigned</span>}
-            </span>
-          )
-        },
-      },
-      {
-        accessorKey: 'item_count',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Items" className="hidden md:flex" />
-        ),
-        cell: ({ row }) => (
-          <span className="hidden md:inline">
-            {formatNumber(row.getValue('item_count') as number)}
-          </span>
-        ),
-      },
-      {
-        id: 'actions',
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  aria-label="Open actions"
-                />
-              }
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => {
-                  setEditing(row.original)
-                  setDialogOpen(true)
-                }}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
-      },
-    ],
-    []
-  )
-
   return (
     <PageWrapper>
       <PageHeader
         title="Warehouses"
-        description="Manage warehouse locations"
+        description="Manage warehouse locations and their sub-containers"
         action={{
           label: 'Add Warehouse',
           onClick: () => {
@@ -171,18 +91,134 @@ export default function WarehousesPage() {
         }}
       />
 
-      <SearchInput
-        value={search}
-        onChange={setSearch}
-        placeholder="Search warehouses…"
-      />
+      <SearchInput value={search} onChange={setSearch} placeholder="Search warehouses…" />
 
-      <DataTable
-        columns={columns}
-        data={warehouses ?? []}
-        isLoading={isLoading}
-        globalFilter={search}
-      />
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground py-8 text-center">Loading warehouses…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-8 text-center">
+          {search.trim()
+            ? 'No warehouses match your search.'
+            : 'No warehouses yet. Click "Add Warehouse" to create one.'}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((wh) => {
+            const isOpen = expanded.has(wh.id)
+            return (
+              <Card key={wh.id} className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 flex-shrink-0 -ml-1"
+                      aria-label={isOpen ? 'Collapse sub-containers' : 'Expand sub-containers'}
+                      onClick={() => toggleExpand(wh.id)}
+                    >
+                      {isOpen ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <WarehouseIcon className="h-4 w-4 text-primary flex-shrink-0 mt-1.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="text-sm font-semibold truncate">{wh.name}</h3>
+                        {wh.is_virtual && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                            Virtual
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        {wh.company_name && (
+                          <span className="inline-flex items-center gap-1">
+                            <Package className="h-3 w-3" />
+                            {wh.company_name}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {wh.location || 'No location'}
+                        </span>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 cursor-help border-b border-dashed border-muted-foreground/40">
+                                <User className="h-3 w-3" />
+                                {wh.responsible_persons.length > 0
+                                  ? wh.responsible_persons
+                                      .map((rp) => rp.full_name)
+                                      .filter(Boolean)
+                                      .join(', ')
+                                  : 'Unassigned RPs'}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs">Warehouse Responsible Persons</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <span className="hidden md:inline-flex items-center gap-1">
+                          {formatNumber(wh.item_count ?? 0)} items
+                        </span>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 flex-shrink-0"
+                            aria-label="Open actions"
+                          />
+                        }
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditing(wh)
+                            setDialogOpen(true)
+                          }}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toggleExpand(wh.id)}>
+                          <Package className="h-4 w-4 mr-2" />
+                          {isOpen ? 'Hide' : 'Show'} sub-containers
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(wh)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                {isOpen && (
+                  <CardContent className="pt-0 pb-0 pl-2 pr-4 md:pl-4">
+                    <WarehouseSubContainersSection
+                      warehouseId={wh.id}
+                      warehouseName={wh.name}
+                      warehouseIsVirtual={wh.is_virtual}
+                    />
+                  </CardContent>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       <WarehouseFormDialog
         open={dialogOpen}
@@ -193,13 +229,18 @@ export default function WarehousesPage() {
         warehouse={editing}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete warehouse?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{deleteTarget?.name}</strong>. This action cannot
-              be undone.
+              This will permanently delete <strong>{deleteTarget?.name}</strong>. Sub-containers
+              and stock rows are protected by database constraints — if the warehouse has any,
+              deletion will fail. Deactivate sub-containers first if you need to remove the
+              warehouse.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

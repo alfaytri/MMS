@@ -649,7 +649,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
               {/* ── Returns ──────────────────────────────────────── */}
               {showReturns && fullPO && (
                 <TabsContent value="returns" className="flex-1 overflow-y-auto">
-                  <PoReturnsTab po={fullPO} poReturns={poReturns} receivals={receivals} />
+                  <PoReturnsTab po={fullPO} poReturns={poReturns} />
                 </TabsContent>
               )}
 

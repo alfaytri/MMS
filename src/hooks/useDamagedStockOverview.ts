@@ -48,6 +48,13 @@ export type DamagedOnHandRow = {
   qty: number
   weighted_unit_cost: number
   updated_at: string
+  // D.11 — best-effort source trace. inventory_damaged_stock has no
+  // sub_container_id; we derive it from the most recent
+  // `restock_as_damaged_in` movement per (warehouse, variant), then hop
+  // through that movement's source_transfer_id →
+  // warehouse_transfers.from_sub_container_id. Legacy pre-D.4 rows without
+  // a source transfer resolve to null (rendered `—`).
+  source_sub_container_name: string | null
 }
 
 export function useDamagedOnHand() {
@@ -55,29 +62,65 @@ export function useDamagedOnHand() {
     queryKey: queryKeys.damagedStock.all,
     queryFn: async (): Promise<DamagedOnHandRow[]> => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('inventory_damaged_stock')
-        .select(`
-          warehouse_id,
-          brand_variant_id,
-          qty,
-          weighted_unit_cost,
-          updated_at,
-          warehouses ( name ),
-          inventory_item_brand_variants (
-            brand,
-            code,
-            inventory_items ( name_en, sku )
-          )
-        `)
-        .gt('qty', 0)
-        .limit(500)
-      if (error) throw error
 
-      const rows = (data ?? []).map((r: any): DamagedOnHandRow => {
+      // Fire the on-hand fetch and the restock-provenance fetch in parallel.
+      // The provenance fetch pulls the latest `restock_as_damaged_in` movement
+      // per (warehouse, variant) with its source transfer's from_sub_container.
+      const [
+        { data: onHand,     error: onHandErr },
+        { data: provenance, error: provErr   },
+      ] = await Promise.all([
+        supabase
+          .from('inventory_damaged_stock')
+          .select(`
+            warehouse_id,
+            brand_variant_id,
+            qty,
+            weighted_unit_cost,
+            updated_at,
+            warehouses ( name ),
+            inventory_item_brand_variants (
+              brand,
+              code,
+              inventory_items ( name_en, sku )
+            )
+          `)
+          .gt('qty', 0)
+          .limit(500),
+        supabase
+          .from('inventory_damaged_movements')
+          .select(`
+            warehouse_id,
+            brand_variant_id,
+            created_at,
+            source_transfer_id,
+            warehouse_transfers:source_transfer_id (
+              from_sub_container_id,
+              warehouse_sub_containers:from_sub_container_id ( name )
+            )
+          `)
+          .eq('movement_type', 'restock_as_damaged_in')
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ])
+      if (onHandErr) throw onHandErr
+      if (provErr)   throw provErr
+
+      // Provenance map keyed by `${warehouse_id}:${brand_variant_id}`, first
+      // wins (order desc created_at above means first is the most recent).
+      const provMap = new Map<string, string | null>()
+      for (const p of (provenance ?? []) as any[]) {
+        const key = `${p.warehouse_id}:${p.brand_variant_id}`
+        if (provMap.has(key)) continue
+        const subName = p.warehouse_transfers?.warehouse_sub_containers?.name ?? null
+        provMap.set(key, subName)
+      }
+
+      const rows = (onHand ?? []).map((r: any): DamagedOnHandRow => {
         const label = itemLabelFromJoin(r.inventory_item_brand_variants as BrandVariantJoin)
+        const key = `${r.warehouse_id}:${r.brand_variant_id}`
         return {
-          key:                `${r.warehouse_id}:${r.brand_variant_id}`,
+          key,
           warehouse_id:       r.warehouse_id,
           warehouse_name:     r.warehouses?.name ?? '—',
           brand_variant_id:   r.brand_variant_id,
@@ -86,6 +129,7 @@ export function useDamagedOnHand() {
           qty:                Number(r.qty ?? 0),
           weighted_unit_cost: Number(r.weighted_unit_cost ?? 0),
           updated_at:         r.updated_at,
+          source_sub_container_name: provMap.get(key) ?? null,
         }
       })
       rows.sort((a, b) =>
@@ -104,7 +148,11 @@ export type OutForRepairRow = {
   transfer_number: string
   from_warehouse_id: string
   from_warehouse_name: string
-  to_warehouse_id: string          // vendor virtual warehouse
+  from_sub_container_id: string | null
+  from_sub_container_name: string | null
+  to_warehouse_id: string          // shared Repair warehouse
+  to_sub_container_id: string | null
+  to_sub_container_name: string | null   // vendor's sub-container in shared Repair
   repair_vendor_id: string | null
   repair_vendor_name: string
   expected_return_date: string | null
@@ -128,12 +176,16 @@ export function useOutForRepair() {
           id,
           transfer_number,
           from_warehouse_id,
+          from_sub_container_id,
           to_warehouse_id,
+          to_sub_container_id,
           repair_vendor_id,
           expected_return_date,
           dispatched_at,
           source_return_line_disposition_id,
           warehouses!warehouse_transfers_from_warehouse_id_fkey ( name ),
+          from_sub_container:from_sub_container_id ( name ),
+          to_sub_container:to_sub_container_id ( name ),
           repair_vendors ( name ),
           warehouse_transfer_items!inner (
             brand_variant_id,
@@ -164,7 +216,11 @@ export function useOutForRepair() {
             transfer_number:    r.transfer_number ?? '',
             from_warehouse_id:  r.from_warehouse_id,
             from_warehouse_name: r.warehouses?.name ?? '—',
+            from_sub_container_id: r.from_sub_container_id ?? null,
+            from_sub_container_name: r.from_sub_container?.name ?? null,
             to_warehouse_id:    r.to_warehouse_id,
+            to_sub_container_id: r.to_sub_container_id ?? null,
+            to_sub_container_name: r.to_sub_container?.name ?? null,
             repair_vendor_id:   r.repair_vendor_id,
             repair_vendor_name: r.repair_vendors?.name ?? '—',
             expected_return_date: r.expected_return_date,
@@ -199,6 +255,12 @@ export type DamagedMovementRow = {
   notes: string | null
   source_return_line_disposition_id: string | null
   source_transfer_id: string | null
+  // D.11 — best-effort source sub-container name. For restock rows, hops
+  // through the linked disposition's warehouse_transfer to its
+  // from_sub_container. For send/return rows the movement's own
+  // source_transfer_id carries the sub. Legacy rows without either link
+  // resolve to null (rendered `—`).
+  source_sub_container_name: string | null
 }
 
 export function useDamagedMovements() {
@@ -224,6 +286,17 @@ export function useDamagedMovements() {
             brand,
             code,
             inventory_items ( name_en, sku )
+          ),
+          direct_transfer:source_transfer_id (
+            from_sub_container_id,
+            warehouse_sub_containers:from_sub_container_id ( name )
+          ),
+          disposition:source_return_line_disposition_id (
+            warehouse_transfer_id,
+            warehouse_transfers:warehouse_transfer_id (
+              from_sub_container_id,
+              warehouse_sub_containers:from_sub_container_id ( name )
+            )
           )
         `)
         .order('created_at', { ascending: false })
@@ -232,6 +305,11 @@ export function useDamagedMovements() {
 
       return (data ?? []).map((r: any): DamagedMovementRow => {
         const label = itemLabelFromJoin(r.inventory_item_brand_variants as BrandVariantJoin)
+        // Prefer the direct source_transfer_id link (present on send/return
+        // rows). Fall back to the disposition → warehouse_transfer chain
+        // (present on restock rows once the vendor is assigned).
+        const direct = r.direct_transfer?.warehouse_sub_containers?.name ?? null
+        const viaDisp = r.disposition?.warehouse_transfers?.warehouse_sub_containers?.name ?? null
         return {
           id:               r.id,
           created_at:       r.created_at,
@@ -246,6 +324,7 @@ export function useDamagedMovements() {
           notes:            r.notes ?? null,
           source_return_line_disposition_id: r.source_return_line_disposition_id,
           source_transfer_id: r.source_transfer_id,
+          source_sub_container_name: direct ?? viaDisp,
         }
       })
     },

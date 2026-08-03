@@ -112,17 +112,23 @@ export function useCompleteDelivery() {
     mutationFn: async ({
       deliveryId,
       soId,
+      subContainerId,
       remainingItems,
     }: {
       deliveryId: string
       soId: string
+      subContainerId?: string | null
       remainingItems: DeliveryItem[]
     }) => {
       const supabase = createClient()
 
       // Single atomic RPC: marks delivered + deducts FIFO + writes COGS + movements
       const { error } = await supabase
-        .rpc('complete_delivery_inventory', { p_delivery_id: deliveryId, p_so_id: soId })
+        .rpc('complete_delivery_inventory', {
+          p_delivery_id: deliveryId,
+          p_so_id: soId,
+          p_sub_container_id: subContainerId ?? undefined,
+        })
       if (error) throw new Error(error.message)
 
       // Create follow-up delivery stub for remaining items (partial delivery)

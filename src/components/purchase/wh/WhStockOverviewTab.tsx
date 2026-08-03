@@ -5,11 +5,13 @@ import { Layers, Package, DollarSign, Search, X, ChevronRight, ChevronDown, Chev
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +20,7 @@ const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits:
 interface Props {
   warehouses: Warehouse[]
   initialWarehouseId?: string
+  initialSubContainerId?: string | null
 }
 
 interface BrandEntry {
@@ -73,6 +76,8 @@ type ItemTypeValue = typeof ITEM_TYPE_TABS[number]['value']
 
 // ─── Reusable stock tooltip ───────────────────────────────────────────────────
 
+type TooltipRow = { label: string; subLabel?: string | null; qty: number }
+
 function StockTooltip({
   qty,
   title,
@@ -80,9 +85,24 @@ function StockTooltip({
 }: {
   qty: number
   title: string
-  rows: { label: string; qty: number }[]
+  rows: TooltipRow[]
 }) {
   if (rows.length === 0) return <span>{qty}</span>
+
+  // D.10 — group rows by `label` (typically warehouse name). When more than
+  // one row shares the same label, render a warehouse header with the
+  // sub-container rows indented underneath. When each label appears once and
+  // has no subLabel (e.g. Stock by Brand), fall back to the original flat
+  // rendering.
+  const groups = new Map<string, { label: string; total: number; rows: TooltipRow[] }>()
+  for (const r of rows) {
+    const g = groups.get(r.label)
+    if (g) { g.total += r.qty; g.rows.push(r) }
+    else { groups.set(r.label, { label: r.label, total: r.qty, rows: [r] }) }
+  }
+  const grouped = Array.from(groups.values())
+  const anySub = grouped.some((g) => g.rows.some((r) => !!r.subLabel))
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -99,15 +119,39 @@ function StockTooltip({
             {title}
           </p>
         </div>
-        <div className="px-3 py-2 space-y-1.5 max-h-[300px] overflow-y-auto">
-          {rows.map((r) => (
-            <div key={r.label} className="flex items-center justify-between gap-6 text-xs">
-              <span className="text-muted-foreground">{r.label}</span>
-              <span className={`font-semibold tabular-nums ${r.qty > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
-                {r.qty}
-              </span>
-            </div>
-          ))}
+        <div className="px-3 py-2 space-y-2 max-h-[300px] overflow-y-auto">
+          {anySub ? (
+            grouped.map((g) => (
+              <div key={g.label} className="space-y-0.5">
+                <div className="flex items-center justify-between gap-6 text-xs">
+                  <span className="font-medium text-foreground">{g.label}</span>
+                  <span className={`font-semibold tabular-nums ${g.total > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {g.total}
+                  </span>
+                </div>
+                {g.rows.map((r, idx) => (
+                  <div
+                    key={`${g.label}:${r.subLabel ?? 'none'}:${idx}`}
+                    className="flex items-center justify-between gap-6 text-[11px] pl-3"
+                  >
+                    <span className="text-muted-foreground truncate">
+                      {r.subLabel ?? '— no sub —'}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{r.qty}</span>
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            rows.map((r, idx) => (
+              <div key={`${r.label}:${idx}`} className="flex items-center justify-between gap-6 text-xs">
+                <span className="text-muted-foreground">{r.label}</span>
+                <span className={`font-semibold tabular-nums ${r.qty > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {r.qty}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </TooltipContent>
     </Tooltip>
@@ -173,6 +217,7 @@ function collectAllKeys(tree: CategoryGroup[]) {
 export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   warehouses,
   initialWarehouseId,
+  initialSubContainerId,
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
@@ -182,24 +227,47 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
 
+  const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(
+    initialSubContainerId ?? null,
+  )
+  const { data: subs = [] } = useWarehouseSubContainers(selectedWarehouseId ?? null)
+  const activeSubs = useMemo(() => subs.filter((sc) => sc.is_active), [subs])
+
   useEffect(() => {
     setSelectedWarehouseId(initialWarehouseId)
   }, [initialWarehouseId])
 
   useEffect(() => {
+    if (initialSubContainerId !== undefined) setSelectedSubContainerId(initialSubContainerId)
+  }, [initialSubContainerId])
+
+  useEffect(() => {
+    if (!selectedWarehouseId) { setSelectedSubContainerId(null); return }
+    // If caller pre-selected a sub-container, don't overwrite it here.
+    if (initialSubContainerId) return
+    if (activeSubs.length === 1) setSelectedSubContainerId(activeSubs[0].id)
+    else if (!activeSubs.some((sc) => sc.id === selectedSubContainerId)) setSelectedSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWarehouseId, activeSubs.length])
+
+  useEffect(() => {
     setExpanded(new Set())
   }, [activeType])
 
-  const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId)
+  const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
   const { data: fullStock = [] } = useWarehouseStock()
 
+  // D.10 — row shape now carries `subLabel` so StockTooltip can render a
+  // two-level warehouse × sub-container breakdown. Same brand_variant_id in
+  // two subs of one warehouse produces two rows, not one merged bucket.
   const warehouseBreakdown = useMemo(() => {
-    const map = new Map<string, { label: string; qty: number }[]>()
+    const map = new Map<string, TooltipRow[]>()
     for (const item of fullStock) {
       if (!map.has(item.brand_variant_id)) map.set(item.brand_variant_id, [])
       const wh = warehouses.find((w) => w.id === item.warehouse_id)
       map.get(item.brand_variant_id)!.push({
         label: wh?.name ?? 'Unknown Warehouse',
+        subLabel: item.sub_container_name,
         qty: item.qty,
       })
     }
@@ -446,6 +514,33 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             ))}
           </SelectContent>
         </Select>
+
+        {selectedWarehouseId && activeSubs.length > 1 && (
+          <Select
+            value={selectedSubContainerId ?? '__all__'}
+            onValueChange={(v) => setSelectedSubContainerId(v === '__all__' ? null : (v ?? null))}
+          >
+            <SelectTrigger className="min-w-[140px] max-w-[180px] h-8 text-xs truncate">
+              <SelectValue placeholder="All subs" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60 overflow-y-auto">
+              <SelectItem value="__all__" className="text-xs">All sub-containers</SelectItem>
+              {activeSubs.map((sc) => (
+                <SelectItem key={sc.id} value={sc.id} className="text-xs">
+                  {shortenSubContainerName(sc.name, selectedWarehouse?.name)}
+                  {sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {selectedWarehouseId && activeSubs.length === 1 && (
+          <Badge variant="outline" className="text-[10px] h-8 px-2 flex-shrink-0 gap-1 truncate max-w-[160px]" title={activeSubs[0].name}>
+            <Package className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{shortenSubContainerName(activeSubs[0].name, selectedWarehouse?.name)}</span>
+            <span className="text-[9px] text-muted-foreground ml-0.5 flex-shrink-0">Auto</span>
+          </Badge>
+        )}
 
         {selectedWarehouse && (
           <Button

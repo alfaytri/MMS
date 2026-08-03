@@ -142,21 +142,21 @@ Field rules:
 - **Status:** Dropped — Phase 8.2 (migration `20260731000100_drop_legacy_writeoff_wrapper.sql`).
 - **Historic surface:** `rpc_write_off_return_damaged(p_return_id, p_warehouse_id)` RPC + `useWriteOffDamagedReturn` hook. Both removed 2026-07-29 after 8.1 grep confirmed zero live callers; work migrated to [[Record Inventory Disposition]] with per-line control.
 
-### Repair Vendor CRUD (auto-provisioned virtual warehouse)
+### Repair Vendor CRUD (sub-container of shared Repair warehouse)
 
 - **Module:** Warehouse
-- **Status:** Active (DB shipped Phase 9.2 · 2026-07-30; UI in Phase 9.6)
-- **Trigger surface(s):** `/warehouse/repair-vendors` page (Phase 9.6). Also invoked indirectly by the send-for-repair flow to look up vendors.
+- **Status:** Active (DB shipped Phase 9.2 · 2026-07-30; UI in Phase 9.6; consolidated onto one shared Repair warehouse Phase D.6.b · 2026-08-01)
+- **Trigger surface(s):** `RepairVendorFormDialog` opened from Damaged Stock → Repair Vendors dropdown. Also invoked indirectly by the send-for-repair flow to look up vendors.
 - **Primary hook(s):** `useRepairVendors`, `useCreateRepairVendor`, `useUpdateRepairVendor` (Phase 9.6).
-- **RPC(s):** None — direct table inserts/updates on `repair_vendors`. Trigger `trg_repair_vendor_provision_warehouse` runs the derived side-effect.
-- **Ledger writes:** `repair_vendors`; `warehouses` (via trigger — one virtual row per vendor).
-- **Downstream side-effects:** On repair_vendors INSERT, `_repair_vendor_provision_warehouse()` (SECURITY DEFINER) creates a `warehouses` row named `Repair: <vendor>` with `is_virtual=true, repair_vendor_id=NEW.id, division_id=NULL` (conditional CHECK on `warehouses` — virtual warehouses are shared across divisions). Vendor's `virtual_warehouse_id` back-linked.
+- **RPC(s):** None — direct table inserts/updates on `repair_vendors`. BEFORE-INSERT trigger `trg_repair_vendor_provision_warehouse` stamps derived columns on the incoming row.
+- **Ledger writes:** `repair_vendors`; `warehouse_sub_containers` (via trigger — one sub-container per vendor under the single shared `Repair` warehouse).
+- **Downstream side-effects:** **Post-D.6.b:** on `repair_vendors` INSERT, `_repair_vendor_provision_warehouse()` (SECURITY DEFINER, BEFORE INSERT) locates the single shared `Repair` warehouse (`is_virtual=true, division_id=NULL`), inserts a `warehouse_sub_containers` row named after the vendor, and stamps `NEW.virtual_warehouse_id = <shared repair id>` + `NEW.sub_container_id = <new sub id>` before the row is written (both NOT NULL satisfied at row-write time). **Pre-D.6.b (historic):** the trigger was AFTER INSERT and created one whole `warehouses` row per vendor (`Repair: <name>`, `is_virtual=true`). Phase D.6.b consolidation renamed the old per-vendor warehouses to `[archived] Repair: <name>` on 2026-08-01; the D.6.b cleanup migration (`20260801400000`) retired them entirely on 2026-08-01 by repointing historical transfers to the shared warehouse + vendor sub-container via the `repair_vendor_id` bridge, then deleting the archived rows.
 - **Dialog / component:** `RepairVendorFormDialog` (Phase 9.6).
-- **Guards / preconditions:** `name` UNIQUE; SECURITY DEFINER trigger bypasses the caller's INSERT policy on `warehouses`.
-- **Related flows:** [[Send Damaged for Repair]] (Phase 9.4), [[Return Damaged from Repair]] (Phase 9.5).
-- **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md) — Sub-task 9.2.
-- **Migrations:** `20260802000200_repair_vendors.sql`, `20260802000300_damaged_transfers.sql`, `20260802000350_warehouses_division_virtual_fix.sql`, `20260802000360_repair_vendor_trigger_security_definer.sql`.
-- **Notes:** Repair vendors are deliberately NOT in `suppliers` — repair shops are not goods vendors. The virtual warehouse gives the send/return-from-repair transfer flow (Phase 9.4–9.5) a real `warehouse_id` target so damaged units can be tracked while off-site.
+- **Guards / preconditions:** `name` UNIQUE; `sub_container_id NOT NULL` (D.6.b Task 1); SECURITY DEFINER trigger bypasses the caller's INSERT policy on `warehouse_sub_containers`.
+- **Related flows:** [[Send Damaged for Repair]] (Phase 9.4 + D.6.b), [[Return Damaged from Repair]] (Phase 9.5 + D.6.b).
+- **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md) — Sub-task 9.2; [docs/superpowers/plans/2026-08-01-warehouse-model-v2-phases-d6-d11.md](docs/superpowers/plans/2026-08-01-warehouse-model-v2-phases-d6-d11.md) — Phase D.6.b + cleanup.
+- **Migrations:** `20260802000200_repair_vendors.sql`, `20260802000300_damaged_transfers.sql`, `20260802000350_warehouses_division_virtual_fix.sql`, `20260802000360_repair_vendor_trigger_security_definer.sql`, `20260801300000_warehouse_model_v2_phase_d6b_repair_consolidation.sql` (D.6.b consolidation), `20260801300100_warehouse_model_v2_phase_d6b_repair_rpcs.sql` (RPCs rewritten to read vendor's new sub_container_id), `20260801400000_warehouse_model_v2_phase_d6b_cleanup_retire_archived_repair_warehouses.sql` (D.6.b cleanup — dropped the archived per-vendor warehouses).
+- **Notes:** Repair vendors are deliberately NOT in `suppliers` — repair shops are not goods vendors. Post-D.6.b, all vendors' units-in-repair are recorded under one shared Repair warehouse; the vendor is identified by the sub-container column on transfers + damaged-stock rows rather than by a distinct warehouse row.
 
 ### Send Damaged for Repair
 
@@ -189,6 +189,22 @@ Field rules:
 - **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md) — Sub-task 9.5.
 - **Migrations:** `20260802000600_rpc_return_from_repair.sql`, `20260802000610_fix_rpc_return_from_repair_items_column.sql` (column-name hotfix), `20260802000660_fix_damaged_rpcs_user_data_lookup.sql` (auth.uid→user_data.id lookup fix), `20260802000700_damaged_transfers_division_id_backfill.sql` (Phase 9.7 — recreates the RPC one more time to stamp `division_id` on the two inbound return transfers, closing the RLS leak from the 9.6 audit).
 - **Notes:** Two intentional departures from the plan doc: (1) plan used `notes` JSON strings to link inbound transfers back to the outbound; this uses the existing `warehouse_transfers.source_return_line_disposition_id` column instead — the 9.2 CHECK permits it for the return kinds, and it's queryable via a normal join instead of text-JSON parsing. (2) Plan assumed a `_add_good_stock_layer` helper; that helper does not exist, so the good-stock addition is inlined using the receival/adjustment pattern (fifo_cost_layers + stock_level bump + stock movement + recalc_average_cost). New `stock_movement_type` enum value `damaged_return_from_repair_as_good` added by this migration.
+
+### Warehouse Sub-Container Auto-Provision (planned)
+
+- **Module:** Warehouse / Inventory
+- **Status:** Planned — Phase A + B + C.1 + C.2 (a/b/c/d/e/f — full RPC sweep + NOT NULL flip) shipped 2026-07-31. Phase C.3 (RLS policies) + D (UI) + E (drop legacy) pending.
+- **Trigger surface(s):** Every write path that lands stock in a warehouse (receival, transfer receive, sale return restock, damaged-side dispositions). All resolved through the shared helper `public._find_or_create_sub_container(warehouse_id, division_id)` from Phase C.
+- **Primary hook(s):** N/A (Phase A schema only; hooks appear in Phase D).
+- **RPC(s):** `_find_or_create_sub_container(uuid, uuid)` (Phase C). No public RPCs in Phase A.
+- **Ledger writes:** N/A in Phase A. From Phase C: every stock row acquires `sub_container_id`; `warehouses.company_id` becomes NOT NULL.
+- **Downstream side-effects:** N/A in Phase A. From Phase C: RLS policy `is_sub_container_visible(sub_container_id)` gates all stock-table reads on top of the existing `is_division_visible()` policies.
+- **Dialog / component:** N/A in Phase A (UI arrives in Phase D — nested sub-container editor under Master Data → Warehouses).
+- **Guards / preconditions:** N/A in Phase A. From Phase B: every warehouse must have a default sub-container per hosted division before Phase C flips FK columns NOT NULL.
+- **Related flows:** [[Division Switcher]] (JWT active_division_id claim narrows sub-container visibility via `is_division_visible()`), all Phase 9 damaged-side flows (they'll pick up sub-container resolution during Phase C's RPC sweep).
+- **Docs / plans:** [docs/warehouse-model-v2-design.md](docs/warehouse-model-v2-design.md); Phase A plan `docs/superpowers/plans/2026-07-31-warehouse-model-v2-phase-a.md`.
+- **Migrations:** Phase A → `20260803000100`; Phase B → `20260803000200`; Phase C.1 → `20260803000300` + `_000400` (NOT NULL revert); Phase C.2 → `20260803000500` (C.2.a helper + triggers) + `_000600` (C.2.b receival + return-restock) + `_000700` (C.2.c transfer lifecycle) + `_000800` (C.2.d adjustments + deduct_fifo) + `_000900` (C.2.e damaged-side) + `_001000` (C.2.f re-flip NOT NULL). Phases C.3 / D / E → TBD.
+- **Notes:** Warehouses were previously tied to exactly one division via `warehouses.division_id`. This flow's design lets a single physical warehouse host multiple divisions' stock through per-division sub-containers, with RLS granting cross-division visibility only to `warehouse_responsible_persons`. Strict isolation: a warehouse with no sub-container visible to the caller does not render for that caller.
 
 ---
 

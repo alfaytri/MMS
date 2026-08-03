@@ -15,7 +15,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useCompleteReturnInspection, type InspectionSplit, type SaleReturn } from '@/hooks/useSaleReturns'
-import { useWarehouses } from '@/hooks/useWarehouses'
+import { useReturnLineSources } from '@/hooks/useReturnLineSources'
+import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
 
 type Split = {
   return_line_id: string
@@ -24,6 +25,7 @@ type Split = {
   good_qty: number
   damaged_qty: number
   condition_notes: string
+  sale_delivery_line_id: string | null
 }
 
 interface Props {
@@ -33,13 +35,8 @@ interface Props {
   suggestedWarehouseId?: string | null
 }
 
-export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWarehouseId }: Props) {
-  // Default warehouse: caller override > the return's own restock warehouse
-  // (set at inspection-request time in Create Return). Falls back to empty
-  // only if neither exists.
-  const [warehouseId, setWarehouseId] = useState(
-    suggestedWarehouseId ?? ret.restock_warehouse_id ?? '',
-  )
+export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWarehouseId: _suggestedWarehouseId }: Props) {
+  void _suggestedWarehouseId
   const [splits, setSplits] = useState<Split[]>(() =>
     (ret.return_lines ?? [])
       .filter((l) => l.condition === 'inspection')
@@ -50,13 +47,19 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
         good_qty: 0,
         damaged_qty: 0,
         condition_notes: l.condition_notes ?? '',
+        sale_delivery_line_id: (l as { sale_delivery_line_id?: string | null }).sale_delivery_line_id ?? null,
       })),
   )
 
   const [confirmDamagedOpen, setConfirmDamagedOpen] = useState(false)
 
-  const { data: warehouses = [] } = useWarehouses()
   const completeInspection = useCompleteReturnInspection()
+
+  const sdlIds = useMemo(
+    () => splits.map((s) => s.sale_delivery_line_id).filter((v): v is string => !!v),
+    [splits],
+  )
+  const { data: sourceMaps } = useReturnLineSources([], sdlIds, ret.id)
 
   const anyMismatch = useMemo(
     () => splits.some((s) => (s.good_qty + s.damaged_qty) !== s.original_qty),
@@ -73,7 +76,7 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
   )
 
   const canSubmit =
-    splits.length > 0 && !!warehouseId && !anyMismatch && !anyNegative
+    splits.length > 0 && !anyMismatch && !anyNegative
     && !completeInspection.isPending
 
   function submitNow() {
@@ -85,7 +88,7 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
     }))
 
     completeInspection.mutate(
-      { returnId: ret.id, splits: payload, restockWarehouseId: warehouseId },
+      { returnId: ret.id, splits: payload, restockWarehouseId: null },
       {
         onSuccess: () => {
           toast.success(`${ret.return_number} inspection complete — ready to restock`)
@@ -115,28 +118,15 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
           <p className="text-xs text-muted-foreground">
             Enter the actual good / damaged split for each inspected item. Totals per row must equal
             the original inspection qty. On save, the return moves to <strong>received</strong> and
-            can then be restocked normally.
+            can then be restocked normally — good units go back to the same sub-container they were
+            delivered from.
           </p>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Restock Warehouse <span className="text-destructive">*</span>
-            </label>
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
-            >
-              <option value="">Select warehouse…</option>
-              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </div>
 
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs">Item</TableHead>
+                  <TableHead className="text-xs">Item / Restocks to</TableHead>
                   <TableHead className="text-xs text-right w-20">Inspected</TableHead>
                   <TableHead className="text-xs text-right w-24">Good</TableHead>
                   <TableHead className="text-xs text-right w-24">Damaged</TableHead>
@@ -147,9 +137,13 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
                 {splits.map((s, i) => {
                   const total = s.good_qty + s.damaged_qty
                   const mismatch = total !== s.original_qty
+                  const sourceInfo = s.sale_delivery_line_id ? sourceMaps?.delivery.get(s.sale_delivery_line_id) : undefined
                   return (
                     <TableRow key={s.return_line_id}>
-                      <TableCell className="text-xs font-medium align-top">{s.item_name}</TableCell>
+                      <TableCell className="text-xs font-medium align-top">
+                        <div>{s.item_name}</div>
+                        <div className="mt-1"><ReturnLineSourceBadges info={sourceInfo} /></div>
+                      </TableCell>
                       <TableCell className="text-xs text-right align-top">{s.original_qty}</TableCell>
                       <TableCell className="text-right align-top">
                         <input

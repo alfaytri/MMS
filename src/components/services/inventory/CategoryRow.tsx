@@ -22,9 +22,12 @@ type Props = {
   onMoveDown: () => void
   depth?: number
   stockAggregates?: Map<string, CategoryStockAggregate>
+  /** Phase D.12 Task 2 — when defined, only items whose id is in this set are
+   *  rendered inside the expanded category. undefined = no item-level filter. */
+  filterItemIds?: Set<string>
 }
 
-export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates }: Props) {
+export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
@@ -37,7 +40,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   const isLeaf = node.children.length === 0
   // Items are fetched regardless of whether the category also has sub-categories.
   // A category can hold both direct items AND sub-categories at the same time.
-  const { data: items = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
+  const { data: itemsRaw = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
+  const items = filterItemIds ? itemsRaw.filter((it) => filterItemIds.has(it.id)) : itemsRaw
 
   const indent = 12 + depth * 20
 
@@ -160,6 +164,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           onMoveDown={() => handleChildCategoryMove(idx, 'down')}
           depth={depth + 1}
           stockAggregates={stockAggregates}
+          filterItemIds={filterItemIds}
         />
       ))}
 

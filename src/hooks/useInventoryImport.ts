@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import type { ValidatedRow, ImportType } from '@/lib/inventory-import'
 import { getCategoryPathSegments, buildItemKey, buildVariantKey } from '@/lib/inventory-import'
+import type { ExistingCategoryOption } from '@/lib/inventory-import'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,9 @@ export type ExistingInventoryLookup = {
   categoryPaths: Set<string>
   itemKeys: Set<string>
   variantKeys: Set<string>
+  /** Phase D.14 — powers the "advisory" dropdowns in the template's Category
+   *  columns. Each entry is a distinct (depth, type, name, full_path) tuple. */
+  existingCategoryOptions: ExistingCategoryOption[]
 }
 
 type CategoryRow = {
@@ -110,21 +114,23 @@ export function useInventoryImport() {
       }
 
       // ─── Step 2: Resolve/create categories (sequential — parent→child) ──
-      const uniquePaths = new Map<string, { originalPath: string; type: string; firstRow: number }>()
+      // Phase D.14: rows now carry an already-split `categorySegments: string[]`
+      // (variable depth per row). Group by the joined lowercase path per type
+      // so we only walk each unique path once, but keep the ORIGINAL segments
+      // (case + whitespace preserved) for insert-side capitalization.
+      const uniquePaths = new Map<string, { originalSegments: string[]; type: string; firstRow: number }>()
       for (const row of validRows) {
-        const key = `${row.type.toLowerCase()}::${row.categoryPath.trim().toLowerCase()}`
+        const joinedLower = row.categorySegments.map((s) => s.trim().toLowerCase()).join(' > ')
+        const key = `${row.type.toLowerCase()}::${joinedLower}`
         if (!uniquePaths.has(key)) {
-          uniquePaths.set(key, { originalPath: row.categoryPath, type: row.type, firstRow: row.rowIndex })
+          uniquePaths.set(key, { originalSegments: row.categorySegments, type: row.type, firstRow: row.rowIndex })
         }
       }
 
       const resolvedPathToId = new Map<string, string>()
 
-      for (const [fullPathKey, { originalPath, type, firstRow }] of uniquePaths) {
-        const segments = originalPath
-          .split('>')
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
+      for (const [fullPathKey, { originalSegments, type, firstRow }] of uniquePaths) {
+        const segments = originalSegments.map((s) => s.trim()).filter((s) => s.length > 0)
 
         let parentId: string | null = null
         let cumulativeLower = ''
@@ -194,12 +200,12 @@ export function useInventoryImport() {
                     childrenByParent.get(pKey)!.push(catRow)
                     pathToId.set(typePathKey, catId)
                   } else {
-                    errors.push({ row: firstRow, message: `Category "${originalPath}" conflict but could not find existing row.` })
+                    errors.push({ row: firstRow, message: `Category path conflict but could not find existing row.` })
                     failed = true
                     break
                   }
                 } else {
-                  errors.push({ row: firstRow, message: `Failed to create category "${originalPath}": ${insErr.message}` })
+                  errors.push({ row: firstRow, message: `Failed to create category "${segment}": ${insErr.message}` })
                   failed = true
                   break
                 }
@@ -236,18 +242,29 @@ export function useInventoryImport() {
         itemMap.set(`${it.category_id}||${it.name_en.trim().toLowerCase()}`, it.id)
       }
 
-      type ItemGroupInfo = { type: string; categoryPath: string; itemName: string; itemNameAr: string; unit: string; rowIndex: number }
+      type ItemGroupInfo = {
+        type: string
+        categorySegments: string[]
+        itemName: string
+        itemNameAr: string
+        unit: string
+        rowIndex: number
+        defaultWarehouseId: string | null
+        defaultSubContainerId: string | null
+      }
       const itemGroups = new Map<string, ItemGroupInfo>()
       for (const row of validRows) {
-        const key = buildItemKey(row.type, row.categoryPath, row.itemName)
+        const key = buildItemKey(row.type, row.categorySegments, row.itemName)
         if (!itemGroups.has(key)) {
           itemGroups.set(key, {
             type: row.type,
-            categoryPath: row.categoryPath,
+            categorySegments: row.categorySegments,
             itemName: row.itemName,
             itemNameAr: row.itemNameAr,
             unit: row.unit,
             rowIndex: row.rowIndex,
+            defaultWarehouseId:    row.subContainer?.warehouse_id ?? null,
+            defaultSubContainerId: row.subContainer?.sub_container_id ?? null,
           })
         }
       }
@@ -259,11 +276,12 @@ export function useInventoryImport() {
       const pendingItems: PendingItem[] = []
 
       for (const [itemKey, info] of itemGroups) {
-        const categoryId = resolvedPathToId.get(`${info.type.toLowerCase()}::${info.categoryPath.trim().toLowerCase()}`)
+        const joinedLower = info.categorySegments.map((s) => s.trim().toLowerCase()).join(' > ')
+        const categoryId = resolvedPathToId.get(`${info.type.toLowerCase()}::${joinedLower}`)
         if (!categoryId) {
           errors.push({
             row: info.rowIndex,
-            message: `Category "${info.categoryPath}" could not be resolved; item "${info.itemName}" was skipped.`,
+            message: `Category path could not be resolved; item "${info.itemName}" was skipped.`,
           })
           continue
         }
@@ -278,7 +296,10 @@ export function useInventoryImport() {
         }
       }
 
-      // Batch insert items — on unique violation, fall back to row-by-row
+      // Batch insert items — on unique violation, fall back to row-by-row.
+      // Phase D.14: stamp default_warehouse_id + default_sub_container_id from
+      // the picked composite so downstream receival/delivery dialogs may
+      // pre-fill.
       for (let i = 0; i < pendingItems.length; i += BATCH_SIZE) {
         const batch = pendingItems.slice(i, i + BATCH_SIZE)
         const payloads = batch.map((p) => ({
@@ -287,6 +308,8 @@ export function useInventoryImport() {
           sku: p.info.itemName,
           unit: p.info.unit,
           category_id: p.categoryId,
+          default_warehouse_id:     p.info.defaultWarehouseId,
+          default_sub_container_id: p.info.defaultSubContainerId,
           status: 'active' as const,
           sort_order: 0,
         }))
@@ -314,6 +337,8 @@ export function useInventoryImport() {
                   sku: p.info.itemName,
                   unit: p.info.unit,
                   category_id: p.categoryId,
+                  default_warehouse_id:     p.info.defaultWarehouseId,
+                  default_sub_container_id: p.info.defaultSubContainerId,
                   status: 'active',
                   sort_order: 0,
                 })
@@ -381,7 +406,7 @@ export function useInventoryImport() {
       const pendingVariants: PendingVariant[] = []
 
       for (const row of validRows) {
-        const itemKey = buildItemKey(row.type, row.categoryPath, row.itemName)
+        const itemKey = buildItemKey(row.type, row.categorySegments, row.itemName)
         const itemId = resolvedItemId.get(itemKey)
         if (!itemId) {
           skipped++
@@ -495,11 +520,20 @@ export function useExistingInventoryLookup() {
       }
 
       const categoryPaths = new Set<string>()
+      const existingCategoryOptions: ExistingCategoryOption[] = []
       for (const c of catById.values()) {
         const path = buildCategoryPath(c.id, catById)
-        for (const segment of getCategoryPathSegments(c.type, path)) {
+        const segments = path.split('>').map((s) => s.trim()).filter((s) => s.length > 0)
+        for (const segment of getCategoryPathSegments(c.type, segments)) {
           categoryPaths.add(segment)
         }
+        // Phase D.14: depth = 1-based level of this leaf's own name in the path.
+        existingCategoryOptions.push({
+          depth:     segments.length,
+          type:      c.type,
+          name:      c.name_en,
+          full_path: `${c.type}::${path}`,
+        })
       }
 
       const { data: items, error: itemErr } = await supabase
@@ -508,13 +542,14 @@ export function useExistingInventoryLookup() {
       if (itemErr) throw itemErr
 
       const itemKeys = new Set<string>()
-      const itemInfoById = new Map<string, { type: string; path: string; name_en: string }>()
+      const itemInfoById = new Map<string, { type: string; segments: string[]; name_en: string }>()
       for (const it of (items ?? []) as { id: string; name_en: string; category_id: string }[]) {
         const cat = catById.get(it.category_id)
         if (!cat) continue
         const path = buildCategoryPath(it.category_id, catById)
-        itemKeys.add(buildItemKey(cat.type, path, it.name_en))
-        itemInfoById.set(it.id, { type: cat.type, path, name_en: it.name_en })
+        const segments = path.split('>').map((s) => s.trim()).filter((s) => s.length > 0)
+        itemKeys.add(buildItemKey(cat.type, segments, it.name_en))
+        itemInfoById.set(it.id, { type: cat.type, segments, name_en: it.name_en })
       }
 
       const { data: variants, error: variantErr } = await supabase
@@ -526,10 +561,10 @@ export function useExistingInventoryLookup() {
       for (const v of (variants ?? []) as { id: string; item_id: string; brand: string }[]) {
         const info = itemInfoById.get(v.item_id)
         if (!info) continue
-        variantKeys.add(buildVariantKey(info.type, info.path, info.name_en, v.brand))
+        variantKeys.add(buildVariantKey(info.type, info.segments, info.name_en, v.brand))
       }
 
-      return { categoryPaths, itemKeys, variantKeys }
+      return { categoryPaths, itemKeys, variantKeys, existingCategoryOptions }
     },
   })
 }

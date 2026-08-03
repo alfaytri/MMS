@@ -22,15 +22,15 @@ import {
   usePurchaseReturns,
   useCreatePurchaseReturn,
   useUpdatePOReturnStatus,
+  useReceivalItemsForPo,
   type POReturn,
-  type POReturnItem,
   type POReturnStatus,
+  type ReceivalItemForReturn,
 } from '@/hooks/usePurchaseReturns'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useReceivals } from '@/hooks/useReceivals'
 import { usePurchaseOrders, usePurchaseOrder } from '@/hooks/usePurchaseOrders'
-import { useWarehouses } from '@/hooks/useWarehouses'
-import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { POReturnDetailDialog } from '@/components/purchase/POReturnDetailDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import { format } from 'date-fns'
@@ -79,15 +79,30 @@ export default function PurchaseReturnsPage() {
   const [reasonSelect, setReasonSelect] = useState('')
   const [customReason, setCustomReason] = useState('')
   const [notes, setNotes] = useState('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [items, setItems] = useState<(POReturnItem & { _max: number; brand?: string | null; category?: string | null })[]>([])
+  const [items, setItems] = useState<Array<ReceivalItemForReturn & {
+    qty:              number
+    condition:        'defective' | 'damaged' | 'other'
+    condition_notes:  string | null
+  }>>([])
 
+  const { activeDivisionId } = useActiveDivision()
   const { data: returns, isLoading } = usePurchaseReturns({ status: statusFilter || undefined })
   const { data: purchaseOrders } = usePurchaseOrders({})
-  const { data: warehouses = [] } = useWarehouses()
+
+  // Phase E follow-up: hide POs whose division_id doesn't match the caller's
+  // active division. Pre-Phase-E, cross-division POs still showed on the
+  // returns page but return_lines RLS blocked the detail fetch → the row
+  // rendered but every action threw. Filter both the picker AND the existing
+  // returns list by the active division so the surface is coherent.
+  const divisionMatchesPo = (poDivisionId: string | null | undefined): boolean => {
+    if (!activeDivisionId) return true          // no active division → show everything
+    if (!poDivisionId)     return true          // legacy PO with no division → show (owner intent)
+    return poDivisionId === activeDivisionId
+  }
   const { data: reasons = [] } = useReturnReasons('po_return')
   const { data: selectedPO } = usePurchaseOrder(poId || null)
   const { data: allReceivals } = useReceivals({ status: 'approved', source_type: 'purchase' })
+  const { data: receivalCandidates } = useReceivalItemsForPo(poId || null)
 
   // PO IDs that have at least one approved receival (source of truth for "returnable")
   const receivablePoIds = useMemo(() => {
@@ -98,57 +113,49 @@ export default function PurchaseReturnsPage() {
     return set
   }, [allReceivals])
 
-  // PO lookup for enriching return list rows with supplier/po#
+  // PO lookup for enriching return list rows with supplier/po#. Store
+  // division_id so we can gate the return list on active-division match
+  // (Phase E follow-up — pre-cleanup, cross-division returns rendered
+  // but their detail fetches blew up).
   const poById = useMemo(() => {
-    const map = new Map<string, { po_number: string; supplier_name: string | null }>()
+    const map = new Map<string, { po_number: string; supplier_name: string | null; division_id: string | null }>()
     for (const p of purchaseOrders ?? []) {
-      map.set(p.id, { po_number: p.po_number, supplier_name: p.supplier_name ?? null })
+      map.set(p.id, { po_number: p.po_number, supplier_name: p.supplier_name ?? null, division_id: p.division_id ?? null })
     }
     return map
   }, [purchaseOrders])
 
-  const bvIds = useMemo(() => items.map((i) => i.brand_variant_id).filter(Boolean) as string[], [items])
-  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
   const createReturn = useCreatePurchaseReturn()
   const updateStatus = useUpdatePOReturnStatus()
 
-  // Warehouses that actually received stock from the selected PO — only these can dispatch a return
-  const eligibleWarehousesForPo = useMemo(() => {
-    if (!poId) return warehouses
-    const receivalWhIds = new Set<string>()
-    for (const r of allReceivals ?? []) {
-      if (r.po_id === poId && r.warehouse_id) receivalWhIds.add(r.warehouse_id)
-    }
-    if (receivalWhIds.size === 0) return warehouses  // fallback (shouldn't happen for a PO that's in the dropdown)
-    return warehouses.filter((w) => receivalWhIds.has(w.id))
-  }, [poId, allReceivals, warehouses])
-
-  // Auto-select the warehouse when only one is eligible for this PO
-  useEffect(() => {
-    if (!poId) { setWarehouseId(''); return }
-    if (eligibleWarehousesForPo.length === 1) {
-      setWarehouseId(eligibleWarehousesForPo[0].id)
-    } else if (warehouseId && !eligibleWarehousesForPo.find((w) => w.id === warehouseId)) {
-      setWarehouseId('')
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poId, eligibleWarehousesForPo])
+  const availableCandidates = useMemo(
+    () => (receivalCandidates ?? []).filter((c) => c.returnable_qty > 0),
+    [receivalCandidates]
+  )
 
   // Client-side filter — return#, PO#, supplier
   const filtered = useMemo(() => {
     const list = returns ?? []
     const q = search.trim().toLowerCase()
-    if (!q) return list
-    return list.filter((r) => {
+    const divisionScoped = list.filter((r) => {
+      const poRef = poById.get(r.source_id)
+      return divisionMatchesPo(poRef?.division_id)
+    })
+    if (!q) return divisionScoped
+    return divisionScoped.filter((r) => {
       const poRef = poById.get(r.source_id)
       const hay = [r.return_number, poRef?.po_number, poRef?.supplier_name]
         .filter(Boolean).join(' ').toLowerCase()
       return hay.includes(q)
     })
-  }, [returns, search, poById])
+    // divisionMatchesPo is a stable closure over activeDivisionId, tracked below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returns, search, poById, activeDivisionId])
 
   const stats = useMemo(() => {
-    const list = returns ?? []
+    // Match the list's division scope — stats shouldn't count returns whose
+    // POs the caller can't act on.
+    const list = (returns ?? []).filter((r) => divisionMatchesPo(poById.get(r.source_id)?.division_id))
     let pending = 0, dispatched = 0, confirmed = 0
     for (const r of list) {
       if (r.status === 'pending')            pending++
@@ -156,45 +163,35 @@ export default function PurchaseReturnsPage() {
       if (r.status === 'supplier_confirmed') confirmed++
     }
     return { total: list.length, pending, dispatched, confirmed }
-  }, [returns])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- divisionMatchesPo is a stable closure over activeDivisionId
+  }, [returns, poById, activeDivisionId])
 
-  // Received qty per PO line item — derived from approved receivals (source of truth)
-  const receivedQtyByLine = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const r of allReceivals ?? []) {
-      if (r.po_id !== poId) continue
-      for (const it of r.receival_items ?? []) {
-        if (it.is_free || !it.po_line_item_id) continue
-        map.set(it.po_line_item_id, (map.get(it.po_line_item_id) ?? 0) + it.qty_received)
-      }
-    }
-    return map
-  }, [allReceivals, poId])
-
-  // Populate items from the joined PO detail (which includes brand/category joins)
+  // Populate items from the receival_items candidates (one row per receival, sub-container-scoped).
+  // Guard against no-op updates to avoid infinite re-renders when TanStack returns
+  // a fresh array reference but the underlying receival_item_id set is unchanged.
   useEffect(() => {
-    if (!poId || !selectedPO) { setItems([]); return }
-    setItems(
-      (selectedPO.po_line_items ?? [])
-        .map((l) => {
-          const receivedFromReceivals = receivedQtyByLine.get(l.id) ?? 0
-          const received = Math.max(l.received_qty ?? 0, receivedFromReceivals)
-          if (received <= 0) return null
-          return {
-            item_name: l.item_name || l.inventory_item_brand_variants?.inventory_items?.name_en || '(No name)',
-            sku: l.sku ?? null,
-            qty: 0,
-            brand_variant_id: l.brand_variant_id ?? null,
-            brand: l.inventory_item_brand_variants?.brand ?? null,
-            category: l.inventory_item_brand_variants?.inventory_items?.inventory_categories?.name_en ?? null,
-            condition: 'other' as const,
-            condition_notes: null,
-            _max: received,
-          }
-        })
-        .filter(Boolean) as (POReturnItem & { _max: number; brand?: string | null; category?: string | null })[]
-    )
-  }, [poId, selectedPO, receivedQtyByLine])
+    if (!poId) {
+      setItems((prev) => (prev.length === 0 ? prev : []))
+      return
+    }
+    setItems((prev) => {
+      const nextIds = availableCandidates.map((c) => c.receival_item_id)
+      const sameShape =
+        prev.length === nextIds.length &&
+        prev.every((row, i) => row.receival_item_id === nextIds[i])
+      if (sameShape) return prev
+      const prevByKey = new Map(prev.map((r) => [r.receival_item_id, r]))
+      return availableCandidates.map((c) => {
+        const existing = prevByKey.get(c.receival_item_id)
+        return {
+          ...c,
+          qty:             existing?.qty ?? 0,
+          condition:       existing?.condition ?? 'defective',
+          condition_notes: existing?.condition_notes ?? null,
+        }
+      })
+    })
+  }, [poId, availableCandidates])
 
   function handlePOSelect(id: string) {
     setPoId(id)
@@ -206,7 +203,7 @@ export default function PurchaseReturnsPage() {
 
   function resetForm() {
     setPoId(''); setReasonSelect(''); setCustomReason(''); setNotes('')
-    setItems([]); setWarehouseId('')
+    setItems([])
   }
 
   function handleCreate() {
@@ -215,14 +212,28 @@ export default function PurchaseReturnsPage() {
     if (!reason)        { toast.error('Reason is required'); return }
     const valid = items.filter((i) => i.qty > 0)
     if (valid.length === 0) { toast.error('Enter qty for at least one item'); return }
-    if (valid.some((i) => i.qty > i._max)) { toast.error('One or more quantities exceed the received amount'); return }
+    if (valid.some((i) => i.qty > i.returnable_qty)) { toast.error('One or more quantities exceed the returnable amount'); return }
+
+    const warehousesInUse = Array.from(new Set(valid.map((i) => i.warehouse_id)))
+    if (warehousesInUse.length > 1) {
+      toast.error('All lines in a single return must come from the same warehouse. Split into separate returns.')
+      return
+    }
+
     createReturn.mutate(
       {
         source_id: poId,
         date,
         reason,
-        items: valid.map(({ item_name, sku, qty, brand_variant_id, condition, condition_notes }) => ({ item_name, sku, qty, brand_variant_id, condition, condition_notes })),
-        restock_warehouse_id: warehouseId || null,
+        items: valid.map((i) => ({
+          receival_item_id: i.receival_item_id,
+          item_name:        i.item_name,
+          sku:              i.sku,
+          qty:              i.qty,
+          brand_variant_id: i.brand_variant_id,
+          condition:        i.condition,
+          condition_notes:  i.condition_notes,
+        })),
         notes: notes || null,
       },
       {
@@ -388,7 +399,8 @@ export default function PurchaseReturnsPage() {
                   <SelectContent className="max-h-72 overflow-y-auto">
                     {(() => {
                       const eligible = (purchaseOrders ?? []).filter((o) =>
-                        receivablePoIds.has(o.id) || (o.po_line_items ?? []).some((l) => l.received_qty > 0)
+                        divisionMatchesPo(o.division_id) &&
+                        (receivablePoIds.has(o.id) || (o.po_line_items ?? []).some((l) => l.received_qty > 0))
                       )
                       if (eligible.length === 0) {
                         return (
@@ -445,45 +457,28 @@ export default function PurchaseReturnsPage() {
               </div>
             )}
 
-            {/* Reason + dispatch warehouse */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="pr-reason" className="text-[11px] text-muted-foreground">Reason *</Label>
-                <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v ?? ''); if (v !== '__custom__') setCustomReason('') }}>
-                  <SelectTrigger id="pr-reason" className="h-9 text-xs w-full">
-                    <SelectValue placeholder="Select reason…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
-                    {reasons.map((r) => (
-                      <SelectItem key={r.id} value={r.label} className="text-xs">{r.label}</SelectItem>
-                    ))}
-                    <SelectItem value="__custom__" className="text-xs">Custom Reason…</SelectItem>
-                  </SelectContent>
-                </Select>
-                {reasonSelect === '__custom__' && (
-                  <Input
-                    value={customReason}
-                    onChange={(e) => setCustomReason(e.target.value)}
-                    placeholder="Enter custom reason…"
-                    className="mt-1.5 h-9 text-xs"
-                  />
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="pr-dispatch-warehouse" className="text-[11px] text-muted-foreground">
-                  Dispatch From Warehouse {poId && <span className="text-muted-foreground/60 normal-case font-normal">(where the receival was recorded)</span>}
-                </Label>
-                <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')} disabled={!poId || eligibleWarehousesForPo.length === 0}>
-                  <SelectTrigger id="pr-dispatch-warehouse" className="h-9 text-xs w-full">
-                    <SelectValue placeholder={poId ? 'Select warehouse…' : 'Pick a PO first'} />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
-                    {eligibleWarehousesForPo.map((w) => (
-                      <SelectItem key={w.id} value={w.id} className="text-xs">{w.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Reason */}
+            <div className="space-y-1">
+              <Label htmlFor="pr-reason" className="text-[11px] text-muted-foreground">Reason *</Label>
+              <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v ?? ''); if (v !== '__custom__') setCustomReason('') }}>
+                <SelectTrigger id="pr-reason" className="h-9 text-xs w-full">
+                  <SelectValue placeholder="Select reason…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {reasons.map((r) => (
+                    <SelectItem key={r.id} value={r.label} className="text-xs">{r.label}</SelectItem>
+                  ))}
+                  <SelectItem value="__custom__" className="text-xs">Custom Reason…</SelectItem>
+                </SelectContent>
+              </Select>
+              {reasonSelect === '__custom__' && (
+                <Input
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  placeholder="Enter custom reason…"
+                  className="mt-1.5 h-9 text-xs"
+                />
+              )}
             </div>
 
             {/* Notes */}
@@ -498,18 +493,20 @@ export default function PurchaseReturnsPage() {
               />
             </div>
 
-            {/* Items to return */}
-            {items.length > 0 && (
+            {/* Items to return — one row per receival_item (sub-container-scoped) */}
+            {poId && items.length > 0 && (
               <div className="space-y-2">
-                <Label className="text-[11px] font-medium">Items to Return ({items.length})</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] font-medium">Items to Return ({items.length})</Label>
+                  <span className="text-[10px] text-muted-foreground">One row per receival • pick qty per source</span>
+                </div>
                 <div className="space-y-2">
                   {items.map((item, idx) => {
-                    const whEntries = item.brand_variant_id ? (whStockMap.get(item.brand_variant_id) ?? []) : []
                     const isSelected = item.qty > 0
-                    const isOverMax = item.qty > item._max
+                    const isOverMax  = item.qty > item.returnable_qty
                     return (
                       <div
-                        key={idx}
+                        key={item.receival_item_id}
                         className={cn(
                           'rounded-lg border transition-colors',
                           isOverMax ? 'border-destructive/40 bg-destructive/[0.03]' :
@@ -517,52 +514,78 @@ export default function PurchaseReturnsPage() {
                           'bg-background'
                         )}
                       >
-                        {/* Header strip */}
                         <div className="px-3 pt-2.5 pb-1.5 flex flex-wrap items-center gap-1.5">
-                          {item.category && (
-                            <span className="text-[9px] font-semibold uppercase tracking-wide bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">
-                              {item.category}
-                            </span>
-                          )}
                           <p className="text-[12px] font-semibold text-foreground truncate">{item.item_name}</p>
-                          {item.brand && <span className="text-[10px] text-primary">· {item.brand}</span>}
                           {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
-                          <span className="ml-auto text-[10px] text-muted-foreground">Max: <span className="tabular-nums font-medium text-foreground">{item._max}</span></span>
+                          <span className="ml-auto text-[10px] text-muted-foreground">
+                            Returnable: <span className="tabular-nums font-medium text-foreground">{item.returnable_qty}</span>
+                          </span>
                         </div>
-
-                        {/* Body */}
-                        <div className="px-3 pb-2.5 space-y-1.5">
-                          <div className="grid grid-cols-[1fr_6rem] gap-x-3 text-[9px] text-muted-foreground uppercase tracking-wide">
-                            <span>Stock on hand</span>
-                            <span>Return qty</span>
+                        <div className="px-3 pb-2.5 space-y-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-mono">
+                              {item.receival_number}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                              {item.warehouse_name}
+                            </Badge>
+                            {item.sub_container_name && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                                {item.sub_container_name}
+                              </Badge>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              Received {item.received_at.split('T')[0]}
+                            </span>
+                            {item.already_returned_qty > 0 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                · Prior returned: {item.already_returned_qty}
+                              </span>
+                            )}
                           </div>
                           <div className="grid grid-cols-[1fr_6rem] gap-x-3 items-center">
-                            <div className="min-w-0">
-                              {item.brand_variant_id ? (
-                                whEntries.length > 0 ? (
-                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                                    {whEntries.map((w) => {
-                                      const whName = warehouses.find((wh) => wh.id === w.warehouse_id)?.name ?? 'Unknown'
-                                      return (
-                                        <span key={w.warehouse_id} className="text-[10px] text-muted-foreground">
-                                          {whName}: <span className="font-medium text-foreground tabular-nums">{w.qty}</span>
-                                        </span>
-                                      )
-                                    })}
-                                  </div>
-                                ) : (
-                                  <span className="text-[10px] text-amber-600">No stock in any warehouse</span>
-                                )
-                              ) : (
-                                <span className="text-[10px] text-muted-foreground">—</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {isSelected && (
+                                <>
+                                  <select
+                                    value={item.condition}
+                                    onChange={(e) => {
+                                      const u = [...items]
+                                      u[idx] = { ...u[idx], condition: e.target.value as 'defective' | 'damaged' | 'other', condition_notes: null }
+                                      setItems(u)
+                                    }}
+                                    className="flex h-8 rounded-md border border-input bg-background px-2 py-1 text-[11px]"
+                                  >
+                                    <option value="defective">Defective</option>
+                                    <option value="damaged">Damaged</option>
+                                    <option value="other">Other</option>
+                                  </select>
+                                  {item.condition === 'other' && (
+                                    <Input
+                                      placeholder="Describe reason…"
+                                      value={item.condition_notes ?? ''}
+                                      onChange={(e) => {
+                                        const u = [...items]
+                                        u[idx] = { ...u[idx], condition_notes: e.target.value }
+                                        setItems(u)
+                                      }}
+                                      className="flex-1 h-8 text-[11px]"
+                                    />
+                                  )}
+                                </>
                               )}
                             </div>
                             <Input
                               type="number"
                               min="0"
-                              max={item._max}
+                              max={item.returnable_qty}
                               value={item.qty}
-                              onChange={(e) => { const u = [...items]; u[idx] = { ...u[idx], qty: Math.min(item._max, Math.max(0, Number(e.target.value))) }; setItems(u) }}
+                              onChange={(e) => {
+                                const u = [...items]
+                                const parsed = Number(e.target.value)
+                                u[idx] = { ...u[idx], qty: Math.min(item.returnable_qty, Math.max(0, Number.isFinite(parsed) ? parsed : 0)) }
+                                setItems(u)
+                              }}
                               className={cn('h-8 w-full text-right tabular-nums text-xs', isOverMax && 'border-destructive')}
                             />
                           </div>
@@ -571,6 +594,13 @@ export default function PurchaseReturnsPage() {
                     )
                   })}
                 </div>
+              </div>
+            )}
+
+            {poId && items.length === 0 && (
+              <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
+                <RotateCcw className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
+                <p className="text-xs">Nothing left to return — every receival for this PO is fully returned.</p>
               </div>
             )}
 

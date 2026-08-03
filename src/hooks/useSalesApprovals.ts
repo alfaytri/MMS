@@ -35,6 +35,7 @@ export type SalesApprovalSlip = {
     customer_name: string
     customer_id:   string
     status:        string
+    currency:      string
   }
 }
 
@@ -83,6 +84,7 @@ type SoLookup = {
   customer_id: string
   status: string
   customer_name: string
+  currency: string
 }
 
 async function fetchSoLookup(soIds: string[]): Promise<Map<string, SoLookup>> {
@@ -91,7 +93,7 @@ async function fetchSoLookup(soIds: string[]): Promise<Map<string, SoLookup>> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('sale_orders')
-    .select('id, so_number, total, customer_id, status, customers(name)')
+    .select('id, so_number, total, currency, customer_id, status, customers(name)')
     .in('id', soIds)
   if (error) throw error
   for (const row of data ?? []) {
@@ -99,6 +101,7 @@ async function fetchSoLookup(soIds: string[]): Promise<Map<string, SoLookup>> {
       id: string
       so_number: string
       total: number
+      currency: string | null
       customer_id: string
       status: string
       customers?: { name: string } | null
@@ -107,6 +110,7 @@ async function fetchSoLookup(soIds: string[]): Promise<Map<string, SoLookup>> {
       id:            r.id,
       so_number:     r.so_number,
       total:         r.total,
+      currency:      r.currency ?? 'QAR',
       customer_id:   r.customer_id,
       status:        r.status,
       customer_name: r.customers?.name ?? '—',
@@ -132,6 +136,7 @@ function slipsFromRows(
         rows: [],
         so: {
           id: so.id, so_number: so.so_number, total: so.total,
+          currency: so.currency,
           customer_name: so.customer_name,
           customer_id: so.customer_id, status: so.status,
         },

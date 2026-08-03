@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -349,6 +374,7 @@ export type Database = {
       cogs_entries: {
         Row: {
           brand_variant_id: string
+          consumer_division_id: string | null
           created_at: string
           date: string
           division_id: string | null
@@ -358,12 +384,14 @@ export type Database = {
           qty: number
           sale_delivery_id: string | null
           sale_order_id: string | null
+          source_id: string | null
           source_type: string
           total_cost: number
           unit_cost: number
         }
         Insert: {
           brand_variant_id: string
+          consumer_division_id?: string | null
           created_at?: string
           date?: string
           division_id?: string | null
@@ -373,12 +401,14 @@ export type Database = {
           qty: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_id?: string | null
           source_type?: string
           total_cost: number
           unit_cost: number
         }
         Update: {
           brand_variant_id?: string
+          consumer_division_id?: string | null
           created_at?: string
           date?: string
           division_id?: string | null
@@ -388,6 +418,7 @@ export type Database = {
           qty?: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
+          source_id?: string | null
           source_type?: string
           total_cost?: number
           unit_cost?: number
@@ -398,6 +429,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_consumer_division_id_fkey"
+            columns: ["consumer_division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -426,6 +464,13 @@ export type Database = {
             columns: ["sale_order_id"]
             isOneToOne: false
             referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "fifo_cost_layers"
             referencedColumns: ["id"]
           },
         ]
@@ -1436,7 +1481,6 @@ export type Database = {
           brand_variant_id: string
           created_at: string | null
           date: string
-          division_id: string | null
           id: string
           landed_cost_per_unit: number | null
           qty: number
@@ -1447,6 +1491,7 @@ export type Database = {
           source_exchange_rate: number
           source_id: string | null
           source_type: string | null
+          sub_container_id: string
           total_unit_cost: number
           unit_cost: number
           warehouse_id: string | null
@@ -1455,7 +1500,6 @@ export type Database = {
           brand_variant_id: string
           created_at?: string | null
           date: string
-          division_id?: string | null
           id?: string
           landed_cost_per_unit?: number | null
           qty: number
@@ -1466,6 +1510,7 @@ export type Database = {
           source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
+          sub_container_id: string
           total_unit_cost: number
           unit_cost: number
           warehouse_id?: string | null
@@ -1474,7 +1519,6 @@ export type Database = {
           brand_variant_id?: string
           created_at?: string | null
           date?: string
-          division_id?: string | null
           id?: string
           landed_cost_per_unit?: number | null
           qty?: number
@@ -1485,6 +1529,7 @@ export type Database = {
           source_exchange_rate?: number
           source_id?: string | null
           source_type?: string | null
+          sub_container_id?: string
           total_unit_cost?: number
           unit_cost?: number
           warehouse_id?: string | null
@@ -1498,17 +1543,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fifo_cost_layers_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fifo_cost_layers_receival_id_fkey"
             columns: ["receival_id"]
             isOneToOne: false
             referencedRelation: "receivals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "fifo_cost_layers_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -1523,6 +1575,7 @@ export type Database = {
       inventory_categories: {
         Row: {
           created_at: string | null
+          default_sub_container_id: string | null
           id: string
           name_ar: string | null
           name_en: string
@@ -1535,6 +1588,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          default_sub_container_id?: string | null
           id?: string
           name_ar?: string | null
           name_en: string
@@ -1547,6 +1601,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          default_sub_container_id?: string | null
           id?: string
           name_ar?: string | null
           name_en?: string
@@ -1558,6 +1613,20 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_categories_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "inventory_categories_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_categories_parent_id_fkey"
             columns: ["parent_id"]
@@ -1814,6 +1883,7 @@ export type Database = {
           reviewed_by_name: string | null
           started_at: string | null
           status: string
+          sub_container_id: string | null
           updated_at: string
           warehouse_id: string
           warehouse_name: string
@@ -1829,6 +1899,7 @@ export type Database = {
           reviewed_by_name?: string | null
           started_at?: string | null
           status?: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id: string
           warehouse_name?: string
@@ -1844,6 +1915,7 @@ export type Database = {
           reviewed_by_name?: string | null
           started_at?: string | null
           status?: string
+          sub_container_id?: string | null
           updated_at?: string
           warehouse_id?: string
           warehouse_name?: string
@@ -1854,6 +1926,20 @@ export type Database = {
             columns: ["initiated_by_profile_id"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_checks_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "inventory_checks_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -2137,10 +2223,13 @@ export type Database = {
           category_id: string
           cost_price: number | null
           created_at: string | null
+          default_sub_container_id: string | null
+          default_warehouse_id: string | null
           id: string
           linked_services_count: number | null
           name_ar: string | null
           name_en: string
+          shared_with_division_ids: string[]
           sku: string
           sort_order: number
           status: string
@@ -2152,10 +2241,13 @@ export type Database = {
           category_id: string
           cost_price?: number | null
           created_at?: string | null
+          default_sub_container_id?: string | null
+          default_warehouse_id?: string | null
           id?: string
           linked_services_count?: number | null
           name_ar?: string | null
           name_en: string
+          shared_with_division_ids?: string[]
           sku: string
           sort_order?: number
           status?: string
@@ -2167,10 +2259,13 @@ export type Database = {
           category_id?: string
           cost_price?: number | null
           created_at?: string | null
+          default_sub_container_id?: string | null
+          default_warehouse_id?: string | null
           id?: string
           linked_services_count?: number | null
           name_ar?: string | null
           name_en?: string
+          shared_with_division_ids?: string[]
           sku?: string
           sort_order?: number
           status?: string
@@ -2186,13 +2281,33 @@ export type Database = {
             referencedRelation: "inventory_categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inventory_items_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "inventory_items_default_sub_container_id_fkey"
+            columns: ["default_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_default_warehouse_id_fkey"
+            columns: ["default_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       inventory_stock_movements: {
         Row: {
           brand_variant_id: string
           created_at: string
-          division_id: string | null
           id: string
           item_name: string
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
@@ -2201,13 +2316,13 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           sku: string | null
+          sub_container_id: string
           unit_cost: number
           warehouse_id: string | null
         }
         Insert: {
           brand_variant_id: string
           created_at?: string
-          division_id?: string | null
           id?: string
           item_name: string
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
@@ -2216,13 +2331,13 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
+          sub_container_id: string
           unit_cost?: number
           warehouse_id?: string | null
         }
         Update: {
           brand_variant_id?: string
           created_at?: string
-          division_id?: string | null
           id?: string
           item_name?: string
           movement_type?: Database["public"]["Enums"]["stock_movement_type"]
@@ -2231,6 +2346,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
+          sub_container_id?: string
           unit_cost?: number
           warehouse_id?: string | null
         }
@@ -2243,10 +2359,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "inventory_stock_movements_division_id_fkey"
-            columns: ["division_id"]
+            foreignKeyName: "inventory_stock_movements_sub_container_id_fkey"
+            columns: ["sub_container_id"]
             isOneToOne: false
-            referencedRelation: "company_divisions"
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_movements_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -3732,7 +3855,6 @@ export type Database = {
         Row: {
           brand_variant_id: string | null
           created_at: string | null
-          division_id: string | null
           id: string
           is_free: boolean | null
           item_name: string
@@ -3740,12 +3862,12 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku: string | null
+          sub_container_id: string
           unit_cost: number
         }
         Insert: {
           brand_variant_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_free?: boolean | null
           item_name: string
@@ -3753,12 +3875,12 @@ export type Database = {
           qty_received: number
           receival_id: string
           sku?: string | null
+          sub_container_id: string
           unit_cost: number
         }
         Update: {
           brand_variant_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_free?: boolean | null
           item_name?: string
@@ -3766,6 +3888,7 @@ export type Database = {
           qty_received?: number
           receival_id?: string
           sku?: string | null
+          sub_container_id?: string
           unit_cost?: number
         }
         Relationships: [
@@ -3774,13 +3897,6 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receival_items_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -3795,6 +3911,20 @@ export type Database = {
             columns: ["receival_id"]
             isOneToOne: false
             referencedRelation: "receivals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receival_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "receival_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
         ]
@@ -3915,6 +4045,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          sub_container_id: string
           updated_at: string
           virtual_warehouse_id: string | null
         }
@@ -3927,6 +4058,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          sub_container_id: string
           updated_at?: string
           virtual_warehouse_id?: string | null
         }
@@ -3939,6 +4071,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          sub_container_id?: string
           updated_at?: string
           virtual_warehouse_id?: string | null
         }
@@ -3948,6 +4081,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_vendors_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "repair_vendors_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -4105,7 +4252,9 @@ export type Database = {
           id: string
           item_name: string
           qty: number
+          receival_item_id: string | null
           return_id: string
+          sale_delivery_line_id: string | null
           sku: string | null
         }
         Insert: {
@@ -4116,7 +4265,9 @@ export type Database = {
           id?: string
           item_name?: string
           qty?: number
+          receival_item_id?: string | null
           return_id: string
+          sale_delivery_line_id?: string | null
           sku?: string | null
         }
         Update: {
@@ -4127,7 +4278,9 @@ export type Database = {
           id?: string
           item_name?: string
           qty?: number
+          receival_item_id?: string | null
           return_id?: string
+          sale_delivery_line_id?: string | null
           sku?: string | null
         }
         Relationships: [
@@ -4136,6 +4289,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_receival_item_id_fkey"
+            columns: ["receival_item_id"]
+            isOneToOne: false
+            referencedRelation: "receival_items"
             referencedColumns: ["id"]
           },
           {
@@ -4150,6 +4310,13 @@ export type Database = {
             columns: ["return_id"]
             isOneToOne: false
             referencedRelation: "so_po_returns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_sale_delivery_line_id_fkey"
+            columns: ["sale_delivery_line_id"]
+            isOneToOne: false
+            referencedRelation: "sale_delivery_lines"
             referencedColumns: ["id"]
           },
         ]
@@ -5008,7 +5175,9 @@ export type Database = {
           requested_by_name: string | null
           source_check_id: string | null
           source_check_item_id: string | null
+          source_pile: string
           status: string
+          sub_container_id: string
           updated_at: string
           warehouse_id: string
         }
@@ -5027,7 +5196,9 @@ export type Database = {
           requested_by_name?: string | null
           source_check_id?: string | null
           source_check_item_id?: string | null
+          source_pile?: string
           status?: string
+          sub_container_id: string
           updated_at?: string
           warehouse_id: string
         }
@@ -5046,7 +5217,9 @@ export type Database = {
           requested_by_name?: string | null
           source_check_id?: string | null
           source_check_item_id?: string | null
+          source_pile?: string
           status?: string
+          sub_container_id?: string
           updated_at?: string
           warehouse_id?: string
         }
@@ -5077,6 +5250,20 @@ export type Database = {
             columns: ["source_check_item_id"]
             isOneToOne: false
             referencedRelation: "inventory_check_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -5475,18 +5662,21 @@ export type Database = {
         Row: {
           allocated_qty: number
           brand_variant_id: string
+          sub_container_id: string
           updated_at: string
           warehouse_id: string
         }
         Insert: {
           allocated_qty?: number
           brand_variant_id: string
+          sub_container_id: string
           updated_at?: string
           warehouse_id: string
         }
         Update: {
           allocated_qty?: number
           brand_variant_id?: string
+          sub_container_id?: string
           updated_at?: string
           warehouse_id?: string
         }
@@ -5496,6 +5686,20 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_stock_allocations_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_stock_allocations_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -5519,6 +5723,7 @@ export type Database = {
           item_type: string | null
           qty: number
           sku: string | null
+          sub_container_id: string
           subcategory_name: string | null
           total_value: number
           unit: string | null
@@ -5536,6 +5741,7 @@ export type Database = {
           item_type?: string | null
           qty?: number
           sku?: string | null
+          sub_container_id: string
           subcategory_name?: string | null
           total_value?: number
           unit?: string | null
@@ -5553,13 +5759,84 @@ export type Database = {
           item_type?: string | null
           qty?: number
           sku?: string | null
+          sub_container_id?: string
           subcategory_name?: string | null
           total_value?: number
           unit?: string | null
           updated_at?: string
           warehouse_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouse_sub_containers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          division_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          division_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          division_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_sub_containers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouse_transfer_items: {
         Row: {
@@ -5573,6 +5850,7 @@ export type Database = {
           shrinkage_qty: number
           shrinkage_reason: string | null
           sku: string | null
+          sub_container_id: string
           transfer_id: string
           unit_cost: number
         }
@@ -5587,6 +5865,7 @@ export type Database = {
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null
+          sub_container_id: string
           transfer_id: string
           unit_cost?: number
         }
@@ -5601,6 +5880,7 @@ export type Database = {
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null
+          sub_container_id?: string
           transfer_id?: string
           unit_cost?: number
         }
@@ -5610,6 +5890,20 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfer_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfer_items_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -5636,8 +5930,8 @@ export type Database = {
           dispatched_at: string | null
           dispatched_by_name: string | null
           dispatched_by_profile_id: string | null
-          division_id: string | null
           expected_return_date: string | null
+          from_sub_container_id: string
           from_warehouse_id: string
           id: string
           notes: string | null
@@ -5648,6 +5942,7 @@ export type Database = {
           repair_vendor_id: string | null
           source_return_line_disposition_id: string | null
           status: Database["public"]["Enums"]["transfer_status"] | null
+          to_sub_container_id: string
           to_warehouse_id: string
           transfer_kind: string
           transfer_number: string
@@ -5667,8 +5962,8 @@ export type Database = {
           dispatched_at?: string | null
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
-          division_id?: string | null
           expected_return_date?: string | null
+          from_sub_container_id: string
           from_warehouse_id: string
           id?: string
           notes?: string | null
@@ -5679,6 +5974,7 @@ export type Database = {
           repair_vendor_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
+          to_sub_container_id: string
           to_warehouse_id: string
           transfer_kind?: string
           transfer_number: string
@@ -5698,8 +5994,8 @@ export type Database = {
           dispatched_at?: string | null
           dispatched_by_name?: string | null
           dispatched_by_profile_id?: string | null
-          division_id?: string | null
           expected_return_date?: string | null
+          from_sub_container_id?: string
           from_warehouse_id?: string
           id?: string
           notes?: string | null
@@ -5710,6 +6006,7 @@ export type Database = {
           repair_vendor_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
+          to_sub_container_id?: string
           to_warehouse_id?: string
           transfer_kind?: string
           transfer_number?: string
@@ -5745,10 +6042,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "warehouse_transfers_division_id_fkey"
-            columns: ["division_id"]
+            foreignKeyName: "warehouse_transfers_from_sub_container_id_fkey"
+            columns: ["from_sub_container_id"]
             isOneToOne: false
-            referencedRelation: "company_divisions"
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_from_sub_container_id_fkey"
+            columns: ["from_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
           {
@@ -5780,6 +6084,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warehouse_transfers_to_sub_container_id_fkey"
+            columns: ["to_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_to_sub_container_id_fkey"
+            columns: ["to_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "warehouse_transfers_to_warehouse_id_fkey"
             columns: ["to_warehouse_id"]
             isOneToOne: false
@@ -5790,8 +6108,8 @@ export type Database = {
       }
       warehouses: {
         Row: {
+          company_id: string | null
           created_at: string | null
-          division_id: string | null
           id: string
           is_virtual: boolean
           item_count: number | null
@@ -5802,8 +6120,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_virtual?: boolean
           item_count?: number | null
@@ -5814,8 +6132,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
-          division_id?: string | null
           id?: string
           is_virtual?: boolean
           item_count?: number | null
@@ -5827,10 +6145,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "warehouses_division_id_fkey"
-            columns: ["division_id"]
+            foreignKeyName: "warehouses_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "company_divisions"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -6154,44 +6472,49 @@ export type Database = {
           item_type: string | null
           qty: number | null
           sku: string | null
+          sub_container_id: string | null
+          sub_container_name: string | null
           subcategory_name: string | null
           total_value: number | null
           unit: string | null
           warehouse_id: string | null
         }
-        Insert: {
-          allocated_qty?: number | null
-          available_qty?: number | null
-          avg_cost?: number | null
-          brand?: string | null
-          brand_variant_id?: string | null
-          category_name?: string | null
-          item_name?: string | null
-          item_type?: string | null
-          qty?: number | null
-          sku?: string | null
-          subcategory_name?: string | null
-          total_value?: number | null
-          unit?: string | null
-          warehouse_id?: string | null
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_stock_summary_sub_container_fk"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouse_sub_container_totals: {
+        Row: {
+          item_count: number | null
+          sub_container_id: string | null
+          sub_container_is_active: boolean | null
+          sub_container_name: string | null
+          total_qty: number | null
+          total_value: number | null
+          warehouse_id: string | null
         }
-        Update: {
-          allocated_qty?: number | null
-          available_qty?: number | null
-          avg_cost?: number | null
-          brand?: string | null
-          brand_variant_id?: string | null
-          category_name?: string | null
-          item_name?: string | null
-          item_type?: string | null
-          qty?: number | null
-          sku?: string | null
-          subcategory_name?: string | null
-          total_value?: number | null
-          unit?: string | null
-          warehouse_id?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_sub_containers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -6202,6 +6525,11 @@ export type Database = {
           p_warehouse_id: string
         }
         Returns: undefined
+      }
+      _current_user_data_id: { Args: never; Returns: string }
+      _find_or_create_sub_container: {
+        Args: { p_division_id: string; p_warehouse_id: string }
+        Returns: string
       }
       _fx_document_booking: {
         Args: { p_document_id: string; p_document_type: string }
@@ -6447,7 +6775,11 @@ export type Database = {
       }
       cleanup_old_notifications: { Args: never; Returns: number }
       complete_delivery_inventory: {
-        Args: { p_delivery_id: string; p_so_id: string }
+        Args: {
+          p_delivery_id: string
+          p_so_id: string
+          p_sub_container_id?: string
+        }
         Returns: undefined
       }
       create_and_approve_receival: {
@@ -6458,23 +6790,39 @@ export type Database = {
           p_po_id: string
           p_receival_number: string
           p_received_by_name: string
+          p_sub_container_id?: string
           p_warehouse_id: string
         }
         Returns: Json
       }
-      create_and_confirm_delivery: {
-        Args: {
-          p_date: string
-          p_items: Json
-          p_so_id: string
-          p_warehouse_id: string
-          p_warehouse_name: string
-        }
-        Returns: {
-          delivery_number: string
-          id: string
-        }[]
-      }
+      create_and_confirm_delivery:
+        | {
+            Args: {
+              p_date: string
+              p_items: Json
+              p_so_id: string
+              p_warehouse_id: string
+              p_warehouse_name: string
+            }
+            Returns: {
+              delivery_number: string
+              id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_date: string
+              p_items: Json
+              p_so_id: string
+              p_sub_container_id?: string
+              p_warehouse_id: string
+              p_warehouse_name: string
+            }
+            Returns: {
+              delivery_number: string
+              id: string
+            }[]
+          }
       create_customer_with_phone: {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
@@ -6487,6 +6835,7 @@ export type Database = {
           p_notes: string
           p_qty: number
           p_source_layer_id: string
+          p_sub_container_id: string
           p_unit_cost: number
           p_warehouse_id: string
         }
@@ -6626,6 +6975,7 @@ export type Database = {
           p_reason: string
           p_requested_by: string
           p_requested_by_name: string
+          p_sub_container_id?: string
           p_warehouse_id: string
         }
         Returns: string
@@ -6639,9 +6989,11 @@ export type Database = {
           p_created_by_name?: string
           p_created_by_profile_id?: string
           p_date: string
+          p_from_sub_container_id?: string
           p_from_warehouse_id: string
           p_items: Json
           p_notes?: string
+          p_to_sub_container_id?: string
           p_to_warehouse_id: string
         }
         Returns: string
@@ -6654,8 +7006,9 @@ export type Database = {
       deduct_fifo_layers: {
         Args: {
           p_bv_id: string
-          p_is_transfer?: boolean
+          p_is_transfer: boolean
           p_qty: number
+          p_sub_container_id?: string
           p_wh_id: string
         }
         Returns: {
@@ -6663,6 +7016,7 @@ export type Database = {
           qty_taken: number
           source_id: string
           source_type: string
+          sub_container_id: string
           total_cost: number
           unit_cost: number
         }[]
@@ -6749,6 +7103,23 @@ export type Database = {
           sold_at_sale_total: number
         }[]
       }
+      get_warehouse_names: {
+        Args: { p_ids: string[] }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
+      get_warehouse_sub_containers: {
+        Args: { p_warehouse_id: string }
+        Returns: {
+          division_id: string
+          division_name: string
+          id: string
+          is_active: boolean
+          name: string
+        }[]
+      }
       has_admin_permission: { Args: never; Returns: boolean }
       has_inventory_manager_role: {
         Args: { p_profile_id: string }
@@ -6760,6 +7131,10 @@ export type Database = {
       }
       is_field_rp_of: {
         Args: { p_profile_id: string; p_warehouse_id: string }
+        Returns: boolean
+      }
+      is_sub_container_visible: {
+        Args: { p_sub_container_id: string }
         Returns: boolean
       }
       mark_overdue_bills: { Args: never; Returns: undefined }
@@ -6798,7 +7173,11 @@ export type Database = {
       refresh_all_stock_summaries: { Args: never; Returns: undefined }
       refresh_po_status: { Args: { p_po_id: string }; Returns: undefined }
       refresh_stock_summary_row: {
-        Args: { p_brand_variant_id: string; p_warehouse_id: string }
+        Args: {
+          p_brand_variant_id: string
+          p_sub_container_id: string
+          p_warehouse_id: string
+        }
         Returns: undefined
       }
       reject_credit_group_change: {
@@ -6833,6 +7212,10 @@ export type Database = {
         Args: { p_profile_ids: string[]; p_warehouse_id: string }
         Returns: undefined
       }
+      resolve_category_sub_container: {
+        Args: { p_category_id: string }
+        Returns: string
+      }
       resubmit_sale_order: { Args: { p_so_id: string }; Returns: Json }
       revert_landed_cost: {
         Args: { p_lc_id: string; p_performer_name?: string }
@@ -6848,7 +7231,7 @@ export type Database = {
       }
       rpc_complete_return_inspection: {
         Args: {
-          p_restock_warehouse_id: string
+          p_restock_warehouse_id?: string
           p_return_id: string
           p_splits: Json
         }
@@ -6939,6 +7322,19 @@ export type Database = {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
       }
+      rpc_request_damaged_writeoff: {
+        Args: {
+          p_brand_variant_id: string
+          p_notes: string
+          p_qty: number
+          p_reason: string
+          p_requested_by: string
+          p_requested_by_name: string
+          p_sub_container_id: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       rpc_return_damaged_from_repair: {
         Args: {
           p_notes?: string
@@ -6970,6 +7366,19 @@ export type Database = {
           p_notes?: string
           p_repair_vendor_id: string
           p_return_line_disposition_id: string
+          p_source_division_id?: string
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
+      rpc_send_damaged_stock_for_repair: {
+        Args: {
+          p_brand_variant_id: string
+          p_expected_return_date: string
+          p_notes?: string
+          p_qty: number
+          p_repair_vendor_id: string
+          p_source_division_id: string
           p_warehouse_id: string
         }
         Returns: string
@@ -6987,26 +7396,17 @@ export type Database = {
         Args: { p_customer_id: string; p_phones: Json }
         Returns: undefined
       }
-      save_inventory_check_item_count:
-        | {
-            Args: {
-              p_counted_qty: number
-              p_item_id: string
-              p_variance_type: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_assignment_id?: string
-              p_counted_qty: number
-              p_item_id: string
-              p_profile_id?: string
-              p_profile_name?: string
-              p_variance_type: string
-            }
-            Returns: undefined
-          }
+      save_inventory_check_item_count: {
+        Args: {
+          p_assignment_id?: string
+          p_counted_qty: number
+          p_item_id: string
+          p_profile_id?: string
+          p_profile_name?: string
+          p_variance_type: string
+        }
+        Returns: undefined
+      }
       save_order_quotation: {
         Args: {
           p_discount_type?: string
@@ -7464,6 +7864,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -7699,8 +8102,8 @@ export const Constants = {
   },
 } as const
 
-// ─── Helper aliases (re-appended after supabase gen types wipes them) ───
+// ─── Helper aliases (re-appended after every supabase gen types) ──────────
+export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
+export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
+export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
 export type AllTables = keyof Database['public']['Tables']
-export type DBTable<T extends AllTables> = Database['public']['Tables'][T]['Row']
-export type DBInsert<T extends AllTables> = Database['public']['Tables'][T]['Insert']
-export type DBUpdate<T extends AllTables> = Database['public']['Tables'][T]['Update']

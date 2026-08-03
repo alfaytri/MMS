@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { useWarehouseStock, useReorderPoints, useUpsertReorderPoint } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -42,6 +43,20 @@ interface CategoryGroup {
   totalValue: number
   subcategories: SubcategoryGroup[]
   directItems: ItemEntry[]
+}
+
+type StockRow = {
+  warehouse_id: string
+  sub_container_id: string | null
+  brand_variant_id: string
+  item_name: string
+  brand: string | null
+  sku: string | null
+  qty: number | null
+  total_value: number | null
+  category_name: string | null
+  subcategory_name: string | null
+  item_type: string | null
 }
 
 const TYPE_SHORT_LABEL: Record<string, string> = {
@@ -97,17 +112,82 @@ function buildItems(itemMap: Map<string, Map<string, BrandEntry>>): ItemEntry[] 
   })
 }
 
+// ─── Helper: build category tree from a set of stock rows ─────────────────────
+
+function buildCategoryTree(stock: StockRow[]): CategoryGroup[] {
+  const catMap = new Map<string, {
+    itemType: string | null
+    subMap: Map<string, Map<string, Map<string, BrandEntry>>>
+    directItemMap: Map<string, Map<string, BrandEntry>>
+  }>()
+
+  for (const s of stock) {
+    const catKey = s.category_name ?? s.item_name ?? '—'
+    if (!catMap.has(catKey)) {
+      catMap.set(catKey, { itemType: s.item_type ?? null, subMap: new Map(), directItemMap: new Map() })
+    }
+    const cat = catMap.get(catKey)!
+
+    const brandEntry: BrandEntry = {
+      brand: s.brand, sku: s.sku, brand_variant_id: s.brand_variant_id,
+      qty: s.qty ?? 0, avgCost: 0, totalValue: s.total_value ?? 0,
+    }
+
+    if (s.subcategory_name) {
+      if (!cat.subMap.has(s.subcategory_name)) cat.subMap.set(s.subcategory_name, new Map())
+      const itemMap = cat.subMap.get(s.subcategory_name)!
+      if (!itemMap.has(s.item_name)) itemMap.set(s.item_name, new Map())
+      const brandMap = itemMap.get(s.item_name)!
+      if (!brandMap.has(s.brand_variant_id)) {
+        brandMap.set(s.brand_variant_id, { ...brandEntry })
+      } else {
+        const existing = brandMap.get(s.brand_variant_id)!
+        existing.qty += brandEntry.qty
+        existing.totalValue += brandEntry.totalValue
+      }
+    } else {
+      if (!cat.directItemMap.has(s.item_name)) cat.directItemMap.set(s.item_name, new Map())
+      const brandMap = cat.directItemMap.get(s.item_name)!
+      if (!brandMap.has(s.brand_variant_id)) {
+        brandMap.set(s.brand_variant_id, { ...brandEntry })
+      } else {
+        const existing = brandMap.get(s.brand_variant_id)!
+        existing.qty += brandEntry.qty
+        existing.totalValue += brandEntry.totalValue
+      }
+    }
+  }
+
+  return Array.from(catMap.entries()).map(([categoryName, { itemType, subMap, directItemMap }]) => {
+    const subcategories: SubcategoryGroup[] = Array.from(subMap.entries()).map(([subcategoryName, itemMap]) => {
+      const items = buildItems(itemMap)
+      return {
+        subcategoryName,
+        totalQty: items.reduce((s, i) => s + i.totalQty, 0),
+        totalValue: items.reduce((s, i) => s + i.totalValue, 0),
+        items,
+      }
+    })
+    const directItems = buildItems(directItemMap)
+    const totalQty = subcategories.reduce((s, sc) => s + sc.totalQty, 0) + directItems.reduce((s, i) => s + i.totalQty, 0)
+    const totalValue = subcategories.reduce((s, sc) => s + sc.totalValue, 0) + directItems.reduce((s, i) => s + i.totalValue, 0)
+    return { categoryName, itemType, totalQty, totalValue, subcategories, directItems }
+  })
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
   warehouseId: string
   warehouses: Warehouse[]
+  subContainerId?: string | null
 }
 
-export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
-  const { data: stock = [], isLoading } = useWarehouseStock(warehouseId)
+export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: Props) {
+  const { data: stock = [], isLoading } = useWarehouseStock(warehouseId, subContainerId ?? null)
 
   const { data: fullStock = [] } = useWarehouseStock()
+  const { data: subContainers = [] } = useWarehouseSubContainers(warehouseId)
 
   const warehouseBreakdown = useMemo(() => {
     const map = new Map<string, { label: string; qty: number }[]>()
@@ -123,66 +203,43 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
   const upsertRP = useUpsertReorderPoint()
   const rpMap = useMemo(() => new Map(reorderPoints.map(rp => [rp.brand_variant_id, rp.reorder_point])), [reorderPoints])
 
-  const tree = useMemo((): CategoryGroup[] => {
-    const catMap = new Map<string, {
-      itemType: string | null
-      subMap: Map<string, Map<string, Map<string, BrandEntry>>>
-      directItemMap: Map<string, Map<string, BrandEntry>>
-    }>()
+  const subContainerNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const sc of subContainers) m.set(sc.id, shortenSubContainerName(sc.name, warehouses.find((w) => w.id === warehouseId)?.name ?? ''))
+    return m
+  }, [subContainers, warehouses, warehouseId])
 
+  // Group stock rows by sub_container_id. When the caller has already scoped
+  // to a single sub (subContainerId prop), or the warehouse only contains one
+  // sub_container's worth of stock, we render a flat tree. Otherwise we split
+  // the tree into per-sub-container sections so the operator can see WHERE
+  // stock lives, not just aggregated totals.
+  const subGroups = useMemo(() => {
+    const bySub = new Map<string, StockRow[]>()
     for (const s of stock) {
-      const catKey = s.category_name ?? s.item_name ?? '—'
-      if (!catMap.has(catKey)) {
-        catMap.set(catKey, { itemType: s.item_type ?? null, subMap: new Map(), directItemMap: new Map() })
-      }
-      const cat = catMap.get(catKey)!
-
-      const brandEntry: BrandEntry = {
-        brand: s.brand, sku: s.sku, brand_variant_id: s.brand_variant_id,
-        qty: s.qty ?? 0, avgCost: 0, totalValue: s.total_value ?? 0,
-      }
-
-      if (s.subcategory_name) {
-        if (!cat.subMap.has(s.subcategory_name)) cat.subMap.set(s.subcategory_name, new Map())
-        const itemMap = cat.subMap.get(s.subcategory_name)!
-        if (!itemMap.has(s.item_name)) itemMap.set(s.item_name, new Map())
-        const brandMap = itemMap.get(s.item_name)!
-        if (!brandMap.has(s.brand_variant_id)) {
-          brandMap.set(s.brand_variant_id, { ...brandEntry })
-        } else {
-          const existing = brandMap.get(s.brand_variant_id)!
-          existing.qty += brandEntry.qty
-          existing.totalValue += brandEntry.totalValue
-        }
-      } else {
-        if (!cat.directItemMap.has(s.item_name)) cat.directItemMap.set(s.item_name, new Map())
-        const brandMap = cat.directItemMap.get(s.item_name)!
-        if (!brandMap.has(s.brand_variant_id)) {
-          brandMap.set(s.brand_variant_id, { ...brandEntry })
-        } else {
-          const existing = brandMap.get(s.brand_variant_id)!
-          existing.qty += brandEntry.qty
-          existing.totalValue += brandEntry.totalValue
-        }
-      }
+      const key = s.sub_container_id ?? '__none__'
+      if (!bySub.has(key)) bySub.set(key, [])
+      bySub.get(key)!.push(s as StockRow)
     }
-
-    return Array.from(catMap.entries()).map(([categoryName, { itemType, subMap, directItemMap }]) => {
-      const subcategories: SubcategoryGroup[] = Array.from(subMap.entries()).map(([subcategoryName, itemMap]) => {
-        const items = buildItems(itemMap)
-        return {
-          subcategoryName,
-          totalQty: items.reduce((s, i) => s + i.totalQty, 0),
-          totalValue: items.reduce((s, i) => s + i.totalValue, 0),
-          items,
-        }
-      })
-      const directItems = buildItems(directItemMap)
-      const totalQty = subcategories.reduce((s, sc) => s + sc.totalQty, 0) + directItems.reduce((s, i) => s + i.totalQty, 0)
-      const totalValue = subcategories.reduce((s, sc) => s + sc.totalValue, 0) + directItems.reduce((s, i) => s + i.totalValue, 0)
-      return { categoryName, itemType, totalQty, totalValue, subcategories, directItems }
-    })
+    return bySub
   }, [stock])
+
+  const showSubGroups = !subContainerId && subGroups.size > 1
+
+  const flatTree = useMemo(() => buildCategoryTree(stock as StockRow[]), [stock])
+
+  const groupedTrees = useMemo(() => {
+    if (!showSubGroups) return []
+    return Array.from(subGroups.entries())
+      .map(([subId, rows]) => ({
+        subId,
+        subName: subContainerNameById.get(subId) ?? 'Unassigned',
+        tree: buildCategoryTree(rows),
+        totalQty: rows.reduce((s, r) => s + (r.qty ?? 0), 0),
+        totalValue: rows.reduce((s, r) => s + (r.total_value ?? 0), 0),
+      }))
+      .sort((a, b) => b.totalValue - a.totalValue)
+  }, [subGroups, subContainerNameById, showSubGroups])
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -191,7 +248,7 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
   }, [])
 
   if (isLoading) return <p className="text-xs text-muted-foreground py-2 text-center">Loading…</p>
-  if (tree.length === 0) return <p className="text-xs text-muted-foreground py-2 text-center">No stock</p>
+  if (stock.length === 0) return <p className="text-xs text-muted-foreground py-2 text-center">No stock</p>
 
   function renderBrandRows(brands: BrandEntry[], indent: string) {
     return brands.map((b) => (
@@ -282,6 +339,76 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
     })
   }
 
+  function renderTree(tree: CategoryGroup[], keyPrefix: string) {
+    return tree.map((cat) => {
+      const catKey = `${keyPrefix}__${cat.categoryName}`
+      const catExpanded = expanded.has(catKey)
+      const tooltipRows = [
+        ...cat.subcategories.map((sc) => ({ label: sc.subcategoryName, qty: sc.totalQty })),
+        ...cat.directItems.map((i) => ({ label: i.itemName, qty: i.totalQty })),
+      ]
+      return (
+        <React.Fragment key={catKey}>
+          <div
+            className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-1.5 bg-muted/20 hover:bg-muted/40 cursor-pointer border-b items-center"
+            onClick={() => toggle(catKey)}
+          >
+            <div className="flex items-center gap-1.5 font-semibold">
+              {catExpanded
+                ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
+                : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+              <span>{cat.categoryName}</span>
+              {cat.itemType && TYPE_SHORT_LABEL[cat.itemType] && (
+                <span className="text-[9px] font-normal text-muted-foreground border border-border rounded px-1 py-0.5">
+                  {TYPE_SHORT_LABEL[cat.itemType]}
+                </span>
+              )}
+            </div>
+            <div className="text-right w-12 font-semibold">
+              <StockTooltip qty={cat.totalQty} title="Stock Breakdown" rows={tooltipRows} />
+            </div>
+            <div className="text-right w-20 font-semibold">{fmtVal(cat.totalValue)}</div>
+          </div>
+
+          {catExpanded && (
+            <>
+              {cat.subcategories.map((sc) => {
+                const scKey = `${catKey}__sub__${sc.subcategoryName}`
+                const scExpanded = expanded.has(scKey)
+                return (
+                  <React.Fragment key={scKey}>
+                    <div
+                      className="grid grid-cols-[1fr_auto_auto] gap-2 pl-6 pr-3 py-1.5 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 cursor-pointer border-b items-center"
+                      onClick={() => toggle(scKey)}
+                    >
+                      <div className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
+                        {scExpanded
+                          ? <ChevronDown  className="h-2.5 w-2.5 shrink-0" />
+                          : <ChevronRight className="h-2.5 w-2.5 shrink-0" />}
+                        <span>{sc.subcategoryName}</span>
+                        <span className="text-[9px] font-normal text-muted-foreground italic">{sc.items.length} item{sc.items.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="text-right w-12 font-semibold">
+                        <StockTooltip
+                          qty={sc.totalQty}
+                          title="Stock by Item"
+                          rows={sc.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
+                        />
+                      </div>
+                      <div className="text-right w-20 font-semibold">{fmtVal(sc.totalValue)}</div>
+                    </div>
+                    {scExpanded && renderItemRows(sc.items, scKey, 'pl-10', 'pl-14')}
+                  </React.Fragment>
+                )
+              })}
+              {renderItemRows(cat.directItems, catKey, 'pl-6', 'pl-11')}
+            </>
+          )}
+        </React.Fragment>
+      )
+    })
+  }
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="border rounded-md overflow-hidden text-xs">
@@ -292,76 +419,31 @@ export function WarehouseStockTree({ warehouseId, warehouses }: Props) {
           <span className="text-right w-20">Value (QR)</span>
         </div>
 
-        {tree.map((cat) => {
-          const catExpanded = expanded.has(cat.categoryName)
-          const tooltipRows = [
-            ...cat.subcategories.map((sc) => ({ label: sc.subcategoryName, qty: sc.totalQty })),
-            ...cat.directItems.map((i) => ({ label: i.itemName, qty: i.totalQty })),
-          ]
-          return (
-            <React.Fragment key={cat.categoryName}>
-              {/* Category row */}
-              <div
-                className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-1.5 bg-muted/20 hover:bg-muted/40 cursor-pointer border-b items-center"
-                onClick={() => toggle(cat.categoryName)}
-              >
-                <div className="flex items-center gap-1.5 font-semibold">
-                  {catExpanded
-                    ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
-                    : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
-                  <span>{cat.categoryName}</span>
-                  {cat.itemType && TYPE_SHORT_LABEL[cat.itemType] && (
-                    <span className="text-[9px] font-normal text-muted-foreground border border-border rounded px-1 py-0.5">
-                      {TYPE_SHORT_LABEL[cat.itemType]}
-                    </span>
-                  )}
-                </div>
-                <div className="text-right w-12 font-semibold">
-                  <StockTooltip qty={cat.totalQty} title="Stock Breakdown" rows={tooltipRows} />
-                </div>
-                <div className="text-right w-20 font-semibold">{fmtVal(cat.totalValue)}</div>
-              </div>
-
-              {catExpanded && (
-                <>
-                  {/* Subcategory rows */}
-                  {cat.subcategories.map((sc) => {
-                    const scKey = `${cat.categoryName}__sub__${sc.subcategoryName}`
-                    const scExpanded = expanded.has(scKey)
-                    return (
-                      <React.Fragment key={scKey}>
-                        <div
-                          className="grid grid-cols-[1fr_auto_auto] gap-2 pl-6 pr-3 py-1.5 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 cursor-pointer border-b items-center"
-                          onClick={() => toggle(scKey)}
-                        >
-                          <div className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
-                            {scExpanded
-                              ? <ChevronDown  className="h-2.5 w-2.5 shrink-0" />
-                              : <ChevronRight className="h-2.5 w-2.5 shrink-0" />}
-                            <span>{sc.subcategoryName}</span>
-                            <span className="text-[9px] font-normal text-muted-foreground italic">{sc.items.length} item{sc.items.length !== 1 ? 's' : ''}</span>
-                          </div>
-                          <div className="text-right w-12 font-semibold">
-                            <StockTooltip
-                              qty={sc.totalQty}
-                              title="Stock by Item"
-                              rows={sc.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
-                            />
-                          </div>
-                          <div className="text-right w-20 font-semibold">{fmtVal(sc.totalValue)}</div>
-                        </div>
-                        {scExpanded && renderItemRows(sc.items, scKey, 'pl-10', 'pl-14')}
-                      </React.Fragment>
-                    )
-                  })}
-
-                  {/* Direct items (no subcategory) */}
-                  {renderItemRows(cat.directItems, cat.categoryName, 'pl-6', 'pl-11')}
-                </>
-              )}
-            </React.Fragment>
-          )
-        })}
+        {showSubGroups
+          ? groupedTrees.map((g) => {
+              const groupKey = `__sub__${g.subId}`
+              const groupExpanded = expanded.has(groupKey)
+              return (
+                <React.Fragment key={g.subId}>
+                  <div
+                    className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 cursor-pointer border-b items-center"
+                    onClick={() => toggle(groupKey)}
+                  >
+                    <div className="flex items-center gap-1.5 font-semibold text-primary">
+                      {groupExpanded
+                        ? <ChevronDown  className="h-3 w-3 shrink-0" />
+                        : <ChevronRight className="h-3 w-3 shrink-0" />}
+                      <span>{g.subName}</span>
+                      <span className="text-[9px] font-normal text-muted-foreground italic">{g.tree.length} categor{g.tree.length === 1 ? 'y' : 'ies'}</span>
+                    </div>
+                    <div className="text-right w-12 font-semibold text-primary tabular-nums">{g.totalQty}</div>
+                    <div className="text-right w-20 font-semibold text-primary tabular-nums">{fmtVal(g.totalValue)}</div>
+                  </div>
+                  {groupExpanded && renderTree(g.tree, groupKey)}
+                </React.Fragment>
+              )
+            })
+          : renderTree(flatTree, '')}
       </div>
     </TooltipProvider>
   )

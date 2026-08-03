@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -22,11 +22,12 @@ import {
   useSaleReturns,
   useCreateSaleReturn,
   useUpdateReturnStatus,
+  useSaleDeliveryLinesForSo,
   type SaleReturn,
+  type DeliveryLineForReturn,
 } from '@/hooks/useSaleReturns'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import { useSaleOrders } from '@/hooks/useSaleOrders'
-import { useWarehouses } from '@/hooks/useWarehouses'
 import { SaleReturnDetailDialog } from '@/components/sales/SaleReturnDetailDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
@@ -164,13 +165,45 @@ export default function SaleReturnsPage() {
   const [reasonSelect, setReasonSelect] = useState('')
   const [customReason, setCustomReason] = useState('')
   const [notes, setNotes] = useState('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [items, setItems] = useState<{ item_name: string; sku: string | null; qty: number; condition: 'good' | 'damaged'; brand_variant_id: string | null; condition_notes?: string | null; delivered_qty?: number }[]>([])
+  const [items, setItems] = useState<Array<DeliveryLineForReturn & {
+    qty:              number
+    condition:        'good' | 'damaged'
+    condition_notes:  string | null
+  }>>([])
 
   const { data: returns, isLoading } = useSaleReturns({ search, status: statusFilter || undefined })
   const { data: saleOrders } = useSaleOrders({ statuses: ['delivered', 'partial_delivery'] })
-  const { data: warehouses = [] } = useWarehouses()
   const { data: reasons = [] } = useReturnReasons('sale_return')
+  const { data: candidates } = useSaleDeliveryLinesForSo(soId || null)
+
+  const availableCandidates = useMemo(
+    () => (candidates ?? []).filter((c) => c.returnable_qty > 0),
+    [candidates]
+  )
+
+  useEffect(() => {
+    if (!soId) {
+      setItems((prev) => (prev.length === 0 ? prev : []))
+      return
+    }
+    setItems((prev) => {
+      const nextIds = availableCandidates.map((c) => c.sale_delivery_line_id)
+      const sameShape =
+        prev.length === nextIds.length &&
+        prev.every((row, i) => row.sale_delivery_line_id === nextIds[i])
+      if (sameShape) return prev
+      const prevByKey = new Map(prev.map((r) => [r.sale_delivery_line_id, r]))
+      return availableCandidates.map((c) => {
+        const existing = prevByKey.get(c.sale_delivery_line_id)
+        return {
+          ...c,
+          qty:             existing?.qty ?? 0,
+          condition:       existing?.condition ?? 'good',
+          condition_notes: existing?.condition_notes ?? null,
+        }
+      })
+    })
+  }, [soId, availableCandidates])
 
   const createReturn = useCreateSaleReturn()
   const updateStatus = useUpdateReturnStatus()
@@ -202,13 +235,6 @@ export default function SaleReturnsPage() {
 
   function handleSOSelect(id: string) {
     setSoId(id)
-    const so = (saleOrders ?? []).find((o) => o.id === id)
-    if (!so) return
-    setItems(
-      (so.sale_order_lines ?? [])
-        .filter((l) => l.delivered_qty > 0)
-        .map((l) => ({ item_name: l.item_name, sku: l.sku, qty: 0, condition: 'good' as const, brand_variant_id: l.brand_variant_id, delivered_qty: l.delivered_qty }))
-    )
   }
 
   function getReason(): string {
@@ -217,7 +243,7 @@ export default function SaleReturnsPage() {
 
   function resetForm() {
     setSoId(''); setReasonSelect(''); setCustomReason(''); setNotes('')
-    setItems([]); setWarehouseId('')
+    setItems([])
   }
 
   function handleCreate() {
@@ -226,8 +252,26 @@ export default function SaleReturnsPage() {
     if (!reason)        { toast.error('Reason is required'); return }
     const valid = items.filter((i) => i.qty > 0)
     if (valid.length === 0) { toast.error('Enter qty for at least one item'); return }
+    if (valid.some((i) => i.qty > i.returnable_qty)) { toast.error('One or more quantities exceed the returnable amount'); return }
     createReturn.mutate(
-      { source_id: soId, date, reason, items: valid, restock_warehouse_id: warehouseId || null, notes: notes || null },
+      {
+        source_id: soId,
+        date,
+        reason,
+        items: valid.map((i) => ({
+          sale_delivery_line_id: i.sale_delivery_line_id,
+          item_name:             i.item_name,
+          sku:                   i.sku,
+          qty:                   i.qty,
+          brand_variant_id:      i.brand_variant_id,
+          condition:             i.condition,
+          condition_notes:       i.condition_notes,
+        })),
+        // Restock destination is derived per-line by the RPC from the source
+        // delivery_line's sub-container (D.4.b).
+        restock_warehouse_id: null,
+        notes: notes || null,
+      },
       {
         onSuccess: () => {
           toast.success('Return created')
@@ -457,45 +501,28 @@ export default function SaleReturnsPage() {
               </div>
             )}
 
-            {/* Reason + restock warehouse */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="sr-reason" className="text-[11px] text-muted-foreground">Reason *</Label>
-                <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v ?? ''); if (v !== '__custom__') setCustomReason('') }}>
-                  <SelectTrigger id="sr-reason" className="h-9 text-xs w-full">
-                    <SelectValue placeholder="Select reason…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
-                    {reasons.map((r) => (
-                      <SelectItem key={r.id} value={r.label} className="text-xs">{r.label}</SelectItem>
-                    ))}
-                    <SelectItem value="__custom__" className="text-xs">Custom Reason…</SelectItem>
-                  </SelectContent>
-                </Select>
-                {reasonSelect === '__custom__' && (
-                  <Input
-                    value={customReason}
-                    onChange={(e) => setCustomReason(e.target.value)}
-                    placeholder="Enter custom reason…"
-                    className="mt-1.5 h-9 text-xs"
-                  />
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sr-restock-warehouse" className="text-[11px] text-muted-foreground">
-                  Restock Warehouse <span className="text-muted-foreground/60 normal-case font-normal">(leave empty to skip restocking)</span>
-                </Label>
-                <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-                  <SelectTrigger id="sr-restock-warehouse" className="h-9 text-xs w-full">
-                    <SelectValue placeholder="No restocking" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.map((w) => (
-                      <SelectItem key={w.id} value={w.id} className="text-xs">{w.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Reason */}
+            <div className="space-y-1">
+              <Label htmlFor="sr-reason" className="text-[11px] text-muted-foreground">Reason *</Label>
+              <Select value={reasonSelect} onValueChange={(v) => { setReasonSelect(v ?? ''); if (v !== '__custom__') setCustomReason('') }}>
+                <SelectTrigger id="sr-reason" className="h-9 text-xs w-full">
+                  <SelectValue placeholder="Select reason…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {reasons.map((r) => (
+                    <SelectItem key={r.id} value={r.label} className="text-xs">{r.label}</SelectItem>
+                  ))}
+                  <SelectItem value="__custom__" className="text-xs">Custom Reason…</SelectItem>
+                </SelectContent>
+              </Select>
+              {reasonSelect === '__custom__' && (
+                <Input
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  placeholder="Enter custom reason…"
+                  className="mt-1.5 h-9 text-xs"
+                />
+              )}
             </div>
 
             {/* Notes */}
@@ -510,8 +537,8 @@ export default function SaleReturnsPage() {
               />
             </div>
 
-            {/* Items to return */}
-            {items.length > 0 && (
+            {/* Items to return — one row per delivery_line source */}
+            {soId && items.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-[11px] font-medium">Items to Return ({items.length})</Label>
@@ -522,16 +549,20 @@ export default function SaleReturnsPage() {
                     </span>
                   )}
                 </div>
+                <p className="text-[10px] text-muted-foreground">
+                  One row per delivery source — restock returns to the same sub-container it was delivered from.
+                </p>
                 <div className="space-y-2">
                   {items.map((item, idx) => {
-                    const maxQty = item.delivered_qty ?? Infinity
                     const isSelected = item.qty > 0
                     const isDamaged = item.condition === 'damaged'
+                    const overCapacity = item.qty > item.returnable_qty
                     return (
                       <div
-                        key={idx}
+                        key={item.sale_delivery_line_id}
                         className={cn(
                           'rounded-lg border transition-colors',
+                          overCapacity ? 'border-destructive/40 bg-destructive/[0.03]' :
                           isSelected && isDamaged ? 'border-red-200/70 bg-red-50/30' :
                           isSelected ? 'border-primary/30 bg-primary/[0.03]' :
                           'bg-background'
@@ -541,25 +572,38 @@ export default function SaleReturnsPage() {
                           <p className="text-[12px] font-semibold text-foreground truncate">{item.item_name}</p>
                           {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
                           <span className="ml-auto text-[10px] text-muted-foreground">
-                            Delivered: <span className="tabular-nums font-medium text-foreground">{item.delivered_qty ?? 0}</span>
+                            Returnable: <span className="tabular-nums font-medium text-foreground">{item.returnable_qty}</span>
                           </span>
                         </div>
-                        <div className="px-3 pb-2.5">
-                          <div className="grid grid-cols-[1fr_6rem_6rem] gap-x-3 text-[9px] text-muted-foreground uppercase tracking-wide">
-                            <span></span>
-                            <span>Return qty</span>
-                            <span>Condition</span>
+                        <div className="px-3 pb-2.5 space-y-2">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-mono">
+                              {item.delivery_number}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                              {item.warehouse_name}
+                            </Badge>
+                            {item.sub_container_name && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                                {item.sub_container_name}
+                              </Badge>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              Delivered {item.delivered_at.split('T')[0]} · Qty {item.delivered_qty}
+                              {item.already_returned_qty > 0 && ` · Prior returned ${item.already_returned_qty}`}
+                            </span>
                           </div>
-                          <div className="grid grid-cols-[1fr_6rem_6rem] gap-x-3 items-center mt-1">
+                          <div className="grid grid-cols-[1fr_6rem_6rem] gap-x-3 items-center">
                             <div />
                             <Input
                               type="number"
                               min="0"
-                              max={item.delivered_qty ?? undefined}
+                              max={item.returnable_qty}
                               value={item.qty}
                               onChange={(e) => {
                                 const u = [...items]
-                                u[idx] = { ...u[idx], qty: Math.min(maxQty, Math.max(0, Number(e.target.value))) }
+                                const parsed = Number(e.target.value)
+                                u[idx] = { ...u[idx], qty: Math.min(item.returnable_qty, Math.max(0, Number.isFinite(parsed) ? parsed : 0)) }
                                 setItems(u)
                               }}
                               className="h-8 w-full text-right tabular-nums text-xs"
@@ -586,6 +630,13 @@ export default function SaleReturnsPage() {
                     )
                   })}
                 </div>
+              </div>
+            )}
+
+            {soId && items.length === 0 && (
+              <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
+                <RotateCcw className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
+                <p className="text-xs">Nothing left to return — every delivery for this SO is fully returned.</p>
               </div>
             )}
 

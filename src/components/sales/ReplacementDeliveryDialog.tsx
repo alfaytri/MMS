@@ -16,6 +16,9 @@ import {
 } from '@/components/ui/table'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useReturnLineSources } from '@/hooks/useReturnLineSources'
+import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
 import { type SaleReturn, useReturnLineProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
 import type { ReturnDispositionType, ReturnLineDisposition } from '@/hooks/useSaleDeliveries'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
@@ -91,6 +94,7 @@ export function ReplacementDeliveryDialog({
 }: ReplacementDeliveryDialogProps) {
   const cur = currency ?? 'QAR'
   const [warehouseId, setWarehouseId] = useState('')
+  const [showWarehousePicker, setShowWarehousePicker] = useState(false)
   const [qtyByLineId, setQtyByLineId] = useState<Record<string, number>>({})
   const [dispositionByLineId, setDispositionByLineId] = useState<Record<string, DispositionChoice>>({})
   const [dispositionQtyByLineId, setDispositionQtyByLineId] = useState<Record<string, number>>({})
@@ -149,16 +153,36 @@ export function ReplacementDeliveryDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, lineProgress.length])
 
-  // Default the source warehouse to the return's restock warehouse so the
-  // disposition-only case can be one click.
+  // Auto-default source warehouse to the return's original delivery warehouse
+  // (derived from return_lines[].sale_delivery_line_id — D.4.b). Falls back to
+  // legacy restock_warehouse_id for pre-D.4.b returns. Still editable — the
+  // operator can send replacement from a different stock location.
+  const sdlByReturnLineId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const l of returnData.return_lines ?? []) {
+      const sdl = (l as { sale_delivery_line_id?: string | null }).sale_delivery_line_id
+      if (sdl) map.set(l.id, sdl)
+    }
+    return map
+  }, [returnData.return_lines])
+  const returnLineSdlIds = useMemo(
+    () => Array.from(new Set(sdlByReturnLineId.values())),
+    [sdlByReturnLineId]
+  )
+  const { data: sourceMaps } = useReturnLineSources([], returnLineSdlIds, returnData.id)
+
   useEffect(() => {
     if (!open) return
-    if (returnData.restock_warehouse_id) {
+    const firstSdl = returnLineSdlIds[0]
+    const derived = firstSdl ? sourceMaps?.delivery.get(firstSdl)?.warehouseId : undefined
+    if (derived) {
+      setWarehouseId(derived)
+    } else if (returnData.restock_warehouse_id) {
       setWarehouseId(returnData.restock_warehouse_id)
     } else {
       setWarehouseId('')
     }
-  }, [open, returnData.restock_warehouse_id])
+  }, [open, returnLineSdlIds, sourceMaps, returnData.restock_warehouse_id])
 
   const hasDamagedRemaining = useMemo(
     () => rows.some((r) => r.condition === 'damaged' && (r.inventory_remaining_qty ?? 0) > 0),
@@ -196,7 +220,20 @@ export function ReplacementDeliveryDialog({
     () => rows.map((r) => r.brand_variant_id).filter(Boolean) as string[],
     [rows],
   )
-  const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+
+  // Scope the stock chip to the picked replacement warehouse's sub-container
+  // when it can be resolved unambiguously (single active sub). Multi-sub
+  // warehouses fall back to the aggregated warehouse total — replacement is
+  // deliberately operator-choice for the source, so we don't try to force a
+  // sub-container derivation from return context.
+  const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const resolvedSubContainerId = useMemo(() => {
+    if (!warehouseId) return null
+    const eligible = activeSubs.filter((sc) => sc.is_active)
+    return eligible.length === 1 ? eligible[0].id : null
+  }, [warehouseId, activeSubs])
+
+  const { data: whStockMap } = useWarehouseStockByItems(bvIds, resolvedSubContainerId)
 
   const anyShort = useMemo(() => {
     if (!warehouseId) return false
@@ -549,6 +586,7 @@ export function ReplacementDeliveryDialog({
                   lineType="products"
                   value={pickerValue}
                   onChange={handlePickerChange}
+                  filterByActiveDivision
                 />
               </div>
             )}
@@ -616,17 +654,61 @@ export function ReplacementDeliveryDialog({
           </div>
 
           <div>
-            <label className="text-sm font-medium">Source Warehouse{needsWarehouse ? ' *' : ''}</label>
-            <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-              <SelectTrigger className="mt-1 w-full">
-                <SelectValue placeholder="Select warehouse" />
-              </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto">
-                {warehouses.map((w) => (
-                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="text-sm font-medium">Source Warehouse{needsWarehouse ? ' *' : ''}</label>
+              {warehouseId && !showWarehousePicker && (() => {
+                const firstSdl = returnLineSdlIds[0]
+                const info = firstSdl ? sourceMaps?.delivery.get(firstSdl) : undefined
+                const scName = info?.warehouseId === warehouseId ? info?.subContainerName : null
+                return (
+                  <>
+                    <span className="text-sm font-medium text-foreground">
+                      {selectedWarehouse?.name ?? '—'}
+                    </span>
+                    {scName && (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                        {scName}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-[10px] h-4 px-1.5">Auto</Badge>
+                    <button
+                      type="button"
+                      onClick={() => setShowWarehousePicker(true)}
+                      className="text-[11px] text-primary hover:underline"
+                    >
+                      Change
+                    </button>
+                  </>
+                )
+              })()}
+              {(!warehouseId || showWarehousePicker) && (
+                <button
+                  type="button"
+                  onClick={() => setShowWarehousePicker(false)}
+                  className="text-[11px] text-muted-foreground hover:underline ml-auto"
+                  disabled={!warehouseId}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+            {(!warehouseId || showWarehousePicker) && (
+              <>
+                <Select value={warehouseId} onValueChange={(v) => { setWarehouseId(v ?? ''); setShowWarehousePicker(false) }}>
+                  <SelectTrigger className="mt-1 w-full">
+                    <SelectValue placeholder="Select warehouse" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {warehouses.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Replacement ships from this warehouse. Default = the return&apos;s original delivery source.
+                </p>
+              </>
+            )}
           </div>
         </div>
 

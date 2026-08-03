@@ -34,6 +34,7 @@ import {
   type WarehouseTransfer,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
@@ -338,9 +339,11 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   return (
     <>
       <div className="p-4 md:p-6 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold">Transfers</h3>
-          <WarehouseReportButton reportType="transfers" label="Report" />
+          <div className="flex-shrink-0">
+            <WarehouseReportButton reportType="transfers" label="Report" />
+          </div>
         </div>
         {paged.map((t) => {
           const showDispatch = canDispatch(t)
@@ -421,8 +424,18 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
               {/* ── Route ── */}
               <div className="text-xs mb-2 flex items-center gap-1.5 flex-wrap text-muted-foreground">
                 <span className="text-foreground font-medium">{t.from_warehouse?.name ?? 'Unknown'}</span>
+                {t.from_sub_container_name && (
+                  <span className="text-[10px] text-muted-foreground border border-border rounded px-1 py-0.5">
+                    {shortenSubContainerName(t.from_sub_container_name, t.from_warehouse?.name ?? '')}
+                  </span>
+                )}
                 <ArrowRight className="h-3 w-3" />
                 <span className="text-foreground font-medium">{t.to_warehouse?.name ?? 'Unknown'}</span>
+                {t.to_sub_container_name && (
+                  <span className="text-[10px] text-muted-foreground border border-border rounded px-1 py-0.5">
+                    {shortenSubContainerName(t.to_sub_container_name, t.to_warehouse?.name ?? '')}
+                  </span>
+                )}
                 {t.created_by_name && <span>· by {t.created_by_name}</span>}
               </div>
 

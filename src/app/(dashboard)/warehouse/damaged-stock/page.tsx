@@ -1,22 +1,29 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, ArrowRight, Wrench, XCircle } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ReturnFromRepairDialog } from '@/components/warehouse/ReturnFromRepairDialog'
 import { SendForRepairDialog } from '@/components/warehouse/SendForRepairDialog'
+import { SendDamagedStockForRepairDialog } from '@/components/warehouse/SendDamagedStockForRepairDialog'
+import { WriteOffDamagedStockDialog } from '@/components/warehouse/WriteOffDamagedStockDialog'
 import {
-  useDamagedOnHand, useDamagedMovements, useOutForRepair,
+  useDamagedOnHand, useOutForRepair,
   usePendingRepairAssignments,
+  type DamagedOnHandRow,
   type OutForRepairRow, type PendingRepairAssignmentRow,
 } from '@/hooks/useDamagedStockOverview'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
+// formatDateTime is used by the Out-for-Repair table row's dispatched-at
+// column. Badge / movementBadgeClass / movementLabel were removed with the
+// Damaged Stock → Movements tab in D.13 — that history now lives at
+// /master-data/warehouses → Movements as one unified stream.
 
 // Reusing the number formatter throughout — currency intentionally omitted
 // because damaged-stock costs are stored plain (no currency column).
@@ -26,52 +33,45 @@ const nfCost = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 })
 
-// ─── Movement badge styling ─────────────────────────────────────────────
-function movementBadgeClass(t: string): string {
-  switch (t) {
-    case 'restock_as_damaged_in':
-    case 'damaged_return_from_repair_as_good':
-      return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-    case 'send_for_repair_out':
-      return 'bg-orange-500/15 text-orange-700 dark:text-orange-300'
-    case 'return_from_repair_as_writeoff':
-      return 'bg-red-500/15 text-red-700 dark:text-red-300'
-    default:
-      return 'bg-slate-500/15 text-slate-700 dark:text-slate-300'
-  }
-}
-
-function movementLabel(t: string): string {
-  return t.replaceAll('_', ' ')
-}
-
 // ─── Page ───────────────────────────────────────────────────────────────
 export default function DamagedStockPage() {
   const onHand      = useDamagedOnHand()
   const outRepair   = useOutForRepair()
-  const movements   = useDamagedMovements()
   const pending     = usePendingRepairAssignments()
 
   const [returnDialog, setReturnDialog] = useState<OutForRepairRow | null>(null)
   const [assignDialog, setAssignDialog] = useState<PendingRepairAssignmentRow | null>(null)
+  const [sendFromOnHand, setSendFromOnHand] = useState<DamagedOnHandRow | null>(null)
+  const [writeOffFromOnHand, setWriteOffFromOnHand] = useState<DamagedOnHandRow | null>(null)
 
   return (
     <PageWrapper>
       <PageHeader
         title="Damaged Stock"
-        description="Overview of damaged inventory on-hand, units currently out for repair, and the full damaged-stock movement history."
+        description="Damaged inventory on-hand + units currently out for repair. The full movement history (good + damaged) lives on Warehouses → Movements."
+        actions={
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href="/master-data/warehouses?tab=movements&stream=damaged">
+              View damaged movements
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        }
       />
 
       <Tabs defaultValue="on-hand" className="flex flex-col gap-4 w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="on-hand">On-hand</TabsTrigger>
           <TabsTrigger value="out-for-repair">Out for Repair</TabsTrigger>
-          <TabsTrigger value="movements">Movements</TabsTrigger>
         </TabsList>
 
         {/* ── On-hand tab ────────────────────────────────────────────── */}
         <TabsContent value="on-hand" className="min-h-[400px]">
-          <OnHandTab query={onHand} />
+          <OnHandTab
+            query={onHand}
+            onSendForRepair={(row) => setSendFromOnHand(row)}
+            onWriteOff={(row) => setWriteOffFromOnHand(row)}
+          />
         </TabsContent>
 
         {/* ── Out for repair tab ─────────────────────────────────────── */}
@@ -84,11 +84,6 @@ export default function DamagedStockPage() {
             query={outRepair}
             onReturn={(row) => setReturnDialog(row)}
           />
-        </TabsContent>
-
-        {/* ── Movements tab ─────────────────────────────────────────── */}
-        <TabsContent value="movements" className="min-h-[400px]">
-          <MovementsTab query={movements} />
         </TabsContent>
       </Tabs>
 
@@ -119,6 +114,34 @@ export default function DamagedStockPage() {
           qty={assignDialog.qty}
           returnId={assignDialog.return_id}
           onComplete={() => setAssignDialog(null)}
+        />
+      )}
+
+      {sendFromOnHand && (
+        <SendDamagedStockForRepairDialog
+          open={!!sendFromOnHand}
+          onOpenChange={(v) => { if (!v) setSendFromOnHand(null) }}
+          warehouseId={sendFromOnHand.warehouse_id}
+          warehouseName={sendFromOnHand.warehouse_name}
+          brandVariantId={sendFromOnHand.brand_variant_id}
+          itemName={sendFromOnHand.item_name}
+          sku={sendFromOnHand.sku}
+          onHandQty={sendFromOnHand.qty}
+          onComplete={() => setSendFromOnHand(null)}
+        />
+      )}
+
+      {writeOffFromOnHand && (
+        <WriteOffDamagedStockDialog
+          open={!!writeOffFromOnHand}
+          onOpenChange={(v) => { if (!v) setWriteOffFromOnHand(null) }}
+          warehouseId={writeOffFromOnHand.warehouse_id}
+          warehouseName={writeOffFromOnHand.warehouse_name}
+          brandVariantId={writeOffFromOnHand.brand_variant_id}
+          itemName={writeOffFromOnHand.item_name}
+          sku={writeOffFromOnHand.sku}
+          onHandQty={writeOffFromOnHand.qty}
+          onComplete={() => setWriteOffFromOnHand(null)}
         />
       )}
     </PageWrapper>
@@ -189,7 +212,13 @@ function PendingRepairAssignmentSection({
 }
 
 // ─── On-hand tab ────────────────────────────────────────────────────────
-function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
+function OnHandTab({
+  query, onSendForRepair, onWriteOff,
+}: {
+  query:            ReturnType<typeof useDamagedOnHand>
+  onSendForRepair:  (row: DamagedOnHandRow) => void
+  onWriteOff:       (row: DamagedOnHandRow) => void
+}) {
   const { data = [], isLoading, error } = query
 
   const summary = useMemo(() => {
@@ -222,17 +251,20 @@ function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Warehouse</th>
+                <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Source Sub-container</th>
                 <th className="px-3 py-2 text-left font-medium">Item</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">SKU</th>
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-right font-medium">Weighted Unit Cost</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Last Updated</th>
+                <th className="px-3 py-2 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {data.map((r) => (
                 <tr key={r.key}>
                   <td className="px-3 py-2 font-medium">{r.warehouse_name}</td>
+                  <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.source_sub_container_name ?? '—'}</td>
                   <td className="px-3 py-2">
                     <div className="truncate max-w-xs">{r.item_name}</div>
                     <div className="md:hidden text-[11px] text-muted-foreground">{r.sku || '—'}</div>
@@ -241,6 +273,30 @@ function OnHandTab({ query }: { query: ReturnType<typeof useDamagedOnHand> }) {
                   <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{nfCost.format(r.weighted_unit_cost)}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDate(r.updated_at)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950"
+                        onClick={() => onSendForRepair(r)}
+                        title="Send for repair"
+                      >
+                        <Wrench className="h-4 w-4" />
+                        <span className="sr-only">Send for repair</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950"
+                        onClick={() => onWriteOff(r)}
+                        title="Write off"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        <span className="sr-only">Write off</span>
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -292,6 +348,7 @@ function OutForRepairTab({
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-left font-medium">Vendor</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Warehouse</th>
+                <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Source Sub-container</th>
                 <th className="px-3 py-2 text-left font-medium">Expected Return</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Dispatched</th>
                 <th className="px-3 py-2 text-right font-medium">Action</th>
@@ -308,6 +365,7 @@ function OutForRepairTab({
                   <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
                   <td className="px-3 py-2">{r.repair_vendor_name}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.from_warehouse_name}</td>
+                  <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.from_sub_container_name ?? '—'}</td>
                   <td className="px-3 py-2 text-xs">{formatDate(r.expected_return_date)}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDateTime(r.dispatched_at)}</td>
                   <td className="px-3 py-2 text-right">
@@ -320,106 +378,6 @@ function OutForRepairTab({
             </tbody>
           </table>
         </div>
-      )}
-    </>
-  )
-}
-
-// ─── Movements tab ─────────────────────────────────────────────────────
-const MOVEMENTS_PAGE_SIZE = 25
-
-function MovementsTab({ query }: { query: ReturnType<typeof useDamagedMovements> }) {
-  const { data = [], isLoading, error } = query
-  const [page, setPage] = useState(1)
-
-  const totalPages = Math.max(1, Math.ceil(data.length / MOVEMENTS_PAGE_SIZE))
-  const safePage = Math.min(page, totalPages)
-  const pageStart = (safePage - 1) * MOVEMENTS_PAGE_SIZE
-  const pageRows = data.slice(pageStart, pageStart + MOVEMENTS_PAGE_SIZE)
-  const rangeFrom = data.length === 0 ? 0 : pageStart + 1
-  const rangeTo = pageStart + pageRows.length
-
-  if (error) return <ErrorLine error={error as Error} />
-  if (isLoading) return <TableSkeleton />
-
-  return (
-    <>
-      <SummaryLine>
-        {data.length === 0
-          ? 'No movements'
-          : <>Showing {nfInt.format(rangeFrom)}–{nfInt.format(rangeTo)} of {nfInt.format(data.length)} movement{data.length === 1 ? '' : 's'} (last 200)</>}
-      </SummaryLine>
-
-      {data.length === 0 ? (
-        <EmptyState
-          icon={<AlertTriangle className="h-6 w-6 text-muted-foreground" />}
-          title="No damaged-stock movements recorded yet"
-          description="Every damaged-stock event — restock, send-for-repair, return — will appear in this log."
-        />
-      ) : (
-        <>
-          <div className="rounded-lg border bg-card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Date/Time</th>
-                  <th className="px-3 py-2 text-left font-medium">Type</th>
-                  <th className="px-3 py-2 text-left font-medium">Warehouse</th>
-                  <th className="px-3 py-2 text-left font-medium">Item</th>
-                  <th className="px-3 py-2 text-right font-medium">Qty</th>
-                  <th className="px-3 py-2 text-right font-medium">Unit Cost</th>
-                  <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {pageRows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDateTime(r.created_at)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge className={`${movementBadgeClass(r.movement_type)} hover:${movementBadgeClass(r.movement_type)}`} variant="secondary">
-                        {movementLabel(r.movement_type)}
-                      </Badge>
-                      <div className="md:hidden text-[11px] text-muted-foreground mt-1">
-                        {formatDateTime(r.created_at)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">{r.warehouse_name}</td>
-                    <td className="px-3 py-2">
-                      <div className="truncate max-w-xs">{r.item_name}</div>
-                      <div className="text-[11px] text-muted-foreground">{r.sku || '—'}</div>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{nfCost.format(r.unit_cost)}</td>
-                    <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground max-w-sm truncate">
-                      {r.notes ?? '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-[11px] text-muted-foreground">
-              Page {safePage} of {totalPages}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8" disabled={safePage <= 1} onClick={() => setPage(1)}>
-                First
-              </Button>
-              <Button variant="outline" size="sm" className="h-8" disabled={safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" className="h-8" disabled={safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                Next
-              </Button>
-              <Button variant="outline" size="sm" className="h-8" disabled={safePage >= totalPages} onClick={() => setPage(totalPages)}>
-                Last
-              </Button>
-            </div>
-          </div>
-        </>
       )}
     </>
   )

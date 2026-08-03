@@ -57,6 +57,7 @@ export type ReceivalEditRequest = {
 export type CreateReceivalPayload = {
   po_id: string
   warehouse_id: string
+  sub_container_id?: string | null
   date: string
   notes: string
   items: {
@@ -159,6 +160,7 @@ export function useCreateReceival() {
       const { data, error } = await supabase.rpc('create_and_approve_receival', {
         p_po_id:            payload.po_id,
         p_warehouse_id:     payload.warehouse_id,
+        p_sub_container_id: payload.sub_container_id ?? undefined,
         p_date:             payload.date,
         p_received_by_name: receivedByName ?? '',
         p_receival_number:  '',
@@ -358,6 +360,7 @@ export function useCreateReplacementReceival() {
     mutationFn: async (payload: {
       po_id: string
       warehouse_id: string
+      sub_container_id?: string | null
       debit_note_id: string
       items: ReplacementReceivalItem[]
     }) => {
@@ -375,6 +378,7 @@ export function useCreateReplacementReceival() {
       const { data, error } = await supabase.rpc('create_and_approve_receival', {
         p_po_id:            payload.po_id,
         p_warehouse_id:     payload.warehouse_id,
+        p_sub_container_id: payload.sub_container_id ?? undefined,
         p_date:             today,
         p_received_by_name: receivedByName ?? '',
         p_receival_number:  '',

@@ -35,14 +35,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { useCreateWarehouse, useUpdateWarehouse, type Warehouse } from '@/hooks/useWarehouses'
-import { useResponsiblePersonCandidates, useWarehouseResponsiblePersons, useReplaceWarehouseResponsiblePersons } from '@/hooks/useWarehouseResponsiblePersons'
-import { useDivisions } from '@/hooks/useDivisions'
-import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import {
+  useResponsiblePersonCandidates,
+  useWarehouseResponsiblePersons,
+  useReplaceWarehouseResponsiblePersons,
+} from '@/hooks/useWarehouseResponsiblePersons'
+import { useCompanies } from '@/hooks/useCompanies'
 
 const warehouseSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   location: z.string().optional(),
-  division_id: z.string().min(1, 'Division is required'),
+  company_id: z.string().min(1, 'Company is required'),
 })
 
 type WarehouseFormValues = z.infer<typeof warehouseSchema>
@@ -60,8 +63,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
   const { data: rpCandidates = [] } = useResponsiblePersonCandidates()
   const { data: currentRPs = [] } = useWarehouseResponsiblePersons(warehouse?.id ?? null)
   const replaceRPs = useReplaceWarehouseResponsiblePersons()
-  const { data: divisions = [] } = useDivisions()
-  const { activeDivisionId } = useActiveDivision()
+  const { data: companies = [] } = useCompanies()
   const isPending = create.isPending || update.isPending || replaceRPs.isPending
 
   const [selectedRPIds, setSelectedRPIds] = useState<string[]>([])
@@ -69,7 +71,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseSchema),
-    defaultValues: { name: '', location: '', division_id: '' },
+    defaultValues: { name: '', location: '', company_id: '' },
   })
 
   useEffect(() => {
@@ -78,30 +80,25 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       form.reset({
         name: warehouse.name,
         location: warehouse.location ?? '',
-        division_id: warehouse.division_id ?? '',
+        company_id: warehouse.company_id ?? '',
       })
     } else {
-      const defaultDivision =
-        (activeDivisionId && divisions.some((d) => d.id === activeDivisionId))
-          ? activeDivisionId
-          : divisions.length === 1
-            ? divisions[0].id
-            : ''
+      const defaultCompany = companies.length === 1 ? companies[0].id : ''
       form.reset({
         name: '',
         location: '',
-        division_id: defaultDivision,
+        company_id: defaultCompany,
       })
     }
     setSelectedRPIds([])
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on identity (id), not object reference
-  }, [open, warehouse?.id, form, divisions, activeDivisionId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, warehouse?.id, form, companies])
 
   useEffect(() => {
     if (open && warehouse && currentRPs.length > 0) {
       setSelectedRPIds(currentRPs.map((rp) => rp.profile_id))
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on identity (id), not object reference
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, warehouse?.id, currentRPs])
 
   async function onSubmit(values: WarehouseFormValues) {
@@ -112,14 +109,14 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           id: warehouse.id,
           name: values.name,
           location: values.location || null,
-          division_id: values.division_id,
+          company_id: values.company_id,
         })
         whId = warehouse.id
       } else {
         const created = await create.mutateAsync({
           name: values.name,
           location: values.location || null,
-          division_id: values.division_id,
+          company_id: values.company_id,
         })
         whId = created.id
       }
@@ -133,140 +130,159 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-md">
+      <DialogContent className="w-full sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Warehouse</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Main Warehouse" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="division_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Division *</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={divisions.length <= 1}
-                  >
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex flex-col flex-1 min-h-0"
+          >
+            <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 py-2">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name *</FormLabel>
                     <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select division" />
-                      </SelectTrigger>
+                      <Input placeholder="e.g. Main Warehouse" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      {divisions.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Address or area" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {/* ── Warehouse RPs multi-select dropdown ── */}
-            <div className="space-y-2">
-              <Label className="text-xs font-medium flex items-center gap-1.5">
-                Warehouse RPs
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="text-muted-foreground cursor-help text-[10px] border-b border-dashed border-muted-foreground/40">(RP)</span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top"><p className="text-xs">Responsible Persons — users who physically manage this warehouse</p></TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </Label>
-              {rpCandidates.length === 0 ? (
-                <p className="text-xs text-muted-foreground border rounded-md py-3 text-center">No users with Warehouse RP role found. Assign the role in User Management first.</p>
-              ) : (
-                <>
-                  <Popover open={rpPopoverOpen} onOpenChange={setRpPopoverOpen}>
-                    <PopoverTrigger className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background hover:bg-accent/50 cursor-pointer">
-                      <span className="text-muted-foreground truncate">
-                        {selectedRPIds.length === 0
-                          ? 'Select Warehouse RPs...'
-                          : `${selectedRPIds.length} selected`}
-                      </span>
-                      <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[var(--trigger-width)] p-1" align="start">
-                      <div className="max-h-[180px] overflow-y-auto space-y-0.5">
-                        {rpCandidates.map((c) => {
-                          const checked = selectedRPIds.includes(c.profile_id)
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company *</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={companies.length <= 1}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full h-9">
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {companies.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name_en}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Divisions are now managed per sub-container, not on the warehouse.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Address or area" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="space-y-2">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  Warehouse RPs
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-muted-foreground cursor-help text-[10px] border-b border-dashed border-muted-foreground/40">(RP)</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p className="text-xs">
+                          Responsible Persons — users who physically manage this warehouse
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+                {rpCandidates.length === 0 ? (
+                  <p className="text-xs text-muted-foreground border rounded-md py-3 text-center">
+                    No users with Warehouse RP role found. Assign the role in User Management first.
+                  </p>
+                ) : (
+                  <>
+                    <Popover open={rpPopoverOpen} onOpenChange={setRpPopoverOpen}>
+                      <PopoverTrigger className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background hover:bg-accent/50 cursor-pointer">
+                        <span className="text-muted-foreground truncate">
+                          {selectedRPIds.length === 0
+                            ? 'Select Warehouse RPs...'
+                            : `${selectedRPIds.length} selected`}
+                        </span>
+                        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--trigger-width)] p-1" align="start">
+                        <div className="max-h-[180px] overflow-y-auto space-y-0.5">
+                          {rpCandidates.map((c) => {
+                            const checked = selectedRPIds.includes(c.profile_id)
+                            return (
+                              <button
+                                key={c.profile_id}
+                                type="button"
+                                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer"
+                                onClick={() => {
+                                  setSelectedRPIds((prev) =>
+                                    checked
+                                      ? prev.filter((id) => id !== c.profile_id)
+                                      : [...prev, c.profile_id]
+                                  )
+                                }}
+                              >
+                                <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${checked ? 'bg-primary border-primary text-primary-foreground' : 'border-input'}`}>
+                                  {checked && <Check className="h-3 w-3" />}
+                                </div>
+                                {c.full_name ?? 'Unnamed'}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {selectedRPIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {selectedRPIds.map((id) => {
+                          const name =
+                            rpCandidates.find((c) => c.profile_id === id)?.full_name ?? 'Unnamed'
                           return (
-                            <button
-                              key={c.profile_id}
-                              type="button"
-                              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer"
-                              onClick={() => {
-                                setSelectedRPIds((prev) =>
-                                  checked ? prev.filter((id) => id !== c.profile_id) : [...prev, c.profile_id]
-                                )
-                              }}
-                            >
-                              <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${checked ? 'bg-primary border-primary text-primary-foreground' : 'border-input'}`}>
-                                {checked && <Check className="h-3 w-3" />}
-                              </div>
-                              {c.full_name ?? 'Unnamed'}
-                            </button>
+                            <Badge key={id} variant="secondary" className="text-[10px] gap-1 pr-1">
+                              {name}
+                              <button
+                                type="button"
+                                className="hover:bg-muted rounded-full p-0.5 cursor-pointer"
+                                onClick={() =>
+                                  setSelectedRPIds((prev) => prev.filter((pid) => pid !== id))
+                                }
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </Badge>
                           )
                         })}
                       </div>
-                    </PopoverContent>
-                  </Popover>
-                  {selectedRPIds.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedRPIds.map((id) => {
-                        const name = rpCandidates.find((c) => c.profile_id === id)?.full_name ?? 'Unnamed'
-                        return (
-                          <Badge key={id} variant="secondary" className="text-[10px] gap-1 pr-1">
-                            {name}
-                            <button
-                              type="button"
-                              className="hover:bg-muted rounded-full p-0.5 cursor-pointer"
-                              onClick={() => setSelectedRPIds((prev) => prev.filter((pid) => pid !== id))}
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </Badge>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            <DialogFooter>
+
+            <DialogFooter className="pt-4 border-t mt-0">
               <Button
                 type="button"
                 variant="outline"

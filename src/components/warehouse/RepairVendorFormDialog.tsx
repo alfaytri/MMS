@@ -96,7 +96,7 @@ export function RepairVendorFormDialog({ open, onOpenChange, vendor }: RepairVen
             <DialogTitle className="text-lg">{isEditing ? 'Edit' : 'Add'} Repair Vendor</DialogTitle>
             {!isEditing && (
               <p className="text-xs text-muted-foreground mt-1">
-                A virtual warehouse named &quot;Repair: &lt;name&gt;&quot; is auto-created for tracking off-site units.
+                A sub-container is auto-created under the shared &quot;Repair&quot; warehouse for tracking off-site units.
               </p>
             )}
           </DialogHeader>

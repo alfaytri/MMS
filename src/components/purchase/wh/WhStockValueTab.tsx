@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { useStockValueCogsSummary } from '@/hooks/useStockValueCogsSummary'
 import { CogsDetailDialog } from './CogsDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
@@ -25,6 +26,8 @@ interface Props {
 interface WarehouseBreakdown {
   warehouseId: string
   warehouseName: string
+  subContainerId: string | null
+  subContainerName: string | null
   qty: number
   value: number
 }
@@ -51,6 +54,8 @@ type FifoLayerRow = {
   id: string
   receival_number: string | null
   warehouse_id: string | null
+  sub_container_id: string | null
+  sub_container_name: string | null
   date: string
   qty: number
   remaining_qty: number
@@ -80,6 +85,42 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
 }
 
+// D.10 — collapse the flat (warehouse, sub-container) breakdown into a
+// grouped structure so the tooltip can render a warehouse header line and
+// indent each sub-container row underneath it.
+function groupByWarehouse(rows: WarehouseBreakdown[]): Array<{
+  warehouseId: string
+  warehouseName: string
+  totalQty: number
+  totalValue: number
+  subs: WarehouseBreakdown[]
+}> {
+  const map = new Map<string, {
+    warehouseId: string
+    warehouseName: string
+    totalQty: number
+    totalValue: number
+    subs: WarehouseBreakdown[]
+  }>()
+  for (const r of rows) {
+    const existing = map.get(r.warehouseId)
+    if (existing) {
+      existing.totalQty += r.qty
+      existing.totalValue += r.value
+      existing.subs.push(r)
+    } else {
+      map.set(r.warehouseId, {
+        warehouseId: r.warehouseId,
+        warehouseName: r.warehouseName,
+        totalQty: r.qty,
+        totalValue: r.value,
+        subs: [r],
+      })
+    }
+  }
+  return Array.from(map.values())
+}
+
 // ── Expandable detail row ────────────────────────────────────────────────────
 
 function FifoDetail({
@@ -96,13 +137,21 @@ function FifoDetail({
       const supabase = createClient()
       const { data, error } = await supabase
         .from('fifo_cost_layers')
-        .select('id, receival_number, warehouse_id, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost')
+        .select('id, receival_number, warehouse_id, sub_container_id, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, warehouse_sub_containers:sub_container_id(name)')
         .eq('brand_variant_id', brandVariantId)
         .order('date', { ascending: true })
         .order('receival_number', { ascending: true })
         .order('created_at', { ascending: true })
       if (error) throw error
-      return (data ?? []) as FifoLayerRow[]
+      return (data ?? []).map((row) => {
+        const { warehouse_sub_containers, ...rest } = row as typeof row & {
+          warehouse_sub_containers: { name: string } | null
+        }
+        return {
+          ...rest,
+          sub_container_name: warehouse_sub_containers?.name ?? null,
+        }
+      }) as FifoLayerRow[]
     },
     staleTime: 2 * 60 * 1000,
   })
@@ -182,9 +231,16 @@ function FifoDetail({
                         )}
                         <TableCell className="text-[11px] py-1.5">{formatDate(layer.date)}</TableCell>
                         <TableCell className="text-[11px] py-1.5">
-                          <Badge variant="outline" className="text-[9px] font-normal">
-                            {warehouseMap.get(layer.warehouse_id ?? '') ?? '—'}
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="outline" className="text-[9px] font-normal">
+                              {warehouseMap.get(layer.warehouse_id ?? '') ?? '—'}
+                            </Badge>
+                            {layer.sub_container_name && (
+                              <Badge variant="outline" className="text-[9px] font-normal text-muted-foreground">
+                                {layer.sub_container_name}
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{layer.qty}</TableCell>
                         <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium">
@@ -223,6 +279,15 @@ function FifoDetail({
 export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses }: Props) {
   const [search, setSearch] = useState('')
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined)
+  const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(null)
+  const { data: subs = [] } = useWarehouseSubContainers(selectedWarehouseId ?? null)
+  const activeSubs = useMemo(() => subs.filter((sc) => sc.is_active), [subs])
+  useEffect(() => {
+    if (!selectedWarehouseId) { setSelectedSubContainerId(null); return }
+    if (activeSubs.length === 1) setSelectedSubContainerId(activeSubs[0].id)
+    else if (!activeSubs.some((sc) => sc.id === selectedSubContainerId)) setSelectedSubContainerId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWarehouseId, activeSubs.length])
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
   // Default: products with the most recently created receival float to the top.
   const [sortField, setSortField] = useState<SortField>('latest_receival')
@@ -235,7 +300,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
   const queryClient = useQueryClient()
 
-  const { data: allStock = [], isLoading } = useWarehouseStock(selectedWarehouseId)
+  const { data: allStock = [], isLoading } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
   const { data: cogsMap } = useStockValueCogsSummary(null)
 
 
@@ -331,12 +396,25 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
       entry.totalQty += row.qty ?? 0
       entry.totalValue += row.total_value ?? 0
-      entry.warehouses.push({
-        warehouseId: row.warehouse_id,
-        warehouseName: warehouseMap.get(row.warehouse_id) ?? 'Unknown',
-        qty: row.qty ?? 0,
-        value: row.total_value ?? 0,
-      })
+      // D.10 — composite (warehouse, sub-container) key so a variant with
+      // stock in Maintenance + Kitchen sub-containers of the same warehouse
+      // renders as two rows in the tooltip, not one merged bucket.
+      const existingWh = entry.warehouses.find(
+        (w) => w.warehouseId === row.warehouse_id && w.subContainerId === (row.sub_container_id ?? null),
+      )
+      if (existingWh) {
+        existingWh.qty += row.qty ?? 0
+        existingWh.value += row.total_value ?? 0
+      } else {
+        entry.warehouses.push({
+          warehouseId: row.warehouse_id,
+          warehouseName: warehouseMap.get(row.warehouse_id) ?? 'Unknown',
+          subContainerId: row.sub_container_id ?? null,
+          subContainerName: row.sub_container_name ?? null,
+          qty: row.qty ?? 0,
+          value: row.total_value ?? 0,
+        })
+      }
     }
 
     for (const entry of map.values()) {
@@ -464,7 +542,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
         {/* Item type tabs */}
         <Tabs value={activeType} onValueChange={(v) => setActiveType(v as ItemTypeValue)}>
-          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto whitespace-nowrap">
+          <TabsList className="h-8 min-h-11 md:min-h-0 text-xs max-w-full overflow-x-auto md:overflow-x-visible whitespace-nowrap">
             {ITEM_TYPE_TABS.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} className="text-xs px-3 h-7 min-h-9 md:min-h-0">
                 <span className="md:hidden">{tab.short}</span>
@@ -502,6 +580,32 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
               ))}
             </SelectContent>
           </Select>
+
+          {selectedWarehouseId && activeSubs.length > 1 && (
+            <Select
+              value={selectedSubContainerId ?? '__all__'}
+              onValueChange={(v) => setSelectedSubContainerId(v === '__all__' ? null : (v ?? null))}
+            >
+              <SelectTrigger className="min-w-[140px] max-w-[180px] h-8 text-xs truncate">
+                <SelectValue placeholder="All subs" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                <SelectItem value="__all__" className="text-xs">All sub-containers</SelectItem>
+                {activeSubs.map((sc) => (
+                  <SelectItem key={sc.id} value={sc.id} className="text-xs">
+                    {shortenSubContainerName(sc.name, selectedWarehouse?.name)}
+                    {sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {selectedWarehouseId && activeSubs.length === 1 && (
+            <Badge variant="outline" className="text-[10px] h-8 px-2 flex-shrink-0 gap-1 truncate max-w-[160px]" title={activeSubs[0].name}>
+              <span className="truncate">{shortenSubContainerName(activeSubs[0].name, selectedWarehouse?.name)}</span>
+              <span className="text-[9px] text-muted-foreground ml-0.5 flex-shrink-0">Auto</span>
+            </Badge>
+          )}
 
           {selectedWarehouse && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">
@@ -600,8 +704,13 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                   {row.warehouses.length > 1 && (
                     <div className="flex flex-wrap gap-1 pt-1">
                       {row.warehouses.map((wh) => (
-                        <Badge key={wh.warehouseId} variant="outline" className="text-[9px] font-normal">
-                          {wh.warehouseName}: {wh.qty}
+                        <Badge
+                          key={`${wh.warehouseId}:${wh.subContainerId ?? 'none'}`}
+                          variant="outline"
+                          className="text-[9px] font-normal"
+                        >
+                          {wh.warehouseName}
+                          {wh.subContainerName ? ` · ${wh.subContainerName}` : ''}: {wh.qty}
                         </Badge>
                       ))}
                     </div>
@@ -711,11 +820,24 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                                     Stock by Warehouse
                                   </p>
                                 </div>
-                                <div className="px-3 py-2 space-y-1.5">
-                                  {row.warehouses.map((wh) => (
-                                    <div key={wh.warehouseId} className="flex items-center justify-between gap-6 text-xs">
-                                      <span className="text-muted-foreground">{wh.warehouseName}</span>
-                                      <span className="font-semibold tabular-nums">{wh.qty}</span>
+                                <div className="px-3 py-2 space-y-2">
+                                  {groupByWarehouse(row.warehouses).map((wh) => (
+                                    <div key={wh.warehouseId} className="space-y-0.5">
+                                      <div className="flex items-center justify-between gap-6 text-xs">
+                                        <span className="font-medium text-foreground">{wh.warehouseName}</span>
+                                        <span className="font-semibold tabular-nums">{wh.totalQty}</span>
+                                      </div>
+                                      {wh.subs.length > 0 && (wh.subs.length > 1 || wh.subs[0].subContainerId) && wh.subs.map((sub) => (
+                                        <div
+                                          key={`${wh.warehouseId}:${sub.subContainerId ?? 'none'}`}
+                                          className="flex items-center justify-between gap-6 text-[11px] pl-3"
+                                        >
+                                          <span className="text-muted-foreground truncate">
+                                            {sub.subContainerName ?? '— no sub —'}
+                                          </span>
+                                          <span className="tabular-nums text-muted-foreground">{sub.qty}</span>
+                                        </div>
+                                      ))}
                                     </div>
                                   ))}
                                 </div>
@@ -749,11 +871,24 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                                     Value by Warehouse
                                   </p>
                                 </div>
-                                <div className="px-3 py-2 space-y-1.5">
-                                  {row.warehouses.map((wh) => (
-                                    <div key={wh.warehouseId} className="flex items-center justify-between gap-6 text-xs">
-                                      <span className="text-muted-foreground">{wh.warehouseName}</span>
-                                      <span className="font-semibold tabular-nums">QR {formatCurrency(wh.value)}</span>
+                                <div className="px-3 py-2 space-y-2">
+                                  {groupByWarehouse(row.warehouses).map((wh) => (
+                                    <div key={wh.warehouseId} className="space-y-0.5">
+                                      <div className="flex items-center justify-between gap-6 text-xs">
+                                        <span className="font-medium text-foreground">{wh.warehouseName}</span>
+                                        <span className="font-semibold tabular-nums">QR {formatCurrency(wh.totalValue)}</span>
+                                      </div>
+                                      {wh.subs.length > 0 && (wh.subs.length > 1 || wh.subs[0].subContainerId) && wh.subs.map((sub) => (
+                                        <div
+                                          key={`${wh.warehouseId}:${sub.subContainerId ?? 'none'}`}
+                                          className="flex items-center justify-between gap-6 text-[11px] pl-3"
+                                        >
+                                          <span className="text-muted-foreground truncate">
+                                            {sub.subContainerName ?? '— no sub —'}
+                                          </span>
+                                          <span className="tabular-nums text-muted-foreground">QR {formatCurrency(sub.value)}</span>
+                                        </div>
+                                      ))}
                                     </div>
                                   ))}
                                 </div>
@@ -786,12 +921,24 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                           )}
                         </TableCell>
 
-                        {/* Warehouse badges */}
+                        {/* Warehouse badges — two-line stack (warehouse on top,
+                            sub-container smaller underneath) so the reader can
+                            tell "Birkat · Maintenance" from "Birkat · Kitchen"
+                            at a glance without opening the tooltip. */}
                         <TableCell className="text-xs py-2 hidden lg:table-cell">
                           <div className="flex flex-wrap gap-1">
                             {row.warehouses.map((wh) => (
-                              <Badge key={wh.warehouseId} variant="outline" className="text-[10px] font-normal">
-                                {wh.warehouseName}
+                              <Badge
+                                key={`${wh.warehouseId}:${wh.subContainerId ?? 'none'}`}
+                                variant="outline"
+                                className="text-[10px] font-normal flex flex-col items-start gap-0 py-1 h-auto leading-tight"
+                              >
+                                <span>{wh.warehouseName}</span>
+                                {wh.subContainerName && (
+                                  <span className="text-[9px] text-muted-foreground">
+                                    {wh.subContainerName}
+                                  </span>
+                                )}
                               </Badge>
                             ))}
                           </div>

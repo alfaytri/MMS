@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Gift, Check } from 'lucide-react'
+import { Gift, Check, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -16,6 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCreateReceival } from '@/hooks/useReceivals'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import type { LineType } from '@/components/purchase/PoLineItemsEditor'
@@ -55,8 +57,33 @@ export function PoReceiveTab({
   const createReceival = useCreateReceival()
 
   const [warehouseId, setWarehouseId] = useState('')
+  const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const poDivisionId = po.division_id ?? null
+
+  const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  // When the PO has a division, filter to matching sub-containers. When the
+  // PO has no division (legacy or unassigned), let the operator pick from any
+  // active sub-container in the warehouse — the RPC's division-match guard is
+  // suppressed for null PO divisions.
+  const eligibleSubs = useMemo(() => {
+    const active = allSubs.filter((sc) => sc.is_active)
+    if (poDivisionId === null) return active
+    return active.filter((sc) => sc.division_id === poDivisionId)
+  }, [allSubs, poDivisionId])
+
+  useEffect(() => {
+    if (eligibleSubs.length === 1) {
+      setSubContainerId(eligibleSubs[0].id)
+    } else if (eligibleSubs.length === 0) {
+      setSubContainerId(null)
+    } else if (subContainerId && !eligibleSubs.some((sc) => sc.id === subContainerId)) {
+      setSubContainerId(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId, poDivisionId, eligibleSubs.length])
 
   const [rows, setRows] = useState<ReceiveRow[]>(() =>
     (po.po_line_items ?? []).map((li) => ({
@@ -130,7 +157,10 @@ export function PoReceiveTab({
     })))
   }
 
-  const canSubmit = !!warehouseId && (
+  const subContainerOk =
+    (poDivisionId !== null && eligibleSubs.length <= 1) ||
+    !!subContainerId
+  const canSubmit = !!warehouseId && subContainerOk && (
     rows.some((r) => r.receiveNow > 0 || r.freeQty > 0) ||
     extraFreeItems.length > 0
   )
@@ -151,7 +181,14 @@ export function PoReceiveTab({
     const regularItems = items.filter((i) => !i.is_free)
 
     try {
-      const result = await createReceival.mutateAsync({ po_id: po.id, warehouse_id: warehouseId, date: new Date().toISOString().split('T')[0], notes, items })
+      const result = await createReceival.mutateAsync({
+        po_id: po.id,
+        warehouse_id: warehouseId,
+        sub_container_id: subContainerId,
+        date: new Date().toISOString().split('T')[0],
+        notes,
+        items,
+      })
       toast.success('Receival recorded successfully')
       setRows((prev) => prev.map((r) => {
         const received = regularItems.find((i) => i.po_line_item_id === r.po_line_item_id)?.qty_received ?? 0
@@ -172,31 +209,75 @@ export function PoReceiveTab({
   return (
     <div className="space-y-4">
       {/* ── Toolbar ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1 flex-1 min-w-[180px]">
-          <Label htmlFor="po-receive-warehouse">Warehouse *</Label>
-          <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
-            <SelectTrigger id="po-receive-warehouse"><SelectValue placeholder="Select warehouse…" /></SelectTrigger>
-            <SelectContent className="max-h-60 overflow-y-auto">
-              {(warehouses ?? []).map((w) => (
-                <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1 flex-1 min-w-[180px]">
+            <Label htmlFor="po-receive-warehouse">Warehouse *</Label>
+            <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
+              <SelectTrigger id="po-receive-warehouse"><SelectValue placeholder="Select warehouse…" /></SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                {(warehouses ?? []).map((w) => (
+                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" size="sm" type="button" onClick={fillAll}>
+            Fill All
+          </Button>
+          <Button
+            variant="outline" size="sm" type="button"
+            className="gap-1.5 text-success border-green-300 hover:bg-success/10"
+            onClick={() => { resetNonPo(); setNonPoOpen(true) }}
+          >
+            <Gift className="h-3.5 w-3.5" /> + Free
+          </Button>
+          <Button disabled={!canSubmit || saving} onClick={submit} className="gap-1.5">
+            {saving ? 'Saving…' : 'Receive'}
+          </Button>
         </div>
-        <Button variant="outline" size="sm" type="button" onClick={fillAll}>
-          Fill All
-        </Button>
-        <Button
-          variant="outline" size="sm" type="button"
-          className="gap-1.5 text-success border-green-300 hover:bg-success/10"
-          onClick={() => { resetNonPo(); setNonPoOpen(true) }}
-        >
-          <Gift className="h-3.5 w-3.5" /> + Free
-        </Button>
-        <Button disabled={!canSubmit || saving} onClick={submit} className="gap-1.5">
-          {saving ? 'Saving…' : 'Receive'}
-        </Button>
+
+        {warehouseId && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+            <span className="inline-flex items-center gap-1 flex-shrink-0">
+              <Package className="h-3 w-3" />
+              Sub-container{poDivisionId === null ? ' *' : ''}:
+            </span>
+            {eligibleSubs.length === 0 ? (
+              <span className="italic">
+                {poDivisionId === null
+                  ? 'No active sub-container in this warehouse.'
+                  : 'None yet — one will be auto-created on submit.'}
+              </span>
+            ) : eligibleSubs.length === 1 ? (
+              <>
+                <span className="font-medium text-foreground truncate max-w-[400px]" title={eligibleSubs[0].name}>
+                  {eligibleSubs[0].name}
+                </span>
+                <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                  Auto
+                </Badge>
+              </>
+            ) : (
+              <Select
+                value={subContainerId ?? ''}
+                onValueChange={(v) => setSubContainerId(v || null)}
+              >
+                <SelectTrigger className="h-7 text-xs w-auto min-w-[240px] max-w-[400px]">
+                  <SelectValue placeholder="Pick a sub-container…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {eligibleSubs.map((sc) => (
+                    <SelectItem key={sc.id} value={sc.id}>
+                      {sc.name}
+                      {sc.division_name ? ` — ${sc.division_name}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
@@ -210,7 +291,9 @@ export function PoReceiveTab({
               <TableHead className="text-right w-[90px]">Received</TableHead>
               <TableHead className="text-right w-[100px]">Remaining</TableHead>
               <TableHead className="text-right w-[120px]">Receive Qty</TableHead>
-              <TableHead className="w-[80px] hidden sm:table-cell">Unit Cost</TableHead>
+              <TableHead className="w-[110px] hidden sm:table-cell">
+                Unit Cost <span className="text-[10px] font-normal text-muted-foreground">({po.currency ?? 'QAR'})</span>
+              </TableHead>
               <TableHead className="w-[48px]" />
             </TableRow>
           </TableHeader>
@@ -258,7 +341,14 @@ export function PoReceiveTab({
                       )}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-right text-sm tabular-nums">
-                    {row.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
+                    <div className="flex flex-col items-end leading-tight">
+                      <span>{po.currency ?? 'QAR'} {row.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}</span>
+                      {po.currency !== 'QAR' && po.exchange_rate && po.exchange_rate !== 1 && (
+                        <span className="text-[10px] text-muted-foreground/70">
+                          ≈ QAR {(row.unitCost * po.exchange_rate).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <button
@@ -285,7 +375,7 @@ export function PoReceiveTab({
                 <TableCell className="text-right text-sm text-success font-medium">{fi.qty}</TableCell>
                 <TableCell colSpan={3} className="text-xs text-success italic">Free (not on PO)</TableCell>
                 <TableCell className="hidden sm:table-cell text-right text-sm tabular-nums">
-                  {fi.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
+                  QAR {fi.unitCost.toLocaleString('en', { minimumFractionDigits: 2 })}
                 </TableCell>
                 <TableCell>
                   <button
@@ -392,10 +482,10 @@ export function PoReceiveTab({
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Unit Cost
-                    <span className="font-normal normal-case ml-1">(from inventory)</span>
+                    <span className="font-normal normal-case ml-1">(from inventory, QAR)</span>
                   </Label>
                   <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm tabular-nums">
-                    {nonPoLookup.cost_price.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    QAR {nonPoLookup.cost_price.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>

@@ -12,8 +12,11 @@ import { CategoryEditDialog } from './CategoryEditDialog'
 import { InventoryImportDialog } from './InventoryImportDialog'
 import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { useItemDivisionMembership } from '@/hooks/useItemDivisionMembership'
 
 type InventorySubType = 'products' | 'spare-parts' | 'consumables'
+type DivisionFilter = 'all' | 'owned' | 'shared_with' | 'shared_by'
 
 const LABEL_MAP: Record<InventorySubType, string> = {
   'products': 'Products (Installation)',
@@ -44,19 +47,62 @@ type Props = {
 export function ItemsListView({ type, enabled: _enabled }: Props) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  const [divisionFilter, setDivisionFilter] = useState<DivisionFilter>('all')
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
 
-  const { tree, isLoading } = useInventoryTree(type, showArchived)
+  const { activeDivisionId } = useActiveDivision()
+  const { tree, flat, isLoading } = useInventoryTree(type, showArchived)
   const { data: stockAggregates } = useCategoryStockAggregates(type)
+  const membership = useItemDivisionMembership(type, activeDivisionId)
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
 
-  const filtered = useMemo(() => filterTree(tree, search), [tree, search])
+  // Reset chip when the reference division goes away.
+  useEffect(() => {
+    if (!activeDivisionId && divisionFilter !== 'all') setDivisionFilter('all')
+  }, [activeDivisionId, divisionFilter])
+
+  // Item IDs matching the active chip. undefined = no item filter (chip = All).
+  const filterItemIds = useMemo<Set<string> | undefined>(() => {
+    if (divisionFilter === 'all' || !activeDivisionId) return undefined
+    if (divisionFilter === 'owned') return membership.ownedIds
+    if (divisionFilter === 'shared_with') return membership.sharedWithMeIds
+    return membership.sharedByMeIds
+  }, [divisionFilter, activeDivisionId, membership.ownedIds, membership.sharedWithMeIds, membership.sharedByMeIds])
+
+  // Categories that should stay in the tree: any category holding a matching
+  // item, plus all their ancestors so the branch renders down to the item.
+  const visibleCategoryIds = useMemo<Set<string> | undefined>(() => {
+    if (!filterItemIds) return undefined
+    const parentMap = new Map<string, string | null>()
+    for (const c of flat) parentMap.set(c.id, c.parent_id ?? null)
+    const keep = new Set<string>()
+    for (const itemId of filterItemIds) {
+      const categoryId = membership.itemCategoryMap.get(itemId)
+      if (!categoryId) continue
+      let cursor: string | null = categoryId
+      while (cursor && !keep.has(cursor)) {
+        keep.add(cursor)
+        cursor = parentMap.get(cursor) ?? null
+      }
+    }
+    return keep
+  }, [filterItemIds, flat, membership.itemCategoryMap])
+
+  const searched = useMemo(() => filterTree(tree, search), [tree, search])
+  const filtered = useMemo(() => {
+    if (!visibleCategoryIds) return searched
+    const prune = (nodes: InventoryTreeNode[]): InventoryTreeNode[] =>
+      nodes
+        .filter((n) => visibleCategoryIds.has(n.id))
+        .map((n) => ({ ...n, children: prune(n.children) }))
+    return prune(searched)
+  }, [searched, visibleCategoryIds])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [search, showArchived, type])
+  useEffect(() => { setPage(1) }, [search, showArchived, type, divisionFilter])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filtered.slice(start, start + PAGE_SIZE)
@@ -97,6 +143,46 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
         </div>
       </div>
 
+      {/* Division-scope filter chips — only meaningful when a specific division is active */}
+      {activeDivisionId && (
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border flex-wrap min-h-11 md:min-h-0">
+          {([
+            { key: 'all', label: 'All', count: null },
+            { key: 'owned', label: 'Owned by my division', count: membership.ownedIds.size },
+            { key: 'shared_with', label: 'Shared with me', count: membership.sharedWithMeIds.size },
+            { key: 'shared_by', label: 'Shared by my division', count: membership.sharedByMeIds.size },
+          ] as const).map((chip) => {
+            const active = divisionFilter === chip.key
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => setDivisionFilter(chip.key)}
+                className={[
+                  'inline-flex items-center gap-1.5 h-7 min-h-11 md:min-h-0 px-2.5 rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap',
+                  active
+                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                    : 'bg-white dark:bg-slate-900 text-muted-foreground border-border hover:bg-muted',
+                ].join(' ')}
+                aria-pressed={active}
+              >
+                {chip.label}
+                {chip.count !== null && (
+                  <span
+                    className={[
+                      'inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[10px] tabular-nums',
+                      active ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground',
+                    ].join(' ')}
+                  >
+                    {membership.isLoading ? '…' : chip.count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Table */}
       <div className="flex-1 overflow-auto">
         {isLoading ? (
@@ -120,7 +206,11 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center text-xs text-muted-foreground py-12">
-                    {search ? 'No categories match your search' : `No ${LABEL_MAP[type].toLowerCase()} categories yet`}
+                    {filterItemIds
+                      ? 'No items match this filter for the active division'
+                      : search
+                        ? 'No categories match your search'
+                        : `No ${LABEL_MAP[type].toLowerCase()} categories yet`}
                   </td>
                 </tr>
               )}
@@ -137,6 +227,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
                     onMoveUp={() => handleCategoryMove(globalIdx, 'up')}
                     onMoveDown={() => handleCategoryMove(globalIdx, 'down')}
                     stockAggregates={stockAggregates}
+                    filterItemIds={filterItemIds}
                   />
                 )
               })}

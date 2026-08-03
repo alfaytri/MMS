@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useReceivalsAndDeliveries, ReceivalDelivery } from '@/hooks/useWarehouseOperations'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { WhReceivalDetailDialog } from './WhReceivalDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
@@ -151,6 +152,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
               <TableHead className="text-xs">Doc #</TableHead>
               <TableHead className="text-xs">Reference</TableHead>
               <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
+              <TableHead className="text-xs hidden xl:table-cell">Sub-container</TableHead>
               <TableHead className="text-xs hidden lg:table-cell">Counterparty</TableHead>
               <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs text-right">Items</TableHead>
@@ -160,7 +162,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-8">
                   No receivals or deliveries found
                 </TableCell>
               </TableRow>
@@ -181,6 +183,14 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
                   <TableCell className="text-xs font-medium">{item.docNumber}</TableCell>
                   <TableCell className="text-xs font-medium text-primary">{item.reference || '—'}</TableCell>
                   <TableCell className="text-xs hidden lg:table-cell">{item.warehouseName}</TableCell>
+                  <TableCell className="text-xs hidden xl:table-cell">
+                    {(() => {
+                      const names = item.subContainerNames ?? []
+                      if (names.length === 0) return <span className="text-muted-foreground">—</span>
+                      if (names.length === 1) return shortenSubContainerName(names[0], item.warehouseName)
+                      return <span title={names.join(', ')}>{names.length} subs</span>
+                    })()}
+                  </TableCell>
                   <TableCell className="text-xs hidden lg:table-cell">{item.counterparty}</TableCell>
                   <TableCell className="text-xs whitespace-nowrap">
                     {item.date ? format(new Date(item.date), 'dd MMM yyyy') : '—'}

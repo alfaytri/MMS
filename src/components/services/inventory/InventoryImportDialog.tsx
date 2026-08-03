@@ -31,10 +31,13 @@ import {
   parseExcelFile,
   validateRows,
   buildPreview,
+  buildParseContext,
   type ValidatedRow,
   type ImportPreview,
+  type SubContainerOption,
 } from '@/lib/inventory-import'
 import { useInventoryImport, useExistingInventoryLookup } from '@/hooks/useInventoryImport'
+import { useAllActiveSubContainers } from '@/hooks/useWarehouseSubContainers'
 
 type Step = 'upload' | 'preview'
 
@@ -71,6 +74,35 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
 
   const lookupMutation = useExistingInventoryLookup()
   const importMutation = useInventoryImport()
+  const { data: activeSubContainers = [] } = useAllActiveSubContainers()
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const subContainerOptions: SubContainerOption[] = activeSubContainers.map((sc) => ({
+    warehouse_id:       sc.warehouse_id,
+    warehouse_name:     sc.warehouse_name,
+    sub_container_id:   sc.sub_container_id,
+    sub_container_name: sc.sub_container_name,
+    division_id:        sc.division_id,
+    division_name:      sc.division_name,
+  }))
+
+  const handleDownloadTemplate = useCallback(async () => {
+    if (isDownloading) return
+    setIsDownloading(true)
+    try {
+      // Kick off the same lookup the upload path uses so the template's
+      // Category dropdowns list every existing category.
+      const lookup = await lookupMutation.mutateAsync()
+      await downloadTemplate({
+        subContainers:      subContainerOptions,
+        existingCategories: lookup.existingCategoryOptions,
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to build the template.')
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [isDownloading, lookupMutation, subContainerOptions])
 
   const resetState = useCallback(() => {
     setStep('upload')
@@ -102,7 +134,8 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
       setPreview(null)
 
       try {
-        const [rows, lookup] = await Promise.all([parseExcelFile(selected), lookupMutation.mutateAsync()])
+        const ctx = buildParseContext(subContainerOptions)
+        const [rows, lookup] = await Promise.all([parseExcelFile(selected, ctx), lookupMutation.mutateAsync()])
 
         if (rows.length === 0) {
           toast.error('No data rows found in the file.')
@@ -121,7 +154,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
         setIsParsing(false)
       }
     },
-    [lookupMutation]
+    [lookupMutation, subContainerOptions]
   )
 
   const handleRemoveFile = useCallback((e: React.MouseEvent) => {
@@ -217,10 +250,20 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                   variant="outline"
                   size="sm"
                   className="min-h-11 sm:min-h-8 shrink-0"
-                  onClick={() => downloadTemplate()}
+                  onClick={() => void handleDownloadTemplate()}
+                  disabled={isDownloading}
                 >
-                  <Download className="h-4 w-4 mr-1.5" />
-                  Download Template
+                  {isDownloading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      Building…
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-1.5" />
+                      Download Template
+                    </>
+                  )}
                 </Button>
               </div>
 
@@ -314,6 +357,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                       <TableHead className="text-[10px] py-1.5">Brand</TableHead>
                       <TableHead className="text-[10px] py-1.5 text-right">Cost</TableHead>
                       <TableHead className="text-[10px] py-1.5 text-right">Sell</TableHead>
+                      <TableHead className="text-[10px] py-1.5">Sub-container</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -337,8 +381,8 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                           </div>
                         </TableCell>
                         <TableCell className="text-xs py-1.5">{row.type || '—'}</TableCell>
-                        <TableCell className="text-xs py-1.5 max-w-[160px] truncate" title={row.categoryPath}>
-                          {row.categoryPath || '—'}
+                        <TableCell className="text-xs py-1.5 max-w-[180px] truncate" title={row.categorySegments.join(' › ')}>
+                          {row.categorySegments.length > 0 ? row.categorySegments.join(' › ') : '—'}
                         </TableCell>
                         <TableCell className="text-xs py-1.5 max-w-[160px] truncate" title={row.itemName}>
                           {row.itemName || '—'}
@@ -346,11 +390,25 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                         <TableCell className="text-xs py-1.5">{row.brand || '—'}</TableCell>
                         <TableCell className="text-xs py-1.5 text-right tabular-nums">{formatPrice(row.costPrice)}</TableCell>
                         <TableCell className="text-xs py-1.5 text-right tabular-nums">{formatPrice(row.sellingPrice)}</TableCell>
+                        <TableCell className="text-xs py-1.5 max-w-[220px] truncate" title={row.warehouseSubLabel}>
+                          {row.subContainer ? (
+                            <span className="inline-flex items-center gap-1">
+                              <span className="truncate">{row.subContainer.sub_container_name}</span>
+                              {row.subContainer.division_name && (
+                                <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">
+                                  {row.subContainer.division_name}
+                                </Badge>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-destructive italic">{row.warehouseSubLabel || '—'}</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                     {sortedRows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">
+                        <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-6">
                           No rows found
                         </TableCell>
                       </TableRow>

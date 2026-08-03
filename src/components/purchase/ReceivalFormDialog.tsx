@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
-  PackageCheck, PackageX, AlertTriangle, Calendar, Building2, Truck, Gift, X,
+  PackageCheck, PackageX, AlertTriangle, Calendar, Building2, Truck, Gift, X, Package,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useCreateReceival } from '@/hooks/useReceivals'
 import { usePurchaseOrders, usePurchaseOrder, type InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { Badge } from '@/components/ui/badge'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import type { LineType } from '@/components/purchase/PoLineItemsEditor'
 import { format } from 'date-fns'
@@ -54,16 +56,33 @@ function formatAmount(n: number, currency: string) {
   return `${currency} ${n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+// Formats a number in the PO's currency and, when the PO isn't QAR, also
+// returns the QAR equivalent computed at the PO's booked exchange rate.
+// Used on unit-cost cells so operators see both the amount they're paying
+// the supplier AND the QAR value that will land in inventory / P&L.
+function formatUnitCostWithQar(
+  amount:       number,
+  currency:     string,
+  exchangeRate: number | null | undefined,
+): { primary: string; qar: string | null } {
+  const primary = formatAmount(amount, currency)
+  if (currency === 'QAR' || !exchangeRate || exchangeRate === 1) return { primary, qar: null }
+  const qarAmount = amount * exchangeRate
+  return { primary, qar: `≈ ${formatAmount(qarAmount, 'QAR')}` }
+}
+
 // ─── Item card ─────────────────────────────────────────────────────────────────
 
 function ItemCard({
-  line, idx, onChange, currency,
+  line, idx, onChange, currency, exchangeRate,
 }: {
-  line:     DraftLine
-  idx:      number
-  onChange: (idx: number, patch: Partial<DraftLine>) => void
-  currency: string
+  line:         DraftLine
+  idx:          number
+  onChange:     (idx: number, patch: Partial<DraftLine>) => void
+  currency:     string
+  exchangeRate: number | null | undefined
 }) {
+  const unitCostFormatted = formatUnitCostWithQar(line.unit_cost, currency, exchangeRate)
   const [freeOpen, setFreeOpen] = useState(false)
   const [freeInput, setFreeInput] = useState('')
 
@@ -155,9 +174,17 @@ function ItemCard({
             onChange={(e) => onChange(idx, { qty_received: Number(e.target.value) })}
           />
 
-          {/* Unit cost — locked */}
-          <div className="h-8 w-full flex items-center justify-end px-2 rounded-md border bg-muted/40 text-xs tabular-nums text-muted-foreground">
-            {line.unit_cost.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {/* Unit cost — locked. Shows PO currency prefix always; when PO
+              currency ≠ QAR also shows the QAR equivalent on a second line
+              so operators see both what they're paying and what lands in
+              inventory / P&L. */}
+          <div
+            className={`w-full flex flex-col items-end justify-center px-2 rounded-md border bg-muted/40 text-xs tabular-nums text-muted-foreground ${unitCostFormatted.qar ? 'py-1 h-auto min-h-9' : 'h-8'}`}
+          >
+            <span className="leading-tight">{unitCostFormatted.primary}</span>
+            {unitCostFormatted.qar && (
+              <span className="text-[10px] text-muted-foreground/70 leading-tight">{unitCostFormatted.qar}</span>
+            )}
           </div>
 
           {/* Free-items gift button */}
@@ -272,9 +299,9 @@ function NonPoFreeItemDialog({
                 <Input type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="h-9 text-xs" />
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Unit cost <span className="text-muted-foreground/60 normal-case">(from inventory)</span></Label>
+                <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Unit cost <span className="text-muted-foreground/60 normal-case">(from inventory, QAR)</span></Label>
                 <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-xs tabular-nums">
-                  {lookup.cost_price.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatAmount(lookup.cost_price, 'QAR')}
                 </div>
               </div>
             </div>
@@ -300,6 +327,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
 
   const [selectedPoId, setSelectedPoId] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
+  const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState<DraftLine[]>([])
@@ -308,6 +336,28 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
   const [saving, setSaving] = useState(false)
 
   const { data: selectedPO } = usePurchaseOrder(selectedPoId || null)
+  const poDivisionId = selectedPO?.division_id ?? null
+
+  const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
+  const eligibleSubs = useMemo(() => {
+    const active = allSubs.filter((sc) => sc.is_active)
+    // Legacy POs (pre-Division Switcher) have NULL division_id — offer every
+    // active sub in the warehouse and require an explicit pick. When the PO
+    // is division-scoped, filter to matching subs.
+    if (poDivisionId === null) return active
+    return active.filter((sc) => sc.division_id === poDivisionId)
+  }, [allSubs, poDivisionId])
+
+  useEffect(() => {
+    if (eligibleSubs.length === 1) {
+      setSubContainerId(eligibleSubs[0].id)
+    } else if (eligibleSubs.length === 0) {
+      setSubContainerId(null)
+    } else if (subContainerId && !eligibleSubs.some((sc) => sc.id === subContainerId)) {
+      setSubContainerId(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouseId, poDivisionId, eligibleSubs.length])
 
   useEffect(() => {
     if (!selectedPoId || !selectedPO) { setLines([]); setExtraFreeItems([]); return }
@@ -386,6 +436,10 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
       toast.error('Select PO, warehouse and date')
       return
     }
+    if (eligibleSubs.length > 1 && !subContainerId) {
+      toast.error('Pick a sub-container before submitting')
+      return
+    }
     if (summary.totalPaid === 0 && summary.totalFree === 0) {
       toast.error('Add at least one qty (paid or free) before recording')
       return
@@ -435,6 +489,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
       await createReceival.mutateAsync({
         po_id: selectedPoId,
         warehouse_id: warehouseId,
+        sub_container_id: subContainerId,
         date,
         notes,
         items,
@@ -495,6 +550,46 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
               <Input id="recv-date" type="date" className="h-9 text-xs" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
+
+          {warehouseId && (
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <Package className="h-2.5 w-2.5" />
+                Sub-container{poDivisionId === null ? ' *' : ''}
+              </Label>
+              {eligibleSubs.length === 0 ? (
+                <p className="text-xs text-muted-foreground border rounded-md py-2 px-3 bg-muted/30">
+                  {poDivisionId === null
+                    ? 'No active sub-container in this warehouse.'
+                    : "No active sub-container in this warehouse for the PO's division. One will be auto-created when you submit."}
+                </p>
+              ) : eligibleSubs.length === 1 ? (
+                <div className="flex items-center gap-2 border rounded-md py-2 px-3 bg-muted/30 min-h-9">
+                  <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs font-medium truncate">{eligibleSubs[0].name}</span>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                    Auto-selected
+                  </Badge>
+                </div>
+              ) : (
+                <Select
+                  value={subContainerId ?? ''}
+                  onValueChange={(v) => setSubContainerId(v || null)}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Pick a sub-container" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {eligibleSubs.map((sc) => (
+                      <SelectItem key={sc.id} value={sc.id} className="text-xs">
+                        {sc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           {/* PO context card */}
           {selectedPO && (
@@ -571,6 +666,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
                     idx={idx}
                     onChange={(i, patch) => setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)))}
                     currency={currency}
+                    exchangeRate={selectedPO?.exchange_rate ?? null}
                   />
                 ))}
               </div>
@@ -632,6 +728,11 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
             <div>
               <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Total cost</div>
               <p className="font-bold tabular-nums">{formatAmount(summary.totalCost, currency)}</p>
+              {selectedPO?.exchange_rate && currency !== 'QAR' && selectedPO.exchange_rate !== 1 && (
+                <p className="text-[10px] text-muted-foreground/70 tabular-nums font-normal">
+                  ≈ {formatAmount(summary.totalCost * selectedPO.exchange_rate, 'QAR')}
+                </p>
+              )}
             </div>
             <div>
               <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Discrepancies</div>

@@ -117,71 +117,129 @@ function ItemCountRow({
   onVarianceTypeChange: (id: string, val: string) => void
 }) {
   const countedStr = countMap.get(item.id) ?? (item.counted_qty != null ? String(item.counted_qty) : '')
-  const counted    = countedStr !== '' ? parseFloat(countedStr) : null
-  const variance   = counted !== null ? counted - item.system_qty : (item.variance ?? null)
+  const countedRaw = countedStr !== '' ? parseFloat(countedStr) : null
+  const counted    = countedRaw !== null && Number.isFinite(countedRaw) ? countedRaw : null
+  const systemQty  = Number.isFinite(item.system_qty as number) ? (item.system_qty as number) : null
+  const varianceRaw = counted !== null && systemQty !== null
+    ? counted - systemQty
+    : (typeof item.variance === 'number' && Number.isFinite(item.variance) ? item.variance : null)
+  const variance    = varianceRaw
   const isCounted  = item.is_counted || countedStr !== ''
   const rowBg      = !isCounted ? '' : variance === 0 ? 'bg-success/5' : 'bg-warning/5'
 
+  const varianceLabel = variance === null ? '—' : variance > 0 ? `+${variance}` : `${variance}`
+  const varianceColor = variance === null
+    ? 'text-muted-foreground'
+    : variance > 0 ? 'text-success' : variance < 0 ? 'text-destructive' : ''
+
   return (
-    <div className={`grid grid-cols-[1fr_60px_60px_90px_80px_90px] gap-2 items-center px-3 py-1.5 border-b text-xs ${rowBg}`}>
-      {/* Item (category → item → brand) */}
-      <ItemTreeCell
-        category={item.category_name}
-        itemType={itemType}
-        itemName={item.item_name}
-        brand={item.brand}
-      />
-
-      {/* SKU */}
-      <span className="text-[10px] text-muted-foreground truncate">{item.sku ?? '—'}</span>
-
-      {/* System qty */}
-      <span className="text-right tabular-nums">{item.system_qty}</span>
-
-      {/* Count input or static */}
-      {readOnly ? (
-        <span className="text-right tabular-nums">{item.counted_qty ?? '—'}</span>
-      ) : (
-        <Input
-          type="text"
-          inputMode="decimal"
-          pattern="[0-9]*\.?[0-9]*"
-          className="h-7 text-xs text-right w-full"
-          value={countedStr}
-          onChange={(e) => {
-            const v = e.target.value
-            if (v === '' || /^\d*\.?\d*$/.test(v)) onCountChange(item.id, v)
-          }}
+    <>
+      {/* ── Desktop / tablet: grid row (sm and up) ───────────────────── */}
+      <div className={`hidden sm:grid grid-cols-[1fr_60px_60px_90px_80px_90px] gap-2 items-center px-3 py-1.5 border-b text-xs ${rowBg}`}>
+        <ItemTreeCell
+          category={item.category_name}
+          itemType={itemType}
+          itemName={item.item_name}
+          brand={item.brand}
         />
-      )}
+        <span className="text-[10px] text-muted-foreground truncate">{item.sku ?? '—'}</span>
+        <span className="text-right tabular-nums">{item.system_qty}</span>
+        {readOnly ? (
+          <span className="text-right tabular-nums">{item.counted_qty ?? '—'}</span>
+        ) : (
+          <Input
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*\.?[0-9]*"
+            className="h-7 text-xs text-right w-full"
+            value={countedStr}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === '' || /^\d*\.?\d*$/.test(v)) onCountChange(item.id, v)
+            }}
+          />
+        )}
+        <span className={`text-right tabular-nums ${varianceColor}`}>{varianceLabel}</span>
+        {!readOnly && variance !== null && variance !== 0 ? (
+          <Select
+            value={varianceTypeMap.get(item.id) ?? ''}
+            onValueChange={(v) => onVarianceTypeChange(item.id, v ?? '')}
+          >
+            <SelectTrigger className="h-7 text-[10px]">
+              <SelectValue placeholder="Type…" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60 overflow-y-auto">
+              <SelectItem value="increase"  className="text-[10px]">Increase</SelectItem>
+              <SelectItem value="decrease"  className="text-[10px]">Decrease</SelectItem>
+              <SelectItem value="damage"    className="text-[10px]">Damage</SelectItem>
+              <SelectItem value="write_off" className="text-[10px]">Write-off</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-[10px] text-muted-foreground">
+            {item.variance_type ? item.variance_type.replace(/_/g, ' ') : ''}
+          </span>
+        )}
+      </div>
 
-      {/* Variance */}
-      <span className={`text-right tabular-nums ${variance === null ? 'text-muted-foreground' : variance > 0 ? 'text-success' : variance < 0 ? 'text-destructive' : ''}`}>
-        {variance === null ? '—' : variance > 0 ? `+${variance}` : variance}
-      </span>
-
-      {/* Variance type — only when there's a negative variance and not read-only */}
-      {!readOnly && variance !== null && variance !== 0 ? (
-        <Select
-          value={varianceTypeMap.get(item.id) ?? ''}
-          onValueChange={(v) => onVarianceTypeChange(item.id, v ?? '')}
-        >
-          <SelectTrigger className="h-7 text-[10px]">
-            <SelectValue placeholder="Type…" />
-          </SelectTrigger>
-          <SelectContent className="max-h-60 overflow-y-auto">
-            <SelectItem value="increase"  className="text-[10px]">Increase</SelectItem>
-            <SelectItem value="decrease"  className="text-[10px]">Decrease</SelectItem>
-            <SelectItem value="damage"    className="text-[10px]">Damage</SelectItem>
-            <SelectItem value="write_off" className="text-[10px]">Write-off</SelectItem>
-          </SelectContent>
-        </Select>
-      ) : (
-        <span className="text-[10px] text-muted-foreground">
-          {item.variance_type ? item.variance_type.replace(/_/g, ' ') : ''}
-        </span>
-      )}
-    </div>
+      {/* ── Mobile: stacked card (below sm) ──────────────────────────── */}
+      <div className={`sm:hidden border-b px-3 py-2 space-y-1.5 ${rowBg}`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium leading-tight truncate">{item.item_name}</p>
+            <p className="text-[10px] text-muted-foreground truncate">
+              {item.brand ? `${item.brand}` : ''}
+              {item.sku ? ` · ${item.sku}` : ''}
+              {item.category_name ? ` · ${item.category_name}` : ''}
+            </p>
+          </div>
+          <span className={`text-xs tabular-nums font-semibold whitespace-nowrap ${varianceColor}`}>
+            Δ {varianceLabel}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-muted-foreground">System</span>
+          <span className="tabular-nums font-medium">{item.system_qty}</span>
+          <span className="text-muted-foreground ml-2">Counted</span>
+          {readOnly ? (
+            <span className="tabular-nums font-medium">{item.counted_qty ?? '—'}</span>
+          ) : (
+            <Input
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9]*\.?[0-9]*"
+              className="h-8 text-xs text-right w-20 flex-shrink-0"
+              value={countedStr}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === '' || /^\d*\.?\d*$/.test(v)) onCountChange(item.id, v)
+              }}
+            />
+          )}
+        </div>
+        {!readOnly && variance !== null && variance !== 0 && (
+          <Select
+            value={varianceTypeMap.get(item.id) ?? ''}
+            onValueChange={(v) => onVarianceTypeChange(item.id, v ?? '')}
+          >
+            <SelectTrigger className="h-8 text-[11px] w-full">
+              <SelectValue placeholder="Variance type…" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60 overflow-y-auto">
+              <SelectItem value="increase"  className="text-xs">Increase</SelectItem>
+              <SelectItem value="decrease"  className="text-xs">Decrease</SelectItem>
+              <SelectItem value="damage"    className="text-xs">Damage</SelectItem>
+              <SelectItem value="write_off" className="text-xs">Write-off</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+        {readOnly && item.variance_type && (
+          <p className="text-[10px] text-muted-foreground capitalize">
+            {item.variance_type.replace(/_/g, ' ')}
+          </p>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -309,19 +367,19 @@ function CountingPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-xs text-muted-foreground">
           {countedCount} / {items.length} items counted
         </p>
         {!readOnly && hasAnyNewCounts && (
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSave} disabled={saving}>
+          <Button size="sm" variant="outline" className="h-8 min-h-11 sm:min-h-0 sm:h-7 text-xs" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving…' : 'Save counts'}
           </Button>
         )}
       </div>
 
-      {/* Table header */}
-      <div className="grid grid-cols-[1fr_60px_60px_90px_80px_90px] gap-2 px-3 py-1.5 bg-muted/30 border rounded-t-md text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {/* Table header — desktop only; mobile uses stacked cards */}
+      <div className="hidden sm:grid grid-cols-[1fr_60px_60px_90px_80px_90px] gap-2 px-3 py-1.5 bg-muted/30 border rounded-t-md text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         <span>Item</span>
         <span>SKU</span>
         <span className="text-right">System</span>
@@ -330,7 +388,7 @@ function CountingPanel({
         <span>Type</span>
       </div>
 
-      <div className="border rounded-b-md overflow-hidden overflow-y-auto max-h-[300px] -mt-1">
+      <div className="border rounded-md sm:rounded-t-none sm:rounded-b-md overflow-hidden overflow-y-auto max-h-[60vh] sm:max-h-[300px] sm:-mt-1">
         {Array.from(grouped.entries()).map(([cat, catItems]) => {
           const isOpen = expandedCats.has(cat)
           return (
@@ -379,15 +437,15 @@ function CountingPanel({
       </div>
 
       {!readOnly && assignmentId && (
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3">
           {uncountedCount > 0 && (
-            <span className="text-[11px] text-warning font-medium">
+            <span className="text-[11px] text-warning font-medium leading-tight">
               {uncountedCount} item{uncountedCount === 1 ? '' : 's'} still need a count — enter 0 for empty
             </span>
           )}
           <Button
             size="sm"
-            className="text-xs bg-success text-success-foreground hover:bg-success/90"
+            className="text-xs bg-success text-success-foreground hover:bg-success/90 w-full sm:w-auto min-h-11 sm:min-h-0"
             onClick={handleComplete}
             disabled={completing || uncountedCount > 0}
             title={uncountedCount > 0 ? `${uncountedCount} item${uncountedCount === 1 ? '' : 's'} still need a count` : undefined}

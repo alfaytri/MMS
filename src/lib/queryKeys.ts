@@ -534,6 +534,13 @@ export const queryKeys = {
     all: ['warehouses'] as const,
   },
 
+  /* ── Warehouse Sub-Containers (Phase D.1) ────────────── */
+  warehouseSubContainers: {
+    all:         ['warehouse-sub-containers'] as const,
+    byWarehouse: (warehouseId: Nullable) =>
+      ['warehouse-sub-containers', 'by-wh', warehouseId] as const,
+  },
+
   /* ── Repair Vendors (Phase 9.6) ───────────────────────── */
   repairVendors: {
     all: ['repair-vendors'] as const,
@@ -556,8 +563,8 @@ export const queryKeys = {
   warehouseOps: {
     stockMovements: (warehouseId: Nullable, limit: number) =>
       ['stock_movements', { warehouseId, limit }] as const,
-    warehouseStock: (warehouseId: Nullable) =>
-      ['warehouse_stock', warehouseId] as const,
+    warehouseStock: (warehouseId: Nullable, subContainerId?: Nullable) =>
+      ['warehouse_stock', warehouseId, subContainerId ?? null] as const,
     warehouseStockAll: ['warehouse_stock'] as const,
     warehouseTransfers: ['warehouse_transfers'] as const,
     warehouseTransfersByStatus: (status?: Nullable) =>
