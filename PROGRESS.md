@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Teams + Places + Consumption Task 4 — rpc_post_consumption + rpc_cancel_consumption** on `feature/field-inventory-and-consumption`. Task 3 (consumption_entries + consumption_lines + cogs_entries nullable columns + RLS + number generator) applied to staging + committed at `4cb608c0`. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
+🚀 Next: **Teams + Places + Consumption UI phase — Tasks 5–11** on `feature/field-inventory-and-consumption`. DB layer complete (Tasks 1–4, migrations `20260815000100–_000400` all staging-applied). Task 4 (rpc_post_consumption + rpc_cancel_consumption) committed at `908a8aac`. Remaining: (5) hook regen — DONE alongside Task 4; (6) Master Data → Teams page; (7) Master Data → Places page; (8) `/warehouse/custody` page with Assign/Return/Consume; (9) `/consumption` page + New Consumption dialog with 3-sec cooldown; (10) hide Teams/Places from main /warehouses list; (11) nav-config entries. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
 
 **Phase G — Receival FX conversion** (parked). Deferred until after the field-inventory + consumption module lands.
 
