@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Manual smoke on staging + security audit (Task 11 close-out for both Consumption and Item Photos)** on `feature/field-inventory-and-consumption`. Item Photos phase shipped — operator to smoke: upload a photo on the item add/edit dialog, verify thumbnail on every picker (WhItemPicker rows in Consumption / Custody / Transfer / Adjustment, CascadeInventorySelector leaves on PO create / SO / Receival / Replacement Delivery, inventory master list), verify placeholder shows for items with no photo, verify bulk import accepts an Image URL column. Then the four-point security audit gets one row covering both the Teams+Places+Consumption module and Item Photos.
+🚀 Starting: **Task 10 — Consumption nav + routing polish** on `feature/field-inventory-and-consumption`. Four sub-items: (a) add `consumption.view` / `consumption.create` / `consumption.cancel` permission keys and swap nav-config from generic `warehouse.access`; (b) restructure nav — new top-level "Operations" entry housing Custody / Consumption / Damaged Stock, removed from Purchase & Sales → WAREHOUSE OPS; (c) breadcrumb on `/consumption` header; (d) verify `/consumption` sits under auth middleware (not a webhook prefix), redirects on logout, honors the new permission gate. Item Photos smoke passed on staging — Excel import Image URL column reverted (photos are per-item dialog only). Task 11 (4-point security audit for Consumption + Item Photos) queued after Task 10.
 
 **Deferred (from Teams+Places+Consumption plan):**
 - **Task 10 — nav + routing polish** — `/consumption` is reachable and functional; deferred to a general polish sweep.
