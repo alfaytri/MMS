@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Teams + Places + Consumption Task 2 — transfer_kind + stock_movement_type enum extensions** on `feature/field-inventory-and-consumption`. Task 1 (warehouse_kind column + Teams/Places seed rows + team_id column) applied to staging + committed at `826fbade`. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
+🚀 Next: **Teams + Places + Consumption Task 3 — consumption_entries + consumption_lines tables + cogs_entries nullable columns + RLS** on `feature/field-inventory-and-consumption`. Task 2 (transfer_kind + stock_movement_type enum extensions) applied to staging + committed at `2392ade3`. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
 
 **Phase G — Receival FX conversion** (parked). Deferred until after the field-inventory + consumption module lands.
 
