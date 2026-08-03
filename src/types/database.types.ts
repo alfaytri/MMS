@@ -7374,6 +7374,18 @@ export type Database = {
       }
       get_invoice_summary: { Args: never; Returns: Json }
       get_payment_summary: { Args: never; Returns: Json }
+      get_places_master_list: {
+        Args: never
+        Returns: {
+          created_at: string
+          division_id: string
+          division_name: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }[]
+      }
       get_stock_value_cogs_summary: {
         Args: { p_brand_variant_ids?: string[] }
         Returns: {
@@ -7381,6 +7393,19 @@ export type Database = {
           lc_adjustment_count: number
           lc_adjustments_total: number
           sold_at_sale_total: number
+        }[]
+      }
+      get_teams_master_list: {
+        Args: never
+        Returns: {
+          created_at: string
+          division_id: string
+          division_name: string
+          id: string
+          is_active: boolean
+          name: string
+          team_id: string
+          updated_at: string
         }[]
       }
       get_warehouse_names: {

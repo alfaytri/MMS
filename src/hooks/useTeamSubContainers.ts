@@ -27,41 +27,40 @@ export type TeamRow = {
 }
 
 // ─── 1. Read ────────────────────────────────────────────────────────────
-// Lists every sub-container under the shared `Teams` warehouse, joined
-// with its division for display. Sort: division name, then team name.
+// Calls the SECURITY DEFINER RPC get_teams_master_list so operators see
+// every team regardless of their active-division RLS. Master-data pages
+// need cross-division visibility for admin config.
 export function useTeams() {
   return useQuery({
     queryKey: queryKeys.teams.all,
     queryFn: async (): Promise<TeamRow[]> => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('warehouse_sub_containers')
-        .select(`
-          id, name, division_id, team_id, is_active, created_at, updated_at,
-          warehouses!inner ( warehouse_kind ),
-          company_divisions!inner ( name )
-        `)
-        .eq('warehouses.warehouse_kind', 'teams')
-        .order('name')
+      const { data, error } = await supabase.rpc('get_teams_master_list')
       if (error) throw error
-      return (data ?? [])
-        .filter((r) => r.division_id !== null)
-        .map((r): TeamRow => {
-          const div = Array.isArray(r.company_divisions) ? r.company_divisions[0] : r.company_divisions
-          return {
-            id:            r.id,
-            name:          r.name,
-            division_id:   r.division_id as string,
-            division_name: div?.name ?? '—',
-            team_id:       r.team_id,
-            is_active:     r.is_active,
-            created_at:    r.created_at,
-            updated_at:    r.updated_at,
-          }
-        })
+      return (data ?? []).map((r): TeamRow => ({
+        id:            r.id,
+        name:          r.name,
+        division_id:   r.division_id,
+        division_name: r.division_name,
+        team_id:       r.team_id,
+        is_active:     r.is_active,
+        created_at:    r.created_at,
+        updated_at:    r.updated_at,
+      }))
     },
     staleTime: 60_000,
   })
+}
+
+// Postgres error codes we translate to friendlier messages in the create/update
+// hooks. 23505 is unique-constraint-violation; the only unique on
+// warehouse_sub_containers is (warehouse_id, name).
+function mapDbError(err: { code?: string; message?: string } | null | undefined, entity: 'team' | 'place'): Error {
+  if (!err) return new Error('Unknown error')
+  if (err.code === '23505') {
+    return new Error(`A ${entity} with that name already exists in this division.`)
+  }
+  return new Error(err.message ?? 'Unknown error')
 }
 
 // ─── 2. Create ──────────────────────────────────────────────────────────
@@ -89,7 +88,7 @@ export function useCreateTeam() {
         })
         .select()
         .single()
-      if (error) throw error
+      if (error) throw mapDbError(error, 'team')
       return data
     },
     onSuccess: () => {
@@ -114,7 +113,7 @@ export function useUpdateTeam() {
         .eq('id', payload.id)
         .select()
         .single()
-      if (error) throw error
+      if (error) throw mapDbError(error, 'team')
       return data
     },
     onSuccess: () => {
