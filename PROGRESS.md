@@ -264,7 +264,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Phase G — Receival FX conversion** (pending). PO unit_cost is stored raw and labeled QAR downstream; needs conversion at receival OR currency stamp on FIFO layers. Bigger blast radius (Inventory / Stock Value / Damaged Stock cost displays all read from FIFO) — will need a plan doc first.
+🚀 Starting: **Teams + Places + Consumption module Task 1 — warehouse_kind values + seed rows + team_id column** on new branch `feature/field-inventory-and-consumption` (branched off `deploy/warehouse-shipping` at `98b555d2`). Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md). Reuses the D.6.b Repair-vendor pattern — two new shared virtual warehouses (`Teams`, `Places`) with per-team / per-site sub-containers grouped by division. Deploy branch was merged with all Phase D/E/F work at commit `98b555d2` earlier this session.
+
+**Phase G — Receival FX conversion** (parked). Deferred until after the field-inventory + consumption module lands.
 
 ---
 
