@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Teams + Places + Consumption Task 8 — /warehouse/custody page (Assign/Return/Consume)** on `feature/field-inventory-and-consumption`. Task 7 (Master Data → Places) + Task 10 (hide Teams/Places from real-warehouse admin surfaces) committed at `a7120bf8`. Also shipped Task 6 follow-up (`8c5a00fb`) — bypass-RLS RPCs for both Teams and Places master lists + friendly duplicate-name errors. Remaining: (8) `/warehouse/custody` page; (9) `/consumption` page + New Consumption dialog with 3-sec cooldown. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
+🚀 Next: **Teams + Places + Consumption Task 9 — /consumption page + New Consumption dialog with 3-sec cooldown** on `feature/field-inventory-and-consumption`. Task 8 shipped in three commits: 8a — responsible-person schema + master-data pickers + activate/deactivate confirm dialogs; 8b — three custody RPCs (`rpc_create_custody_assign` / `rpc_accept_custody_assign` / `rpc_create_custody_return`) with the 2-step in_transit → received model gated by the destination sub's responsible person; 8c — `/warehouse/custody` page with Teams/Places tabs, division-grouped card grid (responsible person, item count, total QAR value, expandable items, Assign / Return / Consume-stub / Accept badge), CustodyAssignDialog + CustodyReturnDialog, nav wiring under Purchase & Sales → Warehouse Ops. Consume button opens a stub toast — the real Consumption dialog lands in Task 9. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
 
 **Phase G — Receival FX conversion** (parked). Deferred until after the field-inventory + consumption module lands.
 

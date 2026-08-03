@@ -1,0 +1,184 @@
+/**
+ * Teams + Places custody moves — hook family for the /warehouse/custody page.
+ *
+ * Wraps the three SECURITY DEFINER RPCs shipped in migration
+ * 20260815000900_rpc_custody_moves.sql:
+ *
+ *   rpc_create_custody_assign  → useCreateCustodyAssign
+ *   rpc_accept_custody_assign  → useAcceptCustodyAssign
+ *   rpc_create_custody_return  → useCreateCustodyReturn
+ *
+ * Plus one read hook — usePendingCustodyAssigns — that surfaces every
+ * in_transit custody_assign transfer routed to a Teams / Places sub so
+ * the card can show a "Pending your acceptance" badge to the destination
+ * sub's responsible person.
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
+
+// ─── Types ──────────────────────────────────────────────────────────────
+
+export type PendingCustodyAssign = {
+  transfer_id:            string
+  transfer_number:        string
+  from_warehouse_id:      string
+  from_warehouse_name:    string | null
+  from_sub_container_id:  string | null
+  from_sub_container_name: string | null
+  to_sub_container_id:    string
+  dispatched_at:          string | null
+  created_by_name:        string | null
+  item_count:             number
+  total_qty:              number
+}
+
+export type CustodyLine = { brand_variant_id: string; qty: number }
+
+// ─── 1. Read — pending custody-assign transfers per destination sub ──
+// Returns every in_transit warehouse_transfer where transfer_kind='custody_assign'
+// grouped by to_sub_container_id. The Custody page card looks this up
+// to render "Pending your acceptance" chips.
+export function usePendingCustodyAssigns() {
+  return useQuery({
+    queryKey: queryKeys.custody.pendingAll,
+    queryFn: async (): Promise<PendingCustodyAssign[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('warehouse_transfers')
+        .select(`
+          id, transfer_number,
+          from_warehouse_id, to_sub_container_id, from_sub_container_id,
+          dispatched_at, created_by_name,
+          from_warehouse:from_warehouse_id(name),
+          from_sub:from_sub_container_id(name),
+          warehouse_transfer_items(id, requested_qty)
+        `)
+        .eq('transfer_kind', 'custody_assign')
+        .eq('status', 'in_transit')
+        .order('dispatched_at', { ascending: false })
+        .limit(500)
+
+      if (error) throw error
+
+      return (data ?? []).map((row) => {
+        const items = (row as unknown as { warehouse_transfer_items: Array<{ requested_qty: number | null }> }).warehouse_transfer_items ?? []
+        const fromWh = (row as unknown as { from_warehouse: { name: string | null } | null }).from_warehouse
+        const fromSub = (row as unknown as { from_sub: { name: string | null } | null }).from_sub
+        return {
+          transfer_id:             row.id as string,
+          transfer_number:         row.transfer_number as string,
+          from_warehouse_id:       row.from_warehouse_id as string,
+          from_warehouse_name:     fromWh?.name ?? null,
+          from_sub_container_id:   row.from_sub_container_id as string | null,
+          from_sub_container_name: fromSub?.name ?? null,
+          to_sub_container_id:     row.to_sub_container_id as string,
+          dispatched_at:           (row.dispatched_at as string | null) ?? null,
+          created_by_name:         (row.created_by_name as string | null) ?? null,
+          item_count:              items.length,
+          total_qty:               items.reduce((sum, i) => sum + (i.requested_qty ?? 0), 0),
+        }
+      })
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
+// ─── 2. Mutation — create custody_assign transfer (WH → custody sub) ──
+export function useCreateCustodyAssign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      source_warehouse_id:     string
+      source_sub_container_id: string
+      dest_sub_container_id:   string
+      items:                   CustodyLine[]
+      notes?:                  string | null
+      created_by_profile_id?:  string | null
+      created_by_name?:        string | null
+    }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_create_custody_assign', {
+        p_source_warehouse_id:     payload.source_warehouse_id,
+        p_source_sub_container_id: payload.source_sub_container_id,
+        p_dest_sub_container_id:   payload.dest_sub_container_id,
+        p_items:                   payload.items,
+        p_notes:                   payload.notes ?? null,
+        p_created_by_profile_id:   payload.created_by_profile_id ?? null,
+        p_created_by_name:         payload.created_by_name ?? null,
+      })
+      if (error) throw new Error(error.message)
+      return data as unknown as string
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.custody.pendingAll })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+    },
+  })
+}
+
+// ─── 3. Mutation — accept custody_assign (custodian confirms) ─────────
+export function useAcceptCustodyAssign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      transfer_id:              string
+      accepted_by_profile_id?:  string | null
+      accepted_by_name?:        string | null
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('rpc_accept_custody_assign', {
+        p_transfer_id:            payload.transfer_id,
+        p_accepted_by_profile_id: payload.accepted_by_profile_id ?? null,
+        p_accepted_by_name:       payload.accepted_by_name ?? null,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.custody.pendingAll })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+    },
+  })
+}
+
+// ─── 4. Mutation — create custody_return transfer (custody sub → WH) ─
+export function useCreateCustodyReturn() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      source_sub_container_id: string
+      dest_warehouse_id:       string
+      dest_sub_container_id:   string
+      items:                   CustodyLine[]
+      notes?:                  string | null
+      created_by_profile_id?:  string | null
+      created_by_name?:        string | null
+    }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_create_custody_return', {
+        p_source_sub_container_id: payload.source_sub_container_id,
+        p_dest_warehouse_id:       payload.dest_warehouse_id,
+        p_dest_sub_container_id:   payload.dest_sub_container_id,
+        p_items:                   payload.items,
+        p_notes:                   payload.notes ?? null,
+        p_created_by_profile_id:   payload.created_by_profile_id ?? null,
+        p_created_by_name:         payload.created_by_name ?? null,
+      })
+      if (error) throw new Error(error.message)
+      return data as unknown as string
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+    },
+  })
+}

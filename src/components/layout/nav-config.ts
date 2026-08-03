@@ -100,6 +100,7 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'WAREHOUSE OPS',
         items: [
+          { label: 'Custody',        href: '/warehouse/custody',        icon: 'HandCoins',     permission: 'warehouse.access' },
           { label: 'Damaged Stock',  href: '/warehouse/damaged-stock',  icon: 'AlertTriangle', permission: 'warehouse.access' },
           { label: 'Repair Vendors', href: '/warehouse/repair-vendors', icon: 'Wrench',        permission: 'warehouse.access' },
         ],

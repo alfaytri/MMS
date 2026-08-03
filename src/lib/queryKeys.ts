@@ -559,6 +559,10 @@ export const queryKeys = {
     all: ['consumption-entries'] as const,
     detail: (id: Nullable) => ['consumption-entries', id] as const,
   },
+  custody: {
+    pendingByDestSub: (subId: Nullable) => ['custody-pending', subId] as const,
+    pendingAll: ['custody-pending'] as const,
+  },
 
   /* ── Damaged Stock (Phase 9.6–9.7) ────────────────────── */
   damagedStock: {
