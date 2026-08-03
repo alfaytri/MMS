@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   ChevronDown, ChevronRight, HandCoins, Inbox, MapPin, Package, PackageCheck,
-  Send, Undo2, UserRound, Users2,
+  Send, Truck, Undo2, UserRound, Users2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -20,7 +20,14 @@ import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useTeams } from '@/hooks/useTeamSubContainers'
 import { usePlaces } from '@/hooks/usePlaceSubContainers'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-import { usePendingCustodyAssigns, useAcceptCustodyAssign, type PendingCustodyAssign } from '@/hooks/useCustodyMoves'
+import { usePermissions } from '@/hooks/usePermissions'
+import {
+  usePendingCustodyAssigns,
+  useAcceptCustodyAssign,
+  useDispatchCustodyAssign,
+  type PendingCustodyAssign,
+} from '@/hooks/useCustodyMoves'
+import type { Warehouse } from '@/hooks/useWarehouses'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -48,6 +55,9 @@ export default function CustodyPage() {
 
   const teamsWh  = useMemo(() => warehouses.find((w) => w.warehouse_kind === 'teams'),  [warehouses])
   const placesWh = useMemo(() => warehouses.find((w) => w.warehouse_kind === 'places'), [warehouses])
+  // Warehouses only — used by cards to check whether the current user is a
+  // field RP of a specific source warehouse (for the Dispatch button gate).
+  const realWarehouses = useMemo(() => warehouses.filter((w) => !w.is_virtual), [warehouses])
 
   return (
     <PageWrapper>
@@ -56,8 +66,8 @@ export default function CustodyPage() {
         description="Stock that has left the warehouse and lives with a team or at a client site. Assign from a warehouse, return unused stock, or consume on a job."
       />
 
-      <Tabs defaultValue="teams" className="space-y-4">
-        <TabsList>
+      <Tabs defaultValue="teams" className="flex flex-col gap-4">
+        <TabsList className="self-start">
           <TabsTrigger value="teams" className="gap-1.5">
             <Users2 className="h-3.5 w-3.5" /> Teams
           </TabsTrigger>
@@ -66,11 +76,11 @@ export default function CustodyPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="teams">
-          <CustodyTab kind="team" virtualWhId={teamsWh?.id ?? null} />
+        <TabsContent value="teams" className="mt-0">
+          <CustodyTab kind="team" virtualWhId={teamsWh?.id ?? null} realWarehouses={realWarehouses} />
         </TabsContent>
-        <TabsContent value="places">
-          <CustodyTab kind="place" virtualWhId={placesWh?.id ?? null} />
+        <TabsContent value="places" className="mt-0">
+          <CustodyTab kind="place" virtualWhId={placesWh?.id ?? null} realWarehouses={realWarehouses} />
         </TabsContent>
       </Tabs>
     </PageWrapper>
@@ -79,7 +89,13 @@ export default function CustodyPage() {
 
 // ─── Shared tab body ────────────────────────────────────────────────────
 
-function CustodyTab({ kind, virtualWhId }: { kind: 'team' | 'place'; virtualWhId: string | null }) {
+function CustodyTab({
+  kind, virtualWhId, realWarehouses,
+}: {
+  kind:            'team' | 'place'
+  virtualWhId:     string | null
+  realWarehouses:  Warehouse[]
+}) {
   const teams  = useTeams()
   const places = usePlaces()
 
@@ -155,6 +171,7 @@ function CustodyTab({ kind, virtualWhId }: { kind: 'team' | 'place'; virtualWhId
                 kind={kind}
                 sub={sub}
                 virtualWhId={virtualWhId}
+                realWarehouses={realWarehouses}
                 stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
                 pending={pendingBySub.get(sub.id) ?? []}
               />
@@ -169,23 +186,42 @@ function CustodyTab({ kind, virtualWhId }: { kind: 'team' | 'place'; virtualWhId
 // ─── Card ───────────────────────────────────────────────────────────────
 
 function CustodyCard({
-  kind, sub, virtualWhId, stockRows, pending,
+  kind, sub, virtualWhId, realWarehouses, stockRows, pending,
 }: {
-  kind:        'team' | 'place'
-  sub:         CustodyRow
-  virtualWhId: string | null
-  stockRows:   Array<{ brand_variant_id: string; item_name: string; brand: string | null; sku: string | null; qty: number; total_value: number; unit: string }>
-  pending:     PendingCustodyAssign[]
+  kind:           'team' | 'place'
+  sub:            CustodyRow
+  virtualWhId:    string | null
+  realWarehouses: Warehouse[]
+  stockRows:      Array<{ brand_variant_id: string; item_name: string; brand: string | null; sku: string | null; qty: number; total_value: number; unit: string }>
+  pending:        PendingCustodyAssign[]
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded]     = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [returnOpen, setReturnOpen] = useState(false)
 
   const { data: profile } = useCurrentUserProfile()
+  const { data: perms }   = usePermissions()
   const accept            = useAcceptCustodyAssign()
+  const dispatch          = useDispatchCustodyAssign()
 
-  const isResponsible   = !!profile?.id && profile.id === sub.responsible_person_profile_id
-  const hasPending      = pending.length > 0
+  const isResponsible      = !!profile?.id && profile.id === sub.responsible_person_profile_id
+  const isPrivileged       = !!perms && (perms.isSystemAdmin || perms.roles.includes('inventory_manager'))
+  // Server-side gate on rpc_accept_custody_assign: sub responsible person OR
+  // system admin / inventory_manager. Mirror it so we only show Accept there.
+  const canAccept          = isResponsible || isPrivileged
+  const hasPending         = pending.length > 0
+
+  // For each pending row, resolve whether the current user can DISPATCH it
+  // (server-side gate: field RP of source WH OR privileged). We use the
+  // warehouse row's responsible_persons list — same source as
+  // is_field_rp_of() DB check.
+  function canDispatch(fromWhId: string): boolean {
+    if (isPrivileged) return true
+    if (!profile?.id) return false
+    const wh = realWarehouses.find((w) => w.id === fromWhId)
+    if (!wh) return false
+    return wh.responsible_persons.some((rp) => rp.profile_id === profile.id)
+  }
 
   const totalValue = stockRows.reduce((sum, r) => sum + (r.total_value ?? 0), 0)
   const totalQty   = stockRows.reduce((sum, r) => sum + (r.qty ?? 0), 0)
@@ -203,6 +239,19 @@ function CustodyCard({
       toast.success(`Accepted ${transfer.transfer_number} — stock is now on ${sub.name}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to accept custody')
+    }
+  }
+
+  async function handleDispatch(transfer: PendingCustodyAssign) {
+    try {
+      await dispatch.mutateAsync({
+        transfer_id:               transfer.transfer_id,
+        dispatched_by_profile_id:  profile?.id ?? null,
+        dispatched_by_name:        profile?.full_name ?? null,
+      })
+      toast.success(`Dispatched ${transfer.transfer_number} — awaiting ${sub.responsible_person_name ?? 'custodian'} to accept`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to dispatch custody request')
     }
   }
 
@@ -253,33 +302,68 @@ function CustodyCard({
         </div>
       </div>
 
-      {/* Pending acceptance banner */}
+      {/* Pending banner — mixes status='pending' (awaiting dispatch) and
+          status='in_transit' (awaiting acceptance). Each row shows the
+          action button only to users the RPC allows. */}
       {hasPending && (
         <div className="mx-4 mb-2 rounded-md border border-primary/30 bg-primary/5 p-2 space-y-1.5">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-primary">
             <Inbox className="h-3 w-3" />
-            {pending.length} pending {pending.length === 1 ? 'assignment' : 'assignments'}
+            {pending.length} pending {pending.length === 1 ? 'request' : 'requests'}
           </div>
-          {pending.map((p) => (
-            <div key={p.transfer_id} className="flex items-center justify-between gap-2 text-[11px]">
-              <div className="min-w-0">
-                <div className="font-medium truncate">{p.transfer_number}</div>
-                <div className="text-[10px] text-muted-foreground truncate">
-                  From {p.from_warehouse_name ?? 'warehouse'} · {p.item_count} item{p.item_count === 1 ? '' : 's'} · {p.total_qty} units
+          {pending.map((p) => {
+            const isRequest    = p.status === 'pending'      // needs dispatch
+            const isInTransit  = p.status === 'in_transit'   // needs accept
+            const dispatchOk   = isRequest   && canDispatch(p.from_warehouse_id)
+            const acceptOk     = isInTransit && canAccept
+            return (
+              <div key={p.transfer_id} className="flex items-center justify-between gap-2 text-[11px]">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium truncate">{p.transfer_number}</span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] h-4 px-1 font-normal ${isRequest ? 'border-amber-500/40 text-amber-700 bg-amber-500/10' : 'border-blue-500/40 text-blue-700 bg-blue-500/10'}`}
+                    >
+                      {isRequest ? 'Awaiting dispatch' : 'In transit'}
+                    </Badge>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    From {p.from_warehouse_name ?? 'warehouse'} · {p.item_count} item{p.item_count === 1 ? '' : 's'} · {p.total_qty} units
+                  </div>
                 </div>
+                {dispatchOk ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 text-[10px] gap-1 shrink-0"
+                    onClick={() => handleDispatch(p)}
+                    disabled={dispatch.isPending}
+                  >
+                    <Truck className="h-3 w-3" />
+                    Dispatch
+                  </Button>
+                ) : acceptOk ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-6 text-[10px] gap-1 shrink-0"
+                    onClick={() => handleAccept(p)}
+                    disabled={accept.isPending}
+                  >
+                    <PackageCheck className="h-3 w-3" />
+                    Accept
+                  </Button>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground italic shrink-0">
+                    {isRequest
+                      ? `Awaiting ${p.from_warehouse_name ?? 'warehouse'} team`
+                      : `Awaiting ${sub.responsible_person_name ?? 'custodian'}`}
+                  </span>
+                )}
               </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-6 text-[10px] gap-1 shrink-0"
-                onClick={() => handleAccept(p)}
-                disabled={accept.isPending}
-              >
-                <PackageCheck className="h-3 w-3" />
-                Accept
-              </Button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -324,7 +408,7 @@ function CustodyCard({
       {/* Actions */}
       <div className="mt-auto flex items-center justify-between gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
         <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
-          <Send className="h-3 w-3" /> Assign
+          <Send className="h-3 w-3" /> Request
         </Button>
         <Button
           size="sm"

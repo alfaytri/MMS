@@ -20,9 +20,12 @@ import { queryKeys } from '@/lib/queryKeys'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
+export type CustodyAssignStage = 'pending' | 'in_transit'
+
 export type PendingCustodyAssign = {
   transfer_id:            string
   transfer_number:        string
+  status:                 CustodyAssignStage
   from_warehouse_id:      string
   from_warehouse_name:    string | null
   from_sub_container_id:  string | null
@@ -36,10 +39,11 @@ export type PendingCustodyAssign = {
 
 export type CustodyLine = { brand_variant_id: string; qty: number }
 
-// ─── 1. Read — pending custody-assign transfers per destination sub ──
-// Returns every in_transit warehouse_transfer where transfer_kind='custody_assign'
-// grouped by to_sub_container_id. The Custody page card looks this up
-// to render "Pending your acceptance" chips.
+// ─── 1. Read — pending + in-transit custody-assign transfers ─────────
+// Returns every warehouse_transfer where transfer_kind='custody_assign'
+// AND status IN ('pending','in_transit') so the Custody page card can
+// render both "awaiting dispatch" and "awaiting acceptance" chips at
+// the same time.
 export function usePendingCustodyAssigns() {
   return useQuery({
     queryKey: queryKeys.custody.pendingAll,
@@ -48,7 +52,7 @@ export function usePendingCustodyAssigns() {
       const { data, error } = await supabase
         .from('warehouse_transfers')
         .select(`
-          id, transfer_number,
+          id, transfer_number, status,
           from_warehouse_id, to_sub_container_id, from_sub_container_id,
           dispatched_at, created_by_name,
           from_warehouse:from_warehouse_id(name),
@@ -56,8 +60,8 @@ export function usePendingCustodyAssigns() {
           warehouse_transfer_items(id, requested_qty)
         `)
         .eq('transfer_kind', 'custody_assign')
-        .eq('status', 'in_transit')
-        .order('dispatched_at', { ascending: false })
+        .in('status', ['pending', 'in_transit'])
+        .order('created_at', { ascending: false })
         .limit(500)
 
       if (error) throw error
@@ -69,6 +73,7 @@ export function usePendingCustodyAssigns() {
         return {
           transfer_id:             row.id as string,
           transfer_number:         row.transfer_number as string,
+          status:                  (row.status as CustodyAssignStage),
           from_warehouse_id:       row.from_warehouse_id as string,
           from_warehouse_name:     fromWh?.name ?? null,
           from_sub_container_id:   row.from_sub_container_id as string | null,
@@ -121,7 +126,34 @@ export function useCreateCustodyAssign() {
   })
 }
 
-// ─── 3. Mutation — accept custody_assign (custodian confirms) ─────────
+// ─── 3. Mutation — dispatch custody_assign (source WH RP loads van) ──
+export function useDispatchCustodyAssign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      transfer_id:                string
+      dispatched_by_profile_id?:  string | null
+      dispatched_by_name?:        string | null
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('rpc_dispatch_custody_assign', {
+        p_transfer_id:              payload.transfer_id,
+        p_dispatched_by_profile_id: payload.dispatched_by_profile_id ?? null,
+        p_dispatched_by_name:       payload.dispatched_by_name ?? null,
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.custody.pendingAll })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+    },
+  })
+}
+
+// ─── 4. Mutation — accept custody_assign (custodian confirms) ─────────
 export function useAcceptCustodyAssign() {
   const qc = useQueryClient()
   return useMutation({

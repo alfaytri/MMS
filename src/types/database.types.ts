@@ -6799,6 +6799,10 @@ export type Database = {
         Args: { p_document_id: string; p_document_type: string }
         Returns: Record<string, unknown>
       }
+      _has_custody_admin_role: {
+        Args: { p_profile_id: string }
+        Returns: boolean
+      }
       _maybe_close_return: { Args: { p_return_id: string }; Returns: undefined }
       _record_customer_resolution: {
         Args: {
@@ -7597,6 +7601,14 @@ export type Database = {
       rpc_customer_statement_v2: {
         Args: { p_customer_id: string }
         Returns: Json
+      }
+      rpc_dispatch_custody_assign: {
+        Args: {
+          p_dispatched_by_name?: string
+          p_dispatched_by_profile_id?: string
+          p_transfer_id: string
+        }
+        Returns: undefined
       }
       rpc_financial_dashboard: { Args: never; Returns: Json }
       rpc_post_consumption: {

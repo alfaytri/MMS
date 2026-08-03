@@ -265,11 +265,21 @@ Extend `rpc_upsert_team_or_place` with `p_responsible_person_profile_id uuid DEF
 
 Picker scope: any active user (no division filter). Cardinality: one person per sub (single column, not link table).
 
-### Migration 7 — custody move RPCs
+### Migration 7 — custody move RPCs (revised 2026-08-03 to a 3-step request flow)
 
-Custody moves are lightweight transfers between real warehouses and the shared Teams / Places virtual warehouses. Unlike normal `create_transfer_v2` → dispatch → receive, custody uses a 2-step model with the sub-container's responsible person as the accepting party.
+Custody moves between real warehouses and the shared Teams / Places virtual warehouses use a 3-step request → dispatch → accept flow that mirrors the standard `create_transfer_v2` → `dispatch_transfer` → `receive_transfer` shape, but with custody-specific permission gates:
 
-**`rpc_create_custody_assign`** — WH → Team/Place. Called by admin or source-WH field RP.
+| Step | Called by | Effect | Status transition |
+|------|-----------|--------|-------------------|
+| Request | Custody sub's responsible person **or** `_has_custody_admin_role` | Insert transfer header + line items. No FIFO movement yet. | `pending` |
+| Dispatch | Source WH's field RP (`is_field_rp_of`) **or** `_has_custody_admin_role` | Deduct source FIFO, emit `transfer_out` movements, stamp `dispatched_by_*`. | `pending` → `in_transit` |
+| Accept | Destination custody sub's responsible person **or** `_has_custody_admin_role` | Create FIFO layers on destination sub, emit `transfer_in` movements, stamp `received_by_*`. | `in_transit` → `received` |
+
+This gives the warehouse RP a real say in the movement: they physically load the van, then click Dispatch. Only then does stock actually leave their books. Also matches how the app already handles inter-warehouse transfers, keeping mental model consistent.
+
+Return direction (Team/Place → real WH) stays a 2-step create + standard `receive_transfer` — the source side is inside the app's custody surface, not a warehouse team, so a separate "request → dispatch" split adds friction without accountability value.
+
+**`rpc_create_custody_assign`** (revised — request-only, no FIFO). Called by the custody sub's responsible person or an admin.
 
 ```
 rpc_create_custody_assign(
@@ -285,9 +295,25 @@ rpc_create_custody_assign(
 
 Effects (one transaction):
 1. Validate `p_dest_sub_container_id` belongs to a warehouse with `warehouse_kind IN ('teams','places')` and is active.
-2. Insert `warehouse_transfers` with `transfer_kind='custody_assign'`, `status='in_transit'`, `dispatched_at=now()`, `dispatched_by_*` from caller.
-3. For each line: `deduct_fifo_layers` scoped to source sub; insert `warehouse_transfer_items`; insert `inventory_stock_movements` `movement_type='transfer_out'`, `reference_type='transfer'`, sub-scoped to source.
-4. Returns transfer id.
+2. Insert `warehouse_transfers` with `transfer_kind='custody_assign'`, **`status='pending'`**. `dispatched_*` and `received_*` remain NULL.
+3. For each line: insert `warehouse_transfer_items` with `requested_qty` set, `dispatched_qty` NULL, `unit_cost=0` (real cost stamped at dispatch time).
+4. Returns transfer id. **No FIFO deduction, no stock movement, no allocation.**
+
+**`rpc_dispatch_custody_assign`** (new — WH RP does the physical load-out). Called by the source warehouse's field RP or an admin.
+
+```
+rpc_dispatch_custody_assign(
+  p_transfer_id              uuid,
+  p_dispatched_by_profile_id uuid,
+  p_dispatched_by_name       text
+) RETURNS void
+```
+
+Effects:
+1. Load transfer + FOR UPDATE; must be `kind='custody_assign'` and `status='pending'`.
+2. Permission gate: caller must be `is_field_rp_of(from_warehouse_id)` OR `_has_custody_admin_role`. Friendly error if not.
+3. For each transfer item: `deduct_fifo_layers` scoped to `from_sub_container_id`. Insert per-layer `inventory_stock_movements` `transfer_out`. Stamp weighted `unit_cost` on the transfer item + set `dispatched_qty = requested_qty`.
+4. Flip transfer to `status='in_transit'`, stamp `dispatched_by_*` + `dispatched_at=now()`.
 
 **`rpc_accept_custody_assign`** — Team/Place responsible person confirms receipt.
 

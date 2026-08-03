@@ -147,7 +147,7 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
         created_by_profile_id:   profile?.id ?? null,
         created_by_name:         profile?.full_name ?? null,
       })
-      toast.success(`Assigned to ${destSubName} — awaits acceptance`)
+      toast.success(`Request sent to ${warehouses.find((w) => w.id === fromWhId)?.name ?? 'warehouse'} — awaiting dispatch`)
       onOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create custody assign')
@@ -159,10 +159,10 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
       <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
         <DialogHeader className="px-5 pt-5 pb-0">
           <DialogTitle className="text-sm font-semibold">
-            Assign to {destKindLabel} — {destSubName}
+            Request stock for {destKindLabel} — {destSubName}
           </DialogTitle>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Stock leaves the source warehouse immediately. The {destKindLabel.toLowerCase()}&apos;s responsible person accepts to land the stock on their books.
+            Submits a request to the source warehouse. Their responsible person confirms the load-out with Dispatch, then the {destKindLabel.toLowerCase()}&apos;s responsible person accepts on delivery.
           </p>
         </DialogHeader>
 
@@ -331,7 +331,7 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
             Cancel
           </Button>
           <Button size="sm" className="text-[11px] h-8" disabled={!canSubmit} onClick={handleSubmit}>
-            {assign.isPending ? 'Assigning…' : `Assign to ${destKindLabel.toLowerCase()}`}
+            {assign.isPending ? 'Submitting…' : 'Submit request'}
           </Button>
         </DialogFooter>
       </DialogContent>
