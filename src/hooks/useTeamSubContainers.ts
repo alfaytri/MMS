@@ -64,32 +64,21 @@ function mapDbError(err: { code?: string; message?: string } | null | undefined,
 }
 
 // ─── 2. Create ──────────────────────────────────────────────────────────
+// Goes through rpc_upsert_team_or_place — SECURITY DEFINER, bypasses the
+// sub_container_scope_insert_r RLS so admin can create teams in any division.
 export function useCreateTeam() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (payload: { name: string; division_id: string }) => {
       const supabase = createClient()
-      // Resolve the shared Teams warehouse id once.
-      const { data: wh, error: whErr } = await supabase
-        .from('warehouses')
-        .select('id')
-        .eq('warehouse_kind', 'teams')
-        .maybeSingle()
-      if (whErr) throw whErr
-      if (!wh)   throw new Error('Teams warehouse not found — migration missing?')
-
-      const { data, error } = await supabase
-        .from('warehouse_sub_containers')
-        .insert({
-          warehouse_id: wh.id,
-          division_id:  payload.division_id,
-          name:         payload.name.trim(),
-          is_active:    true,
-        })
-        .select()
-        .single()
+      const { data, error } = await supabase.rpc('rpc_upsert_team_or_place', {
+        p_kind:        'teams',
+        p_name:        payload.name.trim(),
+        p_division_id: payload.division_id,
+        p_is_active:   true,
+      })
       if (error) throw mapDbError(error, 'team')
-      return data
+      return data as unknown as string
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.teams.all })
@@ -102,19 +91,25 @@ export function useUpdateTeam() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (payload: { id: string; name?: string; division_id?: string; is_active?: boolean }) => {
+      // The RPC needs full name + division on every call. Fetch current
+      // row from the master list so partial updates work through it.
       const supabase = createClient()
-      const patch: DBUpdate<'warehouse_sub_containers'> = {}
-      if (payload.name        !== undefined) patch.name        = payload.name.trim()
-      if (payload.division_id !== undefined) patch.division_id = payload.division_id
-      if (payload.is_active   !== undefined) patch.is_active   = payload.is_active
-      const { data, error } = await supabase
-        .from('warehouse_sub_containers')
-        .update(patch)
-        .eq('id', payload.id)
-        .select()
-        .single()
+      // Resolve the current values via the master-list RPC (already
+      // bypasses RLS) so partial updates work.
+      const { data: rows, error: listErr } = await supabase.rpc('get_teams_master_list')
+      if (listErr) throw listErr
+      const current = (rows ?? []).find((r) => r.id === payload.id)
+      if (!current) throw new Error('Team not found')
+
+      const { data, error } = await supabase.rpc('rpc_upsert_team_or_place', {
+        p_kind:        'teams',
+        p_id:          payload.id,
+        p_name:        (payload.name        ?? current.name).trim(),
+        p_division_id:  payload.division_id ?? current.division_id,
+        p_is_active:    payload.is_active   ?? current.is_active,
+      })
       if (error) throw mapDbError(error, 'team')
-      return data
+      return data as unknown as string
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.teams.all })

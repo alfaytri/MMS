@@ -7715,6 +7715,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      rpc_upsert_team_or_place: {
+        Args: {
+          p_division_id: string
+          p_id?: string
+          p_is_active?: boolean
+          p_kind: string
+          p_name: string
+        }
+        Returns: string
+      }
       save_customer_phones: {
         Args: { p_customer_id: string; p_phones: Json }
         Returns: undefined
