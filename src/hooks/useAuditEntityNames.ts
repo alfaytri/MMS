@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import type { AllTables } from '@/types/database.types'
 import type { ActivityLog } from './useActivityLog'
 
 type EntityTypeConfig = {
@@ -130,14 +131,13 @@ export function useAuditEntityNames(logs: ActivityLog[]) {
           const cols = config.fallbackCol
             ? `id, ${config.nameCol}, ${config.fallbackCol}`
             : `id, ${config.nameCol}`
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data } = await (supabase as any)
-            .from(config.table)
+          const { data } = await supabase
+            .from(config.table as AllTables)
             .select(cols)
             .in('id', ids)
             .limit(ids.length)
           if (!data) return
-          for (const row of data as Record<string, unknown>[]) {
+          for (const row of data as unknown as Record<string, unknown>[]) {
             const name = (row[config.nameCol] as string | null)
               ?? (config.fallbackCol ? (row[config.fallbackCol] as string | null) : null)
             if (name) lookup.set(row.id as string, name)

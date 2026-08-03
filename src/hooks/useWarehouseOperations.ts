@@ -337,8 +337,26 @@ export function useStockMovements({
         }
       }) as StockMovement[]
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const damaged: StockMovement[] = (damagedRows ?? []).map((r: any) => {
+      type DamagedMovementJoinRow = {
+        id: string
+        warehouse_id: string
+        brand_variant_id: string
+        movement_type: string
+        qty: number | string | null
+        unit_cost: number | string | null
+        notes: string | null
+        created_at: string
+        source_transfer_id: string | null
+        source_return_line_disposition_id: string | null
+        inventory_item_brand_variants: {
+          brand: string | null
+          code: string | null
+          inventory_items: { name_en: string | null; sku: string | null } | null
+        } | null
+        direct_transfer: { warehouse_sub_containers: { name: string | null } | null } | null
+        disposition: { warehouse_transfers: { warehouse_sub_containers: { name: string | null } | null } | null } | null
+      }
+      const damaged: StockMovement[] = ((damagedRows ?? []) as unknown as DamagedMovementJoinRow[]).map((r) => {
         // Resolve the source-chain sub-container name (direct wins, then
         // disposition), matching the D.11 damaged-stock page behaviour.
         const direct = r.direct_transfer?.warehouse_sub_containers?.name ?? null

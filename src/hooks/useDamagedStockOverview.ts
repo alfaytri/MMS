@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Phase 9.7 — Damaged-stock overview hooks + return-from-repair mutation.
  *
@@ -109,16 +108,30 @@ export function useDamagedOnHand() {
 
       // Provenance map keyed by `${warehouse_id}:${brand_variant_id}`, first
       // wins (order desc created_at above means first is the most recent).
+      type ProvenanceRow = {
+        warehouse_id: string
+        brand_variant_id: string
+        warehouse_transfers: { warehouse_sub_containers: { name: string | null } | null } | null
+      }
       const provMap = new Map<string, string | null>()
-      for (const p of (provenance ?? []) as any[]) {
+      for (const p of (provenance ?? []) as unknown as ProvenanceRow[]) {
         const key = `${p.warehouse_id}:${p.brand_variant_id}`
         if (provMap.has(key)) continue
         const subName = p.warehouse_transfers?.warehouse_sub_containers?.name ?? null
         provMap.set(key, subName)
       }
 
-      const rows = (onHand ?? []).map((r: any): DamagedOnHandRow => {
-        const label = itemLabelFromJoin(r.inventory_item_brand_variants as BrandVariantJoin)
+      type OnHandRow = {
+        warehouse_id: string
+        brand_variant_id: string
+        qty: number | string | null
+        weighted_unit_cost: number | string | null
+        updated_at: string
+        warehouses: { name: string | null } | null
+        inventory_item_brand_variants: BrandVariantJoin
+      }
+      const rows = ((onHand ?? []) as unknown as OnHandRow[]).map((r): DamagedOnHandRow => {
+        const label = itemLabelFromJoin(r.inventory_item_brand_variants)
         const key = `${r.warehouse_id}:${r.brand_variant_id}`
         return {
           key,
@@ -207,11 +220,36 @@ export function useOutForRepair() {
         .limit(500)
       if (error) throw error
 
+      type OutForRepairItem = {
+        brand_variant_id: string
+        item_name: string | null
+        sku: string | null
+        requested_qty: number | string | null
+        unit_cost: number | string | null
+        inventory_item_brand_variants: BrandVariantJoin
+      }
+      type OutForRepairJoinRow = {
+        id: string
+        transfer_number: string | null
+        from_warehouse_id: string
+        from_sub_container_id: string | null
+        to_warehouse_id: string
+        to_sub_container_id: string | null
+        repair_vendor_id: string | null
+        expected_return_date: string | null
+        dispatched_at: string | null
+        source_return_line_disposition_id: string | null
+        warehouses: { name: string | null } | null
+        from_sub_container: { name: string | null } | null
+        to_sub_container: { name: string | null } | null
+        repair_vendors: { name: string | null } | null
+        warehouse_transfer_items: OutForRepairItem[] | null
+      }
       const out: OutForRepairRow[] = []
-      for (const r of (data ?? []) as any[]) {
+      for (const r of (data ?? []) as unknown as OutForRepairJoinRow[]) {
         const items = Array.isArray(r.warehouse_transfer_items) ? r.warehouse_transfer_items : []
         for (const it of items) {
-          const bvLabel = itemLabelFromJoin(it.inventory_item_brand_variants as BrandVariantJoin)
+          const bvLabel = itemLabelFromJoin(it.inventory_item_brand_variants)
           out.push({
             transfer_id:        r.id,
             transfer_number:    r.transfer_number ?? '',
@@ -304,8 +342,24 @@ export function useDamagedMovements() {
         .limit(200)
       if (error) throw error
 
-      return (data ?? []).map((r: any): DamagedMovementRow => {
-        const label = itemLabelFromJoin(r.inventory_item_brand_variants as BrandVariantJoin)
+      type DamagedMovementJoinRow = {
+        id: string
+        created_at: string
+        movement_type: string
+        qty: number | string | null
+        warehouse_id: string
+        brand_variant_id: string
+        unit_cost: number | string | null
+        notes: string | null
+        source_return_line_disposition_id: string | null
+        source_transfer_id: string | null
+        warehouses: { name: string | null } | null
+        inventory_item_brand_variants: BrandVariantJoin
+        direct_transfer: { warehouse_sub_containers: { name: string | null } | null } | null
+        disposition: { warehouse_transfers: { warehouse_sub_containers: { name: string | null } | null } | null } | null
+      }
+      return ((data ?? []) as unknown as DamagedMovementJoinRow[]).map((r): DamagedMovementRow => {
+        const label = itemLabelFromJoin(r.inventory_item_brand_variants)
         // Prefer the direct source_transfer_id link (present on send/return
         // rows). Fall back to the disposition → warehouse_transfer chain
         // (present on restock rows once the vendor is assigned).
@@ -379,7 +433,23 @@ export function usePendingRepairAssignments() {
         .limit(200)
       if (error) throw error
 
-      return (data ?? []).map((r: any): PendingRepairAssignmentRow => {
+      type PendingRepairJoinRow = {
+        id: string
+        qty: number | string | null
+        created_at: string
+        return_lines: {
+          item_name: string | null
+          sku: string | null
+          brand_variant_id: string | null
+          return_id: string
+          so_po_returns: {
+            return_number: string | null
+            restock_warehouse_id: string | null
+            warehouses: { name: string | null } | null
+          } | null
+        } | null
+      }
+      return ((data ?? []) as unknown as PendingRepairJoinRow[]).map((r): PendingRepairAssignmentRow => {
         const rl = r.return_lines
         const ret = rl?.so_po_returns
         return {
