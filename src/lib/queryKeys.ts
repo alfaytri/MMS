@@ -548,6 +548,18 @@ export const queryKeys = {
     detail: (id: Nullable) => ['repair-vendors', id] as const,
   },
 
+  /* ── Teams + Places (Field Inventory + Consumption) ───── */
+  teams: {
+    all: ['team-sub-containers'] as const,
+  },
+  places: {
+    all: ['place-sub-containers'] as const,
+  },
+  consumption: {
+    all: ['consumption-entries'] as const,
+    detail: (id: Nullable) => ['consumption-entries', id] as const,
+  },
+
   /* ── Damaged Stock (Phase 9.6–9.7) ────────────────────── */
   damagedStock: {
     all: ['damaged-stock'] as const,

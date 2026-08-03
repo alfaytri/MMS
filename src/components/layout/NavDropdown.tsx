@@ -22,6 +22,7 @@ import {
   Headset,
   Wrench,
   UsersRound,
+  Users2,
   CreditCard,
   BookOpen,
   Bell,
@@ -104,7 +105,7 @@ export function NavDropdownGroup({ children }: { children: React.ReactNode }) {
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Database, ShoppingCart, FileText, Receipt, ShoppingBag, Users, BarChart2,
-  Warehouse, UserCog, ScrollText, Settings, Headset, Wrench, UsersRound,
+  Warehouse, UserCog, ScrollText, Settings, Headset, Wrench, UsersRound, Users2,
   CreditCard, BookOpen, Bell, List, PlusCircle, FileSearch, FilePlus,
   FileCheck, Clock, Truck, UserCheck, ClipboardList, CheckCircle, Ship,
   Calculator, BarChart3, RotateCcw, Package, PackageCheck, FileX, FileX2,
