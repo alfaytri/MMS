@@ -264,7 +264,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Next: **Teams + Places + Consumption Task 8 — /warehouse/custody page (Assign/Return/Consume)** on `feature/field-inventory-and-consumption`. Task 7 (Master Data → Places) + Task 10 (hide Teams/Places from real-warehouse admin surfaces) committed at `a7120bf8`. Also shipped Task 6 follow-up (`8c5a00fb`) — bypass-RLS RPCs for both Teams and Places master lists + friendly duplicate-name errors. Remaining: (8) `/warehouse/custody` page; (9) `/consumption` page + New Consumption dialog with 3-sec cooldown. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
+🚀 Starting: **Teams + Places + Consumption Task 8 — /warehouse/custody page (Assign/Return/Consume)** on `feature/field-inventory-and-consumption`. Task 7 (Master Data → Places) + Task 10 (hide Teams/Places from real-warehouse admin surfaces) committed at `a7120bf8`. Also shipped Task 6 follow-up (`8c5a00fb`) — bypass-RLS RPCs for both Teams and Places master lists + friendly duplicate-name errors. Remaining: (8) `/warehouse/custody` page; (9) `/consumption` page + New Consumption dialog with 3-sec cooldown. Plan: [docs/plans/2026-08-03-teams-places-consumption.md](docs/plans/2026-08-03-teams-places-consumption.md).
 
 **Phase G — Receival FX conversion** (parked). Deferred until after the field-inventory + consumption module lands.
 
