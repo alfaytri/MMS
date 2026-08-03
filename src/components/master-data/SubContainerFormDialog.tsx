@@ -35,10 +35,13 @@ import {
   type WarehouseSubContainer,
 } from '@/hooks/useWarehouseSubContainers'
 import { useDivisions } from '@/hooks/useDivisions'
+import { useAllProfiles } from '@/hooks/useProfiles'
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(120),
   division_id: z.string().nullable(),
+  // '' sentinel = unassigned; any uuid = the picked profile.
+  responsible_person_id: z.string(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -49,6 +52,9 @@ interface Props {
   warehouseId: string
   warehouseName: string
   warehouseIsVirtual: boolean
+  // Only meaningful when warehouseIsVirtual: distinguishes Teams / Places
+  // (which STILL require a division on their subs) from Repair (division-less).
+  warehouseKind?: string | null
   subContainer?: WarehouseSubContainer | null
 }
 
@@ -58,17 +64,23 @@ export function SubContainerFormDialog({
   warehouseId,
   warehouseName,
   warehouseIsVirtual,
+  warehouseKind,
   subContainer,
 }: Props) {
+  // Division picker visibility. Repair virtual = hide; real + teams/places = show.
+  const showDivision = !warehouseIsVirtual
+    || warehouseKind === 'teams'
+    || warehouseKind === 'places'
   const isEditing = !!subContainer
   const create = useCreateWarehouseSubContainer()
   const update = useUpdateWarehouseSubContainer()
   const { data: divisions = [] } = useDivisions()
+  const { data: users = [] }     = useAllProfiles()
   const isPending = create.isPending || update.isPending
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', division_id: null },
+    defaultValues: { name: '', division_id: null, responsible_person_id: '' },
   })
 
   useEffect(() => {
@@ -77,33 +89,39 @@ export function SubContainerFormDialog({
       form.reset({
         name: subContainer.name,
         division_id: subContainer.division_id,
+        responsible_person_id: subContainer.responsible_person_profile_id ?? '',
       })
     } else {
       const defaultDivision =
-        warehouseIsVirtual
-          ? null
-          : divisions.length === 1
-            ? divisions[0].id
-            : null
-      form.reset({ name: '', division_id: defaultDivision })
+        showDivision
+          ? (divisions.length === 1 ? divisions[0].id : null)
+          : null
+      form.reset({ name: '', division_id: defaultDivision, responsible_person_id: '' })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, subContainer?.id, warehouseIsVirtual, divisions.length])
 
   async function onSubmit(values: FormValues) {
     try {
-      if (!warehouseIsVirtual && !values.division_id) {
-        toast.error('Division is required for real warehouses')
+      if (showDivision && !values.division_id) {
+        toast.error('Division is required')
         return
       }
+      const responsible = values.responsible_person_id ? values.responsible_person_id : null
       if (isEditing && subContainer) {
-        await update.mutateAsync({ id: subContainer.id, name: values.name })
+        await update.mutateAsync({
+          id:                            subContainer.id,
+          warehouse_id:                  warehouseId,
+          name:                          values.name,
+          responsible_person_profile_id: responsible,
+        })
         toast.success('Sub-container updated')
       } else {
         await create.mutateAsync({
           warehouse_id: warehouseId,
-          division_id: warehouseIsVirtual ? null : values.division_id,
+          division_id: showDivision ? values.division_id : null,
           name: values.name,
+          responsible_person_profile_id: responsible,
         })
         toast.success('Sub-container created')
       }
@@ -151,7 +169,7 @@ export function SubContainerFormDialog({
                 )}
               />
 
-              {!warehouseIsVirtual && (
+              {showDivision && (
                 <FormField
                   control={form.control}
                   name="division_id"
@@ -187,6 +205,38 @@ export function SubContainerFormDialog({
                   )}
                 />
               )}
+
+              <FormField
+                control={form.control}
+                name="responsible_person_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsible person</FormLabel>
+                    <Select
+                      value={field.value || 'none'}
+                      onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full h-9">
+                          <SelectValue placeholder="Unassigned" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value="none">Unassigned</SelectItem>
+                        {users.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.full_name?.trim() || u.email || 'Unnamed user'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      For Teams / Places subs, this person is the physical custodian who accepts inbound custody assigns and initiates returns.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <DialogFooter className="pt-4 border-t mt-0">

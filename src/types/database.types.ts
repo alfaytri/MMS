@@ -7420,6 +7420,23 @@ export type Database = {
           name: string
         }[]
       }
+      get_warehouse_sub_containers_admin: {
+        Args: { p_warehouse_id: string }
+        Returns: {
+          created_at: string
+          division_id: string
+          division_name: string
+          id: string
+          is_active: boolean
+          name: string
+          responsible_person_name: string
+          responsible_person_phone: string
+          responsible_person_profile_id: string
+          team_id: string
+          updated_at: string
+          warehouse_id: string
+        }[]
+      }
       has_admin_permission: { Args: never; Returns: boolean }
       has_inventory_manager_role: {
         Args: { p_profile_id: string }
@@ -7758,6 +7775,17 @@ export type Database = {
           p_kind: string
           p_name: string
           p_responsible_person_profile_id?: string
+        }
+        Returns: string
+      }
+      rpc_upsert_warehouse_sub_container: {
+        Args: {
+          p_division_id?: string
+          p_id?: string
+          p_is_active?: boolean
+          p_name: string
+          p_responsible_person_profile_id?: string
+          p_warehouse_id: string
         }
         Returns: string
       }

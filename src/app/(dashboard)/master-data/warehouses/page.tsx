@@ -65,7 +65,11 @@ function WarehousesPageInner() {
   //     historical repair activity in ledger views.
   // Show real warehouses + Repair, but hide Teams / Places — those have
   // their own admin pages under Master Data.
-  const { data: warehousesAll = [] } = useWarehouses({ includeVirtual: true, excludeKinds: ['teams', 'places'] })
+  // Show ALL warehouses (real + virtual: Repair, Teams, Places) so the
+  // consolidated Master Data → Warehouses admin surface can manage every
+  // sub-container in one place. Callers that need real-only warehouses
+  // (transfer picker, delivery picker, etc.) filter locally.
+  const { data: warehousesAll = [] } = useWarehouses({ includeVirtual: true })
   const warehouses = useMemo(
     () => warehousesAll.filter((w) => !w.is_virtual),
     [warehousesAll],

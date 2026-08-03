@@ -211,6 +211,7 @@ export default function WarehousesPage() {
                       warehouseId={wh.id}
                       warehouseName={wh.name}
                       warehouseIsVirtual={wh.is_virtual}
+                      warehouseKind={wh.warehouse_kind}
                     />
                   </CardContent>
                 )}

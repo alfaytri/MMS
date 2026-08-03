@@ -25,7 +25,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/master-data/customers',          permission: 'master_data.customers.view' },
   { pathPrefix: '/master-data/suppliers',          permission: 'master_data.suppliers.view' },
   { pathPrefix: '/master-data/inventory',          permission: 'master_data.inventory.view' },
-  { pathPrefix: '/master-data/teams',              permission: 'teams.view' },
   { pathPrefix: '/master-data/subscriptions',      permission: 'master_data.subscriptions.view' },
   { pathPrefix: '/master-data/credit-groups',      permission: 'master_data.admin.view' },
 

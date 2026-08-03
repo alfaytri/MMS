@@ -23,7 +23,12 @@ export function shortenSubContainerName(subName: string, warehouseName?: string 
 }
 
 export type WarehouseSubContainer = DBTable<'warehouse_sub_containers'> & {
-  division_name: string | null
+  division_name:               string | null
+  // Populated when the row comes from get_warehouse_sub_containers_admin.
+  // Null on the RLS-scoped useWarehouseSubContainers path (direct table
+  // select doesn't join user_data).
+  responsible_person_name?:    string | null
+  responsible_person_phone?:   string | null
 }
 
 export type ActiveSubContainerRow = {
@@ -131,6 +136,54 @@ export function useWarehouseSubContainers(warehouseId?: string | null) {
   })
 }
 
+/**
+ * Admin-scoped variant of useWarehouseSubContainers used by the Master
+ * Data → Warehouses page. Calls the SECURITY DEFINER RPC so the operator
+ * sees every sub regardless of their active_division_id, and receives
+ * the joined responsible-person name + phone in one shot.
+ *
+ * Do NOT use this hook for operator-facing pickers — they must remain
+ * RLS-scoped so a Maintenance operator doesn't see Kitchen subs.
+ */
+export function useWarehouseSubContainersAdmin(warehouseId?: string | null) {
+  return useQuery({
+    queryKey: ['warehouse-sub-containers', 'admin', warehouseId ?? null],
+    queryFn: async () => {
+      if (!warehouseId) return [] as WarehouseSubContainer[]
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_warehouse_sub_containers_admin', {
+        p_warehouse_id: warehouseId,
+      })
+      if (error) throw error
+      return (data ?? []).map((r): WarehouseSubContainer => ({
+        id:                              r.id,
+        warehouse_id:                    r.warehouse_id,
+        division_id:                     r.division_id,
+        division_name:                   r.division_name,
+        name:                            r.name,
+        is_active:                       r.is_active,
+        team_id:                         r.team_id,
+        responsible_person_profile_id:   r.responsible_person_profile_id,
+        responsible_person_name:         r.responsible_person_name,
+        responsible_person_phone:        r.responsible_person_phone,
+        created_at:                      r.created_at,
+        updated_at:                      r.updated_at,
+      }))
+    },
+    enabled: !!warehouseId,
+    staleTime: 60 * 1000,
+  })
+}
+
+// Postgres error codes we translate to friendlier messages for the sub-container upsert.
+function mapSubDbError(err: { code?: string; message?: string } | null | undefined): Error {
+  if (!err) return new Error('Unknown error')
+  if (err.code === '23505') {
+    return new Error('A sub-container with that name already exists in this warehouse.')
+  }
+  return new Error(err.message ?? 'Unknown error')
+}
+
 export function useCreateWarehouseSubContainer() {
   const qc = useQueryClient()
   return useMutation({
@@ -138,33 +191,34 @@ export function useCreateWarehouseSubContainer() {
       warehouse_id: string
       division_id: string | null
       name: string
+      responsible_person_profile_id?: string | null
     }) => {
       const supabase = createClient()
-      // The generated types were captured before Phase C.1's
-      // ALTER COLUMN division_id DROP NOT NULL, so they still forbid null on
-      // insert. At the DB level the trigger `_enforce_sub_container_division_rule`
-      // permits null only for virtual warehouses. Cast through the Insert type
-      // so callers can pass null when the parent warehouse is virtual.
-      const payload = values as unknown as DBInsert<'warehouse_sub_containers'>
-      const { data, error } = await supabase
-        .from('warehouse_sub_containers')
-        .insert(payload)
-        .select()
-        .single()
-      if (error) throw error
+      // Route through the SECURITY DEFINER upsert so admin can create subs
+      // across divisions from the consolidated Warehouses page.
+      const { data, error } = await supabase.rpc('rpc_upsert_warehouse_sub_container', {
+        p_warehouse_id: values.warehouse_id,
+        p_name:         values.name.trim(),
+        p_division_id:  values.division_id,
+        p_is_active:    true,
+        p_responsible_person_profile_id: values.responsible_person_profile_id ?? null,
+      })
+      if (error) throw mapSubDbError(error)
+      const newId = data as unknown as string
       void logActivity({
         action: 'Sub-container Created',
         module: 'warehouses',
-        entity_id: data.id,
+        entity_id: newId,
         entity_type: 'warehouse_sub_container',
-        new_data: data as unknown as Record<string, unknown>,
+        new_data: { warehouse_id: values.warehouse_id, name: values.name } as Record<string, unknown>,
       })
-      return data
+      return { id: newId, warehouse_id: values.warehouse_id }
     },
     onSuccess: (data) => {
       qc.invalidateQueries({
         queryKey: queryKeys.warehouseSubContainers.byWarehouse(data.warehouse_id),
       })
+      qc.invalidateQueries({ queryKey: ['warehouse-sub-containers', 'admin', data.warehouse_id] })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
     },
   })
@@ -174,37 +228,79 @@ export function useUpdateWarehouseSubContainer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...values }: {
-      id: string
-      name?: string
-      is_active?: boolean
+      id:                             string
+      warehouse_id:                   string
+      name?:                          string
+      division_id?:                   string | null
+      is_active?:                     boolean
+      responsible_person_profile_id?: string | null   // undefined = leave alone, null = clear
     }) => {
       const supabase = createClient()
-      const { data: old } = await supabase
+
+      // Resolve current values so the SECURITY DEFINER upsert always sees the
+      // full payload. Direct table read is RLS-scoped; if the caller's active
+      // division doesn't cover the sub, fall through to the admin RPC list
+      // instead.
+      let current: {
+        name: string
+        division_id: string | null
+        is_active: boolean
+        responsible_person_profile_id: string | null
+      } | null = null
+      const { data: directRow } = await supabase
         .from('warehouse_sub_containers')
-        .select('*')
+        .select('name, division_id, is_active, responsible_person_profile_id')
         .eq('id', id)
         .maybeSingle()
-      const { data, error } = await supabase
-        .from('warehouse_sub_containers')
-        .update(values)
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw error
+      if (directRow) {
+        current = directRow as typeof current
+      } else {
+        const { data: adminList } = await supabase.rpc('get_warehouse_sub_containers_admin', {
+          p_warehouse_id: values.warehouse_id,
+        })
+        const match = (adminList ?? []).find((r: { id: string }) => r.id === id)
+        if (match) {
+          current = {
+            name: match.name,
+            division_id: match.division_id,
+            is_active: match.is_active,
+            responsible_person_profile_id: match.responsible_person_profile_id,
+          }
+        }
+      }
+      if (!current) throw new Error('Sub-container not found')
+
+      const { data, error } = await supabase.rpc('rpc_upsert_warehouse_sub_container', {
+        p_warehouse_id: values.warehouse_id,
+        p_id:           id,
+        p_name:         (values.name ?? current.name).trim(),
+        p_division_id:  values.division_id ?? current.division_id,
+        p_is_active:    values.is_active   ?? current.is_active,
+        p_responsible_person_profile_id:
+          values.responsible_person_profile_id === undefined
+            ? current.responsible_person_profile_id
+            : values.responsible_person_profile_id,
+      })
+      if (error) throw mapSubDbError(error)
+
       void logActivity({
-        action: values.is_active === false ? 'Sub-container Deactivated' : 'Sub-container Updated',
+        action: values.is_active === false ? 'Sub-container Deactivated'
+              : values.is_active === true  ? 'Sub-container Reactivated'
+              : 'Sub-container Updated',
         module: 'warehouses',
         entity_id: id,
         entity_type: 'warehouse_sub_container',
-        old_data: old as unknown as Record<string, unknown> | null,
-        new_data: data as unknown as Record<string, unknown>,
+        old_data: current as unknown as Record<string, unknown>,
+        new_data: values as unknown as Record<string, unknown>,
       })
-      return data
+      return { id: (data as unknown as string) ?? id, warehouse_id: values.warehouse_id }
     },
     onSuccess: (data) => {
       qc.invalidateQueries({
         queryKey: queryKeys.warehouseSubContainers.byWarehouse(data.warehouse_id),
       })
+      qc.invalidateQueries({ queryKey: ['warehouse-sub-containers', 'admin', data.warehouse_id] })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
     },
   })
 }
@@ -213,8 +309,24 @@ export function useDeactivateWarehouseSubContainer() {
   const update = useUpdateWarehouseSubContainer()
   return {
     ...update,
-    mutate: (id: string, opts?: Parameters<typeof update.mutate>[1]) =>
-      update.mutate({ id, is_active: false }, opts),
-    mutateAsync: (id: string) => update.mutateAsync({ id, is_active: false }),
+    mutate: (
+      { id, warehouse_id }: { id: string; warehouse_id: string },
+      opts?: Parameters<typeof update.mutate>[1],
+    ) => update.mutate({ id, warehouse_id, is_active: false }, opts),
+    mutateAsync: ({ id, warehouse_id }: { id: string; warehouse_id: string }) =>
+      update.mutateAsync({ id, warehouse_id, is_active: false }),
+  }
+}
+
+export function useReactivateWarehouseSubContainer() {
+  const update = useUpdateWarehouseSubContainer()
+  return {
+    ...update,
+    mutate: (
+      { id, warehouse_id }: { id: string; warehouse_id: string },
+      opts?: Parameters<typeof update.mutate>[1],
+    ) => update.mutate({ id, warehouse_id, is_active: true }, opts),
+    mutateAsync: ({ id, warehouse_id }: { id: string; warehouse_id: string }) =>
+      update.mutateAsync({ id, warehouse_id, is_active: true }),
   }
 }

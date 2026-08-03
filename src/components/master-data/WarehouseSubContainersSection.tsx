@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Pencil, PowerOff, Package } from 'lucide-react'
+import { Plus, Pencil, Power, PowerOff, Package, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,8 +16,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  useWarehouseSubContainers,
+  useWarehouseSubContainersAdmin,
   useDeactivateWarehouseSubContainer,
+  useReactivateWarehouseSubContainer,
   type WarehouseSubContainer,
 } from '@/hooks/useWarehouseSubContainers'
 import { SubContainerFormDialog } from '@/components/master-data/SubContainerFormDialog'
@@ -26,32 +27,39 @@ interface Props {
   warehouseId: string
   warehouseName: string
   warehouseIsVirtual: boolean
+  warehouseKind?: string | null
 }
 
 export function WarehouseSubContainersSection({
   warehouseId,
   warehouseName,
   warehouseIsVirtual,
+  warehouseKind,
 }: Props) {
-  const { data: subs = [], isLoading } = useWarehouseSubContainers(warehouseId)
+  const { data: subs = [], isLoading } = useWarehouseSubContainersAdmin(warehouseId)
   const deactivate = useDeactivateWarehouseSubContainer()
+  const reactivate = useReactivateWarehouseSubContainer()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<WarehouseSubContainer | null>(null)
-  const [deactivateTarget, setDeactivateTarget] =
+  const [toggleTarget, setToggleTarget] =
     useState<WarehouseSubContainer | null>(null)
 
-  function handleDeactivate() {
-    if (!deactivateTarget) return
-    deactivate.mutateAsync(deactivateTarget.id).then(
-      () => {
-        toast.success(`"${deactivateTarget.name}" deactivated`)
-        setDeactivateTarget(null)
-      },
-      (err: Error) => {
-        toast.error(err.message)
-        setDeactivateTarget(null)
-      },
-    )
+  function handleConfirmToggle() {
+    if (!toggleTarget) return
+    const isActive = toggleTarget.is_active
+    const runner = isActive ? deactivate : reactivate
+    runner
+      .mutateAsync({ id: toggleTarget.id, warehouse_id: warehouseId })
+      .then(
+        () => {
+          toast.success(`"${toggleTarget.name}" ${isActive ? 'deactivated' : 'reactivated'}`)
+          setToggleTarget(null)
+        },
+        (err: Error) => {
+          toast.error(err.message)
+          setToggleTarget(null)
+        },
+      )
   }
 
   return (
@@ -89,28 +97,44 @@ export function WarehouseSubContainersSection({
           {subs.map((sc) => (
             <div
               key={sc.id}
-              className={`flex items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-xs bg-background border ${
+              className={`flex items-start justify-between gap-2 rounded-sm px-2 py-1.5 text-xs bg-background border ${
                 sc.is_active ? '' : 'opacity-60'
               }`}
             >
-              <div className="flex-1 min-w-0 flex items-center gap-2">
-                <span className="font-medium truncate">{sc.name}</span>
-                {sc.division_name ? (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
-                    {sc.division_name}
-                  </Badge>
-                ) : warehouseIsVirtual ? (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
-                    Virtual (no division)
-                  </Badge>
-                ) : null}
-                {!sc.is_active && (
-                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5 flex-shrink-0">
-                    Inactive
-                  </Badge>
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium truncate">{sc.name}</span>
+                  {sc.division_name ? (
+                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                      {sc.division_name}
+                    </Badge>
+                  ) : warehouseIsVirtual ? (
+                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                      Virtual (no division)
+                    </Badge>
+                  ) : null}
+                  {!sc.is_active && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 flex-shrink-0">
+                      Inactive
+                    </Badge>
+                  )}
+                </div>
+                {sc.responsible_person_name ? (
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <UserRound className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{sc.responsible_person_name}</span>
+                    {sc.responsible_person_phone && (
+                      <span className="text-[10px]">· {sc.responsible_person_phone}</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground italic">
+                    <UserRound className="h-3 w-3 shrink-0" />
+                    <span>Unassigned</span>
+                  </div>
                 )}
               </div>
-              <div className="flex gap-0.5 flex-shrink-0">
+              <div className="flex gap-0.5 flex-shrink-0 pt-0.5">
                 <Button
                   size="icon"
                   variant="ghost"
@@ -123,17 +147,15 @@ export function WarehouseSubContainersSection({
                 >
                   <Pencil className="h-3 w-3" />
                 </Button>
-                {sc.is_active && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-destructive hover:text-destructive"
-                    aria-label="Deactivate sub-container"
-                    onClick={() => setDeactivateTarget(sc)}
-                  >
-                    <PowerOff className="h-3 w-3" />
-                  </Button>
-                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={`h-6 w-6 ${sc.is_active ? 'text-destructive hover:text-destructive' : 'text-primary hover:text-primary'}`}
+                  aria-label={sc.is_active ? 'Deactivate sub-container' : 'Reactivate sub-container'}
+                  onClick={() => setToggleTarget(sc)}
+                >
+                  {sc.is_active ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
+                </Button>
               </div>
             </div>
           ))}
@@ -149,30 +171,43 @@ export function WarehouseSubContainersSection({
         warehouseId={warehouseId}
         warehouseName={warehouseName}
         warehouseIsVirtual={warehouseIsVirtual}
+        warehouseKind={warehouseKind}
         subContainer={editing}
       />
 
       <AlertDialog
-        open={!!deactivateTarget}
-        onOpenChange={(open) => !open && setDeactivateTarget(null)}
+        open={!!toggleTarget}
+        onOpenChange={(open) => !open && setToggleTarget(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate sub-container?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {toggleTarget?.is_active ? 'Deactivate' : 'Reactivate'} sub-container?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This marks <strong>{deactivateTarget?.name}</strong> as inactive.
-              Existing stock rows keep pointing to it (deactivation does not delete),
-              but operators will no longer be able to route new stock into it.
-              You can reactivate later by editing the sub-container.
+              {toggleTarget?.is_active ? (
+                <>
+                  This marks <strong>{toggleTarget?.name}</strong> as inactive.
+                  Existing stock rows keep pointing to it (deactivation does not delete),
+                  but operators will no longer be able to route new stock into it.
+                  You can reactivate later.
+                </>
+              ) : (
+                <>
+                  This makes <strong>{toggleTarget?.name}</strong> active again.
+                  Operators will be able to route new stock into it from pickers.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deactivate.isPending || reactivate.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDeactivate}
+              className={toggleTarget?.is_active ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+              onClick={handleConfirmToggle}
+              disabled={deactivate.isPending || reactivate.isPending}
             >
-              Deactivate
+              {(deactivate.isPending || reactivate.isPending) ? 'Saving…' : (toggleTarget?.is_active ? 'Deactivate' : 'Reactivate')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
