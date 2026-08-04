@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Storage audit deferred 3E — dirty-guard rollout to remaining form dialogs**. Adding `useDirtyDialogGuard` wire-in across the ~24 RHF-based and ~20 useState-based form dialogs that still don't prompt on cancel / click-outside / Escape. Working in batches by module. Read-only detail dialogs, single-action confirm dialogs, and tab containers are out of scope.
+🚀 Starting: **3E dirty-guard batch — 4 purchase dialogs (BillFormDialog, CreateBillFromPODialog, ReceivalFormDialog, ReplacementReceivalDialog)**. All 4 are useState-based; retrofit via `GuardedDialog` wrapper following §2D recipe. Continues the 27/44 rollout (17 dialogs remain after this batch).
 
 ---
 
