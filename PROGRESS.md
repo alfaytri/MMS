@@ -268,6 +268,10 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Storage audit deferred 3E — dirty-guard rollout to remaining form dialogs**. Adding `useDirtyDialogGuard` wire-in across the ~24 RHF-based and ~20 useState-based form dialogs that still don't prompt on cancel / click-outside / Escape. Working in batches by module. Read-only detail dialogs, single-action confirm dialogs, and tab containers are out of scope.
+
+---
+
 Deferred storage-audit items 3A + 3B + 3C closed and verified on `deploy/warehouse-shipping`. Remaining: 3D (PDF-bucket privatization — 6 buckets, 5 generators) and 3E (dirty-guard on remaining 67 form dialogs). 3C's staging Vault secret was created 2026-08-04 20:34 UTC (secret id `92e8d33a-8c3d-4a6d-ac95-2bf9e008f4a6`, key_length 219) and end-to-end verified by the operator against 5 trigger groups — inventory item photo replace ✓, company logo replace ✓, landed-cost bill replace ✓, customer credit-doc replace ✓, direct helper smoke on `division-assets` ✓; `storage_cleanup_failures` stayed empty across every test. Prod cutover still needs the same one-line `vault.create_secret` call with prod's service-role key and a base-URL patch — see [docs/ops/storage-cascade-vault-bootstrap.md](docs/ops/storage-cascade-vault-bootstrap.md). Follow-up spawned separately: 4 pre-existing SECURITY DEFINER views flagged by the Supabase linter (`warehouse_sub_container_totals`, `sale_order_lines_summary`, `return_line_progress`, `return_progress`) — belongs on the operator's board, not on this branch.
 
 ---
