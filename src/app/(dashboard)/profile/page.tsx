@@ -41,6 +41,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient()
 
   const [uploading, setUploading] = useState(false)
+  const [freshAvatarUrl, setFreshAvatarUrl] = useState<string | null>(null)
   const [showCurrent, setShowCurrent] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -122,8 +123,13 @@ export default function ProfilePage() {
 
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath)
 
-      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`
-      await updateProfile.mutateAsync({ id: profile.id, avatar_url: avatarUrl })
+      // Path is deterministic + upsert=true, so the URL stays the same
+      // across uploads. Bust the cache with ?t= so TopNav / other viewers
+      // pick up the new bytes on next fetch. `freshAvatarUrl` overrides
+      // the display in this tab immediately.
+      const bustedUrl = `${urlData.publicUrl}?t=${Date.now()}`
+      await updateProfile.mutateAsync({ id: profile.id, avatar_url: bustedUrl })
+      setFreshAvatarUrl(bustedUrl)
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.my })
       toast.success('Photo updated')
     } catch (err) {
@@ -173,8 +179,8 @@ export default function ProfilePage() {
           <CardContent className="flex flex-col items-center pt-8 pb-6 space-y-4">
             <div className="relative group">
               <Avatar className="h-28 w-28">
-                {profile.avatar_url && (
-                  <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
+                {(freshAvatarUrl ?? profile.avatar_url) && (
+                  <AvatarImage src={freshAvatarUrl ?? profile.avatar_url ?? undefined} alt={profile.full_name} />
                 )}
                 <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
                   {initials}

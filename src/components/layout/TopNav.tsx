@@ -19,15 +19,17 @@ export async function TopNav() {
         .single()
     : { data: null }
 
-  // Brand string comes from the primary companies row (alphabetically first)
-  // so renaming the company in Master Data → Companies updates everywhere.
+  // Brand string + logo come from the primary companies row (alphabetically
+  // first) so renaming/re-logoing the company in Master Data → Companies
+  // updates everywhere.
   const { data: primaryCompany } = await supabase
     .from('companies')
-    .select('name_en')
+    .select('name_en, logo_url')
     .order('name_en')
     .limit(1)
     .maybeSingle()
   const brandName = primaryCompany?.name_en ?? ''
+  const brandLogo = primaryCompany?.logo_url ?? null
 
   return (
     <header className="sticky top-0 z-50 h-14 bg-background border-b border-border">
@@ -38,7 +40,16 @@ export async function TopNav() {
           href="/"
           className="flex items-center gap-2 text-primary font-bold lg:mr-4 shrink-0"
         >
-          <Wrench className="h-5 w-5" />
+          {brandLogo ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={brandLogo}
+              alt={brandName || 'Company logo'}
+              className="h-6 w-6 object-contain rounded-sm"
+            />
+          ) : (
+            <Wrench className="h-5 w-5" />
+          )}
           <span className="text-sm">{brandName}</span>
         </Link>
 
