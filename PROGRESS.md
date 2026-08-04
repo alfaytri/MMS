@@ -265,6 +265,10 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Category Attributes + 3-state Permission Split Task 0.1 — useHas{View,Create,Edit}Permission helpers** (branch `feature/category-attributes`). Plan: [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md).
+
+---
+
 ✅ **`feature/field-inventory-and-consumption` branch complete — ready to merge to `develop`.** Task 11 (4-point security audit for Teams+Places+Consumption + Item Photos) passed all five checks (Secrets / RLS / Auth Gate / Error Handling / Layout Stability) — logged in the Security Audit Log below. Nothing else queued on this branch. Next candidate: merge → `develop`, then pick next feature branch.
 
 **Deferred (from Teams+Places+Consumption plan):**
