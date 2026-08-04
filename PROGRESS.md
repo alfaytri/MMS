@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **3E dirty-guard batch — 4 purchase dialogs (BillFormDialog, CreateBillFromPODialog, ReceivalFormDialog, ReplacementReceivalDialog)**. All 4 are useState-based; retrofit via `GuardedDialog` wrapper following §2D recipe. Continues the 27/44 rollout (17 dialogs remain after this batch).
+✅ **3E dirty-guard rollout complete** on `deploy/warehouse-shipping`. 27 dialogs guarded across the prior session + 13 more this session = **40 form dialogs total**. This session added: 4 purchase (BillFormDialog, CreateBillFromPODialog, ReceivalFormDialog, ReplacementReceivalDialog) + RequestEditDialog, InventoryReceivalDialog (RHF), WhInventoryCheckStartDialog, WhTransferDialog, CustodyAssignDialog, CustodyReturnDialog, BrandVariantEditDialog, ToolAssetItemEditDialog + ToolAssetUnitEditDialog, InventoryImportDialog. Also fixed a latent bug in `GuardedDialog`: its imperative handle now exposes `requestClose` alongside `closeAfterSubmit`, so Cancel buttons in the prior useState-based batches (CreditNoteFormDialog, CompleteInspectionDialog, and the 8 warehouse-ops / sales / finance dialogs shipped 2026-08-05) actually route through the guard instead of being no-ops. **Remaining:** only `src/components/invoices/CreditNoteDialog.tsx` (needs an `<AlertDialog>` → `<Dialog>` conversion or a new `GuardedAlertDialog` sibling — separate task). Ready for operator smoke: verify each guarded dialog per §5.4 of the handover (open → touch → click outside → prompt appears → Discard clears / Keep editing preserves).
 
 ---
 
