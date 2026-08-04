@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Gift, Plus, Trash2 } from 'lucide-react'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +12,10 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
@@ -72,9 +74,6 @@ function formatResolutions(mix: Record<string, number> | null): string {
   return parts.length === 0 ? '—' : parts.join(' · ')
 }
 
-// Phase 7 — user-selectable "no disposition" sentinel (kept out of the RPC
-// contract; local state only). Damaged lines start on 'write_off' when there
-// are inventory remaining units, and default to 'none' otherwise.
 type DispositionChoice = ReturnDispositionType | 'none'
 
 const DISPOSITION_OPTIONS: Array<{
@@ -100,6 +99,10 @@ export function ReplacementDeliveryDialog({
   const [giftItems, setGiftItems] = useState<GiftItem[]>([])
   const [pickerValue, setPickerValue] = useState<InventoryLookupResult | null>(null)
   const [showPicker, setShowPicker] = useState(false)
+  const [initialQtyByLineId, setInitialQtyByLineId] = useState<Record<string, number>>({})
+  const [initialDispositionByLineId, setInitialDispositionByLineId] = useState<Record<string, DispositionChoice>>({})
+  const [initialDispositionQtyByLineId, setInitialDispositionQtyByLineId] = useState<Record<string, number>>({})
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: warehouses = [] } = useWarehouses()
   const { data: lineProgress = [], isLoading: progressLoading } = useReturnLineProgress(
@@ -110,19 +113,11 @@ export function ReplacementDeliveryDialog({
     return lineProgress
       .slice()
       .sort((a, b) => {
-        // Good first, damaged last, everything else in between — mirrors
-        // the operator's usual flow (replace what you can, then decide
-        // what to do with what you can't).
         const order = (c: string) => (c === 'good' ? 0 : c === 'damaged' ? 2 : 1)
         return order(a.condition) - order(b.condition) || a.item_name.localeCompare(b.item_name)
       })
   }, [lineProgress])
 
-  // Pre-fill:
-  //   - Good rows: default replace qty = customer_remaining_qty.
-  //   - Damaged rows: default replace qty = 0 (operator opts in), plus
-  //     default disposition = 'write_off' if any inventory remaining,
-  //     otherwise 'none'; default disposition qty = inventory remaining.
   useEffect(() => {
     if (!open) return
     const nextReplace:     Record<string, number> = {}
@@ -133,9 +128,6 @@ export function ReplacementDeliveryDialog({
       if (p.condition === 'good' && p.customer_remaining_qty > 0) {
         nextReplace[p.return_line_id] = p.customer_remaining_qty
       } else {
-        // Damaged rows: leave at 0 so the operator makes a deliberate
-        // choice to send a replacement for a damaged unit (as opposed to
-        // refund/store credit through the CN).
         nextReplace[p.return_line_id] = 0
       }
       if (p.condition === 'damaged') {
@@ -149,13 +141,12 @@ export function ReplacementDeliveryDialog({
     setQtyByLineId(nextReplace)
     setDispositionByLineId(nextDisposition)
     setDispositionQtyByLineId(nextDispQty)
+    setInitialQtyByLineId(nextReplace)
+    setInitialDispositionByLineId(nextDisposition)
+    setInitialDispositionQtyByLineId(nextDispQty)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, lineProgress.length])
 
-  // Auto-default source warehouse to the return's original delivery warehouse
-  // (derived from return_lines[].sale_delivery_line_id — D.4.b). Falls back to
-  // legacy restock_warehouse_id for pre-D.4.b returns. Still editable — the
-  // operator can send replacement from a different stock location.
   const sdlByReturnLineId = useMemo(() => {
     const map = new Map<string, string>()
     for (const l of returnData.return_lines ?? []) {
@@ -170,17 +161,16 @@ export function ReplacementDeliveryDialog({
   )
   const { data: sourceMaps } = useReturnLineSources([], returnLineSdlIds, returnData.id)
 
+  const [initialWarehouseId, setInitialWarehouseId] = useState('')
   useEffect(() => {
     if (!open) return
     const firstSdl = returnLineSdlIds[0]
     const derived = firstSdl ? sourceMaps?.delivery.get(firstSdl)?.warehouseId : undefined
-    if (derived) {
-      setWarehouseId(derived)
-    } else if (returnData.restock_warehouse_id) {
-      setWarehouseId(returnData.restock_warehouse_id)
-    } else {
-      setWarehouseId('')
-    }
+    let next = ''
+    if (derived) next = derived
+    else if (returnData.restock_warehouse_id) next = returnData.restock_warehouse_id
+    setWarehouseId(next)
+    setInitialWarehouseId(next)
   }, [open, returnLineSdlIds, sourceMaps, returnData.restock_warehouse_id])
 
   const hasDamagedRemaining = useMemo(
@@ -220,11 +210,6 @@ export function ReplacementDeliveryDialog({
     [rows],
   )
 
-  // Scope the stock chip to the picked replacement warehouse's sub-container
-  // when it can be resolved unambiguously (single active sub). Multi-sub
-  // warehouses fall back to the aggregated warehouse total — replacement is
-  // deliberately operator-choice for the source, so we don't try to force a
-  // sub-container derivation from return context.
   const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
   const resolvedSubContainerId = useMemo(() => {
     if (!warehouseId) return null
@@ -253,6 +238,28 @@ export function ReplacementDeliveryDialog({
   const canSubmit = (totalReplacementQty > 0 || totalDispositionQty > 0) && !anyShort
   const needsWarehouse = totalReplacementQty > 0 || totalDispositionQty > 0
 
+  // Dirty when warehouse changed from its auto-derived default, any qty /
+  // disposition drifted from the auto-seeded initial, or gifts were added.
+  function mapDiffers(a: Record<string, number>, b: Record<string, number>) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+    for (const k of keys) if ((a[k] ?? 0) !== (b[k] ?? 0)) return true
+    return false
+  }
+  function choiceMapDiffers(
+    a: Record<string, DispositionChoice>,
+    b: Record<string, DispositionChoice>,
+  ) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+    for (const k of keys) if ((a[k] ?? 'none') !== (b[k] ?? 'none')) return true
+    return false
+  }
+  const isDirty =
+    warehouseId !== initialWarehouseId ||
+    giftItems.length > 0 ||
+    mapDiffers(qtyByLineId, initialQtyByLineId) ||
+    mapDiffers(dispositionQtyByLineId, initialDispositionQtyByLineId) ||
+    choiceMapDiffers(dispositionByLineId, initialDispositionByLineId)
+
   const sendLabel = useMemo(() => {
     if (totalReplacementQty === 0 && totalDispositionQty > 0) {
       return `Book ${totalDispositionQty} disposition${totalDispositionQty === 1 ? '' : 's'}`
@@ -271,8 +278,6 @@ export function ReplacementDeliveryDialog({
 
   function setDispositionChoice(returnLineId: string, choice: DispositionChoice, invRemaining: number) {
     setDispositionByLineId((prev) => ({ ...prev, [returnLineId]: choice }))
-    // Reset the qty to invRemaining when switching AWAY from 'none', or to 0
-    // when switching TO 'none'.
     setDispositionQtyByLineId((prev) => ({
       ...prev,
       [returnLineId]: choice === 'none' ? 0 : invRemaining,
@@ -312,7 +317,7 @@ export function ReplacementDeliveryDialog({
     setGiftItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  function handleClose(nextOpen: boolean) {
+  function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       setWarehouseId('')
       setGiftItems([])
@@ -345,7 +350,7 @@ export function ReplacementDeliveryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none max-w-none flex flex-col md:h-auto md:max-h-[90vh] md:w-full md:max-w-4xl md:rounded-lg">
         <DialogHeader>
           <DialogTitle>Send Replacement — {returnData.return_number}</DialogTitle>
@@ -401,9 +406,6 @@ export function ReplacementDeliveryDialog({
 
                     const currentDisposition = dispositionByLineId[r.return_line_id] ?? 'none'
                     const currentDispQty     = dispositionQtyByLineId[r.return_line_id] ?? 0
-                    // Damaged rows show BOTH dimensions when they differ, so
-                    // the operator can see at a glance whether a written-off
-                    // damaged unit still owes the customer a resolution.
                     const showBothDimensions = isDamaged && (custRemaining !== invRemaining)
 
                     return (
@@ -718,7 +720,7 @@ export function ReplacementDeliveryDialog({
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => handleClose(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
             <Button
               disabled={!canSubmit || (needsWarehouse && !warehouseId) || isPending}
               onClick={handleSubmit}
@@ -728,6 +730,6 @@ export function ReplacementDeliveryDialog({
           </div>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

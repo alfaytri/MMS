@@ -1,15 +1,19 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateDelivery, type SaleOrder, type SOLineItem } from '@/hooks/useSaleOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
@@ -40,13 +44,11 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
 
   const [warehouseId, setWarehouseId] = useState('')
   const [subContainerId, setSubContainerId] = useState<string>('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const initialDate = new Date().toISOString().split('T')[0]
+  const [date, setDate] = useState(initialDate)
   const [qtys, setQtys] = useState<Record<string, number>>({})
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
-  // Phase D.12 Task 5 — sub-container options for the picked warehouse via a
-  // SECURITY DEFINER RPC that bypasses the division-scoped RLS on
-  // warehouse_sub_containers, so a Kitchen operator can see Maintenance's
-  // sub-containers when picking Maintenance's warehouse for a shared item.
   const { data: subContainers = [] } = useQuery({
     queryKey: ['sub-containers-by-warehouse', warehouseId || null],
     enabled: !!warehouseId,
@@ -71,19 +73,8 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
     [subContainers],
   )
 
-  // Phase D.12 Task 5 — before a sub-container is picked, show per-warehouse
-  // totals so the operator can see WHERE stock lives (including cross-division
-  // shared pools). Once a sub-container is picked (or auto-picked for the
-  // single-sub warehouses), narrow the badge to that sub-container's qty so
-  // the delivered quantity reflects what's actually available in the chosen
-  // physical location.
   const { data: whStockMap } = useWarehouseStockByItems(bvIds, subContainerId || null)
 
-  // Phase D.12 Task 5 — the warehouses table has division-scoped RLS, so
-  // Kitchen's useWarehouses() list won't include the Maintenance warehouse
-  // where shared Split AC stock lives. useWarehouseStockByItems already
-  // enriches each stock entry with warehouse_name via a SECURITY DEFINER
-  // lookup, so we can just harvest the extras straight from whStockMap.
   const warehouseOptions = useMemo(() => {
     const byId = new Map<string, { id: string; name: string }>()
     if (Array.isArray(warehouses)) {
@@ -108,7 +99,6 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
     }
   }, [open])
 
-  // Reset sub-container on warehouse change; auto-pick when there's only one.
   useEffect(() => {
     setSubContainerId((prev) => {
       if (!warehouseId) return ''
@@ -117,6 +107,15 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
       return ''
     })
   }, [warehouseId, activeSubContainers])
+
+  // Dirty when the operator picks a warehouse, edits any qty, or changes the
+  // date. Sub-container auto-selects for single-sub warehouses so we treat
+  // manual multi-sub picks as dirty via the warehouseId branch.
+  const anyQty = Object.values(qtys).some((n) => n > 0)
+  const isDirty =
+    warehouseId !== '' ||
+    date !== initialDate ||
+    anyQty
 
   function maxDeliverable(line: SOLineItem): number {
     return Math.max(0, line.qty - line.delivered_qty)
@@ -153,7 +152,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
       {
         onSuccess: () => {
           toast.success('Delivery created')
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
           setQtys({})
         },
         onError: (err) => toast.error(err.message),
@@ -162,7 +161,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg max-h-[90vh] flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle>Create Delivery — {so.so_number}</DialogTitle>
@@ -191,8 +190,6 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
             </div>
           </div>
 
-          {/* Sub-container picker — required when the picked warehouse has more
-              than one active sub-container. Phase D.12 Task 5. */}
           {warehouseId && activeSubContainers.length > 0 && (
             <div className="space-y-1">
               <Label htmlFor="delivery-sub-container">
@@ -302,7 +299,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
         </div>
 
         <DialogFooter className="shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={createDelivery.isPending}>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={createDelivery.isPending}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={createDelivery.isPending}>
@@ -310,6 +307,6 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

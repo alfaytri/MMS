@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -13,6 +13,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { PaymentConfirmationDialog } from '@/components/shared/PaymentConfirmationDialog'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 
 function formatWithCommas(value: string | number): string {
   const str = String(value)
@@ -43,7 +47,7 @@ function FormattedAmountInput({
     if (numDisplay !== Number(value)) {
       setDisplayValue(formatWithCommas(Number(value).toFixed(2)))
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- sync pattern: runs on external value change only; adding displayValue would create infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
   return (
@@ -107,16 +111,8 @@ interface PaymentFormDialogProps {
   totalAmount: number
   paidAmount: number
   showExchangeRate?: boolean
-  /** Rendered between the payment summary and the amount input. Used to
-   *  surface e.g. an "Apply store credit" panel above the cash inputs. */
   headerSlot?: React.ReactNode
-  /** When set, further constrains the max amount the form allows below the
-   *  natural outstanding. Used when part of the invoice is being paid by a
-   *  separate flow (store credit) inside the same submit. */
   outstandingOverride?: number
-  /** Extra rows prepended to the confirmation dialog (e.g. "Store Credit" +
-   *  amount). Parent supplies these so the confirm step reflects the full
-   *  transaction, not just the cash portion. */
   extraConfirmationLines?: { label: string; value: string }[]
 }
 
@@ -144,11 +140,6 @@ export function PaymentFormDialog({
     : rawOutstanding
   const progressPct = totalAmount > 0 ? Math.min(100, (paidAmount / totalAmount) * 100) : 0
 
-  // Allow amount = 0 whenever a parent flow (store credit) is contributing
-  // to the payment — the credit redemption on its own is a valid submission,
-  // even when it only covers part of the outstanding. The submit button is
-  // still gated on rawOutstanding > 0, and the parent's own credit-applied
-  // amount is what makes the submission meaningful.
   const allowZeroAmount = outstandingOverride !== undefined && outstandingOverride < rawOutstanding
   const paymentSchema = z.object({
     amount: allowZeroAmount
@@ -180,20 +171,17 @@ export function PaymentFormDialog({
     resolver: zodResolver(paymentSchema) as never,
     defaultValues: freshDefaults(),
   })
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     if (open) form.reset(freshDefaults())
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- dialog-reset pattern: runs on open only; freshDefaults is an inline function
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  // Auto-sync the amount when the parent lowers outstandingOverride (e.g. the
-  // user toggles "Apply store credit"). Snap amount to the new remaining so
-  // the user isn't stuck fixing a stale value. Only fires while the dialog
-  // is open, and only when the override actually changes.
   useEffect(() => {
     if (!open || outstandingOverride === undefined) return
     form.setValue('amount', Number(outstanding.toFixed(2)), { shouldValidate: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only re-sync on override change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outstandingOverride, open])
 
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -218,6 +206,7 @@ export function PaymentFormDialog({
     onSubmit(pendingValues)
     setConfirmOpen(false)
     setPendingValues(null)
+    guardRef.current?.closeAfterSubmit()
   }
 
   if (confirmOpen && pendingValues) {
@@ -251,7 +240,7 @@ export function PaymentFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -259,9 +248,7 @@ export function PaymentFormDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col min-h-0">
-            {/* Scrollable body */}
             <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0 space-y-4 px-0.5 pb-1">
-              {/* Payment Summary Header */}
               <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
                 <div className="flex flex-wrap justify-between text-sm gap-x-4 gap-y-1">
                   <span className="whitespace-nowrap">Total: <span className="font-semibold">{currency} {totalAmount.toLocaleString('en', { minimumFractionDigits: 2 })}</span></span>
@@ -287,7 +274,6 @@ export function PaymentFormDialog({
 
               {headerSlot}
 
-              {/* Row 1: Amount + Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="amount" render={({ field }) => (
                   <FormattedAmountInput
@@ -295,7 +281,7 @@ export function PaymentFormDialog({
                     onChange={field.onChange}
                     currency={currency}
                     outstanding={outstanding}
-                    onPayFull={() => form.setValue('amount', Number(outstanding.toFixed(2)))}
+                    onPayFull={() => form.setValue('amount', Number(outstanding.toFixed(2)), { shouldDirty: true })}
                   />
                 )} />
 
@@ -310,7 +296,6 @@ export function PaymentFormDialog({
                 )} />
               </div>
 
-              {/* Row 2: Exchange Rate (PO only) */}
               {showExchangeRate && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField control={form.control} name="exchange_rate" render={({ field }) => (
@@ -332,9 +317,6 @@ export function PaymentFormDialog({
                 </div>
               )}
 
-              {/* Row 3: Method + Reference — hidden when amount = 0 (the whole
-                  invoice is being paid via credit or another parent flow, so
-                  a cash-side method would just confuse users). */}
               {watchedAmount > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField control={form.control} name="method" render={({ field }) => (
@@ -367,7 +349,6 @@ export function PaymentFormDialog({
                 </div>
               )}
 
-              {/* Row 4: Notes */}
               <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
@@ -378,15 +359,10 @@ export function PaymentFormDialog({
               )} />
             </div>
 
-            {/* Sticky footer — outside scrollable area */}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+              <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={isPending}>
                 Cancel
               </Button>
-              {/* Gate on the RAW outstanding, not the credit-adjusted one —
-                  when store credit covers the full remaining, the amount input
-                  legitimately goes to 0 but the submit still needs to fire
-                  (so the credit redemption records). */}
               <Button type="submit" disabled={isPending || rawOutstanding <= 0}>
                 {isPending ? 'Recording…' : 'Record Payment'}
               </Button>
@@ -394,6 +370,6 @@ export function PaymentFormDialog({
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }

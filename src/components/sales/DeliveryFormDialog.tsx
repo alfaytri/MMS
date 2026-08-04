@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Package } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCompleteDelivery, type SaleDelivery, type DeliveryItem } from '@/hooks/useSaleDeliveries'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
@@ -30,10 +34,12 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
   const { data: invoices } = useCustomerInvoices()
   const { data: orders } = useSaleOrders()
 
-  const [warehouseId, setWarehouseId] = useState(delivery.warehouse_id ?? '')
+  const initialWarehouseId = delivery.warehouse_id ?? ''
+  const [warehouseId, setWarehouseId] = useState(initialWarehouseId)
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [lines, setLines] = useState<DraftLine[]>([])
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const so = (orders ?? []).find((o) => o.id === delivery.sale_order_id)
   const linkedInvoice = (invoices ?? []).find((inv) => inv.sale_order_id === delivery.sale_order_id)
@@ -41,10 +47,6 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
 
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
 
-  // Phase D.12 Task 5 — widen the sub-container filter when every delivered
-  // line's item is shared to the SO's division. In that case the RPC accepts
-  // a sub-container from any division (Kitchen sells shared Maintenance
-  // stock; COGS still books to Kitchen via consumer_division_id).
   const lineVariantIds = useMemo(() => {
     const ids = new Set<string>()
     const items = (delivery.sale_delivery_lines as DeliveryItem[]) ?? []
@@ -84,6 +86,13 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
     )
   }, [delivery, so])
 
+  // Dirty when the operator changes the warehouse, picks a sub-container that
+  // wasn't auto-selected, or edits any delivered qty from its initial value.
+  const isDirty =
+    warehouseId !== initialWarehouseId ||
+    (eligibleSubs.length > 1 && subContainerId !== null) ||
+    lines.some((l) => l.delivered_qty_input !== (l.qty_delivered ?? 0))
+
   const submit = async () => {
     if (!warehouseId) { toast.error('Select a warehouse'); return }
     if (eligibleSubs.length === 0) {
@@ -112,7 +121,7 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
         remainingItems,
       })
       toast.success('Delivery completed')
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
       toast.error((err as Error).message)
     } finally {
@@ -121,7 +130,7 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{delivery.delivery_number} — Complete Delivery</DialogTitle>
@@ -216,12 +225,12 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button onClick={submit} disabled={saving}>
             {saving ? 'Completing…' : 'Mark as Delivered'}
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }
