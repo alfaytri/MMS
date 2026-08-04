@@ -726,6 +726,51 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useBatchUpdateSellingPrices`](src/hooks/useInventory.ts)
 - **RPC:** `batch_update_variant_prices`
 
+### Manage Category Attribute Definitions & Options
+
+- **Module:** Master Data · Inventory · Attributes
+- **Status:** Active
+- **Trigger surface(s):** `/master-data/inventory` → any category row → Tags icon → `CategoryAttributesDialog`.
+- **Primary hook(s):** [`useUpsertAttributeDefinition`, `useDeleteAttributeDefinition`, `useUpsertAttributeOption`, `useDeleteAttributeOption`](src/hooks/useAttributes.ts)
+- **RPC(s):** none — direct upserts against `inventory_attribute_definitions` + `inventory_attribute_options`. Read helpers via `get_effective_attributes(p_category_id)` RPC (walks category + ancestors, `is_inherited` flag).
+- **Ledger writes:** none. Master-data tables only.
+- **Downstream side-effects:** invalidates `queryKeys.attributes.definitionsForCategory` + `effectiveForCategory` + `optionsForDefinition` + `attributes.all`. Attributes defined on a parent inherit down to descendants.
+- **Dialog / component:** [`CategoryAttributesDialog`](src/components/master-data/attributes/CategoryAttributesDialog.tsx) → [`AttributesTab`](src/components/master-data/attributes/AttributesTab.tsx) → [`AttributeFormDialog`](src/components/master-data/attributes/AttributeFormDialog.tsx) + [`AttributeOptionsEditor`](src/components/master-data/attributes/AttributeOptionsEditor.tsx).
+- **Guards / preconditions:** `master_data.inventory.attributes.view` (list) / `.create` / `.edit`. Branch-uniqueness trigger enforces one `attribute_key` per top-level tree (depth cap 10). Option delete uses `ON DELETE RESTRICT` on `inventory_item_attributes.option_id` — archive-instead surfaced as toast.
+- **Related flows:** [[Set Item Attribute Values]], [[Filter Inventory by Attribute Chips]]
+- **Docs / plans:** [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md) §Phase 2.
+- **Notes:** Migrations `20260804120000` (definitions + branch-uniqueness trigger), `_120100` (options), `_120300` (`get_effective_attributes`). Trigger fix in `_123000` (alias-out-of-scope + depth=1 ancestor exclusion).
+
+### Set Item Attribute Values
+
+- **Module:** Master Data · Inventory
+- **Status:** Active
+- **Trigger surface(s):** `/master-data/inventory` → any leaf item → Edit → `ItemEditDialog` → "Attributes" section.
+- **Primary hook(s):** [`useItemAttributes`, `useUpsertItemAttributes`](src/hooks/useAttributes.ts)
+- **RPC(s):** none — plain upsert/delete on `inventory_item_attributes` keyed by `(item_id, definition_id)`.
+- **Ledger writes:** none. `inventory_item_attributes` rows only.
+- **Downstream side-effects:** invalidates `queryKeys.attributes.itemValues(itemId)` + `attributes.all`. Read-only [`AttributeChipStrip`](src/components/shared/AttributeChipStrip.tsx) rows under `ItemRow` refresh via the batched options loader.
+- **Dialog / component:** [`ItemAttributesSection`](src/components/master-data/attributes/ItemAttributesSection.tsx), rendered inside [`ItemEditDialog`](src/components/services/inventory/ItemEditDialog.tsx).
+- **Guards / preconditions:** `master_data.inventory.attributes.edit` (or `.create` on new items). Race-guard: propagation to parent form only after `useItemAttributes.isSuccess` — a mid-fetch Save no longer wipes existing rows.
+- **Related flows:** [[Manage Category Attribute Definitions & Options]], [[Filter Inventory by Attribute Chips]]
+- **Docs / plans:** [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md) §Phase 3.
+- **Notes:** Semantics = FULL desired state; `option_id: null` deletes the row. Options retained after archive so historically-picked values still display via `(archived)` suffix.
+
+### Filter Inventory by Attribute Chips
+
+- **Module:** Master Data · Inventory
+- **Status:** Active
+- **Trigger surface(s):** `/master-data/inventory` → expand any category with effective attributes → dropdown chip row appears (`TON: Any ▾`, `REFRIGERANT: Any ▾`, …).
+- **Primary hook(s):** [`useEffectiveAttributes`, `useAttributeOptionsBatch`, `useItemAttributesByCategory`, `useItemAttributesByCategories`](src/hooks/useAttributes.ts), [`useInventoryItemsByCategories`](src/hooks/useInventory.ts). Filter state is local per `CategoryRow` React state (not persisted).
+- **RPC(s):** `get_effective_attributes(p_category_id)` — walks category + ancestors so a definition on "AC Unit" surfaces at every AC descendant.
+- **Ledger writes:** none — read-side filter only.
+- **Downstream side-effects:** cascades to descendant `CategoryRow`s via `inheritedAttributeFilter` prop; descendants merge (own picks win on the same definition_id). Empty subtree branches pruned via `attributeVisibleCategoryIds` computed in the row that owns the filter picks.
+- **Dialog / component:** [`AttributeFilterBar`](src/components/shared/AttributeFilterBar.tsx) — dropdown chip with checkbox popover + `X` clear at end. Rendered inline under each expanded [`CategoryRow`](src/components/services/inventory/CategoryRow.tsx).
+- **Guards / preconditions:** none — read-only filter, respects RLS on `inventory_items` + `inventory_item_attributes`. Match semantics = STRICT: item passes if for every attribute with picks, its `option_id` is in the picked set (OR within attribute, AND across attributes). Untagged items excluded when any filter active.
+- **Related flows:** [[Set Item Attribute Values]], [[Manage Category Attribute Definitions & Options]]
+- **Docs / plans:** [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md) §Phase 4/5 (integration reshaped 2026-08-04 from a per-line guided picker to a per-category inline dropdown filter).
+- **Notes:** Deliberately NOT wired into SO / Consumption / Quotations line pickers — filtering adds value only in the tree browser where you cross many descendants at once. Guided picker + `ProductAttributePicker` component removed in same session.
+
 ### Create User (auth + profile + roles)
 - **Trigger:** `AddUserDialog`
 - **Hook:** [`useCreateUser`](src/hooks/useProfiles.ts) → `/api/users/create`
