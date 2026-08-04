@@ -14,6 +14,7 @@ import { BillDetailSection } from './BillDetailSection'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
+import { usePrimaryCompanyName } from '@/hooks/useCompanies'
 
 type Props = {
   viewModel: BillViewModel
@@ -45,6 +46,7 @@ export function BillDetailDocument({
   const watermark = getWatermark(bill)
   const [origin, setOrigin] = useState('')
   const [attachOpen, setAttachOpen] = useState(false)
+  const brandName = usePrimaryCompanyName()
 
   useEffect(() => {
     setOrigin(window.location.origin)
@@ -74,7 +76,7 @@ export function BillDetailDocument({
       <BillDetailSection>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold leading-tight">Al Faytri</h1>
+            <h1 className="text-xl font-bold leading-tight">{brandName}</h1>
           </div>
           <div className="text-right shrink-0">
             <h2 className="text-2xl font-bold" dir="rtl">فاتورة مشتريات</h2>
@@ -381,7 +383,7 @@ export function BillDetailDocument({
       {/* 12. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
-          Al Faytri
+          {brandName}
           {' · '}
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>
         </p>

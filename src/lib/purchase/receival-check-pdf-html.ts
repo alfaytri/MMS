@@ -168,7 +168,7 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<title>Al Faytri — Receival Check</title>
+<title>Receival Check</title>
 <style>
   ${fontFacesCss(fonts)}
   ${BASE_CSS}

@@ -30,6 +30,7 @@ import {
   removeConsumptionAttachment,
   type ConsumerType,
 } from '@/hooks/useConsumption'
+import { useCanCreateConsumptionFor } from '@/hooks/usePermissions'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -46,6 +47,13 @@ interface Props {
     subContainerName: string
     kindLabel: 'Team' | 'Place' | 'Warehouse'
   } | null
+  /**
+   * Restrict which consumer types the operator can pick. When opened from a
+   * Custody Team card pass `['team']`; from a Place card pass `['place']`;
+   * from the /consumption page header omit to allow all three. The dialog
+   * further filters to consumer types the caller has permission for.
+   */
+  restrictConsumerTypes?: ConsumerType[]
 }
 
 type LineRow = { brand_variant_id: string; qty: string }
@@ -59,7 +67,21 @@ const COOLDOWN_MS = 3000
  * COGS is booked to the picked consumer — the amber banner + 3-second
  * confirm cooldown is deliberate friction to prevent misfires.
  */
-export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props) {
+export function NewConsumptionDialog({ open, onOpenChange, presetSource, restrictConsumerTypes }: Props) {
+  // Compute which consumer types this caller is actually allowed to pick.
+  // Intersection of (caller permissions) and (restrictConsumerTypes ?? all).
+  const canCreateTeam     = useCanCreateConsumptionFor('team')
+  const canCreatePlace    = useCanCreateConsumptionFor('place')
+  const canCreateInternal = useCanCreateConsumptionFor('internal')
+  const allowedConsumerTypes = useMemo<ConsumerType[]>(() => {
+    const permAllowed: ConsumerType[] = []
+    if (canCreateTeam)     permAllowed.push('team')
+    if (canCreatePlace)    permAllowed.push('place')
+    if (canCreateInternal) permAllowed.push('internal')
+    if (!restrictConsumerTypes) return permAllowed
+    return permAllowed.filter((t) => restrictConsumerTypes.includes(t))
+  }, [canCreateTeam, canCreatePlace, canCreateInternal, restrictConsumerTypes])
+
   const { data: warehouses = [] } = useWarehouses({ includeVirtual: true })
   const { data: teams   = [] }    = useTeams()
   const { data: places  = [] }    = usePlaces()
@@ -81,10 +103,16 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [srcWhId, eligibleSrcSubs.length, sourceLocked])
 
-  // ── Consumer
-  const [consumerType,     setConsumerType]     = useState<ConsumerType>('team')
-  const [consumerTeamSub,  setConsumerTeamSub]  = useState<string>('')
-  const [consumerPlaceSub, setConsumerPlaceSub] = useState<string>('')
+  // ── Consumer — default to the first allowed type; falls back to 'team'
+  // (dialog won't open at all if the caller has zero allowed types since the
+  // trigger button will be hidden upstream).
+  const [consumerType,     setConsumerType]     = useState<ConsumerType>(allowedConsumerTypes[0] ?? 'team')
+  // When opened from a Custody card the consumer IS the same team/place as
+  // the source sub — Team 2's custody feeds Team 2. Pre-fill accordingly.
+  const initialConsumerTeamSub  = presetSource?.kindLabel === 'Team'  ? presetSource.subContainerId : ''
+  const initialConsumerPlaceSub = presetSource?.kindLabel === 'Place' ? presetSource.subContainerId : ''
+  const [consumerTeamSub,  setConsumerTeamSub]  = useState<string>(initialConsumerTeamSub)
+  const [consumerPlaceSub, setConsumerPlaceSub] = useState<string>(initialConsumerPlaceSub)
 
   const activeTeams  = useMemo(() => teams.filter((t) => t.is_active), [teams])
   const activePlaces = useMemo(() => places.filter((p) => p.is_active), [places])
@@ -156,9 +184,9 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
       // Reset back to preset (if any) or empty state.
       setSrcWhId(presetSource?.warehouseId ?? '')
       setSrcSubId(presetSource?.subContainerId ?? null)
-      setConsumerType('team')
-      setConsumerTeamSub('')
-      setConsumerPlaceSub('')
+      setConsumerType(allowedConsumerTypes[0] ?? 'team')
+      setConsumerTeamSub(presetSource?.kindLabel === 'Team'  ? presetSource.subContainerId : '')
+      setConsumerPlaceSub(presetSource?.kindLabel === 'Place' ? presetSource.subContainerId : '')
       setRows([{ brand_variant_id: '', qty: '' }])
       setOpenPickerIdx(null)
       setNotes('')
@@ -399,27 +427,34 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
           {/* Consumer */}
           <div className="space-y-2">
             <Label className="text-[11px] font-medium">Consumer</Label>
-            <div className="grid grid-cols-3 gap-1 rounded-md border bg-muted/30 p-1">
-              {([
-                { key: 'team',     label: 'Team' },
-                { key: 'place',    label: 'Place' },
-                { key: 'internal', label: 'Internal' },
-              ] as { key: ConsumerType; label: string }[]).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => { setConsumerType(opt.key); bumpCooldown() }}
-                  className={
-                    'h-7 rounded text-[11px] font-medium transition-colors ' +
-                    (consumerType === opt.key
-                      ? 'bg-background shadow-sm text-foreground'
-                      : 'text-muted-foreground hover:text-foreground')
-                  }
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            {allowedConsumerTypes.length > 1 && (
+              <div
+                className="grid gap-1 rounded-md border bg-muted/30 p-1"
+                style={{ gridTemplateColumns: `repeat(${allowedConsumerTypes.length}, minmax(0, 1fr))` }}
+              >
+                {(allowedConsumerTypes.map((k) => ({
+                  key: k,
+                  label: k === 'team' ? 'Team' : k === 'place' ? 'Place' : 'Internal',
+                }))).map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => { setConsumerType(opt.key); bumpCooldown() }}
+                    className={
+                      'h-7 rounded text-[11px] font-medium transition-colors ' +
+                      (consumerType === opt.key
+                        ? 'bg-background shadow-sm text-foreground'
+                        : 'text-muted-foreground hover:text-foreground')
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Single-option — no pill or segmented control. The Team/Place/
+                Internal picker rendered below the section header is enough
+                context; the label + sub-picker implies the type. */}
 
             <div className="min-h-9">
               {consumerType === 'team' && (
@@ -466,10 +501,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
 
           {/* Lines */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-[11px] font-medium">Items</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-[11px] font-medium shrink-0">Items</Label>
               {srcWhId && srcSubId && (
-                <span className="text-[10px] text-muted-foreground">{sourceStock.length} in stock</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">{sourceStock.length} in stock</span>
               )}
             </div>
 
@@ -663,6 +698,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource }: Props
           </div>
         </DialogFooter>
       </DialogContent>
+
     </Dialog>
   )
 }

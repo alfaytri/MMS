@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { X, Plus, ChevronDown, ChevronRight, Users, Camera, Loader2 } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { X, ChevronDown, ChevronRight, Users, Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
-import { useCreateInventoryItem, useUpdateInventoryItem, useUpsertInventoryItemAttributes, type InventoryItem } from '@/hooks/useInventory'
+import { useCreateInventoryItem, useUpdateInventoryItem, type InventoryItem } from '@/hooks/useInventory'
+import { useUpsertItemAttributes } from '@/hooks/useAttributes'
+import { ItemAttributesSection } from '@/components/master-data/attributes/ItemAttributesSection'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useItemStockByDivision } from '@/hooks/useItemStockByDivision'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
@@ -33,14 +35,13 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const isEdit = !!item
   const create = useCreateInventoryItem()
   const update = useUpdateInventoryItem()
-  const upsertAttributes = useUpsertInventoryItemAttributes()
+  const upsertItemAttributes = useUpsertItemAttributes()
 
   const [nameEn, setNameEn] = useState('')
   const [nameAr, setNameAr] = useState('')
   const [sku, setSku] = useState('')
   const [unit, setUnit] = useState('Piece')
-  const [chips, setChips] = useState<string[]>([])
-  const [chipInput, setChipInput] = useState('')
+  const [attrValues, setAttrValues] = useState<Array<{ definition_id: string; option_id: string | null }>>([])
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -57,8 +58,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       setNameAr(item?.name_ar ?? '')
       setSku(item?.sku ?? '')
       setUnit(item?.unit ?? 'Piece')
-      setChips([])
-      setChipInput('')
+      setAttrValues([])
       setImageUrl((item as unknown as { image_url?: string | null } | null | undefined)?.image_url ?? null)
       setUploading(false)
       const shared = (item as unknown as { shared_with_division_ids?: string[] } | null | undefined)?.shared_with_division_ids ?? []
@@ -100,17 +100,14 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
     setImageUrl(null)
   }
 
-  function addChip() {
-    const val = chipInput.trim()
-    if (val && !chips.includes(val)) setChips((c) => [...c, val])
-    setChipInput('')
-  }
+  const handleAttrChange = useCallback(
+    (values: Array<{ definition_id: string; option_id: string | null }>) => {
+      setAttrValues(values)
+    },
+    [],
+  )
 
-  function removeChip(chip: string) {
-    setChips((c) => c.filter((x) => x !== chip))
-  }
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nameEn.trim()) { toast.error('Name (EN) is required'); return }
     if (!sku.trim()) { toast.error('SKU is required'); return }
@@ -124,34 +121,26 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       shared_with_division_ids: sharedWith,
     }
 
-    if (isEdit && item) {
-      update.mutate(
-        { id: item.id, ...payload },
-        {
-          onSuccess: () => {
-            upsertAttributes.mutate({ itemId: item.id, attributes: chips })
-            toast.success('Item updated')
-            onOpenChange(false)
-          },
-          onError: (err) => toast.error(err.message),
-        },
-      )
-    } else {
-      create.mutate(
-        { ...payload, category_id: categoryId },
-        {
-          onSuccess: (data) => {
-            upsertAttributes.mutate({ itemId: data.id, attributes: chips })
-            toast.success('Item created')
-            onOpenChange(false)
-          },
-          onError: (err) => toast.error(err.message),
-        },
-      )
+    try {
+      let itemId: string
+      if (isEdit && item) {
+        await update.mutateAsync({ id: item.id, ...payload })
+        itemId = item.id
+      } else {
+        const data = await create.mutateAsync({ ...payload, category_id: categoryId })
+        itemId = data.id
+      }
+      if (attrValues.length > 0) {
+        await upsertItemAttributes.mutateAsync({ itemId, values: attrValues })
+      }
+      toast.success(isEdit ? 'Item updated' : 'Item created')
+      onOpenChange(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Save failed')
     }
   }
 
-  const isPending = create.isPending || update.isPending || upsertAttributes.isPending
+  const isPending = create.isPending || update.isPending || upsertItemAttributes.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -233,34 +222,11 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
             <Label htmlFor="item-type">Item Type</Label>
             <Input id="item-type" value={categoryType} disabled className="bg-muted text-muted-foreground capitalize" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="item-attribute-input">Attributes (optional chips)</Label>
-            <div className="flex gap-2">
-              <Input
-                id="item-attribute-input"
-                value={chipInput}
-                onChange={(e) => setChipInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addChip() } }}
-                placeholder='e.g. "80 Gallon"'
-                className="flex-1"
-              />
-              <Button type="button" variant="outline" size="icon" onClick={addChip}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {chips.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {chips.map((chip) => (
-                  <Badge key={chip} variant="secondary" className="gap-1">
-                    {chip}
-                    <button type="button" onClick={() => removeChip(chip)} className="hover:text-destructive">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          <ItemAttributesSection
+            itemId={item?.id ?? null}
+            categoryId={categoryId}
+            onChange={handleAttrChange}
+          />
 
           {/* D.12 — Access & Sharing (collapsible, default collapsed unless already set) */}
           <div className="rounded-md border border-dashed border-border">

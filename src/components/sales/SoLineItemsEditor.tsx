@@ -119,27 +119,29 @@ export function SoLineItemsEditor({
   return (
     <div className="space-y-4">
       {!readOnly && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-            ADD ITEM:
-          </span>
-          {ALL_TYPES.map((t) => {
-            const cfg = TYPE_CONFIG[t]
-            const Icon = cfg.icon
-            return (
-              <Button
-                key={t}
-                type="button"
-                variant="outline"
-                size="sm"
-                className={`h-7 text-xs gap-1.5 ${cfg.buttonClass}`}
-                onClick={() => addRow(t)}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {cfg.label}
-              </Button>
-            )
-          })}
+        <div className="flex flex-wrap items-center gap-2 justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              ADD ITEM:
+            </span>
+            {ALL_TYPES.map((t) => {
+              const cfg = TYPE_CONFIG[t]
+              const Icon = cfg.icon
+              return (
+                <Button
+                  key={t}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={`h-7 text-xs gap-1.5 ${cfg.buttonClass}`}
+                  onClick={() => addRow(t)}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {cfg.label}
+                </Button>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -285,6 +287,7 @@ export function SoLineItemsEditor({
           </div>
         )
       })}
+
     </div>
   )
 }

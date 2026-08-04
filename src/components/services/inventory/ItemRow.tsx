@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
+import { AttributeChipStrip } from '@/components/shared/AttributeChipStrip'
 import { BrandVariantRow } from './BrandVariantRow'
 import { ItemEditDialog } from './ItemEditDialog'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
@@ -83,6 +84,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
               {item.name_ar && (
                 <div className="text-[10px] text-muted-foreground" dir="rtl">{item.name_ar}</div>
               )}
+              <AttributeChipStrip itemId={item.id} categoryId={item.category_id} />
             </div>
           </div>
         </td>

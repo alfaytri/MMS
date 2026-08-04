@@ -19,6 +19,16 @@ export async function TopNav() {
         .single()
     : { data: null }
 
+  // Brand string comes from the primary companies row (alphabetically first)
+  // so renaming the company in Master Data → Companies updates everywhere.
+  const { data: primaryCompany } = await supabase
+    .from('companies')
+    .select('name_en')
+    .order('name_en')
+    .limit(1)
+    .maybeSingle()
+  const brandName = primaryCompany?.name_en ?? ''
+
   return (
     <header className="sticky top-0 z-50 h-14 bg-background border-b border-border">
       <div className="h-full w-full flex items-center px-3 sm:px-4 lg:px-6 2xl:px-10 gap-2">
@@ -29,7 +39,7 @@ export async function TopNav() {
           className="flex items-center gap-2 text-primary font-bold lg:mr-4 shrink-0"
         >
           <Wrench className="h-5 w-5" />
-          <span className="text-sm">Al Faytri</span>
+          <span className="text-sm">{brandName}</span>
         </Link>
 
         <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">

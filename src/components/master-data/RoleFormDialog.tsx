@@ -18,7 +18,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
-import { NAV_TREE, countPerms, collectPermKeys, type TreeNode } from './PermissionTree'
+import { NAV_TREE, countPerms, collectPermKeys, validatePermissionSet, type TreeNode } from './PermissionTree'
 
 const ALL_TREE_KEYS = collectPermKeys(NAV_TREE)
 
@@ -243,6 +243,13 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
   function clearAll()  { form.setValue('permissions', []) }
 
   function onSubmit(values: RoleFormValues) {
+    const check = validatePermissionSet(values.permissions)
+    if (!check.valid) {
+      toast.error(
+        `Cannot save — these keys grant create/edit without matching view: ${check.orphans.join(', ')}`,
+      )
+      return
+    }
     const payload = { ...values }
     const mutation = isEditing
       ? () => update.mutateAsync({ id: role!.id, ...payload })

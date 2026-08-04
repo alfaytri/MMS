@@ -1878,6 +1878,95 @@ export type Database = {
           },
         ]
       }
+      inventory_attribute_definitions: {
+        Row: {
+          attribute_key: string
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label_ar: string | null
+          label_en: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          attribute_key: string
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_ar?: string | null
+          label_en: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          attribute_key?: string
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_ar?: string | null
+          label_en?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_attribute_definitions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_attribute_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_attribute_options: {
+        Row: {
+          created_at: string
+          definition_id: string
+          id: string
+          is_archived: boolean
+          sort_order: number
+          value_ar: string | null
+          value_en: string
+        }
+        Insert: {
+          created_at?: string
+          definition_id: string
+          id?: string
+          is_archived?: boolean
+          sort_order?: number
+          value_ar?: string | null
+          value_en: string
+        }
+        Update: {
+          created_at?: string
+          definition_id?: string
+          id?: string
+          is_archived?: boolean
+          sort_order?: number
+          value_ar?: string | null
+          value_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_attribute_options_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_attribute_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_categories: {
         Row: {
           created_at: string | null
@@ -2442,6 +2531,62 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_item_attributes: {
+        Row: {
+          definition_id: string
+          id: string
+          item_id: string
+          option_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          definition_id: string
+          id?: string
+          item_id: string
+          option_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          definition_id?: string
+          id?: string
+          item_id?: string
+          option_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_item_attributes_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_attribute_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_attributes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_attributes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_attribute_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_attributes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
         ]
@@ -7423,6 +7568,20 @@ export type Database = {
           total_value: number
         }[]
       }
+      get_effective_attributes: {
+        Args: { p_category_id: string }
+        Returns: {
+          attribute_key: string
+          category_id: string
+          category_name: string
+          definition_id: string
+          depth: number
+          is_inherited: boolean
+          label_ar: string
+          label_en: string
+          sort_order: number
+        }[]
+      }
       get_invoice_summary: { Args: never; Returns: Json }
       get_payment_summary: { Args: never; Returns: Json }
       get_places_master_list: {
@@ -7607,6 +7766,10 @@ export type Database = {
           p_transfer_id: string
         }
         Returns: undefined
+      }
+      rpc_attribute_picker_step: {
+        Args: { p_category_id: string; p_picks?: Json }
+        Returns: Json
       }
       rpc_cancel_consumption: {
         Args: { p_consumption_id: string }

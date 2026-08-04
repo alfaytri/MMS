@@ -24,6 +24,19 @@ export function useCompanies() {
   })
 }
 
+/**
+ * Convenience hook: the display name of the "primary" company — used
+ * anywhere the app previously hardcoded the brand string (top nav, PDF
+ * headers, page metadata). Returns the first companies row alphabetically
+ * (the app is single-company today; if we go multi-tenant this needs a
+ * proper "active company" concept). Returns an empty string while loading
+ * so callers don't flash a stale hardcoded fallback.
+ */
+export function usePrimaryCompanyName(): string {
+  const { data } = useCompanies()
+  return data?.[0]?.name_en ?? ''
+}
+
 export function useCreateCompany() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -43,6 +43,19 @@ export const queryKeys = {
   },
 
 
+  /* ── Attributes (Category Attributes) ─────────────────── */
+  attributes: {
+    all: ['inventory-attributes'] as const,
+    definitionsForCategory: (categoryId: Nullable) =>
+      ['inventory-attributes', 'defs', categoryId] as const,
+    effectiveForCategory: (categoryId: Nullable) =>
+      ['inventory-attributes', 'effective', categoryId] as const,
+    optionsForDefinition: (definitionId: Nullable) =>
+      ['inventory-attributes', 'options', definitionId] as const,
+    itemValues: (itemId: Nullable) =>
+      ['inventory-attributes', 'item', itemId] as const,
+  },
+
   /* ── Companies ────────────────────────────────────────── */
   companies: {
     all: ['companies'] as const,
@@ -245,8 +258,6 @@ export const queryKeys = {
     stockMovements: ['stock_movements'] as const,
     stockMovementsByVariant: (brandVariantId: Nullable) =>
       ['stock_movements', 'by_variant', brandVariantId] as const,
-    itemAttributes: (itemId: Nullable) =>
-      ['inventory-item-attributes', itemId] as const,
     staffProfiles: ['staff-profiles'] as const,
     toolAssetUnits: (itemId: Nullable) =>
       ['tool-asset-units', itemId] as const,

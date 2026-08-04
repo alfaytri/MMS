@@ -451,6 +451,35 @@ export function useInventoryItemsByCategory(categoryId: string | null, showArchi
   })
 }
 
+/**
+ * Descendant-rollup variant: fetch every item whose `category_id` is in the
+ * passed set. Used by the cascade so picking a parent category (e.g. "AC")
+ * surfaces items across all descendant leaves (3 Ton, 4 Ton, …) — the
+ * attribute filter bar then narrows across the merged set.
+ */
+export function useInventoryItemsByCategories(categoryIds: string[], showArchived = false) {
+  const sortedKey = [...categoryIds].sort().join(',')
+  return useQuery({
+    queryKey: ['inventory', 'items-by-categories', sortedKey, showArchived],
+    enabled: categoryIds.length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = supabase
+        .from('inventory_items')
+        .select('*')
+        .in('category_id', categoryIds)
+        .order('sort_order', { ascending: true })
+        .order('name_en', { ascending: true })
+        .limit(2000)
+      if (!showArchived) q = q.neq('status', 'archived')
+      const { data, error } = await q
+      if (error) throw error
+      return data as InventoryItem[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useArchiveInventoryItem() {
   const qc = useQueryClient()
   return useMutation({
@@ -897,30 +926,6 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
       if (table === 'inventory_categories') qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
       if (table === 'inventory_items') qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
       if (table === 'inventory_item_brand_variants') qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
-    },
-  })
-}
-
-// ─── Item attributes (chips) ──────────────────────────────────────────────────
-
-export function useUpsertInventoryItemAttributes() {
-  const qc = useQueryClient()
-  return useMutation<void, Error, { itemId: string; attributes: string[] }>({
-    mutationFn: async ({ itemId, attributes }) => {
-      const supabase = createClient()
-      // inventory_item_attributes not yet in generated DB types — cast to bypass type checks
-      type AnyTable = { delete: () => { eq: (col: string, val: string) => Promise<{ error: Error | null }> }; insert: (v: unknown) => Promise<{ error: Error | null }> }
-      const attrTable = (supabase as unknown as { from: (t: string) => AnyTable }).from('inventory_item_attributes')
-      const { error: delErr } = await attrTable.delete().eq('item_id', itemId)
-      if (delErr) throw delErr
-      if (attributes.length > 0) {
-        const rows = attributes.map((attr) => ({ item_id: itemId, attribute: attr }))
-        const { error: insErr } = await attrTable.insert(rows)
-        if (insErr) throw insErr
-      }
-    },
-    onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemAttributes(v.itemId) })
     },
   })
 }

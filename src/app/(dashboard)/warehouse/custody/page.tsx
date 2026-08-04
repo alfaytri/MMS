@@ -21,7 +21,7 @@ import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useTeams } from '@/hooks/useTeamSubContainers'
 import { usePlaces } from '@/hooks/usePlaceSubContainers'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-import { usePermissions, useHasPermission } from '@/hooks/usePermissions'
+import { usePermissions, useHasPermission, useHasEditPermission, useCanCreateConsumptionFor } from '@/hooks/usePermissions'
 import {
   usePendingCustodyAssigns,
   useAcceptCustodyAssign,
@@ -218,6 +218,11 @@ function CustodyCard({
   const accept            = useAcceptCustodyAssign()
   const dispatch          = useDispatchCustodyAssign()
 
+  const canEditCustody       = useHasEditPermission(kind === 'team' ? 'custody.teams' : 'custody.places')
+  // Consumption from a Team card must use consumer_type='team'; from a Place
+  // card must use consumer_type='place'. Gate accordingly.
+  const canCreateConsumption = useCanCreateConsumptionFor(kind)
+
   const isResponsible      = !!profile?.id && profile.id === sub.responsible_person_profile_id
   const isPrivileged       = !!perms && (perms.isSystemAdmin || perms.roles.includes('inventory_manager'))
   // Server-side gate on rpc_accept_custody_assign: sub responsible person OR
@@ -413,30 +418,38 @@ function CustodyCard({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="mt-auto flex items-center justify-between gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
-        <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
-          <Send className="h-3 w-3" /> Request
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 text-[11px] gap-1"
-          onClick={() => setReturnOpen(true)}
-          disabled={stockRows.length === 0}
-        >
-          <Undo2 className="h-3 w-3" /> Return
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 text-[11px] gap-1"
-          onClick={() => setConsumeOpen(true)}
-          disabled={stockRows.length === 0}
-        >
-          <HandCoins className="h-3 w-3" /> Consume
-        </Button>
-      </div>
+      {/* Actions — hidden entirely when the caller can't do any of them */}
+      {(canEditCustody || canCreateConsumption) && (
+        <div className="mt-auto flex items-center justify-between gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
+          {canEditCustody && (
+            <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
+              <Send className="h-3 w-3" /> Request
+            </Button>
+          )}
+          {canEditCustody && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-[11px] gap-1"
+              onClick={() => setReturnOpen(true)}
+              disabled={stockRows.length === 0}
+            >
+              <Undo2 className="h-3 w-3" /> Return
+            </Button>
+          )}
+          {canCreateConsumption && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-[11px] gap-1"
+              onClick={() => setConsumeOpen(true)}
+              disabled={stockRows.length === 0}
+            >
+              <HandCoins className="h-3 w-3" /> Consume
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Dialogs */}
       <CustodyAssignDialog
@@ -466,6 +479,7 @@ function CustodyCard({
             subContainerName: sub.name,
             kindLabel,
           }}
+          restrictConsumerTypes={[kind]}
         />
       )}
     </div>

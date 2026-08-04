@@ -102,7 +102,7 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<title>Al Faytri — Goods Receipt</title>
+<title>Goods Receipt</title>
 <style>
   ${fontFacesCss(fonts)}
   ${BASE_CSS}

@@ -19,7 +19,7 @@ import {
   type DamagedOnHandRow,
   type OutForRepairRow, type PendingRepairAssignmentRow,
 } from '@/hooks/useDamagedStockOverview'
-import { useHasPermission } from '@/hooks/usePermissions'
+import { useHasPermission, useHasEditPermission } from '@/hooks/usePermissions'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
 // formatDateTime is used by the Out-for-Repair table row's dispatched-at
 // column. Badge / movementBadgeClass / movementLabel were removed with the
@@ -45,8 +45,10 @@ export default function DamagedStockPage() {
   const [sendFromOnHand, setSendFromOnHand] = useState<DamagedOnHandRow | null>(null)
   const [writeOffFromOnHand, setWriteOffFromOnHand] = useState<DamagedOnHandRow | null>(null)
 
-  const canSeeOnHand   = useHasPermission('damaged_stock.on_hand.view')
+  const canSeeOnHand    = useHasPermission('damaged_stock.on_hand.view')
   const canSeeOutRepair = useHasPermission('damaged_stock.out_for_repair.view')
+  const canEditOnHand    = useHasEditPermission('damaged_stock.on_hand')
+  const canEditOutRepair = useHasEditPermission('damaged_stock.out_for_repair')
   const defaultTab = canSeeOnHand ? 'on-hand' : canSeeOutRepair ? 'out-for-repair' : 'on-hand'
 
   return (
@@ -75,6 +77,7 @@ export default function DamagedStockPage() {
           <TabsContent value="on-hand" className="min-h-[400px]">
             <OnHandTab
               query={onHand}
+              canEdit={canEditOnHand}
               onSendForRepair={(row) => setSendFromOnHand(row)}
               onWriteOff={(row) => setWriteOffFromOnHand(row)}
             />
@@ -86,10 +89,12 @@ export default function DamagedStockPage() {
           <TabsContent value="out-for-repair" className="min-h-[400px] space-y-6">
             <PendingRepairAssignmentSection
               query={pending}
+              canEdit={canEditOutRepair}
               onAssign={(row) => setAssignDialog(row)}
             />
             <OutForRepairTab
               query={outRepair}
+              canEdit={canEditOutRepair}
               onReturn={(row) => setReturnDialog(row)}
             />
           </TabsContent>
@@ -159,10 +164,11 @@ export default function DamagedStockPage() {
 
 // ─── Pending vendor assignment section ─────────────────────────────────
 function PendingRepairAssignmentSection({
-  query, onAssign,
+  query, onAssign, canEdit,
 }: {
   query: ReturnType<typeof usePendingRepairAssignments>
   onAssign: (r: PendingRepairAssignmentRow) => void
+  canEdit: boolean
 }) {
   const { data = [], isLoading, error } = query
   if (error) return <ErrorLine error={error as Error} />
@@ -192,7 +198,7 @@ function PendingRepairAssignmentSection({
               <th className="px-3 py-2 text-right font-medium">Qty</th>
               <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Warehouse</th>
               <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Requested</th>
-              <th className="px-3 py-2 text-right font-medium">Action</th>
+              {canEdit && <th className="px-3 py-2 text-right font-medium">Action</th>}
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -206,11 +212,13 @@ function PendingRepairAssignmentSection({
                 <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
                 <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.warehouse_name}</td>
                 <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDate(r.created_at)}</td>
-                <td className="px-3 py-2 text-right">
-                  <Button size="sm" className="h-8 text-xs" onClick={() => onAssign(r)}>
-                    Assign Vendor
-                  </Button>
-                </td>
+                {canEdit && (
+                  <td className="px-3 py-2 text-right">
+                    <Button size="sm" className="h-8 text-xs" onClick={() => onAssign(r)}>
+                      Assign Vendor
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -222,11 +230,12 @@ function PendingRepairAssignmentSection({
 
 // ─── On-hand tab ────────────────────────────────────────────────────────
 function OnHandTab({
-  query, onSendForRepair, onWriteOff,
+  query, onSendForRepair, onWriteOff, canEdit,
 }: {
   query:            ReturnType<typeof useDamagedOnHand>
   onSendForRepair:  (row: DamagedOnHandRow) => void
   onWriteOff:       (row: DamagedOnHandRow) => void
+  canEdit:          boolean
 }) {
   const { data = [], isLoading, error } = query
 
@@ -266,7 +275,7 @@ function OnHandTab({
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
                 <th className="px-3 py-2 text-right font-medium">Weighted Unit Cost</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Last Updated</th>
-                <th className="px-3 py-2 text-right font-medium">Actions</th>
+                {canEdit && <th className="px-3 py-2 text-right font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -282,30 +291,32 @@ function OnHandTab({
                   <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{nfCost.format(r.weighted_unit_cost)}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDate(r.updated_at)}</td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950"
-                        onClick={() => onSendForRepair(r)}
-                        title="Send for repair"
-                      >
-                        <Wrench className="h-4 w-4" />
-                        <span className="sr-only">Send for repair</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950"
-                        onClick={() => onWriteOff(r)}
-                        title="Write off"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        <span className="sr-only">Write off</span>
-                      </Button>
-                    </div>
-                  </td>
+                  {canEdit && (
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950"
+                          onClick={() => onSendForRepair(r)}
+                          title="Send for repair"
+                        >
+                          <Wrench className="h-4 w-4" />
+                          <span className="sr-only">Send for repair</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950"
+                          onClick={() => onWriteOff(r)}
+                          title="Write off"
+                        >
+                          <XCircle className="h-4 w-4" />
+                          <span className="sr-only">Write off</span>
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -318,10 +329,11 @@ function OnHandTab({
 
 // ─── Out-for-repair tab ────────────────────────────────────────────────
 function OutForRepairTab({
-  query, onReturn,
+  query, onReturn, canEdit,
 }: {
   query: ReturnType<typeof useOutForRepair>
   onReturn: (r: OutForRepairRow) => void
+  canEdit: boolean
 }) {
   const { data = [], isLoading, error } = query
 
@@ -360,7 +372,7 @@ function OutForRepairTab({
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Source Sub-container</th>
                 <th className="px-3 py-2 text-left font-medium">Expected Return</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Dispatched</th>
-                <th className="px-3 py-2 text-right font-medium">Action</th>
+                {canEdit && <th className="px-3 py-2 text-right font-medium">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -377,11 +389,13 @@ function OutForRepairTab({
                   <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.from_sub_container_name ?? '—'}</td>
                   <td className="px-3 py-2 text-xs">{formatDate(r.expected_return_date)}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDateTime(r.dispatched_at)}</td>
-                  <td className="px-3 py-2 text-right">
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onReturn(r)}>
-                      Return from Repair
-                    </Button>
-                  </td>
+                  {canEdit && (
+                    <td className="px-3 py-2 text-right">
+                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onReturn(r)}>
+                        Return from Repair
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

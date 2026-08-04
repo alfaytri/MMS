@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ChevronRight, HandCoins, MapPin, Package, Plus, Users2 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
-import { useHasPermission } from '@/hooks/usePermissions'
+import { useHasPermission, useCanCreateAnyConsumption } from '@/hooks/usePermissions'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { Button } from '@/components/ui/button'
@@ -76,7 +76,10 @@ export default function ConsumptionPage() {
 
   const [newOpen, setNewOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
-  const canCreate = useHasPermission('consumption.create')
+  // True if the caller can create at least ONE consumer type — the dialog
+  // itself further filters the segmented control based on which types they
+  // actually hold.
+  const canCreate = useCanCreateAnyConsumption()
 
   const totals = useMemo(() => {
     const posted = rows.filter((r) => r.status === 'posted')

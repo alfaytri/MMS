@@ -56,3 +56,65 @@ export function useHasPermission(permission: string | string[]): boolean {
   const required = Array.isArray(permission) ? permission : [permission]
   return required.some((p) => data.permissions.includes(p))
 }
+
+export function useHasEditPermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return (
+    data.permissions.includes(`${area}.edit`) ||
+    data.permissions.includes(`${area}.manage`)
+  )
+}
+
+export function useHasCreatePermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return data.permissions.includes(`${area}.create`)
+}
+
+export function useHasViewPermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return (
+    data.permissions.includes(`${area}.view`) ||
+    data.permissions.includes(`${area}.create`) ||
+    data.permissions.includes(`${area}.edit`) ||
+    data.permissions.includes(`${area}.manage`)
+  )
+}
+
+/**
+ * Consumption-specific granular create check. A caller can create a
+ * consumption of `kind` if any of these hold:
+ *   - system.admin
+ *   - the umbrella `consumption.create` (grants all three)
+ *   - the narrower `consumption.create.<kind>` key
+ */
+export function useCanCreateConsumptionFor(kind: 'team' | 'place' | 'internal'): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return (
+    data.permissions.includes('consumption.create') ||
+    data.permissions.includes(`consumption.create.${kind}`)
+  )
+}
+
+/**
+ * True if the caller can create AT LEAST ONE consumer type — used to decide
+ * whether to show the New Consumption button at all.
+ */
+export function useCanCreateAnyConsumption(): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return (
+    data.permissions.includes('consumption.create') ||
+    data.permissions.includes('consumption.create.team') ||
+    data.permissions.includes('consumption.create.place') ||
+    data.permissions.includes('consumption.create.internal')
+  )
+}
