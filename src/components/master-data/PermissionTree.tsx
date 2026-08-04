@@ -659,3 +659,17 @@ export function PermissionTree({ search }: { search: string }) {
     </div>
   )
 }
+
+export function validatePermissionSet(perms: string[]): { valid: boolean; orphans: string[] } {
+  const orphans: string[] = []
+  const set = new Set(perms)
+  if (set.has('system.admin')) return { valid: true, orphans: [] }
+  for (const p of perms) {
+    if (p.endsWith('.create') || p.endsWith('.edit') || p.endsWith('.manage')) {
+      const area = p.replace(/\.(create|edit|manage)$/, '')
+      const viewKey = `${area}.view`
+      if (!set.has(viewKey)) orphans.push(p)
+    }
+  }
+  return { valid: orphans.length === 0, orphans }
+}
