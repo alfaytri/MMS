@@ -265,13 +265,11 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 **Starting: Category Attributes Phase 6 — flow registry entry + 4-point security audit + final smoke** (branch `feature/category-attributes`). Plan: [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md).
+🚀 **Starting: Category Attributes Phase 6 Task 6.1 — flows-registry entry** (branch `feature/category-attributes`). Plan: [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md).
 
-**Phase 5 status:** 5.1 (SO Create/Edit) and 5.4 (Consumption) shipped and confirmed working by operator. **5.2 (Quotations) and 5.3 (Service Links) marked N/A** — target surfaces don't exist on this branch:
-- `src/app/(dashboard)/sales/quotations` and `src/app/(dashboard)/contracts` — not present
-- `src/components/services/InventoryTableView.tsx` — not present; Master Data → Services uses `ItemEditDialog`, which already got attribute wiring in Task 3.2 (`ItemAttributesSection`)
+**Phase 5 finalized on 2026-08-04:** Guided picker removed, `ProductAttributePicker.tsx` deleted, scratch preview route deleted. Attribute filtering re-shaped as inline dropdown chips on `/master-data/inventory` category rows only (per operator direction — SO/consumption reverted, filter adds value only where multiple descendants can be crossed at once). Multi-select OR-within / AND-across, cascade to descendants, hide-inherited attributes in descendant rows, prune empty categories. Confirmed working. 5.2 (Quotations) and 5.3 (Service Links) marked N/A — target surfaces don't exist on this branch.
 
-Next: Task 6.1 (flows-registry entry) → 6.2 (four-point security audit into log below) → 6.3 (final smoke + merge readiness). Then delete the scratch route `src/app/(dashboard)/dev/attribute-picker-preview/page.tsx`.
+Next: 6.1 flows-registry entry → 6.2 four-point security audit → 6.3 final smoke + merge readiness.
 
 ---
 
