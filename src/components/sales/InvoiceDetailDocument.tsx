@@ -15,8 +15,6 @@ import type { CustomerPayment } from '@/hooks/useCustomerPayments'
 import type { Division } from '@/hooks/useDivisions'
 import type { Company } from '@/hooks/useCompanies'
 
-const FALLBACK_COMPANY = 'Al Faytri Maintenance'
-
 type Props = {
   invoice: ArInvoice
   payments: CustomerPayment[]
@@ -74,7 +72,7 @@ export function InvoiceDetailDocument({
       <BillDetailSection>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold leading-tight">{company?.name_en ?? FALLBACK_COMPANY}</h1>
+            <h1 className="text-xl font-bold leading-tight">{company?.name_en ?? ''}</h1>
             {division && (
               <p className="text-sm font-medium text-muted-foreground mt-0.5">{division.name}</p>
             )}
@@ -282,7 +280,7 @@ export function InvoiceDetailDocument({
       {/* 10. Footer */}
       <div className="border-t pt-4 flex items-start justify-between text-xs text-muted-foreground gap-4">
         <p>
-          {company?.name_en ?? FALLBACK_COMPANY}
+          {company?.name_en ?? ''}
           {division ? ` · ${division.name}` : ''}
           {' · '}
           <span dir="rtl">هذا المستند تم إنشاؤه تلقائياً</span>

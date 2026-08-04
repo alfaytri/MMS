@@ -83,7 +83,7 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<title>Al Faytri — Delivery Note</title>
+<title>Delivery Note</title>
 <style>
   ${fontFacesCss(fonts)}
   ${BASE_CSS}

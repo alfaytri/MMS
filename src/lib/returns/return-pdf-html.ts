@@ -112,7 +112,7 @@ export function buildReturnPdfHtml(input: BuildReturnPdfHtmlInput): string {
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<title>Al Faytri — ${enTitle}</title>
+<title>${enTitle}</title>
 <style>
   ${fontFacesCss(fonts)}
   ${BASE_CSS}
