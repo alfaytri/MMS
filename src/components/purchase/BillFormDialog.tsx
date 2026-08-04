@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { Eye, EyeOff, Package, Truck, Calendar, Building2 } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -44,6 +45,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   const [lines, setLines] = useState<BillLine[]>([])
   const [showReceival, setShowReceival] = useState(false)
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: selectedPO } = usePurchaseOrder(selectedPoId || null)
   const { data: receivals } = usePOReceivalsByPO(selectedPoId || null)
@@ -84,11 +86,27 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   const subtotal = lines.reduce((s, l) => s + l.bill_qty * l.unit_price, 0)
   const canSubmit = !!selectedPoId && !!dueDate && lines.length > 0 && lines.every((l) => l.bill_qty >= 0)
 
-  function close() {
-    if (!initialPoId) setSelectedPoId('')
-    setDueDate(''); setReference(''); setNotes('')
-    setLines([]); setShowReceival(false)
-    onOpenChange(false)
+  // Dirty as soon as the operator has touched any field. When invoked from
+  // a PO surface (`initialPoId` set), the PO is pre-selected and doesn't
+  // count as engagement on its own.
+  const isDirty =
+    (!initialPoId && selectedPoId !== '') ||
+    dueDate !== '' ||
+    reference !== '' ||
+    notes !== '' ||
+    lines.some((l, i) => {
+      const original = selectedPO?.po_line_items?.[i]
+      if (!original) return false
+      return l.bill_qty !== original.qty || l.unit_price !== original.unit_price
+    })
+
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      if (!initialPoId) setSelectedPoId('')
+      setDueDate(''); setReference(''); setNotes('')
+      setLines([]); setShowReceival(false)
+    }
+    onOpenChange(next)
   }
 
   async function submit() {
@@ -114,7 +132,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
         })),
       })
       toast.success('Bill created successfully')
-      close()
+      guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
       toast.error((err as Error).message ?? 'Failed to create bill')
     } finally {
@@ -136,7 +154,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   }, [receivals])
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) close(); else onOpenChange(o) }}>
+    <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[56rem] sm:h-[85vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
         <DialogHeader className="px-5 pt-5 pb-0 flex-shrink-0">
           <DialogTitle className="text-sm font-semibold">Create Supplier Bill</DialogTitle>
@@ -367,7 +385,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
         )}
 
         <DialogFooter className="m-0 px-5 py-3 border-t bg-background rounded-b-lg">
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={close}>Cancel</Button>
+          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button
             size="sm"
             className="text-[11px] h-8"
@@ -378,6 +396,6 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

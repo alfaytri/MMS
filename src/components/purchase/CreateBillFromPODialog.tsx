@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Package } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -47,6 +48,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
   const [lines, setLines] = useState<BillLine[]>([])
   const [showReceival, setShowReceival] = useState(false)
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     if (!open) {
@@ -92,6 +94,16 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
   const grandTotal = subtotal - discount
   const canSubmit = !!poId && !!dueDate && lines.length > 0 && lines.every((l) => l.bill_qty >= 0)
 
+  const isDirty =
+    dueDate !== '' ||
+    reference !== '' ||
+    notes !== '' ||
+    lines.some((l, i) => {
+      const original = po?.po_line_items?.[i]
+      if (!original) return false
+      return l.bill_qty !== original.qty || l.unit_price !== original.unit_price
+    })
+
   async function submit() {
     if (!po || !canSubmit) return
     setSaving(true)
@@ -116,7 +128,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
         })),
       })
       toast.success('Bill created')
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
       router.push(`/purchase/bills/${newBill.id}`)
     } catch (err: unknown) {
       toast.error((err as Error).message ?? 'Failed to create bill')
@@ -126,7 +138,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -336,7 +348,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
               </div>
 
               <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                <Button variant="outline" onClick={() => guardRef.current?.requestClose()}>
                   Cancel
                 </Button>
                 <Button onClick={submit} disabled={saving || !canSubmit}>
@@ -347,6 +359,6 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
           </div>
         )}
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -69,6 +70,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
   const [warehouseId, setWarehouseId] = useState('')
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: po } = usePurchaseOrder(debitNote.purchase_order_id ?? null)
   const poDivisionId = po?.division_id ?? null
@@ -96,9 +98,17 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
 
   const total = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0)
 
-  const close = () => {
-    onOpenChange(false)
-  }
+  const isDirty =
+    warehouseId !== '' ||
+    items.some((it, i) => {
+      const original = returnedLines[i]
+      if (!original) return true
+      return (
+        it.qty !== original.qty ||
+        it.unit_price !== original.unit_price ||
+        !it.locked
+      )
+    })
 
   const submit = async () => {
     if (!warehouseId) {
@@ -141,6 +151,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
       })
 
       toast.success('Replacement receival recorded')
+      guardRef.current?.closeAfterSubmit()
       onSuccess()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to record replacement receival')
@@ -150,7 +161,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) close() }}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Replacement Receival</DialogTitle>
@@ -286,12 +297,12 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
         </div>
 
         <DialogFooter className="px-6 py-4 border-t">
-          <Button variant="outline" onClick={close} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={saving}>Cancel</Button>
           <Button onClick={submit} disabled={saving || items.length === 0 || !warehouseId}>
             {saving ? 'Recording…' : 'Record Receival'}
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

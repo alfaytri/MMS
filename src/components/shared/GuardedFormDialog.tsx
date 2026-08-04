@@ -107,8 +107,11 @@ export const GuardedDialog = forwardRef<GuardedFormDialogHandle, GuardedDialogPr
 
     useImperativeHandle(
       ref,
-      () => ({ closeAfterSubmit: closeWithoutPrompt }),
-      [closeWithoutPrompt],
+      () => ({
+        requestClose: () => guardedOnOpenChange(false),
+        closeAfterSubmit: closeWithoutPrompt,
+      }),
+      [guardedOnOpenChange, closeWithoutPrompt],
     )
 
     return (

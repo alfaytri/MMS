@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   PackageCheck, PackageX, AlertTriangle, Calendar, Building2, Truck, Gift, X, Package,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -334,6 +335,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
   const [extraFreeItems, setExtraFreeItems] = useState<ExtraFreeItem[]>([])
   const [nonPoOpen, setNonPoOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: selectedPO } = usePurchaseOrder(selectedPoId || null)
   const poDivisionId = selectedPO?.division_id ?? null
@@ -412,10 +414,23 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
     [lines],
   )
 
-  const close = () => {
-    setSelectedPoId(''); setWarehouseId(''); setNotes('')
-    setLines([]); setExtraFreeItems([])
-    onOpenChange(false)
+  // Dirty as soon as the operator engages — picking a PO auto-fills line
+  // quantities but that's still user intent, so treat any PO selection as
+  // dirty. Warehouse pick, notes, non-PO free items, or per-line edits also
+  // count.
+  const isDirty =
+    selectedPoId !== '' ||
+    warehouseId !== '' ||
+    notes.trim() !== '' ||
+    extraFreeItems.length > 0 ||
+    lines.some((l) => l.free_qty > 0)
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setSelectedPoId(''); setWarehouseId(''); setNotes('')
+      setLines([]); setExtraFreeItems([])
+    }
+    onOpenChange(next)
   }
 
   const receiveAll = () => {
@@ -495,7 +510,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
         items,
       })
       toast.success('Receival recorded and approved')
-      close()
+      guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
       toast.error((err as Error).message)
     } finally {
@@ -508,7 +523,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
   )
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) close(); else onOpenChange(o) }}>
+    <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[54rem] sm:h-[85vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
         <DialogHeader className="px-5 pt-5 pb-0 flex-shrink-0">
           <DialogTitle className="text-sm font-semibold">Create Receival</DialogTitle>
@@ -744,7 +759,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
         )}
 
         <DialogFooter className="m-0 px-5 py-3 border-t bg-background rounded-b-lg">
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={close}>Cancel</Button>
+          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button
             size="sm"
             className="text-[11px] h-8"
@@ -761,6 +776,6 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
           onAdd={(item) => setExtraFreeItems((prev) => [...prev, item])}
         />
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }
