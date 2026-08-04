@@ -265,7 +265,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Category Attributes + 3-state Permission Split Task 0.3 — audit current keys + add missing view/create/edit trios** (branch `feature/category-attributes`). Plan: [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md).
+🚀 Starting: **Category Attributes + 3-state Permission Split Task 0.4 — backfill migration granting `.create` to every role holding `.manage`** (branch `feature/category-attributes`). Plan: [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md).
 
 ---
 
@@ -347,6 +347,7 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 ## ✅ Completed
 
+- [2026-08-04] **Category Attributes + 3-state Perm Split Task 0.3: audit + add missing view/create/edit trios across every module** — `src/lib/permissions.ts`, `src/components/master-data/PermissionTree.tsx`, `docs/plans/2026-08-04-permission-audit.md` — Added `.create` keys alongside every legacy `.manage` on Master Data (companies, divisions, warehouses, inventory, suppliers, customers, service_customers, services, users, roles), Purchase (orders, shipments, receivals, landed_costs, bills, returns), Sales (orders, invoices, returns, deliveries, credit_notes), Orders (orders, quotations), Contracts (quotations), Invoices & Payments (invoices, payments), Teams (teams, employees). Added `.edit` alongside `.view` on Custody (teams, places) and Damaged Stock (on_hand, out_for_repair). Added full trio for Contact Centre (view was only key before). Retained every `.manage` as an alias of `.edit`; labels rewritten from "Create, edit, and delete X" to "Edit X" now that create is a separate key. Read-only surfaces (reports, audit trail, stock overviews) and bespoke sub-action surfaces (transfers, adjustments, follow-ups, approvals) intentionally not split. Total permission count went 92 → 117 across 5 active sections. Callsites not switched yet — Task 0.5 handles that. Full audit table at `docs/plans/2026-08-04-permission-audit.md`.
 - [2026-08-04] **Category Attributes + 3-state Perm Split Task 0.2: PermissionTree save-time orphan validator** — `src/components/master-data/PermissionTree.tsx`, `src/components/master-data/RoleFormDialog.tsx` — Exported `validatePermissionSet(perms)` that flags any `.create` / `.edit` / `.manage` key without its matching `.view` sibling (system.admin bypasses). Wired into RoleFormDialog `onSubmit` — save is blocked with a red toast listing the orphan keys until the operator toggles on the matching `.view` (or removes the create/edit). Smoke: tried saving `master_data.suppliers.manage` without view → toast fired; enabling View Suppliers → save succeeded.
 - [2026-08-04] **Category Attributes + 3-state Perm Split Task 0.1: useHas{View,Create,Edit}Permission helpers** — `src/hooks/usePermissions.ts` — Three orthogonal helpers codifying the 3-state view/create/edit permission model. `.create` and `.edit` do NOT imply each other; both imply `.view` defensively. `.manage` kept as alias of `.edit`. `system.admin` bypass unchanged. No callsites wired yet — Task 0.5 handles that.
 
