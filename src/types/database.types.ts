@@ -2535,6 +2535,62 @@ export type Database = {
           },
         ]
       }
+      inventory_item_attributes: {
+        Row: {
+          definition_id: string
+          id: string
+          item_id: string
+          option_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          definition_id: string
+          id?: string
+          item_id: string
+          option_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          definition_id?: string
+          id?: string
+          item_id?: string
+          option_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_item_attributes_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_attribute_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_attributes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_attributes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_attribute_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_attributes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_item_brand_variants: {
         Row: {
           average_cost: number | null
