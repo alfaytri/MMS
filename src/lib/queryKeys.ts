@@ -43,6 +43,21 @@ export const queryKeys = {
   },
 
 
+  /* ── Attributes (Category Attributes) ─────────────────── */
+  attributes: {
+    all: ['inventory-attributes'] as const,
+    definitionsForCategory: (categoryId: Nullable) =>
+      ['inventory-attributes', 'defs', categoryId] as const,
+    effectiveForCategory: (categoryId: Nullable) =>
+      ['inventory-attributes', 'effective', categoryId] as const,
+    optionsForDefinition: (definitionId: Nullable) =>
+      ['inventory-attributes', 'options', definitionId] as const,
+    itemValues: (itemId: Nullable) =>
+      ['inventory-attributes', 'item', itemId] as const,
+    pickerStep: (categoryId: Nullable, picksKey: string) =>
+      ['inventory-attributes', 'picker', categoryId, picksKey] as const,
+  },
+
   /* ── Companies ────────────────────────────────────────── */
   companies: {
     all: ['companies'] as const,
