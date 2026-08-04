@@ -765,6 +765,29 @@ export function useCreateStockAdjustmentV2() {
   })
 }
 
+export function useAdjustmentPhotoSignedUrls(paths: (string | null | undefined)[]) {
+  const validPaths = (paths.filter(Boolean) as string[])
+    .filter((p) => !p.startsWith('http'))
+    .slice()
+    .sort()
+  return useQuery({
+    queryKey: queryKeys.warehouseOps.adjustmentPhotoSignedUrls(validPaths),
+    enabled: validPaths.length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      const result: Record<string, string> = {}
+      await Promise.all(
+        validPaths.map(async (path) => {
+          const { data } = await supabase.storage.from('adjustment-photos').createSignedUrl(path, 3600)
+          if (data?.signedUrl) result[path] = data.signedUrl
+        }),
+      )
+      return result
+    },
+    staleTime: 50 * 60 * 1000,
+  })
+}
+
 export function useActionStockAdjustmentStep() {
   const qc = useQueryClient()
   return useMutation({

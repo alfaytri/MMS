@@ -12,6 +12,7 @@ import { ItemTreeCell } from './ItemTreeCell'
 import {
   useActionStockAdjustmentStep,
   useForceApproveStockAdjustment,
+  useAdjustmentPhotoSignedUrls,
   type StockAdjustmentApprovalStep,
 } from '@/hooks/useWarehouseOperations'
 import type { Profile } from '@/hooks/useProfiles'
@@ -75,6 +76,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
   const myApprovalRolesByName = useMemo(() => new Set(mySlots.map((s) => s.name)), [mySlots])
   const { data: workflowSteps = [] } = useWorkflowSteps()
   const { data: categoriesFlat = [] } = useAllCategoriesFlat()
+  const { data: photoSignedUrls } = useAdjustmentPhotoSignedUrls(adjustment?.photo_urls ?? [])
   const [reviewNotes, setReviewNotes] = useState('')
   const [actioningId, setActioningId] = useState<string | null>(null)
   const [forceConfirmOpen, setForceConfirmOpen] = useState(false)
@@ -210,16 +212,30 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
                 <div className="rounded-md border p-4 space-y-2">
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Evidence Photos</div>
                   <div className="grid grid-cols-3 gap-2">
-                    {(adjustment.photo_urls ?? []).map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Evidence ${i + 1}`}
-                          className="aspect-square w-full object-cover rounded-md border hover:opacity-80 transition"
-                        />
-                      </a>
-                    ))}
+                    {(adjustment.photo_urls ?? []).map((pathOrUrl, i) => {
+                      const src = pathOrUrl.startsWith('http')
+                        ? pathOrUrl
+                        : photoSignedUrls?.[pathOrUrl]
+                      if (!src) {
+                        return (
+                          <div
+                            key={i}
+                            className="aspect-square w-full rounded-md border bg-muted animate-pulse"
+                            aria-label={`Evidence ${i + 1} loading`}
+                          />
+                        )
+                      }
+                      return (
+                        <a key={i} href={src} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={src}
+                            alt={`Evidence ${i + 1}`}
+                            className="aspect-square w-full object-cover rounded-md border hover:opacity-80 transition"
+                          />
+                        </a>
+                      )
+                    })}
                   </div>
                 </div>
               )}

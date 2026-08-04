@@ -590,6 +590,8 @@ export const queryKeys = {
     stockAdjustments: ['stock_adjustments'] as const,
     stockAdjustmentsByWarehouse: (warehouseId: Nullable) =>
       ['stock_adjustments', { warehouseId }] as const,
+    adjustmentPhotoSignedUrls: (paths: string[]) =>
+      ['adjustment-photo-signed-urls', paths] as const,
     inventoryChecks: ['inventory_checks'] as const,
     inventoryChecksByWarehouse: (warehouseId: Nullable) =>
       ['inventory_checks', { warehouseId }] as const,

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ItemTreeCell } from './ItemTreeCell'
-import { useStockAdjustments, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
+import { useStockAdjustments, useAdjustmentPhotoSignedUrls, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
 import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { useAllCategoriesFlat, breadcrumb as categoryBreadcrumb } from '@/hooks/useInventoryTree'
 import { WhAdjustmentDetailDialog } from './WhAdjustmentDetailDialog'
@@ -70,6 +70,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
   const { data: adjustments = [] } = useStockAdjustments()
   const { data: categoriesFlat = [] } = useAllCategoriesFlat()
   const [photoUrls, setPhotoUrls] = useState<string[] | null>(null)
+  const { data: previewSignedUrls } = useAdjustmentPhotoSignedUrls(photoUrls ?? [])
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [detailId, setDetailId] = useState<string | null>(null)
 
@@ -354,10 +355,22 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
             <DialogTitle className="text-sm">Evidence Photos</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2">
-            {(photoUrls ?? []).map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={url} alt={`Evidence ${i + 1}`} className="aspect-square w-full object-cover rounded-md border" />
-            ))}
+            {(photoUrls ?? []).map((pathOrUrl, i) => {
+              const src = pathOrUrl.startsWith('http') ? pathOrUrl : previewSignedUrls?.[pathOrUrl]
+              if (!src) {
+                return (
+                  <div
+                    key={i}
+                    className="aspect-square w-full rounded-md border bg-muted animate-pulse"
+                    aria-label={`Evidence ${i + 1} loading`}
+                  />
+                )
+              }
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={src} alt={`Evidence ${i + 1}`} className="aspect-square w-full object-cover rounded-md border" />
+              )
+            })}
           </div>
         </DialogContent>
       </Dialog>
