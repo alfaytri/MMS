@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,18 @@ import { ItemEditDialog } from './ItemEditDialog'
 import { CategoryAttributesDialog } from '@/components/master-data/attributes/CategoryAttributesDialog'
 import { useHasViewPermission } from '@/hooks/usePermissions'
 import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
+import {
+  useItemAttributesByCategory,
+  useItemAttributesByCategories,
+  useEffectiveAttributes,
+} from '@/hooks/useAttributes'
+import { useInventoryItemsByCategories } from '@/hooks/useInventory'
+import {
+  AttributeFilterBar,
+  itemPassesAttributeFilter,
+  hasAnyAttributeFilter,
+  type AttributeFilterState,
+} from '@/components/shared/AttributeFilterBar'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
@@ -27,15 +39,25 @@ type Props = {
   /** Phase D.12 Task 2 — when defined, only items whose id is in this set are
    *  rendered inside the expanded category. undefined = no item-level filter. */
   filterItemIds?: Set<string>
+  /** Attribute filter cascaded down from an ancestor. Merged with this
+   *  row's own filter (own picks override an ancestor pick on the same
+   *  attribute) before applying to items. */
+  inheritedAttributeFilter?: AttributeFilterState
+  /** Category ids that survived an ancestor's attribute filter. Any row
+   *  whose own id is missing from this set self-skips rendering. Undefined =
+   *  no attribute-driven visibility restriction. */
+  attributeVisibleCategoryIds?: Set<string>
 }
 
-export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds }: Props) {
+export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds, inheritedAttributeFilter, attributeVisibleCategoryIds }: Props) {
+
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [attributesOpen, setAttributesOpen] = useState(false)
+  const [ownAttrFilter, setOwnAttrFilter] = useState<AttributeFilterState>({})
   const canViewAttributes = useHasViewPermission('master_data.inventory.attributes')
   const archiveCategory = useArchiveInventoryCategory()
   const updateItemOrder = useUpdateSortOrders('inventory_items')
@@ -45,9 +67,116 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   // Items are fetched regardless of whether the category also has sub-categories.
   // A category can hold both direct items AND sub-categories at the same time.
   const { data: itemsRaw = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
-  const items = filterItemIds ? itemsRaw.filter((it) => filterItemIds.has(it.id)) : itemsRaw
+
+  // Effective attributes for THIS category (own + inherited from ancestors).
+  // Only fetched when expanded — gates whether the filter chip row renders.
+  const { data: effectiveAttrs = [] } = useEffectiveAttributes(expanded ? node.id : null)
+
+  // Effective attribute filter = inherited from ancestor merged with own picks
+  // (own picks win on the same definition_id).
+  const effectiveAttrFilter = useMemo<AttributeFilterState>(
+    () => ({ ...(inheritedAttributeFilter ?? {}), ...ownAttrFilter }),
+    [inheritedAttributeFilter, ownAttrFilter],
+  )
+  const attrFilterActive = hasAnyAttributeFilter(effectiveAttrFilter)
+
+  // Attributes already narrowed by an ancestor — hide them from this row's
+  // filter UI so operators don't see duplicate controls repeated down the
+  // tree. Only "active" ancestor picks (non-empty option list) are hidden;
+  // a set-then-cleared ancestor still shows the dropdown here.
+  const inheritedActiveIds = useMemo(() => {
+    const s = new Set<string>()
+    if (inheritedAttributeFilter) {
+      for (const [defId, opts] of Object.entries(inheritedAttributeFilter)) {
+        if (opts && opts.length > 0) s.add(defId)
+      }
+    }
+    return s
+  }, [inheritedAttributeFilter])
+
+  // Row is worth rendering only when there's at least one attribute the
+  // ancestor hasn't already narrowed. Prevents an empty grey strip when
+  // every attribute this category has is already picked upstream.
+  const hasFilterableAttrs = useMemo(
+    () => effectiveAttrs.some((a) => !inheritedActiveIds.has(a.definition_id)),
+    [effectiveAttrs, inheritedActiveIds],
+  )
+
+  // Item→attribute map for THIS category's direct items. Descendant rows do
+  // their own lookups, keyed by their own category id.
+  const { data: itemAttrsByItem } = useItemAttributesByCategory(
+    expanded && attrFilterActive ? node.id : null,
+  )
+
+  const items = useMemo(() => {
+    const base = filterItemIds ? itemsRaw.filter((it) => filterItemIds.has(it.id)) : itemsRaw
+    if (!attrFilterActive) return base
+    return base.filter((it) => itemPassesAttributeFilter(itemAttrsByItem?.get(it.id), effectiveAttrFilter))
+  }, [itemsRaw, filterItemIds, attrFilterActive, itemAttrsByItem, effectiveAttrFilter])
+
+  // Descendant subtree visibility — only computed when this row has picks of
+  // its own (own picks introduce constraints beyond what an ancestor already
+  // pruned via `attributeVisibleCategoryIds`). Walks the subtree, fetches
+  // items + their attribute values across it, keeps the ancestor chain of
+  // each matching item so parents stay visible down to the match.
+  const ownFilterActive = hasAnyAttributeFilter(ownAttrFilter)
+
+  const subtreeInfo = useMemo(() => {
+    if (!expanded || !ownFilterActive || node.children.length === 0) return null
+    const ids: string[] = [node.id]
+    const parentMap = new Map<string, string | null>()
+    parentMap.set(node.id, null)
+    const stack: { n: InventoryTreeNode; parentId: string }[] = node.children.map((c) => ({ n: c, parentId: node.id }))
+    while (stack.length > 0) {
+      const { n, parentId } = stack.pop()!
+      ids.push(n.id)
+      parentMap.set(n.id, parentId)
+      for (const child of n.children) stack.push({ n: child, parentId: n.id })
+    }
+    return { ids, parentMap }
+  }, [expanded, ownFilterActive, node])
+
+  const { data: subtreeItems = [] } = useInventoryItemsByCategories(
+    subtreeInfo?.ids ?? [],
+    showArchived,
+  )
+  const { data: subtreeAttrs } = useItemAttributesByCategories(subtreeInfo?.ids ?? [])
+
+  const visibleDescendantIds = useMemo<Set<string> | undefined>(() => {
+    if (!subtreeInfo) return undefined
+    const keep = new Set<string>()
+    keep.add(node.id) // self stays visible so operator can still see the filter row
+    for (const item of subtreeItems) {
+      if (!itemPassesAttributeFilter(subtreeAttrs?.get(item.id), effectiveAttrFilter)) continue
+      let cursor: string | null = item.category_id
+      while (cursor && !keep.has(cursor)) {
+        keep.add(cursor)
+        if (cursor === node.id) break
+        cursor = subtreeInfo.parentMap.get(cursor) ?? null
+      }
+    }
+    return keep
+  }, [subtreeInfo, subtreeItems, subtreeAttrs, effectiveAttrFilter, node.id])
+
+  // Pass whichever restriction is tighter down to children. If ancestor
+  // already gave us a set, intersect; otherwise just use our own.
+  const passDownVisibleIds = useMemo(() => {
+    if (!visibleDescendantIds && !attributeVisibleCategoryIds) return undefined
+    if (!visibleDescendantIds) return attributeVisibleCategoryIds
+    if (!attributeVisibleCategoryIds) return visibleDescendantIds
+    const inter = new Set<string>()
+    for (const id of visibleDescendantIds) if (attributeVisibleCategoryIds.has(id)) inter.add(id)
+    return inter
+  }, [visibleDescendantIds, attributeVisibleCategoryIds])
 
   const indent = 12 + depth * 20
+
+  // Ancestor's attribute filter pruned this branch — nothing to show at
+  // this row or below. Skip render entirely (parent stays visible). Placed
+  // after all hooks so the Rules of Hooks stay satisfied.
+  if (attributeVisibleCategoryIds && !attributeVisibleCategoryIds.has(node.id)) {
+    return null
+  }
 
   function handleItemMove(idx: number, direction: 'up' | 'down') {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -160,6 +289,24 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         </td>
       </tr>
 
+      {/* Attribute filter chips — one row per effective attribute of this
+          category, rendered inline when expanded. Silent when the category
+          (and its ancestors) have no attributes defined. Own picks cascade
+          down to descendant rows via `inheritedAttributeFilter`. */}
+      {expanded && hasFilterableAttrs && (
+        <tr className="border-b border-border bg-muted/20">
+          <td colSpan={6} className="py-2" style={{ paddingLeft: indent + 28, paddingRight: 12 }}>
+            <AttributeFilterBar
+              categoryId={node.id}
+              value={ownAttrFilter}
+              onChange={setOwnAttrFilter}
+              hideDefinitionIds={inheritedActiveIds}
+              size="sm"
+            />
+          </td>
+        </tr>
+      )}
+
       {/* Child categories (rendered before items) */}
       {expanded && node.children.map((child: InventoryTreeNode, idx: number) => (
         <CategoryRow
@@ -174,6 +321,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           depth={depth + 1}
           stockAggregates={stockAggregates}
           filterItemIds={filterItemIds}
+          inheritedAttributeFilter={effectiveAttrFilter}
+          attributeVisibleCategoryIds={passDownVisibleIds}
         />
       ))}
 

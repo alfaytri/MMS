@@ -184,6 +184,39 @@ export function useDeleteAttributeOption() {
   })
 }
 
+// ─── Batched options loader ─────────────────────────────────────────────
+
+/**
+ * One-shot loader for options across many definitions. Returns a Map keyed
+ * by `definition_id`. Used by the filter bar (one Select per attribute) and
+ * the item-row chip strip so long lists don't fan out into N queries.
+ */
+export function useAttributeOptionsBatch(definitionIds: string[]) {
+  const sortedKey = [...definitionIds].sort().join(',')
+  return useQuery({
+    queryKey: ['inventory-attributes', 'options-batch', sortedKey],
+    enabled: definitionIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_attribute_options')
+        .select('*')
+        .in('definition_id', definitionIds)
+        .order('sort_order', { ascending: true })
+        .limit(2000)
+      if (error) throw error
+      const map = new Map<string, AttributeOption[]>()
+      for (const opt of (data ?? []) as AttributeOption[]) {
+        const list = map.get(opt.definition_id)
+        if (list) list.push(opt)
+        else map.set(opt.definition_id, [opt])
+      }
+      return map
+    },
+  })
+}
+
 // ─── Item values ────────────────────────────────────────────────────────
 
 export type ItemAttributeRow = {
@@ -191,6 +224,72 @@ export type ItemAttributeRow = {
   item_id: string
   definition_id: string
   option_id: string
+}
+
+/**
+ * Load every item→attribute row for items in a given category. Returns a
+ * Map<itemId, Map<definitionId, optionId>> so the filter bar can slice the
+ * item list client-side by attribute picks.
+ *
+ * Match semantics for filters (same as the picker RPC): an item passes a
+ * filter (definition_id, option_id) if EITHER the item has no row for that
+ * definition ("unknown / any") OR the item's row.option_id equals the
+ * filter's option_id. This mirrors `rpc_attribute_picker_step` so filter
+ * behavior stays consistent even after we retired that RPC on the client.
+ */
+export function useItemAttributesByCategory(categoryId: string | null) {
+  return useQuery({
+    queryKey: ['inventory-attributes', 'by-category', categoryId ?? '__none__'],
+    enabled: !!categoryId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_item_attributes')
+        .select('item_id, definition_id, option_id, inventory_items!inner(category_id)')
+        .eq('inventory_items.category_id', categoryId!)
+        .limit(5000)
+      if (error) throw error
+      return bucketByItem((data ?? []) as Array<{ item_id: string; definition_id: string; option_id: string }>)
+    },
+  })
+}
+
+/**
+ * Descendant-rollup variant: same shape as `useItemAttributesByCategory` but
+ * accepts a set of category ids so the cascade can filter items across a
+ * whole subtree (parent + all descendants).
+ */
+export function useItemAttributesByCategories(categoryIds: string[]) {
+  const sortedKey = [...categoryIds].sort().join(',')
+  return useQuery({
+    queryKey: ['inventory-attributes', 'by-categories', sortedKey],
+    enabled: categoryIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_item_attributes')
+        .select('item_id, definition_id, option_id, inventory_items!inner(category_id)')
+        .in('inventory_items.category_id', categoryIds)
+        .limit(10000)
+      if (error) throw error
+      return bucketByItem((data ?? []) as Array<{ item_id: string; definition_id: string; option_id: string }>)
+    },
+  })
+}
+
+function bucketByItem(rows: Array<{ item_id: string; definition_id: string; option_id: string }>) {
+  const byItem = new Map<string, Map<string, string>>()
+  for (const row of rows) {
+    let inner = byItem.get(row.item_id)
+    if (!inner) {
+      inner = new Map()
+      byItem.set(row.item_id, inner)
+    }
+    inner.set(row.definition_id, row.option_id)
+  }
+  return byItem
 }
 
 export function useItemAttributes(itemId: string | null) {

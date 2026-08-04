@@ -4,12 +4,11 @@ import { useMemo } from 'react'
 import {
   useEffectiveAttributes,
   useItemAttributes,
+  useAttributeOptionsBatch,
   type EffectiveAttribute,
   type ItemAttributeRow,
+  type AttributeOption,
 } from '@/hooks/useAttributes'
-import { createClient } from '@/lib/supabase/client'
-import { useQuery } from '@tanstack/react-query'
-import type { DBTable } from '@/types/database.types'
 
 type Props = {
   itemId: string
@@ -26,7 +25,7 @@ type Props = {
 export function AttributeChipStrip({ itemId, categoryId, maxChips = 4 }: Props) {
   const { data: effective = [] } = useEffectiveAttributes(categoryId)
   const { data: picks = [] } = useItemAttributes(itemId)
-  const { data: optionsByDefinition = new Map() } = useOptionsForDefinitionsBatch(
+  const { data: optionsByDefinition = new Map() } = useAttributeOptionsBatch(
     effective.map((e) => e.definition_id),
   )
 
@@ -55,43 +54,10 @@ export function AttributeChipStrip({ itemId, categoryId, maxChips = 4 }: Props) 
   )
 }
 
-type OptionRow = DBTable<'inventory_attribute_options'>
-
-/**
- * One TanStack query that fetches every option row for the given definition
- * ids in a single request, then buckets them by definition_id. Prevents the
- * N-query fan-out that a per-row `useAttributeOptionsForDefinition` would
- * cause across a list view.
- */
-function useOptionsForDefinitionsBatch(definitionIds: string[]) {
-  const sortedKey = useMemo(() => [...definitionIds].sort().join(','), [definitionIds])
-  return useQuery({
-    queryKey: ['inventory-attributes', 'options-batch', sortedKey],
-    enabled: definitionIds.length > 0,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('inventory_attribute_options')
-        .select('*')
-        .in('definition_id', definitionIds)
-        .limit(2000)
-      if (error) throw error
-      const map = new Map<string, OptionRow[]>()
-      for (const row of (data ?? []) as OptionRow[]) {
-        const list = map.get(row.definition_id) ?? []
-        list.push(row)
-        map.set(row.definition_id, list)
-      }
-      return map
-    },
-  })
-}
-
 function buildChips(
   effective: EffectiveAttribute[],
   picks: ItemAttributeRow[],
-  optionsByDef: Map<string, OptionRow[]>,
+  optionsByDef: Map<string, AttributeOption[]>,
 ): Array<{ definition_id: string; label: string; value: string }> {
   const pickMap = new Map<string, string>()
   for (const p of picks) pickMap.set(p.definition_id, p.option_id)

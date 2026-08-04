@@ -451,6 +451,35 @@ export function useInventoryItemsByCategory(categoryId: string | null, showArchi
   })
 }
 
+/**
+ * Descendant-rollup variant: fetch every item whose `category_id` is in the
+ * passed set. Used by the cascade so picking a parent category (e.g. "AC")
+ * surfaces items across all descendant leaves (3 Ton, 4 Ton, …) — the
+ * attribute filter bar then narrows across the merged set.
+ */
+export function useInventoryItemsByCategories(categoryIds: string[], showArchived = false) {
+  const sortedKey = [...categoryIds].sort().join(',')
+  return useQuery({
+    queryKey: ['inventory', 'items-by-categories', sortedKey, showArchived],
+    enabled: categoryIds.length > 0,
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = supabase
+        .from('inventory_items')
+        .select('*')
+        .in('category_id', categoryIds)
+        .order('sort_order', { ascending: true })
+        .order('name_en', { ascending: true })
+        .limit(2000)
+      if (!showArchived) q = q.neq('status', 'archived')
+      const { data, error } = await q
+      if (error) throw error
+      return data as InventoryItem[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useArchiveInventoryItem() {
   const qc = useQueryClient()
   return useMutation({
