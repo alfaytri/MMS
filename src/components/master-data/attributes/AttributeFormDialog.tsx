@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useUpsertAttributeDefinition, type AttributeDefinition } from '@/hooks/useAttributes'
 import { AttributeOptionsEditor } from './AttributeOptionsEditor'
 
@@ -27,6 +31,8 @@ function slugify(input: string): string {
     .replace(/_{2,}/g, '_')
 }
 
+type Snapshot = { labelEn: string; labelAr: string; attributeKey: string }
+
 export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }: Props) {
   const upsert = useUpsertAttributeDefinition()
   const [labelEn, setLabelEn] = useState('')
@@ -35,6 +41,10 @@ export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }:
   const [keyManuallyEdited, setKeyManuallyEdited] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedDefinitionId, setSavedDefinitionId] = useState<string | null>(null)
+  // Snapshot of the last persisted values — dirty check compares against this.
+  // Refreshed on open (to editing's values or empty) and after every save.
+  const [savedSnapshot, setSavedSnapshot] = useState<Snapshot>({ labelEn: '', labelAr: '', attributeKey: '' })
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     if (open) {
@@ -44,12 +54,18 @@ export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }:
         setAttributeKey(editing.attribute_key)
         setKeyManuallyEdited(true)
         setSavedDefinitionId(editing.id)
+        setSavedSnapshot({
+          labelEn: editing.label_en,
+          labelAr: editing.label_ar ?? '',
+          attributeKey: editing.attribute_key,
+        })
       } else {
         setLabelEn('')
         setLabelAr('')
         setAttributeKey('')
         setKeyManuallyEdited(false)
         setSavedDefinitionId(null)
+        setSavedSnapshot({ labelEn: '', labelAr: '', attributeKey: '' })
       }
     }
   }, [open, editing])
@@ -88,6 +104,7 @@ export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }:
         sort_order: editing?.sort_order ?? 0,
       })
       setSavedDefinitionId(saved.id)
+      setSavedSnapshot({ labelEn: en, labelAr: labelAr.trim(), attributeKey: key })
       toast.success(editing || savedDefinitionId ? 'Attribute updated' : 'Attribute created')
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e)
@@ -105,8 +122,13 @@ export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }:
     }
   }
 
+  const isDirty =
+    labelEn.trim() !== savedSnapshot.labelEn.trim() ||
+    labelAr.trim() !== savedSnapshot.labelAr.trim() ||
+    attributeKey.trim() !== savedSnapshot.attributeKey.trim()
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit attribute' : 'New attribute'}</DialogTitle>
@@ -170,12 +192,12 @@ export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }:
         </div>
 
         <DialogFooter className="border-t pt-3 mt-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Close</Button>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={saving}>Close</Button>
           <Button onClick={handleSave} disabled={saving || !labelEn.trim() || !attributeKey.trim()}>
             {saving ? 'Saving…' : (editing ? 'Save changes' : (savedDefinitionId ? 'Update' : 'Create attribute'))}
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

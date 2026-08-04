@@ -1,17 +1,22 @@
 'use client'
 
+import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { passwordSchema } from '@/lib/auth/password-policy'
 import { useResetUserPassword, type Profile } from '@/hooks/useProfiles'
 
@@ -32,6 +37,7 @@ interface Props {
 
 export function ResetPasswordDialog({ open, onOpenChange, profile }: Props) {
   const resetPw = useResetUserPassword()
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
@@ -45,7 +51,7 @@ export function ResetPasswordDialog({ open, onOpenChange, profile }: Props) {
       {
         onSuccess: () => {
           toast.success('Password reset — user will be prompted to change it on next login')
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
           form.reset()
         },
         onError: (err) => toast.error(err.message),
@@ -54,7 +60,7 @@ export function ResetPasswordDialog({ open, onOpenChange, profile }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
       <DialogContent className="w-full max-w-md">
         <DialogHeader>
           <DialogTitle>Reset Password {profile?.full_name ? `— ${profile.full_name}` : ''}</DialogTitle>
@@ -85,7 +91,7 @@ export function ResetPasswordDialog({ open, onOpenChange, profile }: Props) {
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
               <Button type="submit" disabled={resetPw.isPending}>
                 {resetPw.isPending ? 'Resetting…' : 'Reset Password'}
               </Button>
@@ -93,6 +99,6 @@ export function ResetPasswordDialog({ open, onOpenChange, profile }: Props) {
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }

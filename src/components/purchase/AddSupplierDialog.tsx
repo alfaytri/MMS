@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import {
-  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -31,6 +30,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateSupplier } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useCountryCodes } from '@/hooks/useCountryCodes'
@@ -62,6 +65,7 @@ export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplier
   const { data: currencies = [] } = useCurrencies()
   const { data: countryCodes = [] } = useCountryCodes()
   const qarCurrency = currencies.find((c) => c.code === 'QAR')
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -119,7 +123,7 @@ export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplier
         onSuccess: (data) => {
           toast.success('Supplier created')
           onCreated({ id: data.id, name: data.name })
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
           form.reset()
         },
         onError: (err) => toast.error(err.message),
@@ -128,7 +132,7 @@ export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplier
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg p-0 flex flex-col max-h-[90vh] overflow-hidden">
         <div className="px-6 pt-6 flex-shrink-0">
           <DialogHeader>
@@ -332,7 +336,7 @@ export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplier
             </div>
 
             <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={create.isPending}>
+              <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={create.isPending}>
                 Cancel
               </Button>
               <Button type="submit" disabled={create.isPending}>
@@ -342,6 +346,6 @@ export function AddSupplierDialog({ open, onOpenChange, onCreated }: AddSupplier
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }

@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { X, Shield, KeyRound, UserPlus2, Building2 } from 'lucide-react'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +23,10 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import {
   useUpdateUser, useUserDivisions, useAssignDivision, useRemoveDivision, type Profile,
 } from '@/hooks/useProfiles'
@@ -145,6 +149,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   const [_extensionError, setExtensionError] = useState<string | null>(null)
   const [phoneCountryCode, setPhoneCountryCode] = useState('+974')
   const [phoneDigits, setPhoneDigits] = useState('')
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     setHasCcAccess(profile?.has_contact_centre_access ?? false)
@@ -154,6 +159,16 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
     setPhoneCountryCode(code)
     setPhoneDigits(digits)
   }, [profile])
+
+  // Divisions are managed via live mutations (assign/remove fire immediately),
+  // so they aren't part of the dirty check. The useState fields below ARE:
+  // phone + CC access + 3CX extension all persist only on Save.
+  const initialPhone = useMemo(() => splitPhone(profile?.phone), [profile?.phone])
+  const extraDirty =
+    hasCcAccess !== (profile?.has_contact_centre_access ?? false) ||
+    extension !== (profile?.threecx_extension ?? '') ||
+    phoneCountryCode !== initialPhone.code ||
+    phoneDigits !== initialPhone.digits
 
   const companiesWithUnassigned = useMemo(() => {
     const assignedIds = new Set(userDivisions.map((ud) => ud.division_id))
@@ -245,7 +260,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       {
         onSuccess: () => {
           toast.success('User updated')
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
         },
         onError: (err) => toast.error(err.message),
       }
@@ -253,7 +268,13 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedFormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      form={form}
+      extraDirty={extraDirty}
+      ref={guardRef}
+    >
       <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
@@ -285,7 +306,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
             <label className="flex items-center gap-2 cursor-pointer">
               <Checkbox
                 checked={isActive}
-                onCheckedChange={(checked) => form.setValue('is_active', Boolean(checked))}
+                onCheckedChange={(checked) => form.setValue('is_active', Boolean(checked), { shouldDirty: true })}
               />
               <span className="text-sm">Active</span>
             </label>
@@ -502,7 +523,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
               <Button type="submit" disabled={updateUser.isPending}>
                 {updateUser.isPending ? 'Saving…' : 'Save Changes'}
               </Button>
@@ -510,6 +531,6 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }
