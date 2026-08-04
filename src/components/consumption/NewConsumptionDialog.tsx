@@ -577,8 +577,37 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                       key={idx}
                       className={`rounded-md border p-2.5 space-y-1.5 ${error ? 'border-destructive/50 bg-destructive/5' : 'bg-card'}`}
                     >
-                      <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
-                        <PopoverTrigger className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer">
+                      {pickerMode === 'browse' ? (
+                        <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
+                          <PopoverTrigger className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer">
+                            {selected ? (
+                              <span className="truncate">
+                                <span className="font-medium">{selected.item_name}</span>
+                                {selected.brand && (
+                                  <span className="text-muted-foreground"> — {selected.brand}</span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Search items…</span>
+                            )}
+                            <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-auto" align="start" side="bottom">
+                            <WhItemPicker
+                              items={pickerItems}
+                              selectedIds={selectedIds}
+                              currentValue={row.brand_variant_id}
+                              onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
+                              showQty
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setOpenPickerIdx(idx)}
+                          className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer"
+                        >
                           {selected ? (
                             <span className="truncate">
                               <span className="font-medium">{selected.item_name}</span>
@@ -587,42 +616,11 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                               )}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">Search items…</span>
+                            <span className="text-muted-foreground">Pick by attribute…</span>
                           )}
                           <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className={pickerMode === 'guided' ? 'p-3 w-[640px] max-w-[95vw]' : 'p-0 w-auto'}
-                          align="start"
-                          side="bottom"
-                        >
-                          {pickerMode === 'browse' ? (
-                            <WhItemPicker
-                              items={pickerItems}
-                              selectedIds={selectedIds}
-                              currentValue={row.brand_variant_id}
-                              onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
-                              showQty
-                            />
-                          ) : (
-                            <ProductAttributePicker
-                              key={`guided-${idx}`}
-                              onPick={(_itemId, brandVariantId) => {
-                                if (!stockedVariantIds.has(brandVariantId)) {
-                                  toast.error('That variant has no stock at the selected warehouse — try Browse mode or pick a different variant.')
-                                  return
-                                }
-                                if (selectedIds.has(brandVariantId) && brandVariantId !== row.brand_variant_id) {
-                                  toast.error('This variant is already on another line.')
-                                  return
-                                }
-                                updateRow(idx, 'brand_variant_id', brandVariantId)
-                                setOpenPickerIdx(null)
-                              }}
-                            />
-                          )}
-                        </PopoverContent>
-                      </Popover>
+                        </button>
+                      )}
 
                       <div className="flex items-center gap-2 flex-wrap">
                         <Input
@@ -770,6 +768,41 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Guided picker sub-dialog. Only mounts in guided mode + when a row
+          has requested it (openPickerIdx set). Centered so the picker's
+          grid has room without crowding the source-dialog rows. */}
+      <Dialog
+        open={pickerMode === 'guided' && openPickerIdx !== null}
+        onOpenChange={(o) => { if (!o) setOpenPickerIdx(null) }}
+      >
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Guided item pick — Line {openPickerIdx !== null ? openPickerIdx + 1 : ''}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-2">
+            {openPickerIdx !== null && (
+              <ProductAttributePicker
+                key={`guided-line-${openPickerIdx}`}
+                onPick={(_itemId, brandVariantId) => {
+                  if (!stockedVariantIds.has(brandVariantId)) {
+                    toast.error('That variant has no stock at the selected warehouse — try Browse mode or pick a different variant.')
+                    return
+                  }
+                  const currentRowIdx = openPickerIdx
+                  const currentRowVariant = rows[currentRowIdx]?.brand_variant_id
+                  if (selectedIds.has(brandVariantId) && brandVariantId !== currentRowVariant) {
+                    toast.error('This variant is already on another line.')
+                    return
+                  }
+                  updateRow(currentRowIdx, 'brand_variant_id', brandVariantId)
+                  setOpenPickerIdx(null)
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
