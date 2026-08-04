@@ -230,9 +230,12 @@ Every Supabase Realtime channel, polling hook, or list query MUST follow the rul
 
 **Always use the Supabase CLI to apply migrations. Never ask the user to run SQL manually.**
 
-**Project ref:** `wkmvjxxmzstsvahuiwsz`  
+**Project ref (primary — staging):** `mwvblpgbgxipvrevkeff`  
+**Project ref (dev — deprecated, do not push here):** `wkmvjxxmzstsvahuiwsz`  
 **Config:** `supabase/config.toml` (committed to repo — CLI reads it automatically)  
-**Auth token:** stored in `supabase/.temp/` (gitignored, machine-local)
+**Auth token:** stored in `supabase/.temp/` (gitignored, machine-local — currently points at staging)
+
+> **Temporary target policy (2026-08-04 → until `deploy/warehouse-shipping` fully ships):** every migration goes to staging **only**. Dev DB (`wkmvjxxmzstsvahuiwsz`) is frozen and will drift — do NOT push to it during this window. After `deploy/warehouse-shipping` ships, re-evaluate whether to resync dev or retire it entirely.
 
 ## Workflow for every migration
 
@@ -250,7 +253,7 @@ git commit -m "feat(db): ..."
 
 Run once:
 ```bash
-npx supabase link --project-ref wkmvjxxmzstsvahuiwsz
+npx supabase link --project-ref mwvblpgbgxipvrevkeff
 ```
 No password needed when logged in via `npx supabase login`.
 
