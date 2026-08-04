@@ -839,7 +839,7 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Guards / preconditions:** `SECURITY DEFINER` functions; service-role key read from `vault.decrypted_secrets` under name `storage_cleanup_service_role_key` at call time; caught exceptions logged to `storage_cleanup_failures`.
 - **Related flows:** [[Create Sale Order (quotation / SO)]] (customer credit-doc side-effects), [[Complete Return Inspection]] (adjustment photos side-effects).
 - **Docs / plans:** [docs/superpowers/plans/2026-08-04-storage-cascade-triggers.md](docs/superpowers/plans/2026-08-04-storage-cascade-triggers.md)
-- **Notes:** `avatars` bucket intentionally out of scope (deterministic path + upsert = no orphans). PDF buckets deferred to storage-audit item 3D. Vault secret must be created manually via `SELECT vault.create_secret('<service role key>', 'storage_cleanup_service_role_key');` before triggers can succeed — otherwise every fire logs a failure row.
+- **Notes:** `avatars` bucket intentionally out of scope (deterministic path + upsert = no orphans). PDF buckets deferred to storage-audit item 3D. **Per-environment Vault-secret bootstrap runbook: [docs/ops/storage-cascade-vault-bootstrap.md](ops/storage-cascade-vault-bootstrap.md)** — must be run once per environment before triggers can succeed.
 
 ---
 

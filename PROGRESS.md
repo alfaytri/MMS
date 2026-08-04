@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Deferred storage-audit items 3A + 3B + 3C closed on `deploy/warehouse-shipping`. Remaining: 3D (PDF-bucket privatization — 6 buckets, 5 generators) and 3E (dirty-guard on remaining 67 form dialogs). **3C ships with one manual step: `SELECT vault.create_secret('<service role key>', 'storage_cleanup_service_role_key');` must be run once in the Supabase SQL editor before the cascade triggers can actually delete files** — without it every trigger fire logs a row to `storage_cleanup_failures` but never aborts the parent DML.
+Deferred storage-audit items 3A + 3B + 3C closed on `deploy/warehouse-shipping`. Remaining: 3D (PDF-bucket privatization — 6 buckets, 5 generators) and 3E (dirty-guard on remaining 67 form dialogs). **3C ships with one manual step per environment: `SELECT vault.create_secret('<service role key>', 'storage_cleanup_service_role_key');` in the Supabase SQL editor before the cascade triggers can actually delete files** — without it every trigger fire logs a row to `storage_cleanup_failures` but never aborts the parent DML. Full runbook (per-env keys, verify, smoke, prod-cutover, monitoring, rollback): [docs/ops/storage-cascade-vault-bootstrap.md](docs/ops/storage-cascade-vault-bootstrap.md).
 
 ---
 
