@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ItemRow } from './ItemRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ItemEditDialog } from './ItemEditDialog'
+import { CategoryAttributesDialog } from '@/components/master-data/attributes/CategoryAttributesDialog'
+import { useHasViewPermission } from '@/hooks/usePermissions'
 import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
@@ -33,6 +35,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [attributesOpen, setAttributesOpen] = useState(false)
+  const canViewAttributes = useHasViewPermission('master_data.inventory.attributes')
   const archiveCategory = useArchiveInventoryCategory()
   const updateItemOrder = useUpdateSortOrders('inventory_items')
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
@@ -144,6 +148,11 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
             <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
+            {canViewAttributes && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Manage Attributes" onClick={() => setAttributesOpen(true)}>
+                <Tags className="h-3 w-3" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
             </Button>
@@ -193,6 +202,14 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
       <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType={categoryType} category={node} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType={categoryType} parentId={node.id} />
       <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType={categoryType} />
+      {canViewAttributes && (
+        <CategoryAttributesDialog
+          open={attributesOpen}
+          onOpenChange={setAttributesOpen}
+          categoryId={node.id}
+          categoryName={node.name_en}
+        />
+      )}
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
