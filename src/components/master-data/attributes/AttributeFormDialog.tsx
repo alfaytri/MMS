@@ -80,7 +80,7 @@ export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }:
     setSaving(true)
     try {
       const saved = await upsert.mutateAsync({
-        id: editing?.id,
+        id: editing?.id ?? savedDefinitionId ?? undefined,
         category_id: categoryId,
         attribute_key: key,
         label_en: en,
@@ -88,9 +88,17 @@ export function AttributeFormDialog({ open, onOpenChange, categoryId, editing }:
         sort_order: editing?.sort_order ?? 0,
       })
       setSavedDefinitionId(saved.id)
-      toast.success(editing ? 'Attribute updated' : 'Attribute created')
+      toast.success(editing || savedDefinitionId ? 'Attribute updated' : 'Attribute created')
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to save attribute'
+      const raw = e instanceof Error ? e.message : String(e)
+      let msg = raw
+      if (raw.includes('inventory_attribute_definitions_category_id_attribute_key_key')) {
+        msg = `An attribute with key "${key}" already exists on this category.`
+      } else if (raw.includes('already defined at ancestor')) {
+        msg = raw
+      } else if (raw.includes('already defined at descendant')) {
+        msg = raw
+      }
       toast.error(msg)
     } finally {
       setSaving(false)
