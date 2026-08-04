@@ -1,13 +1,17 @@
 // src/components/sales/SoLineItemsEditor.tsx
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ElementType } from 'react'
-import { Trash2, Plus, ShoppingBag, Cog, Droplets, Wrench } from 'lucide-react'
+import { toast } from 'sonner'
+import { Trash2, Plus, ShoppingBag, Cog, Droplets, Wrench, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
+import { ProductAttributePicker } from '@/components/shared/ProductAttributePicker'
+import { createClient } from '@/lib/supabase/client'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { SOLineItemDraft } from '@/hooks/useSaleOrders'
@@ -59,6 +63,21 @@ export function SoLineItemsEditor({
 }: SoLineItemsEditorProps) {
   const priceLoadingKeys = useRef(new Set<string>())
 
+  // Picker mode — Browse (CascadeInventorySelector, default) vs Guided
+  // (ProductAttributePicker). Persisted per project convention.
+  const [pickerMode, setPickerMode] = useState<'browse' | 'guided'>(() => {
+    if (typeof window === 'undefined') return 'browse'
+    const stored = window.localStorage.getItem('so.pickerMode')
+    return stored === 'guided' ? 'guided' : 'browse'
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('so.pickerMode', pickerMode)
+  }, [pickerMode])
+
+  // Which row's guided picker is open (by row _key). null when no picker open.
+  const [guidedForKey, setGuidedForKey] = useState<string | null>(null)
+
   function handleRowPriceLoading(key: string, loading: boolean) {
     if (loading) { priceLoadingKeys.current.add(key) } else { priceLoadingKeys.current.delete(key) }
     onPriceLoading?.(priceLoadingKeys.current.size > 0)
@@ -74,6 +93,49 @@ export function SoLineItemsEditor({
       if ('qty' in patch || 'unit_price' in patch) u.total = u.qty * u.unit_price
       return u
     }))
+  }
+
+  /**
+   * Resolve a brand_variant_id into an InventoryLookupResult so the guided
+   * picker's minimal (itemId, brandVariantId) output can feed the same
+   * handleInventorySelect path as the cascade selector. Uses selling_price
+   * and average_cost off the brand-variant, item metadata off inventory_items,
+   * and category names via the FK.
+   */
+  async function resolveLookupByBrandVariant(brandVariantId: string): Promise<InventoryLookupResult | null> {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('inventory_item_brand_variants')
+      .select(`
+        id, brand, average_cost, selling_price,
+        inventory_items!inner(
+          name_en, name_ar, sku, unit,
+          inventory_categories!inner(name_en, name_ar)
+        )
+      `)
+      .eq('id', brandVariantId)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    const item = data.inventory_items as unknown as {
+      name_en: string
+      name_ar: string | null
+      sku: string
+      unit: string
+      inventory_categories: { name_en: string; name_ar: string | null }
+    }
+    return {
+      brand_variant_id: data.id,
+      item_name:        item.name_en,
+      item_name_ar:     item.name_ar,
+      sku:              item.sku,
+      unit:             item.unit,
+      cost_price:       Number(data.average_cost ?? 0),
+      selling_price:    Number(data.selling_price ?? 0),
+      category_name:    item.inventory_categories?.name_en ?? null,
+      category_name_ar: item.inventory_categories?.name_ar ?? null,
+      brand:            data.brand ?? null,
+    }
   }
 
   function handleInventorySelect(key: string, item: InventoryLookupResult | null) {
@@ -119,27 +181,53 @@ export function SoLineItemsEditor({
   return (
     <div className="space-y-4">
       {!readOnly && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-            ADD ITEM:
-          </span>
-          {ALL_TYPES.map((t) => {
-            const cfg = TYPE_CONFIG[t]
-            const Icon = cfg.icon
-            return (
-              <Button
-                key={t}
-                type="button"
-                variant="outline"
-                size="sm"
-                className={`h-7 text-xs gap-1.5 ${cfg.buttonClass}`}
-                onClick={() => addRow(t)}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {cfg.label}
-              </Button>
-            )
-          })}
+        <div className="flex flex-wrap items-center gap-2 justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              ADD ITEM:
+            </span>
+            {ALL_TYPES.map((t) => {
+              const cfg = TYPE_CONFIG[t]
+              const Icon = cfg.icon
+              return (
+                <Button
+                  key={t}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={`h-7 text-xs gap-1.5 ${cfg.buttonClass}`}
+                  onClick={() => addRow(t)}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {cfg.label}
+                </Button>
+              )
+            })}
+          </div>
+          <div className="inline-flex rounded-md border p-0.5 bg-muted/40 shrink-0" title="Choose how to find items">
+            <button
+              type="button"
+              onClick={() => setPickerMode('browse')}
+              className={`px-2 h-6 text-[10px] rounded transition ${
+                pickerMode === 'browse'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Browse
+            </button>
+            <button
+              type="button"
+              onClick={() => setPickerMode('guided')}
+              className={`px-2 h-6 text-[10px] rounded transition ${
+                pickerMode === 'guided'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Guided
+            </button>
+          </div>
         </div>
       )}
 
@@ -191,7 +279,7 @@ export function SoLineItemsEditor({
                           <div className="h-9 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
                             {row.item_name || '—'}
                           </div>
-                        ) : (
+                        ) : pickerMode === 'browse' ? (
                           <CascadeInventorySelector
                             lineType={lineType}
                             value={buildInventoryValue(row)}
@@ -199,6 +287,24 @@ export function SoLineItemsEditor({
                             onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
                             filterByActiveDivision
                           />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setGuidedForKey(row._key)}
+                            className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm hover:bg-accent/50"
+                          >
+                            {row.item_name ? (
+                              <span className="truncate">
+                                <span className="font-medium">{row.item_name}</span>
+                                {row.sku && (
+                                  <span className="text-muted-foreground text-[11px] ml-1.5">{row.sku}</span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Pick by attribute…</span>
+                            )}
+                            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50 ml-2" />
+                          </button>
                         )}
                       </div>
                       {!readOnly && (
@@ -285,6 +391,53 @@ export function SoLineItemsEditor({
           </div>
         )
       })}
+
+      {/* Guided picker sub-dialog. Resolves the picker's (itemId, brandVariantId)
+          output into a full InventoryLookupResult so the browse-mode path and
+          guided-mode path both flow through handleInventorySelect. */}
+      <Dialog
+        open={pickerMode === 'guided' && guidedForKey !== null}
+        onOpenChange={(o) => { if (!o) setGuidedForKey(null) }}
+      >
+        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[46rem] sm:h-[90vh] sm:max-w-[95vw] flex flex-col overflow-hidden">
+          <DialogHeader className="border-b pb-3">
+            <DialogTitle>Guided item pick</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-3 pr-1">
+            {guidedForKey !== null && (
+              <ProductAttributePicker
+                key={`so-guided-${guidedForKey}`}
+                onPick={async (_itemId, brandVariantId) => {
+                  const targetKey = guidedForKey
+                  if (!targetKey) return
+                  // Same-line reselect: allow. Cross-line duplicate: block.
+                  const currentRow = value.find((r) => r._key === targetKey)
+                  const conflict = value.some((r) => r._key !== targetKey && r.brand_variant_id === brandVariantId)
+                  if (conflict) {
+                    toast.error('That variant is already on another line.')
+                    return
+                  }
+                  if (currentRow?.brand_variant_id === brandVariantId) {
+                    setGuidedForKey(null)
+                    return
+                  }
+                  try {
+                    const lookup = await resolveLookupByBrandVariant(brandVariantId)
+                    if (!lookup) {
+                      toast.error('Could not resolve item details — try Browse mode.')
+                      return
+                    }
+                    handleInventorySelect(targetKey, lookup)
+                    setGuidedForKey(null)
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Failed to load item details')
+                  }
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
