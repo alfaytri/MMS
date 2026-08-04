@@ -183,3 +183,75 @@ export function useDeleteAttributeOption() {
     },
   })
 }
+
+// ─── Item values ────────────────────────────────────────────────────────
+
+export type ItemAttributeRow = {
+  id: string
+  item_id: string
+  definition_id: string
+  option_id: string
+}
+
+export function useItemAttributes(itemId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.attributes.itemValues(itemId ?? '__none__'),
+    enabled: !!itemId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_item_attributes')
+        .select('id, item_id, definition_id, option_id')
+        .eq('item_id', itemId!)
+      if (error) throw error
+      return (data ?? []) as ItemAttributeRow[]
+    },
+  })
+}
+
+/**
+ * Upsert / clear an item's attribute values.
+ *
+ * `values` is the FULL desired state — every effective attribute for the
+ * item's category, with `option_id: null` meaning "clear this attribute
+ * (delete the row)" and a set `option_id` meaning "this is the picked
+ * value." Rows for definitions not present in `values` are left untouched.
+ */
+export function useUpsertItemAttributes() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ itemId, values }: {
+      itemId: string
+      values: Array<{ definition_id: string; option_id: string | null }>
+    }) => {
+      const supabase = createClient()
+      const toDelete = values.filter((v) => v.option_id === null).map((v) => v.definition_id)
+      const toUpsert = values
+        .filter((v) => v.option_id !== null)
+        .map((v) => ({
+          item_id: itemId,
+          definition_id: v.definition_id,
+          option_id: v.option_id!,
+        }))
+      if (toDelete.length > 0) {
+        const { error } = await supabase
+          .from('inventory_item_attributes')
+          .delete()
+          .eq('item_id', itemId)
+          .in('definition_id', toDelete)
+        if (error) throw error
+      }
+      if (toUpsert.length > 0) {
+        const { error } = await supabase
+          .from('inventory_item_attributes')
+          .upsert(toUpsert, { onConflict: 'item_id,definition_id' })
+        if (error) throw error
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.attributes.itemValues(vars.itemId) })
+      qc.invalidateQueries({ queryKey: queryKeys.attributes.all })
+    },
+  })
+}
