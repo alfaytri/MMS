@@ -267,6 +267,10 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Storage audit deferred item 3A — avatars RLS owner-check**. Lock the update/delete policies on the `avatars` bucket to the owner (filename prefix = `auth.uid()`) so a signed-in user can only overwrite their own avatar file.
+
+---
+
 ✅ **Storage audit + dialog dirty-guard sweep complete on `deploy/warehouse-shipping`.** Full read of every `.storage.from(...).upload(...)` site + every dialog with a form → found 2 missing buckets (fresh 404s on Company logo + LC bills), an over-open avatars RLS policy, a 365-day signed URL persisted to the DB, 4 buckets missing server-side size/MIME limits, orphaned files on every dialog-cancel path, non-atomic bill replace, and non-atomic Promise.all batch uploads. Fixed 8 dialogs end-to-end: orphan cleanup on cancel, photo-replace clears the superseded upload immediately, `useDirtyDialogGuard` renders a shared "Discard unsaved changes?" confirm on click-outside / Escape / Cancel when the form is dirty. Operator smoked all 8 on 2026-08-04. Deferred: avatars RLS owner-check, server-side limits on 4 legacy buckets, storage cascade triggers, PDF bucket privatization (6 buckets), and dirty-guard rollout to the remaining 67 form dialogs — full breakdown + verification steps in [handover-2026-08-04-storage-and-dialog-guard.md](docs/handover-2026-08-04-storage-and-dialog-guard.md).
 
 Next: pick from deferred items above OR pick the next feature branch.
