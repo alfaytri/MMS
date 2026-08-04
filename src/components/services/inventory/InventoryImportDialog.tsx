@@ -14,13 +14,13 @@ import { useState, useCallback, useRef } from 'react'
 import { Upload, Download, CheckCircle2, XCircle, FileSpreadsheet, Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -71,6 +71,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
   const [preview, setPreview] = useState<ImportPreview | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const lookupMutation = useExistingInventoryLookup()
   const importMutation = useInventoryImport()
@@ -214,7 +215,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
       }
 
       resetState()
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Import failed')
     }
@@ -224,7 +225,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
   const isBusy = isParsing || lookupMutation.isPending
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={!!file || !!preview} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-2xl sm:rounded-xl max-h-[100vh] sm:max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -442,7 +443,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                 variant="outline"
                 size="sm"
                 className="min-h-11 sm:min-h-8"
-                onClick={() => handleOpenChange(false)}
+                onClick={() => guardRef.current?.requestClose()}
                 disabled={importMutation.isPending}
               >
                 Cancel
@@ -469,6 +470,6 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
           </div>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

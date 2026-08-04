@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronsUpDown, Package, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,6 +47,9 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
   const [rows, setRows]                               = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
   const [notes, setNotes]                             = useState('')
   const [openPickerIdx, setOpenPickerIdx]             = useState<number | null>(null)
+  const guardRef                                       = useRef<GuardedFormDialogHandle>(null)
+
+  const isDirty = fromWhId !== '' || notes.trim() !== '' || rows.some((r) => r.brand_variant_id !== '' || r.qty !== '')
 
   const assign = useCreateCustodyAssign()
 
@@ -149,14 +153,14 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
         created_by_name:         profile?.full_name ?? null,
       })
       toast.success(`Request sent to ${warehouses.find((w) => w.id === fromWhId)?.name ?? 'warehouse'} — awaiting dispatch`)
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create custody assign')
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
         <DialogHeader className="px-5 pt-5 pb-0">
           <DialogTitle className="text-sm font-semibold">
@@ -328,7 +332,7 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
         </div>
 
         <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => onOpenChange(false)} disabled={assign.isPending}>
+          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()} disabled={assign.isPending}>
             Cancel
           </Button>
           <Button size="sm" className="text-[11px] h-8" disabled={!canSubmit} onClick={handleSubmit}>
@@ -336,6 +340,6 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { Warehouse as WarehouseIcon } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +36,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   // Warehouse stock allocation: { warehouseId → target qty string }
   const [whAlloc, setWhAlloc] = useState<Record<string, string>>({})
   const [allocating, setAllocating] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: warehouses = [] } = useWarehouses()
   const { data: whStockData } = useVariantWarehouseStock(isEdit && open ? variant?.id : undefined)
@@ -98,6 +100,18 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
 
   const remainingUnassigned = unassignedQty - beingReassigned
   const computedStockLevel = allocatedTotal + remainingUnassigned
+
+  const isDirty =
+    brand !== (variant?.brand ?? '') ||
+    code !== (variant?.code ?? '') ||
+    sellingPrice !== (variant?.selling_price != null ? String(variant.selling_price) : '') ||
+    reorderPoint !== (variant ? String(variant.reorder_point ?? 0) : '0') ||
+    avgCost !== (variant?.average_cost != null ? String(Math.round(variant.average_cost * 100) / 100) : '') ||
+    warehouses.some((wh) => {
+      const target = parseInt(whAlloc[wh.id] ?? '0') || 0
+      const current = currentQtyMap.get(wh.id) ?? 0
+      return target !== current
+    })
 
   function updateWhAlloc(whId: string, qty: string) {
     setWhAlloc((prev) => ({ ...prev, [whId]: qty }))
@@ -164,7 +178,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
             try {
               await applyAllocations(variant.id, unitCost)
               toast.success('Variant updated')
-              onOpenChange(false)
+              guardRef.current?.closeAfterSubmit()
             } catch (err) {
               toast.error(err instanceof Error ? err.message : 'Stock allocation failed')
             }
@@ -181,7 +195,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
             try {
               if (newId) await applyAllocations(newId, unitCost)
               toast.success('Variant added')
-              onOpenChange(false)
+              guardRef.current?.closeAfterSubmit()
             } catch (err) {
               toast.error(err instanceof Error ? err.message : 'Stock allocation failed')
             }
@@ -195,7 +209,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
   const isPending = create.isPending || update.isPending || allocating
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Brand Variant' : 'Add Brand Variant'}</DialogTitle>
@@ -314,7 +328,7 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
@@ -323,6 +337,6 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

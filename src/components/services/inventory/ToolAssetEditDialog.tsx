@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,10 +29,15 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }
   const update = useUpdateInventoryItem()
   const [nameEn, setNameEn] = useState('')
   const [nameAr, setNameAr] = useState('')
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     if (open) { setNameEn(item?.name_en ?? ''); setNameAr(item?.name_ar ?? '') }
   }, [open, item])
+
+  const isDirty =
+    nameEn !== (item?.name_en ?? '') ||
+    nameAr !== (item?.name_ar ?? '')
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -39,20 +45,20 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }
     const payload = { name_en: nameEn.trim(), name_ar: nameAr.trim() || null }
     if (isEdit && item) {
       update.mutate({ id: item.id, ...payload }, {
-        onSuccess: () => { toast.success('Tool updated'); onOpenChange(false) },
+        onSuccess: () => { toast.success('Tool updated'); guardRef.current?.closeAfterSubmit() },
         onError: (err) => toast.error(err.message),
       })
     } else {
       if (!categoryId) { toast.error('Category is required to create a tool'); return }
       create.mutate({ ...payload, category_id: categoryId }, {
-        onSuccess: () => { toast.success('Tool created'); onOpenChange(false) },
+        onSuccess: () => { toast.success('Tool created'); guardRef.current?.closeAfterSubmit() },
         onError: (err) => toast.error(err.message),
       })
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg flex flex-col max-h-[90vh]">
         <DialogHeader><DialogTitle>{isEdit ? 'Edit Tool/Asset' : 'New Tool/Asset'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0">
@@ -67,14 +73,14 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }
             </div>
           </div>
           <DialogFooter className="pt-4 mt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
             <Button type="submit" disabled={create.isPending || update.isPending}>
               {create.isPending || update.isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }
 
@@ -100,16 +106,21 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
   const [expiry, setExpiry] = useState('')
   const [status, setStatus] = useState('available')
   const [assignedTo, setAssignedTo] = useState<string>('')
+  const [seededSerial, setSeededSerial] = useState('')
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     if (open) {
+      let seeded: string
       if (isEdit) {
-        setSerial(unit?.serial_number ?? '')
+        seeded = unit?.serial_number ?? ''
       } else {
         const prefix = itemSku?.trim() || `TOOL-${itemId.replace(/-/g, '').slice(0, 8).toUpperCase()}`
         const next   = (existingUnits.length + 1).toString().padStart(3, '0')
-        setSerial(`${prefix}-${next}`)
+        seeded = `${prefix}-${next}`
       }
+      setSerial(seeded)
+      setSeededSerial(seeded)
       setBrand(unit?.brand ?? '')
       setCondition(unit?.condition ?? 'Good')
       setExpiry(unit?.expiry ?? '')
@@ -117,6 +128,14 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       setAssignedTo(unit?.assigned_to ?? '')
     }
   }, [open, unit, isEdit, itemId, itemSku, existingUnits.length])
+
+  const isDirty =
+    serial !== seededSerial ||
+    brand !== (unit?.brand ?? '') ||
+    condition !== (unit?.condition ?? 'Good') ||
+    expiry !== (unit?.expiry ?? '') ||
+    status !== (unit?.status ?? 'available') ||
+    assignedTo !== (unit?.assigned_to ?? '')
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -133,19 +152,19 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
     }
     if (isEdit && unit) {
       update.mutate({ id: unit.id, item_id: itemId, ...payload }, {
-        onSuccess: () => { toast.success('Unit updated'); onOpenChange(false) },
+        onSuccess: () => { toast.success('Unit updated'); guardRef.current?.closeAfterSubmit() },
         onError: (err) => toast.error(err.message),
       })
     } else {
       create.mutate({ item_id: itemId, ...payload }, {
-        onSuccess: () => { toast.success('Unit added'); onOpenChange(false) },
+        onSuccess: () => { toast.success('Unit added'); guardRef.current?.closeAfterSubmit() },
         onError: (err) => toast.error(err.message),
       })
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg flex flex-col max-h-[90vh]">
         <DialogHeader><DialogTitle>{isEdit ? 'Edit Unit' : 'Add Unit'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0">
@@ -205,13 +224,13 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
             </div>
           </div>
           <DialogFooter className="pt-4 mt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
             <Button type="submit" disabled={create.isPending || update.isPending}>
               {create.isPending || update.isPending ? 'Saving…' : isEdit ? 'Save' : 'Add Unit'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

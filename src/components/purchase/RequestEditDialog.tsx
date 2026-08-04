@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { useCreateEditRequest } from '@/hooks/usePoEditRequests'
 
 interface Props {
@@ -20,6 +21,9 @@ export function RequestEditDialog({ open, onOpenChange, poId, poNumber }: Props)
   const [reason, setReason] = useState('')
   const create = useCreateEditRequest()
   const tooShort = reason.trim().length > 0 && reason.trim().length < 10
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
+
+  const isDirty = reason.trim().length > 0
 
   function handleSend() {
     create.mutate(
@@ -28,15 +32,20 @@ export function RequestEditDialog({ open, onOpenChange, poId, poNumber }: Props)
         onSuccess: () => {
           toast.success('Edit request sent — awaiting approval')
           setReason('')
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
         },
         onError: (err) => toast.error(err.message),
       },
     )
   }
 
+  function handleOpenChange(next: boolean) {
+    if (!next) setReason('')
+    onOpenChange(next)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { setReason(''); onOpenChange(false) } }}>
+    <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Request Edit{poNumber ? ` — ${poNumber}` : ''}</DialogTitle>
@@ -57,7 +66,7 @@ export function RequestEditDialog({ open, onOpenChange, poId, poNumber }: Props)
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => { setReason(''); onOpenChange(false) }} disabled={create.isPending}>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={create.isPending}>
             Cancel
           </Button>
           <Button
@@ -68,6 +77,6 @@ export function RequestEditDialog({ open, onOpenChange, poId, poNumber }: Props)
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,13 +9,13 @@ import { Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 
 import {
-  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { GuardedFormDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,6 +81,7 @@ export function InventoryReceivalDialog({
 }: InventoryReceivalDialogProps) {
   const [costEditable, setCostEditable] = useState(false)
   const [confirmCostEdit, setConfirmCostEdit] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as never,
@@ -203,7 +204,7 @@ export function InventoryReceivalDialog({
           },
         },
       })
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to create receival'
       toast.error(msg)
@@ -212,7 +213,7 @@ export function InventoryReceivalDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
         <DialogContent className="w-full h-full sm:h-auto sm:max-w-lg rounded-none sm:rounded-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Inventory Receival</DialogTitle>
@@ -494,7 +495,7 @@ export function InventoryReceivalDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => guardRef.current?.requestClose()}
                   disabled={createMutation.isPending}
                 >
                   Cancel
@@ -509,7 +510,7 @@ export function InventoryReceivalDialog({
             </form>
           </Form>
         </DialogContent>
-      </Dialog>
+      </GuardedFormDialog>
 
       <AlertDialog open={confirmCostEdit} onOpenChange={setConfirmCostEdit}>
         <AlertDialogContent>

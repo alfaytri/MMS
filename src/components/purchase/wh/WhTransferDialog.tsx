@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { ArrowRight, Bell, Plus, Trash2, Package, ChevronsUpDown } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const [notes, setNotes] = useState('')
   const [pendingFromId, setPendingFromId] = useState<string | null>(null)
   const [openItemIdx, setOpenItemIdx] = useState<number | null>(null)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const createTransfer = useCreateTransfer()
 
@@ -167,8 +169,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
-  function handleClose() {
-    setOpen(false)
+  function resetState() {
     setFromId('')
     setToId('')
     setFromSubContainerId(null)
@@ -177,6 +178,17 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
     setNotes('')
     setOpenItemIdx(null)
   }
+
+  function handleOpenChange(next: boolean) {
+    if (!next) resetState()
+    setOpen(next)
+  }
+
+  const isDirty =
+    fromId !== '' ||
+    toId !== '' ||
+    notes.trim() !== '' ||
+    rows.some((r) => r.brand_variant_id !== '' || r.qty !== '')
 
   function addRow() {
     setRows((prev) => [...prev, { brand_variant_id: '', qty: '' }])
@@ -287,7 +299,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       }
 
       toast.success('Transfer created successfully')
-      handleClose()
+      guardRef.current?.closeAfterSubmit()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? 'Something went wrong'
       toast.error(msg)
@@ -315,7 +327,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={open} onOpenChange={handleClose}>
+      <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
         <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
           <DialogHeader className="px-5 pt-5 pb-0">
             <DialogTitle className="text-sm font-semibold">Create Stock Transfer</DialogTitle>
@@ -553,7 +565,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
 
           {/* ── Footer ── */}
           <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
-            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={handleClose}>
+            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()}>
               Cancel
             </Button>
             <Button
@@ -566,7 +578,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </GuardedDialog>
     </>
   )
 }

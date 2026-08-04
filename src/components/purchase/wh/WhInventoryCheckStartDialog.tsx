@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardCheck, Users, ChevronRight, ChevronDown, Package } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -45,6 +46,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
   const [notes, setNotes]           = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [step, setStep]             = useState<1 | 2>(1)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: allProfiles = [] } = useProfiles()
   const { data: warehouseStock = [] } = useWarehouseStock(warehouseId || undefined)
@@ -121,10 +123,17 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
     })
   }
 
-  function handleClose() {
-    setOpen(false)
-    setWarehouseId(''); setSubContainerId(null); setSelectedUserIds(new Set()); setNotes(''); setStep(1)
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setWarehouseId(''); setSubContainerId(null); setSelectedUserIds(new Set()); setNotes(''); setStep(1)
+    }
+    setOpen(next)
   }
+
+  const isDirty =
+    warehouseId !== '' ||
+    selectedUserIds.size > 0 ||
+    notes.trim() !== ''
 
   async function handleStart() {
     if (!warehouseId || selectedUsers.length === 0) return
@@ -160,7 +169,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
       })
 
       toast.success('Inventory check started')
-      handleClose()
+      guardRef.current?.closeAfterSubmit()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to start check')
     } finally {
@@ -176,7 +185,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
     <>
       <span onClick={() => setOpen(true)}>{children}</span>
 
-      <Dialog open={open} onOpenChange={handleClose}>
+      <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
         <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[48rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
@@ -367,7 +376,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
           </div>
 
           <DialogFooter className="pt-2">
-            <Button variant="outline" size="sm" className="text-xs" onClick={handleClose}>
+            <Button variant="outline" size="sm" className="text-xs" onClick={() => guardRef.current?.requestClose()}>
               Cancel
             </Button>
             {step === 1 ? (
@@ -399,7 +408,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
             )}
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </GuardedDialog>
     </>
   )
 }
