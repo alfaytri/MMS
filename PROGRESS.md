@@ -267,7 +267,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-Deferred storage-audit items 3A + 3B closed. Remaining deferred: 3C (storage cascade triggers via pg_net + Vault), 3D (PDF-bucket privatization — 6 buckets, 5 generators), 3E (dirty-guard on remaining 67 form dialogs, ~2-3h mechanical). No task in progress — awaiting operator on next pick.
+🚀 Starting: **Storage audit deferred 3C — storage cascade triggers**. Plan `docs/superpowers/plans/2026-08-04-storage-cascade-triggers.md`. 9 tasks: pg_net + Vault infra + `storage_delete_object` helper + audit table, then per-table triggers on customers, companies, company_divisions, inventory_items, stock_adjustments, consumption_entries, landed_cost_lines (DELETE + UPDATE-of-path-column), then docs + E2E sweep.
 
 ---
 
