@@ -1,18 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreatePaymentPlan } from '@/hooks/usePaymentPlans'
 import { formatCurrency } from '@/lib/utils/formatters'
 
 export interface PaymentPlanLabels {
-  partyLabel:  string   // "Customer" | "Vendor"
-  amountLabel: string   // "Receivable Amount" | "Payable Amount"
+  partyLabel:  string
+  amountLabel: string
 }
 
 const AP_LABELS: PaymentPlanLabels = { partyLabel: 'Vendor',   amountLabel: 'Payable Amount'    }
@@ -41,14 +45,33 @@ export function PaymentPlanDialog({
 }: Props) {
   const cur = currency ?? 'QAR'
   const createPlan = useCreatePaymentPlan()
+  const initialAmount = String(outstanding.toFixed(2))
   const [planType, setPlanType]         = useState<'schedule' | 'adhoc'>('schedule')
   const [installments, setInstallments] = useState<InstallmentDraft[]>([
-    { due_date: '', amount: String(outstanding.toFixed(2)) },
+    { due_date: '', amount: initialAmount },
   ])
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
+
+  // Reset dialog state on open so a stale prior session doesn't linger.
+  useEffect(() => {
+    if (open) {
+      setPlanType('schedule')
+      setInstallments([{ due_date: '', amount: initialAmount }])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, outstanding])
 
   const totalDefined = installments.reduce((s, i) => s + (Number(i.amount) || 0), 0)
   const balanceOk    = Math.abs(totalDefined - outstanding) < 0.01
+
+  // Dirty when the operator switches plan type, adds/removes rows, or
+  // edits any due date / amount away from the initial single-row default.
+  const isDirty =
+    planType !== 'schedule' ||
+    installments.length !== 1 ||
+    installments[0]?.due_date !== '' ||
+    installments[0]?.amount !== initialAmount
 
   const update = (idx: number, patch: Partial<InstallmentDraft>) => {
     setInstallments((prev) => prev.map((item, i) => (i === idx ? { ...item, ...patch } : item)))
@@ -73,7 +96,7 @@ export function PaymentPlanDialog({
         })),
       })
       toast.success('Payment plan created')
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
       toast.error((err as Error).message)
     } finally {
@@ -82,7 +105,7 @@ export function PaymentPlanDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Set Up Payment Plan</DialogTitle>
@@ -160,7 +183,7 @@ export function PaymentPlanDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button
             onClick={submit}
             disabled={saving || (planType === 'schedule' && !balanceOk)}
@@ -169,6 +192,6 @@ export function PaymentPlanDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

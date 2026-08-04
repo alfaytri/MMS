@@ -1,15 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useRequestConsumptionEdit } from '@/hooks/useConsumption'
 
 interface Props {
@@ -19,20 +23,18 @@ interface Props {
   ceNumber:      string | null
 }
 
-/**
- * Files a pending consumption_edit_requests row asking to cancel the
- * consumption. Any signed-in user can open; an approver configured on
- * the consumption_edit workflow decides.
- */
 export function RequestConsumptionEditDialog({
   open, onOpenChange, consumptionId, ceNumber,
 }: Props) {
   const [reason, setReason] = useState('')
   const request = useRequestConsumptionEdit()
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     if (!open) setReason('')
   }, [open])
+
+  const isDirty = reason.trim().length > 0
 
   async function handleSubmit() {
     if (!consumptionId) return
@@ -44,14 +46,14 @@ export function RequestConsumptionEditDialog({
     try {
       await request.mutateAsync({ consumption_id: consumptionId, reason: trimmed })
       toast.success('Cancellation request submitted — awaiting approver')
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit request')
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold flex items-center gap-1.5">
@@ -88,7 +90,7 @@ export function RequestConsumptionEditDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => onOpenChange(false)} disabled={request.isPending}>
+          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()} disabled={request.isPending}>
             Cancel
           </Button>
           <Button size="sm" className="text-[11px] h-8" disabled={!reason.trim() || request.isPending} onClick={handleSubmit}>
@@ -96,6 +98,6 @@ export function RequestConsumptionEditDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

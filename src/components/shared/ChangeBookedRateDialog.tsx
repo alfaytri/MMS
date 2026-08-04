@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -13,6 +12,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle } from 'lucide-react'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useChangeDocumentBookedRate } from '@/hooks/useChangeDocumentBookedRate'
 import {
   useExchangeRateChangeLog,
@@ -38,6 +41,7 @@ export function ChangeBookedRateDialog({
   const [reason, setReason] = useState('')
   const mutation = useChangeDocumentBookedRate()
   const { data: history = [] } = useExchangeRateChangeLog(documentType, documentId)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
     if (open) {
@@ -50,6 +54,10 @@ export function ChangeBookedRateDialog({
   const rateValid = newRate > 0 && newRate !== currentRate
   const canSubmit = reasonValid && rateValid && !mutation.isPending
 
+  // Dirty when the operator changed the rate away from the current
+  // document rate or typed anything into the reason box.
+  const isDirty = newRate !== currentRate || reason.trim().length > 0
+
   async function handleConfirm() {
     await mutation.mutateAsync({
       documentType,
@@ -57,11 +65,11 @@ export function ChangeBookedRateDialog({
       newRate,
       reason: reason.trim(),
     })
-    onOpenChange(false)
+    guardRef.current?.closeAfterSubmit()
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Change Booked Exchange Rate</DialogTitle>
@@ -146,7 +154,7 @@ export function ChangeBookedRateDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => guardRef.current?.requestClose()}
             disabled={mutation.isPending}
           >
             Cancel
@@ -156,6 +164,6 @@ export function ChangeBookedRateDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }
