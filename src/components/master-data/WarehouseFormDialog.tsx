@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import {
-  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -34,6 +33,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateWarehouse, useUpdateWarehouse, type Warehouse } from '@/hooks/useWarehouses'
 import {
   useResponsiblePersonCandidates,
@@ -41,7 +44,6 @@ import {
   useReplaceWarehouseResponsiblePersons,
 } from '@/hooks/useWarehouseResponsiblePersons'
 import { useCompanies } from '@/hooks/useCompanies'
-import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 const warehouseSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -69,6 +71,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   const [selectedRPIds, setSelectedRPIds] = useState<string[]>([])
   const [rpPopoverOpen, setRpPopoverOpen] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseSchema),
@@ -102,9 +105,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, warehouse?.id, currentRPs])
 
-  // Combine form dirty with RP-list dirty so a change to RPs alone still
-  // triggers the discard prompt.
-  useWatch({ control: form.control })
+  // RP-list dirty check — form.formState.isDirty alone won't catch RP-only edits.
   const initialRPIds = useMemo(
     () => (warehouse ? currentRPs.map((rp) => rp.profile_id) : []),
     [warehouse, currentRPs]
@@ -115,11 +116,6 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
     const b = [...initialRPIds].sort()
     return a.some((id, i) => id !== b[i])
   }, [selectedRPIds, initialRPIds])
-  const { guardedOnOpenChange, confirmDialog, closeWithoutPrompt } =
-    useDirtyDialogGuard({
-      isDirty: form.formState.isDirty || rpsDirty,
-      onOpenChange,
-    })
 
   async function onSubmit(values: WarehouseFormValues) {
     try {
@@ -142,15 +138,20 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       }
       await replaceRPs.mutateAsync({ warehouseId: whId, profileIds: selectedRPIds })
       toast.success(warehouse ? 'Warehouse updated' : 'Warehouse created')
-      closeWithoutPrompt()
+      guardRef.current?.closeAfterSubmit()
     } catch (e) {
       toast.error((e as Error).message)
     }
   }
 
   return (
-    <>
-    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
+    <GuardedFormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      form={form}
+      extraDirty={rpsDirty}
+      ref={guardRef}
+    >
       <DialogContent className="w-full sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Warehouse</DialogTitle>
@@ -307,7 +308,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => guardedOnOpenChange(false)}
+                onClick={() => guardRef.current?.requestClose()}
                 disabled={isPending}
               >
                 Cancel
@@ -319,8 +320,6 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
-    {confirmDialog}
-    </>
+    </GuardedFormDialog>
   )
 }
