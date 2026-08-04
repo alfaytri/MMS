@@ -43,6 +43,18 @@ export const NAV_TREE: TreeNode[] = [
           { key: 'master_data.inventory.create', label: 'Create Inventory', description: 'Add new inventory items, categories, and brand variants' },
           { key: 'master_data.inventory.manage', label: 'Edit Inventory',   description: 'Edit and delete existing inventory items and variants (legacy .manage — alias of .edit)' },
         ],
+        children: [
+          {
+            id: 'md-inventory-attributes',
+            label: 'Category Attributes',
+            icon: Package,
+            permissions: [
+              { key: 'master_data.inventory.attributes.view',   label: 'View Category Attributes',   description: 'See the Attributes tab on the Inventory master-data page' },
+              { key: 'master_data.inventory.attributes.create', label: 'Create Category Attributes', description: 'Add new attribute definitions and options' },
+              { key: 'master_data.inventory.attributes.edit',   label: 'Edit Category Attributes',   description: 'Modify, archive, restore, delete existing attribute definitions and options' },
+            ],
+          },
+        ],
       },
       {
         id: 'md-warehouses',

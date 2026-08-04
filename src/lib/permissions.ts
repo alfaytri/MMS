@@ -106,6 +106,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Inventory Attributes',
+        permissions: [
+          { key: 'master_data.inventory.attributes.view',   label: 'View Category Attributes',   description: 'See the Attributes tab on the Inventory master-data page' },
+          { key: 'master_data.inventory.attributes.create', label: 'Create Category Attributes', description: 'Add new attribute definitions and options' },
+          { key: 'master_data.inventory.attributes.edit',   label: 'Edit Category Attributes',   description: 'Modify, archive, restore, delete existing attribute definitions and options' },
+        ],
+      },
+      {
         label: 'Suppliers',
         permissions: [
           { key: 'master_data.suppliers.view',   label: 'View Suppliers',   description: 'Access the suppliers list and contact details' },
