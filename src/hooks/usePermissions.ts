@@ -56,3 +56,32 @@ export function useHasPermission(permission: string | string[]): boolean {
   const required = Array.isArray(permission) ? permission : [permission]
   return required.some((p) => data.permissions.includes(p))
 }
+
+export function useHasEditPermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return (
+    data.permissions.includes(`${area}.edit`) ||
+    data.permissions.includes(`${area}.manage`)
+  )
+}
+
+export function useHasCreatePermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return data.permissions.includes(`${area}.create`)
+}
+
+export function useHasViewPermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return (
+    data.permissions.includes(`${area}.view`) ||
+    data.permissions.includes(`${area}.create`) ||
+    data.permissions.includes(`${area}.edit`) ||
+    data.permissions.includes(`${area}.manage`)
+  )
+}
