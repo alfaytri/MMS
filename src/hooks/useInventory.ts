@@ -901,30 +901,6 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
   })
 }
 
-// ─── Item attributes (chips) ──────────────────────────────────────────────────
-
-export function useUpsertInventoryItemAttributes() {
-  const qc = useQueryClient()
-  return useMutation<void, Error, { itemId: string; attributes: string[] }>({
-    mutationFn: async ({ itemId, attributes }) => {
-      const supabase = createClient()
-      // inventory_item_attributes not yet in generated DB types — cast to bypass type checks
-      type AnyTable = { delete: () => { eq: (col: string, val: string) => Promise<{ error: Error | null }> }; insert: (v: unknown) => Promise<{ error: Error | null }> }
-      const attrTable = (supabase as unknown as { from: (t: string) => AnyTable }).from('inventory_item_attributes')
-      const { error: delErr } = await attrTable.delete().eq('item_id', itemId)
-      if (delErr) throw delErr
-      if (attributes.length > 0) {
-        const rows = attributes.map((attr) => ({ item_id: itemId, attribute: attr }))
-        const { error: insErr } = await attrTable.insert(rows)
-        if (insErr) throw insErr
-      }
-    },
-    onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemAttributes(v.itemId) })
-    },
-  })
-}
-
 // ─── Staff profiles (for tool unit assignment) ────────────────────────────────
 
 export function useStaffProfiles() {

@@ -260,8 +260,6 @@ export const queryKeys = {
     stockMovements: ['stock_movements'] as const,
     stockMovementsByVariant: (brandVariantId: Nullable) =>
       ['stock_movements', 'by_variant', brandVariantId] as const,
-    itemAttributes: (itemId: Nullable) =>
-      ['inventory-item-attributes', itemId] as const,
     staffProfiles: ['staff-profiles'] as const,
     toolAssetUnits: (itemId: Nullable) =>
       ['tool-asset-units', itemId] as const,
