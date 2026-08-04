@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useMemo, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -41,6 +41,7 @@ import {
   useReplaceWarehouseResponsiblePersons,
 } from '@/hooks/useWarehouseResponsiblePersons'
 import { useCompanies } from '@/hooks/useCompanies'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 const warehouseSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -101,6 +102,25 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, warehouse?.id, currentRPs])
 
+  // Combine form dirty with RP-list dirty so a change to RPs alone still
+  // triggers the discard prompt.
+  useWatch({ control: form.control })
+  const initialRPIds = useMemo(
+    () => (warehouse ? currentRPs.map((rp) => rp.profile_id) : []),
+    [warehouse, currentRPs]
+  )
+  const rpsDirty = useMemo(() => {
+    if (selectedRPIds.length !== initialRPIds.length) return true
+    const a = [...selectedRPIds].sort()
+    const b = [...initialRPIds].sort()
+    return a.some((id, i) => id !== b[i])
+  }, [selectedRPIds, initialRPIds])
+  const { guardedOnOpenChange, confirmDialog, closeWithoutPrompt } =
+    useDirtyDialogGuard({
+      isDirty: form.formState.isDirty || rpsDirty,
+      onOpenChange,
+    })
+
   async function onSubmit(values: WarehouseFormValues) {
     try {
       let whId: string
@@ -122,14 +142,15 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       }
       await replaceRPs.mutateAsync({ warehouseId: whId, profileIds: selectedRPIds })
       toast.success(warehouse ? 'Warehouse updated' : 'Warehouse created')
-      onOpenChange(false)
+      closeWithoutPrompt()
     } catch (e) {
       toast.error((e as Error).message)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Warehouse</DialogTitle>
@@ -286,7 +307,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => guardedOnOpenChange(false)}
                 disabled={isPending}
               >
                 Cancel
@@ -299,5 +320,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         </Form>
       </DialogContent>
     </Dialog>
+    {confirmDialog}
+    </>
   )
 }

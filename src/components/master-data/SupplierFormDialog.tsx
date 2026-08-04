@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -34,6 +34,7 @@ import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWi
 import { useCreateSupplier, useUpdateSupplier, type Supplier } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useCountryCodes } from '@/hooks/useCountryCodes'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -83,6 +84,13 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
   })
 
   const supplierType = form.watch('supplier_type')
+
+  // Subscribe outer render to every keystroke so `formState.isDirty` stays
+  // fresh in the guard's closure.
+  useWatch({ control: form.control })
+
+  const { guardedOnOpenChange, confirmDialog, closeWithoutPrompt } =
+    useDirtyDialogGuard({ isDirty: form.formState.isDirty, onOpenChange })
 
   useEffect(() => {
     if (supplierType === 'local' && qarCurrency) {
@@ -139,7 +147,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
         {
           onSuccess: () => {
             toast.success('Supplier updated')
-            onOpenChange(false)
+            closeWithoutPrompt()
           },
           onError: (err) => toast.error(err.message),
         }
@@ -148,7 +156,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       create.mutate(cleanValues, {
         onSuccess: () => {
           toast.success('Supplier created')
-          onOpenChange(false)
+          closeWithoutPrompt()
         },
         onError: (err) => toast.error(err.message),
       })
@@ -156,7 +164,8 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg p-0 flex flex-col max-h-[90vh] overflow-hidden">
         <div className="px-6 pt-6 flex-shrink-0">
           <DialogHeader>
@@ -360,7 +369,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
             </div>
 
             <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+              <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)} disabled={isPending}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -371,5 +380,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
         </Form>
       </DialogContent>
     </Dialog>
+    {confirmDialog}
+    </>
   )
 }
