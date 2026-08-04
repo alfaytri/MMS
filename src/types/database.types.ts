@@ -7568,6 +7568,20 @@ export type Database = {
           total_value: number
         }[]
       }
+      get_effective_attributes: {
+        Args: { p_category_id: string }
+        Returns: {
+          attribute_key: string
+          category_id: string
+          category_name: string
+          definition_id: string
+          depth: number
+          is_inherited: boolean
+          label_ar: string
+          label_en: string
+          sort_order: number
+        }[]
+      }
       get_invoice_summary: { Args: never; Returns: Json }
       get_payment_summary: { Args: never; Returns: Json }
       get_places_master_list: {
