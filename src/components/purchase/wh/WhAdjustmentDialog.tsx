@@ -18,6 +18,7 @@ import type { Profile } from '@/hooks/useProfiles'
 import { useAllBrandVariantsGrouped, type BrandVariantGrouped } from '@/hooks/useInventory'
 import { useCreateStockAdjustmentV2 } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -89,11 +90,41 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
     setPreviews([])
   }
 
+  const isDirty =
+    warehouseId !== '' ||
+    subContainerId !== null ||
+    selectedVariant !== null ||
+    type !== '' ||
+    qty !== '' ||
+    reason !== '' ||
+    notes !== '' ||
+    photos.length > 0
+
+  const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
+    isDirty,
+    onOpenChange: (next) => { if (!next) handleClose(); else setOpen(true) },
+  })
+
   function addPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (photos.length + files.length > 5) {
       toast.error('Maximum 5 photos allowed')
+      e.target.value = ''
       return
+    }
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
+    for (const f of files) {
+      if (!ALLOWED.includes(f.type)) {
+        toast.error(`${f.name}: unsupported type (JPG / PNG / WEBP / GIF only)`)
+        e.target.value = ''
+        return
+      }
+      if (f.size > MAX_SIZE) {
+        toast.error(`${f.name}: file exceeds 10 MB`)
+        e.target.value = ''
+        return
+      }
     }
     const newFiles = [...photos, ...files].slice(0, 5)
     setPhotos(newFiles)
@@ -115,18 +146,31 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
     try {
       const supabase = createClient()
 
+      const MIME_EXT: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png':  'png',
+        'image/webp': 'webp',
+        'image/gif':  'gif',
+      }
       const photoUrls: string[] = []
-      for (const file of photos) {
-        const ext = file.name.split('.').pop()
-        const path = `${currentProfile.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const { error: uploadErr } = await supabase.storage
-          .from('adjustment-photos')
-          .upload(path, file)
-        if (uploadErr) throw uploadErr
-        const { data: signed } = await supabase.storage
-          .from('adjustment-photos')
-          .createSignedUrl(path, 60 * 60 * 24 * 365)
-        if (signed?.signedUrl) photoUrls.push(signed.signedUrl)
+      const uploadedPaths: string[] = []
+      try {
+        for (const file of photos) {
+          const nameExt = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : ''
+          const ext = MIME_EXT[file.type] ?? (nameExt || 'bin')
+          const path = `${currentProfile.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+          const { error: uploadErr } = await supabase.storage
+            .from('adjustment-photos')
+            .upload(path, file, { contentType: file.type })
+          if (uploadErr) throw uploadErr
+          uploadedPaths.push(path)
+          photoUrls.push(path)
+        }
+      } catch (uploadErr) {
+        if (uploadedPaths.length > 0) {
+          await supabase.storage.from('adjustment-photos').remove(uploadedPaths).catch(() => {})
+        }
+        throw uploadErr
       }
 
       await createAdjustment.mutateAsync({
@@ -153,7 +197,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   return (
     <>
       <span onClick={() => setOpen(true)}>{children}</span>
-      <Dialog open={open} onOpenChange={handleClose}>
+      <Dialog open={open} onOpenChange={guardedOnOpenChange}>
         <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[36rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
           <DialogHeader className="px-5 pt-5 pb-0">
             <DialogTitle className="text-sm font-semibold">Stock Adjustment</DialogTitle>
@@ -327,7 +371,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
 
           {/* Footer */}
           <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
-            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={handleClose}>
+            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardedOnOpenChange(false)}>
               Cancel
             </Button>
             <Button
@@ -341,6 +385,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </>
   )
 }

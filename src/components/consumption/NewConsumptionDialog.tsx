@@ -31,6 +31,7 @@ import {
   type ConsumerType,
 } from '@/hooks/useConsumption'
 import { useCanCreateConsumptionFor } from '@/hooks/usePermissions'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -162,6 +163,22 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const [attachments, setAttachments] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const submittedRef  = useRef(false)
+
+  const isDirty =
+    (!presetSource && (srcWhId !== '' || srcSubId !== null)) ||
+    rows.some((r) => r.brand_variant_id !== '' || r.qty !== '') ||
+    notes.trim() !== '' ||
+    attachments.length > 0
+
+  const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
+    isDirty,
+    onOpenChange,
+  })
+  // Snapshot for cleanup — reset useEffect clears `attachments` before we
+  // can read it in the close path, so mirror the list in a ref.
+  const attachmentsRef = useRef<string[]>([])
+  useEffect(() => { attachmentsRef.current = attachments }, [attachments])
 
   // ── Cooldown timer — resets on open + on every edit that would change
   // the payload. Confirm button is disabled while remaining > 0.
@@ -181,6 +198,17 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     if (open) {
       bumpCooldown()
     } else {
+      // Close without submit → drop uploads. Consumer bucket has no pending/
+      // prefix, so any orphaned file is indistinguishable from a committed
+      // one — best to clean them up eagerly.
+      if (!submittedRef.current) {
+        const orphans = attachmentsRef.current
+        if (orphans.length > 0) {
+          void Promise.allSettled(orphans.map(removeConsumptionAttachment))
+        }
+      }
+      submittedRef.current = false
+
       // Reset back to preset (if any) or empty state.
       setSrcWhId(presetSource?.warehouseId ?? '')
       setSrcSubId(presetSource?.subContainerId ?? null)
@@ -228,8 +256,19 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     if (files.length === 0) return
     setUploading(true)
     try {
-      const paths = await Promise.all(files.map((f) => uploadConsumptionAttachment(f)))
-      setAttachments((prev) => [...prev, ...paths])
+      const results = await Promise.allSettled(files.map((f) => uploadConsumptionAttachment(f)))
+      const succeeded = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+      const failed = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[]
+      if (failed.length > 0) {
+        // Roll back partial success so the batch is atomic — user asked for N,
+        // gets all-or-nothing rather than a silent partial upload.
+        await Promise.allSettled(succeeded.map((p) => removeConsumptionAttachment(p)))
+        const firstErr = failed[0].reason
+        throw firstErr instanceof Error
+          ? firstErr
+          : new Error(`${failed.length} of ${files.length} attachments failed to upload`)
+      }
+      setAttachments((prev) => [...prev, ...succeeded])
       bumpCooldown()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Attachment upload failed')
@@ -326,6 +365,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         attachments:             attachments,
         lines,
       })
+      submittedRef.current = true
       toast.success(`Consumption posted to ${consumerLabel ?? 'consumer'} — stock deducted`)
       onOpenChange(false)
     } catch (err) {
@@ -336,7 +376,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[46rem] sm:h-[90vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
         <DialogHeader className="px-5 pt-5 pb-0">
           <DialogTitle className="text-sm font-semibold flex items-center gap-1.5">
@@ -685,7 +725,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => onOpenChange(false)} disabled={post.isPending}>
+            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardedOnOpenChange(false)} disabled={post.isPending}>
               Cancel
             </Button>
             <Button size="sm" className="text-[11px] h-8 min-w-[130px]" disabled={!canSubmit} onClick={handleSubmit}>
@@ -699,6 +739,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         </DialogFooter>
       </DialogContent>
 
-    </Dialog>
+    </Dialog>{confirmDialog}</>
   )
 }

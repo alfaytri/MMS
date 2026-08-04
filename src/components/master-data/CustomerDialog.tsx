@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Upload, FileCheck2, X, Lock, Plus, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -18,6 +18,7 @@ import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWi
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 import { cn } from '@/lib/utils'
 
 const BUCKET = 'customer-credit-docs'
@@ -74,6 +75,12 @@ export function CustomerDialog({
   const [establishmentIdDoc, setEstablishmentIdDoc] = useState<UploadedDoc | null>(null)
   const [signedFormDoc, setSignedFormDoc]       = useState<UploadedDoc | null>(null)
   const [uploading, setUploading]       = useState<Slot | null>(null)
+
+  // Track pending/ uploads made in THIS dialog session so we can sweep them
+  // on cancel. `submittedRef` distinguishes close-after-submit (paths are
+  // in the DB — keep them) from close-after-cancel (delete them).
+  const pendingPathsRef = useRef<string[]>([])
+  const submittedRef    = useRef(false)
 
   const createCustomer      = useCreateCustomer()
   const updateCustomer      = useUpdateCustomer()
@@ -147,6 +154,7 @@ export function CustomerDialog({
       const path = `${folder}/${Date.now()}-${slot}-${sanitized}`
       const { error } = await supabase.storage.from(BUCKET).upload(path, toUpload)
       if (error) throw error
+      if (path.startsWith('pending/')) pendingPathsRef.current.push(path)
       return { path, name: file.name }
     } catch (err) {
       toast.error(`Upload failed: ${(err as Error).message}`)
@@ -161,6 +169,7 @@ export function CustomerDialog({
     if (doc.path.startsWith('pending/')) {
       const supabase = createClient()
       await supabase.storage.from(BUCKET).remove([doc.path])
+      pendingPathsRef.current = pendingPathsRef.current.filter((p) => p !== doc.path)
     }
     if (slot === 'cr') setCrDoc(null)
     else if (slot === 'establishment') setEstablishmentIdDoc(null)
@@ -268,9 +277,13 @@ export function CustomerDialog({
         },
         {
           onSuccess: () => {
+            // DB now owns the pending/ paths — mark them as committed so the
+            // close-cleanup below leaves them alone.
+            pendingPathsRef.current = []
+            submittedRef.current = true
             if (!routeGroupViaApproval) {
               toast.success('Customer updated')
-              onOpenChange(false)
+              handleOpenChange(false)
               return
             }
             submitGroupChange.mutate(
@@ -282,11 +295,11 @@ export function CustomerDialog({
                   } else {
                     toast.success(`Customer updated; credit group sent for approval`)
                   }
-                  onOpenChange(false)
+                  handleOpenChange(false)
                 },
                 onError: (err) => {
                   toast.error(`Saved, but credit group not sent: ${err.message}`)
-                  onOpenChange(false)
+                  handleOpenChange(false)
                 },
               },
             )
@@ -314,6 +327,9 @@ export function CustomerDialog({
       },
       {
         onSuccess: (created: { id: string }) => {
+          // DB now owns the pending/ paths — safe to skip cleanup on close.
+          pendingPathsRef.current = []
+          submittedRef.current = true
           const createdInfo = {
             id: created.id,
             name: name.trim(),
@@ -322,7 +338,7 @@ export function CustomerDialog({
           if (!newGroupNeedsApproval) {
             toast.success('Customer created')
             onCreated?.(createdInfo)
-            onOpenChange(false)
+            handleOpenChange(false)
             return
           }
           submitGroupChange.mutate(
@@ -335,12 +351,12 @@ export function CustomerDialog({
                   toast.success(`Customer created; credit group sent for approval`)
                 }
                 onCreated?.(createdInfo)
-                onOpenChange(false)
+                handleOpenChange(false)
               },
               onError: (err) => {
                 toast.error(`Customer created, but credit group not sent: ${err.message}`)
                 onCreated?.(createdInfo)
-                onOpenChange(false)
+                handleOpenChange(false)
               },
             },
           )
@@ -403,8 +419,57 @@ export function CustomerDialog({
     )
   }
 
+  function sweepPendingUploads() {
+    const paths = pendingPathsRef.current
+    if (paths.length === 0) return
+    pendingPathsRef.current = []
+    const supabase = createClient()
+    void supabase.storage.from(BUCKET).remove(paths).catch(() => { /* best-effort */ })
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next && !submittedRef.current) sweepPendingUploads()
+    if (!next) submittedRef.current = false
+    onOpenChange(next)
+  }
+
+  // Dirty when the user has typed a name, changed the default cash/credit
+  // toggle, picked a phone digit, attached any doc, picked a credit group,
+  // or (in edit mode) changed any of the seeded fields.
+  const isDirty = isEdit && customer
+    ? (
+        name !== (customer.name ?? '') ||
+        email !== (customer.email ?? '') ||
+        (customer.credit_group_id ? 'credit' : 'cash') !== customerType ||
+        (customer.entity_type ?? 'individual') !== entityType ||
+        (customer.credit_group_id ?? '') !== groupId ||
+        (customer.cr_url ?? null) !== (crDoc?.path ?? null) ||
+        (customer.establishment_id_url ?? null) !== (establishmentIdDoc?.path ?? null) ||
+        (customer.signed_credit_form_url ?? null) !== (signedFormDoc?.path ?? null) ||
+        phones.some((p) => p.digits.trim() !== '') && JSON.stringify(phones.map((p) => ({ p: `${p.countryCode}${p.digits.trim()}`, pr: p.is_primary }))) !==
+          JSON.stringify(seedPhoneRows(customer.phones).map((p) => ({ p: `${p.countryCode}${p.digits.trim()}`, pr: p.is_primary })))
+      )
+    : (
+        name.trim() !== '' ||
+        email.trim() !== '' ||
+        groupId !== '' ||
+        crDoc !== null ||
+        establishmentIdDoc !== null ||
+        signedFormDoc !== null ||
+        phones.some((p) => p.digits.trim() !== '')
+      )
+
+  const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
+    isDirty,
+    onOpenChange: handleOpenChange,
+  })
+
+  // Safety net for unmounts that bypass onOpenChange (route change etc.).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (!submittedRef.current) sweepPendingUploads() }, [])
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg flex max-h-[90vh] flex-col">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Customer' : 'New Customer'}</DialogTitle>
@@ -587,7 +652,7 @@ export function CustomerDialog({
                     {
                       onSuccess: () => {
                         toast.success(customer.is_active ? 'Customer disabled' : 'Customer enabled')
-                        onOpenChange(false)
+                        handleOpenChange(false)
                       },
                       onError: (err) => toast.error(err.message),
                     },
@@ -625,7 +690,7 @@ export function CustomerDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting
               ? (isEdit ? 'Saving…' : 'Creating…')
@@ -633,6 +698,6 @@ export function CustomerDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog>{confirmDialog}</>
   )
 }

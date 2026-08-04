@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -22,6 +22,7 @@ import {
 import { useAllCategoriesFlat, breadcrumb as getBreadcrumb } from '@/hooks/useInventoryTree'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { createClient } from '@/lib/supabase/client'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 const PHOTO_BUCKET = 'inventory-item-photos'
 
@@ -63,6 +64,11 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Track paths uploaded THIS dialog session so we can sweep them on cancel.
+  // Photo-replace within a session also removes the superseded upload here.
+  const sessionUploadsRef = useRef<{ url: string; path: string }[]>([])
+  const submittedRef      = useRef(false)
+
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema) as never,
     defaultValues: {
@@ -97,8 +103,15 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!ALLOWED.includes(file.type)) {
+      toast.error('Unsupported type — JPG / PNG / WEBP / GIF only')
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
     if (file.size > 10 * 1024 * 1024) {
       toast.error('Photo too large — maximum 10 MB')
+      if (fileRef.current) fileRef.current.value = ''
       return
     }
     setUploading(true)
@@ -114,6 +127,15 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
       const { error: upErr } = await supabase.storage.from(PHOTO_BUCKET).upload(path, compressed)
       if (upErr) throw upErr
       const { data: pub } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path)
+
+      // Photo-replace within one session: drop the superseded upload NOW
+      // rather than waiting for cancel — otherwise a user hitting Change 3×
+      // leaves 3 orphans behind on save.
+      const supersededPaths = sessionUploadsRef.current.map((u) => u.path)
+      if (supersededPaths.length > 0) {
+        void supabase.storage.from(PHOTO_BUCKET).remove(supersededPaths).catch(() => {})
+      }
+      sessionUploadsRef.current = [{ url: pub.publicUrl, path }]
       form.setValue('image_url', pub.publicUrl, { shouldDirty: true })
     } catch (err) {
       toast.error(`Photo upload failed: ${(err as Error).message}`)
@@ -124,8 +146,43 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
   }
 
   function handlePhotoRemove() {
+    const currentUrl = form.getValues('image_url')
+    const sessionMatch = sessionUploadsRef.current.find((u) => u.url === currentUrl)
+    if (sessionMatch) {
+      const supabase = createClient()
+      void supabase.storage.from(PHOTO_BUCKET).remove([sessionMatch.path]).catch(() => {})
+      sessionUploadsRef.current = sessionUploadsRef.current.filter((u) => u.url !== currentUrl)
+    }
     form.setValue('image_url', null, { shouldDirty: true })
   }
+
+  function sweepSessionUploads() {
+    const paths = sessionUploadsRef.current.map((u) => u.path)
+    if (paths.length === 0) return
+    sessionUploadsRef.current = []
+    const supabase = createClient()
+    void supabase.storage.from(PHOTO_BUCKET).remove(paths).catch(() => {})
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next && !submittedRef.current) sweepSessionUploads()
+    if (!next) submittedRef.current = false
+    onOpenChange(next)
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (!submittedRef.current) sweepSessionUploads() }, [])
+
+  // Subscribe to every field so this component re-renders on any keystroke.
+  // Without this, only `form.watch('image_url')` triggers re-renders — typing
+  // in other fields leaves `formState.isDirty` stale in the outer closure and
+  // click-outside closes without prompting.
+  useWatch({ control: form.control })
+
+  const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
+    isDirty: form.formState.isDirty,
+    onOpenChange: handleOpenChange,
+  })
 
   function onSubmit(values: ItemFormValues) {
     const payload = {
@@ -139,12 +196,17 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
       : () => create.mutateAsync(payload)
 
     mutation()
-      .then(() => { toast.success(`Item ${isEditing ? 'updated' : 'created'}`); onOpenChange(false) })
+      .then(() => {
+        sessionUploadsRef.current = []
+        submittedRef.current = true
+        toast.success(`Item ${isEditing ? 'updated' : 'created'}`)
+        handleOpenChange(false)
+      })
       .catch((err: Error) => toast.error(err.message))
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Inventory Item</DialogTitle>
@@ -226,12 +288,12 @@ export function InventoryItemFormDialog({ open, onOpenChange, item, defaultCateg
               <FormItem><FormLabel>Warranty (months)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )} />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)} disabled={isPending}>Cancel</Button>
               <Button type="submit" disabled={isPending || uploading}>{isPending ? 'Saving…' : isEditing ? 'Update' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </Dialog>{confirmDialog}</>
   )
 }

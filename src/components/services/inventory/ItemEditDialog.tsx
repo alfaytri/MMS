@@ -18,6 +18,7 @@ import { useDivisions } from '@/hooks/useDivisions'
 import { useItemStockByDivision } from '@/hooks/useItemStockByDivision'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { createClient } from '@/lib/supabase/client'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 const PHOTO_BUCKET = 'inventory-item-photos'
 
@@ -45,6 +46,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const sessionUploadsRef = useRef<{ url: string; path: string }[]>([])
+  const submittedRef      = useRef(false)
   // D.12 — cross-division sharing. Empty list = no additional sharing (default).
   const [sharedWith, setSharedWith] = useState<string[]>([])
   const [shareOpen, setShareOpen] = useState(false)
@@ -70,8 +73,15 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!ALLOWED.includes(file.type)) {
+      toast.error('Unsupported type — JPG / PNG / WEBP / GIF only')
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
     if (file.size > 10 * 1024 * 1024) {
       toast.error('Photo too large — maximum 10 MB')
+      if (fileRef.current) fileRef.current.value = ''
       return
     }
     setUploading(true)
@@ -87,6 +97,12 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, compressed)
       if (error) throw error
       const { data: pub } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path)
+
+      const supersededPaths = sessionUploadsRef.current.map((u) => u.path)
+      if (supersededPaths.length > 0) {
+        void supabase.storage.from(PHOTO_BUCKET).remove(supersededPaths).catch(() => {})
+      }
+      sessionUploadsRef.current = [{ url: pub.publicUrl, path }]
       setImageUrl(pub.publicUrl)
     } catch (err) {
       toast.error(`Photo upload failed: ${(err as Error).message}`)
@@ -97,8 +113,60 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   }
 
   function handlePhotoRemove() {
+    const sessionMatch = sessionUploadsRef.current.find((u) => u.url === imageUrl)
+    if (sessionMatch) {
+      const supabase = createClient()
+      void supabase.storage.from(PHOTO_BUCKET).remove([sessionMatch.path]).catch(() => {})
+      sessionUploadsRef.current = sessionUploadsRef.current.filter((u) => u.url !== imageUrl)
+    }
     setImageUrl(null)
   }
+
+  function sweepSessionUploads() {
+    const paths = sessionUploadsRef.current.map((u) => u.path)
+    if (paths.length === 0) return
+    sessionUploadsRef.current = []
+    const supabase = createClient()
+    void supabase.storage.from(PHOTO_BUCKET).remove(paths).catch(() => {})
+  }
+
+  const isDirty = isEdit && item
+    ? (
+        nameEn !== (item.name_en ?? '') ||
+        nameAr !== (item.name_ar ?? '') ||
+        sku !== (item.sku ?? '') ||
+        unit !== (item.unit ?? 'Piece') ||
+        imageUrl !== ((item as unknown as { image_url?: string | null }).image_url ?? null) ||
+        attrValues.length > 0 ||
+        JSON.stringify(sharedWith.slice().sort()) !==
+          JSON.stringify(
+            ((item as unknown as { shared_with_division_ids?: string[] }).shared_with_division_ids ?? [])
+              .slice().sort()
+          )
+      )
+    : (
+        nameEn.trim() !== '' ||
+        nameAr.trim() !== '' ||
+        sku.trim() !== '' ||
+        unit !== 'Piece' ||
+        imageUrl !== null ||
+        attrValues.length > 0 ||
+        sharedWith.length > 0
+      )
+
+  function handleOpenChange(next: boolean) {
+    if (!next && !submittedRef.current) sweepSessionUploads()
+    if (!next) submittedRef.current = false
+    onOpenChange(next)
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (!submittedRef.current) sweepSessionUploads() }, [])
+
+  const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
+    isDirty,
+    onOpenChange: handleOpenChange,
+  })
 
   const handleAttrChange = useCallback(
     (values: Array<{ definition_id: string; option_id: string | null }>) => {
@@ -133,8 +201,10 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       if (attrValues.length > 0) {
         await upsertItemAttributes.mutateAsync({ itemId, values: attrValues })
       }
+      sessionUploadsRef.current = []
+      submittedRef.current = true
       toast.success(isEdit ? 'Item updated' : 'Item created')
-      onOpenChange(false)
+      handleOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Save failed')
     }
@@ -143,7 +213,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const isPending = create.isPending || update.isPending || upsertItemAttributes.isPending
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Item' : 'New Item'}</DialogTitle>
@@ -318,13 +388,13 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isPending || uploading}>
               {isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Item'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </Dialog>{confirmDialog}</>
   )
 }

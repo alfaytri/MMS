@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { InfoPopover } from '@/components/shared/InfoPopover'
@@ -646,6 +647,9 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const [collapsedPoIds, setCollapsedPoIds] = useState<Set<string>>(new Set())
   const [uploadingLines, setUploadingLines] = useState<Set<number>>(new Set())
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  // Track bill paths uploaded THIS session so we can sweep them on cancel.
+  const sessionUploadsRef = useRef<string[]>([])
+  const submittedRef      = useRef(false)
 
   const { data: receivals } = useReceivalsForLcSelector({ search: receivalSearch })
   const { data: currencies = [] } = useCurrencies()
@@ -678,7 +682,15 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   })()
 
   function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }]) }
-  function removeLine(i: number) { setLines((l) => l.filter((_, idx) => idx !== i)) }
+  function removeLine(i: number) {
+    const droppedPath = lines[i]?.bill_path
+    if (droppedPath && sessionUploadsRef.current.includes(droppedPath)) {
+      const supabase = createClient()
+      void supabase.storage.from('lc-bills').remove([droppedPath]).catch(() => {})
+      sessionUploadsRef.current = sessionUploadsRef.current.filter((p) => p !== droppedPath)
+    }
+    setLines((l) => l.filter((_, idx) => idx !== i))
+  }
   function updateLine(i: number, k: keyof LandedCostLineInput, v: string | number) {
     setLines((l) => l.map((line, idx) => {
       if (idx !== i) return line
@@ -739,14 +751,16 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       const sanitized = toUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const path = `${year}/${month}/${Date.now()}-${sanitized}`
       const oldPath = lines[lineIndex]?.bill_path
-      if (oldPath) {
-        await supabase.storage.from('lc-bills').remove([oldPath])
-      }
       const { error } = await supabase.storage.from('lc-bills').upload(path, toUpload)
       if (error) throw error
+      sessionUploadsRef.current.push(path)
       setLines((l) =>
         l.map((line, idx) => (idx === lineIndex ? { ...line, bill_path: path } : line)),
       )
+      if (oldPath && oldPath !== path) {
+        void supabase.storage.from('lc-bills').remove([oldPath]).catch(() => {})
+        sessionUploadsRef.current = sessionUploadsRef.current.filter((p) => p !== oldPath)
+      }
     } catch (err: unknown) {
       toast.error(`Upload failed: ${(err as Error).message}`)
     } finally {
@@ -774,23 +788,60 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       },
       {
         onSuccess: () => {
+          sessionUploadsRef.current = []
+          submittedRef.current = true
           toast.success('Landed cost created')
-          onOpenChange(false)
-          setDescription(''); setDate(''); setCurrency('QAR')
-          setLines([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
-          setSelectedReceivalIds([])
-          setReceivalSearch('')
-          setExpandedReceivalId(null)
-          setCollapsedPoIds(new Set())
-          setUploadingLines(new Set())
+          handleOpenChange(false)
         },
         onError: (err) => toast.error(err.message),
       }
     )
   }
 
+  function resetForm() {
+    setDescription(''); setDate(''); setCurrency('QAR')
+    setLines([{ description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }])
+    setSelectedReceivalIds([])
+    setReceivalSearch('')
+    setExpandedReceivalId(null)
+    setCollapsedPoIds(new Set())
+    setUploadingLines(new Set())
+  }
+
+  function sweepSessionUploads() {
+    const paths = sessionUploadsRef.current
+    if (paths.length === 0) return
+    sessionUploadsRef.current = []
+    const supabase = createClient()
+    void supabase.storage.from('lc-bills').remove(paths).catch(() => {})
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      if (!submittedRef.current) sweepSessionUploads()
+      submittedRef.current = false
+      resetForm()
+    }
+    onOpenChange(next)
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (!submittedRef.current) sweepSessionUploads() }, [])
+
+  const isDirty =
+    description.trim() !== '' ||
+    date !== '' ||
+    currency !== 'QAR' ||
+    lines.some((l) => l.description.trim() !== '' || l.amount !== 0 || l.currency !== 'QAR' || (l.exchange_rate ?? 1) !== 1 || !!l.bill_path) ||
+    selectedReceivalIds.length > 0
+
+  const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
+    isDirty,
+    onOpenChange: handleOpenChange,
+  })
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg">
         <DialogHeader><DialogTitle>Create Landed Cost</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
@@ -1049,14 +1100,14 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={createLc.isPending || uploadingLines.size > 0}>
               {createLc.isPending ? 'Creating…' : uploadingLines.size > 0 ? 'Uploading…' : 'Create Landed Cost'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </Dialog>{confirmDialog}</>
   )
 }
 

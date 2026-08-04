@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -95,6 +96,11 @@ export function DivisionFormDialog({
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [isUploadingStamp, setIsUploadingStamp] = useState(false)
 
+  // Track paths uploaded THIS dialog session so we can sweep them on cancel
+  // and clean up superseded uploads when the user re-picks a file.
+  const sessionUploadsRef = useRef<{ field: 'logo_url' | 'stamp_url'; path: string }[]>([])
+  const submittedRef      = useRef(false)
+
   const form = useForm<DivisionFormValues>({
     resolver: zodResolver(divisionSchema) as never,
     defaultValues: {
@@ -159,6 +165,15 @@ export function DivisionFormDialog({
     field: 'logo_url' | 'stamp_url',
     setUploading: (v: boolean) => void
   ) {
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+    if (!ALLOWED.includes(file.type)) {
+      toast.error('Unsupported type — JPG / PNG / WEBP / SVG only')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image too large — maximum 5 MB')
+      return
+    }
     setUploading(true)
     try {
       const supabase = createClient()
@@ -170,6 +185,17 @@ export function DivisionFormDialog({
       const { data: { publicUrl } } = supabase.storage
         .from('division-assets')
         .getPublicUrl(safeName)
+
+      // Drop the superseded session-upload for the same field so repeated
+      // re-picks don't accumulate orphans on save.
+      const superseded = sessionUploadsRef.current.filter((u) => u.field === field)
+      if (superseded.length > 0) {
+        void supabase.storage.from('division-assets').remove(superseded.map((u) => u.path)).catch(() => {})
+      }
+      sessionUploadsRef.current = [
+        ...sessionUploadsRef.current.filter((u) => u.field !== field),
+        { field, path: safeName },
+      ]
       form.setValue(field, publicUrl, { shouldValidate: true })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Upload failed')
@@ -177,6 +203,41 @@ export function DivisionFormDialog({
       setUploading(false)
     }
   }
+
+  function handleRemoveAsset(field: 'logo_url' | 'stamp_url') {
+    const match = sessionUploadsRef.current.find((u) => u.field === field)
+    if (match) {
+      const supabase = createClient()
+      void supabase.storage.from('division-assets').remove([match.path]).catch(() => {})
+      sessionUploadsRef.current = sessionUploadsRef.current.filter((u) => u.field !== field)
+    }
+    form.setValue(field, '', { shouldValidate: true })
+  }
+
+  function sweepSessionUploads() {
+    const paths = sessionUploadsRef.current.map((u) => u.path)
+    if (paths.length === 0) return
+    sessionUploadsRef.current = []
+    const supabase = createClient()
+    void supabase.storage.from('division-assets').remove(paths).catch(() => {})
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next && !submittedRef.current) sweepSessionUploads()
+    if (!next) submittedRef.current = false
+    onOpenChange(next)
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (!submittedRef.current) sweepSessionUploads() }, [])
+
+  // Force re-render on any field change so isDirty stays fresh in the closure.
+  useWatch({ control: form.control })
+
+  const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
+    isDirty: form.formState.isDirty,
+    onOpenChange: handleOpenChange,
+  })
 
   function onSubmit(values: DivisionFormValues) {
     const payload = {
@@ -197,8 +258,10 @@ export function DivisionFormDialog({
         { id: division.id, ...payload },
         {
           onSuccess: () => {
+            sessionUploadsRef.current = []
+            submittedRef.current = true
             toast.success('Division updated')
-            onOpenChange(false)
+            handleOpenChange(false)
           },
           onError: (err) => toast.error(err.message),
         }
@@ -206,8 +269,10 @@ export function DivisionFormDialog({
     } else {
       create.mutate(payload, {
         onSuccess: () => {
+          sessionUploadsRef.current = []
+          submittedRef.current = true
           toast.success('Division created')
-          onOpenChange(false)
+          handleOpenChange(false)
         },
         onError: (err) => toast.error(err.message),
       })
@@ -215,7 +280,7 @@ export function DivisionFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full md:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Division' : 'Add Division'}</DialogTitle>
@@ -460,7 +525,7 @@ export function DivisionFormDialog({
                   {logoUrl && !isUploadingLogo && (
                     <button
                       type="button"
-                      onClick={() => form.setValue('logo_url', '', { shouldValidate: true })}
+                      onClick={() => handleRemoveAsset('logo_url')}
                       className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
                     >
                       <X className="h-3 w-3" />
@@ -501,7 +566,7 @@ export function DivisionFormDialog({
                   {stampUrl && !isUploadingStamp && (
                     <button
                       type="button"
-                      onClick={() => form.setValue('stamp_url', '', { shouldValidate: true })}
+                      onClick={() => handleRemoveAsset('stamp_url')}
                       className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-background border border-border shadow flex items-center justify-center hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
                     >
                       <X className="h-3 w-3" />
@@ -569,7 +634,7 @@ export function DivisionFormDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => guardedOnOpenChange(false)}
                 disabled={isPending || isUploadingLogo || isUploadingStamp}
               >
                 Cancel
@@ -585,6 +650,6 @@ export function DivisionFormDialog({
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </Dialog>{confirmDialog}</>
   )
 }
