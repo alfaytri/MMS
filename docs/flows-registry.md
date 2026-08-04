@@ -824,6 +824,25 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 
 ---
 
+## Storage Hygiene
+
+### Storage Cascade Cleanup
+
+- **Module:** Cross-cutting (storage hygiene) — invoked automatically by DB triggers.
+- **Status:** Active
+- **Trigger surface(s):** Any `DELETE` or `UPDATE OF <path column>` on: `customers`, `companies`, `company_divisions`, `inventory_items`, `stock_adjustments`, `consumption_entries`, `landed_cost_lines`.
+- **Primary hook(s):** N/A — server-side triggers only. No client hook.
+- **RPC(s):** `public.storage_delete_object(bucket, path, source_table, source_id)`.
+- **Ledger writes:** `public.storage_cleanup_failures` on failure only (RLS enabled, service-role only).
+- **Downstream side-effects:** HTTP `DELETE` against Supabase Storage REST API via `pg_net`. Fire-and-forget — a Storage outage never aborts the parent DML.
+- **Dialog / component:** N/A.
+- **Guards / preconditions:** `SECURITY DEFINER` functions; service-role key read from `vault.decrypted_secrets` under name `storage_cleanup_service_role_key` at call time; caught exceptions logged to `storage_cleanup_failures`.
+- **Related flows:** [[Create Sale Order (quotation / SO)]] (customer credit-doc side-effects), [[Complete Return Inspection]] (adjustment photos side-effects).
+- **Docs / plans:** [docs/superpowers/plans/2026-08-04-storage-cascade-triggers.md](docs/superpowers/plans/2026-08-04-storage-cascade-triggers.md)
+- **Notes:** `avatars` bucket intentionally out of scope (deterministic path + upsert = no orphans). PDF buckets deferred to storage-audit item 3D. Vault secret must be created manually via `SELECT vault.create_secret('<service role key>', 'storage_cleanup_service_role_key');` before triggers can succeed — otherwise every fire logs a failure row.
+
+---
+
 ## Registered placeholders — not yet implemented in code
 
 These modules are called out in project plans / seed docs but have no material flow surface yet. Do NOT delete — fill in as the code lands.
