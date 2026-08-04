@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateSaleReturn, useSaleDeliveryLinesForSo, type ReturnLineCondition, type SaleReturn, type DeliveryLineForReturn } from '@/hooks/useSaleReturns'
 import { useReturnReasons, useAddReturnReason } from '@/hooks/useReturnReasons'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
@@ -28,10 +30,6 @@ interface Props {
   onOpenChange: (open: boolean) => void
   so: SaleOrder
   fullSO: SaleOrder | null
-  // Existing returns on this SO — used only for the inspection-mode banner /
-  // downstream analytics. Per-delivery-line already-returned math now comes
-  // from useSaleDeliveryLinesForSo directly (returnable_qty already accounts
-  // for prior returns via return_lines.sale_delivery_line_id).
   existingReturns: SaleReturn[]
 }
 
@@ -44,6 +42,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
   const [customReason, setCustomReason] = useState('')
   const [returnNotes, setReturnNotes] = useState('')
   const [lines, setLines] = useState<LineDraft[]>([])
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const createReturn = useCreateSaleReturn()
   const addReason = useAddReturnReason()
@@ -55,9 +54,6 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
     [candidates]
   )
 
-  // Sync editable rows to the current candidate set. Guarded against no-op
-  // updates: TanStack Query can hand back a fresh array reference on refetch
-  // while the underlying delivery_line set is unchanged.
   useEffect(() => {
     if (!open) return
     setLines((prev) => {
@@ -80,12 +76,16 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
     })
   }, [open, availableCandidates])
 
-  const resetAndClose = () => {
-    setMode('direct')
-    setReturnReason('')
-    setCustomReason('')
-    setReturnNotes('')
-    onOpenChange(false)
+  // Reset dialog state on close. Wrapper decides when close actually fires
+  // (with prompt if dirty); this runs afterwards to clean up for the next open.
+  const handleOpenChange = (o: boolean) => {
+    if (!o) {
+      setMode('direct')
+      setReturnReason('')
+      setCustomReason('')
+      setReturnNotes('')
+    }
+    onOpenChange(o)
   }
 
   const perLineReturnQty = (l: LineDraft) =>
@@ -97,6 +97,13 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
   const canSubmit =
     reasonOK && nonZeroLineCount > 0 && !anyOverDelivered
     && !createReturn.isPending && !addReason.isPending
+
+  const isDirty =
+    mode !== 'direct' ||
+    returnReason !== '' ||
+    customReason.trim() !== '' ||
+    returnNotes.trim() !== '' ||
+    lines.some((l) => l.good_qty > 0 || l.damaged_qty > 0 || l.inspection_qty > 0 || l.condition_notes.trim() !== '')
 
   async function handleSubmit() {
     let finalReason = returnReason
@@ -161,8 +168,6 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
         date: returnDate,
         reason: finalReason,
         items,
-        // Restock destination is now derived per-line by the RPC from the
-        // source delivery_line's sub-container. Header field kept null.
         restock_warehouse_id: null,
         notes: returnNotes || null,
       },
@@ -171,7 +176,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
           toast.success(mode === 'inspection'
             ? 'Return created — awaiting inspection'
             : 'Return created')
-          resetAndClose()
+          guardRef.current?.closeAfterSubmit()
         },
         onError: (err) => toast.error((err as Error).message),
       },
@@ -179,7 +184,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) resetAndClose() }}>
+    <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Return — {so.so_number}</DialogTitle>
@@ -431,7 +436,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t">
-          <Button variant="outline" size="sm" onClick={resetAndClose}>Cancel</Button>
+          <Button variant="outline" size="sm" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button size="sm" disabled={!canSubmit} onClick={handleSubmit}>
             {(createReturn.isPending || addReason.isPending)
               ? 'Creating…'
@@ -439,6 +444,6 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
           </Button>
         </div>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

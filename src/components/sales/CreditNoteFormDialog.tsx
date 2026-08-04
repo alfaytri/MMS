@@ -1,16 +1,20 @@
 // src/components/sales/CreditNoteFormDialog.tsx
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateCreditNote, useCreditNotes } from '@/hooks/useCreditNotes'
 import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { useReasonLists } from '@/hooks/useReasonLists'
@@ -48,6 +52,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
   const [customReason, setCustomReason] = useState('')
   const [lines, setLines] = useState<LineDraft[]>([])
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const eligibleInvoices = useMemo(
     () => invoices ?? [],
@@ -126,7 +131,14 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
     return true
   }, [selectedInvoice, finalReason, cnTotal, overLimit, mode, lines])
 
-  const close = () => onOpenChange(false)
+  // Dirty as soon as the operator has committed any real action —
+  // picking an invoice already loads editable line drafts, so treat it
+  // as engagement worth prompting on.
+  const isDirty =
+    selectedInvoiceId !== '' ||
+    partialAmount !== '' ||
+    reasonPick !== '' ||
+    customReason.trim() !== ''
 
   const submit = async () => {
     if (!selectedInvoice || !isValid) return
@@ -139,9 +151,6 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
     }[] = []
 
     if (mode === 'full') {
-      // Mirror invoice lines proportionally against remaining balance.
-      // If nothing already credited, mirror exactly. Otherwise, allocate the
-      // remaining amount into a single summary line.
       if (alreadyCredited === 0) {
         payloadLines = (selectedInvoice.invoice_line_items ?? []).map((li) => ({
           invoice_line_id: li.id,
@@ -188,7 +197,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
         lines: payloadLines,
       })
       toast.success('Credit note created')
-      close()
+      guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
       toast.error((err as Error).message)
     } finally {
@@ -197,7 +206,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b">
           <DialogTitle className="flex items-center gap-2">
@@ -453,12 +462,12 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
         </div>
 
         <DialogFooter className="mx-0 mb-0 px-6 py-4 border-t shrink-0 bg-background rounded-b-lg">
-          <Button variant="outline" onClick={close} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={saving}>Cancel</Button>
           <Button onClick={submit} disabled={!isValid || saving}>
             {saving ? 'Creating…' : 'Create Draft CN'}
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

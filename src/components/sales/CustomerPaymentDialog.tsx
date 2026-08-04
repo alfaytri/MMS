@@ -1,15 +1,19 @@
 // src/components/sales/CustomerPaymentDialog.tsx
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Wallet } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PaymentConfirmationDialog } from '@/components/shared/PaymentConfirmationDialog'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateCustomerPayment, useApplyStoreCredit } from '@/hooks/useCustomerPayments'
 import { useOpenCreditNotesForCustomer } from '@/hooks/useOpenCreditNotes'
 import { usePaymentMethods } from '@/hooks/usePaymentMethods'
@@ -29,11 +33,8 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const applyStoreCredit = useApplyStoreCredit()
   const { data: dbMethods = [] } = usePaymentMethods()
   const outstanding = (invoice.total_amount ?? 0) - alreadyPaid
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
-  // Store credit available in the invoice's currency. Rendered inline at the
-  // top of the dialog when > 0. Other currencies are ignored — mixing e.g. USD
-  // credit against a QAR invoice would need exchange-rate handling that we
-  // don't want to hide from the user in a one-click flow.
   const invoiceCurrency = invoice.currency ?? 'QAR'
   const { data: openCNs = [] } = useOpenCreditNotesForCustomer(open ? invoice.customer_id : null)
   const availableCredit = useMemo(
@@ -45,8 +46,8 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const [useCredit, setUseCredit] = useState(false)
   const [creditAmount, setCreditAmount] = useState('0')
 
-  // "Cash" here = whatever's left over after credit (real payment method).
-  const [amount, setAmount] = useState(String(outstanding > 0 ? outstanding.toFixed(2) : ''))
+  const initialAmount = String(outstanding > 0 ? outstanding.toFixed(2) : '')
+  const [amount, setAmount] = useState(initialAmount)
   const [method, setMethod] = useState<string>('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [reference, setReference] = useState('')
@@ -59,11 +60,17 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const total         = creditPortion + cashPortion
   const canPay        = total > 0 && total <= outstanding && !!date && (cashPortion === 0 || (cashPortion > 0 && !!method))
 
+  // Dirty when the operator actively picked something. Amount is pre-filled
+  // to the outstanding balance, so a match to initialAmount is NOT dirty.
+  const isDirty =
+    useCredit ||
+    method !== '' ||
+    reference.trim() !== '' ||
+    amount !== initialAmount
+
   const methodLabel = (slug: string) =>
     dbMethods.find((m) => m.slug === slug)?.name ?? slug
 
-  // Turning credit ON pre-fills the credit input to cover as much of the
-  // invoice as possible, and reduces the cash side to just the remainder.
   function toggleCredit(next: boolean) {
     setUseCredit(next)
     if (next) {
@@ -89,7 +96,6 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   const submit = async () => {
     setSaving(true)
     try {
-      // 1. Redeem credit (FIFO across the customer's CNs in this currency).
       if (creditPortion > 0) {
         const eligible = openCNs.filter((n) => n.currency === invoiceCurrency)
         const redemptions: { credit_note_id: string; amount: number }[] = []
@@ -110,7 +116,6 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
         })
       }
 
-      // 2. Cash portion — whatever's left as a normal payment.
       if (cashPortion > 0) {
         await createPayment.mutateAsync({
           invoice_id:  invoice.id,
@@ -131,7 +136,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
             : 'Payment recorded'
       )
       setConfirmOpen(false)
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
       toast.error((err as Error).message)
     } finally {
@@ -140,7 +145,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Receive Payment — {invoice.invoice_id}</DialogTitle>
@@ -228,7 +233,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button onClick={handleRecordClick} disabled={saving || !canPay}>
             Record Payment
           </Button>
@@ -255,6 +260,6 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
           ]}
         />
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

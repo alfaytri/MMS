@@ -1,11 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -14,6 +12,10 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCompleteReturnInspection, type InspectionSplit, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
@@ -37,6 +39,7 @@ interface Props {
 
 export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWarehouseId: _suggestedWarehouseId }: Props) {
   void _suggestedWarehouseId
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
   const [splits, setSplits] = useState<Split[]>(() =>
     (ret.return_lines ?? [])
       .filter((l) => l.condition === 'inspection')
@@ -79,6 +82,17 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
     splits.length > 0 && !anyMismatch && !anyNegative
     && !completeInspection.isPending
 
+  // Dirty when the operator has entered any qty. Notes seeded from
+  // return_lines.condition_notes count as pre-existing (not dirty on their own).
+  const initialNotes = useMemo(
+    () => splits.map((s) => s.condition_notes),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [], // captured on first render only
+  )
+  const isDirty = splits.some(
+    (s, i) => s.good_qty > 0 || s.damaged_qty > 0 || s.condition_notes !== (initialNotes[i] ?? '')
+  )
+
   function submitNow() {
     const payload: InspectionSplit[] = splits.map((s) => ({
       return_line_id: s.return_line_id,
@@ -92,7 +106,7 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
       {
         onSuccess: () => {
           toast.success(`${ret.return_number} inspection complete — ready to restock`)
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
         },
         onError: (err) => toast.error((err as Error).message),
       },
@@ -108,7 +122,7 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Complete Inspection — {ret.return_number}</DialogTitle>
@@ -196,7 +210,7 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" size="sm" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button size="sm" disabled={!canSubmit} onClick={handleSubmit}>
             {completeInspection.isPending ? 'Saving…' : 'Complete Inspection'}
           </Button>
@@ -226,6 +240,6 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Dialog>
+    </GuardedDialog>
   )
 }
