@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Building2, X } from 'lucide-react'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +19,10 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { passwordSchema } from '@/lib/auth/password-policy'
 import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import { useCreateUser } from '@/hooks/useProfiles'
@@ -51,6 +55,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   const [selectedDivisionIds, setSelectedDivisionIds] = useState<string[]>([])
   const [phoneCountryCode, setPhoneCountryCode] = useState('+974')
   const [phoneDigits, setPhoneDigits] = useState('')
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: allDivisions = [] } = useAllDivisions()
   const { data: companies = [] } = useCompanies()
@@ -79,6 +84,12 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   })
 
   const selectedRoles = form.watch('role_ids') ?? []
+
+  // Add-only dialog: any deviation from the empty defaults counts as dirty.
+  const extraDirty =
+    selectedDivisionIds.length > 0 ||
+    phoneDigits.length > 0 ||
+    phoneCountryCode !== '+974'
 
   function handleOpenChange(v: boolean) {
     if (!v) {
@@ -115,7 +126,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
           await assignDivisions(res.profile.id)
           if (res.warning) toast.warning(res.warning)
           else toast.success(`User "${values.username}" created successfully`)
-          handleOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
         },
         onError: (err) => toast.error(err.message),
       }
@@ -123,7 +134,13 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <GuardedFormDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      form={form}
+      extraDirty={extraDirty}
+      ref={guardRef}
+    >
       <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add User</DialogTitle>
@@ -203,7 +220,8 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                         const current = form.getValues('role_ids')
                         form.setValue(
                           'role_ids',
-                          checked ? [...current, role.id] : current.filter((id) => id !== role.id)
+                          checked ? [...current, role.id] : current.filter((id) => id !== role.id),
+                          { shouldDirty: true }
                         )
                       }}
                     />
@@ -282,7 +300,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
               <Button type="submit" disabled={createUser.isPending}>
                 {createUser.isPending ? 'Creating…' : 'Create User'}
               </Button>
@@ -290,6 +308,6 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }

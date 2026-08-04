@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import {
-  Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -29,6 +28,10 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import {
   useCreateWarehouseSubContainer,
   useUpdateWarehouseSubContainer,
@@ -77,6 +80,7 @@ export function SubContainerFormDialog({
   const { data: divisions = [] } = useDivisions()
   const { data: users = [] }     = useAllProfiles()
   const isPending = create.isPending || update.isPending
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -125,14 +129,14 @@ export function SubContainerFormDialog({
         })
         toast.success('Sub-container created')
       }
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (e) {
       toast.error((e as Error).message)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
       <DialogContent className="w-full sm:max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
@@ -243,7 +247,7 @@ export function SubContainerFormDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => guardRef.current?.requestClose()}
                 disabled={isPending}
               >
                 Cancel
@@ -255,6 +259,6 @@ export function SubContainerFormDialog({
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }

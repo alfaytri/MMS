@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Plus, Check, ChevronsUpDown } from 'lucide-react'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -20,6 +20,10 @@ import {
 } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateBrandVariant, useUpdateBrandVariant, type BrandVariant } from '@/hooks/useInventory'
 import { useBrands, useCreateBrand } from '@/hooks/useBrands'
 import { cn } from '@/lib/utils'
@@ -51,6 +55,7 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
 
   const [brandPickerOpen, setBrandPickerOpen] = useState(false)
   const [brandSearch, setBrandSearch] = useState('')
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const form = useForm<VariantFormValues>({
     resolver: zodResolver(variantSchema) as never,
@@ -92,8 +97,8 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
     if (!name) return
     try {
       const newBrand = await createBrand.mutateAsync({ name })
-      form.setValue('brand_id', newBrand.id, { shouldValidate: true })
-      form.setValue('brand', newBrand.name, { shouldValidate: true })
+      form.setValue('brand_id', newBrand.id, { shouldValidate: true, shouldDirty: true })
+      form.setValue('brand', newBrand.name, { shouldValidate: true, shouldDirty: true })
       setBrandPickerOpen(false)
       setBrandSearch('')
       toast.success(`Brand "${newBrand.name}" added`)
@@ -117,12 +122,12 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
       : () => create.mutateAsync(payload)
 
     mutation()
-      .then(() => { toast.success(`Variant ${isEditing ? 'updated' : 'created'}`); onOpenChange(false) })
+      .then(() => { toast.success(`Variant ${isEditing ? 'updated' : 'created'}`); guardRef.current?.closeAfterSubmit() })
       .catch((err: Error) => toast.error(err.message))
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
       <DialogContent className="w-full max-w-md">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Add'} Brand Variant</DialogTitle>
@@ -175,8 +180,8 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
                                 key={b.id}
                                 value={b.name}
                                 onSelect={() => {
-                                  form.setValue('brand_id', b.id, { shouldValidate: true })
-                                  form.setValue('brand', b.name, { shouldValidate: true })
+                                  form.setValue('brand_id', b.id, { shouldValidate: true, shouldDirty: true })
+                                  form.setValue('brand', b.name, { shouldValidate: true, shouldDirty: true })
                                   setBrandPickerOpen(false)
                                   setBrandSearch('')
                                 }}
@@ -234,12 +239,12 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
               )} />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={isPending}>Cancel</Button>
               <Button type="submit" disabled={isPending}>{isPending ? 'Saving…' : isEditing ? 'Update' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }

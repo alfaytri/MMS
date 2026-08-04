@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -17,6 +17,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  GuardedFormDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
 import { NAV_TREE, countPerms, collectPermKeys, validatePermissionSet, type TreeNode } from './PermissionTree'
 
@@ -190,6 +194,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
   const update = useUpdateRole()
   const isPending = create.isPending || update.isPending
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
@@ -230,17 +235,17 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
       const accessKey = ACCESS_KEY_MAP.get(key)
       if (accessKey) toAdd.push(accessKey)
     }
-    form.setValue('permissions', Array.from(new Set([...current, ...toAdd])))
+    form.setValue('permissions', Array.from(new Set([...current, ...toAdd])), { shouldDirty: true })
   }, [form])
 
   const handleDeselect = useCallback((keys: string[]) => {
     const current = form.getValues('permissions')
     const removeSet = new Set(keys)
-    form.setValue('permissions', current.filter(k => !removeSet.has(k)))
+    form.setValue('permissions', current.filter(k => !removeSet.has(k)), { shouldDirty: true })
   }, [form])
 
-  function selectAll() { form.setValue('permissions', [...ALL_TREE_KEYS]) }
-  function clearAll()  { form.setValue('permissions', []) }
+  function selectAll() { form.setValue('permissions', [...ALL_TREE_KEYS], { shouldDirty: true }) }
+  function clearAll()  { form.setValue('permissions', [], { shouldDirty: true }) }
 
   function onSubmit(values: RoleFormValues) {
     const check = validatePermissionSet(values.permissions)
@@ -255,12 +260,12 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
       ? () => update.mutateAsync({ id: role!.id, ...payload })
       : () => create.mutateAsync(payload)
     mutation()
-      .then(() => { toast.success(`Role ${isEditing ? 'updated' : 'created'}`); onOpenChange(false) })
+      .then(() => { toast.success(`Role ${isEditing ? 'updated' : 'created'}`); guardRef.current?.closeAfterSubmit() })
       .catch((err: Error) => toast.error(err.message))
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit' : 'Create'} Role</DialogTitle>
@@ -352,7 +357,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
             </div>
 
             <DialogFooter className="shrink-0 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={isPending}>Cancel</Button>
               <Button type="submit" disabled={isPending || !form.formState.isValid}>
                 {isPending ? 'Saving…' : isEditing ? 'Update Role' : 'Create Role'}
               </Button>
@@ -360,6 +365,6 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </GuardedFormDialog>
   )
 }
