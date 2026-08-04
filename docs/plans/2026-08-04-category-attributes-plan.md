@@ -2,9 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a category-level attribute schema for inventory items with a guided cascading picker in Sales / Quotations / Service Links / Consumption. Alongside, land a uniform view/edit permission split across the app so every gated feature has a matching view + edit key.
+**Goal:** Ship a category-level attribute schema for inventory items with a guided cascading picker in Sales / Quotations / Service Links / Consumption. Alongside, land a uniform **3-state** view/create/edit permission split across the app so every gated feature has matching view + create + edit keys.
 
-**Architecture:** Phase 0 lands the view/edit permission helpers + audit so all downstream permission keys use the new pattern from day one. Phases 1-6 build Category Attributes: DB (3 tables + branch-uniqueness trigger + 2 support functions), definition editor tab, per-item value entry section, `ProductAttributePicker` cascading selector, four surface integrations (SO / Quotations / Service Links / Consumption), 4-point security audit.
+**Architecture:** Phase 0 lands the 3-state permission helpers + audit + backfill so all downstream permission keys use the new pattern from day one. Phases 1-6 build Category Attributes: DB (3 tables + branch-uniqueness trigger + 2 support functions), definition editor tab, per-item value entry section, `ProductAttributePicker` cascading selector, four surface integrations (SO / Quotations / Service Links / Consumption), 4-point security audit.
+
+**Permission model (3-state semantics):**
+- `.view` — read-only (see page, list, detail)
+- `.create` — insert new records (New X button, bulk import, form submit-new)
+- `.edit` — modify existing records (update, cancel, void, complete, archive, delete, status transitions)
+- `.create` and `.edit` are **orthogonal** — one does not imply the other
+- Both **imply `.view`** (defensive fallback)
+- `system.admin` bypasses everything
+- Existing `.manage` keys retained as alias of `.edit` (no role-data rename needed)
+- **Backwards compat:** one-shot migration grants `X.create` to every role currently holding `X.edit` so no existing workflow breaks on deploy — Owners can trim `.create` off specific roles afterward
 
 **Tech Stack:** Next.js 15 App Router + TypeScript, Supabase (Postgres + RLS + Storage), TanStack Query v5, shadcn/ui + Tailwind.
 
@@ -73,17 +83,17 @@ EOD/EOD-YYYY-MM-DD.md                                   (per-task, silent append
 
 ---
 
-# Phase 0 — View/Edit Permission Split (prep work)
+# Phase 0 — View / Create / Edit Permission Split (3-state, prep work)
 
-Lands first so every downstream permission key uses the new pattern.
+Lands first so every downstream permission key uses the new 3-state pattern.
 
-## Task 0.1: Add `useHasEditPermission` + `useHasViewPermission` helpers
+## Task 0.1: Add `useHasViewPermission` + `useHasCreatePermission` + `useHasEditPermission` helpers
 
 **Files:**
 - Modify: `src/hooks/usePermissions.ts`
 
 **Interfaces:**
-- Produces: `useHasEditPermission(area: string): boolean`, `useHasViewPermission(area: string): boolean`
+- Produces: `useHasViewPermission(area)`, `useHasCreatePermission(area)`, `useHasEditPermission(area)` — all `(area: string): boolean`
 
 - [ ] **Step 1: Read current file to confirm location**
 
@@ -91,7 +101,7 @@ Lands first so every downstream permission key uses the new pattern.
 grep -n "useHasPermission" src/hooks/usePermissions.ts
 ```
 
-- [ ] **Step 2: Append the two helpers below `useHasPermission`**
+- [ ] **Step 2: Append the three helpers below `useHasPermission`**
 
 ```typescript
 export function useHasEditPermission(area: string): boolean {
@@ -104,56 +114,45 @@ export function useHasEditPermission(area: string): boolean {
   )
 }
 
+export function useHasCreatePermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return data.permissions.includes(`${area}.create`)
+}
+
 export function useHasViewPermission(area: string): boolean {
   const { data } = usePermissions()
   if (!data) return false
   if (data.isSystemAdmin) return true
   return (
     data.permissions.includes(`${area}.view`) ||
-    // Edit implies view — defensive against orphan-edit misconfig
+    // create / edit / manage all imply view — defensive against orphan misconfig
+    data.permissions.includes(`${area}.create`) ||
     data.permissions.includes(`${area}.edit`) ||
     data.permissions.includes(`${area}.manage`)
   )
 }
 ```
 
+Note: `.create` and `.edit` are **orthogonal** — the create helper does NOT accept `.edit` as a fallback and vice-versa. A role must hold `.create` explicitly to create; the backfill migration (Task 0.5) ensures existing `.edit`-holding roles get `.create` granted on deploy so no workflow breaks.
+
 - [ ] **Step 3: Verify tsc**
 
 Run: `npx tsc --noEmit 2>&1 | grep usePermissions`
-Expected: no output (no new errors)
+Expected: no output
 
-- [ ] **Step 4: Update PROGRESS.md In Progress + commit**
-
-Update `## 🔄 In Progress` with `🚀 Starting: **Task 0.2 — PermissionTree save-time orphan validator**`. Commit PROGRESS.md alone.
-
-```bash
-git add PROGRESS.md
-git commit -m "$(cat <<'EOF'
-docs: update PROGRESS.md — starting Task 0.2 (PermissionTree orphan validator)
-
-Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
-Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
-EOF
-)"
-```
-
-- [ ] **Step 5: Operator smoke + code commit**
-
-Ask operator to reload app and confirm:
-- Existing permission-gated buttons still work
-- No console errors mentioning `useHasEditPermission` / `useHasViewPermission`
-
-On "working":
+- [ ] **Step 4: Operator smoke + commit** (unchanged shape from before)
 
 ```bash
 git add src/hooks/usePermissions.ts
 git commit -m "$(cat <<'EOF'
-feat(permissions): add useHasEditPermission + useHasViewPermission helpers
+feat(permissions): add 3-state useHas{View,Create,Edit}Permission helpers
 
-Codifies the view/edit permission model. Helpers treat `.edit` and
-`.manage` as synonymous (no rename needed on existing role data).
-useHasViewPermission is defensive — an orphan-edit config still sees
-the surface.
+Codifies the 3-state view/create/edit permission model. .create and .edit
+are orthogonal — holding one does not imply the other. Both imply .view
+defensively. .manage kept as alias of .edit (no rename needed on existing
+role data).
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
@@ -161,13 +160,7 @@ EOF
 )"
 ```
 
-- [ ] **Step 6: PROGRESS.md complete row + EOD append**
-
-Add to `## ✅ Completed`: `- [YYYY-MM-DD] **Task 0.1: useHasEditPermission + useHasViewPermission helpers** — src/hooks/usePermissions.ts — Codifies view/edit model; .manage kept as alias.`
-
-Append to `EOD/EOD-YYYY-MM-DD.md` (create if missing): `N. Task 0.1: view/edit permission helpers — Added useHasEditPermission and useHasViewPermission to usePermissions.ts.`
-
-Commit PROGRESS.md alone.
+PROGRESS.md + EOD append per the standard shape.
 
 ---
 
@@ -192,16 +185,14 @@ grep -n "^export function\|^export const\|^export type" src/components/master-da
 export function validatePermissionSet(perms: string[]): { valid: boolean; orphans: string[] } {
   const orphans: string[] = []
   const set = new Set(perms)
+  if (set.has('system.admin')) return { valid: true, orphans: [] }
   for (const p of perms) {
-    // .edit or .manage must have matching .view (or system.admin bypass)
-    if (set.has('system.admin')) return { valid: true, orphans: [] }
-    if (p.endsWith('.edit') || p.endsWith('.manage')) {
-      const area = p.replace(/\.(edit|manage)$/, '')
+    // .create, .edit, or .manage must have matching .view
+    if (p.endsWith('.create') || p.endsWith('.edit') || p.endsWith('.manage')) {
+      const area = p.replace(/\.(create|edit|manage)$/, '')
       const viewKey = `${area}.view`
-      // Some areas legitimately have no explicit view key (e.g. `system.admin` itself
-      // or dropdown-gate keys like `master_data.access`). Only flag when a sibling
-      // .view key exists in the tree's known universe.
-      // For simplicity, flag any .edit/.manage without its .view sibling.
+      // Flag any .create/.edit/.manage without its .view sibling.
+      // (Legitimate no-view areas like `system.admin` bypass above.)
       if (!set.has(viewKey)) orphans.push(p)
     }
   }
@@ -260,78 +251,77 @@ PROGRESS.md update + EOD append per the standard shape.
 
 ---
 
-## Task 0.3: Add missing edit keys per audit table
+## Task 0.3: Audit current permission keys + add missing view/create/edit trios
 
 **Files:**
+- Read: `src/lib/permissions.ts`, `src/components/master-data/PermissionTree.tsx`
 - Modify: `src/lib/permissions.ts`, `src/components/master-data/PermissionTree.tsx`
+- Create: `docs/plans/2026-08-04-permission-audit.md` (audit-table appendix)
 
 **Interfaces:**
-- Adds keys: `custody.teams.edit`, `custody.places.edit`, `damaged_stock.on_hand.edit`, `damaged_stock.out_for_repair.edit`, `contact_centre.edit`
+- Produces: complete view/create/edit trios across every mutating surface. Non-mutating surfaces (reports, dashboards) get `.view` only. Governance surfaces (approval configuration) get `.view` + `.edit` only (no create/no edit distinction — you either configure workflows or you don't).
 
-- [ ] **Step 1: Add edit keys to `src/lib/permissions.ts` (Operations module)**
+- [ ] **Step 1: Enumerate current permission keys**
 
-In the Operations `PERMISSION_GROUPS` entry, extend the Custody + Damaged Stock sections:
-
-```typescript
-{
-  label: 'Custody',
-  permissions: [
-    { key: 'custody.teams.view',  label: 'View Teams Custody',  description: 'See the Teams tab on the Custody page' },
-    { key: 'custody.teams.edit',  label: 'Edit Teams Custody',  description: 'Assign / return / consume stock on the Teams tab' },
-    { key: 'custody.places.view', label: 'View Places Custody', description: 'See the Places tab on the Custody page' },
-    { key: 'custody.places.edit', label: 'Edit Places Custody', description: 'Assign / return / consume stock on the Places tab' },
-  ],
-},
-{
-  label: 'Damaged Stock',
-  permissions: [
-    { key: 'damaged_stock.on_hand.view',        label: 'View On-hand Damaged',       description: 'See the On-hand tab' },
-    { key: 'damaged_stock.on_hand.edit',        label: 'Edit On-hand Damaged',       description: 'Send-for-repair / write-off from the On-hand tab' },
-    { key: 'damaged_stock.out_for_repair.view', label: 'View Out for Repair',        description: 'See the Out for Repair tab' },
-    { key: 'damaged_stock.out_for_repair.edit', label: 'Edit Out for Repair',        description: 'Assign vendor / return from repair on the Out for Repair tab' },
-  ],
-},
+```bash
+grep -nE "^\s*\{\s*key:" src/lib/permissions.ts | head -200
+grep -nE "'[a-z_]+\.[a-z_.]+'" src/components/master-data/PermissionTree.tsx | head -200
 ```
 
-- [ ] **Step 2: Extend Contact Centre section**
+Compile a table in `docs/plans/2026-08-04-permission-audit.md` with columns: `Area | current keys | needs .view | needs .create | needs .edit | classification note`.
+
+- [ ] **Step 2: Classification rules (apply while filling the audit table)**
+
+| Surface type | Keys |
+|---|---|
+| Mutable data (Master Data records — customers, suppliers, items, categories, warehouses, users, roles, teams, places, services, contracts, credit groups, country codes, repair vendors) | view + create + edit |
+| Business documents (POs, SOs, Quotations, Deliveries, Returns, Credit Notes, Debit Notes, Invoices, Landed Costs, Payments) | view + create + edit |
+| Warehouse ops with clear new-entity boundaries (Transfers, Adjustments, Inventory Checks, Receivals, Consumption) | view + create + edit |
+| Warehouse ops that are only mutations on existing entities (Custody actions, Damaged Stock dispositions) | view + edit only — no `.create` (custody rows are created implicitly by receival / stock movements; damaged rows are created by other flows) |
+| Contact Centre | view + create + edit — creating a manual thread / task is a distinct concept from replying |
+| Reports / read-only dashboards (Stock Overview, Stock Value, P&L, cash flow) | view only |
+| Approval workflow configuration (governance) | view + edit only |
+| Dropdown gate keys (`master_data.access`, `purchase.access`, etc.) | unchanged (single-key gate) |
+| `system.admin` | unchanged (bypass) |
+
+- [ ] **Step 3: Add every missing key**
+
+For each row in the audit table needing new keys, append entries to the appropriate `PERMISSION_GROUPS` section in `src/lib/permissions.ts` AND mirror in `NAV_TREE` in `PermissionTree.tsx`. Standard label pattern:
 
 ```typescript
-{
-  module: 'Contact Centre',
-  icon: asFC(Headphones),
-  permissions: [
-    { key: 'contact_centre.view', label: 'View Contact Centre', description: 'See threads, customer CRM, tasks' },
-    { key: 'contact_centre.edit', label: 'Edit Contact Centre', description: 'Reply to threads, edit customer records, complete tasks' },
-  ],
-},
+{ key: `${area}.view`,   label: `View ${Label}`,   description: 'See the page / list / detail' },
+{ key: `${area}.create`, label: `Create ${Label}`, description: 'Add new records' },
+{ key: `${area}.edit`,   label: `Edit ${Label}`,   description: 'Modify / cancel / delete existing records' },
 ```
 
-- [ ] **Step 3: Mirror the new keys in `src/components/master-data/PermissionTree.tsx`**
-
-Find the Custody / Damaged Stock / Contact Centre nodes in `NAV_TREE` and add the `.edit` entries beside the `.view` ones.
+For Custody + Damaged Stock (view + edit only), skip `.create`.
 
 - [ ] **Step 4: Verify tsc**
 
-Run: `npx tsc --noEmit 2>&1 | grep -E "permissions|PermissionTree"`
-Expected: no output
+```bash
+npx tsc --noEmit 2>&1 | grep -E "permissions|PermissionTree"
+```
+Expected: no output.
 
 - [ ] **Step 5: Operator smoke**
 
-Ask operator to:
-- Reload app → open `/master-data/users` → Permissions tab
-- Expand Operations → confirm each Custody / Damaged Stock subsection now shows a `View X` and `Edit X` pair
-- Contact Centre now shows two keys
+Ask operator to reload → `/master-data/users` → Permissions tab. Walk every module, confirm each mutating surface shows the view/create/edit trio and read-only surfaces show only view.
 
 - [ ] **Step 6: Commit + PROGRESS.md + EOD**
 
 ```bash
-git add src/lib/permissions.ts src/components/master-data/PermissionTree.tsx
+git add src/lib/permissions.ts src/components/master-data/PermissionTree.tsx docs/plans/2026-08-04-permission-audit.md
 git commit -m "$(cat <<'EOF'
-feat(permissions): add missing edit keys — custody, damaged_stock, contact_centre
+feat(permissions): 3-state audit — view/create/edit trios across every surface
 
-Every view key now has a matching edit key per the view/edit split
-spec. No callsites are switched yet — the audit sweep in Task 0.4
-handles that.
+Every mutating surface now exposes a view/create/edit trio.
+Custody + Damaged Stock keep view/edit only (their rows are created
+implicitly by upstream flows). Read-only surfaces keep view only.
+Approval workflow config keeps view/edit only (governance, no create
+distinction). Audit table saved to
+docs/plans/2026-08-04-permission-audit.md.
+
+No callsites switched yet — Task 0.5 handles that.
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
@@ -341,64 +331,77 @@ EOF
 
 ---
 
-## Task 0.4: Callsite sweep — gate mutation buttons on Custody + Damaged Stock
+## Task 0.4: Backfill migration — grant `.create` to every role currently holding `.edit`
 
 **Files:**
-- Modify: `src/app/(dashboard)/warehouse/custody/page.tsx`, `src/app/(dashboard)/warehouse/damaged-stock/page.tsx`, `src/components/warehouse/custody/CustodyAssignDialog.tsx`, `src/components/warehouse/custody/CustodyReturnDialog.tsx`, `src/components/warehouse/SendDamagedStockForRepairDialog.tsx`, `src/components/warehouse/WriteOffDamagedStockDialog.tsx`, `src/components/warehouse/ReturnFromRepairDialog.tsx`, `src/components/warehouse/SendForRepairDialog.tsx`
+- Create: `supabase/migrations/YYYYMMDD000050_perm_create_backfill.sql`
 
 **Interfaces:**
-- Uses `useHasEditPermission` from Task 0.1
+- One-shot data migration. Runs BEFORE Task 0.5 lands (so callsites gated on `.create` still work for existing roles).
 
-- [ ] **Step 1: Gate Custody card action buttons**
+- [ ] **Step 1: Write the migration**
 
-In `src/app/(dashboard)/warehouse/custody/page.tsx`, find the `<CustodyTab>` component's action row (Request / Return / Consume buttons). Import the helper:
+```sql
+-- Grant .create to every custom_role that currently holds .edit or .manage.
+-- Preserves all existing workflows on deploy — Owners can trim .create
+-- off specific roles afterward via the Permissions tab.
+UPDATE public.custom_roles cr
+SET permissions = (
+  SELECT array_agg(DISTINCT p) FROM (
+    SELECT unnest(cr.permissions) AS p
+    UNION
+    SELECT regexp_replace(unnest(cr.permissions), '\.(edit|manage)$', '.create')
+    FROM public.custom_roles cr2
+    WHERE cr2.id = cr.id
+      AND (
+        -- Only emit .create for edit/manage keys, not for random other patterns.
+        EXISTS (
+          SELECT 1 FROM unnest(cr2.permissions) x
+          WHERE x LIKE '%.edit' OR x LIKE '%.manage'
+        )
+      )
+  ) t
+  WHERE p IS NOT NULL
+);
 
-```typescript
-import { useHasEditPermission } from '@/hooks/usePermissions'
+-- Sanity: log how many keys got added per role for audit.
+DO $$
+DECLARE
+  r RECORD;
+  original_count int;
+BEGIN
+  FOR r IN SELECT id, name, permissions FROM public.custom_roles LOOP
+    RAISE NOTICE 'Role % — % keys after backfill', r.name, array_length(r.permissions, 1);
+  END LOOP;
+END $$;
 ```
 
-Compute at the tab level:
+Note: the subquery emits `X.create` for every `X.edit` or `X.manage` present. Custody + Damaged Stock roles will get e.g. `custody.teams.create` even though we never surface that key in the UI — cheap and inert. The Task 0.2 validator won't flag it (the validator only checks orphan-edit, not orphan-create).
 
-```typescript
-const canEditTeams  = useHasEditPermission('custody.teams')
-const canEditPlaces = useHasEditPermission('custody.places')
-```
-
-Wrap the action buttons in the appropriate tab so they only render if the tab's edit perm is held.
-
-- [ ] **Step 2: Gate Damaged Stock buttons**
-
-In `src/app/(dashboard)/warehouse/damaged-stock/page.tsx`, compute:
-
-```typescript
-const canEditOnHand    = useHasEditPermission('damaged_stock.on_hand')
-const canEditOutRepair = useHasEditPermission('damaged_stock.out_for_repair')
-```
-
-Pass these down to the `OnHandTab` / `OutForRepairTab` / `PendingRepairAssignmentSection` components. Each tab hides its per-row action buttons (Send for repair / Write off / Return from repair / Assign vendor) when the corresponding perm is false.
-
-- [ ] **Step 3: Verify tsc**
-
-Run: `npx tsc --noEmit 2>&1 | grep -E "custody|damaged"`
-Expected: no output
-
-- [ ] **Step 4: Operator smoke**
-
-Ask operator to:
-- Log in as a test role with `custody.teams.view` but NOT `custody.teams.edit`
-- Confirm: sees the Teams tab and cards, but Request / Return / Consume buttons are absent (or disabled with tooltip)
-- Repeat for Damaged Stock: On-hand tab visible, but Send-for-repair / Write-off buttons are absent
-
-- [ ] **Step 5: Commit + PROGRESS.md + EOD**
+- [ ] **Step 2: Apply**
 
 ```bash
-git add src/app/\(dashboard\)/warehouse/
-git commit -m "$(cat <<'EOF'
-feat(permissions): gate custody + damaged-stock mutation buttons on .edit
+npx supabase db push
+```
 
-Every button that mutates now hides when the caller lacks the matching
-.edit permission (or system-admin bypass). View-only roles see the
-data but no action controls.
+- [ ] **Step 3: Verify**
+
+```bash
+# Spot-check: pick a non-admin custom_role that had .edit keys, confirm .create keys now present:
+# SELECT name, permissions FROM public.custom_roles WHERE NOT is_system_admin LIMIT 5;
+```
+
+- [ ] **Step 4: Commit + PROGRESS.md + EOD**
+
+```bash
+git add supabase/migrations/YYYYMMDD000050_perm_create_backfill.sql
+git commit -m "$(cat <<'EOF'
+feat(permissions): backfill .create keys onto existing roles
+
+One-shot data migration. Every custom_role holding X.edit or X.manage
+gets a matching X.create key so existing workflows don't break the
+moment Task 0.5 gates create-flows on .create. Owners can trim
+.create off specific roles afterward via the Permissions tab.
 
 Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
@@ -406,7 +409,65 @@ EOF
 )"
 ```
 
-Phase 0 complete — permission split foundation is in place. Category Attributes now inherits the new pattern.
+---
+
+## Task 0.5: Callsite sweep — re-classify every mutating button as create vs edit
+
+**Files:** every surface with a mutating button. Split into sub-tasks per module to keep commits scoped.
+
+**Interfaces:**
+- Uses `useHasCreatePermission` and `useHasEditPermission` from Task 0.1
+
+- [ ] **Step 0: Discovery grep — map every gated surface**
+
+```bash
+grep -rnE "useHasPermission\(['\"][a-z_]+\.[a-z_.]+" src/ | sort -u
+grep -rnE "useHasEditPermission\(['\"][a-z_]+\.[a-z_.]+" src/ | sort -u
+```
+
+Cross-reference with the audit table from Task 0.3 to produce a callsite ledger — one line per button/action.
+
+- [ ] **Step 1: Sub-task per module** — commit each independently
+
+Suggested order (each is one commit):
+
+1. **Master Data — records (customers / suppliers / items / brand variants / categories / warehouses / sub-containers / teams / places / services / credit groups / users / roles / repair vendors / country codes)** — `New X` buttons + import buttons gated on `.create`; row-level edit / archive / delete gated on `.edit`
+2. **Purchase — orders / returns / debit notes / landed costs** — Create-PO / Create-Return / Create-DN / Create-LC on `.create`; per-row modify / cancel / receive / complete on `.edit`
+3. **Sales — orders / quotations / deliveries / returns / credit notes / invoices / payments** — Create-X on `.create`; per-row edit / cancel / void / delivery-complete on `.edit`
+4. **Warehouse ops with create — transfers / adjustments / inventory checks / receivals / consumption** — New-X on `.create`; per-row cancel / approve-adjust / complete on `.edit`
+5. **Warehouse ops edit-only — custody / damaged stock** — every mutating button on `.edit` (no `.create` split — these were flagged in Task 0.3)
+6. **Contact Centre** — new-thread / new-task on `.create`; reply / edit-customer / complete-task on `.edit`
+
+- [ ] **Step 2: Standard gating pattern (per callsite)**
+
+```tsx
+import { useHasCreatePermission, useHasEditPermission } from '@/hooks/usePermissions'
+
+const canCreate = useHasCreatePermission('purchase.orders')
+const canEdit   = useHasEditPermission('purchase.orders')
+
+// Top of page:
+{canCreate && <Button onClick={() => router.push('/purchase/create-po')}>New PO</Button>}
+
+// Row-level:
+{canEdit && <Button onClick={() => openEditDialog(row)}>Edit</Button>}
+```
+
+Prefer `hide` over `disabled` for the buttons — a disabled button still confuses users. Exception: page-level actions where hiding would remove important affordance context — then disable with a tooltip explaining the missing permission.
+
+- [ ] **Step 3: Verify tsc per sub-task**
+
+```bash
+npx tsc --noEmit 2>&1 | grep -E "<module-folder>"
+```
+
+- [ ] **Step 4: Operator smoke per sub-task**
+
+For each module, ask operator to log in as a test role holding only `.view` on that module (no create/edit) — confirm every mutating button is hidden. Then grant `.create` only → confirm New-X buttons appear but row-level edit stays hidden. Then grant `.edit` too → full access.
+
+- [ ] **Step 5: Commit per sub-task** with the standard trailers
+
+Phase 0 complete — 3-state permission foundation is in place. Category Attributes now inherits the new pattern.
 
 ---
 
@@ -866,22 +927,25 @@ Phase 1 complete — DB layer is done.
 
 # Phase 2 — Definition editor
 
-## Task 2.1: Add `master_data.inventory.attributes.view` + `.edit` permissions
+## Task 2.1: Add `master_data.inventory.attributes.{view,create,edit}` permissions
 
 **Files:**
 - Modify: `src/lib/permissions.ts`, `src/components/master-data/PermissionTree.tsx`
 
-- [ ] **Step 1: Add the pair in `src/lib/permissions.ts`** (Master Data → Inventory section)
+- [ ] **Step 1: Add the trio in `src/lib/permissions.ts`** (Master Data → Inventory section)
 
 ```typescript
 {
   label: 'Inventory Attributes',
   permissions: [
-    { key: 'master_data.inventory.attributes.view', label: 'View Category Attributes', description: 'See the Attributes tab on the Inventory master-data page' },
-    { key: 'master_data.inventory.attributes.edit', label: 'Manage Category Attributes', description: 'Add, edit, archive, restore, delete attribute definitions and options' },
+    { key: 'master_data.inventory.attributes.view',   label: 'View Category Attributes',   description: 'See the Attributes tab on the Inventory master-data page' },
+    { key: 'master_data.inventory.attributes.create', label: 'Create Category Attributes', description: 'Add new attribute definitions and options' },
+    { key: 'master_data.inventory.attributes.edit',   label: 'Edit Category Attributes',   description: 'Modify, archive, restore, delete existing attribute definitions and options' },
   ],
 },
 ```
+
+Downstream: the `AttributesTab` "Add attribute" button gates on `useHasCreatePermission('master_data.inventory.attributes')`, and the per-row edit / archive / delete buttons gate on `useHasEditPermission('master_data.inventory.attributes')`.
 
 - [ ] **Step 2: Mirror in PermissionTree.tsx** (under the `md-inventory` node)
 
@@ -1705,8 +1769,9 @@ Have the operator run the full happy path:
 6. Archive an option → confirm it's hidden from new items but stays on the existing item
 7. Open the ProductAttributePicker on Create SO → guided pick a specific item → confirm brand-variant fires onPick
 8. Repeat picker smoke on Quotation, Service Link, Consumption surfaces
-9. Log in as a role with view-only on `master_data.inventory.attributes.view` → confirm Attributes tab is visible but Add-attribute button is hidden
-10. Grant `.edit` → confirm Add-attribute button appears
+9. Log in as a role with view-only on `master_data.inventory.attributes.view` → confirm Attributes tab is visible but Add-attribute button and per-row edit buttons are hidden
+10. Grant `.create` only → confirm Add-attribute button appears but per-row edit buttons stay hidden
+11. Grant `.edit` too → confirm per-row edit / archive / delete buttons appear
 
 - [ ] **Step 2: On operator "working" — merge**
 
@@ -1724,7 +1789,7 @@ Delete local + remote feature branch after successful push.
 
 - **Spec coverage:**
   - Category Attributes spec Sections 1-7: DB ✓ (Phase 1), editor ✓ (Phase 2), item values ✓ (Phase 3), picker ✓ (Phase 4), integration ✓ (Phase 5), out-of-scope respected ✓
-  - View/Edit Permission Split spec: helpers ✓ (Task 0.1), validator ✓ (Task 0.2), audit patches ✓ (Task 0.3), callsite gating ✓ (Task 0.4). PermissionTree visual convention (view-then-edit indent, auto-toggle-on) NOT in this plan — deferred to a follow-up UI polish task; the save-time validator is enough for v1 correctness. **Adding this to the plan now would push Task 0.2 into a bigger scope; keeping the validator as the enforcement layer and leaving the visual convention as a follow-up.**
+  - View/Create/Edit 3-state Permission Split spec: helpers ✓ (Task 0.1), validator ✓ (Task 0.2), audit + missing-key add ✓ (Task 0.3), backfill migration ✓ (Task 0.4), callsite sweep ✓ (Task 0.5). PermissionTree visual convention (view-then-create-then-edit indent, auto-toggle-on) NOT in this plan — deferred to a follow-up UI polish task; the save-time validator is enough for v1 correctness. **Adding the visual polish now would push Task 0.2 into a bigger scope; keeping the validator as the enforcement layer and leaving the visual convention as a follow-up.**
 - **Placeholder scan:** no `TBD` / `TODO` / "implement later" markers. Migration file prefixes use `YYYYMMDD` — filled at implementation time based on current timestamp. Task 5.2 has "Find via grep" — that's a legitimate discovery step, not a placeholder.
 - **Type consistency:** `AttributeDefinition` / `AttributeOption` / `EffectiveAttribute` / `PickerStepResult` types used consistently across tasks 2.2, 3.1, 4.1, 4.2. Hook names match: `useEffectiveAttributes`, `useAttributePickerStep`, `useUpsertItemAttributes`. RPC name `rpc_attribute_picker_step` matches across Task 1.5 (definition) and Task 4.1 (call).
 
