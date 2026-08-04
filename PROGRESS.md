@@ -266,9 +266,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 **Starting: Category Attributes Phase 6 Task 6.3 — final smoke + merge readiness** (branch `feature/category-attributes`). Plan: [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md).
+✅ **Category Attributes module complete — `feature/category-attributes` ready to merge to `deploy/warehouse-shipping`.** Operator smoked end-to-end on 2026-08-04: define an attribute → set values on an item → filter the tree via dropdown chips → clear. Cross-flow verified: SO cascade + Consumption picker restored to original per-leaf behaviour (no toggle, no filter chips), long item names wrap cleanly. All Phase 6 tasks landed — 6.1 flow-registry entry (3 rows), 6.2 four-point security audit (clean pass), 6.3 final smoke sign-off.
 
-**Phase 6 progress:** 6.1 flows-registry entry done (3 new rows under Master data: Manage Category Attribute Definitions & Options, Set Item Attribute Values, Filter Inventory by Attribute Chips). 6.2 four-point security audit done — clean pass on Secrets / RLS / Auth Gate / Error Handling / Layout Stability, logged in the audit table below. 6.3 waits on operator sign-off across the module end-to-end (define an attribute → set values on an item → filter the tree → clear).
+Next: merge to `deploy/warehouse-shipping`, then pick the next feature branch.
 
 ---
 
