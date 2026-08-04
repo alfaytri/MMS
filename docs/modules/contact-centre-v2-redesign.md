@@ -219,7 +219,7 @@ Every webhook handler (WATI / WHAPI / 3CX) does the same thing for media:
 1. Receive webhook payload with `mediaUrl` (provider's CDN URL).
 2. Server-side fetch the file (with provider auth header).
 3. Compress according to type (see §4.2).
-4. Upload to Supabase Storage bucket `chat-media`, path `{conversation_id}/{message_id}_{i}.{ext}`.
+4. Upload to Supabase Storage bucket `chat-attachments`, path `{conversation_id}/{message_id}_{i}.{ext}`.
 5. Store the **Supabase public URL** in `chat_messages.attachments[].url`. Provider URL is NOT stored.
 
 This is synchronous within the webhook handler (with reasonable timeouts). If compression / upload fails, the row still inserts but with `attachments[].status='download_failed'` and the provider URL stored as a fallback so the agent at least sees something.
@@ -263,7 +263,7 @@ UI flow:
    - For matching `chat_conversations` with no remaining undeleted messages: optionally also mark them deleted (toggle in the UI)
    - Returns `{ deleted: { messages: N, conversations: M } }`
 
-4. **Hard-delete sweep:** A nightly cron job deletes messages where `deleted_at < now() - interval '7 days'`. The Supabase Storage files for those messages are deleted in the same job (loop through attachments, call `supabase.storage.from('chat-media').remove([...paths])`).
+4. **Hard-delete sweep:** A nightly cron job deletes messages where `deleted_at < now() - interval '7 days'`. The Supabase Storage files for those messages are deleted in the same job (loop through attachments, call `supabase.storage.from('chat-attachments').remove([...paths])`).
 
 5. **Restore:** Within the 7-day window, a sibling admin page `/admin/contact-centre/purge/history` lists soft-deleted batches with a "Restore" action that sets `deleted_at = null` for the batch.
 
@@ -431,14 +431,14 @@ create policy "Admins read" on purge_batches for select to authenticated
 
 ```sql
 insert into storage.buckets (id, name, public)
-values ('chat-media', 'chat-media', false)
+values ('chat-attachments', 'chat-attachments', false)
 on conflict (id) do nothing;
 
 -- RLS: authenticated users can read; service role writes
-create policy "chat-media read" on storage.objects for select to authenticated
-  using (bucket_id = 'chat-media');
-create policy "chat-media write" on storage.objects for all to service_role
-  using (bucket_id = 'chat-media') with check (bucket_id = 'chat-media');
+create policy "chat-attachments read" on storage.objects for select to authenticated
+  using (bucket_id = 'chat-attachments');
+create policy "chat-attachments write" on storage.objects for all to service_role
+  using (bucket_id = 'chat-attachments') with check (bucket_id = 'chat-attachments');
 ```
 
 ---
@@ -526,7 +526,7 @@ This is a breaking change to data shape. Plan carefully:
 
 1. **3CX webhook payload shape** — we need the exact shape from 3CX's documentation or a sample webhook. The spec assumes a payload but the real shape may differ; the route may need adjustments.
 2. **Recording URLs from 3CX** — does 3CX deliver the recording inline (binary) or via a URL that requires further authentication? Affects how the compress-and-store function is built.
-3. **Storage cost monitoring** — should we add a dashboard widget that tracks `chat-media` bucket size and alerts above a threshold (e.g. 80 GB)? Suggested for a follow-up.
+3. **Storage cost monitoring** — should we add a dashboard widget that tracks `chat-attachments` bucket size and alerts above a threshold (e.g. 80 GB)? Suggested for a follow-up.
 4. **PII redaction on purge** — should the purge also overwrite the original message `text` in the DB row (irreversibly) for compliance use cases, or is soft-delete sufficient? Today's spec assumes soft-delete only.
 5. **Multi-phone send routing** — when sending to a customer with multiple phones and no recent inbound, what's the default target? Spec says "primary phone via WATI" but worth confirming.
 
