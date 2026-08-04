@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,10 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateShipment, type ShipmentMode } from '@/hooks/useShipments'
 
 type Props = {
@@ -25,10 +29,18 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
   const [mode, setMode] = useState<ShipmentMode>('air')
   const [trackingNumber, setTrackingNumber] = useState('')
   const [saving, setSaving] = useState(false)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
-  function reset() {
-    setMode('air'); setTrackingNumber('')
-  }
+  useEffect(() => {
+    if (open) {
+      setMode('air')
+      setTrackingNumber('')
+    }
+  }, [open])
+
+  // Dirty when the operator changes the mode away from 'air' default or
+  // types anything into the tracking-number field.
+  const isDirty = mode !== 'air' || trackingNumber.trim().length > 0
 
   async function submit() {
     if (!trackingNumber.trim()) { toast.error('Tracking number is required'); return }
@@ -40,8 +52,7 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
         tracking_number: trackingNumber,
       })
       toast.success('Shipment created')
-      reset()
-      onOpenChange(false)
+      guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
       toast.error((err as Error).message ?? 'Failed to create shipment')
     } finally {
@@ -50,7 +61,7 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="max-w-md w-full">
         <DialogHeader>
           <DialogTitle>Create Shipment</DialogTitle>
@@ -74,12 +85,12 @@ export function PoShipmentDialog({ open, onOpenChange, poId }: Props) {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
           <Button onClick={submit} disabled={saving}>
             {saving ? 'Creating…' : 'Create Shipment'}
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useCreateInventoryCategory, useUpdateInventoryCategory, type InventoryCategory } from '@/hooks/useInventory'
 import { useInventoryTree, ancestors, allDescendantIds } from '@/hooks/useInventoryTree'
 import { useWarehouses } from '@/hooks/useWarehouses'
@@ -30,6 +34,14 @@ type Props = {
   parentId?: string | null
 }
 
+type Snapshot = {
+  nameEn: string
+  nameAr: string
+  sku: string
+  parentId: string | null
+  subContainerId: string | null
+}
+
 export function CategoryEditDialog({ open, onOpenChange, categoryType, category, parentId: defaultParentId }: Props) {
   const isEdit = !!category
   const create = useCreateInventoryCategory()
@@ -44,30 +56,32 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [l3Id, setL3Id] = useState<string | null>(null)
   const [warehouseId, setWarehouseId] = useState<string | null>(null)
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const parentId = l3Id ?? l2Id ?? l1Id ?? null
 
-  // D.8 — warehouse/sub-container pickers (standard warehouses only; virtual
-  // warehouses like the shared Repair container are already excluded by
-  // useWarehouses() default).
   const { data: warehouses = [] } = useWarehouses()
   const { data: subContainers = [] } = useWarehouseSubContainers(warehouseId)
   const activeSubs = useMemo(() => subContainers.filter((s) => s.is_active), [subContainers])
 
-  // Hint: when default_sub_container_id is null, what would resolution return
-  // by walking up the parent chain?
   const { data: inheritedResolved } = useCategorySubContainer(
     subContainerId ? null : parentId,
   )
 
   useEffect(() => {
     if (open) {
-      setNameEn(category?.name_en ?? '')
-      setNameAr(category?.name_ar ?? '')
-      setSku(category?.sku ?? '')
-      setSubContainerId(category?.default_sub_container_id ?? null)
+      const nextNameEn = category?.name_en ?? ''
+      const nextNameAr = category?.name_ar ?? ''
+      const nextSku = category?.sku ?? ''
+      const nextSubContainerId = category?.default_sub_container_id ?? null
+      setNameEn(nextNameEn)
+      setNameAr(nextNameAr)
+      setSku(nextSku)
+      setSubContainerId(nextSubContainerId)
 
       const targetId = isEdit ? (category?.parent_id ?? null) : (defaultParentId ?? null)
+      let seededParent: string | null = null
       if (targetId && flat.length > 0) {
         const target = flat.find((c) => c.id === targetId)
         if (target) {
@@ -75,17 +89,24 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
           setL1Id(chain[0]?.id ?? null)
           setL2Id(chain[1]?.id ?? null)
           setL3Id(chain[2]?.id ?? null)
-          return
+          seededParent = targetId
+        } else {
+          setL1Id(null); setL2Id(null); setL3Id(null)
         }
+      } else {
+        setL1Id(null); setL2Id(null); setL3Id(null)
       }
-      setL1Id(null); setL2Id(null); setL3Id(null)
+
+      setSnapshot({
+        nameEn: nextNameEn,
+        nameAr: nextNameAr,
+        sku: nextSku,
+        parentId: seededParent,
+        subContainerId: nextSubContainerId,
+      })
     }
   }, [open, category, defaultParentId, isEdit, flat])
 
-  // On open in edit mode with a stored sub-container, look up its warehouse
-  // once so the warehouse picker lands on the right row. Runs a single query
-  // per open — the useWarehouseSubContainers hook only fetches under a known
-  // warehouseId, so we can't rely on it to seed the warehouse.
   useEffect(() => {
     if (!open) return
     const seed = category?.default_sub_container_id ?? null
@@ -139,6 +160,15 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const l2Options = useMemo(() => l1Id ? sortedChildren(l1Id) : [], [sortedChildren, l1Id])
   const l3Options = useMemo(() => l2Id ? sortedChildren(l2Id) : [], [sortedChildren, l2Id])
 
+  // Dirty when any editable field drifts from the snapshot captured on open.
+  const isDirty = snapshot !== null && (
+    nameEn.trim() !== snapshot.nameEn.trim() ||
+    nameAr.trim() !== snapshot.nameAr.trim() ||
+    sku.trim() !== snapshot.sku.trim() ||
+    parentId !== snapshot.parentId ||
+    subContainerId !== snapshot.subContainerId
+  )
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nameEn.trim()) { toast.error('Name (EN) is required'); return }
@@ -155,7 +185,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       update.mutate(
         { id: category.id, ...payload },
         {
-          onSuccess: () => { toast.success('Category updated'); onOpenChange(false) },
+          onSuccess: () => { toast.success('Category updated'); guardRef.current?.closeAfterSubmit() },
           onError: (err) => toast.error(err.message),
         },
       )
@@ -163,7 +193,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       create.mutate(
         { ...payload, type: categoryType },
         {
-          onSuccess: () => { toast.success('Category created'); onOpenChange(false) },
+          onSuccess: () => { toast.success('Category created'); guardRef.current?.closeAfterSubmit() },
           onError: (err) => toast.error(err.message),
         },
       )
@@ -179,7 +209,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       : 'New Category'
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg flex flex-col max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center gap-2">
@@ -246,7 +276,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
               <p className="text-[10px] text-muted-foreground">Select the parent level — deeper levels appear as you select</p>
             </div>
 
-            {/* Names — side by side */}
+            {/* Names */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="cat-name-en" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Name (English) *</Label>
@@ -258,7 +288,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
               </div>
             </div>
 
-            {/* Default sub-container — routing hint for the receival dialog */}
+            {/* Default sub-container */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Default Sub-container
@@ -327,7 +357,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
               )}
             </div>
 
-            {/* SKU + Type — side by side */}
+            {/* SKU + Type */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="cat-sku-prefix" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">SKU Prefix</Label>
@@ -343,13 +373,13 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
           </div>
 
           <DialogFooter className="pt-4 mt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
             <Button type="submit" disabled={isPending}>
               {isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Category'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }
