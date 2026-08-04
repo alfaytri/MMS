@@ -1878,6 +1878,57 @@ export type Database = {
           },
         ]
       }
+      inventory_attribute_definitions: {
+        Row: {
+          attribute_key: string
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label_ar: string | null
+          label_en: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          attribute_key: string
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_ar?: string | null
+          label_en: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          attribute_key?: string
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label_ar?: string | null
+          label_en?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_attribute_definitions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_attribute_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_categories: {
         Row: {
           created_at: string | null
