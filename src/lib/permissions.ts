@@ -381,9 +381,12 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       {
         label: 'Consumption',
         permissions: [
-          { key: 'consumption.view',   label: 'View Consumption',   description: 'Access the consumption entries list and detail dialog' },
-          { key: 'consumption.create', label: 'Create Consumption', description: 'Post new consumption entries (deducts stock + books COGS)' },
-          { key: 'consumption.cancel', label: 'Cancel Consumption', description: 'Cancel a posted consumption or approve a cancellation request (acts as .edit for this surface)' },
+          { key: 'consumption.view',            label: 'View Consumption',            description: 'Access the consumption entries list and detail dialog' },
+          { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants all three consumer types (team / place / internal). Legacy key retained for backwards compat. Prefer the three narrower keys below.' },
+          { key: 'consumption.create.team',     label: 'Create Team Consumption',     description: 'Post consumption entries with a Team consumer' },
+          { key: 'consumption.create.place',    label: 'Create Place Consumption',    description: 'Post consumption entries with a Place consumer' },
+          { key: 'consumption.create.internal', label: 'Create Internal Consumption', description: 'Post consumption entries with an Internal (own-use) consumer' },
+          { key: 'consumption.cancel',          label: 'Cancel Consumption',          description: 'Cancel a posted consumption or approve a cancellation request (acts as .edit for this surface)' },
         ],
       },
       {
