@@ -769,18 +769,21 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         </DialogFooter>
       </DialogContent>
 
-      {/* Guided picker sub-dialog. Only mounts in guided mode + when a row
-          has requested it (openPickerIdx set). Centered so the picker's
-          grid has room without crowding the source-dialog rows. */}
+      {/* Guided picker sub-dialog. Sized to fully cover the parent dialog
+          so it doesn't visually stack — same width and height as the
+          parent, min-h prevents the "crushed text" collapse when the
+          picker starts with no category selected. */}
       <Dialog
         open={pickerMode === 'guided' && openPickerIdx !== null}
         onOpenChange={(o) => { if (!o) setOpenPickerIdx(null) }}
       >
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Guided item pick — Line {openPickerIdx !== null ? openPickerIdx + 1 : ''}</DialogTitle>
+        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[46rem] sm:h-[90vh] sm:max-w-[95vw] flex flex-col overflow-hidden">
+          <DialogHeader className="border-b pb-3">
+            <DialogTitle className="truncate">
+              Guided item pick — Line {openPickerIdx !== null ? openPickerIdx + 1 : ''}
+            </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto py-2">
+          <div className="flex-1 overflow-y-auto py-3 pr-1">
             {openPickerIdx !== null && (
               <ProductAttributePicker
                 key={`guided-line-${openPickerIdx}`}
