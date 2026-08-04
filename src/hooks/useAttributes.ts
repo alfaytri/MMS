@@ -307,7 +307,17 @@ export function useAttributePickerStep(
         p_category_id: categoryId!,
         p_picks: picks,
       })
-      if (error) throw error
+      if (error) {
+        // PostgrestError isn't an Error subclass — wrap so useQuery / consumers
+        // see a real Error with all diagnostic fields in the message.
+        const parts = [
+          error.code ? `[${error.code}]` : null,
+          error.message ?? 'RPC failed',
+          error.details ? `details: ${error.details}` : null,
+          error.hint ? `hint: ${error.hint}` : null,
+        ].filter(Boolean)
+        throw new Error(parts.join(' · '))
+      }
       return (data ?? {
         items: [],
         next_attribute: null,
