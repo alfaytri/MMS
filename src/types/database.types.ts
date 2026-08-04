@@ -7767,6 +7767,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      rpc_attribute_picker_step: {
+        Args: { p_category_id: string; p_picks?: Json }
+        Returns: Json
+      }
       rpc_cancel_consumption: {
         Args: { p_consumption_id: string }
         Returns: undefined
