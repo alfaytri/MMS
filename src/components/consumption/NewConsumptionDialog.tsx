@@ -19,6 +19,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
+import { ProductAttributePicker } from '@/components/shared/ProductAttributePicker'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
@@ -156,6 +157,27 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   )
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
+
+  // Set of brand-variant ids with stock at the source WH — used to validate
+  // picks coming from the guided picker (which knows nothing about WH scope).
+  const stockedVariantIds = useMemo(
+    () => new Set(pickerItems.map((p) => p.id)),
+    [pickerItems],
+  )
+
+  // Picker mode — Browse tree (WhItemPicker, default) vs Guided pick
+  // (ProductAttributePicker). Persisted per surface per project convention.
+  // Lazy initial state reads localStorage on first render so the write-effect
+  // doesn't clobber a stored 'guided' with 'browse' before the read fires.
+  const [pickerMode, setPickerMode] = useState<'browse' | 'guided'>(() => {
+    if (typeof window === 'undefined') return 'browse'
+    const stored = window.localStorage.getItem('consumption.pickerMode')
+    return stored === 'guided' ? 'guided' : 'browse'
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('consumption.pickerMode', pickerMode)
+  }, [pickerMode])
 
   // ── Notes + attachments
   const [notes, setNotes] = useState('')
@@ -501,11 +523,39 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
           {/* Lines */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-[11px] font-medium">Items</Label>
-              {srcWhId && srcSubId && (
-                <span className="text-[10px] text-muted-foreground">{sourceStock.length} in stock</span>
-              )}
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-[11px] font-medium shrink-0">Items</Label>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="inline-flex rounded-md border p-0.5 bg-muted/40 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setPickerMode('browse')}
+                    className={`px-2 h-6 text-[10px] rounded transition ${
+                      pickerMode === 'browse'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title="Search a flat list of items with stock at this warehouse"
+                  >
+                    Browse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickerMode('guided')}
+                    className={`px-2 h-6 text-[10px] rounded transition ${
+                      pickerMode === 'guided'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title="Pick by category attributes (e.g. TON, material)"
+                  >
+                    Guided
+                  </button>
+                </div>
+                {srcWhId && srcSubId && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">{sourceStock.length} in stock</span>
+                )}
+              </div>
             </div>
 
             {!srcWhId || !srcSubId ? (
@@ -541,14 +591,36 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                           )}
                           <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
                         </PopoverTrigger>
-                        <PopoverContent className="p-0 w-auto" align="start" side="bottom">
-                          <WhItemPicker
-                            items={pickerItems}
-                            selectedIds={selectedIds}
-                            currentValue={row.brand_variant_id}
-                            onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
-                            showQty
-                          />
+                        <PopoverContent
+                          className={pickerMode === 'guided' ? 'p-3 w-[640px] max-w-[95vw]' : 'p-0 w-auto'}
+                          align="start"
+                          side="bottom"
+                        >
+                          {pickerMode === 'browse' ? (
+                            <WhItemPicker
+                              items={pickerItems}
+                              selectedIds={selectedIds}
+                              currentValue={row.brand_variant_id}
+                              onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
+                              showQty
+                            />
+                          ) : (
+                            <ProductAttributePicker
+                              key={`guided-${idx}`}
+                              onPick={(_itemId, brandVariantId) => {
+                                if (!stockedVariantIds.has(brandVariantId)) {
+                                  toast.error('That variant has no stock at the selected warehouse — try Browse mode or pick a different variant.')
+                                  return
+                                }
+                                if (selectedIds.has(brandVariantId) && brandVariantId !== row.brand_variant_id) {
+                                  toast.error('This variant is already on another line.')
+                                  return
+                                }
+                                updateRow(idx, 'brand_variant_id', brandVariantId)
+                                setOpenPickerIdx(null)
+                              }}
+                            />
+                          )}
                         </PopoverContent>
                       </Popover>
 
