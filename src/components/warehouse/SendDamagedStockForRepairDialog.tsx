@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Wrench } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -14,6 +14,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useRepairVendors } from '@/hooks/useRepairVendors'
 import { useSendDamagedStockForRepair } from '@/hooks/useSendDamagedStockForRepair'
@@ -38,13 +42,15 @@ type SubContainerOption = {
   division_name: string
 }
 
+function defaultExpectedReturn() {
+  const d = new Date()
+  d.setDate(d.getDate() + 7)
+  return d.toISOString().slice(0, 10)
+}
+
 /**
  * Phase F — Ad-hoc Send-for-Repair from Damaged Stock On-hand. Fires
  * rpc_send_damaged_stock_for_repair with no disposition context.
- *
- * Structurally similar to SendForRepairDialog but simpler: no return_line
- * trace, no disposition context chips, adds a qty input capped at the
- * row's on-hand qty.
  */
 export function SendDamagedStockForRepairDialog({
   open, onOpenChange, warehouseId, warehouseName, brandVariantId, itemName, sku, onHandQty, onComplete,
@@ -52,6 +58,7 @@ export function SendDamagedStockForRepairDialog({
   const { data: vendors = [], isLoading: vendorsLoading } = useRepairVendors({ activeOnly: true })
   const { activeDivisionId } = useActiveDivision()
   const send = useSendDamagedStockForRepair()
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: subContainers = [], isLoading: subsLoading } = useQuery<SubContainerOption[]>({
     queryKey: ['send-damaged-stock-for-repair', 'sub-containers', warehouseId],
@@ -78,11 +85,7 @@ export function SendDamagedStockForRepairDialog({
   const [vendorId, setVendorId] = useState('')
   const [qty, setQty] = useState<number>(onHandQty)
   const [divisionId, setDivisionId] = useState('')
-  const [expectedReturn, setExpectedReturn] = useState<string>(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 7)
-    return d.toISOString().slice(0, 10)
-  })
+  const [expectedReturn, setExpectedReturn] = useState<string>(defaultExpectedReturn)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -90,9 +93,7 @@ export function SendDamagedStockForRepairDialog({
       setVendorId('')
       setDivisionId('')
       setNotes('')
-      const d = new Date()
-      d.setDate(d.getDate() + 7)
-      setExpectedReturn(d.toISOString().slice(0, 10))
+      setExpectedReturn(defaultExpectedReturn())
     }
     setQty(onHandQty)
   }, [open, onHandQty])
@@ -138,6 +139,13 @@ export function SendDamagedStockForRepairDialog({
     (uniqueDivisions.length === 0 || !!divisionId) &&
     !send.isPending
 
+  const isDirty =
+    notes.trim().length > 0 ||
+    expectedReturn !== defaultExpectedReturn() ||
+    qty !== onHandQty ||
+    (!singleVendor && vendors.length > 0 && vendorId !== '') ||
+    (!singleDivision && uniqueDivisions.length > 0 && divisionId !== '')
+
   function handleSubmit() {
     if (!divisionId) {
       toast.error('Pick a source division')
@@ -156,7 +164,7 @@ export function SendDamagedStockForRepairDialog({
       {
         onSuccess: () => {
           toast.success('Sent for repair — transfer created')
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
           onComplete?.()
         },
         onError: (err) => toast.error(err.message),
@@ -165,7 +173,7 @@ export function SendDamagedStockForRepairDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:w-auto sm:h-auto sm:max-w-md sm:rounded-lg p-0 gap-0 flex flex-col sm:max-h-[90vh] overflow-hidden">
         <div className="px-6 pt-6 pb-2 flex-shrink-0">
           <DialogHeader>
@@ -279,7 +287,7 @@ export function SendDamagedStockForRepairDialog({
         </div>
 
         <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-5 gap-3 sm:justify-end sm:space-x-0">
-          <Button variant="outline" size="lg" onClick={() => onOpenChange(false)} disabled={send.isPending}>
+          <Button variant="outline" size="lg" onClick={() => guardRef.current?.requestClose()} disabled={send.isPending}>
             Cancel
           </Button>
           <Button size="lg" onClick={handleSubmit} disabled={!canSubmit}>
@@ -287,6 +295,6 @@ export function SendDamagedStockForRepairDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

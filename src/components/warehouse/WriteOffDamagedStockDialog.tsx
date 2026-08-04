@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { XCircle } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -14,6 +14,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
@@ -40,10 +44,7 @@ type SubContainerOption = {
 
 /**
  * Phase F — Write off damaged stock from the On-hand tab. Creates a
- * pending-approval stock_adjustments row (source_pile='damaged',
- * adjustment_type='write_off') via rpc_request_damaged_writeoff. Standard
- * 'stock_adj' approval chain fires. On approve, the Phase F approver RPC
- * consumes from inventory_damaged_stock.
+ * pending-approval stock_adjustments row via rpc_request_damaged_writeoff.
  */
 export function WriteOffDamagedStockDialog({
   open, onOpenChange, warehouseId, warehouseName, brandVariantId, itemName, sku, onHandQty, onComplete,
@@ -51,6 +52,7 @@ export function WriteOffDamagedStockDialog({
   const { data: profile } = useCurrentUserProfile()
   const { activeDivisionId } = useActiveDivision()
   const request = useRequestDamagedWriteoff()
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: subContainers = [], isLoading: subsLoading } = useQuery<SubContainerOption[]>({
     queryKey: ['writeoff-damaged', 'sub-containers', warehouseId],
@@ -116,6 +118,13 @@ export function WriteOffDamagedStockDialog({
     !!profile?.id &&
     !request.isPending
 
+  const isDirty =
+    reason.trim().length > 0 ||
+    notes.trim().length > 0 ||
+    qty !== onHandQty ||
+    (!singleSub && subContainers.length > 0 && subContainerId !== '' &&
+      subContainers.find((s) => s.id === subContainerId)?.division_id !== activeDivisionId)
+
   function handleSubmit() {
     if (!profile?.id) {
       toast.error('Cannot resolve current user profile')
@@ -135,7 +144,7 @@ export function WriteOffDamagedStockDialog({
       {
         onSuccess: () => {
           toast.success('Writeoff queued for approval')
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
           onComplete?.()
         },
         onError: (err) => toast.error(err.message),
@@ -144,7 +153,7 @@ export function WriteOffDamagedStockDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:w-auto sm:h-auto sm:max-w-md sm:rounded-lg p-0 gap-0 flex flex-col sm:max-h-[90vh] overflow-hidden">
         <div className="px-6 pt-6 pb-2 flex-shrink-0">
           <DialogHeader>
@@ -234,7 +243,7 @@ export function WriteOffDamagedStockDialog({
         </div>
 
         <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-5 gap-3 sm:justify-end sm:space-x-0">
-          <Button variant="outline" size="lg" onClick={() => onOpenChange(false)} disabled={request.isPending}>
+          <Button variant="outline" size="lg" onClick={() => guardRef.current?.requestClose()} disabled={request.isPending}>
             Cancel
           </Button>
           <Button size="lg" variant="destructive" onClick={handleSubmit} disabled={!canSubmit}>
@@ -242,6 +251,6 @@ export function WriteOffDamagedStockDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

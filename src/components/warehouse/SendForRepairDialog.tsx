@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Wrench } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -14,6 +14,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useRepairVendors } from '@/hooks/useRepairVendors'
 import { useSendDamagedForRepair } from '@/hooks/useSendDamagedForRepair'
@@ -48,16 +52,16 @@ type DispositionSourceContext = {
   source_division_name: string | null
 }
 
+function defaultExpectedReturn() {
+  const d = new Date()
+  d.setDate(d.getDate() + 7)
+  return d.toISOString().slice(0, 10)
+}
+
 /**
  * Step 2 of the send-for-repair flow. The disposition row already exists;
  * this dialog collects the vendor, division/sub-container, expected return
  * date, then fires rpc_send_damaged_for_repair.
- *
- * Division picker: source warehouses can host stock from multiple
- * divisions (via warehouse_sub_containers). We list every division the
- * source warehouse holds a sub-container for, pre-select the active
- * division (if it matches one of them), and pass the choice as
- * p_source_division_id so the RPC doesn't have to guess.
  */
 export function SendForRepairDialog({
   open, onOpenChange, dispositionId, warehouseId, warehouseName, itemName, qty, returnId, onComplete,
@@ -65,6 +69,7 @@ export function SendForRepairDialog({
   const { data: vendors = [], isLoading: vendorsLoading } = useRepairVendors({ activeOnly: true })
   const { activeDivisionId } = useActiveDivision()
   const send = useSendDamagedForRepair()
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: sourceCtx } = useQuery<DispositionSourceContext | null>({
     queryKey: ['send-for-repair', 'source-ctx', dispositionId],
@@ -96,11 +101,6 @@ export function SendForRepairDialog({
         source_number = data?.po_number ?? null
       }
 
-      // Trace the damaged item's ORIGINAL outgoing sub-container.
-      //   return_line.sale_delivery_line_id
-      //   → cogs_entries (matched on delivery + variant)
-      //   → fifo_cost_layers (via ce.source_id)
-      //   → sub_container_id → warehouse_sub_containers.division_id
       let source_division_id: string | null = null
       if (rl?.sale_delivery_line_id && rl.brand_variant_id) {
         const { data: sdl } = await supabase
@@ -165,11 +165,7 @@ export function SendForRepairDialog({
 
   const [vendorId, setVendorId] = useState('')
   const [divisionId, setDivisionId] = useState('')
-  const [expectedReturn, setExpectedReturn] = useState<string>(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 7)
-    return d.toISOString().slice(0, 10)
-  })
+  const [expectedReturn, setExpectedReturn] = useState<string>(defaultExpectedReturn)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -177,9 +173,7 @@ export function SendForRepairDialog({
       setVendorId('')
       setDivisionId('')
       setNotes('')
-      const d = new Date()
-      d.setDate(d.getDate() + 7)
-      setExpectedReturn(d.toISOString().slice(0, 10))
+      setExpectedReturn(defaultExpectedReturn())
     }
   }, [open])
 
@@ -203,7 +197,6 @@ export function SendForRepairDialog({
       setDivisionId(uniqueDivisions[0].division_id)
       return
     }
-    // 1. Auto-pick from the item's original outgoing sub-container (most accurate).
     const originMatch = sourceCtx?.source_division_id
       ? uniqueDivisions.find((d) => d.division_id === sourceCtx.source_division_id)
       : undefined
@@ -211,7 +204,6 @@ export function SendForRepairDialog({
       setDivisionId(originMatch.division_id)
       return
     }
-    // 2. Fall back to the return header's declared division.
     const returnDivMatch = sourceCtx?.source_division_name
       ? uniqueDivisions.find((d) => d.division_name === sourceCtx.source_division_name)
       : undefined
@@ -219,7 +211,6 @@ export function SendForRepairDialog({
       setDivisionId(returnDivMatch.division_id)
       return
     }
-    // 3. Fall back to the operator's active division.
     const activeMatch = uniqueDivisions.find((d) => d.division_id === activeDivisionId)
     if (activeMatch) setDivisionId(activeMatch.division_id)
   }, [
@@ -241,6 +232,15 @@ export function SendForRepairDialog({
     !!warehouseId &&
     (uniqueDivisions.length === 0 || !!divisionId)
 
+  // Dirty check: prompt only if the operator has clearly typed something.
+  // Vendor / division are auto-set for the single-option case; treat as
+  // manual input only when there are choices AND user picked something.
+  const isDirty =
+    notes.trim().length > 0 ||
+    expectedReturn !== defaultExpectedReturn() ||
+    (!singleVendor && vendors.length > 0 && vendorId !== '') ||
+    (!singleDivision && uniqueDivisions.length > 0 && divisionId !== '')
+
   function handleSubmit() {
     send.mutate(
       {
@@ -255,7 +255,7 @@ export function SendForRepairDialog({
       {
         onSuccess: () => {
           toast.success('Sent for repair — transfer created')
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
           onComplete?.()
         },
         onError: (err) => toast.error(err.message),
@@ -264,7 +264,7 @@ export function SendForRepairDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:w-auto sm:h-auto sm:max-w-md sm:rounded-lg p-0 gap-0 flex flex-col sm:max-h-[90vh] overflow-hidden">
         <div className="px-6 pt-6 pb-2 flex-shrink-0">
           <DialogHeader>
@@ -380,7 +380,7 @@ export function SendForRepairDialog({
         </div>
 
         <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-5 gap-3 sm:justify-end sm:space-x-0">
-          <Button variant="outline" size="lg" onClick={() => onOpenChange(false)} disabled={send.isPending}>
+          <Button variant="outline" size="lg" onClick={() => guardRef.current?.requestClose()} disabled={send.isPending}>
             Cancel
           </Button>
           <Button size="lg" onClick={handleSubmit} disabled={!canSubmit || send.isPending}>
@@ -388,6 +388,6 @@ export function SendForRepairDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }

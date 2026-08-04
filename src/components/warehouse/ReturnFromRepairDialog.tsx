@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { PackageCheck } from 'lucide-react'
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -13,6 +13,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import {
+  GuardedDialog,
+  type GuardedFormDialogHandle,
+} from '@/components/shared/GuardedFormDialog'
 import { useReturnFromRepair } from '@/hooks/useDamagedStockOverview'
 
 type Outcome = 'good' | 'writeoff' | 'mixed'
@@ -33,22 +37,13 @@ interface ReturnFromRepairDialogProps {
 
 /**
  * Phase 9.7 — Close a damaged_repair_out transfer with a good/writeoff split.
- *
- * Fields:
- *   - Outcome (good / writeoff / mixed)
- *   - Qty Good, Qty Writeoff — must sum to `qty` (the outbound transfer's qty).
- *     Auto-filled per outcome; both editable in mixed.
- *   - Repair Cost — currency, optional, default 0.
- *   - Notes — free text.
- *
- * The dialog never renders a raw UUID (per Dropdown UUID Guard); vendor +
- * item + warehouse names all resolve upstream and arrive as string props.
  */
 export function ReturnFromRepairDialog({
   open, onOpenChange, transferId, transferNumber,
   itemName, sku, qty, unitCost, warehouseName, vendorName, onComplete,
 }: ReturnFromRepairDialogProps) {
   const returnMut = useReturnFromRepair()
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const [outcome, setOutcome]         = useState<Outcome | ''>('')
   const [qtyGoodStr, setQtyGoodStr]   = useState('')
@@ -93,6 +88,14 @@ export function ReturnFromRepairDialog({
 
   const canSubmit = !!outcome && sumMatches && validNumbers && !returnMut.isPending
 
+  // Dirty: any user-picked value differs from the "just opened" state.
+  // qtyGoodStr/qtyWoStr autofill from outcome, so tracking outcome + notes +
+  // repairCost is sufficient — outcome !== '' implies the operator picked one.
+  const isDirty =
+    outcome !== '' ||
+    repairCost !== '' ||
+    notes.trim().length > 0
+
   const successCopy = useMemo(() => {
     if (outcome === 'good')     return `Return recorded — ${qtyGoodNum} unit${qtyGoodNum === 1 ? '' : 's'} back to stock`
     if (outcome === 'writeoff') return `Return recorded — ${qtyWoNum} unit${qtyWoNum === 1 ? '' : 's'} written off`
@@ -113,7 +116,7 @@ export function ReturnFromRepairDialog({
       {
         onSuccess: () => {
           toast.success(successCopy)
-          onOpenChange(false)
+          guardRef.current?.closeAfterSubmit()
           onComplete?.()
         },
         onError: (err) => toast.error(err.message),
@@ -122,7 +125,7 @@ export function ReturnFromRepairDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg p-0 flex flex-col max-h-[90vh] overflow-hidden">
         <div className="px-6 pt-6 flex-shrink-0">
           <DialogHeader>
@@ -257,7 +260,7 @@ export function ReturnFromRepairDialog({
         </div>
 
         <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={returnMut.isPending}>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={returnMut.isPending}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
@@ -265,6 +268,6 @@ export function ReturnFromRepairDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </GuardedDialog>
   )
 }
