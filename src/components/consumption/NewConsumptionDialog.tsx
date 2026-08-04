@@ -19,7 +19,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
-import { ProductAttributePicker } from '@/components/shared/ProductAttributePicker'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
@@ -157,27 +156,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   )
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
-
-  // Set of brand-variant ids with stock at the source WH — used to validate
-  // picks coming from the guided picker (which knows nothing about WH scope).
-  const stockedVariantIds = useMemo(
-    () => new Set(pickerItems.map((p) => p.id)),
-    [pickerItems],
-  )
-
-  // Picker mode — Browse tree (WhItemPicker, default) vs Guided pick
-  // (ProductAttributePicker). Persisted per surface per project convention.
-  // Lazy initial state reads localStorage on first render so the write-effect
-  // doesn't clobber a stored 'guided' with 'browse' before the read fires.
-  const [pickerMode, setPickerMode] = useState<'browse' | 'guided'>(() => {
-    if (typeof window === 'undefined') return 'browse'
-    const stored = window.localStorage.getItem('consumption.pickerMode')
-    return stored === 'guided' ? 'guided' : 'browse'
-  })
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem('consumption.pickerMode', pickerMode)
-  }, [pickerMode])
 
   // ── Notes + attachments
   const [notes, setNotes] = useState('')
@@ -525,37 +503,9 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <Label className="text-[11px] font-medium shrink-0">Items</Label>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="inline-flex rounded-md border p-0.5 bg-muted/40 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setPickerMode('browse')}
-                    className={`px-2 h-6 text-[10px] rounded transition ${
-                      pickerMode === 'browse'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    title="Search a flat list of items with stock at this warehouse"
-                  >
-                    Browse
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPickerMode('guided')}
-                    className={`px-2 h-6 text-[10px] rounded transition ${
-                      pickerMode === 'guided'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    title="Pick by category attributes (e.g. TON, material)"
-                  >
-                    Guided
-                  </button>
-                </div>
-                {srcWhId && srcSubId && (
-                  <span className="text-[10px] text-muted-foreground shrink-0">{sourceStock.length} in stock</span>
-                )}
-              </div>
+              {srcWhId && srcSubId && (
+                <span className="text-[10px] text-muted-foreground shrink-0">{sourceStock.length} in stock</span>
+              )}
             </div>
 
             {!srcWhId || !srcSubId ? (
@@ -577,37 +527,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                       key={idx}
                       className={`rounded-md border p-2.5 space-y-1.5 ${error ? 'border-destructive/50 bg-destructive/5' : 'bg-card'}`}
                     >
-                      {pickerMode === 'browse' ? (
-                        <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
-                          <PopoverTrigger className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer">
-                            {selected ? (
-                              <span className="truncate">
-                                <span className="font-medium">{selected.item_name}</span>
-                                {selected.brand && (
-                                  <span className="text-muted-foreground"> — {selected.brand}</span>
-                                )}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">Search items…</span>
-                            )}
-                            <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
-                          </PopoverTrigger>
-                          <PopoverContent className="p-0 w-auto" align="start" side="bottom">
-                            <WhItemPicker
-                              items={pickerItems}
-                              selectedIds={selectedIds}
-                              currentValue={row.brand_variant_id}
-                              onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
-                              showQty
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setOpenPickerIdx(idx)}
-                          className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer"
-                        >
+                      <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
+                        <PopoverTrigger className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer">
                           {selected ? (
                             <span className="truncate">
                               <span className="font-medium">{selected.item_name}</span>
@@ -616,11 +537,20 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                               )}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">Pick by attribute…</span>
+                            <span className="text-muted-foreground">Search items…</span>
                           )}
                           <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
-                        </button>
-                      )}
+                        </PopoverTrigger>
+                        <PopoverContent className="p-0 w-auto" align="start" side="bottom">
+                          <WhItemPicker
+                            items={pickerItems}
+                            selectedIds={selectedIds}
+                            currentValue={row.brand_variant_id}
+                            onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
+                            showQty
+                          />
+                        </PopoverContent>
+                      </Popover>
 
                       <div className="flex items-center gap-2 flex-wrap">
                         <Input
@@ -769,43 +699,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         </DialogFooter>
       </DialogContent>
 
-      {/* Guided picker sub-dialog. Sized to fully cover the parent dialog
-          so it doesn't visually stack — same width and height as the
-          parent, min-h prevents the "crushed text" collapse when the
-          picker starts with no category selected. */}
-      <Dialog
-        open={pickerMode === 'guided' && openPickerIdx !== null}
-        onOpenChange={(o) => { if (!o) setOpenPickerIdx(null) }}
-      >
-        <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[46rem] sm:h-[90vh] sm:max-w-[95vw] flex flex-col overflow-hidden">
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle className="truncate">
-              Guided item pick — Line {openPickerIdx !== null ? openPickerIdx + 1 : ''}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto py-3 pr-1">
-            {openPickerIdx !== null && (
-              <ProductAttributePicker
-                key={`guided-line-${openPickerIdx}`}
-                onPick={(_itemId, brandVariantId) => {
-                  if (!stockedVariantIds.has(brandVariantId)) {
-                    toast.error('That variant has no stock at the selected warehouse — try Browse mode or pick a different variant.')
-                    return
-                  }
-                  const currentRowIdx = openPickerIdx
-                  const currentRowVariant = rows[currentRowIdx]?.brand_variant_id
-                  if (selectedIds.has(brandVariantId) && brandVariantId !== currentRowVariant) {
-                    toast.error('This variant is already on another line.')
-                    return
-                  }
-                  updateRow(currentRowIdx, 'brand_variant_id', brandVariantId)
-                  setOpenPickerIdx(null)
-                }}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </Dialog>
   )
 }

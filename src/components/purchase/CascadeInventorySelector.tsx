@@ -553,7 +553,7 @@ export function CascadeInventorySelector({
             </span>
             <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
           </PopoverTrigger>
-          <PopoverContent className="w-64 p-0" align="start">
+          <PopoverContent className="w-80 p-0" align="start">
             {isItemCreating ? (
               <CascadeNewItemForm
                 categoryId={selectedCategory!.id}
@@ -592,25 +592,25 @@ export function CascadeInventorySelector({
                               onChange(null)
                               setItemOpen(false)
                             }}
-                            className="text-xs"
+                            className="text-xs items-start py-2"
                           >
-                            <Check className={cn('mr-2 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
+                            <Check className={cn('mr-2 mt-1 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
                             <ItemPhoto
                               url={(item as unknown as { image_url?: string | null }).image_url ?? null}
                               name={item.name_en}
                               size={32}
-                              className="mr-2"
+                              className="mr-2 mt-0.5 shrink-0"
                             />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="truncate">{item.name_en}</span>
+                              <div className="flex flex-wrap items-start gap-1.5">
+                                <span className="whitespace-normal break-words leading-snug">{item.name_en}</span>
                                 {isShareOnly && (
                                   <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
                                     Shared
                                   </span>
                                 )}
                               </div>
-                              {item.name_ar && <div className="text-muted-foreground truncate">{item.name_ar}</div>}
+                              {item.name_ar && <div className="text-muted-foreground whitespace-normal break-words leading-snug mt-0.5">{item.name_ar}</div>}
                             </div>
                           </CommandItem>
                         )

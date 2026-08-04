@@ -73,8 +73,8 @@ src/components/services/inventory/ItemEditDialog.tsx    (Task 3.2)
 src/components/services/inventory/ItemsListView.tsx     (Task 3.3)
 src/app/(dashboard)/sales/create-so/page.tsx            (Task 5.1)
 src/app/(dashboard)/sales/edit-so/[id]/page.tsx         (Task 5.1)
-src/components/... (Quotations line picker)             (Task 5.2)
-src/components/... (Service Links picker)               (Task 5.3)
+(Task 5.2 — N/A: no quotations/contracts surface on this branch)
+(Task 5.3 — N/A: no InventoryTableView on this branch; ItemEditDialog covered in Task 3.2)
 src/components/consumption/NewConsumptionDialog.tsx     (Task 5.4)
 PROGRESS.md                                             (per-task)
 docs/flows-registry.md                                  (Task 6.1)
@@ -1678,19 +1678,29 @@ Persist `pickerMode` in localStorage keyed by surface: `so-create.pickerMode` / 
 
 ---
 
-## Task 5.2: Quotations line picker
+## Task 5.2: Quotations line picker — **N/A on this branch (2026-08-04)**
 
-**Files:** Same pattern as 5.1 — modify the SO-quotation + contract-quotation line-picker component. Find via `grep -rn "CascadeInventorySelector" src/app/\(dashboard\)/sales/quotations src/app/\(dashboard\)/contracts 2>/dev/null`.
+**Status:** Not applicable. Verified on `feature/category-attributes`:
+- `src/app/(dashboard)/sales/quotations` — does not exist
+- `src/app/(dashboard)/contracts` — does not exist
+- No quotation / contract line-item component anywhere in `src/components` (only `master-data/OrderQuotationSettingsAdmin.tsx`, which is settings — not a line picker)
 
-- [ ] Same steps as 5.1 — toggle + persistence key `quotations.pickerMode`
+The plan was drafted anticipating these surfaces would land alongside category attributes; they haven't been built yet. Nothing to wire.
+
+- [x] N/A — no target surface exists on this branch. Revisit when Quotations / Contracts modules ship.
 
 ---
 
-## Task 5.3: Service Links picker
+## Task 5.3: Service Links picker — **N/A on this branch (2026-08-04)**
 
-**Files:** Same pattern — `InventoryTableView` in Master Data → Services admin.
+**Status:** Not applicable. Verified on `feature/category-attributes`:
+- `src/components/services/InventoryTableView.tsx` — does not exist
+- `src/components/services/` contains only `InventoryTab.tsx` + the `inventory/` subfolder (ItemsListView, ItemEditDialog, ToolsAssetsView, etc.)
+- The item edit surface in Master Data → Services → Items is `ItemEditDialog`, which already received attribute wiring in **Task 3.2** (`ItemAttributesSection`)
 
-- [ ] Same steps — persistence key `service-links.pickerMode`
+There is no standalone "service links picker" component on this branch to add a guided-picker toggle to. Coverage of that surface is already delivered via Phase 3.
+
+- [x] N/A — no `InventoryTableView` sink exists; item-level attribute entry already covered by Task 3.2.
 
 ---
 

@@ -54,8 +54,6 @@ export const queryKeys = {
       ['inventory-attributes', 'options', definitionId] as const,
     itemValues: (itemId: Nullable) =>
       ['inventory-attributes', 'item', itemId] as const,
-    pickerStep: (categoryId: Nullable, picksKey: string) =>
-      ['inventory-attributes', 'picker', categoryId, picksKey] as const,
   },
 
   /* ── Companies ────────────────────────────────────────── */
