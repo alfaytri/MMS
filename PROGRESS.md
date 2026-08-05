@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Warranty Module Phase 1 Task 9: `useEffectiveWarranty(item_id)` hook** — TanStack Query wrapper around the `get_effective_warranty_policy(p_item_id)` RPC. Returns the resolved policy (via a second query for the policy row) or `null` when the chain is empty. Used by the item edit dialog to show the effective-policy preview.
+🚀 Starting: **Warranty Module Phase 1 Task 10: `useWarrantyRecordsForDelivery(delivery_id)` hook** — TanStack Query hook returning all `warranty_records` rows attached to a given delivery. Feeds the "Print Certificate" button state (visible when >0 rows) and the certificate PDF payload.
 
 ---
 
@@ -380,6 +380,7 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 ## ✅ Completed
 
+- [2026-08-05] **Warranty Phase 1 Task 9: `useEffectiveWarranty(item_id)` hook** — `src/hooks/useEffectiveWarranty.ts` — thin wrapper on the `get_effective_warranty_policy` RPC + follow-up policy row fetch. Returns `{ policyId, policy }` (both nullable when the item is uninsured). Cached under `queryKeys.warranty.effectiveForItem(itemId)`, `staleTime: 30s`. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 8: `useWarrantyPolicies` hook** — `src/hooks/useWarrantyPolicies.ts`, `src/lib/queryKeys.ts` — `useWarrantyPolicies`, `useActiveWarrantyPolicies`, `useWarrantyPolicy(id)`, `useCreateWarrantyPolicy`, `useUpdateWarrantyPolicy`, `useToggleWarrantyPolicyActive`. All mutations surface raw Postgrest error fields (code/message/details/hint) via a local `throwDbError` per `feedback_surface_raw_db_errors`. Exports `COVERAGE_TYPES` + `STARTS_FROM_OPTIONS` enums and matching label maps. `queryKeys.warranty` namespace added (policies / policiesActive / policyDetail + reserved keys for Tasks 9-10). No delete mutation — records reference policies `ON DELETE RESTRICT`, so soft-archive via `is_active` toggle is the only way to hide a policy. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 7: regenerate `database.types.ts`** — `src/types/database.types.ts` — fresh dump from staging (mwvblpgbgxipvrevkeff), picks up `warranty_policies` + `warranty_records` tables, both new inventory columns, and the three new functions (`create_warranty_records_for_delivery`, `get_effective_warranty_policy`, `next_warranty_number`). Re-appended the `DBTable / DBInsert / DBUpdate / AllTables` helper aliases per `feedback_supabase_gen_types` — the CLI wipes them every regen. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 6 refactor: inline warranty creation into `complete_delivery_inventory`** — `supabase/migrations/20260815003600_warranty_delivery_hook_inline.sql` — per operator preference, dropped the AFTER UPDATE trigger and moved the `PERFORM public.create_warranty_records_for_delivery(p_delivery_id)` call inline immediately after the `status='delivered'` UPDATE. Body byte-identical to the current live definition (verified via project-wide grep for the last `CREATE OR REPLACE`) plus the single new line. Helper retained. Applied to staging.
