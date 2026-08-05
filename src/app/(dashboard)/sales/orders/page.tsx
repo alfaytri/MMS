@@ -26,6 +26,7 @@ import {
 } from '@/hooks/useSaleOrders'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -181,6 +182,14 @@ export default function SaleOrdersPage() {
   const cancelSO = useCancelSO()
   const { data: paidMap } = useSOPaymentTotals()
 
+  const { availableDivisions, isSuperViewer } = useActiveDivision()
+  const showDivisionColumn = isSuperViewer || availableDivisions.length > 1
+  const divisionLabelById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of availableDivisions) m.set(d.id, d.short_name || d.name)
+    return m
+  }, [availableDivisions])
+
   const hasActiveFilters = !!(search || statusFilter.size > 0 || customerFilter || dateFrom || dateTo || deliveryFilter)
 
   function clearFilters() {
@@ -257,6 +266,18 @@ export default function SaleOrdersPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       cell: ({ row }) => <span className="font-medium">{row.getValue('customer_name') ?? '—'}</span>,
     },
+    ...(showDivisionColumn ? [{
+      id: 'division',
+      accessorFn: (row: SaleOrder) => (row.division_id ? divisionLabelById.get(row.division_id) ?? '—' : '—'),
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Division" />,
+      cell: ({ row }) => {
+        const divisionId = row.original.division_id
+        const label = divisionId ? divisionLabelById.get(divisionId) : null
+        return label
+          ? <Badge variant="outline" className="text-[11px] font-medium">{label}</Badge>
+          : <span className="text-muted-foreground">—</span>
+      },
+    } satisfies ColumnDef<SaleOrder>] : []),
     {
       accessorKey: 'status',
       header: 'Status',
@@ -395,7 +416,7 @@ export default function SaleOrdersPage() {
       },
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps -- handleCancel/handleConfirm close over confirmSO/cancelSO which are already in deps
-  ], [paidMap, confirmSO, cancelSO, router])
+  ], [paidMap, confirmSO, cancelSO, router, showDivisionColumn, divisionLabelById])
 
   return (
     <PageWrapper>
@@ -588,7 +609,12 @@ export default function SaleOrdersPage() {
                 <span className="font-mono text-sm font-medium">{so.so_number}</span>
                 <SoStatusBadge status={so.status} />
               </div>
-              <p className="text-sm text-muted-foreground truncate">{so.customer_name ?? '—'}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm text-muted-foreground truncate">{so.customer_name ?? '—'}</p>
+                {showDivisionColumn && so.division_id && divisionLabelById.get(so.division_id) && (
+                  <Badge variant="outline" className="text-[10px] font-medium">{divisionLabelById.get(so.division_id)}</Badge>
+                )}
+              </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{formatDate(so.created_at)}</span>
                 <span className="font-medium text-foreground tabular-nums">{formatCurrency(so.total, so.currency ?? 'QAR')}</span>
