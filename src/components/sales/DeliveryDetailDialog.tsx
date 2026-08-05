@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Truck, Calendar, Warehouse, User, Hash, Loader2, Download,
+  Truck, Calendar, Warehouse, User, Hash, Loader2, Download, ShieldCheck,
 } from 'lucide-react'
+import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDelivery'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -73,6 +74,8 @@ interface Props {
 
 export function DeliveryDetailDialog({ delivery, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [warrantyBusy, setWarrantyBusy] = useState(false)
+  const { data: warrantyRecords = [] } = useWarrantyRecordsForDelivery(delivery?.id ?? null)
   const { data: replacementSource } = useReplacementSource(
     delivery?.type === 'replacement' ? delivery.return_id : null,
   )
@@ -82,6 +85,36 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
   const items = delivery.sale_delivery_lines ?? []
   const totalQty = items.reduce((sum, i) => sum + i.qty_delivered, 0)
   const statusCfg = STATUS_CONFIG[delivery.status ?? ''] ?? STATUS_CONFIG.pending
+
+  async function handlePrintWarranty() {
+    if (warrantyBusy || !delivery) return
+    setWarrantyBusy(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+
+      const res = await fetch(`/api/sales/deliveries/${delivery.id}/warranty-certificate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Request failed (${res.status})`)
+      }
+      // Stream bytes → blob URL → open in new tab for print
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener,noreferrer')
+      // Best-effort revoke after a short delay (blob URL must stay valid
+      // long enough for the tab to load it).
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate certificate')
+    } finally {
+      setWarrantyBusy(false)
+    }
+  }
 
   async function handleDownloadPdf() {
     if (pdfBusy) return
@@ -234,7 +267,15 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
 
         {/* Footer */}
         <Separator />
-        <div className="px-6 py-3 flex items-center justify-end">
+        <div className="px-6 py-3 flex items-center justify-end gap-2">
+          {warrantyRecords.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handlePrintWarranty} disabled={warrantyBusy}>
+              {warrantyBusy
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />}
+              {warrantyBusy ? 'Generating…' : 'Print Warranty Certificate'}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={pdfBusy}>
             {pdfBusy
               ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />

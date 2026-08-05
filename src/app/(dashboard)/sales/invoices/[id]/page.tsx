@@ -2,11 +2,13 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Printer, Loader2, RefreshCw } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowLeft, Printer, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCustomerInvoice } from '@/hooks/useCustomerInvoices'
+import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDelivery'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +31,73 @@ function InvoiceDetailContent() {
   const { data: invoice } = useCustomerInvoice(id)
 
   const paymentStatus = invoice?.payment_status ?? 'unpaid'
+
+  // so_invoices doesn't carry sale_delivery_id directly (source is
+  // 'sale_order' | 'contract' | 'quotation'), so we resolve via the invoice's
+  // sale_order_id: pick the newest delivery under that SO that produced any
+  // warranty coverage. Good enough for MVP — Phase 2 can add a picker if
+  // an SO ever needs per-delivery certificate splitting.
+  const { data: linkedDeliveryId } = useQuery({
+    queryKey: ['invoice-warranty-delivery-id', id],
+    queryFn: async () => {
+      if (!id) return null
+      const supabase = createClient()
+      const { data: inv, error: invErr } = await supabase
+        .from('so_invoices')
+        .select('sale_order_id')
+        .eq('id', id)
+        .maybeSingle()
+      if (invErr) throw invErr
+      if (!inv?.sale_order_id) return null
+
+      const { data: records, error: recErr } = await supabase
+        .from('warranty_records')
+        .select('sale_delivery_lines!inner(sale_delivery_id, sale_deliveries!inner(id, date))')
+        .eq('sale_order_id', inv.sale_order_id)
+        .limit(200)
+      if (recErr) throw recErr
+
+      type Row = { sale_delivery_lines: { sale_delivery_id: string; sale_deliveries: { id: string; date: string | null } | null } | null }
+      const rows = (records ?? []) as unknown as Row[]
+      // Newest delivery first
+      const sorted = rows
+        .map((r) => r.sale_delivery_lines?.sale_deliveries)
+        .filter((d): d is { id: string; date: string | null } => !!d)
+        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+      return sorted[0]?.id ?? null
+    },
+    enabled: !!id,
+    staleTime: 60_000,
+  })
+  const { data: warrantyRecords = [] } = useWarrantyRecordsForDelivery(linkedDeliveryId ?? null)
+  const [warrantyBusy, setWarrantyBusy] = useState(false)
+
+  async function handlePrintWarranty() {
+    if (warrantyBusy || !linkedDeliveryId) return
+    setWarrantyBusy(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+
+      const res = await fetch(`/api/sales/deliveries/${linkedDeliveryId}/warranty-certificate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Request failed (${res.status})`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener,noreferrer')
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate certificate')
+    } finally {
+      setWarrantyBusy(false)
+    }
+  }
 
   async function generatePdf(force = false) {
     setLoading(true)
@@ -90,6 +159,19 @@ function InvoiceDetailContent() {
             <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} />
             Refresh
           </Button>
+          {warrantyRecords.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handlePrintWarranty}
+              disabled={warrantyBusy}
+            >
+              {warrantyBusy
+                ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />}
+              {warrantyBusy ? 'Generating…' : 'Warranty Certificate'}
+            </Button>
+          )}
           {pdfUrl && (
             <Button
               size="sm"

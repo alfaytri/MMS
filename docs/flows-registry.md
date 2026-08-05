@@ -824,6 +824,40 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 
 ---
 
+## Warranty
+
+### Create Warranty Records at Delivery
+
+- **Module:** Sales / Warranty
+- **Status:** Active
+- **Trigger surface(s):** `SoDeliveryDialog` → **Mark Delivered** (any surface that flips a `sale_deliveries` row from `pending` to `delivered` via [[Complete Delivery]]).
+- **Primary hook(s):** No dedicated hook — the flow is DB-owned. Read-side: [`useWarrantyRecordsForDelivery`](src/hooks/useWarrantyRecordsForDelivery.ts).
+- **RPC(s):** [`public.complete_delivery_inventory`](supabase/migrations/20260815003600_warranty_delivery_hook_inline.sql) calls [`public.create_warranty_records_for_delivery(p_delivery_id)`](supabase/migrations/20260815003500_warranty_delivery_hook.sql) inline immediately after the status flip. Resolver: [`public.get_effective_warranty_policy(p_item_id)`](supabase/migrations/20260815003300_get_effective_warranty_policy.sql).
+- **Ledger writes:** `warranty_records` — one row per `sale_delivery_line` with `brand_variant_id`, snapshotted policy fields (`policy_name_snapshot`, `coverage_type_snapshot`, `duration_months_snapshot`, `terms_en_snapshot`, `terms_ar_snapshot`, `void_conditions_snapshot`, `starts_from_snapshot`), computed `start_date` + `end_date`, `warranty_number` from `next_warranty_number()`. Denormed `sale_order_id`, `customer_id`, `division_id` for RLS + reporting.
+- **Downstream side-effects:** None outside `warranty_records`. Certificate PDF is on-demand — no Storage upload. `ON CONFLICT (sale_delivery_line_id) DO NOTHING` gives free idempotency if the RPC is retried.
+- **Dialog / component:** N/A for creation (server-side). Preview badges: [`WarrantyBadge` in `SoLineItemsEditor`](src/components/sales/SoLineItemsEditor.tsx), effective-policy preview under the item edit dialog override select in [`ItemEditDialog`](src/components/services/inventory/ItemEditDialog.tsx).
+- **Guards / preconditions:** Skipped silently for lines with (a) no `brand_variant_id`, (b) `qty_delivered <= 0`, (c) resolved policy is NULL (item uninsured — no fallback default), or (d) `duration_months = 0` (explicit "No Warranty" policy). Deliveries whose SO has no `division_id` also skip because `warranty_records.division_id` is NOT NULL.
+- **Related flows:** [[Complete Delivery]], [[Print Warranty Certificate]]
+- **Docs / plans:** [docs/plans/2026-08-05-warranty-phase-1.md](plans/2026-08-05-warranty-phase-1.md), [docs/plans/2026-08-05-warranty-context.md](plans/2026-08-05-warranty-context.md)
+- **Notes:** Immutable by design — policy edits do NOT retroactively change existing records. Correction path is a controlled `UPDATE warranty_records SET terms_*_snapshot = ...` by an admin.
+
+### Print Warranty Certificate
+
+- **Module:** Sales / Warranty
+- **Status:** Active
+- **Trigger surface(s):** [`DeliveryDetailDialog`](src/components/sales/DeliveryDetailDialog.tsx) → footer **Print Warranty Certificate** button (visible only when the delivery has ≥1 `warranty_records` row). Also the invoice detail toolbar at [`/sales/invoices/[id]`](src/app/(dashboard)/sales/invoices/[id]/page.tsx) — same gate against the invoice's `sale_delivery_id`.
+- **Primary hook(s):** [`useWarrantyRecordsForDelivery`](src/hooks/useWarrantyRecordsForDelivery.ts) (button gate). No mutation — read-only download.
+- **RPC(s):** N/A. Route: [`GET/POST /api/sales/deliveries/[id]/warranty-certificate`](src/app/api/sales/deliveries/[id]/warranty-certificate/route.ts) → [`generateWarrantyCertificatePdf`](src/lib/sales/generate-warranty-certificate-pdf.ts) → [`buildWarrantyCertificateHtml`](src/lib/sales/warranty-certificate-pdf-html.ts) → `htmlToPdfBuffer`.
+- **Ledger writes:** None.
+- **Downstream side-effects:** None. PDF bytes stream inline to the browser (`Content-Disposition: inline`); the client wraps them in a blob URL and opens in a new tab.
+- **Dialog / component:** Delivery detail footer + invoice detail toolbar (see triggers).
+- **Guards / preconditions:** Bearer-token auth via `SUPABASE_SERVICE_ROLE_KEY.auth.getUser()`. RLS on `warranty_records` (`is_division_visible(division_id)`) still applies to the read path.
+- **Related flows:** [[Create Warranty Records at Delivery]]
+- **Docs / plans:** [docs/plans/2026-08-05-warranty-phase-1.md](plans/2026-08-05-warranty-phase-1.md)
+- **Notes:** Regenerated on every call — no Storage upload. Rationale: warranty terms are already snapshotted onto `warranty_records`, so future logo / template edits ARE meant to reflect on reprints; storing would double the storage-cascade work.
+
+---
+
 ## Storage Hygiene
 
 ### Storage Cascade Cleanup
