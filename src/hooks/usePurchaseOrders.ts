@@ -6,6 +6,18 @@ import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 import { savePoSnapshot, stageOf, resolveLineItemNames } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
 
+// PostgrestError is not an Error subclass — surface code/message/details/hint
+// so the toast shows the RAISE from the RPC (e.g. receival/RFQ guard) instead
+// of a generic "Failed to save".
+function formatPgError(err: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null }): string {
+  const parts: string[] = []
+  if (err.code) parts.push(String(err.code))
+  if (err.message) parts.push(err.message)
+  if (err.details) parts.push(`— ${err.details}`)
+  if (err.hint) parts.push(`(hint: ${err.hint})`)
+  return parts.join(' ') || 'Unknown database error'
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type InventoryLookupResult = {
@@ -528,14 +540,13 @@ export function useUpdatePO() {
       if (poErr) throw poErr
 
       if (line_items) {
-        await supabase.from('po_line_items').delete().eq('po_id', id)
-        if (line_items.length > 0) {
-          const resolved = await resolveLineItemNames(supabase, line_items)
-          const { error: liErr } = await supabase
-            .from('po_line_items')
-            .insert(resolved.map((li) => ({ ...li, po_id: id })))
-          if (liErr) throw liErr
-        }
+        // Money-path C1+C2: atomic replace via RPC with receival + RFQ guards.
+        const resolved = await resolveLineItemNames(supabase, line_items)
+        const { error: replaceErr } = await supabase.rpc('rpc_replace_po_lines', {
+          p_po_id: id,
+          p_lines: resolved as unknown as never,
+        })
+        if (replaceErr) throw new Error(formatPgError(replaceErr))
       }
 
       // Snapshot this revision. Each save creates a new version of the current
@@ -949,13 +960,13 @@ export function useSubmitPoVersion() {
         .eq('id', id)
       if (poErr) throw poErr
 
-      // 4. Replace line items
-      await supabase.from('po_line_items').delete().eq('po_id', id)
-      if (payload.line_items.length > 0) {
-        const { error: liErr } = await supabase
-          .from('po_line_items')
-          .insert(payload.line_items.map((li) => ({ ...li, po_id: id })))
-        if (liErr) throw liErr
+      // 4. Replace line items — money-path C1+C2: atomic RPC with guards.
+      {
+        const { error: replaceErr } = await supabase.rpc('rpc_replace_po_lines', {
+          p_po_id: id,
+          p_lines: payload.line_items as unknown as never,
+        })
+        if (replaceErr) throw new Error(formatPgError(replaceErr))
       }
 
       // 5. Reset approvals — delete old, insert chain-based fresh steps
@@ -1108,13 +1119,14 @@ export function useSavePoAsDraft() {
         .eq('id', id)
       if (poErr) throw poErr
 
-      await supabase.from('po_line_items').delete().eq('po_id', id)
-      if (payload.line_items.length > 0) {
+      // Money-path C1+C2: atomic replace via RPC with receival + RFQ guards.
+      {
         const resolved = await resolveLineItemNames(supabase, payload.line_items)
-        const { error: liErr } = await supabase
-          .from('po_line_items')
-          .insert(resolved.map((li) => ({ ...li, po_id: id })))
-        if (liErr) throw liErr
+        const { error: replaceErr } = await supabase.rpc('rpc_replace_po_lines', {
+          p_po_id: id,
+          p_lines: resolved as unknown as never,
+        })
+        if (replaceErr) throw new Error(formatPgError(replaceErr))
       }
 
       const draftPerformer = await resolveMyName()

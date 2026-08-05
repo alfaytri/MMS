@@ -8199,6 +8199,10 @@ export type Database = {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
       }
+      rpc_replace_po_lines: {
+        Args: { p_lines: Json; p_po_id: string }
+        Returns: undefined
+      }
       rpc_request_consumption_edit: {
         Args: { p_consumption_id: string; p_reason: string }
         Returns: string
