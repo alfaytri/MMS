@@ -536,6 +536,15 @@ export const queryKeys = {
     all: ['warehouses'] as const,
   },
 
+  /* ── Warranty ─────────────────────────────────────────── */
+  warranty: {
+    policies:          ['warranty-policies'] as const,
+    policiesActive:    ['warranty-policies', 'active'] as const,
+    policyDetail:      (id: Nullable) => ['warranty-policies', 'detail', id] as const,
+    effectiveForItem:  (itemId: Nullable) => ['warranty-effective', itemId] as const,
+    recordsForDelivery:(deliveryId: Nullable) => ['warranty-records', 'delivery', deliveryId] as const,
+  },
+
   /* ── Warehouse Sub-Containers (Phase D.1) ────────────── */
   warehouseSubContainers: {
     all:         ['warehouse-sub-containers'] as const,
