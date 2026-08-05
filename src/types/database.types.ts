@@ -6680,6 +6680,32 @@ export type Database = {
           },
         ]
       }
+      warranty_number_counters: {
+        Row: {
+          division_id: string
+          next_value: number
+          source_type: Database["public"]["Enums"]["warranty_source_type"]
+        }
+        Insert: {
+          division_id: string
+          next_value?: number
+          source_type: Database["public"]["Enums"]["warranty_source_type"]
+        }
+        Update: {
+          division_id?: string
+          next_value?: number
+          source_type?: Database["public"]["Enums"]["warranty_source_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_number_counters_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warranty_policies: {
         Row: {
           coverage_type: string
@@ -6750,6 +6776,7 @@ export type Database = {
           sale_delivery_line_id: string
           sale_order_id: string
           sku: string | null
+          source_type: Database["public"]["Enums"]["warranty_source_type"]
           start_date: string
           starts_from_snapshot: string
           terms_ar_snapshot: string | null
@@ -6773,12 +6800,13 @@ export type Database = {
           sale_delivery_line_id: string
           sale_order_id: string
           sku?: string | null
+          source_type?: Database["public"]["Enums"]["warranty_source_type"]
           start_date: string
           starts_from_snapshot?: string
           terms_ar_snapshot?: string | null
           terms_en_snapshot?: string | null
           void_conditions_snapshot?: string[]
-          warranty_number?: string
+          warranty_number: string
         }
         Update: {
           brand_variant_id?: string | null
@@ -6796,6 +6824,7 @@ export type Database = {
           sale_delivery_line_id?: string
           sale_order_id?: string
           sku?: string | null
+          source_type?: Database["public"]["Enums"]["warranty_source_type"]
           start_date?: string
           starts_from_snapshot?: string
           terms_ar_snapshot?: string | null
@@ -7915,7 +7944,13 @@ export type Database = {
       next_follow_up_request_number: { Args: never; Returns: string }
       next_po_number: { Args: never; Returns: string }
       next_so_number: { Args: never; Returns: string }
-      next_warranty_number: { Args: never; Returns: string }
+      next_warranty_number: {
+        Args: {
+          p_division_id: string
+          p_source_type: Database["public"]["Enums"]["warranty_source_type"]
+        }
+        Returns: string
+      }
       po_approval_action: {
         Args: {
           p_action: string
@@ -7986,6 +8021,10 @@ export type Database = {
       }
       resolve_category_sub_container: {
         Args: { p_category_id: string }
+        Returns: string
+      }
+      resolve_warranty_division_slug: {
+        Args: { p_division_id: string }
         Returns: string
       }
       resubmit_sale_order: { Args: { p_so_id: string }; Returns: Json }
@@ -8613,6 +8652,7 @@ export type Database = {
         | "cancelled"
       user_type: "internal" | "customer" | "employee" | "team-leader"
       voucher_type: "single_use" | "multi_use" | "limited"
+      warranty_source_type: "sale" | "service" | "contract"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -8970,6 +9010,7 @@ export const Constants = {
       ],
       user_type: ["internal", "customer", "employee", "team-leader"],
       voucher_type: ["single_use", "multi_use", "limited"],
+      warranty_source_type: ["sale", "service", "contract"],
     },
   },
 } as const
