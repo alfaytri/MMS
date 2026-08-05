@@ -17,6 +17,7 @@ import { useInventoryTree, ancestors, allDescendantIds } from '@/hooks/useInvent
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCategorySubContainer } from '@/hooks/useCategorySubContainer'
+import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
 import { createClient } from '@/lib/supabase/client'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -40,6 +41,7 @@ type Snapshot = {
   sku: string
   parentId: string | null
   subContainerId: string | null
+  warrantyPolicyId: string | null
 }
 
 export function CategoryEditDialog({ open, onOpenChange, categoryType, category, parentId: defaultParentId }: Props) {
@@ -56,7 +58,9 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [l3Id, setL3Id] = useState<string | null>(null)
   const [warehouseId, setWarehouseId] = useState<string | null>(null)
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
+  const [warrantyPolicyId, setWarrantyPolicyId] = useState<string | null>(null)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const parentId = l3Id ?? l2Id ?? l1Id ?? null
@@ -75,10 +79,12 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       const nextNameAr = category?.name_ar ?? ''
       const nextSku = category?.sku ?? ''
       const nextSubContainerId = category?.default_sub_container_id ?? null
+      const nextWarrantyPolicyId = category?.default_warranty_policy_id ?? null
       setNameEn(nextNameEn)
       setNameAr(nextNameAr)
       setSku(nextSku)
       setSubContainerId(nextSubContainerId)
+      setWarrantyPolicyId(nextWarrantyPolicyId)
 
       const targetId = isEdit ? (category?.parent_id ?? null) : (defaultParentId ?? null)
       let seededParent: string | null = null
@@ -103,6 +109,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
         sku: nextSku,
         parentId: seededParent,
         subContainerId: nextSubContainerId,
+        warrantyPolicyId: nextWarrantyPolicyId,
       })
     }
   }, [open, category, defaultParentId, isEdit, flat])
@@ -166,7 +173,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     nameAr.trim() !== snapshot.nameAr.trim() ||
     sku.trim() !== snapshot.sku.trim() ||
     parentId !== snapshot.parentId ||
-    subContainerId !== snapshot.subContainerId
+    subContainerId !== snapshot.subContainerId ||
+    warrantyPolicyId !== snapshot.warrantyPolicyId
   )
 
   function handleSubmit(e: React.FormEvent) {
@@ -179,6 +187,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       sku: sku.trim() || null,
       parent_id: parentId || null,
       default_sub_container_id: subContainerId || null,
+      default_warranty_policy_id: warrantyPolicyId || null,
     }
 
     if (isEdit && category) {
@@ -355,6 +364,39 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                   Optional — used by the receival dialog to pre-fill the destination. If null anywhere in the chain, operator picks manually.
                 </p>
               )}
+            </div>
+
+            {/* Default Warranty Policy */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Default Warranty Policy
+              </Label>
+              <Select
+                value={warrantyPolicyId ?? '__inherit__'}
+                onValueChange={(v) => setWarrantyPolicyId(v === '__inherit__' ? null : v)}
+              >
+                <SelectTrigger className="h-10 w-full min-w-0">
+                  <span className="truncate">
+                    {warrantyPolicyId
+                      ? warrantyPolicies.find((p) => p.id === warrantyPolicyId)?.name ?? 'Select'
+                      : 'Inherit from parent chain'}
+                  </span>
+                </SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  <SelectItem value="__inherit__">Inherit from parent chain</SelectItem>
+                  {warrantyPolicies.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                      {p.duration_months === 0
+                        ? ' — No warranty'
+                        : ` — ${p.duration_months}mo`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Items in this category inherit this policy unless they override it. Leave blank to inherit from a parent category.
+              </p>
             </div>
 
             {/* SKU + Type */}

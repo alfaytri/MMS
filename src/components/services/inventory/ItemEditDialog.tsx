@@ -13,6 +13,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { useCreateInventoryItem, useUpdateInventoryItem, type InventoryItem } from '@/hooks/useInventory'
 import { useUpsertItemAttributes } from '@/hooks/useAttributes'
+import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
+import { useEffectiveWarranty } from '@/hooks/useEffectiveWarranty'
 import { ItemAttributesSection } from '@/components/master-data/attributes/ItemAttributesSection'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useItemStockByDivision } from '@/hooks/useItemStockByDivision'
@@ -42,6 +44,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const [nameAr, setNameAr] = useState('')
   const [sku, setSku] = useState('')
   const [unit, setUnit] = useState('Piece')
+  const [warrantyPolicyId, setWarrantyPolicyId] = useState<string | null>(null)
   const [attrValues, setAttrValues] = useState<Array<{ definition_id: string; option_id: string | null }>>([])
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -54,6 +57,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
 
   const { data: divisions = [] } = useDivisions()
   const { data: stockByDivision } = useItemStockByDivision(item?.id ?? null)
+  const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
+  const { data: effectiveWarranty } = useEffectiveWarranty(item?.id ?? null)
 
   useEffect(() => {
     if (open) {
@@ -61,6 +66,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       setNameAr(item?.name_ar ?? '')
       setSku(item?.sku ?? '')
       setUnit(item?.unit ?? 'Piece')
+      setWarrantyPolicyId(item?.warranty_policy_id ?? null)
       setAttrValues([])
       setImageUrl((item as unknown as { image_url?: string | null } | null | undefined)?.image_url ?? null)
       setUploading(false)
@@ -187,6 +193,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       unit,
       image_url: imageUrl,
       shared_with_division_ids: sharedWith,
+      warranty_policy_id: warrantyPolicyId,
     }
 
     try {
@@ -292,6 +299,44 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
             <Label htmlFor="item-type">Item Type</Label>
             <Input id="item-type" value={categoryType} disabled className="bg-muted text-muted-foreground capitalize" />
           </div>
+
+          {/* Warranty policy override */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Warranty Policy Override
+            </Label>
+            <Select
+              value={warrantyPolicyId ?? '__inherit__'}
+              onValueChange={(v) => setWarrantyPolicyId(v === '__inherit__' ? null : v)}
+            >
+              <SelectTrigger className="h-10 w-full min-w-0">
+                <span className="truncate">
+                  {warrantyPolicyId
+                    ? warrantyPolicies.find((p) => p.id === warrantyPolicyId)?.name ?? 'Select'
+                    : 'Use category default'}
+                </span>
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                <SelectItem value="__inherit__">Use category default</SelectItem>
+                {warrantyPolicies.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                    {p.duration_months === 0
+                      ? ' — No warranty'
+                      : ` — ${p.duration_months}mo`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isEdit && (
+              <p className="text-[10px] text-muted-foreground">
+                {effectiveWarranty?.policy
+                  ? <>Effective policy: <span className="font-medium text-foreground">{effectiveWarranty.policy.name}</span>{effectiveWarranty.policy.duration_months > 0 ? ` — ${effectiveWarranty.policy.duration_months} months` : ''}. Save changes to preview a different override.</>
+                  : 'Effective policy: no warranty. This item is uninsured unless a policy is set here or on an ancestor category.'}
+              </p>
+            )}
+          </div>
+
           <ItemAttributesSection
             itemId={item?.id ?? null}
             categoryId={categoryId}

@@ -33,6 +33,51 @@ export type EffectiveWarrantyResult = {
  *
  * Returns `{ policyId: null, policy: null }` when the item is uninsured.
  */
+/**
+ * Same as {@link useEffectiveWarranty} but keyed by brand_variant_id.
+ * Resolves the underlying inventory_items.id first, then delegates to
+ * the RPC. Used by the SO line editor where the row only carries
+ * brand_variant_id.
+ */
+export function useEffectiveWarrantyForVariant(brandVariantId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['warranty-effective-variant', brandVariantId ?? null],
+    queryFn: async (): Promise<EffectiveWarrantyResult> => {
+      if (!brandVariantId) return { policyId: null, policy: null }
+      const supabase = createClient()
+
+      const { data: bv, error: bvError } = await supabase
+        .from('inventory_item_brand_variants')
+        .select('item_id')
+        .eq('id', brandVariantId)
+        .maybeSingle()
+      if (bvError) throw bvError
+      const itemId = bv?.item_id ?? null
+      if (!itemId) return { policyId: null, policy: null }
+
+      const { data: policyId, error: rpcError } = await supabase.rpc(
+        'get_effective_warranty_policy',
+        { p_item_id: itemId },
+      )
+      if (rpcError) throw rpcError
+      if (!policyId) return { policyId: null, policy: null }
+
+      const { data: policy, error: fetchError } = await supabase
+        .from('warranty_policies')
+        .select('*')
+        .eq('id', policyId as string)
+        .maybeSingle()
+      if (fetchError) throw fetchError
+      return {
+        policyId: policyId as string,
+        policy: (policy ?? null) as WarrantyPolicy | null,
+      }
+    },
+    enabled: !!brandVariantId,
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useEffectiveWarranty(itemId: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.warranty.effectiveForItem(itemId ?? null),

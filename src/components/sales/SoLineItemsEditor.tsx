@@ -9,8 +9,31 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
+import { useEffectiveWarrantyForVariant } from '@/hooks/useEffectiveWarranty'
 import { formatCurrency } from '@/lib/utils/formatters'
 import type { SOLineItemDraft } from '@/hooks/useSaleOrders'
+
+/** Small pill showing "12mo warranty" or "No warranty" beside an SO line. */
+function WarrantyBadge({ brandVariantId }: { brandVariantId: string | null | undefined }) {
+  const { data, isLoading } = useEffectiveWarrantyForVariant(brandVariantId ?? null)
+  if (!brandVariantId) return null
+  if (isLoading) {
+    return <Badge variant="outline" className="text-[10px]">…</Badge>
+  }
+  const policy = data?.policy
+  if (!policy || policy.duration_months === 0) {
+    return (
+      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+        No warranty
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] text-green-700 border-green-300 bg-green-50 dark:bg-green-950/40 dark:border-green-800 dark:text-green-300">
+      {policy.duration_months}mo warranty
+    </Badge>
+  )
+}
 
 export type SoLineType = 'products' | 'spare-parts' | 'consumables' | 'tools'
 
@@ -216,6 +239,13 @@ export function SoLineItemsEditor({
                         </Button>
                       )}
                     </div>
+
+                    {/* Warranty badge (silent when no variant picked yet) */}
+                    {row.brand_variant_id && (
+                      <div className="pl-1">
+                        <WarrantyBadge brandVariantId={row.brand_variant_id} />
+                      </div>
+                    )}
 
                     {/* Row 2: field grid */}
                     <div className="flex flex-wrap gap-3 pl-1">

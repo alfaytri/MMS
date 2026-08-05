@@ -367,7 +367,7 @@ export function useInventoryCategoriesByType(type: string, showArchived = false)
 
 export function useCreateInventoryCategory() {
   const qc = useQueryClient()
-  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null; default_sub_container_id?: string | null }>({
+  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -396,7 +396,7 @@ export function useCreateInventoryCategory() {
 export function useUpdateInventoryCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null; default_sub_container_id?: string | null }) => {
+    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null }) => {
       const supabase = createClient()
       const { data: old } = await supabase
         .from('inventory_categories')
