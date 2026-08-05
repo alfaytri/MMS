@@ -268,6 +268,10 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Division column rollout across module list pages.** Sales orders already ships the column (commit `931419f5`). Extending the same pattern (outline badge with `short_name`, `useActiveDivision` gate on `isSuperViewer || availableDivisions.length > 1`, matching badge on mobile card) to the other multi-division-relevant list pages: Purchase Orders, Purchase Receivals, Sales Deliveries, Sales/Purchase Returns, Invoices (`/invoices`), Supplier Bills. Consistent placement (right after the customer/supplier column). Legacy rows with `division_id = null` render an em-dash / no badge.
+
+---
+
 ✅ **SECURITY DEFINER views cleanup — applied to staging.** Migration `20260805100000_views_security_invoker.sql` flipped `sale_order_lines_summary`, `return_line_progress`, and `return_progress` to `security_invoker = true` so they enforce the division-scope RLS on their underlying tables. `warehouse_sub_container_totals` intentionally left owner-runs (documented in `20260801200100_warehouse_sub_container_totals_bypass_rls.sql`) — the landing card must show every sub-container that physically holds stock, not just the user's active-division ones. Ready for operator smoke: (a) sales orders page renders per-line delivery progress correctly for own-division SOs, (b) returns detail dialog shows correct resolved/remaining counts, (c) attempting to query a cross-division SO via the REST endpoint now returns 0 rows. Prod cutover ships with the rest of `deploy/warehouse-shipping`.
 
 ---
