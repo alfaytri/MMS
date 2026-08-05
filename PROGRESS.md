@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Warranty Module Phase 1 Task 10: `useWarrantyRecordsForDelivery(delivery_id)` hook** — TanStack Query hook returning all `warranty_records` rows attached to a given delivery. Feeds the "Print Certificate" button state (visible when >0 rows) and the certificate PDF payload.
+🚀 Starting: **Warranty Module Phase 1 Task 11: `/master-data/warranty-policies` list page + create/edit dialog** — new route under `/master-data`, stat strip (Total / Active / Inactive), searchable list, New/Edit dialog with all policy fields (name, duration_months, coverage_type, starts_from, terms_en/ar, void_conditions[], is_active), row actions (edit + toggle active). No delete. Uses `GuardedFormDialog` per 3E rollout.
 
 ---
 
@@ -380,6 +380,7 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 ## ✅ Completed
 
+- [2026-08-05] **Warranty Phase 1 Task 10: `useWarrantyRecordsForDelivery(delivery_id)` hook** — `src/hooks/useWarrantyRecordsForDelivery.ts` — filters `warranty_records` by joining `sale_delivery_lines!inner(sale_delivery_id)`. Cached under `queryKeys.warranty.recordsForDelivery(deliveryId)`, ordered by `created_at`. Feeds Print button visibility + certificate PDF payload. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 9: `useEffectiveWarranty(item_id)` hook** — `src/hooks/useEffectiveWarranty.ts` — thin wrapper on the `get_effective_warranty_policy` RPC + follow-up policy row fetch. Returns `{ policyId, policy }` (both nullable when the item is uninsured). Cached under `queryKeys.warranty.effectiveForItem(itemId)`, `staleTime: 30s`. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 8: `useWarrantyPolicies` hook** — `src/hooks/useWarrantyPolicies.ts`, `src/lib/queryKeys.ts` — `useWarrantyPolicies`, `useActiveWarrantyPolicies`, `useWarrantyPolicy(id)`, `useCreateWarrantyPolicy`, `useUpdateWarrantyPolicy`, `useToggleWarrantyPolicyActive`. All mutations surface raw Postgrest error fields (code/message/details/hint) via a local `throwDbError` per `feedback_surface_raw_db_errors`. Exports `COVERAGE_TYPES` + `STARTS_FROM_OPTIONS` enums and matching label maps. `queryKeys.warranty` namespace added (policies / policiesActive / policyDetail + reserved keys for Tasks 9-10). No delete mutation — records reference policies `ON DELETE RESTRICT`, so soft-archive via `is_active` toggle is the only way to hide a policy. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 7: regenerate `database.types.ts`** — `src/types/database.types.ts` — fresh dump from staging (mwvblpgbgxipvrevkeff), picks up `warranty_policies` + `warranty_records` tables, both new inventory columns, and the three new functions (`create_warranty_records_for_delivery`, `get_effective_warranty_policy`, `next_warranty_number`). Re-appended the `DBTable / DBInsert / DBUpdate / AllTables` helper aliases per `feedback_supabase_gen_types` — the CLI wipes them every regen. `tsc --noEmit` clean.
