@@ -1971,6 +1971,7 @@ export type Database = {
         Row: {
           created_at: string | null
           default_sub_container_id: string | null
+          default_warranty_policy_id: string | null
           id: string
           name_ar: string | null
           name_en: string
@@ -1984,6 +1985,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           default_sub_container_id?: string | null
+          default_warranty_policy_id?: string | null
           id?: string
           name_ar?: string | null
           name_en: string
@@ -1997,6 +1999,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           default_sub_container_id?: string | null
+          default_warranty_policy_id?: string | null
           id?: string
           name_ar?: string | null
           name_en?: string
@@ -2020,6 +2023,13 @@ export type Database = {
             columns: ["default_sub_container_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_categories_default_warranty_policy_id_fkey"
+            columns: ["default_warranty_policy_id"]
+            isOneToOne: false
+            referencedRelation: "warranty_policies"
             referencedColumns: ["id"]
           },
           {
@@ -2688,6 +2698,7 @@ export type Database = {
           total_stock: number | null
           unit: string
           updated_at: string | null
+          warranty_policy_id: string | null
         }
         Insert: {
           category_id: string
@@ -2707,6 +2718,7 @@ export type Database = {
           total_stock?: number | null
           unit: string
           updated_at?: string | null
+          warranty_policy_id?: string | null
         }
         Update: {
           category_id?: string
@@ -2726,6 +2738,7 @@ export type Database = {
           total_stock?: number | null
           unit?: string
           updated_at?: string | null
+          warranty_policy_id?: string | null
         }
         Relationships: [
           {
@@ -2754,6 +2767,13 @@ export type Database = {
             columns: ["default_warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_warranty_policy_id_fkey"
+            columns: ["warranty_policy_id"]
+            isOneToOne: false
+            referencedRelation: "warranty_policies"
             referencedColumns: ["id"]
           },
         ]
@@ -5729,6 +5749,36 @@ export type Database = {
           },
         ]
       }
+      storage_cleanup_failures: {
+        Row: {
+          bucket: string
+          error_text: string | null
+          id: number
+          occurred_at: string
+          path: string
+          source_id: string | null
+          source_table: string | null
+        }
+        Insert: {
+          bucket: string
+          error_text?: string | null
+          id?: number
+          occurred_at?: string
+          path: string
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          bucket?: string
+          error_text?: string | null
+          id?: number
+          occurred_at?: string
+          path?: string
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -6630,6 +6680,181 @@ export type Database = {
           },
         ]
       }
+      warranty_policies: {
+        Row: {
+          coverage_type: string
+          created_at: string
+          created_by: string | null
+          duration_months: number
+          id: string
+          is_active: boolean
+          name: string
+          starts_from: string
+          terms_ar: string | null
+          terms_en: string | null
+          updated_at: string
+          void_conditions: string[]
+        }
+        Insert: {
+          coverage_type: string
+          created_at?: string
+          created_by?: string | null
+          duration_months: number
+          id?: string
+          is_active?: boolean
+          name: string
+          starts_from?: string
+          terms_ar?: string | null
+          terms_en?: string | null
+          updated_at?: string
+          void_conditions?: string[]
+        }
+        Update: {
+          coverage_type?: string
+          created_at?: string
+          created_by?: string | null
+          duration_months?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          starts_from?: string
+          terms_ar?: string | null
+          terms_en?: string | null
+          updated_at?: string
+          void_conditions?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_policies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warranty_records: {
+        Row: {
+          brand_variant_id: string | null
+          coverage_type_snapshot: string
+          created_at: string
+          customer_id: string
+          division_id: string
+          duration_months_snapshot: number
+          end_date: string
+          id: string
+          item_name: string
+          policy_id: string
+          policy_name_snapshot: string
+          qty: number
+          sale_delivery_line_id: string
+          sale_order_id: string
+          sku: string | null
+          start_date: string
+          starts_from_snapshot: string
+          terms_ar_snapshot: string | null
+          terms_en_snapshot: string | null
+          void_conditions_snapshot: string[]
+          warranty_number: string
+        }
+        Insert: {
+          brand_variant_id?: string | null
+          coverage_type_snapshot: string
+          created_at?: string
+          customer_id: string
+          division_id: string
+          duration_months_snapshot: number
+          end_date: string
+          id?: string
+          item_name: string
+          policy_id: string
+          policy_name_snapshot: string
+          qty: number
+          sale_delivery_line_id: string
+          sale_order_id: string
+          sku?: string | null
+          start_date: string
+          starts_from_snapshot?: string
+          terms_ar_snapshot?: string | null
+          terms_en_snapshot?: string | null
+          void_conditions_snapshot?: string[]
+          warranty_number?: string
+        }
+        Update: {
+          brand_variant_id?: string | null
+          coverage_type_snapshot?: string
+          created_at?: string
+          customer_id?: string
+          division_id?: string
+          duration_months_snapshot?: number
+          end_date?: string
+          id?: string
+          item_name?: string
+          policy_id?: string
+          policy_name_snapshot?: string
+          qty?: number
+          sale_delivery_line_id?: string
+          sale_order_id?: string
+          sku?: string | null
+          start_date?: string
+          starts_from_snapshot?: string
+          terms_ar_snapshot?: string | null
+          terms_en_snapshot?: string | null
+          void_conditions_snapshot?: string[]
+          warranty_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_records_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "warranty_records_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "warranty_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_sale_delivery_line_id_fkey"
+            columns: ["sale_delivery_line_id"]
+            isOneToOne: true
+            referencedRelation: "sale_delivery_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       credit_group_customer_counts: {
@@ -7473,6 +7698,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_warranty_records_for_delivery: {
+        Args: { p_delivery_id: string }
+        Returns: number
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       customer_credit_used: {
         Args: { p_customer_id: string; p_exclude_so_id?: string }
@@ -7582,6 +7811,10 @@ export type Database = {
           sort_order: number
         }[]
       }
+      get_effective_warranty_policy: {
+        Args: { p_item_id: string }
+        Returns: string
+      }
       get_invoice_summary: { Args: never; Returns: Json }
       get_payment_summary: { Args: never; Returns: Json }
       get_places_master_list: {
@@ -7682,6 +7915,7 @@ export type Database = {
       next_follow_up_request_number: { Args: never; Returns: string }
       next_po_number: { Args: never; Returns: string }
       next_so_number: { Args: never; Returns: string }
+      next_warranty_number: { Args: never; Returns: string }
       po_approval_action: {
         Args: {
           p_action: string
@@ -8116,6 +8350,15 @@ export type Database = {
       storage_customer_credit_docs_write_allowed: {
         Args: never
         Returns: boolean
+      }
+      storage_delete_object: {
+        Args: {
+          p_bucket: string
+          p_path: string
+          p_source_id?: string
+          p_source_table?: string
+        }
+        Returns: undefined
       }
       storage_lc_bills_write_allowed: { Args: never; Returns: boolean }
       submit_credit_group_change: {
