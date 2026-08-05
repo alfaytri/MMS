@@ -268,6 +268,10 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Warranty Module Phase 1 Task 1: warranty_policies migration + seed** — branch `feature/warranty-module-phase-1` off `deploy/warehouse-shipping`. Adds `warranty_policies` table (name, duration_months, coverage_type, starts_from, terms_en/ar, void_conditions[], is_active), `warranty_number_seq` sequence + `next_warranty_number()` helper, and seeds 3 default policies (Standard 12mo parts-only, AC/Large Appliance 24mo parts+labor, No Warranty).
+
+---
+
 ✅ **Division column rollout — 4 lists shipped (`deploy/warehouse-shipping`).** Sales Orders (commit `931419f5`), Purchase Orders, Supplier Bills, Customer Invoices (commit `a53e6e7d`). Column gated on `isSuperViewer || availableDivisions.length > 1`, placed right after the supplier/customer column, outline badge with `short_name`. Legacy rows with `division_id = null` show em-dash. **Not yet done:** Sales Returns and Purchase Returns (card layout — badge would go inline next to the return number, needs `division_id` added to `SaleReturn` / `POReturn` types since hook already selects `*`), Sale Deliveries (division inherited from SO — needs hook select `sale_orders(division_id)`), Credit/Debit Notes (inherited from parent invoice/return — same shape), Purchase Receivals (inherited from PO). Follow-up if operator wants those too.
 
 ---
