@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **3E follow-up — dirty-guard on `invoices/CreditNoteDialog.tsx`**. This dialog is built on `<AlertDialog>` (not `<Dialog>`), so adding a small `GuardedAlertDialog` sibling to the shared `GuardedFormDialog` file and retrofitting the dialog.
+✅ **3E dirty-guard rollout fully closed** — added `GuardedAlertDialog` sibling to the shared wrapper file and retrofitted the last outstanding dialog (`invoices/CreditNoteDialog.tsx`, which was built on `<AlertDialog>` rather than `<Dialog>`). All 41 form dialogs on `deploy/warehouse-shipping` now prompt "Discard unsaved changes?" on Cancel / Escape / click-outside when dirty. Operator smoke on all prior batches passed 2026-08-05.
 
 ---
 
