@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Warranty Module Phase 1 Task 3: `inventory_items.warranty_policy_id` override FK** — nullable FK from `inventory_items` to `warranty_policies(id)` with `ON DELETE SET NULL`. NULL means "inherit from category chain"; a set value overrides the category default.
+🚀 Starting: **Warranty Module Phase 1 Task 4: `get_effective_warranty_policy(p_item_id)` resolver** — SQL function walking item override → recursive category `parent_id` walk (leaf → root, first non-null wins) → NULL. Recursive CTE on `inventory_categories`, ordered by depth ASC, LIMIT 1. STABLE, security_invoker.
 
 ---
 
@@ -380,6 +380,7 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 ## ✅ Completed
 
+- [2026-08-05] **Warranty Phase 1 Task 3: `inventory_items.warranty_policy_id` override FK** — `supabase/migrations/20260815003200_inventory_items_warranty_policy.sql` — nullable FK to `warranty_policies(id)` with `ON DELETE SET NULL`, partial index on non-null values. Per-item override that beats the category chain. Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 2: `inventory_categories.default_warranty_policy_id` FK** — `supabase/migrations/20260815003100_inventory_categories_default_warranty_policy.sql` — nullable FK to `warranty_policies(id)` with `ON DELETE SET NULL`; partial index on non-null values for the resolver walk. Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 1: `warranty_policies` migration + seed** — `supabase/migrations/20260815003000_warranty_policies.sql` — new table (`name` unique, `duration_months >= 0`, `coverage_type` in none/parts_only/parts_and_labor/replacement_only, `starts_from` in delivery_date/invoice_date, `terms_en/ar`, `void_conditions[]`, `is_active`), updated_at trigger, RLS mirroring `reason_list_categories` (authenticated read + manage — admin gate stays client-side), `warranty_number_seq` + `next_warranty_number()` -> `WAR-00001`, seeds 3 defaults (Standard 12mo parts_only, AC/Large Appliance 24mo parts_and_labor, No Warranty). Applied to staging; `db push --dry-run` clean.
 - [2026-08-04] **Storage audit deferred 3C — storage cascade triggers** — 7 migrations: `20260804232123_storage_cleanup_infra.sql` (pg_net + supabase_vault extensions, `storage_cleanup_failures` audit table, `storage_delete_object(bucket, path, source_table, source_id)` helper) then per-table triggers `_customers`, `_companies_divisions`, `_inventory_items`, `_stock_adjustments`, `_consumption_entries`, `_landed_cost_lines`. AFTER DELETE nukes every referenced Storage object; AFTER UPDATE OF the path column nukes the OLD value. Array columns (`stock_adjustments.photo_urls`, `consumption_entries.attachments`) use `EXCEPT`-diff so only elements removed by the update are deleted. Helper normalises full public URLs to object paths + strips `?t=` cache-busters. Fire-and-forget — a Storage outage never aborts a DB write; failures land in `storage_cleanup_failures`. Vault secret must be created manually before triggers succeed (see `## 🔄 In Progress`). Plan: [docs/superpowers/plans/2026-08-04-storage-cascade-triggers.md](docs/superpowers/plans/2026-08-04-storage-cascade-triggers.md). Applied to staging.
