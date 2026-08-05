@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Undo2 } from 'lucide-react'
 import {
-  AlertDialog, AlertDialogCancel, AlertDialogContent,
+  AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { GuardedAlertDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,10 +31,15 @@ export function CreditNoteDialog({ open, onOpenChange, invoice }: Props) {
   const [reason, setReason] = useState('')
   const { reasons, isLoading: loadingReasons } = useReasonLists('refund')
   const creditMutation = useIssueCreditNote()
+  const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const total = invoice?.total_amount ?? 0
   const parsedAmount = parseFloat(amount) || 0
   const isValid = reason && (type === 'full' || (parsedAmount > 0 && parsedAmount <= total))
+
+  // Full-refund is the seeded default; any change from ('full', '', '')
+  // means the operator engaged with the form.
+  const isDirty = type !== 'full' || amount !== '' || reason !== ''
 
   const handleSubmit = async () => {
     if (!invoice || !isValid) return
@@ -48,17 +54,22 @@ export function CreditNoteDialog({ open, onOpenChange, invoice }: Props) {
         lineItems: invoice.invoice_line_items ?? [],
       })
       toast.success('Credit note issued')
-      onOpenChange(false)
       setType('full')
       setAmount('')
       setReason('')
+      guardRef.current?.closeAfterSubmit()
     } catch {
       toast.error('Failed to issue credit note')
     }
   }
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next) { setType('full'); setAmount(''); setReason('') }
+    onOpenChange(next)
+  }
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <GuardedAlertDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
@@ -93,12 +104,14 @@ export function CreditNoteDialog({ open, onOpenChange, invoice }: Props) {
           </div>
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => { setType('full'); setAmount(''); setReason('') }}>Cancel</AlertDialogCancel>
+          <Button variant="outline" onClick={() => guardRef.current?.requestClose()} disabled={creditMutation.isPending}>
+            Cancel
+          </Button>
           <Button disabled={!isValid || creditMutation.isPending} onClick={handleSubmit}>
             {creditMutation.isPending ? 'Issuing...' : 'Issue Credit Note'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
-    </AlertDialog>
+    </GuardedAlertDialog>
   )
 }

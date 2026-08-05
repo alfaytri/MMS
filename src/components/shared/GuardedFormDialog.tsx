@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { useWatch, type FieldValues, type UseFormReturn } from 'react-hook-form'
 import { Dialog } from '@/components/ui/dialog'
+import { AlertDialog } from '@/components/ui/alert-dialog'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 export interface GuardedFormDialogHandle {
@@ -119,6 +120,37 @@ export const GuardedDialog = forwardRef<GuardedFormDialogHandle, GuardedDialogPr
         <Dialog open={open} onOpenChange={guardedOnOpenChange}>
           {children}
         </Dialog>
+        {confirmDialog}
+      </>
+    )
+  },
+)
+
+/**
+ * AlertDialog variant of {@link GuardedDialog}. Same imperative handle,
+ * same "Discard unsaved changes?" prompt — but wraps `<AlertDialog>`
+ * instead of `<Dialog>` for dialogs already built on the AlertDialog
+ * primitive (e.g. invoices/CreditNoteDialog).
+ */
+export const GuardedAlertDialog = forwardRef<GuardedFormDialogHandle, GuardedDialogProps>(
+  function GuardedAlertDialog({ open, onOpenChange, isDirty, children }, ref) {
+    const { guardedOnOpenChange, confirmDialog, closeWithoutPrompt } =
+      useDirtyDialogGuard({ isDirty, onOpenChange })
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        requestClose: () => guardedOnOpenChange(false),
+        closeAfterSubmit: closeWithoutPrompt,
+      }),
+      [guardedOnOpenChange, closeWithoutPrompt],
+    )
+
+    return (
+      <>
+        <AlertDialog open={open} onOpenChange={guardedOnOpenChange}>
+          {children}
+        </AlertDialog>
         {confirmDialog}
       </>
     )
