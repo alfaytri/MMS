@@ -1,0 +1,21 @@
+-- Section 1.17 — Fix latent 1.12 bug: add 'user_started' to
+-- inventory_check_event_type enum
+--
+-- Migration 20260726080000 (Enum Conversion Pass 3, pilot C) retyped
+-- inventory_check_log.event_type from text to a 6-value native enum:
+--   initialized · user_completed · all_counted · approval_action ·
+--   approved · rejected
+--
+-- Then migration 20260727010000 (Section 1.12) extended
+-- save_inventory_check_item_count to INSERT a 7th value —
+-- 'user_started' — on every counter's first save. But it never
+-- extended the enum. Postgres rejects the cast with
+--   invalid input value for enum inventory_check_event_type: "user_started"
+-- which aborts the RPC's whole transaction, so nothing since 1.12
+-- shipped has been able to save a first count for a fresh assignment.
+--
+-- Fix: one-line ADD VALUE. Cannot run inside an explicit BEGIN/COMMIT
+-- block, so this file has no transaction wrapper (mirrors the pattern
+-- used by 20260716120000_add_missing_fks_and_enum_conversions.sql).
+
+ALTER TYPE public.inventory_check_event_type ADD VALUE IF NOT EXISTS 'user_started';
