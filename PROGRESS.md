@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Warranty Module Phase 1 Task 11: `/master-data/warranty-policies` list page + create/edit dialog** — new route under `/master-data`, stat strip (Total / Active / Inactive), searchable list, New/Edit dialog with all policy fields (name, duration_months, coverage_type, starts_from, terms_en/ar, void_conditions[], is_active), row actions (edit + toggle active). No delete. Uses `GuardedFormDialog` per 3E rollout.
+🚀 Starting: **Warranty Module Phase 1 Task 12: Category edit dialog extension — "Default Warranty Policy" select** — extend the inventory category edit dialog with a nullable Select of active policies (`useActiveWarrantyPolicies`), with "(inherit from parent)" as the empty-value option. Sends `default_warranty_policy_id` to `inventory_categories` on save.
 
 ---
 
@@ -380,6 +380,7 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 ## ✅ Completed
 
+- [2026-08-05] **Warranty Phase 1 Task 11: `/master-data/admin/warranty-policies` list page + create/edit dialog** — `src/app/(dashboard)/master-data/admin/warranty-policies/page.tsx`, `src/components/master-data/AdminSidebar.tsx` — stat strip (Total / Active / Inactive), search, DataTable with 6 columns (name, duration with "No warranty" for 0, coverage badge, starts-from label, status, actions), row actions Edit + Deactivate/Activate (no Delete). Create/Edit dialog uses `GuardedFormDialog` (3E rollout compliance), sticky DialogFooter, `max-h-[90vh] overflow-y-auto`, RTL Arabic textarea, void_conditions parsed newline-per-condition to `text[]`. Sidebar entry with `ShieldCheck` icon under Operations, gated on `master_data.admin.view`. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 10: `useWarrantyRecordsForDelivery(delivery_id)` hook** — `src/hooks/useWarrantyRecordsForDelivery.ts` — filters `warranty_records` by joining `sale_delivery_lines!inner(sale_delivery_id)`. Cached under `queryKeys.warranty.recordsForDelivery(deliveryId)`, ordered by `created_at`. Feeds Print button visibility + certificate PDF payload. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 9: `useEffectiveWarranty(item_id)` hook** — `src/hooks/useEffectiveWarranty.ts` — thin wrapper on the `get_effective_warranty_policy` RPC + follow-up policy row fetch. Returns `{ policyId, policy }` (both nullable when the item is uninsured). Cached under `queryKeys.warranty.effectiveForItem(itemId)`, `staleTime: 30s`. `tsc --noEmit` clean.
 - [2026-08-05] **Warranty Phase 1 Task 8: `useWarrantyPolicies` hook** — `src/hooks/useWarrantyPolicies.ts`, `src/lib/queryKeys.ts` — `useWarrantyPolicies`, `useActiveWarrantyPolicies`, `useWarrantyPolicy(id)`, `useCreateWarrantyPolicy`, `useUpdateWarrantyPolicy`, `useToggleWarrantyPolicyActive`. All mutations surface raw Postgrest error fields (code/message/details/hint) via a local `throwDbError` per `feedback_surface_raw_db_errors`. Exports `COVERAGE_TYPES` + `STARTS_FROM_OPTIONS` enums and matching label maps. `queryKeys.warranty` namespace added (policies / policiesActive / policyDetail + reserved keys for Tasks 9-10). No delete mutation — records reference policies `ON DELETE RESTRICT`, so soft-archive via `is_active` toggle is the only way to hide a policy. `tsc --noEmit` clean.
