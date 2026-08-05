@@ -15,6 +15,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 
 const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   unpaid:         { label: 'Unpaid',         className: 'bg-muted text-muted-foreground' },
@@ -38,6 +39,13 @@ export default function BillsPage() {
   const [createOpen, setCreateOpen] = useState(false)
 
   const { data: bills, isLoading } = useSupplierBills({})
+  const { availableDivisions, isSuperViewer } = useActiveDivision()
+  const showDivisionColumn = isSuperViewer || availableDivisions.length > 1
+  const divisionLabelById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of availableDivisions) m.set(d.id, d.short_name || d.name)
+    return m
+  }, [availableDivisions])
 
   // Client-side filter — searches bill #, supplier and PO #
   const filtered = useMemo(() => {
@@ -82,6 +90,18 @@ export default function BillsPage() {
         </span>
       ),
     },
+    ...(showDivisionColumn ? [{
+      id: 'division',
+      accessorFn: (row: Bill) => (row.division_id ? divisionLabelById.get(row.division_id) ?? '—' : '—'),
+      header: 'Division',
+      cell: ({ row }) => {
+        const divisionId = row.original.division_id
+        const label = divisionId ? divisionLabelById.get(divisionId) : null
+        return label
+          ? <Badge variant="outline" className="text-[11px] font-medium">{label}</Badge>
+          : <span className="text-muted-foreground">—</span>
+      },
+    } satisfies ColumnDef<Bill>] : []),
     {
       id: 'po_number',
       header: 'PO #',
@@ -131,7 +151,7 @@ export default function BillsPage() {
         return <Badge className={cn('text-[10px] px-1.5 py-0', cfg.className)}>{cfg.label}</Badge>
       },
     },
-  ], [])
+  ], [showDivisionColumn, divisionLabelById])
 
   return (
     <PageWrapper>

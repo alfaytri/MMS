@@ -110,7 +110,14 @@ export default function PurchaseOrdersPage() {
   const [createBillPOId, setCreateBillPOId] = useState<string | null>(null)
 
   const cancelPO = useCancelPO()
-  const { activeDivisionId } = useActiveDivision()
+  const { activeDivisionId, availableDivisions, isSuperViewer } = useActiveDivision()
+
+  const showDivisionColumn = isSuperViewer || availableDivisions.length > 1
+  const divisionLabelById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of availableDivisions) m.set(d.id, d.short_name || d.name)
+    return m
+  }, [availableDivisions])
 
   const { data: orders, isLoading } = usePurchaseOrders({
     search,
@@ -389,6 +396,7 @@ export default function PurchaseOrdersPage() {
               <TableRow>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Supplier</TableHead>
+                {showDivisionColumn && <TableHead className="w-[100px]">Division</TableHead>}
                 <TableHead className="w-[110px]">Date</TableHead>
                 <TableHead className="w-[80px] text-center hidden md:table-cell">Items</TableHead>
                 <TableHead className="w-[140px] text-right">Total (QAR)</TableHead>
@@ -416,7 +424,7 @@ export default function PurchaseOrdersPage() {
                 ))
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-0">
+                  <TableCell colSpan={showDivisionColumn ? 9 : 8} className="p-0">
                     <EmptyState
                       title="No purchase orders found"
                       icon={<FileText className="h-6 w-6 text-muted-foreground" />}
@@ -457,6 +465,17 @@ export default function PurchaseOrdersPage() {
                           </Badge>
                         )}
                       </TableCell>
+                      {showDivisionColumn && (
+                        <TableCell>
+                          {po.division_id && divisionLabelById.get(po.division_id) ? (
+                            <Badge variant="outline" className="text-[11px] font-medium">
+                              {divisionLabelById.get(po.division_id)}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(po.created_date)}
                       </TableCell>
