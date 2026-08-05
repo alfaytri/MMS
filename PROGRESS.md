@@ -268,6 +268,10 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **SECURITY DEFINER views cleanup**. 4 views flagged by Supabase Advisors during 3C smoke testing — `warehouse_sub_container_totals`, `sale_order_lines_summary`, `return_line_progress`, `return_progress`. Plan per view: (a) fetch live definition + owner via `pg_views` / `pg_class.relowner`, (b) trace callers via grep, (c) either `ALTER VIEW ... SET (security_invoker = true)` (default, safe when RLS on underlying tables should apply to the querying user), or document why the view must stay definer-scoped. Starting with an audit-only migration draft; no applied changes until callers are verified.
+
+---
+
 ✅ **3E dirty-guard rollout fully closed** — added `GuardedAlertDialog` sibling to the shared wrapper file and retrofitted the last outstanding dialog (`invoices/CreditNoteDialog.tsx`, which was built on `<AlertDialog>` rather than `<Dialog>`). All 41 form dialogs on `deploy/warehouse-shipping` now prompt "Discard unsaved changes?" on Cancel / Escape / click-outside when dirty. Operator smoke on all prior batches passed 2026-08-05.
 
 ---
