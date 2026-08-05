@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Warranty Module Phase 1 Task 5: `warranty_records` table + RLS + indexes** — one row per delivered line, denormed customer/division/brand_variant, snapshotted policy fields (name, coverage, duration, terms en/ar), `start_date` + `end_date`, `warranty_number` unique from `next_warranty_number()`. UNIQUE on `sale_delivery_line_id` (idempotency). RLS `is_division_visible(division_id)` restrictive. Indexes on `(customer_id, end_date DESC)`, `(end_date)`, `(division_id)`.
+🚀 Starting: **Warranty Module Phase 1 Task 6: `complete_delivery_inventory` auto-creation hook** — modify (or wrap) the RPC so that when a delivery flips to `delivered`, for each `sale_delivery_line`: resolve item via `brand_variant_id → inventory_items.id`, call `get_effective_warranty_policy`, skip if NULL or duration 0, else compute `start_date` per `policy.starts_from` and `end_date = start_date + duration_months`, INSERT into `warranty_records` with all snapshots. Whole thing runs in the same transaction — a failure rolls the delivery back. Idempotency guaranteed by UNIQUE(sale_delivery_line_id).
 
 ---
 
@@ -380,6 +380,7 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 ## ✅ Completed
 
+- [2026-08-05] **Warranty Phase 1 Task 5: `warranty_records` table + division RLS** — `supabase/migrations/20260815003400_warranty_records.sql` — one row per delivered `sale_delivery_line` (UNIQUE FK for idempotency); denormed `sale_order_id/customer_id/division_id/brand_variant_id`; snapshotted `policy_name/coverage_type/duration_months/terms_en/terms_ar/void_conditions/starts_from`; `warranty_number` DEFAULT `next_warranty_number()`; CHECK `end_date >= start_date` and `qty > 0`; indexes on `(customer_id, end_date DESC)`, `(end_date)`, `(division_id)`, `(sale_order_id)`, `(policy_id)`; RLS `is_division_visible(division_id)` restrictive mirroring `sale_orders`. Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 4: `get_effective_warranty_policy(p_item_id)` resolver** — `supabase/migrations/20260815003300_get_effective_warranty_policy.sql` — SQL function; item override → recursive `inventory_categories.parent_id` walk (depth ASC, LIMIT 1 on first non-null default) → NULL. STABLE, SECURITY INVOKER, `search_path=public`. Needed `WITH RECURSIVE` (LANGUAGE sql requires the keyword even for a WITH block containing a self-referencing CTE). Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 3: `inventory_items.warranty_policy_id` override FK** — `supabase/migrations/20260815003200_inventory_items_warranty_policy.sql` — nullable FK to `warranty_policies(id)` with `ON DELETE SET NULL`, partial index on non-null values. Per-item override that beats the category chain. Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 2: `inventory_categories.default_warranty_policy_id` FK** — `supabase/migrations/20260815003100_inventory_categories_default_warranty_policy.sql` — nullable FK to `warranty_policies(id)` with `ON DELETE SET NULL`; partial index on non-null values for the resolver walk. Applied to staging.
