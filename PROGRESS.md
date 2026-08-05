@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Warranty Module Phase 1 Task 4: `get_effective_warranty_policy(p_item_id)` resolver** — SQL function walking item override → recursive category `parent_id` walk (leaf → root, first non-null wins) → NULL. Recursive CTE on `inventory_categories`, ordered by depth ASC, LIMIT 1. STABLE, security_invoker.
+🚀 Starting: **Warranty Module Phase 1 Task 5: `warranty_records` table + RLS + indexes** — one row per delivered line, denormed customer/division/brand_variant, snapshotted policy fields (name, coverage, duration, terms en/ar), `start_date` + `end_date`, `warranty_number` unique from `next_warranty_number()`. UNIQUE on `sale_delivery_line_id` (idempotency). RLS `is_division_visible(division_id)` restrictive. Indexes on `(customer_id, end_date DESC)`, `(end_date)`, `(division_id)`.
 
 ---
 
@@ -380,6 +380,7 @@ Division Switcher shipped end-to-end on `feature/division-switcher` (PR #1 + PR 
 
 ## ✅ Completed
 
+- [2026-08-05] **Warranty Phase 1 Task 4: `get_effective_warranty_policy(p_item_id)` resolver** — `supabase/migrations/20260815003300_get_effective_warranty_policy.sql` — SQL function; item override → recursive `inventory_categories.parent_id` walk (depth ASC, LIMIT 1 on first non-null default) → NULL. STABLE, SECURITY INVOKER, `search_path=public`. Needed `WITH RECURSIVE` (LANGUAGE sql requires the keyword even for a WITH block containing a self-referencing CTE). Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 3: `inventory_items.warranty_policy_id` override FK** — `supabase/migrations/20260815003200_inventory_items_warranty_policy.sql` — nullable FK to `warranty_policies(id)` with `ON DELETE SET NULL`, partial index on non-null values. Per-item override that beats the category chain. Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 2: `inventory_categories.default_warranty_policy_id` FK** — `supabase/migrations/20260815003100_inventory_categories_default_warranty_policy.sql` — nullable FK to `warranty_policies(id)` with `ON DELETE SET NULL`; partial index on non-null values for the resolver walk. Applied to staging.
 - [2026-08-05] **Warranty Phase 1 Task 1: `warranty_policies` migration + seed** — `supabase/migrations/20260815003000_warranty_policies.sql` — new table (`name` unique, `duration_months >= 0`, `coverage_type` in none/parts_only/parts_and_labor/replacement_only, `starts_from` in delivery_date/invoice_date, `terms_en/ar`, `void_conditions[]`, `is_active`), updated_at trigger, RLS mirroring `reason_list_categories` (authenticated read + manage — admin gate stays client-side), `warranty_number_seq` + `next_warranty_number()` -> `WAR-00001`, seeds 3 defaults (Standard 12mo parts_only, AC/Large Appliance 24mo parts_and_labor, No Warranty). Applied to staging; `db push --dry-run` clean.
