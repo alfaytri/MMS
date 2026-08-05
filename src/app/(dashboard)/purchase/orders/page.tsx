@@ -500,7 +500,17 @@ export default function PurchaseOrdersPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
+                        <div className="inline-flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 gap-1"
+                            onClick={() => setCreateBillPOId(po.id)}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Create Bill</span>
+                          </Button>
+                          <DropdownMenu>
                           <DropdownMenuTrigger className="inline-flex h-8 w-8 min-h-11 md:min-h-0 min-w-11 md:min-w-0 items-center justify-center rounded-md hover:bg-accent" aria-label="Row actions">
                             <MoreVertical className="h-4 w-4" />
                           </DropdownMenuTrigger>
@@ -509,7 +519,6 @@ export default function PurchaseOrdersPage() {
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem onClick={() => router.push(`/purchase/edit-po/${po.id}`)}>Edit</DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => setCreateBillPOId(po.id)}>Create Bill</DropdownMenuItem>
                             {po.status !== 'cancelled' && (
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
@@ -526,6 +535,7 @@ export default function PurchaseOrdersPage() {
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
