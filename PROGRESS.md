@@ -268,7 +268,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-🚀 Starting: **Division column rollout across module list pages.** Sales orders already ships the column (commit `931419f5`). Extending the same pattern (outline badge with `short_name`, `useActiveDivision` gate on `isSuperViewer || availableDivisions.length > 1`, matching badge on mobile card) to the other multi-division-relevant list pages: Purchase Orders, Purchase Receivals, Sales Deliveries, Sales/Purchase Returns, Invoices (`/invoices`), Supplier Bills. Consistent placement (right after the customer/supplier column). Legacy rows with `division_id = null` render an em-dash / no badge.
+✅ **Division column rollout — 4 lists shipped (`deploy/warehouse-shipping`).** Sales Orders (commit `931419f5`), Purchase Orders, Supplier Bills, Customer Invoices (commit `a53e6e7d`). Column gated on `isSuperViewer || availableDivisions.length > 1`, placed right after the supplier/customer column, outline badge with `short_name`. Legacy rows with `division_id = null` show em-dash. **Not yet done:** Sales Returns and Purchase Returns (card layout — badge would go inline next to the return number, needs `division_id` added to `SaleReturn` / `POReturn` types since hook already selects `*`), Sale Deliveries (division inherited from SO — needs hook select `sale_orders(division_id)`), Credit/Debit Notes (inherited from parent invoice/return — same shape), Purchase Receivals (inherited from PO). Follow-up if operator wants those too.
 
 ---
 
