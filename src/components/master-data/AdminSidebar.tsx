@@ -22,6 +22,7 @@ import {
   Coins,
   Globe,
   Menu,
+  ShieldCheck,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -56,6 +57,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
     label: 'Operations',
     items: [
       { label: 'Reason Lists',       href: '/master-data/admin/reason-lists',       icon: List,        permission: 'master_data.admin.view' },
+      { label: 'Warranty Policies',  href: '/master-data/admin/warranty-policies',  icon: ShieldCheck, permission: 'master_data.admin.view' },
       { label: 'Payment Methods',    href: '/master-data/admin/payment-methods',    icon: Banknote,    permission: 'master_data.admin.view' },
       { label: 'Currencies',         href: '/master-data/admin/currencies',         icon: Coins,       permission: 'master_data.admin.view' },
       { label: 'Country Codes',      href: '/master-data/admin/country-codes',      icon: Globe,       permission: 'master_data.admin.view' },
