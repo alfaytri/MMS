@@ -46,7 +46,7 @@ export function useVariantStockByDivision(itemId?: string | null) {
       const { data: rows, error: sErr } = await supabase
         .from('warehouse_stock_summary')
         .select(
-          'brand_variant_id, qty, reserved_qty, warehouse_sub_containers:sub_container_id(division_id, divisions:division_id(name))',
+          'brand_variant_id, qty, allocated_qty, warehouse_sub_containers:sub_container_id(division_id, divisions:division_id(name))',
         )
         .in('brand_variant_id', variantIds)
         .gt('qty', 0)
@@ -57,7 +57,7 @@ export function useVariantStockByDivision(itemId?: string | null) {
         const row = r as unknown as {
           brand_variant_id: string
           qty: number | null
-          reserved_qty: number | null
+          allocated_qty: number | null
           warehouse_sub_containers: {
             division_id: string | null
             divisions: { name: string | null } | null
@@ -71,13 +71,13 @@ export function useVariantStockByDivision(itemId?: string | null) {
         const existing = poolsForVariant.get(key)
         if (existing) {
           existing.qty += Number(row.qty ?? 0)
-          existing.reserved += Number(row.reserved_qty ?? 0)
+          existing.reserved += Number(row.allocated_qty ?? 0)
         } else {
           poolsForVariant.set(key, {
             division_id: divisionId,
             division_name: divisionName,
             qty: Number(row.qty ?? 0),
-            reserved: Number(row.reserved_qty ?? 0),
+            reserved: Number(row.allocated_qty ?? 0),
           })
         }
         byVariant.set(row.brand_variant_id, poolsForVariant)
