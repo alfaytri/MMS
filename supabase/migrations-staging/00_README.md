@@ -93,6 +93,8 @@ When staging DB drifts from these files and you want to refresh them:
 
 ## Last rebuilt
 
+**2026-08-06** — mirror-fill: 63 delta migrations (post-2026-08-05 baseline through 2026-08-15 warranty phase 1) that had accumulated in `supabase/migrations/` but were never mirrored here. Full parity restored — for every file in `supabase/migrations/` with a timestamp ≥ `20260805` there is now a matching file in this folder. The baseline itself was NOT rebuilt; a proper `pg_dump` refresh remains available as future cleanup when the delta count grows large again.
+
 **2026-08-05** — rebuilt from a live `pg_dump` of staging (`mwvblpgbgxipvrevkeff`). The previous 2026-07-24 hand-concatenated baseline had a fatal ordering bug (`UPDATE invoices` ran before `CREATE TABLE invoices`) which prevented a fresh reset. The new baseline uses `pg_dump` output directly, so ordering is guaranteed to match the live DB. All 251 pre-2026-08-05 delta migrations that had been mirrored earlier this day were moved into `_archive/` because their effect is fully captured by the new dump. Verified end-to-end by resetting the scratch project (`kfykuifatnmsdcziaybk`) — both migrations applied with zero errors.
 
 2026-07-24 — baseline squashed from 190 per-file migrations + 6 post-2026-07-13 dev delta migrations (excluded chat/orders/teams/calendar/employees migrations). *Retired — had `UPDATE invoices` ordering bug. Preserved in `_archive/20260724100000_staging_baseline.sql` for history.*
