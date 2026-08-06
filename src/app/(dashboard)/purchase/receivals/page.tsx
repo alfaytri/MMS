@@ -112,6 +112,8 @@ function RequestEditDialog({
   const requestEdit = useRequestReceivalEdit()
   const [reason, setReason] = useState('')
 
+  useEffect(() => { if (receival) setReason('') }, [receival?.id])
+
   if (!receival) return null
   return (
     <Dialog open={!!receival} onOpenChange={(o) => { if (!o) onClose() }}>
@@ -252,9 +254,10 @@ function ReceivalEditDialog({
                 </div>
                 <div className="col-span-3">
                   <label className="text-xs text-muted-foreground">Unit Cost</label>
-                  <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm tabular-nums">
-                    {item.new_unit_cost.toLocaleString('en', { minimumFractionDigits: 2 })}
-                  </div>
+                  <Input type="number" min={0} step="0.01" disabled={expired}
+                    value={item.new_unit_cost}
+                    onChange={(e) => setItems(its => its.map((it, i) =>
+                      i === idx ? { ...it, new_unit_cost: parseFloat(e.target.value) || 0 } : it))} />
                 </div>
                 <div className="col-span-2 text-xs text-muted-foreground pt-4">
                   {ri && ri.qty_received !== item.new_qty && (
