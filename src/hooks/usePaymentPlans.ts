@@ -108,59 +108,26 @@ export function useSettleInstallment() {
   return useMutation<void, Error, SettleInstallmentVars>({
     mutationFn: async (payload) => {
       const supabase = createClient()
-      const { count } = await supabase
-        .from('payments')
-        .select('*', { count: 'exact', head: true })
-      const payment_id = `PAY-${String((count ?? 0) + 1).padStart(5, '0')}`
 
-      const currency = payload.currency ?? 'QAR'
-      const exchangeRate = payload.exchange_rate ?? 1
-
-      const isAr = 'invoice_id' in payload
-      const parentCols = isAr
-        ? { invoice_id: payload.invoice_id }
-        : { bill_id: payload.bill_id }
-      const direction: 'incoming' | 'outgoing' = isAr ? 'incoming' : 'outgoing'
-
-      const { data: payment, error: payErr } = await supabase
-        .from('payments')
-        .insert({
-          payment_id,
-          ...parentCols,
-          amount: payload.amount_paid,
-          method: payload.method,
-          date: payload.date,
-          reference: payload.reference,
-          direction,
-          status: 'completed',
-          currency,
-          exchange_rate: exchangeRate,
-          amount_qar: payload.amount_paid * exchangeRate,
-        })
-        .select()
-        .single()
-      if (payErr) throw payErr
-
-      await supabase
-        .from('payment_installments')
-        .update({
-          paid_amount: payload.amount_paid,
-          status: 'paid',
-          payment_id: payment.id,
-        })
-        .eq('id', payload.installment_id)
-
-      // Check if plan is fully settled
-      const { data: installments } = await supabase
-        .from('payment_installments')
-        .select('status')
-        .eq('plan_id', payload.plan_id)
-      const allPaid = (installments ?? []).every((i) => i.status === 'paid')
-      if (allPaid) {
-        await supabase
-          .from('payment_plans')
-          .update({ status: 'completed' })
-          .eq('id', payload.plan_id)
+      // rpc_settle_installment handles everything atomically: payment
+      // number generation under lock, additive paid_amount update (never
+      // overwrite), conditional status (partial vs paid), plan completion
+      // recompute. See migration 20260806140000.
+      const { error: rpcErr } = await supabase.rpc('rpc_settle_installment', {
+        p_installment_id: payload.installment_id,
+        p_amount_paid:    payload.amount_paid,
+        p_method:         payload.method,
+        p_date:           payload.date,
+        p_reference:      payload.reference ?? undefined,
+        p_currency:       payload.currency ?? 'QAR',
+        p_exchange_rate:  payload.exchange_rate ?? 1,
+      })
+      if (rpcErr) {
+        throw new Error(
+          `Settle installment failed: ${rpcErr.code} ${rpcErr.message}` +
+          `${rpcErr.details ? ' — ' + rpcErr.details : ''}` +
+          `${rpcErr.hint ? ' (' + rpcErr.hint + ')' : ''}`,
+        )
       }
     },
     onSuccess: (_: void, vars: SettleInstallmentVars) => {

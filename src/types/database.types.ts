@@ -8324,6 +8324,18 @@ export type Database = {
         }
         Returns: string
       }
+      rpc_settle_installment: {
+        Args: {
+          p_amount_paid: number
+          p_currency?: string
+          p_date: string
+          p_exchange_rate?: number
+          p_installment_id: string
+          p_method: string
+          p_reference?: string
+        }
+        Returns: string
+      }
       rpc_update_document_initial_rate: {
         Args: {
           p_document_id: string
