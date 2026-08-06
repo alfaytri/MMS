@@ -214,9 +214,11 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
               <Select value={method} onValueChange={(v) => setMethod(v ?? '')}>
                 <SelectTrigger id="cust-pay-method"><SelectValue placeholder="Select method…" /></SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
-                  {dbMethods.map((m) => (
-                    <SelectItem key={m.id} value={m.slug}>{m.name}</SelectItem>
-                  ))}
+                  {dbMethods
+                    .filter((m) => m.slug !== 'credit_note' && m.slug !== 'debit_note')
+                    .map((m) => (
+                      <SelectItem key={m.id} value={m.slug}>{m.name}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

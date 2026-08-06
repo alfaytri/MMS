@@ -31,7 +31,12 @@ export function SoPaymentDialog({ open, onOpenChange, so }: SoPaymentDialogProps
   const { data: balances = [] } = useCustomerCreditBalances()
   const { data: openCNs = [] } = useOpenCreditNotesForCustomer(open ? so.customer_id : null)
 
-  const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
+  // CN/DN redemptions go through the Apply-CN / Apply-DN flows, not this
+  // manual "Record Payment" dialog. Filter them out so operators can't
+  // accidentally record a plain cash payment under a credit-note method.
+  const methods = dbMethods
+    .filter((m) => m.slug !== 'credit_note' && m.slug !== 'debit_note')
+    .map((m) => ({ value: m.slug, label: m.name }))
   const showExchangeRate = so.currency !== 'QAR'
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0)

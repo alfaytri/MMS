@@ -20,6 +20,7 @@ import { SoInvoiceTab } from './SoInvoiceTab'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
 import { DocumentExchangeTab } from '@/components/shared/DocumentExchangeTab'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
+import { PaymentPlanSection } from '@/components/finance/PaymentPlanSection'
 import { SoApprovalBanner } from '@/components/sales/SoApprovalBanner'
 import {
   useSaleOrder,
@@ -444,6 +445,15 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                           <Button variant="outline" size="sm" onClick={() => setPaymentPlanOpen(true)}>
                             Set Up Payment Plan
                           </Button>
+                        </div>
+                      )}
+                      {(paymentPlans ?? []).length > 0 && (
+                        <div className="mb-4">
+                          <PaymentPlanSection
+                            plans={paymentPlans ?? []}
+                            currency={current?.currency ?? 'QAR'}
+                            canSettle={!!canRecordPayment}
+                          />
                         </div>
                       )}
                       <PaymentSummaryTab

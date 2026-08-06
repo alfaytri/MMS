@@ -120,6 +120,30 @@ export async function generateInvoicePdf(
     reference: p.reference,
   }))
 
+  // Payment plan schedule (active plans only). Renders under a
+  // "Payment Schedule" section in the PDF.
+  const { data: planRows } = await supabase
+    .from('payment_plans')
+    .select('id, status, plan_type, total_amount, payment_installments(id, due_date, amount, paid_amount, status)')
+    .eq('invoice_id', inv.id)
+    .eq('status', 'active')
+    .limit(5)
+
+  type InstRow = { id: string; due_date: string | null; amount: number | null; paid_amount: number | null; status: string }
+  type PlanRow = { id: string; status: string; plan_type: string; total_amount: number | null; payment_installments: InstRow[] | null }
+  const paymentPlan = (planRows as PlanRow[] | null)?.[0] ?? null
+  const paymentInstallments = paymentPlan
+    ? (paymentPlan.payment_installments ?? [])
+        .slice()
+        .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))
+        .map((i) => ({
+          due_date:    i.due_date,
+          amount:      Number(i.amount ?? 0),
+          paid_amount: Number(i.paid_amount ?? 0),
+          status:      i.status,
+        }))
+    : []
+
   const html = buildInvoiceHtml({
     invoice_id:     inv.invoice_id,
     invoice_type:   inv.invoice_type,
@@ -142,6 +166,8 @@ export async function generateInvoicePdf(
     payment_terms:  inv.sale_orders?.payment_terms ?? null,
     notes:          inv.notes,
     isPaid:         inv.payment_status === 'paid',
+    plan_type:      (paymentPlan?.plan_type as 'schedule' | 'adhoc' | null) ?? null,
+    installments:   paymentInstallments,
     assets,
     fonts,
   })

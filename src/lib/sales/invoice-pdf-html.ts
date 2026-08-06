@@ -32,6 +32,13 @@ export interface InvoicePayment {
   reference: string | null
 }
 
+export interface InvoiceInstallment {
+  due_date:    string | null
+  amount:      number
+  paid_amount: number
+  status:      string
+}
+
 export interface BuildInvoiceHtmlInput {
   invoice_id:      string
   invoice_type:    'cash' | 'credit'
@@ -51,6 +58,8 @@ export interface BuildInvoiceHtmlInput {
   payment_terms:   string | null
   notes:           string | null
   isPaid:          boolean
+  plan_type?:      'schedule' | 'adhoc' | null
+  installments?:   InvoiceInstallment[]
   assets:          PdfAssets
   fonts:           PdfFonts
 }
@@ -106,6 +115,35 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
       </tr>
     `).join('')
     : `<tr><td colspan="4" style="text-align:center;color:var(--muted);font-style:italic;">No payments recorded</td></tr>`
+
+  const installments = input.installments ?? []
+  const installmentSection = installments.length > 0 ? `
+    <div class="plan-wrap">
+      <div class="plan-title">Payment Schedule${input.plan_type ? ` — ${input.plan_type === 'schedule' ? 'Scheduled' : 'Ad-hoc'}` : ''}</div>
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th style="width:6%">#</th>
+            <th style="width:30%">Due Date</th>
+            <th style="width:22%">Amount</th>
+            <th style="width:22%">Paid</th>
+            <th style="width:20%">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${installments.map((inst, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${inst.due_date ? escapeHtml(fmtDate(inst.due_date)) : '—'}</td>
+              <td class="cell-num">${escapeHtml(fmtMoney(inst.amount, currency))}</td>
+              <td class="cell-num">${escapeHtml(fmtMoney(inst.paid_amount, currency))}</td>
+              <td>${escapeHtml(inst.status)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  ` : ''
 
   const termsRows: string[] = []
   if (input.payment_terms) {
@@ -170,6 +208,35 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
     border-left: 2px solid var(--orange);
   }
   .notes-block .notes-label { font-weight: 600; color: var(--text); font-style: normal; }
+
+  /* ─── Payment Schedule (from active payment plan) ─── */
+  .plan-wrap {
+    margin: 4mm 14mm 0;
+    font-family: 'IBMPlexSans', sans-serif;
+  }
+  .plan-title {
+    font-size: 9px; font-weight: 600; color: var(--text);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 1.5mm;
+  }
+  table.plan-table {
+    width: 100%; border-collapse: collapse; font-size: 9px;
+    border: 0.7px solid var(--grey-rule);
+  }
+  table.plan-table th {
+    background: var(--grey-bg); color: var(--text); font-weight: 600;
+    text-align: left; padding: 1.5mm 2.5mm;
+    border-right: 0.7px solid var(--grey-rule);
+    border-bottom: 0.7px solid var(--grey-rule);
+  }
+  table.plan-table th:last-child { border-right: 0; }
+  table.plan-table td {
+    padding: 1.5mm 2.5mm;
+    border-right: 0.7px solid var(--grey-rule);
+    border-top: 0.7px solid var(--grey-rule);
+  }
+  table.plan-table td:last-child { border-right: 0; }
+  table.plan-table td.cell-num { text-align: right; font-variant-numeric: tabular-nums; }
 
   .paid-stamp {
     position: absolute; top: 45%; left: 50%;
@@ -316,6 +383,8 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
       </div>
     </div>
   </div>
+
+  ${installmentSection}
 
   ${notesHtml}
 

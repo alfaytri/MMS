@@ -16,7 +16,11 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
   const { data: payments = [] } = usePOPayments(po.id)
   const { data: dbMethods = [] } = usePaymentMethods()
 
-  const methods = dbMethods.map((m) => ({ value: m.slug, label: m.name }))
+  // CN/DN redemptions go through the Apply flows, not this manual
+  // Record Payment dialog. Filter them out.
+  const methods = dbMethods
+    .filter((m) => m.slug !== 'credit_note' && m.slug !== 'debit_note')
+    .map((m) => ({ value: m.slug, label: m.name }))
 
   const showExchangeRate = po.currency !== 'QAR'
 
