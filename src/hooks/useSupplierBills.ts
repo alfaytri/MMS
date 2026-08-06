@@ -117,59 +117,21 @@ export function useCreateBill() {
     }) => {
       const supabase = createClient()
 
-      // Bill number = <PO number>-B. DB enforces 1 PO = 1 bill via UNIQUE.
-      const billNumber = `${payload.po_number}-B`
-
-      const today = new Date().toISOString().split('T')[0]
-      const subtotal = payload.line_items.reduce((s, l) => s + l.total, 0)
-      const discount = payload.discount_amount ?? 0
-      const totalAmount = subtotal - discount
-
-      const { data: po } = await supabase
-        .from('purchase_orders')
-        .select('division_id')
-        .eq('id', payload.purchase_order_id)
-        .single()
-
-      const { data: bill, error } = await supabase
-        .from('bills')
-        .insert({
-          bill_number:       billNumber,
-          supplier_id:       payload.supplier_id,
-          purchase_order_id: payload.purchase_order_id,
-          division_id:       po?.division_id ?? null,
-          receival_id:       payload.receival_id,
-          payment_status:    'unpaid',
-          needs_refresh:     false,
-          source_label:      payload.source_label ?? null,
-          subtotal:          subtotal,
-          discount_amount:   discount,
-          discount_label:    payload.discount_label ?? null,
-          total_amount:      totalAmount,
-          issued_date:       today,
-          due_date:          payload.due_date,
-          notes:             payload.notes || null,
-        })
-        .select()
-        .single()
-      if (error) throw error
-
-      if (payload.line_items.length > 0) {
-        const { error: liErr } = await supabase
-          .from('bill_line_items')
-          .insert(
-            payload.line_items.map((l) => ({
-              bill_id: bill.id,
-              description: l.description,
-              qty: l.qty,
-              unit_price: l.unit_price,
-              total: l.total,
-              match_status: l.match_status,
-              match_note: l.match_note,
-            }))
-          )
-        if (liErr) throw liErr
+      // rpc_create_purchase_bill runs the header + lines insert
+      // atomically and enforces 0 ≤ discount ≤ subtotal server-side.
+      // See migration 20260806160000.
+      const { data: billJson, error: rpcErr } = await supabase.rpc(
+        'rpc_create_purchase_bill',
+        { p_payload: payload as unknown as import('@/types/database.types').Json },
+      )
+      if (rpcErr) {
+        throw new Error(
+          `Create bill failed: ${rpcErr.code} ${rpcErr.message}` +
+          `${rpcErr.details ? ' — ' + rpcErr.details : ''}` +
+          `${rpcErr.hint ? ' (' + rpcErr.hint + ')' : ''}`,
+        )
       }
+      const bill = billJson as unknown as Bill
       void logActivity({
         action: 'Bill Created',
         module: 'bills',
@@ -177,7 +139,7 @@ export function useCreateBill() {
         entity_type: 'bill',
         new_data: bill as unknown as Record<string, unknown>,
       })
-      return bill as Bill
+      return bill
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all }),
   })

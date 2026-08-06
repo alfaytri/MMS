@@ -408,90 +408,32 @@ export function useCreatePO() {
   return useMutation({
     mutationFn: async (payload: CreatePOPayload) => {
       const supabase = createClient()
-      const po_number = await generatePONumber(supabase)
 
-      const { data: { user } } = await supabase.auth.getUser()
+      // Atomic header+lines+RFQ-quotes create via SECURITY DEFINER RPC.
+      // Previously four+ auto-committed calls — if line insert failed the
+      // header committed with a used PO number and zero lines. See
+      // migration 20260806150000.
+      const { data: poJson, error: rpcErr } = await supabase.rpc(
+        'rpc_create_purchase_order',
+        { p_payload: payload as unknown as import('@/types/database.types').Json },
+      )
+      if (rpcErr) throw new Error(formatPgError(rpcErr))
+      const po = poJson as unknown as PurchaseOrder
 
-      // purchase_orders.created_by has a FK to profiles(id), which is a different UUID
-      // namespace than auth.users(id). Resolve the profile row before inserting.
-      let creatorProfileId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('user_data').select('id').eq('auth_user_id', user.id).maybeSingle()
-        creatorProfileId = profile?.id ?? null
-      }
-
-      const subtotal = payload.line_items.reduce((s, li) => s + li.total_price, 0)
-      const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
-      const approval_level = calcApprovalLevel(total_qar)
-
-      const { data: po, error: poErr } = await supabase
-        .from('purchase_orders')
-        .insert({
-          po_number,
-          supplier_id: payload.supplier_id,
-          supplier_name: payload.supplier_name,
-          status: 'draft',
-          currency: payload.currency,
-          exchange_rate: payload.exchange_rate,
-          initial_exchange_rate: payload.exchange_rate,
-          subtotal,
-          total_qar,
-          approval_level,
-          created_date: new Date().toISOString().split('T')[0],
-          expected_delivery: payload.expected_delivery,
-          quote_deadline: payload.quote_deadline ?? null,
-          payment_terms: payload.payment_terms,
-          payment_terms_notes: payload.payment_terms_notes,
-          payment_milestones: payload.payment_milestones ?? null,
-          delivery_terms: payload.delivery_terms,
-          delivery_terms_notes: payload.delivery_terms_notes,
-          vendor_notes: payload.vendor_notes,
-          discount_amount: payload.discount_amount,
-          discount_label: payload.discount_label,
-          created_by: creatorProfileId,
-          division_id: payload.division_id ?? null,
-          po_type: payload.po_type ?? 'draft',
-          rfq_supplier_ids: payload.rfq_supplier_ids ?? [],
-        })
-        .select()
-        .single()
-      if (poErr) throw poErr
-
-      if (payload.line_items.length > 0) {
-        const resolved = await resolveLineItemNames(supabase, payload.line_items)
-        const { error: liErr } = await supabase
-          .from('po_line_items')
-          .insert(resolved.map((li) => ({ ...li, po_id: po.id })))
-        if (liErr) throw liErr
-      }
-
-      if (payload.po_type === 'rfq' && payload.rfq_supplier_ids?.length) {
-        const quoteRows = payload.rfq_supplier_ids.map((sid) => ({
-          po_id: po.id,
-          supplier_id: sid,
-          currency: payload.currency,
-          status: 'pending',
-        }))
-        const { error: quoteErr } = await supabase
-          .from('po_rfq_quotes')
-          .insert(quoteRows)
-        if (quoteErr) throw quoteErr
-      }
-
+      // Best-effort side effects — failures here no longer leave the DB
+      // in an inconsistent state (RPC already committed atomically).
       const performerName = await resolveMyName()
+      const total_qar = (payload.line_items.reduce((s, li) => s + li.total_price, 0)
+        - payload.discount_amount) * payload.exchange_rate
       await logPOActivity({
         poId: po.id,
         action: 'PO Created',
         details: `Supplier: ${payload.supplier_name} · ${payload.line_items.length} line item(s) · Total: ${total_qar.toLocaleString()} QAR`,
         performerName,
       })
-
-      // Snapshot the just-created PO.
-      // stageOf maps: rfq→'rfq', draft→'draft', confirmed→'po'.
       await savePoSnapshot(supabase, po.id, stageOf(payload.po_type ?? 'draft'))
 
-      return po as PurchaseOrder
+      return po
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })

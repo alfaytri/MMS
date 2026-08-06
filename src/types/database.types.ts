@@ -8140,6 +8140,8 @@ export type Database = {
         }
         Returns: string
       }
+      rpc_create_purchase_bill: { Args: { p_payload: Json }; Returns: Json }
+      rpc_create_purchase_order: { Args: { p_payload: Json }; Returns: Json }
       rpc_customer_statement: {
         Args: {
           p_customer_id: string
