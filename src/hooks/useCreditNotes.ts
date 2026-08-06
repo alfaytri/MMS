@@ -536,16 +536,34 @@ export function useResolveDebitNoteSupplierCredit() {
 
   return useMutation({
     mutationFn: async (debitNoteId: string) => {
-      // Phase 8.1b: DN has no dual-ledger (deferred to Phase 9). Both
-      // resolution_type and status flip together on the manual action.
-      const { error } = await supabase
+      // H6: this action now offsets the supplier's bill via
+      // rpc_apply_debit_note_to_bill (before the fix, it only flipped a
+      // resolution flag and AP aging kept the pre-return balance
+      // forever). The RPC handles the payment row, bill.paid_amount +
+      // payment_status flip, DN.remaining_amount decrement — all in one
+      // transaction. Passing p_amount = NULL applies min(DN remaining,
+      // bill outstanding).
+      const { error: rpcErr } = await supabase.rpc('rpc_apply_debit_note_to_bill', {
+        p_debit_note_id: debitNoteId,
+        p_amount:        undefined,
+      })
+      if (rpcErr) {
+        throw new Error(
+          `Apply DN to bill failed: ${rpcErr.code} ${rpcErr.message}` +
+          `${rpcErr.details ? ' — ' + rpcErr.details : ''}` +
+          `${rpcErr.hint ? ' (' + rpcErr.hint + ')' : ''}`,
+        )
+      }
+
+      // Flip the resolution flag now that the offset landed
+      const { error: updErr } = await supabase
         .from('debit_notes')
         .update({ resolution_type: 'supplier_credit', status: 'resolved' })
         .eq('id', debitNoteId)
-      if (error) throw error
+      if (updErr) throw updErr
 
       void logActivity({
-        action: 'supplier_credit Resolution Applied',
+        action: 'DN applied to supplier bill',
         module: 'debit_notes',
         entity_id: debitNoteId,
         entity_type: 'debit_note',
@@ -554,6 +572,8 @@ export function useResolveDebitNoteSupplierCredit() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
+      qc.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
+      qc.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
     },
   })
 }

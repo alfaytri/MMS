@@ -1675,6 +1675,7 @@ export type Database = {
           purchase_order_id: string | null
           reason: string
           reason_id: string | null
+          remaining_amount: number | null
           resolution_type: string | null
           source_return_id: string | null
           status: Database["public"]["Enums"]["credit_note_status"] | null
@@ -1694,6 +1695,7 @@ export type Database = {
           purchase_order_id?: string | null
           reason: string
           reason_id?: string | null
+          remaining_amount?: number | null
           resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
@@ -1713,6 +1715,7 @@ export type Database = {
           purchase_order_id?: string | null
           reason?: string
           reason_id?: string | null
+          remaining_amount?: number | null
           resolution_type?: string | null
           source_return_id?: string | null
           status?: Database["public"]["Enums"]["credit_note_status"] | null
@@ -3353,6 +3356,7 @@ export type Database = {
           currency_id: string | null
           customer_id: string | null
           date: string
+          debit_note_id: string | null
           deleted_at: string | null
           direction: Database["public"]["Enums"]["payment_direction"]
           exchange_gain: number
@@ -3387,6 +3391,7 @@ export type Database = {
           currency_id?: string | null
           customer_id?: string | null
           date: string
+          debit_note_id?: string | null
           deleted_at?: string | null
           direction?: Database["public"]["Enums"]["payment_direction"]
           exchange_gain?: number
@@ -3423,6 +3428,7 @@ export type Database = {
           currency_id?: string | null
           customer_id?: string | null
           date?: string
+          debit_note_id?: string | null
           deleted_at?: string | null
           direction?: Database["public"]["Enums"]["payment_direction"]
           exchange_gain?: number
@@ -3486,6 +3492,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_debit_note_id_fkey"
+            columns: ["debit_note_id"]
+            isOneToOne: false
+            referencedRelation: "debit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -8081,6 +8094,10 @@ export type Database = {
           p_transfer_id: string
         }
         Returns: undefined
+      }
+      rpc_apply_debit_note_to_bill: {
+        Args: { p_amount?: number; p_debit_note_id: string }
+        Returns: string
       }
       rpc_attribute_picker_step: {
         Args: { p_category_id: string; p_picks?: Json }
