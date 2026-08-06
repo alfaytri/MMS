@@ -1549,6 +1549,7 @@ export type Database = {
           cr_url: string | null
           created_at: string | null
           credit_group_id: string | null
+          division_id: string | null
           email: string | null
           entity_type:
             | Database["public"]["Enums"]["customer_entity_type"]
@@ -1569,6 +1570,7 @@ export type Database = {
           cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
+          division_id?: string | null
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
@@ -1589,6 +1591,7 @@ export type Database = {
           cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
+          division_id?: string | null
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
@@ -1609,6 +1612,13 @@ export type Database = {
             columns: ["credit_group_id"]
             isOneToOne: false
             referencedRelation: "credit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
         ]
@@ -5840,6 +5850,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency_id: string | null
+          division_id: string | null
           email: string | null
           id: string
           is_active: boolean | null
@@ -5858,6 +5869,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -5876,6 +5888,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -5905,6 +5918,13 @@ export type Database = {
             columns: ["currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
         ]
@@ -8096,7 +8116,7 @@ export type Database = {
         Returns: undefined
       }
       rpc_apply_debit_note_to_bill: {
-        Args: { p_amount?: number; p_debit_note_id: string }
+        Args: { p_amount?: number; p_bill_id?: string; p_debit_note_id: string }
         Returns: string
       }
       rpc_attribute_picker_step: {

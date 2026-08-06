@@ -19,6 +19,8 @@ import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
 const BUCKET = 'customer-credit-docs'
@@ -88,6 +90,9 @@ export function CustomerDialog({
   const submitGroupChange   = useSubmitCreditGroupChange()
   const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending
 
+  const { activeDivisionId } = useActiveDivision()
+  const [isGlobal, setIsGlobal] = useState(false)
+
   useEffect(() => {
     if (!open) return
     if (isEdit && customer) {
@@ -105,11 +110,13 @@ export function CustomerDialog({
       setSignedFormDoc(customer.signed_credit_form_url
         ? { path: customer.signed_credit_form_url, name: displayNameFromPath(customer.signed_credit_form_url, 'signed') }
         : null)
+      setIsGlobal((customer as unknown as { division_id?: string | null }).division_id == null)
     } else if (!isEdit) {
       setName(''); setPhones([newPhoneRow(true)]); setEmail('')
       // New customers default to cash — a credit group must be picked to promote.
       setCustomerType('cash'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
+      setIsGlobal(activeDivisionId == null)
     }
     setUploading(null)
   }, [open, isEdit, customer])
@@ -261,6 +268,8 @@ export function CustomerDialog({
             cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
             establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
             signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
+            // Division scope
+            division_id:            isGlobal ? null : (activeDivisionId ?? null),
           },
           previous: {
             name:                   customer.name,
@@ -324,6 +333,8 @@ export function CustomerDialog({
         cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
         establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
         signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
+        // Division scope: null = global, else stamp active division.
+        division_id:            isGlobal ? null : (activeDivisionId ?? null),
       },
       {
         onSuccess: (created: { id: string }) => {
@@ -688,6 +699,30 @@ export function CustomerDialog({
               )}
             </div>
           )}
+
+          {/* Division scope */}
+          <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="customer-global"
+                checked={isGlobal}
+                onCheckedChange={(v) => setIsGlobal(v === true)}
+                className="mt-0.5"
+              />
+              <div className="space-y-0.5">
+                <label htmlFor="customer-global" className="text-sm font-medium cursor-pointer">
+                  Global customer (visible to every division)
+                </label>
+                <p className="text-[11px] text-muted-foreground">
+                  {isGlobal
+                    ? 'This customer will be visible in every division.'
+                    : activeDivisionId
+                      ? 'Scoped to the currently active division only.'
+                      : 'No active division — customer will be created as global.'}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>

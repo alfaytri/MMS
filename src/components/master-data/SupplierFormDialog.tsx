@@ -37,6 +37,8 @@ import {
 import { useCreateSupplier, useUpdateSupplier, type Supplier } from '@/hooks/useSuppliers'
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useCountryCodes } from '@/hooks/useCountryCodes'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { Checkbox } from '@/components/ui/checkbox'
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -69,6 +71,12 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
   const { data: countryCodes = [] } = useCountryCodes()
   const qarCurrency = currencies.find((c) => c.code === 'QAR')
   const guardRef = useRef<GuardedFormDialogHandle>(null)
+  const { activeDivisionId } = useActiveDivision()
+  // Global = visible to every division. On create it defaults to false when
+  // an active division is set (stamps that division), true when there's no
+  // active division (super-viewer with "All divisions" selected → global).
+  // On edit it reflects the row's current division_id.
+  const [isGlobal, setIsGlobal] = useState(false)
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
@@ -104,6 +112,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
     if (open && supplier) {
       const { code, digits } = splitPhone(supplier.phone)
       setCountryCode(code)
+      setIsGlobal((supplier as unknown as { division_id?: string | null }).division_id == null)
       form.reset({
         name: supplier.name,
         category: supplier.category ?? '',
@@ -118,6 +127,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       })
     } else if (open) {
       setCountryCode('+974')
+      setIsGlobal(activeDivisionId == null)
       form.reset({ name: '', category: '', supplier_type: 'local' as const, currency_id: '', country: '', contact_name: '', phone: '', email: '', address: '', notes: '' })
     }
   }, [open, supplier, form])
@@ -135,6 +145,9 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       email: values.email || null,
       address: values.address || null,
       notes: values.notes || null,
+      // Division stamping: null = global (visible to every division).
+      // Otherwise stamp the currently active division.
+      division_id: isGlobal ? null : (activeDivisionId ?? null),
     }
 
     if (isEditing && supplier) {
@@ -361,6 +374,30 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
                   </FormItem>
                 )}
               />
+
+              {/* Division scope */}
+              <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="supplier-global"
+                    checked={isGlobal}
+                    onCheckedChange={(v) => setIsGlobal(v === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-0.5">
+                    <label htmlFor="supplier-global" className="text-sm font-medium cursor-pointer">
+                      Global supplier (visible to every division)
+                    </label>
+                    <p className="text-[11px] text-muted-foreground">
+                      {isGlobal
+                        ? 'This supplier will be visible in every division.'
+                        : activeDivisionId
+                          ? 'Scoped to the currently active division only.'
+                          : 'No active division — supplier will be created as global.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">

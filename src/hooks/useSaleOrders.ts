@@ -310,6 +310,7 @@ export function useCreateCustomer() {
       cr_url?: string | null
       establishment_id_url?: string | null
       signed_credit_form_url?: string | null
+      division_id?: string | null
     }) => {
       const supabase = createClient()
       const now = new Date().toISOString()
@@ -370,6 +371,7 @@ export function useUpdateCustomer() {
         cr_url?:                 string | null
         establishment_id_url?:   string | null
         signed_credit_form_url?: string | null
+        division_id?:            string | null
       }
       // Old values for audit diff; only fields present here are checked
       previous: {
