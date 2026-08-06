@@ -160,7 +160,7 @@ Grouped by concern; each entry is: **finding → shape-of-fix**.
 **Money-path highs — AR/AP correctness:**
 - **H6** money apply DN to bill — new RPC `rpc_apply_debit_note_to_bill(dn_id, bill_id, amount)` + `debit_notes.remaining_amount` column to prevent double application.
 - **H7** money `useVoidLandedCost` — BEFORE UPDATE trigger on `landed_costs` blocking `voided_at` set when `applied_at IS NOT NULL` and revert has not run. Same fix: tighten RLS on `voided_at` column.
-- **H8** money `revert_landed_cost` post-apply COGS gap — emit reversing `cogs_entries` for sale rows whose `source_id` is in `revert_snapshot`, using `qty_drawn × lc_per_unit_delta`.
+- ~~**H8** money `revert_landed_cost` post-apply COGS gap~~ **DROPPED 2026-08-05** — Revert Apply UI was removed (LCs are permanent by operator decision). No revert path = no reversal gap. See `docs/handover-2026-08-05-money-path-review-session.md`.
 - **H10** money `create_inventory_receival` carve cross-sub-container — add guard: `IF v_source_layer.sub_container_id IS DISTINCT FROM v_sub_container_id THEN RAISE 'use a warehouse transfer instead'`.
 - **H11** money payment attach over-allocate — guard in `attach_payment_to_invoice` (`SUM(payments) + new ≤ total_amount`) + BEFORE INSERT validating trigger on `payments` + `LEAST` clamp in `invoice_recompute_paid_fn` for parity with `bill_recompute_paid_fn`.
 - **H12** money invoice payment_status mixed FX — convert every payment to invoice currency before summing in `invoice_recompute_paid_fn`. Simplest: normalise via `amount_qar` (already computed by the FX trigger).
