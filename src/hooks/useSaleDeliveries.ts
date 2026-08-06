@@ -122,46 +122,29 @@ export function useCompleteDelivery() {
     }) => {
       const supabase = createClient()
 
-      // Single atomic RPC: marks delivered + deducts FIFO + writes COGS + movements
-      const { error } = await supabase
-        .rpc('complete_delivery_inventory', {
-          p_delivery_id: deliveryId,
-          p_so_id: soId,
-          p_sub_container_id: subContainerId ?? undefined,
-        })
-      if (error) throw new Error(error.message)
-
-      // Create follow-up delivery stub for remaining items (partial delivery)
-      if (remainingItems.length > 0) {
-        const { data: orig } = await supabase
-          .from('sale_deliveries')
-          .select('sale_order_id')
-          .eq('id', deliveryId)
-          .single()
-        if (orig) {
-          const { data: seqRow } = await supabase.rpc('next_delivery_number')
-          const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
-          const { data: newDel, error: newDelErr } = await supabase.from('sale_deliveries').insert({
-            delivery_number,
-            sale_order_id: orig.sale_order_id,
-            warehouse_id: null,
-            date: new Date().toISOString().split('T')[0],
-            status: 'pending',
-          }).select('id').single()
-          if (newDelErr) throw newDelErr
-          if (newDel && remainingItems.length > 0) {
-            const { error: linesErr } = await supabase.from('sale_delivery_lines').insert(
-              remainingItems.map((li) => ({
-                sale_delivery_id: newDel.id,
-                brand_variant_id: li.brand_variant_id,
-                item_name: li.item_name,
-                sku: li.sku,
-                qty_delivered: li.qty_delivered,
-              }))
-            )
-            if (linesErr) throw linesErr
-          }
-        }
+      // H15: single wrapper RPC does complete_delivery_inventory +
+      // follow-up partial-delivery stub in one transaction. Previously the
+      // stub was a client-side follow-up — a failure between the two left
+      // inventory deducted with no stub. See migration 20260806170000.
+      const { error } = await supabase.rpc('rpc_complete_delivery_with_followup', {
+        p_delivery_id:      deliveryId,
+        p_so_id:            soId,
+        p_sub_container_id: subContainerId ?? undefined,
+        p_remaining_items:  remainingItems.length > 0
+          ? (remainingItems.map((li) => ({
+              brand_variant_id: li.brand_variant_id,
+              item_name:        li.item_name,
+              sku:              li.sku,
+              qty_delivered:    li.qty_delivered,
+            })) as unknown as import('@/types/database.types').Json)
+          : undefined,
+      })
+      if (error) {
+        throw new Error(
+          `Complete delivery failed: ${error.code} ${error.message}` +
+          `${error.details ? ' — ' + error.details : ''}` +
+          `${error.hint ? ' (' + error.hint + ')' : ''}`,
+        )
       }
     },
     onSuccess: (_data, variables) => {

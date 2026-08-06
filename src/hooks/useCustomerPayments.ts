@@ -91,9 +91,6 @@ export function useCreateCustomerPayment() {
       notes: string | null
       currency?: string
       exchange_rate?: number
-      /** Skip the trailing invoice payment_status recompute — the caller will
-       *  invoke it once after a batch of payments. */
-      skip_status_recompute?: boolean
     }) => {
       const supabase = createClient()
       const { data: maxRow } = await supabase
@@ -138,31 +135,13 @@ export function useCreateCustomerPayment() {
         .single()
       if (error) throw error
 
-      if (payload.skip_status_recompute) return data
-
-      // Recompute invoice payment_status (belt-and-suspenders alongside the DB trigger)
-      const { data: allPayments } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('invoice_id', payload.invoice_id)
-        .eq('direction', 'incoming')
-      const totalPaid = (allPayments ?? []).reduce((s: number, p) => s + p.amount, 0)
-
-      const { data: inv } = await supabase
-        .from('so_invoices')
-        .select('total_amount')
-        .eq('id', payload.invoice_id)
-        .single()
-      const newStatus =
-        totalPaid >= (inv?.total_amount ?? Infinity) ? 'paid'
-        : totalPaid > 0 ? 'partially_paid'
-        : 'unpaid'
-
-      await supabase
-        .from('so_invoices')
-        .update({ payment_status: newStatus })
-        .eq('id', payload.invoice_id)
-
+      // H14: the client-side recompute has been removed. The DB trigger
+      // (_recompute_ar_invoice_payment_status_fn on payments) is the sole
+      // authority. The old client path had three gaps: it counted soft-
+      // deleted payments (no deleted_at filter), swallowed the .error on
+      // the fetch (so an RLS block silently reset totalPaid = 0), and used
+      // `?? Infinity` on a failed invoice fetch — downgrading a correct
+      // 'paid' invoice back to 'partially_paid'.
       return data
     },
     onSuccess: (_, variables) => {

@@ -8098,6 +8098,15 @@ export type Database = {
         Args: { p_resolution: string; p_return_id: string }
         Returns: undefined
       }
+      rpc_complete_delivery_with_followup: {
+        Args: {
+          p_delivery_id: string
+          p_remaining_items?: Json
+          p_so_id: string
+          p_sub_container_id?: string
+        }
+        Returns: string
+      }
       rpc_complete_return_inspection: {
         Args: {
           p_restock_warehouse_id?: string
