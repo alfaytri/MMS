@@ -11,12 +11,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
 import { CreditDebitNoteDownloadButton } from './CreditDebitNoteDownloadButton'
+import { ApplyDebitNoteDialog } from '@/components/purchase/ApplyDebitNoteDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem, ResolutionLineInput } from '@/hooks/useCreditNotes'
 import {
   useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit,
-  useResolveDebitNoteSupplierCredit, useResolveDebitNoteReplacement,
+  useResolveDebitNoteReplacement,
 } from '@/hooks/useCreditNotes'
 import { useReturnLineProgress, useReturnProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
 import type { DebitNote, DebitNoteLine } from '@/types/invoice'
@@ -62,7 +63,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
 
   const resolveRefund = useResolveCreditNoteRefund()
   const resolveStoreCredit = useResolveCreditNoteStoreCredit()
-  const resolveSupplierCredit = useResolveDebitNoteSupplierCredit()
+  const [applyToBillOpen, setApplyToBillOpen] = useState(false)
   const resolveDebitReplacement = useResolveDebitNoteReplacement()
   const { data: dbMethods = [] } = usePaymentMethods()
 
@@ -525,34 +526,9 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
           <div className="space-y-3 border-t pt-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resolution</p>
             <div className="flex flex-wrap gap-2">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="outline">Supplier Credit</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Apply to supplier bill?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Apply {noteDisplayId} ({formatCurrency(note.total_amount, note.currency ?? 'QAR')}) against the supplier bill for this PO.
-                      Bill outstanding will be reduced by up to this amount; any excess stays on the debit note.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      disabled={resolveSupplierCredit.isPending}
-                      onClick={() => {
-                        resolveSupplierCredit.mutate(note.id, {
-                          onSuccess: () => { toast.success('DN applied to supplier bill') },
-                          onError: (e) => { toast.error(e.message) },
-                        })
-                      }}
-                    >
-                      Apply
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button size="sm" variant="outline" onClick={() => setApplyToBillOpen(true)}>
+                Apply to Bill
+              </Button>
 
               <Button
                 size="sm"
@@ -610,6 +586,13 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
         )}
 
       </DialogContent>
+      {isDebit && (
+        <ApplyDebitNoteDialog
+          note={note as DebitNote}
+          open={applyToBillOpen}
+          onOpenChange={setApplyToBillOpen}
+        />
+      )}
     </Dialog>
   )
 }
