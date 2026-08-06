@@ -309,10 +309,14 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
     queryKey: [...queryKeys.inventory.fifoLayers, 'latest-by-variant'],
     queryFn: async () => {
       const supabase = createClient()
+      // Six-domains H8: cap the read — FIFO layers grow monotonically and
+      // this query only needs the latest per variant. Longer-term this should
+      // move to a DISTINCT ON view or RPC.
       const { data, error } = await supabase
         .from('fifo_cost_layers')
         .select('brand_variant_id, created_at')
         .order('created_at', { ascending: false })
+        .limit(10000)
       if (error) throw error
       const map = new Map<string, string>()
       for (const r of (data ?? []) as { brand_variant_id: string; created_at: string }[]) {

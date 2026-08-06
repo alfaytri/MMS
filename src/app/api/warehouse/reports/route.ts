@@ -42,6 +42,28 @@ async function requireUser(req: NextRequest) {
   return user
 }
 
+// Six-domains H9: gate warehouse-reports on the `reports.view` permission
+// (same permission the /reports page enforces). Without this any authenticated
+// user could POST here and hit SERVICE_ROLE_KEY-bypassed reads of every WH.
+async function requireReportsPermission(req: NextRequest): Promise<{ ok: true; profileId: string } | { ok: false; status: number; error: string }> {
+  const user = await requireUser(req)
+  if (!user) return { ok: false, status: 401, error: 'Unauthorized' }
+  const admin = createClient<Database>(SUPA_URL, SUPA_KEY)
+  const { data: profile } = await admin
+    .from('user_data')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
+  if (!profile) return { ok: false, status: 403, error: 'No profile — cannot resolve permissions' }
+  const { data: hasPerm, error: permErr } = await admin.rpc('_user_has_permission', {
+    p_profile_id: profile.id,
+    p_permission: 'reports.view',
+  })
+  if (permErr) return { ok: false, status: 500, error: permErr.message }
+  if (!hasPerm) return { ok: false, status: 403, error: 'Missing reports.view permission' }
+  return { ok: true, profileId: profile.id }
+}
+
 // ─── Date helpers ───────────────────────────────────────────────────────────
 
 function toIsoStart(dateStr?: string): string | undefined {
@@ -357,8 +379,8 @@ async function fetchReceivalsDeliveries(supabase: SupaClient, fromDate?: string,
 // ─── Route handler ───────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const user = await requireUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireReportsPermission(req)
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const body = await req.json().catch(() => ({}))
   const type = body.type as ReportType | undefined

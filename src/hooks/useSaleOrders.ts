@@ -519,6 +519,8 @@ export function useSaleOrders(filters: SOFilters = {}) {
         .select('*, sale_order_lines(*), sale_deliveries(*, sale_delivery_lines(*)), customers!inner(name), created_by_user:user_data!sale_orders_created_by_fkey(full_name)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
+        // Six-domains H7: cap the join-heavy fetch to prevent Supabase egress blow-ups.
+        .limit(200)
 
       if (filters.statuses && filters.statuses.length > 0) {
         q = q.in('status', filters.statuses)
@@ -1016,6 +1018,37 @@ export function useCancelSO() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+
+      // Six-domains H1: refuse cancellation on SOs that already have
+      // non-pending deliveries — FIFO deductions + COGS entries are already
+      // committed and cancelling here would leave them orphaned. Only
+      // quotation/confirmed/pending_approval SOs may be cancelled here.
+      const { data: so, error: soErr } = await supabase
+        .from('sale_orders')
+        .select('status')
+        .eq('id', id)
+        .single()
+      if (soErr) throw soErr
+      if (!so) throw new Error('Sale order not found')
+      const allowedStatuses = ['quotation', 'confirmed', 'pending_approval']
+      if (!allowedStatuses.includes(so.status as string)) {
+        throw new Error(
+          `Cannot cancel a sale order in "${so.status}" status. ` +
+          'Cancel or reverse the downstream deliveries/invoices first.'
+        )
+      }
+      const { data: nonPendingDeliveries } = await supabase
+        .from('sale_deliveries')
+        .select('id, status')
+        .eq('sale_order_id', id)
+        .neq('status', 'pending')
+        .limit(1)
+      if ((nonPendingDeliveries ?? []).length > 0) {
+        throw new Error(
+          'Cannot cancel: this sale order has non-pending deliveries. ' +
+          'Reverse the deliveries first, then cancel.'
+        )
+      }
 
       // Fetch lines to release reserved stock before cancelling
       const { data: lines } = await supabase

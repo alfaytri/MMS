@@ -43,10 +43,14 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
     return { ok: true, authUserId: user.id, email: callerEmail, profileId: bp?.id ?? '' }
   }
 
-  // Non-bootstrap: require profile + master_data.users.manage permission.
+  // Non-bootstrap: require profile + system-admin OR master_data.users.manage.
+  // Six-domains H10: previously only checked the permission — system admins
+  // whose seeded role has is_system_admin=true (but not the string
+  // 'master_data.users.manage' in permissions) got 403 while the frontend
+  // still showed them the admin UI. Mirror the requirePermission() semantics.
   const { data: profile } = await supabase
     .from('user_data')
-    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
+    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system_admin, permissions))')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
@@ -54,12 +58,14 @@ export async function requireAdmin(): Promise<AdminGateSuccess | AdminGateFailur
     return { ok: false, status: 403, message: 'Forbidden — no profile linked to this user' }
   }
 
-  const perms: string[] = (profile.user_custom_roles ?? [])
-    .flatMap((r: { custom_roles: { permissions: string[] } | null }) =>
-      r.custom_roles?.permissions ?? []
-    )
+  const roles: Array<{ custom_roles: { is_system_admin: boolean | null; permissions: string[] } | null }> =
+    profile.user_custom_roles ?? []
+  const perms: string[] = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
+  const isSystemAdmin =
+    roles.some((r) => r.custom_roles?.is_system_admin === true) ||
+    perms.includes('system.admin')
 
-  if (perms.includes(REQUIRED_PERMISSION)) {
+  if (isSystemAdmin || perms.includes(REQUIRED_PERMISSION)) {
     return { ok: true, authUserId: user.id, email: callerEmail, profileId: profile.id }
   }
 

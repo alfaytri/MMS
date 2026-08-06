@@ -69,10 +69,14 @@ export function useReceivalItemsForPo(poId: string | null) {
 
       const returnedMap = new Map<string, number>()
       if (itemIds.length > 0) {
+        // Money-path H3: filter out cancelled + soft-deleted returns so
+        // their qty doesn't burn returnable capacity on the receival.
         const { data: prior, error: pErr } = await supabase
           .from('return_lines')
-          .select('receival_item_id, qty')
+          .select('receival_item_id, qty, so_po_returns!inner(status, deleted_at)')
           .in('receival_item_id', itemIds)
+          .neq('so_po_returns.status', 'cancelled')
+          .is('so_po_returns.deleted_at', null)
         if (pErr) throw pErr
         for (const row of prior ?? []) {
           if (row.receival_item_id) {
@@ -289,7 +293,10 @@ async function createDebitNoteForReturn(
   type PoLineRow = { item_name: string; sku: string | null; brand_variant_id: string | null; unit_price: number; qty: number; total_price?: number }
   const poLineArr = (po?.po_line_items ?? []) as PoLineRow[]
 
-  // 2. Build returned lines — resolve unit price from PO line items
+  // 2. Build returned lines — resolve unit price from PO line items.
+  // Money-path H5: never silently fall back to 0. If a line has no matching
+  // PO line (variant renamed, SKU edited, translated item name), RAISE so
+  // the operator sees the mismatch instead of shipping a DN total of 0.
   const returnedLines = ret.return_lines.map((item: POReturnItem) => {
     const poLine = poLineArr.find(
       (l) =>
@@ -297,14 +304,22 @@ async function createDebitNoteForReturn(
         (item.sku && l.sku === item.sku) ||
         l.item_name === item.item_name
     )
-    const unitPrice = poLine?.unit_price ?? 0
+    if (!poLine || !(poLine.unit_price > 0)) {
+      throw new Error(
+        `Cannot create debit note: no matching PO line for "${item.item_name}" ` +
+        `(sku=${item.sku ?? '—'}, bv=${item.brand_variant_id ?? '—'}). ` +
+        'The PO line may have been renamed or its variant changed since the return was created. ' +
+        'Fix the PO line reference before issuing the debit note.'
+      )
+    }
+    const unitPrice = poLine.unit_price
     return {
       item_name:        item.item_name,
       sku:              item.sku,
       qty:              item.qty,
       unit_price:       unitPrice,
       total:            item.qty * unitPrice,
-      brand_variant_id: item.brand_variant_id ?? poLine?.brand_variant_id ?? null,
+      brand_variant_id: item.brand_variant_id ?? poLine.brand_variant_id ?? null,
       condition:        item.condition,
       condition_notes:  item.condition_notes,
     }
