@@ -1,0 +1,79 @@
+-- allocate_payment_to_bill missed an enum cast on bills.payment_status.
+-- Raised 42804 the first time rpc_apply_debit_note_to_bill actually
+-- reached the UPDATE. Same shape as the two casts fixed earlier this
+-- session on rpc_redeem_credit_note.
+--
+-- Fix: cast the CASE result to public.invoice_payment_status. Rest of the
+-- body preserved verbatim from 20260806230000.
+
+CREATE OR REPLACE FUNCTION public.allocate_payment_to_bill(
+  p_payment_id uuid,
+  p_bill_id    uuid,
+  p_amount     numeric
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_payment_total   NUMERIC;
+  v_already_alloc   NUMERIC;
+  v_bill_total      NUMERIC;
+  v_total_paid      NUMERIC;
+  v_new_status      TEXT;
+BEGIN
+  SELECT amount INTO v_payment_total
+  FROM payments WHERE id = p_payment_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Payment % does not exist', p_payment_id;
+  END IF;
+
+  SELECT total_amount INTO v_bill_total
+  FROM bills WHERE id = p_bill_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Bill % does not exist', p_bill_id;
+  END IF;
+
+  IF v_bill_total IS NULL OR v_bill_total < 0 THEN
+    RAISE EXCEPTION 'Bill % has an invalid total_amount (%) — refuse allocation. Fix the bill first.',
+      p_bill_id, v_bill_total;
+  END IF;
+
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Allocation amount must be greater than zero';
+  END IF;
+
+  SELECT COALESCE(SUM(amount), 0) INTO v_already_alloc
+  FROM payment_bill_allocations
+  WHERE payment_id = p_payment_id
+    AND bill_id != p_bill_id;
+
+  IF v_already_alloc + p_amount > v_payment_total THEN
+    RAISE EXCEPTION 'Allocation of % exceeds remaining payment balance of %',
+      p_amount, v_payment_total - v_already_alloc;
+  END IF;
+
+  INSERT INTO payment_bill_allocations (payment_id, bill_id, amount)
+  VALUES (p_payment_id, p_bill_id, p_amount)
+  ON CONFLICT (payment_id, bill_id)
+  DO UPDATE SET amount = EXCLUDED.amount;
+
+  SELECT COALESCE(SUM(pba.amount), 0)
+    INTO v_total_paid
+    FROM payment_bill_allocations pba
+   WHERE pba.bill_id = p_bill_id;
+
+  v_new_status := CASE
+    WHEN v_total_paid >= v_bill_total THEN 'paid'
+    WHEN v_total_paid > 0             THEN 'partially_paid'
+    ELSE                                   'unpaid'
+  END;
+
+  UPDATE bills
+     SET paid_amount    = v_total_paid,
+         payment_status = v_new_status::public.invoice_payment_status
+   WHERE id = p_bill_id;
+END;
+$$;
