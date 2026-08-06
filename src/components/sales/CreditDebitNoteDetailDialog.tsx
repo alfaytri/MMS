@@ -157,7 +157,13 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
     : ''
 
   const isDebit = noteKind === 'debit'
-  const isDebitUnresolved = isDebit && note.status === 'issued' && !note.resolution_type
+  // DN status flows 'open' → 'in_progress' → 'resolved' (some legacy DNs
+  // still carry 'issued'). Any non-terminal status with no resolution_type
+  // means the resolution section should show.
+  const isDebitUnresolved =
+    isDebit
+    && (note.status === 'open' || note.status === 'in_progress' || note.status === 'issued')
+    && !note.resolution_type
 
   const noteDisplayId = isDebit
     ? (note as DebitNoteWithJoins).debit_note_id
