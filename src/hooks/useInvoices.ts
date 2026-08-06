@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { ArInvoice, InvoiceLineItem } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import { nextNoteId } from '@/hooks/useCreditNotes'
 import type { Database } from '@/types/database.types'
 
 const PAGE_SIZE = 50
@@ -191,27 +192,31 @@ export function useIssueCreditNote() {
       lineItems: InvoiceLineItem[]
     }) => {
       const supabase = createClient()
-      const creditNoteId = `CN-${crypto.randomUUID().slice(0, 8)}`
+      const creditNoteId = await nextNoteId('credit')
 
       // Fetch invoice for customer info
-      const { data: inv } = await supabase
+      const { data: inv, error: invErr } = await supabase
         .from('so_invoices')
         .select('customer_id, total_amount')
         .eq('id', payload.invoiceId)
         .single()
+      if (invErr) throw invErr
 
-      // Insert credit note
+      const totalAmount = payload.type === 'full'
+        ? inv?.total_amount ?? payload.amount
+        : payload.amount
+
       const { data: cn, error: cnErr } = await supabase
         .from('credit_notes')
         .insert({
           credit_note_id: creditNoteId,
           invoice_id: payload.invoiceId,
+          customer_id: inv?.customer_id ?? null,
           customer_name: payload.customerName,
-          amount: payload.type === 'full'
-            ? inv?.total_amount ?? payload.amount
-            : payload.amount,
+          total_amount: totalAmount,
           reason: payload.reason,
-          original_total: inv?.total_amount,
+          original_total: inv?.total_amount ?? null,
+          status: 'open',
         } as unknown as import('@/types/database.types').DBInsert<'credit_notes'>)
         .select('id')
         .single()

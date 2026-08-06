@@ -8241,6 +8241,20 @@ export type Database = {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
       }
+      rpc_redeem_credit_note: {
+        Args: {
+          p_amount: number
+          p_credit_note_id: string
+          p_date?: string
+          p_invoice_id: string
+          p_method: string
+          p_notes?: string
+          p_reference?: string
+          p_source_id?: string
+          p_source_type?: string
+        }
+        Returns: string
+      }
       rpc_replace_po_lines: {
         Args: { p_lines: Json; p_po_id: string }
         Returns: undefined

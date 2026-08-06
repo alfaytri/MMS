@@ -298,66 +298,64 @@ export function useApplyCreditNote() {
   return useMutation({
     mutationFn: async ({ id, invoiceId }: { id: string; invoiceId: string }) => {
       const supabase = createClient()
-      const { data: cn } = await supabase
+
+      // Compute the redeemable amount client-side so we can pass an explicit
+      // value to the RPC. The RPC enforces the same cap under a FOR UPDATE
+      // lock — this pre-check just avoids a needless round-trip on obvious
+      // no-ops (fully paid invoice / fully depleted CN).
+      const { data: cn, error: cnErr } = await supabase
         .from('credit_notes')
-        .select('total_amount, invoice_id, credit_note_id')
+        .select('total_amount, credit_note_id')
         .eq('id', id)
         .single()
+      if (cnErr) throw new Error(`Fetch CN failed: ${cnErr.code} ${cnErr.message}`)
 
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('invoice_id', invoiceId)
-        .eq('direction', 'incoming')
-      const alreadyPaid = (payments ?? []).reduce((s: number, p) => s + p.amount, 0)
-
-      const { data: inv } = await supabase
+      const { data: inv, error: invErr } = await supabase
         .from('so_invoices')
-        .select('total_amount, customer_id')
+        .select('total_amount')
         .eq('id', invoiceId)
         .single()
-      const outstanding = (inv?.total_amount ?? 0) - alreadyPaid
-      const cnTotal = cn?.total_amount ?? 0
+      if (invErr) throw new Error(`Fetch invoice failed: ${invErr.code} ${invErr.message}`)
 
-      const { data: cpayMax } = await supabase
+      const { data: prior, error: pErr } = await supabase
         .from('payments')
-        .select('payment_id')
-        .ilike('payment_id', 'CPAY-%')
-        .order('payment_id', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      const cpayLast = cpayMax?.payment_id ? parseInt(cpayMax.payment_id.replace('CPAY-', ''), 10) : 0
-      const payment_id = `CPAY-${String(cpayLast + 1).padStart(5, '0')}`
-      await supabase.from('payments').insert({
-        payment_id,
-        invoice_id: invoiceId,
-        amount: Math.min(cnTotal, outstanding),
-        method: 'online_transfer',
-        date: new Date().toISOString().split('T')[0],
-        notes: `Credit note ${cn?.credit_note_id ?? id} applied`,
-        direction: 'incoming',
-        status: 'completed',
+        .select('amount, credit_note_id')
+        .eq('invoice_id', invoiceId)
+        .eq('direction', 'incoming')
+        .is('deleted_at', null)
+      if (pErr) throw new Error(`Fetch payments failed: ${pErr.code} ${pErr.message}`)
+
+      const alreadyPaid = (prior ?? []).reduce((s: number, p) => s + Number(p.amount ?? 0), 0)
+      const cnPriorRedeemed = (prior ?? [])
+        .filter((p) => p.credit_note_id === id)
+        .reduce((s: number, p) => s + Number(p.amount ?? 0), 0)
+      const outstanding = Math.max(0, (inv?.total_amount ?? 0) - alreadyPaid)
+      const cnRemaining = Math.max(0, (cn?.total_amount ?? 0) - cnPriorRedeemed)
+      const amount = Math.min(cnRemaining, outstanding)
+
+      if (amount <= 0) {
+        throw new Error(
+          cnRemaining <= 0
+            ? `Credit note ${cn?.credit_note_id ?? id} is already fully redeemed`
+            : 'Invoice is already fully paid — nothing to apply',
+        )
+      }
+
+      const { error: rpcErr } = await supabase.rpc('rpc_redeem_credit_note', {
+        p_invoice_id:     invoiceId,
+        p_credit_note_id: id,
+        p_amount:         amount,
+        p_method:         'credit_note',
+        p_notes:          `Credit note ${cn?.credit_note_id ?? id} applied`,
       })
-
-      // Excess credit is now handled via explicit "Store Credit" resolution action
-
-      // Phase 8.1b: no longer flip CN status on apply — balance depletion is
-      // derived from the payments ledger vs the store-credit resolution rows,
-      // not from a status flag. Return-resolution lifecycle owns `status`.
-      const newPaid = alreadyPaid + Math.min(cnTotal, outstanding)
-      const newStatus =
-        newPaid >= (inv?.total_amount ?? Infinity) ? 'paid' : 'partially_paid'
-      await supabase
-        .from('so_invoices')
-        .update({ payment_status: newStatus })
-        .eq('id', invoiceId)
+      if (rpcErr) throw new Error(`Apply failed: ${rpcErr.code} ${rpcErr.message} — ${rpcErr.details ?? ''} ${rpcErr.hint ?? ''}`.trim())
 
       void logActivity({
-        action: 'refund Resolution Applied',
+        action: 'Credit Note Applied',
         module: 'credit_notes',
         entity_id: id,
         entity_type: 'credit_note',
-        new_data: { resolution_type: 'refund' } as unknown as Record<string, unknown>,
+        new_data: { invoice_id: invoiceId, amount } as unknown as Record<string, unknown>,
       })
     },
     onSuccess: () => {
