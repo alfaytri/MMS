@@ -40,6 +40,7 @@ export interface BuildInvoiceHtmlInput {
   customer_name:   string
   customer_phone:  string | null
   so_number:       string | null
+  currency?:       string
   lines:           InvoiceLineItem[]
   subtotal:        number
   discount:        number
@@ -63,9 +64,10 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => HTML_ESCAPE[c])
 }
 
-function fmtMoney(amount: number | null): string {
+// Six-domains H3: derive currency label from the invoice, not hardcoded QAR.
+function fmtMoney(amount: number | null, currency: string = 'QAR'): string {
   const n = amount ?? 0
-  return `QAR ${n.toLocaleString('en-QA', {
+  return `${currency} ${n.toLocaleString('en-QA', {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   })}`
 }
@@ -81,6 +83,7 @@ function fmtDate(iso: string): string {
 // ── Template ────────────────────────────────────────────────────────────────
 
 export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
+  const currency = input.currency ?? 'QAR'
   const lineRows = input.lines.map((li) => `
     <tr>
       <td class="cell-item">
@@ -88,8 +91,8 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
         ${li.description_ar ? `<div class="item-name-ar">${escapeHtml(li.description_ar)}</div>` : ''}
       </td>
       <td class="cell-num">${escapeHtml(li.qty == null ? '—' : String(li.qty))}</td>
-      <td class="cell-num">${escapeHtml(fmtMoney(li.unit_price))}</td>
-      <td class="cell-num">${escapeHtml(fmtMoney(li.total))}</td>
+      <td class="cell-num">${escapeHtml(fmtMoney(li.unit_price, currency))}</td>
+      <td class="cell-num">${escapeHtml(fmtMoney(li.total, currency))}</td>
     </tr>
   `).join('')
 
@@ -97,7 +100,7 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
     ? input.payments.map((p) => `
       <tr>
         <td>${escapeHtml(fmtDate(p.date))}</td>
-        <td>${escapeHtml(fmtMoney(p.amount))}</td>
+        <td>${escapeHtml(fmtMoney(p.amount, currency))}</td>
         <td>${escapeHtml(p.method)}</td>
         <td>${escapeHtml(p.reference ?? '—')}</td>
       </tr>
@@ -278,38 +281,38 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
         <span class="s-label">المجموع الفرعي</span>
         <span class="s-en">Subtotal</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(input.subtotal))}</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.subtotal, currency))}</span>
       </div>
       <div class="summary-row">
         <span class="s-label">قيمة الخصم</span>
         <span class="s-en">Discount</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(input.discount))}</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.discount, currency))}</span>
       </div>
       <div class="summary-row s-grand">
         <span class="s-label">الإجمالي النهائي</span>
         <span class="s-en">Grand Total</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(input.total_amount))}</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.total_amount, currency))}</span>
       </div>
       <div class="summary-divider"></div>
       <div class="summary-row s-bill-total">
         <span class="s-label">إجمالي الفاتورة</span>
         <span class="s-en">Invoice Total</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(input.total_amount))}</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.total_amount, currency))}</span>
       </div>
       <div class="summary-row">
         <span class="s-label">المبلغ المدفوع</span>
         <span class="s-en">Amount Paid</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(input.amount_paid))}</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.amount_paid, currency))}</span>
       </div>
       <div class="summary-row">
         <span class="s-label">الرصيد المتبقي</span>
         <span class="s-en">Outstanding</span>
         <span class="s-sep">:</span>
-        <span class="s-amount${outstandingClass}">${escapeHtml(fmtMoney(input.outstanding))}</span>
+        <span class="s-amount${outstandingClass}">${escapeHtml(fmtMoney(input.outstanding, currency))}</span>
       </div>
     </div>
   </div>

@@ -44,6 +44,7 @@ export interface BuildCreditDebitNoteHtmlInput {
   originalTotal:   number
   creditDebitTotal: number       // sum of returned lines
   newTotal:        number
+  currency?:       string
   assets:          PdfAssets
   fonts:           PdfFonts
 }
@@ -57,8 +58,9 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => HTML_ESCAPE[c])
 }
 
-function fmtMoney(amount: number): string {
-  return `QAR ${amount.toLocaleString('en-QA', {
+// Six-domains H4: currency label is passed in per-call so non-QAR notes render correctly.
+function fmtMoney(amount: number, currency: string = 'QAR'): string {
+  return `${currency} ${amount.toLocaleString('en-QA', {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   })}`
 }
@@ -75,6 +77,7 @@ function fmtDate(iso: string): string {
 
 export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): string {
   const isCredit = input.noteType === 'credit'
+  const currency = input.currency ?? 'QAR'
 
   /* ── ribbon / header colour ────────────────────────────────────── */
   const accentColor = 'var(--orange)'
@@ -106,8 +109,8 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
             ${line.sku ? `<div class="item-sku">${escapeHtml(line.sku)}${line.condition_notes ? ` — ${escapeHtml(line.condition_notes)}` : ''}</div>` : ''}
           </td>
           <td class="cell-num">${escapeHtml(String(line.qty))}</td>
-          <td class="cell-num">${escapeHtml(fmtMoney(line.unit_price))}</td>
-          <td class="cell-num">${escapeHtml(fmtMoney(line.total))}</td>
+          <td class="cell-num">${escapeHtml(fmtMoney(line.unit_price, currency))}</td>
+          <td class="cell-num">${escapeHtml(fmtMoney(line.total, currency))}</td>
         </tr>`).join('')
 
   /* ── reason section ────────────────────────────────────────────── */
@@ -221,14 +224,14 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
         <span class="s-label">${escapeHtml(totalLabelAr)}</span>
         <span class="s-en">${escapeHtml(totalLabelEn)}</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${escapeHtml(fmtMoney(input.originalTotal))}</span>
+        <span class="s-amount">${escapeHtml(fmtMoney(input.originalTotal, currency))}</span>
       </div>
       <div class="summary-divider"></div>
       <div class="summary-row s-grand">
         <span class="s-label">${escapeHtml(deductLabelAr)}</span>
         <span class="s-en">${escapeHtml(deductLabelEn)}</span>
         <span class="s-sep">:</span>
-        <span class="s-amount">${isCredit ? '- ' : ''}${escapeHtml(fmtMoney(input.creditDebitTotal))}</span>
+        <span class="s-amount">${isCredit ? '- ' : ''}${escapeHtml(fmtMoney(input.creditDebitTotal, currency))}</span>
       </div>
     </div>
   </div>

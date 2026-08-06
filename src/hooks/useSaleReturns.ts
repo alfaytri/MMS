@@ -47,12 +47,14 @@ export function useSaleReturns(filters: { search?: string; status?: string } = {
     queryKey: queryKeys.saleReturns.list(filters),
     queryFn: async () => {
       const supabase = createClient()
+      // Six-domains M2: cap the nested-join fetch.
       let q = supabase
         .from('so_po_returns')
         .select('*, return_lines(*)')
         .eq('source_type', 'sale_order')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
+        .limit(200)
 
       if (filters.status) q = q.eq('status', filters.status as SaleReturn['status'])
       if (filters.search) {

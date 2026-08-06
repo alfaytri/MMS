@@ -168,6 +168,7 @@ export async function generateCreditDebitNotePdf(
 
   // ── 2. Resolve reference & return numbers ────────────────────────────
   let referenceNumber = '—'
+  let noteCurrency = 'QAR'
   let returnNumber    = '—'
   let partyPhone      = phone
   let divisionId: string | null = null
@@ -183,11 +184,12 @@ export async function generateCreditDebitNotePdf(
       if (isDebit && ret.source_type === 'purchase' && ret.source_id) {
         const { data: po } = await supabase
           .from('purchase_orders')
-          .select('po_number, supplier_id, division_id')
+          .select('po_number, supplier_id, division_id, currency')
           .eq('id', ret.source_id)
-          .maybeSingle<{ po_number: string; supplier_id: string | null; division_id: string | null }>()
+          .maybeSingle<{ po_number: string; supplier_id: string | null; division_id: string | null; currency: string | null }>()
         if (po?.po_number) referenceNumber = po.po_number
         if (po?.division_id) divisionId = po.division_id
+        if (po?.currency) noteCurrency = po.currency
         if (!partyPhone && po?.supplier_id) {
           const { data: sup } = await supabase
             .from('suppliers')
@@ -203,15 +205,16 @@ export async function generateCreditDebitNotePdf(
   if (!isDebit && invoiceOrBillId) {
     const { data: inv } = await supabase
       .from('so_invoices')
-      .select('invoice_id, customers(customer_phones(phone, is_primary)), sale_orders(division_id)')
+      .select('invoice_id, customers(customer_phones(phone, is_primary)), sale_orders(division_id, currency)')
       .eq('id', invoiceOrBillId)
       .maybeSingle<{
         invoice_id: string
         customers: { customer_phones: { phone: string; is_primary: boolean }[] } | null
-        sale_orders: { division_id: string | null } | null
+        sale_orders: { division_id: string | null; currency: string | null } | null
       }>()
     if (inv?.invoice_id) referenceNumber = inv.invoice_id
     if (inv?.sale_orders?.division_id) divisionId = inv.sale_orders.division_id
+    if (inv?.sale_orders?.currency) noteCurrency = inv.sale_orders.currency
     if (!partyPhone) {
       const phones = inv?.customers?.customer_phones ?? []
       const primary = phones.find((p) => p.is_primary) ?? phones[0]
@@ -261,6 +264,7 @@ export async function generateCreditDebitNotePdf(
     originalTotal:   Number(originalTotal ?? 0),
     creditDebitTotal,
     newTotal:        Number(newTotal ?? 0),
+    currency:        noteCurrency,
     assets,
     fonts,
   })

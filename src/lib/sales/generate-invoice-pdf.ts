@@ -48,7 +48,7 @@ interface InvoiceRow {
   sale_order_id:   string | null
   customers:       { name: string | null; customer_phones: { phone: string; is_primary: boolean }[] | null } | null
   invoice_line_items: InvoiceLineItem[] | null
-  sale_orders:     { so_number: string; payment_terms: string | null; division_id: string | null } | null
+  sale_orders:     { so_number: string; payment_terms: string | null; division_id: string | null; currency: string | null } | null
 }
 
 export interface GenerateInvoicePdfResult {
@@ -74,7 +74,7 @@ export async function generateInvoicePdf(
       notes, pdf_url, sale_order_id,
       customers(name, customer_phones(phone, is_primary)),
       invoice_line_items(description, qty, unit_price, total),
-      sale_orders(so_number, payment_terms, division_id)
+      sale_orders(so_number, payment_terms, division_id, currency)
     `)
     .eq('id', invoiceUuid)
     .single<InvoiceRow>()
@@ -131,6 +131,7 @@ export async function generateInvoicePdf(
       return phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? null
     })(),
     so_number:      inv.sale_orders?.so_number ?? null,
+    currency:       inv.sale_orders?.currency ?? 'QAR',
     lines:          await hydrateInvoiceArabic(supabase, inv.invoice_line_items ?? []),
     subtotal,
     discount,

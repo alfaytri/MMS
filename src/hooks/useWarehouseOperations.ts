@@ -945,15 +945,19 @@ export function useReceivalsAndDeliveries() {
     queryFn: async () => {
       const supabase = createClient()
 
+      // Six-domains M1: cap join-heavy list fetches. PostgREST silently caps
+      // at max_rows=1000; making it explicit prevents future drift.
       const [receivalsRes, deliveriesRes] = await Promise.all([
         supabase
           .from('receivals')
           .select('id, receival_number, po_id, warehouse_id, date, status, received_by_name, purchase_orders(po_number, supplier_name), warehouses(name), receival_items(id, item_name, sku, qty_received, brand_variant_id, sub_container_id, warehouse_sub_containers:sub_container_id(name))')
-          .order('date', { ascending: false }),
+          .order('date', { ascending: false })
+          .limit(200),
         supabase
           .from('sale_deliveries')
           .select('id, delivery_number, sale_order_id, warehouse_id, warehouse_name, date, status, sale_delivery_lines(item_name, sku, qty_delivered, brand_variant_id), sale_orders(so_number, customers(name))')
-          .order('date', { ascending: false }),
+          .order('date', { ascending: false })
+          .limit(200),
       ])
 
       if (receivalsRes.error) throw receivalsRes.error
@@ -1515,10 +1519,12 @@ export function useReorderPoints(warehouseId?: string) {
     queryKey: queryKeys.warehouseOps.reorderPointsByWarehouse(warehouseId),
     queryFn: async () => {
       const supabase = createClient()
+      // Six-domains M3: explicit cap. Realistic size = variants × warehouses.
       let q = supabase
         .from('warehouse_reorder_points')
         .select('*')
         .order('created_at', { ascending: false })
+        .limit(5000)
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       const { data, error } = await q
       if (error) throw error
