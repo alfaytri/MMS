@@ -121,6 +121,7 @@ export function ApplyDebitNoteDialog({ note, open, onOpenChange }: Props) {
       const { error: rpcErr } = await supabase.rpc('rpc_apply_debit_note_to_bill', {
         p_debit_note_id: note.id,
         p_amount:        parsedAmount,
+        p_bill_id:       selectedBill.id,
       })
       if (rpcErr) {
         throw new Error(
@@ -219,8 +220,9 @@ export function ApplyDebitNoteDialog({ note, open, onOpenChange }: Props) {
             )}
             {targetsDifferentPo && (
               <p className="text-xs text-amber-600">
-                Selected bill is on a different PO than the DN. The RPC applies against the DN&apos;s own PO bill —
-                cross-PO application is not supported yet.
+                Heads-up: this bill is on a different PO than the debit note.
+                Applying still works (same supplier), but AP reporting will
+                show the credit against this bill&apos;s PO, not the DN&apos;s.
               </p>
             )}
           </div>
