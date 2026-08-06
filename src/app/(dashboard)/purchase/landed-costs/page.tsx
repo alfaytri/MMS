@@ -653,7 +653,14 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       return updated
     }))
   }
+  function isReceivalUsed(id: string): boolean {
+    return (usedReceivalMap?.get(id)?.length ?? 0) > 0
+  }
   function toggleReceival(id: string) {
+    // Block re-attaching a receival that already has an LC. Row is visible
+    // for context (with amber tint + LC badge) but the checkbox is disabled
+    // and this guard short-circuits any programmatic path.
+    if (isReceivalUsed(id)) return
     setSelectedReceivalIds((ids) => ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
   }
   function togglePoCollapsed(poId: string) {
@@ -665,14 +672,17 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     })
   }
   function togglePoSelectAll(group: { receivals: { id: string }[] }) {
-    const ids = group.receivals.map((r) => r.id)
+    // Never touch receivals that are already used by another LC — they
+    // stay visible with the amber badge but are excluded from bulk select.
+    const ids = group.receivals.map((r) => r.id).filter((id) => !isReceivalUsed(id))
+    if (ids.length === 0) return
     const allSelected = ids.every((id) => selectedReceivalIds.includes(id))
     setSelectedReceivalIds((prev) => {
       if (allSelected) {
-        // Deselect all in this PO
+        // Deselect all selectable-in-this-PO
         return prev.filter((id) => !ids.includes(id))
       }
-      // Select all in this PO (without duplicating)
+      // Select all selectable-in-this-PO (without duplicating)
       const set = new Set(prev)
       ids.forEach((id) => set.add(id))
       return Array.from(set)
@@ -966,9 +976,14 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
               <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
                 {poGroups.map((group) => {
                   const ids = group.receivals.map((r) => r.id)
-                  const selectedInGroup = ids.filter((id) => selectedReceivalIds.includes(id)).length
-                  const allChecked = selectedInGroup === ids.length
-                  const someChecked = selectedInGroup > 0 && selectedInGroup < ids.length
+                  // Group-level checkbox reflects only receivals that CAN
+                  // still be attached — already-used ones are effectively
+                  // out-of-band and don't count for the indeterminate math.
+                  const selectableIds = ids.filter((id) => !isReceivalUsed(id))
+                  const selectedInGroup = selectableIds.filter((id) => selectedReceivalIds.includes(id)).length
+                  const groupHasSelectable = selectableIds.length > 0
+                  const allChecked = groupHasSelectable && selectedInGroup === selectableIds.length
+                  const someChecked = selectedInGroup > 0 && selectedInGroup < selectableIds.length
                   const collapsed = collapsedPoIds.has(group.po_id)
 
                   return (
@@ -978,10 +993,15 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                         <input
                           type="checkbox"
                           checked={allChecked}
+                          disabled={!groupHasSelectable}
                           ref={(el) => { if (el) el.indeterminate = someChecked }}
                           onChange={() => togglePoSelectAll(group)}
-                          className="h-4 w-4 shrink-0"
+                          className={cn(
+                            'h-4 w-4 shrink-0',
+                            !groupHasSelectable && 'cursor-not-allowed opacity-50',
+                          )}
                           aria-label={`Select all receivals in ${group.po_number}`}
+                          title={!groupHasSelectable ? 'All receivals in this PO already have an LC.' : undefined}
                         />
                         <button
                           type="button"
@@ -1013,16 +1033,26 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                               <div key={r.id}>
                                 <div
                                   className={cn(
-                                    'flex items-center gap-2 px-2 py-2 pl-8 min-h-11 md:min-h-0 hover:bg-muted/30 transition-colors',
-                                    hasExistingLc && 'bg-amber-50/60',
+                                    'flex items-center gap-2 px-2 py-2 pl-8 min-h-11 md:min-h-0 transition-colors',
+                                    hasExistingLc
+                                      ? 'bg-amber-50/60 cursor-not-allowed'
+                                      : 'hover:bg-muted/30',
                                     isChecked && !hasExistingLc && 'bg-blue-50/40',
                                   )}
+                                  title={hasExistingLc
+                                    ? `This receival is already attached to ${existingLcs!.join(', ')} — a receival can only be attached to one LC.`
+                                    : undefined}
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={isChecked}
+                                    checked={isChecked && !hasExistingLc}
+                                    disabled={hasExistingLc}
                                     onChange={() => toggleReceival(r.id)}
-                                    className="h-4 w-4 shrink-0"
+                                    className={cn(
+                                      'h-4 w-4 shrink-0',
+                                      hasExistingLc && 'cursor-not-allowed opacity-50',
+                                    )}
+                                    aria-disabled={hasExistingLc}
                                   />
                                   <button
                                     type="button"
