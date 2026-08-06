@@ -426,6 +426,8 @@ export type ReceivalForLcSelector = {
   date: string
   status: string
   source_type: string
+  warehouse_id: string | null
+  warehouse_name: string | null
   po_number: string | null
   supplier_name: string | null
 }
@@ -437,7 +439,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
       const supabase = createClient()
       const q = supabase
         .from('receivals')
-        .select('id, receival_number, po_id, date, status, source_type, purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
+        .select('id, receival_number, po_id, date, status, source_type, warehouse_id, warehouses(name), purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
         .order('date', { ascending: false })
         .limit(500)
       const { data, error } = await q
@@ -454,6 +456,8 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
           date: r.date as string,
           status: r.status as string,
           source_type: (r.source_type as string) ?? 'purchase',
+          warehouse_id: (r.warehouse_id as string | null) ?? null,
+          warehouse_name: r.warehouses?.name ?? null,
           po_number: r.purchase_orders?.po_number ?? null,
           supplier_name: r.purchase_orders?.supplier_name ?? (isInventory ? 'Inventory Receival' : null),
         }

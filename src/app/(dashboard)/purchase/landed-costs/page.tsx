@@ -32,10 +32,15 @@ import {
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
-  useLandedCosts, useCreateLandedCost, useVoidLandedCost, useApplyLandedCost,
-  useRevertLandedCost, useValidateLcAllocation, useBillSignedUrls, useLcUsedReceivalMap,
+  useLandedCosts, useCreateLandedCost, useApplyLandedCost,
+  useValidateLcAllocation, useBillSignedUrls, useLcUsedReceivalMap,
   type LandedCost, type LandedCostLineInput,
 } from '@/hooks/useLandedCosts'
+
+// Operator-facing safeguard: LC actions are irreversible (no Void, no Revert).
+// A 3-second cooldown gates the Create and Apply confirmations so an accidental
+// double-click can't fire the mutation.
+const LC_COOLDOWN_MS = 3000
 import {
   useReceivalsForLcSelector, useReceivalItemsWithFifo, useReceivalItemsBatch,
 } from '@/hooks/useReceivals'
@@ -97,14 +102,29 @@ function LcDetailDialog({
   lc: LandedCost | null
   onClose: () => void
 }) {
-  const voidLc = useVoidLandedCost()
   const applyLc = useApplyLandedCost()
-  const revertLc = useRevertLandedCost()
-  const [voidOpen, setVoidOpen] = useState(false)
   const [applyOpen, setApplyOpen] = useState(false)
-  const [voidReason, setVoidReason] = useState('')
-  const [revertOpen, setRevertOpen] = useState(false)
-  const [revertConfirmText, setRevertConfirmText] = useState('')
+
+  // ── Apply-cooldown: 3-second delay after the confirm dialog opens so a
+  // double-click can't fire an irreversible mutation. Ticks 4×/second while
+  // active. See LC_COOLDOWN_MS at the top of the file.
+  const [applyCooldownEndsAt, setApplyCooldownEndsAt] = useState<number>(0)
+  const [applyNow, setApplyNow] = useState<number>(0)
+  const applyCooldownRemaining = Math.max(0, applyCooldownEndsAt - applyNow)
+  const applyCooldownSecondsLeft = Math.ceil(applyCooldownRemaining / 1000)
+  useEffect(() => {
+    if (applyOpen) {
+      setApplyCooldownEndsAt(Date.now() + LC_COOLDOWN_MS)
+    } else {
+      setApplyCooldownEndsAt(0)
+    }
+  }, [applyOpen])
+  useEffect(() => {
+    if (!applyOpen || applyCooldownRemaining <= 0) return
+    const interval = setInterval(() => setApplyNow(Date.now()), 250)
+    return () => clearInterval(interval)
+  }, [applyOpen, applyCooldownRemaining])
+
   const billPaths = (lc?.landed_cost_lines ?? []).map((l) => l.bill_path)
   const { data: signedUrls } = useBillSignedUrls(billPaths)
 
@@ -426,10 +446,7 @@ function LcDetailDialog({
           </div>
 
           {!isVoided && !isApplied && (
-            <DialogFooter className="gap-2">
-              <Button variant="destructive" size="sm" className="min-h-11 md:min-h-0" onClick={() => setVoidOpen(true)}>
-                Void LC
-              </Button>
+            <DialogFooter>
               <Button
                 size="sm"
                 className="min-h-11 md:min-h-0"
@@ -440,16 +457,11 @@ function LcDetailDialog({
               </Button>
             </DialogFooter>
           )}
-          {isApplied && !isVoided && lc.revert_snapshot != null && (
+          {isApplied && !isVoided && (
             <DialogFooter>
-              <Button
-                variant="outline"
-                size="sm"
-                className="min-h-11 md:min-h-0 text-destructive border-destructive hover:bg-destructive/10"
-                onClick={() => { setRevertConfirmText(''); setRevertOpen(true) }}
-              >
-                Revert Apply
-              </Button>
+              <p className="text-xs text-muted-foreground italic">
+                Applied on {formatDate(lc.applied_at!)} — landed cost is now permanent on the FIFO layers.
+              </p>
             </DialogFooter>
           )}
         </DialogContent>
@@ -477,10 +489,13 @@ function LcDetailDialog({
                     {' '}in <strong>{lc.attached_receival_ids.length}</strong> receival{lc.attached_receival_ids.length !== 1 ? 's' : ''}
                   </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  This will distribute the amount across FIFO layers proportionally to each item&apos;s value share
-                  ({'qty × unit cost'}), and update average costs. You can revert this later using the Revert Apply button.
-                </p>
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  <p className="font-semibold uppercase tracking-wider">Irreversible</p>
+                  <p className="mt-1">
+                    This will distribute the amount across FIFO layers proportionally to each item&apos;s value share
+                    ({'qty × unit cost'}) and update average costs. There is no revert — verify the numbers below before confirming.
+                  </p>
+                </div>
                 {validating ? (
                   <Skeleton className="h-28 w-full" />
                 ) : (validationItems ?? []).length > 0 ? (
@@ -532,7 +547,7 @@ function LcDetailDialog({
               <DialogFooter className="mx-0 mb-0 px-6 pb-6 pt-2 border-t shrink-0">
                 <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
                 <Button
-                  disabled={applyLc.isPending || validating}
+                  disabled={applyLc.isPending || validating || applyCooldownRemaining > 0}
                   onClick={() =>
                     applyLc.mutate(lc.id, {
                       onSuccess: () => {
@@ -544,7 +559,11 @@ function LcDetailDialog({
                     })
                   }
                 >
-                  {applyLc.isPending ? 'Applying…' : 'Confirm Apply'}
+                  {applyLc.isPending
+                    ? 'Applying…'
+                    : applyCooldownRemaining > 0
+                      ? `Confirm Apply (${applyCooldownSecondsLeft}s)`
+                      : 'Confirm Apply'}
                 </Button>
               </DialogFooter>
             </>
@@ -552,83 +571,6 @@ function LcDetailDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Void confirm */}
-      <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
-          <DialogHeader><DialogTitle>Void Landed Cost</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">This will void {lc.lc_number}. Please provide a reason.</p>
-            <Textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="Reason for voiding…" rows={3} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVoidOpen(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={!voidReason || voidLc.isPending}
-              onClick={() => voidLc.mutate(
-                { id: lc.id, reason: voidReason },
-                {
-                  onSuccess: () => { toast.success('LC voided'); setVoidOpen(false); onClose() },
-                  onError: (err) => toast.error(err.message),
-                }
-              )}
-            >
-              {voidLc.isPending ? 'Voiding…' : 'Confirm Void'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Revert confirm */}
-      <Dialog open={revertOpen} onOpenChange={(v) => { if (!v) setRevertOpen(false) }}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-sm sm:rounded-lg">
-          <DialogHeader><DialogTitle>Revert Landed Cost Apply</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              This will <strong>undo</strong> the LC application for{' '}
-              <strong>{lc?.lc_number}</strong>:
-            </p>
-            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-              <li>FIFO layer costs restored to pre-apply values</li>
-              <li>Average costs recalculated for all affected variants</li>
-              <li>Cost-adjustment stock movements deleted</li>
-              <li>LC returns to Active status (can be re-applied)</li>
-            </ul>
-            <p className="text-sm font-medium">
-              Selling price changes made after apply are <em>not</em> automatically reversed.
-            </p>
-            <div className="space-y-1">
-              <Label htmlFor="lc-revert-confirm" className="text-sm">Type &quot;revert&quot; to confirm</Label>
-              <Input
-                id="lc-revert-confirm"
-                value={revertConfirmText}
-                onChange={(e) => setRevertConfirmText(e.target.value)}
-                placeholder="revert"
-                className="font-mono"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRevertOpen(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={revertConfirmText.toUpperCase() !== 'REVERT' || revertLc.isPending}
-              onClick={() =>
-                revertLc.mutate(lc!.id, {
-                  onSuccess: () => {
-                    toast.success('LC reverted — FIFO costs restored')
-                    setRevertOpen(false)
-                    onClose()
-                  },
-                  onError: (err) => toast.error(err.message),
-                })
-              }
-            >
-              {revertLc.isPending ? 'Reverting…' : 'Confirm Revert'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
@@ -678,7 +620,19 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       }
       map.get(key)!.receivals.push(r)
     }
-    return Array.from(map.values()).sort((a, b) => a.po_number.localeCompare(b.po_number))
+    // Sort groups by the most recent receival date descending; sort receivals
+    // inside each group the same way. Keeps freshest work at the top and
+    // matches the operator's mental model on the /receivals list.
+    return Array.from(map.values())
+      .map((g) => ({
+        ...g,
+        receivals: g.receivals.slice().sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
+      }))
+      .sort((a, b) => {
+        const aDate = a.receivals[0]?.date ?? ''
+        const bDate = b.receivals[0]?.date ?? ''
+        return bDate.localeCompare(aDate)
+      })
   })()
 
   function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }]) }
@@ -772,11 +726,45 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     }
   }
 
+  // ── Confirm-create dialog + cooldown ─────────────────────────────────────
+  // Clicking "Create Landed Cost" opens a summary/confirm dialog rather than
+  // firing the mutation directly. Confirm button is gated by a 3-second
+  // cooldown — a double-click can't accidentally book an irreversible LC.
+  const [confirmCreateOpen, setConfirmCreateOpen] = useState(false)
+  const [createCooldownEndsAt, setCreateCooldownEndsAt] = useState<number>(0)
+  const [createNow, setCreateNow] = useState<number>(0)
+  const createCooldownRemaining = Math.max(0, createCooldownEndsAt - createNow)
+  const createCooldownSecondsLeft = Math.ceil(createCooldownRemaining / 1000)
+  useEffect(() => {
+    if (confirmCreateOpen) {
+      setCreateCooldownEndsAt(Date.now() + LC_COOLDOWN_MS)
+    } else {
+      setCreateCooldownEndsAt(0)
+    }
+  }, [confirmCreateOpen])
+  useEffect(() => {
+    if (!confirmCreateOpen || createCooldownRemaining <= 0) return
+    const interval = setInterval(() => setCreateNow(Date.now()), 250)
+    return () => clearInterval(interval)
+  }, [confirmCreateOpen, createCooldownRemaining])
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!date) { toast.error('Date is required'); return }
     if (lines.some((l) => !l.description)) { toast.error('All cost lines need a description'); return }
     if (uploadingLines.size > 0) { toast.error('Wait for all bill uploads to finish'); return }
+    if (selectedReceivalIds.length === 0) {
+      toast.error('Attach at least one receival before creating the LC')
+      return
+    }
+    if (total <= 0) {
+      toast.error('Total must be greater than zero')
+      return
+    }
+    setConfirmCreateOpen(true)
+  }
+
+  function commitCreate() {
     createLc.mutate(
       {
         description: description || null,
@@ -791,6 +779,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           sessionUploadsRef.current = []
           submittedRef.current = true
           toast.success('Landed cost created')
+          setConfirmCreateOpen(false)
           handleOpenChange(false)
         },
         onError: (err) => toast.error(err.message),
@@ -1022,7 +1011,13 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                             const hasExistingLc = (existingLcs?.length ?? 0) > 0
                             return (
                               <div key={r.id}>
-                                <div className="flex items-center gap-2 px-2 py-1.5 pl-8 hover:bg-muted/30">
+                                <div
+                                  className={cn(
+                                    'flex items-center gap-2 px-2 py-2 pl-8 min-h-11 md:min-h-0 hover:bg-muted/30 transition-colors',
+                                    hasExistingLc && 'bg-amber-50/60',
+                                    isChecked && !hasExistingLc && 'bg-blue-50/40',
+                                  )}
+                                >
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
@@ -1032,21 +1027,24 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                   <button
                                     type="button"
                                     onClick={() => setExpandedReceivalId(isExpanded ? null : r.id)}
-                                    className={cn(
-                                      "flex items-center gap-1.5 flex-1 text-left text-sm min-w-0",
-                                      hasExistingLc && "opacity-60",
-                                    )}
+                                    className="flex items-center gap-2 flex-1 text-left text-sm min-w-0"
                                   >
                                     <span className="text-muted-foreground w-4 shrink-0">
                                       {isExpanded
                                         ? <ChevronDown className="h-3.5 w-3.5" />
                                         : <ChevronRight className="h-3.5 w-3.5" />}
                                     </span>
-                                    <span className={cn("font-mono shrink-0", hasExistingLc && "line-through")}>{r.receival_number}</span>
-                                    <span className={cn("text-muted-foreground truncate", hasExistingLc && "line-through")}>· {formatDate(r.date)}</span>
+                                    <span className="font-mono text-xs font-semibold shrink-0">{r.receival_number}</span>
+                                    <span className="text-muted-foreground text-xs shrink-0">·</span>
+                                    <span className="text-muted-foreground text-xs shrink-0">{formatDate(r.date)}</span>
+                                    {r.warehouse_name && (
+                                      <Badge variant="outline" className="text-[10px] font-normal shrink-0">
+                                        {r.warehouse_name}
+                                      </Badge>
+                                    )}
                                     {hasExistingLc && (
-                                      <Badge variant="secondary" className="ml-auto text-[10px] shrink-0 bg-amber-100 text-amber-700 border-amber-200">
-                                        {existingLcs!.join(', ')}
+                                      <Badge className="ml-auto text-[10px] shrink-0 bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+                                        LC: {existingLcs!.join(', ')}
                                       </Badge>
                                     )}
                                   </button>
@@ -1102,12 +1100,105 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={createLc.isPending || uploadingLines.size > 0}>
-              {createLc.isPending ? 'Creating…' : uploadingLines.size > 0 ? 'Uploading…' : 'Create Landed Cost'}
+              {createLc.isPending ? 'Creating…' : uploadingLines.size > 0 ? 'Uploading…' : 'Review & Create'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>{confirmDialog}</>
+    </Dialog>
+
+    {/* Confirm-Create dialog: shows the full payload the operator is about
+        to book, gated by a 3-second cooldown. LCs are irreversible; the
+        friction is deliberate. */}
+    <Dialog open={confirmCreateOpen} onOpenChange={setConfirmCreateOpen}>
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-lg sm:rounded-lg">
+        <DialogHeader>
+          <DialogTitle>Confirm Landed Cost</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            <p className="font-semibold uppercase tracking-wider">Irreversible</p>
+            <p className="mt-1">
+              Once created and applied, this LC cannot be reverted or voided. Please review the numbers below.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Date</p>
+              <p className="font-medium">{date ? formatDate(date) : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Currency</p>
+              <p className="font-medium">{currency}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground">Description</p>
+              <p className="font-medium break-words">{description || '—'}</p>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5">Cost Lines ({lines.length})</p>
+            <div className="rounded-md border divide-y">
+              {lines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                  <span className="truncate">{l.description || <span className="text-muted-foreground italic">(no description)</span>}</span>
+                  <span className="tabular-nums whitespace-nowrap font-medium">
+                    {formatCurrency(l.amount || 0, l.currency)}
+                    {l.currency !== 'QAR' && (
+                      <span className="text-muted-foreground text-xs ml-1">
+                        @ {l.exchange_rate ?? 1}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+            <p className="text-xs uppercase tracking-wider text-blue-700 font-semibold">Total (QAR)</p>
+            <p className="text-lg font-bold text-blue-900 tabular-nums">{formatCurrency(total, 'QAR')}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5">
+              Attached Receivals ({selectedReceivalIds.length})
+            </p>
+            <div className="rounded-md border divide-y max-h-40 overflow-y-auto">
+              {selectedReceivalIds.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-muted-foreground italic">None</p>
+              ) : (
+                (receivals ?? [])
+                  .filter((r) => selectedReceivalIds.includes(r.id))
+                  .map((r) => (
+                    <div key={r.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                      <span className="font-mono text-xs">{r.receival_number}</span>
+                      <span className="text-muted-foreground text-xs">· {formatDate(r.date)}</span>
+                      {r.warehouse_name && (
+                        <Badge variant="outline" className="text-[10px] ml-auto">{r.warehouse_name}</Badge>
+                      )}
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => setConfirmCreateOpen(false)} disabled={createLc.isPending}>
+            Back to edit
+          </Button>
+          <Button
+            onClick={commitCreate}
+            disabled={createLc.isPending || createCooldownRemaining > 0}
+          >
+            {createLc.isPending
+              ? 'Creating…'
+              : createCooldownRemaining > 0
+                ? `Confirm Create (${createCooldownSecondsLeft}s)`
+                : 'Confirm Create'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    {confirmDialog}</>
   )
 }
 
