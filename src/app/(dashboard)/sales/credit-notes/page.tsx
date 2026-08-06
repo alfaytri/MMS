@@ -56,6 +56,15 @@ export default function CreditNotesPage() {
     if (match) setDetailNote(match)
   }, [searchParams, allCreditNotes, detailNote])
 
+  // Sync the open detail note with the freshly-refetched list so post-Apply
+  // status changes (open → resolved, redemption balance) reflect in the
+  // still-open dialog without requiring the operator to close & reopen it.
+  useEffect(() => {
+    if (!detailNote) return
+    const fresh = allCreditNotes.find((n) => n.id === detailNote.id)
+    if (fresh && fresh !== detailNote) setDetailNote(fresh)
+  }, [allCreditNotes, detailNote])
+
   const creditNotes = useMemo(() => {
     if (!statusFilter) return allCreditNotes
     return allCreditNotes.filter((cn) => cn.status === statusFilter)

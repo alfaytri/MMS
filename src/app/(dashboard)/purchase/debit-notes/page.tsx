@@ -58,6 +58,16 @@ export default function DebitNotesPage() {
     if (match) setDetailNote(match as DebitNoteRow)
   }, [searchParams, debitNotes, detailNote])
 
+  // Sync the open detail note with the freshly-refetched list so post-Apply
+  // status changes (open → resolved, remaining_amount decrement, bill_id
+  // populated) reflect in the still-open dialog. Without this, the dialog
+  // keeps showing the stale row indefinitely.
+  useEffect(() => {
+    if (!detailNote) return
+    const fresh = debitNotes.find((n) => n.id === detailNote.id)
+    if (fresh && fresh !== detailNote) setDetailNote(fresh as DebitNoteRow)
+  }, [debitNotes, detailNote])
+
   // Client-side filter — DN#, supplier, PO#, Return#
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
