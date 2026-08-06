@@ -252,7 +252,14 @@ function SettleInstallmentDialog({
         )
       }
       toast.success(`Installment settled — ${formatCurrency(parsedAmount, currency)}`)
+      // Nuke every cached read that could touch this settlement — the SO
+      // dialog holds three separate payment queries (so-payments,
+      // customer-payments by invoice, payment-plans by invoice) plus the
+      // SO detail itself.
       qc.invalidateQueries({ queryKey: queryKeys.payments.all })
+      qc.invalidateQueries({ queryKey: ['so-payments'] })
+      qc.invalidateQueries({ queryKey: ['payment-plans'] })
+      qc.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
       qc.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       qc.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
