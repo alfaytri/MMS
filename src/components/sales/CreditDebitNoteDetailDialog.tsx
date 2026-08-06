@@ -525,10 +525,10 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Mark as Supplier Credit?</AlertDialogTitle>
+                    <AlertDialogTitle>Apply to supplier bill?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Mark {noteDisplayId} ({formatCurrency(note.total_amount, note.currency ?? 'QAR')}) as supplier credit.
-                      This amount will be tracked for deduction from future bills.
+                      Apply {noteDisplayId} ({formatCurrency(note.total_amount, note.currency ?? 'QAR')}) against the supplier bill for this PO.
+                      Bill outstanding will be reduced by up to this amount; any excess stays on the debit note.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -537,12 +537,12 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       disabled={resolveSupplierCredit.isPending}
                       onClick={() => {
                         resolveSupplierCredit.mutate(note.id, {
-                          onSuccess: () => { toast.success('Marked as supplier credit') },
+                          onSuccess: () => { toast.success('DN applied to supplier bill') },
                           onError: (e) => { toast.error(e.message) },
                         })
                       }}
                     >
-                      Confirm
+                      Apply
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

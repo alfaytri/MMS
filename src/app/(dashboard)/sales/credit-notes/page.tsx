@@ -9,13 +9,12 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CreditNoteFormDialog } from '@/components/sales/CreditNoteFormDialog'
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
+import { ApplyCreditNoteDialog } from '@/components/sales/ApplyCreditNoteDialog'
 import {
   useCreditNotes,
-  useApplyCreditNote,
   type CreditNote,
   type CreditNoteStatus,
 } from '@/hooks/useCreditNotes'
@@ -47,7 +46,6 @@ export default function CreditNotesPage() {
   const searchParams = useSearchParams()
 
   const { data: allCreditNotes = [], isLoading: cnLoading } = useCreditNotes()
-  const applyCreditNote = useApplyCreditNote()
 
   // Deep-link support: `?cn=<id>` auto-opens the detail dialog once the list
   // has loaded. Used by the customer credit-balance popup (opens in new tab).
@@ -296,21 +294,11 @@ export default function CreditNotesPage() {
         onOpenChange={(v) => { if (!v) setDetailNote(null) }}
       />
 
-      {applyTarget && (
-        <ConfirmDialog
-          open
-          title="Apply Credit Note?"
-          description={`Apply ${applyTarget.credit_note_id} (${formatCurrency(applyTarget.total_amount, applyTarget.currency ?? 'QAR')}) to invoice ${applyTarget.invoice_display ?? applyTarget.invoice_id ?? ''}? Any excess will be stored as customer credit balance.`}
-          confirmLabel="Apply"
-          onConfirm={async () => {
-            if (!applyTarget.invoice_id) return
-            await applyCreditNote.mutateAsync({ id: applyTarget.id, invoiceId: applyTarget.invoice_id })
-            toast.success('Credit note applied')
-            setApplyTarget(null)
-          }}
-          onOpenChange={(v) => { if (!v) setApplyTarget(null) }}
-        />
-      )}
+      <ApplyCreditNoteDialog
+        note={applyTarget}
+        open={!!applyTarget}
+        onOpenChange={(v) => { if (!v) setApplyTarget(null) }}
+      />
     </PageWrapper>
   )
 }

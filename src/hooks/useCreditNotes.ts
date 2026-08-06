@@ -296,13 +296,10 @@ export function useCreateCreditNote() {
 export function useApplyCreditNote() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, invoiceId }: { id: string; invoiceId: string }) => {
+    mutationFn: async ({ id, invoiceId, amount }: { id: string; invoiceId: string; amount?: number }) => {
       const supabase = createClient()
 
-      // Compute the redeemable amount client-side so we can pass an explicit
-      // value to the RPC. The RPC enforces the same cap under a FOR UPDATE
-      // lock — this pre-check just avoids a needless round-trip on obvious
-      // no-ops (fully paid invoice / fully depleted CN).
+      // Look up the CN's display code for the payment notes field.
       const { data: cn, error: cnErr } = await supabase
         .from('credit_notes')
         .select('total_amount, credit_note_id')
@@ -310,41 +307,47 @@ export function useApplyCreditNote() {
         .single()
       if (cnErr) throw new Error(`Fetch CN failed: ${cnErr.code} ${cnErr.message}`)
 
-      const { data: inv, error: invErr } = await supabase
-        .from('so_invoices')
-        .select('total_amount')
-        .eq('id', invoiceId)
-        .single()
-      if (invErr) throw new Error(`Fetch invoice failed: ${invErr.code} ${invErr.message}`)
+      // If the caller supplied an explicit amount (from ApplyCreditNoteDialog),
+      // use it. Otherwise compute the maximum applicable — same cap the RPC
+      // enforces, but with a friendly client-side error before the round-trip.
+      let redeemAmount = amount
+      if (redeemAmount === undefined) {
+        const { data: inv, error: invErr } = await supabase
+          .from('so_invoices')
+          .select('total_amount')
+          .eq('id', invoiceId)
+          .single()
+        if (invErr) throw new Error(`Fetch invoice failed: ${invErr.code} ${invErr.message}`)
 
-      const { data: prior, error: pErr } = await supabase
-        .from('payments')
-        .select('amount, credit_note_id')
-        .eq('invoice_id', invoiceId)
-        .eq('direction', 'incoming')
-        .is('deleted_at', null)
-      if (pErr) throw new Error(`Fetch payments failed: ${pErr.code} ${pErr.message}`)
+        const { data: prior, error: pErr } = await supabase
+          .from('payments')
+          .select('amount, credit_note_id')
+          .eq('invoice_id', invoiceId)
+          .eq('direction', 'incoming')
+          .is('deleted_at', null)
+        if (pErr) throw new Error(`Fetch payments failed: ${pErr.code} ${pErr.message}`)
 
-      const alreadyPaid = (prior ?? []).reduce((s: number, p) => s + Number(p.amount ?? 0), 0)
-      const cnPriorRedeemed = (prior ?? [])
-        .filter((p) => p.credit_note_id === id)
-        .reduce((s: number, p) => s + Number(p.amount ?? 0), 0)
-      const outstanding = Math.max(0, (inv?.total_amount ?? 0) - alreadyPaid)
-      const cnRemaining = Math.max(0, (cn?.total_amount ?? 0) - cnPriorRedeemed)
-      const amount = Math.min(cnRemaining, outstanding)
+        const alreadyPaid = (prior ?? []).reduce((s: number, p) => s + Number(p.amount ?? 0), 0)
+        const cnPriorRedeemed = (prior ?? [])
+          .filter((p) => p.credit_note_id === id)
+          .reduce((s: number, p) => s + Number(p.amount ?? 0), 0)
+        const outstanding = Math.max(0, (inv?.total_amount ?? 0) - alreadyPaid)
+        const cnRemaining = Math.max(0, (cn?.total_amount ?? 0) - cnPriorRedeemed)
+        redeemAmount = Math.min(cnRemaining, outstanding)
 
-      if (amount <= 0) {
-        throw new Error(
-          cnRemaining <= 0
-            ? `Credit note ${cn?.credit_note_id ?? id} is already fully redeemed`
-            : 'Invoice is already fully paid — nothing to apply',
-        )
+        if (redeemAmount <= 0) {
+          throw new Error(
+            cnRemaining <= 0
+              ? `Credit note ${cn?.credit_note_id ?? id} is already fully redeemed`
+              : 'Invoice is already fully paid — nothing to apply',
+          )
+        }
       }
 
       const { error: rpcErr } = await supabase.rpc('rpc_redeem_credit_note', {
         p_invoice_id:     invoiceId,
         p_credit_note_id: id,
-        p_amount:         amount,
+        p_amount:         redeemAmount,
         p_method:         'credit_note',
         p_notes:          `Credit note ${cn?.credit_note_id ?? id} applied`,
       })
@@ -355,7 +358,7 @@ export function useApplyCreditNote() {
         module: 'credit_notes',
         entity_id: id,
         entity_type: 'credit_note',
-        new_data: { invoice_id: invoiceId, amount } as unknown as Record<string, unknown>,
+        new_data: { invoice_id: invoiceId, amount: redeemAmount } as unknown as Record<string, unknown>,
       })
     },
     onSuccess: () => {
