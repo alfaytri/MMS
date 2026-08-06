@@ -231,6 +231,9 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
               </div>
               <div className="text-xs text-muted-foreground">
                 {ret.date} · {(ret.return_lines ?? []).length} item(s) · {ret.reason}
+                {ret.source_receival_numbers && ret.source_receival_numbers.length > 0 && (
+                  <> · <span className="font-mono">from {ret.source_receival_numbers.join(', ')}</span></>
+                )}
               </div>
               {ret.debit_note ? (
                 <div className="flex items-center gap-2 pt-1">

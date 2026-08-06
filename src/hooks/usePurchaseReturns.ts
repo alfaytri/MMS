@@ -127,8 +127,10 @@ export type POReturn = {
   created_by_name: string | null
   created_at: string
   updated_at: string
-  credit_note_id: string | null   // UUID FK → debit_notes.id
+  credit_note_id: string | null   // legacy — sale returns only (FK → credit_notes.id)
+  debit_note_id:  string | null   // FK → debit_notes.id, populated on dispatch for PO returns
   debit_note?: DebitNote | null   // joined
+  source_receival_numbers?: string[]   // distinct RCV-XXXXXs the return_lines came from
 }
 
 export function usePurchaseReturnsByPO(poId: string | null) {
@@ -145,22 +147,46 @@ export function usePurchaseReturnsByPO(poId: string | null) {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
-      // Fetch linked debit notes separately (returns.credit_note_id → debit_notes.id)
+      // Fetch linked debit notes via so_po_returns.debit_note_id (FK to
+      // debit_notes.id). credit_note_id is only for sale returns.
       const rows = data ?? []
-      const noteIds = rows.map((r) => (r as Record<string, unknown>).credit_note_id as string | null).filter(Boolean) as string[]
+      const noteIds = rows
+        .map((r) => (r as Record<string, unknown>).debit_note_id as string | null)
+        .filter(Boolean) as string[]
       const noteMap: Record<string, Record<string, unknown>> = {}
       if (noteIds.length > 0) {
         const { data: notes } = await supabase
           .from('debit_notes')
           .select('*')
           .in('id', noteIds)
-        for (const n of (notes ?? [])) noteMap[n.id] = n
+        for (const n of (notes ?? [])) noteMap[(n as { id: string }).id] = n as Record<string, unknown>
+      }
+      // Map each return_line.receival_item_id → receival_number so the UI can
+      // show "from RCV-XXXXX" per return.
+      const receivalItemIds = rows.flatMap((r) => {
+        const lines = ((r as Record<string, unknown>).return_lines ?? []) as Array<{ receival_item_id?: string | null }>
+        return lines.map((l) => l.receival_item_id).filter(Boolean) as string[]
+      })
+      const receivalNumberByItemId: Record<string, string> = {}
+      if (receivalItemIds.length > 0) {
+        const { data: ris } = await supabase
+          .from('receival_items')
+          .select('id, receivals!inner(receival_number)')
+          .in('id', Array.from(new Set(receivalItemIds)))
+        for (const ri of (ris ?? []) as Array<{ id: string; receivals: { receival_number: string } | null }>) {
+          if (ri.receivals?.receival_number) receivalNumberByItemId[ri.id] = ri.receivals.receival_number
+        }
       }
       return rows.map((r) => {
         const row = r as Record<string, unknown>
+        const lines = (row.return_lines ?? []) as Array<{ receival_item_id?: string | null }>
+        const nums = Array.from(new Set(
+          lines.map((l) => l.receival_item_id ? receivalNumberByItemId[l.receival_item_id] : null).filter(Boolean) as string[]
+        )).sort()
         return {
           ...r,
-          debit_note: row.credit_note_id ? (noteMap[row.credit_note_id as string] ?? null) : null,
+          debit_note: row.debit_note_id ? (noteMap[row.debit_note_id as string] ?? null) : null,
+          source_receival_numbers: nums,
         }
       }) as unknown as POReturn[]
     },
@@ -386,11 +412,13 @@ async function createDebitNoteForReturn(
     if (linesErr) throw linesErr
   }
 
-  // 4. Link return → debit note
-  await supabase
+  // 4. Link return → debit note. Writes debit_note_id (FK → debit_notes.id).
+  // credit_note_id is only for sale returns.
+  const { error: linkErr } = await supabase
     .from('so_po_returns')
-    .update({ credit_note_id: dn.id })
+    .update({ debit_note_id: dn.id })
     .eq('id', returnId)
+  if (linkErr) throw linkErr
 }
 
 export function useUpdatePOReturnStatus() {

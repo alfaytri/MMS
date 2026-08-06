@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -2790,6 +2815,7 @@ export type Database = {
           reference_id: string | null
           reference_type: string | null
           sku: string | null
+          source_id: string | null
           sub_container_id: string
           unit_cost: number
           warehouse_id: string | null
@@ -2805,6 +2831,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
+          source_id?: string | null
           sub_container_id: string
           unit_cost?: number
           warehouse_id?: string | null
@@ -2820,6 +2847,7 @@ export type Database = {
           reference_id?: string | null
           reference_type?: string | null
           sku?: string | null
+          source_id?: string | null
           sub_container_id?: string
           unit_cost?: number
           warehouse_id?: string | null
@@ -5465,6 +5493,7 @@ export type Database = {
           created_by_name: string | null
           credit_note_id: string | null
           date: string
+          debit_note_id: string | null
           deleted_at: string | null
           dispatched_at: string | null
           division_id: string | null
@@ -5487,6 +5516,7 @@ export type Database = {
           created_by_name?: string | null
           credit_note_id?: string | null
           date?: string
+          debit_note_id?: string | null
           deleted_at?: string | null
           dispatched_at?: string | null
           division_id?: string | null
@@ -5509,6 +5539,7 @@ export type Database = {
           created_by_name?: string | null
           credit_note_id?: string | null
           date?: string
+          debit_note_id?: string | null
           deleted_at?: string | null
           dispatched_at?: string | null
           division_id?: string | null
@@ -5559,6 +5590,13 @@ export type Database = {
             columns: ["restock_warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "so_po_returns_debit_note_id_fkey"
+            columns: ["debit_note_id"]
+            isOneToOne: false
+            referencedRelation: "debit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -7243,6 +7281,10 @@ export type Database = {
       }
     }
     Functions: {
+      _auth_user_has_permission: {
+        Args: { p_permission: string }
+        Returns: boolean
+      }
       _consume_damaged_stock_fifo: {
         Args: {
           p_brand_variant_id: string
@@ -8782,6 +8824,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
