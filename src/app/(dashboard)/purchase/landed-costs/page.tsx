@@ -750,6 +750,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       setCreateCooldownEndsAt(Date.now() + LC_COOLDOWN_MS)
     } else {
       setCreateCooldownEndsAt(0)
+      setConfirmExpandedIds(new Set())
     }
   }, [confirmCreateOpen])
   useEffect(() => {
@@ -773,6 +774,32 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     }
     setConfirmCreateOpen(true)
   }
+
+  // Per-row expand state inside the Confirm dialog so the operator can drill
+  // into each attached receival's items before committing.
+  const [confirmExpandedIds, setConfirmExpandedIds] = useState<Set<string>>(new Set())
+  function toggleConfirmExpanded(id: string) {
+    setConfirmExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  // Fetch items for the whole selection in one round-trip when the confirm
+  // dialog is open. Cheap because selectedReceivalIds is small.
+  const { data: confirmItemsBatch } = useReceivalItemsBatch(
+    confirmCreateOpen ? selectedReceivalIds : null,
+  )
+  const confirmItemsByReceival = (() => {
+    const map = new Map<string, typeof confirmItemsBatch>()
+    for (const it of confirmItemsBatch ?? []) {
+      const arr = map.get(it.receival_id) ?? []
+      arr.push(it)
+      map.set(it.receival_id, arr as never)
+    }
+    return map
+  })()
 
   function commitCreate() {
     createLc.mutate(
@@ -1192,21 +1219,69 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
             <p className="text-xs text-muted-foreground mb-1.5">
               Attached Receivals ({selectedReceivalIds.length})
             </p>
-            <div className="rounded-md border divide-y max-h-40 overflow-y-auto">
+            <div className="rounded-md border divide-y max-h-64 overflow-y-auto">
               {selectedReceivalIds.length === 0 ? (
                 <p className="px-3 py-2 text-sm text-muted-foreground italic">None</p>
               ) : (
                 (receivals ?? [])
                   .filter((r) => selectedReceivalIds.includes(r.id))
-                  .map((r) => (
-                    <div key={r.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-                      <span className="font-mono text-xs">{r.receival_number}</span>
-                      <span className="text-muted-foreground text-xs">· {formatDate(r.date)}</span>
-                      {r.warehouse_name && (
-                        <Badge variant="outline" className="text-[10px] ml-auto">{r.warehouse_name}</Badge>
-                      )}
-                    </div>
-                  ))
+                  .map((r) => {
+                    const isOpen = confirmExpandedIds.has(r.id)
+                    const items = confirmItemsByReceival.get(r.id) ?? []
+                    return (
+                      <div key={r.id}>
+                        <button
+                          type="button"
+                          onClick={() => toggleConfirmExpanded(r.id)}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-muted/30 min-h-11 md:min-h-0"
+                        >
+                          <span className="text-muted-foreground w-4 shrink-0">
+                            {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          </span>
+                          <span className="font-mono text-xs font-semibold">{r.receival_number}</span>
+                          <span className="text-muted-foreground text-xs">· {formatDate(r.date)}</span>
+                          {r.warehouse_name && (
+                            <Badge variant="outline" className="text-[10px] ml-auto">{r.warehouse_name}</Badge>
+                          )}
+                        </button>
+                        {isOpen && (
+                          <div className="px-3 pb-2 pl-9 bg-muted/20">
+                            {items.length === 0 ? (
+                              <p className="py-2 text-xs text-muted-foreground italic">Loading items…</p>
+                            ) : (
+                              <table className="w-full text-xs">
+                                <thead className="text-muted-foreground">
+                                  <tr>
+                                    <th className="text-left py-1 pr-2 font-normal">Item</th>
+                                    <th className="text-right py-1 font-normal">Rcvd</th>
+                                    <th className="text-right py-1 font-normal">Rem.</th>
+                                    <th className="text-right py-1 pl-2 font-normal">Unit Cost</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {items.map((it) => (
+                                    <tr key={it.id} className="border-t border-muted-foreground/10">
+                                      <td className="py-1 pr-2">
+                                        <div className="truncate">{it.item_name}</div>
+                                        {it.sku && (
+                                          <div className="text-[10px] text-muted-foreground font-mono">{it.sku}</div>
+                                        )}
+                                      </td>
+                                      <td className="text-right py-1 tabular-nums">{it.qty_received}</td>
+                                      <td className={cn('text-right py-1 tabular-nums font-medium', it.remaining_qty === 0 && 'text-amber-600')}>
+                                        {it.remaining_qty}
+                                      </td>
+                                      <td className="text-right py-1 pl-2 tabular-nums">{formatCurrency(it.unit_cost, 'QAR')}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
               )}
             </div>
           </div>
