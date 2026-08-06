@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -178,24 +177,43 @@ export function ApplyDebitNoteDialog({ note, open, onOpenChange }: Props) {
                 No open bills for this supplier. Issue a bill first.
               </p>
             ) : (
-              <Select value={selectedBillId} onValueChange={(v) => setSelectedBillId(v ?? '')}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose a bill…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bills.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="font-mono">{b.bill_number}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span>outstanding {formatCurrency(b.outstanding, 'QAR')}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-xs text-muted-foreground">{formatDate(b.issued_date)}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2 max-h-64 overflow-y-auto rounded-md border p-1">
+                {bills.map((b) => {
+                  const isSelected = b.id === selectedBillId
+                  const isDnPo = notePoId && b.purchase_order_id === notePoId
+                  return (
+                    <button
+                      type="button"
+                      key={b.id}
+                      onClick={() => setSelectedBillId(b.id)}
+                      className={
+                        'w-full text-left rounded-md border p-3 transition-colors ' +
+                        (isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-transparent hover:bg-muted/60')
+                      }
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-sm font-medium truncate">{b.bill_number}</span>
+                          {isDnPo && (
+                            <span className="text-[10px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                              DN&apos;s PO
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono tabular-nums text-sm shrink-0">
+                          {formatCurrency(b.outstanding, 'QAR')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                        <span>Total {formatCurrency(b.total_amount, 'QAR')} · paid {formatCurrency(b.paid_amount, 'QAR')}</span>
+                        <span>{formatDate(b.issued_date)}</span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
             )}
             {targetsDifferentPo && (
               <p className="text-xs text-amber-600">
