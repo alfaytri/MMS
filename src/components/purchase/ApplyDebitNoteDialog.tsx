@@ -102,7 +102,9 @@ export function ApplyDebitNoteDialog({ note, open, onOpenChange }: Props) {
 
   const selectedBill = bills.find((b) => b.id === selectedBillId)
   const parsedAmount = Number(amountStr)
-  const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0
+  const maxApplicable = selectedBill ? Math.min(remainingDn, selectedBill.outstanding) : 0
+  const overCap = Number.isFinite(parsedAmount) && parsedAmount > maxApplicable
+  const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0 && !overCap
 
   async function handleSubmit() {
     if (!note || !selectedBill || !validAmount) return
@@ -227,15 +229,18 @@ export function ApplyDebitNoteDialog({ note, open, onOpenChange }: Props) {
             <label className="text-sm font-medium">Amount</label>
             <Input
               type="number" min={0.01} step="0.01"
+              max={selectedBill ? maxApplicable : undefined}
               value={amountStr}
               onChange={(e) => setAmountStr(e.target.value)}
               disabled={!selectedBill}
               placeholder="0.00"
+              className={overCap ? 'border-destructive focus-visible:ring-destructive' : undefined}
             />
             {selectedBill && (
-              <p className="text-xs text-muted-foreground">
-                Max applicable: {formatCurrency(Math.min(remainingDn, selectedBill.outstanding), 'QAR')}
-                {' '}(DN remaining {formatCurrency(remainingDn, 'QAR')}, bill outstanding {formatCurrency(selectedBill.outstanding, 'QAR')})
+              <p className={'text-xs ' + (overCap ? 'text-destructive' : 'text-muted-foreground')}>
+                {overCap
+                  ? `Exceeds max applicable ${formatCurrency(maxApplicable, 'QAR')}. Lower the amount to Apply.`
+                  : `Max applicable: ${formatCurrency(maxApplicable, 'QAR')} (DN remaining ${formatCurrency(remainingDn, 'QAR')}, bill outstanding ${formatCurrency(selectedBill.outstanding, 'QAR')})`}
               </p>
             )}
           </div>

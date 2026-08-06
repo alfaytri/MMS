@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { useApplyCreditNote, type CreditNote } from '@/hooks/useCreditNotes'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -126,7 +125,9 @@ export function ApplyCreditNoteDialog({ note, open, onOpenChange }: Props) {
 
   const selectedInvoice = invoices.find((i) => i.id === selectedInvoiceId)
   const parsedAmount = Number(amountStr)
-  const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0
+  const maxApplicable = selectedInvoice ? Math.min(remainingCn, selectedInvoice.outstanding) : 0
+  const overCap = Number.isFinite(parsedAmount) && parsedAmount > maxApplicable
+  const validAmount = Number.isFinite(parsedAmount) && parsedAmount > 0 && !overCap
 
   async function handleSubmit() {
     if (!selectedInvoice || !validAmount || !note) return
@@ -173,24 +174,35 @@ export function ApplyCreditNoteDialog({ note, open, onOpenChange }: Props) {
                 No unpaid invoices found for this customer. Issue an invoice first or reduce it.
               </p>
             ) : (
-              <Select value={selectedInvoiceId} onValueChange={(v) => setSelectedInvoiceId(v ?? '')}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Choose an invoice…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {invoices.map((inv) => (
-                    <SelectItem key={inv.id} value={inv.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="font-mono">{inv.invoice_id}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span>outstanding {formatCurrency(inv.outstanding, 'QAR')}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-xs text-muted-foreground">{formatDate(inv.issued_date)}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2 max-h-64 overflow-y-auto rounded-md border p-1">
+                {invoices.map((inv) => {
+                  const isSelected = inv.id === selectedInvoiceId
+                  return (
+                    <button
+                      type="button"
+                      key={inv.id}
+                      onClick={() => setSelectedInvoiceId(inv.id)}
+                      className={
+                        'w-full text-left rounded-md border p-3 transition-colors ' +
+                        (isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-transparent hover:bg-muted/60')
+                      }
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-mono text-sm font-medium truncate">{inv.invoice_id}</span>
+                        <span className="font-mono tabular-nums text-sm shrink-0">
+                          {formatCurrency(inv.outstanding, 'QAR')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                        <span>Total {formatCurrency(inv.total_amount, 'QAR')} · paid {formatCurrency(inv.paid_amount, 'QAR')}</span>
+                        <span>{formatDate(inv.issued_date)}</span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
 
@@ -198,15 +210,18 @@ export function ApplyCreditNoteDialog({ note, open, onOpenChange }: Props) {
             <label className="text-sm font-medium">Amount</label>
             <Input
               type="number" min={0.01} step="0.01"
+              max={selectedInvoice ? maxApplicable : undefined}
               value={amountStr}
               onChange={(e) => setAmountStr(e.target.value)}
               disabled={!selectedInvoice}
               placeholder="0.00"
+              className={overCap ? 'border-destructive focus-visible:ring-destructive' : undefined}
             />
             {selectedInvoice && (
-              <p className="text-xs text-muted-foreground">
-                Max applicable: {formatCurrency(Math.min(remainingCn, selectedInvoice.outstanding), 'QAR')}
-                {' '}(CN remaining {formatCurrency(remainingCn, 'QAR')}, invoice outstanding {formatCurrency(selectedInvoice.outstanding, 'QAR')})
+              <p className={'text-xs ' + (overCap ? 'text-destructive' : 'text-muted-foreground')}>
+                {overCap
+                  ? `Exceeds max applicable ${formatCurrency(maxApplicable, 'QAR')}. Lower the amount to Apply.`
+                  : `Max applicable: ${formatCurrency(maxApplicable, 'QAR')} (CN remaining ${formatCurrency(remainingCn, 'QAR')}, invoice outstanding ${formatCurrency(selectedInvoice.outstanding, 'QAR')})`}
               </p>
             )}
           </div>
