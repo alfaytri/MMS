@@ -448,7 +448,7 @@ export function useCanApproveConsumptionEdit() {
       const { data, error } = await supabase
         .from('user_data')
         .select(`
-          user_custom_roles(
+          user_custom_roles!user_custom_roles_profile_id_fkey(
             custom_roles!inner(
               approval_workflow_steps!inner(workflow, archived_at)
             )
