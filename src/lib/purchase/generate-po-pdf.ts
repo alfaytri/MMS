@@ -173,9 +173,13 @@ export async function generatePoPdf(
       .is('deleted_at', null)
       .order('date', { ascending: true })
 
+    // Six-domains H5: keep the original-currency amount for PDF display
+    // — the Grand Total and payment rows both carry `currency` as their
+    // label, so mixing QAR-normalised values here shows "USD 3,650" for
+    // a 1,000-USD payment at rate 3.65 (the sum contradicts the label).
     payments = (paymentRows ?? []).map((p: { date: string; amount: number | null; amount_qar: number | null; method: string; reference: string | null }) => ({
       date:      p.date,
-      amount:    p.amount_qar ?? p.amount ?? 0,
+      amount:    p.amount ?? 0,
       method:    p.method,
       reference: p.reference,
     }))
@@ -195,9 +199,13 @@ export async function generatePoPdf(
   }
 
   // ── Compute totals ──────────────────────────────────────────────────
-  const totalQar    = Number(po.total_qar ?? 0)
-  const amountPaid  = payments.reduce((s, p) => s + p.amount, 0)
-  const outstanding = Math.max(0, totalQar - amountPaid)
+  // Six-domains H5: display totals in the PO's own currency to match the
+  // labels ("USD 1,000.00", not "USD 3,650" which was total_qar mislabelled).
+  const subtotalOriginal = Number(po.subtotal        ?? 0)
+  const discountOriginal = Number(po.discount_amount ?? 0)
+  const totalOriginal    = Math.max(0, subtotalOriginal - discountOriginal)
+  const amountPaid       = payments.reduce((s, p) => s + p.amount, 0)
+  const outstanding      = Math.max(0, totalOriginal - amountPaid)
 
   // ── Build HTML ──────────────────────────────────────────────────────
   const [brand, fonts] = await Promise.all([
@@ -215,9 +223,9 @@ export async function generatePoPdf(
     rfq_number:        rfqNumber,
     status:            po.status,
     lines:             await hydratePoArabic(supabase, po.po_line_items ?? []),
-    subtotal:          Number(po.subtotal        ?? 0),
-    discount_amount:   Number(po.discount_amount ?? 0),
-    total_qar:         totalQar,
+    subtotal:          subtotalOriginal,
+    discount_amount:   discountOriginal,
+    total_qar:         totalOriginal,     // H5: field name kept for schema compat; value now in original currency
     currency:          po.currency ?? 'QAR',
     payment_terms:     po.payment_terms,
     delivery_terms:    po.delivery_terms,

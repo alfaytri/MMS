@@ -72,18 +72,25 @@ export async function generateBillPdf(
   //   1. payment_bill_allocations rows explicitly split to this bill
   //   2. payments with source_type='bill' or bill_id=<this bill>
   //   3. payments recorded against the parent PO (source_type='purchase_order')
-  // The bill_recompute_paid_fn trigger keeps bills.paid_amount in sync
-  // across all three; the PDF just needs to display the underlying entries.
+  //
+  // Six-domains H6: the three queries overlap — a payment carrying both
+  // an allocation row AND bill_id would render twice; a PO-level payment
+  // already split via an allocation would show BOTH the full amount and
+  // the split amount. Deduplicate by payment id, allocation-rows win
+  // (they carry the split amount and are the accounting truth).
   const paymentRows: BillPaymentRow[] = []
+  const seenPaymentIds = new Set<string>()
 
   const { data: allocations, error: allocErr } = await supabase
     .from('payment_bill_allocations')
-    .select(`amount, payments(date, method, reference)`)
+    .select(`amount, payment_id, payments(id, date, method, reference)`)
     .eq('bill_id', billUuid)
     .order('created_at', { ascending: true })
   if (allocErr) throw new Error(`Failed to fetch payment allocations: ${allocErr.message}`)
 
   for (const a of allocations ?? []) {
+    const pid = (a.payments as { id?: string } | null)?.id ?? a.payment_id ?? null
+    if (pid) seenPaymentIds.add(pid)
     paymentRows.push({
       date:      a.payments?.date ?? '',
       amount:    a.amount,
@@ -94,7 +101,7 @@ export async function generateBillPdf(
 
   const { data: directPayments, error: directErr } = await supabase
     .from('payments')
-    .select('date, amount, method, reference')
+    .select('id, date, amount, method, reference')
     .or(`and(source_type.eq.bill,source_id.eq.${billUuid}),bill_id.eq.${billUuid}`)
     .eq('direction', 'outgoing')
     .is('deleted_at', null)
@@ -102,6 +109,8 @@ export async function generateBillPdf(
   if (directErr) throw new Error(`Failed to fetch direct bill payments: ${directErr.message}`)
 
   for (const p of directPayments ?? []) {
+    if (p.id && seenPaymentIds.has(p.id)) continue
+    if (p.id) seenPaymentIds.add(p.id)
     paymentRows.push({
       date:      p.date ?? '',
       amount:    p.amount ?? 0,
@@ -113,7 +122,7 @@ export async function generateBillPdf(
   if (po && bill.purchase_order_id) {
     const { data: poPayments, error: poErr } = await supabase
       .from('payments')
-      .select('date, amount, method, reference')
+      .select('id, date, amount, method, reference')
       .eq('source_type', 'purchase_order')
       .eq('source_id', bill.purchase_order_id)
       .eq('direction', 'outgoing')
@@ -122,6 +131,8 @@ export async function generateBillPdf(
     if (poErr) throw new Error(`Failed to fetch PO payments: ${poErr.message}`)
 
     for (const p of poPayments ?? []) {
+      if (p.id && seenPaymentIds.has(p.id)) continue
+      if (p.id) seenPaymentIds.add(p.id)
       paymentRows.push({
         date:      p.date ?? '',
         amount:    p.amount ?? 0,
