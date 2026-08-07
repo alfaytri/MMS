@@ -7,31 +7,6 @@ Remove items from this file once shipped (do not just strike through — delete)
 
 ## Open
 
-### Payment terms → payment plan wiring
-
-**Surfaced:** 2026-08-07 (user feedback during six-domains audit)
-**Priority:** MEDIUM — feature completion
-
-**Problem.** The New SO form collects payment terms + custom
-milestones (`100% Advance`, `Net 30`, `50/50`, or a custom milestone
-label + %). These are stored on `sale_orders.payment_terms` /
-`payment_terms_notes` / `payment_milestones` (jsonb) but never
-materialised into the `payment_plans` + `payment_installments`
-tables that the Payments tab / SoPaymentDialog use. The two systems
-are independent — the terms field is decorative today.
-
-**Fix.**
-
-1. After an SO's invoice is created with `invoice_type='credit'` AND
-   `payment_milestones` is non-empty, auto-create a `payment_plan` row
-   with `type = 'custom' | 'net_30' | '50_50' | 'advance'` and
-   `payment_installments` rows keyed off the milestone list.
-2. Milestone entries with `%` need a hint at due_date — either
-   compute from `so.expected_delivery + N` per milestone or prompt
-   the user to fill in per-installment dates.
-3. Existing PaymentPlanDialog already handles custom plans — the
-   auto-created plan should be editable there.
-
 ### Supplier bill attachment field
 
 **Surfaced:** 2026-08-06 (release checklist Section 6)
