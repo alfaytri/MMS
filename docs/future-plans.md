@@ -7,41 +7,6 @@ Remove items from this file once shipped (do not just strike through — delete)
 
 ## Open
 
-### Customer credit-utilization visualization
-
-**Surfaced:** 2026-08-07
-**Priority:** Medium — UX feature
-
-**Problem.** A credit customer's detail view shows their credit limit
-and their outstanding balance as flat numbers. There's no visual
-breakdown of how the limit is being used across open orders, or how
-much of each individual order has been paid.
-
-**Design.** On the customer detail page (Master Data → Customers →
-row detail), under a new "Credit Utilization" section:
-
-1. **Overall bar** — full width, split into three coloured segments:
-   - Green: paid across all open orders (`SUM(paid_amount)`)
-   - Amber: outstanding across all open orders (`SUM(total - paid)`)
-   - Gray remainder: unused credit (`credit_limit - SUM(total)`)
-   Labels below each segment with the QAR amount and the % of limit.
-
-2. **Per-order stack** — one row per open (non-cancelled, non-fully-paid)
-   SO, each showing:
-   - SO number + date + total
-   - Its own mini progress bar (paid / outstanding within that SO)
-   - Age (days since order date)
-
-3. **Data source.** After the credit-restore fix ships (see next item
-   in this file), the values come directly from `sale_orders.total`
-   and `sale_orders.paid_amount`. No new hook needed — reuse
-   `useSaleOrders({ customerId })`. Keep the section collapsed by
-   default so it doesn't clutter customers with dozens of orders.
-
-**Non-goals.** Aging buckets (30/60/90) already exist on the sales
-aging page — no duplication here. This is a "single-customer credit
-health snapshot" view.
-
 ### Payment terms → payment plan wiring
 
 **Surfaced:** 2026-08-07 (user feedback during six-domains audit)
