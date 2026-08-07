@@ -699,7 +699,23 @@ export function useCreateSO() {
         p_division_id:          payload.division_id ?? undefined,
       })
       if (error) throw error
-      return data as CreateSOResult
+      const result = data as CreateSOResult
+      // When the SO lands as 'confirmed', auto-create the AR invoice — the
+      // same step useConfirmSO does for a quotation → confirmed transition.
+      // rpc_sync_invoice_from_so is idempotent + the seed helper is now
+      // wired into both branches, so this also lands the payment plan
+      // whenever milestones were set.
+      if (result?.status === 'confirmed' && result.so_id) {
+        try {
+          const { syncInvoiceToSalesOrder } = await import('@/lib/invoiceSync')
+          await syncInvoiceToSalesOrder(result.so_id)
+        } catch (err) {
+          // Non-fatal — the SO is already saved. Surface a soft warning.
+          // eslint-disable-next-line no-console
+          console.warn('SO created but invoice sync failed:', err)
+        }
+      }
+      return result
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
