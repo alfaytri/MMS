@@ -14,14 +14,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ChevronDown, Check } from 'lucide-react'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
-import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { useCustomerCreditDocs, useSaveCustomerCreditDocs, type CreditDocType } from '@/hooks/useCustomerCreditDocs'
 import { cn } from '@/lib/utils'
 
 const BUCKET = 'customer-credit-docs'
@@ -89,13 +87,12 @@ export function CustomerDialog({
   const updateCustomer      = useUpdateCustomer()
   const toggleActive        = useToggleCustomerActive()
   const submitGroupChange   = useSubmitCreditGroupChange()
-  const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending
+  const saveCreditDocs      = useSaveCustomerCreditDocs()
+  const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending || saveCreditDocs.isPending
 
-  const { activeDivisionId, availableDivisions } = useActiveDivision()
-  // A customer belongs to one or more divisions (array). No "global" concept.
-  const [divisionIds, setDivisionIds] = useState<string[]>([])
-  // Only one division accessible AND creating → auto-pick and hide the selector.
-  const soleDivision = availableDivisions.length === 1 ? availableDivisions[0] : null
+  // Docs live in customer_credit_docs — fetch on edit; empty on create.
+  const { data: existingDocs = [] } = useCustomerCreditDocs(open && isEdit && customer?.id ? customer.id : null)
+  const findDoc = (t: CreditDocType) => existingDocs.find((d) => d.doc_type === t)?.file_url ?? null
 
   useEffect(() => {
     if (!open) return
@@ -107,32 +104,17 @@ export function CustomerDialog({
       setCustomerType(customer.credit_group_id ? 'credit' : 'cash')
       setEntityType((customer.entity_type as 'individual' | 'business') ?? 'individual')
       setGroupId(customer.credit_group_id ?? '')
-      setCrDoc(customer.cr_url ? { path: customer.cr_url, name: displayNameFromPath(customer.cr_url, 'cr') } : null)
-      setEstablishmentIdDoc(customer.establishment_id_url
-        ? { path: customer.establishment_id_url, name: displayNameFromPath(customer.establishment_id_url, 'establishment') }
-        : null)
-      setSignedFormDoc(customer.signed_credit_form_url
-        ? { path: customer.signed_credit_form_url, name: displayNameFromPath(customer.signed_credit_form_url, 'signed') }
-        : null)
-      setDivisionIds(
-        Array.isArray((customer as unknown as { division_ids?: string[] }).division_ids)
-          ? (customer as unknown as { division_ids: string[] }).division_ids
-          : [],
-      )
+      const crPath  = findDoc('cr')
+      const esPath  = findDoc('establishment_id')
+      const sgPath  = findDoc('signed_credit_form')
+      setCrDoc(crPath ? { path: crPath, name: displayNameFromPath(crPath, 'cr') } : null)
+      setEstablishmentIdDoc(esPath ? { path: esPath, name: displayNameFromPath(esPath, 'establishment') } : null)
+      setSignedFormDoc(sgPath ? { path: sgPath, name: displayNameFromPath(sgPath, 'signed') } : null)
     } else if (!isEdit) {
       setName(''); setPhones([newPhoneRow(true)]); setEmail('')
       // New customers default to cash — a credit group must be picked to promote.
       setCustomerType('cash'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
-      // Auto-pick when the user has exactly one division; otherwise pre-select
-      // the currently-active division (operator can add more).
-      setDivisionIds(
-        soleDivision
-          ? [soleDivision.id]
-          : activeDivisionId
-            ? [activeDivisionId]
-            : [],
-      )
     }
     setUploading(null)
   }, [open, isEdit, customer])
@@ -243,24 +225,33 @@ export function CustomerDialog({
       toast.error('CR and Establishment ID are required for business customers')
       return
     }
-    if (divisionIds.length === 0) {
-      toast.error('Pick at least one division for this customer.')
-      return
-    }
-    if (isCashToCredit && signedFormDoc?.path === customer?.signed_credit_form_url) {
+    const existingCr           = findDoc('cr')
+    const existingEstablishment = findDoc('establishment_id')
+    const existingSigned       = findDoc('signed_credit_form')
+    if (isCashToCredit && signedFormDoc?.path === existingSigned) {
       toast.error('Promotion to Credit requires a freshly signed credit form upload')
       return
     }
     if (isIndividualToBusiness) {
-      if (!crDoc || crDoc.path === customer?.cr_url) {
+      if (!crDoc || crDoc.path === existingCr) {
         toast.error('Promotion to Business requires a fresh CR upload')
         return
       }
-      if (!establishmentIdDoc || establishmentIdDoc.path === customer?.establishment_id_url) {
+      if (!establishmentIdDoc || establishmentIdDoc.path === existingEstablishment) {
         toast.error('Promotion to Business requires a fresh Establishment ID upload')
         return
       }
     }
+
+    // Build the credit-docs payload used by both create + update paths.
+    const buildDocsPayload = (): { doc_type: CreditDocType; file_url: string | null }[] =>
+      docsRequired
+        ? [
+            { doc_type: 'cr',                 file_url: crDoc?.path              ?? null },
+            { doc_type: 'establishment_id',   file_url: establishmentIdDoc?.path ?? null },
+            { doc_type: 'signed_credit_form', file_url: signedFormDoc?.path      ?? null },
+          ]
+        : []
 
     const newGroupNeedsApproval =
       customerType === 'credit'
@@ -285,11 +276,6 @@ export function CustomerDialog({
             credit_group_id:        routeGroupViaApproval
               ? (customer.credit_group_id ?? null)
               : (customerType === 'credit' ? groupId : null),
-            cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
-            establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
-            signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
-            // Division scope: null = global; otherwise the operator's chosen division.
-            division_ids:           divisionIds,
           },
           previous: {
             name:                   customer.name,
@@ -298,18 +284,23 @@ export function CustomerDialog({
             entity_type:            customer.entity_type,
             credit_group_id:        customer.credit_group_id,
             credit_group_name:      customer.credit_group_name ?? null,
-            cr_url:                 customer.cr_url                 ?? null,
-            establishment_id_url:   customer.establishment_id_url   ?? null,
-            signed_credit_form_url: customer.signed_credit_form_url ?? null,
           },
           new_credit_group_name: selectedGroup?.name ?? null,
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
             // DB now owns the pending/ paths — mark them as committed so the
             // close-cleanup below leaves them alone.
             pendingPathsRef.current = []
             submittedRef.current = true
+            // Persist credit-doc set into customer_credit_docs.
+            try {
+              await saveCreditDocs.mutateAsync({ customer_id: customer.id, docs: buildDocsPayload() })
+            } catch (err) {
+              toast.error(`Customer saved, but credit-docs failed: ${(err as Error).message}`)
+              handleOpenChange(false)
+              return
+            }
             if (!routeGroupViaApproval) {
               toast.success('Customer updated')
               handleOpenChange(false)
@@ -350,14 +341,9 @@ export function CustomerDialog({
         credit_group_id:        newGroupNeedsApproval
           ? null
           : (customerType === 'credit' ? groupId : null),
-        cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
-        establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
-        signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
-        // Division scope: array — every customer belongs to at least one division.
-        division_ids:           divisionIds,
       },
       {
-        onSuccess: (created: { id: string }) => {
+        onSuccess: async (created: { id: string }) => {
           // DB now owns the pending/ paths — safe to skip cleanup on close.
           pendingPathsRef.current = []
           submittedRef.current = true
@@ -365,6 +351,15 @@ export function CustomerDialog({
             id: created.id,
             name: name.trim(),
             credit_group_id: customerType === 'credit' ? groupId || null : null,
+          }
+          // Persist credit-doc set into customer_credit_docs.
+          try {
+            await saveCreditDocs.mutateAsync({ customer_id: created.id, docs: buildDocsPayload() })
+          } catch (err) {
+            toast.error(`Customer created, but credit-docs failed: ${(err as Error).message}`)
+            onCreated?.(createdInfo)
+            handleOpenChange(false)
+            return
           }
           if (!newGroupNeedsApproval) {
             toast.success('Customer created')
@@ -474,9 +469,9 @@ export function CustomerDialog({
         (customer.credit_group_id ? 'credit' : 'cash') !== customerType ||
         (customer.entity_type ?? 'individual') !== entityType ||
         (customer.credit_group_id ?? '') !== groupId ||
-        (customer.cr_url ?? null) !== (crDoc?.path ?? null) ||
-        (customer.establishment_id_url ?? null) !== (establishmentIdDoc?.path ?? null) ||
-        (customer.signed_credit_form_url ?? null) !== (signedFormDoc?.path ?? null) ||
+        (findDoc('cr') ?? null) !== (crDoc?.path ?? null) ||
+        (findDoc('establishment_id') ?? null) !== (establishmentIdDoc?.path ?? null) ||
+        (findDoc('signed_credit_form') ?? null) !== (signedFormDoc?.path ?? null) ||
         phones.some((p) => p.digits.trim() !== '') && JSON.stringify(phones.map((p) => ({ p: `${p.countryCode}${p.digits.trim()}`, pr: p.is_primary }))) !==
           JSON.stringify(seedPhoneRows(customer.phones).map((p) => ({ p: `${p.countryCode}${p.digits.trim()}`, pr: p.is_primary })))
       )
@@ -720,70 +715,6 @@ export function CustomerDialog({
             </div>
           )}
 
-          {/* Division scope */}
-          <div className="rounded-md border p-3 space-y-2 bg-muted/30">
-            <Label className="text-sm font-medium">
-              Divisions <span className="text-destructive">*</span>
-            </Label>
-            {soleDivision ? (
-              <div
-                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-h-9 flex items-center gap-2"
-                aria-live="polite"
-              >
-                <span className="font-medium">{soleDivision.name}</span>
-                <span className="text-[10px] text-muted-foreground">(auto — only division available)</span>
-              </div>
-            ) : (
-              <Popover>
-                <PopoverTrigger
-                  className="w-full flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm min-h-9 hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  <span className={cn('truncate', divisionIds.length === 0 && 'text-muted-foreground')}>
-                    {divisionIds.length === 0
-                      ? 'Select divisions…'
-                      : divisionIds.length === 1
-                        ? availableDivisions.find((d) => d.id === divisionIds[0])?.name ?? '1 division'
-                        : `${divisionIds.length} divisions selected`}
-                  </span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </PopoverTrigger>
-                <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
-                  <div className="max-h-64 overflow-y-auto py-1">
-                    {availableDivisions.map((d) => {
-                      const checked = divisionIds.includes(d.id)
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => {
-                            setDivisionIds((prev) =>
-                              checked ? prev.filter((x) => x !== d.id) : [...prev, d.id],
-                            )
-                          }}
-                          className={cn(
-                            'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted focus:bg-muted focus:outline-none',
-                            checked && 'font-medium',
-                          )}
-                        >
-                          <span className="flex h-4 w-4 items-center justify-center shrink-0">
-                            {checked && <Check className="h-4 w-4 text-primary" />}
-                          </span>
-                          <span className="truncate">{d.name}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            )}
-            <p className="text-[11px] text-muted-foreground">
-              {divisionIds.length === 0
-                ? 'Pick at least one division.'
-                : divisionIds.length === 1
-                  ? 'Scoped to the selected division.'
-                  : `Visible to ${divisionIds.length} divisions.`}
-            </p>
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>

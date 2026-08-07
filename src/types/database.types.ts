@@ -1331,6 +1331,42 @@ export type Database = {
           },
         ]
       }
+      customer_credit_docs: {
+        Row: {
+          customer_id: string
+          doc_type: string
+          file_url: string
+          id: string
+        }
+        Insert: {
+          customer_id: string
+          doc_type: string
+          file_url: string
+          id?: string
+        }
+        Update: {
+          customer_id?: string
+          doc_type?: string
+          file_url?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_docs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "customer_credit_docs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_credit_group_approvals: {
         Row: {
           comment: string | null
@@ -1527,65 +1563,44 @@ export type Database = {
       customers: {
         Row: {
           block_reason: string | null
-          cr_uploaded_at: string | null
-          cr_url: string | null
           created_at: string | null
           credit_group_id: string | null
-          division_ids: string[]
           email: string | null
           entity_type:
             | Database["public"]["Enums"]["customer_entity_type"]
             | null
-          establishment_id_uploaded_at: string | null
-          establishment_id_url: string | null
           id: string
           is_active: boolean
           name: string
           name_ar: string | null
-          signed_credit_form_uploaded_at: string | null
-          signed_credit_form_url: string | null
           updated_at: string | null
         }
         Insert: {
           block_reason?: string | null
-          cr_uploaded_at?: string | null
-          cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
-          division_ids?: string[]
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
             | null
-          establishment_id_uploaded_at?: string | null
-          establishment_id_url?: string | null
           id?: string
           is_active?: boolean
           name: string
           name_ar?: string | null
-          signed_credit_form_uploaded_at?: string | null
-          signed_credit_form_url?: string | null
           updated_at?: string | null
         }
         Update: {
           block_reason?: string | null
-          cr_uploaded_at?: string | null
-          cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
-          division_ids?: string[]
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
             | null
-          establishment_id_uploaded_at?: string | null
-          establishment_id_url?: string | null
           id?: string
           is_active?: boolean
           name?: string
           name_ar?: string | null
-          signed_credit_form_uploaded_at?: string | null
-          signed_credit_form_url?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -5846,7 +5861,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency_id: string | null
-          division_id: string | null
           email: string | null
           id: string
           is_active: boolean | null
@@ -5865,7 +5879,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
-          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -5884,7 +5897,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
-          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -5914,13 +5926,6 @@ export type Database = {
             columns: ["currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "suppliers_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
         ]
@@ -8000,10 +8005,6 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: boolean
       }
-      is_any_division_visible: {
-        Args: { p_division_ids: string[] }
-        Returns: boolean
-      }
       is_division_visible: {
         Args: { row_division_id: string }
         Returns: boolean
@@ -8353,6 +8354,10 @@ export type Database = {
           total_outstanding: number
         }[]
       }
+      rpc_seed_payment_plan_from_so: {
+        Args: { p_invoice_id: string; p_so_id: string }
+        Returns: string
+      }
       rpc_send_damaged_for_repair: {
         Args: {
           p_expected_return_date: string
@@ -8419,6 +8424,10 @@ export type Database = {
           p_warehouse_id: string
         }
         Returns: string
+      }
+      save_customer_credit_docs: {
+        Args: { p_customer_id: string; p_docs: Json }
+        Returns: undefined
       }
       save_customer_phones: {
         Args: { p_customer_id: string; p_phones: Json }
