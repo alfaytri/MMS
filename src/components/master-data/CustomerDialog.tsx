@@ -91,8 +91,14 @@ export function CustomerDialog({
   const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending || saveCreditDocs.isPending
 
   // Docs live in customer_credit_docs — fetch on edit; empty on create.
-  const { data: existingDocs = [] } = useCustomerCreditDocs(open && isEdit && customer?.id ? customer.id : null)
-  const findDoc = (t: CreditDocType) => existingDocs.find((d) => d.doc_type === t)?.file_url ?? null
+  const { data: existingDocs } = useCustomerCreditDocs(open && isEdit && customer?.id ? customer.id : null)
+  const findDoc = (t: CreditDocType): string | null => {
+    if (!existingDocs) return null
+    if (t === 'cr')                 return existingDocs.cr_url
+    if (t === 'establishment_id')   return existingDocs.establishment_id_url
+    if (t === 'signed_credit_form') return existingDocs.signed_credit_form_url
+    return null
+  }
 
   useEffect(() => {
     if (!open) return

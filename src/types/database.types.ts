@@ -1333,35 +1333,35 @@ export type Database = {
       }
       customer_credit_docs: {
         Row: {
+          cr_url: string | null
           customer_id: string
-          doc_type: string
-          file_url: string
-          id: string
+          establishment_id_url: string | null
+          signed_credit_form_url: string | null
         }
         Insert: {
+          cr_url?: string | null
           customer_id: string
-          doc_type: string
-          file_url: string
-          id?: string
+          establishment_id_url?: string | null
+          signed_credit_form_url?: string | null
         }
         Update: {
+          cr_url?: string | null
           customer_id?: string
-          doc_type?: string
-          file_url?: string
-          id?: string
+          establishment_id_url?: string | null
+          signed_credit_form_url?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "customer_credit_docs_customer_id_fkey"
+            foreignKeyName: "customer_credit_docs_new_customer_id_fkey"
             columns: ["customer_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "customer_credit_summary"
             referencedColumns: ["customer_id"]
           },
           {
-            foreignKeyName: "customer_credit_docs_customer_id_fkey"
+            foreignKeyName: "customer_credit_docs_new_customer_id_fkey"
             columns: ["customer_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
