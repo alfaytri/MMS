@@ -152,6 +152,7 @@ export type CreditNote = {
   refund_method: string | null
   refund_method_id: string | null
   refund_reference: string | null
+  pdf_url: string | null
   credit_note_lines?: CreditNoteLine[]
   created_at: string
   updated_at: string

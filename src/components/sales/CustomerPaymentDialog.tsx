@@ -4,6 +4,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Wallet } from 'lucide-react'
+import { logActivity } from '@/lib/logActivity'
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -128,6 +129,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
         })
       }
 
+      const totalApplied = creditPortion + cashPortion
       toast.success(
         creditPortion > 0 && cashPortion > 0
           ? `Applied ${formatCurrency(creditPortion, invoiceCurrency)} store credit + ${formatCurrency(cashPortion, invoiceCurrency)} ${methodLabel(method)}`
@@ -135,6 +137,15 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
             ? `Redeemed ${formatCurrency(creditPortion, invoiceCurrency)} in store credit`
             : 'Payment recorded'
       )
+      if (invoice.sale_order_id) {
+        void logActivity({
+          action:    'Payment Recorded',
+          module:    'sale_orders',
+          entity_id: invoice.sale_order_id,
+          details:   `${invoice.invoice_id} · ${formatCurrency(totalApplied, invoiceCurrency)}` +
+                     (creditPortion > 0 ? ` (${formatCurrency(creditPortion, invoiceCurrency)} store credit)` : ''),
+        })
+      }
       setConfirmOpen(false)
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {

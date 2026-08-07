@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/logActivity'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -25,6 +26,7 @@ interface Props {
   plans:    PaymentPlan[]
   currency: string
   canSettle?: boolean
+  soId?:    string | null
 }
 
 function StatusIcon({ status }: { status: PaymentInstallment['status'] }) {
@@ -48,7 +50,7 @@ function statusLabel(status: PaymentInstallment['status'], dueDate: string | nul
   return 'Pending'
 }
 
-export function PaymentPlanSection({ plans, currency, canSettle = true }: Props) {
+export function PaymentPlanSection({ plans, currency, canSettle = true, soId }: Props) {
   const activePlans = plans.filter((p) => p.status === 'active')
   const [settleTarget, setSettleTarget] = useState<PaymentInstallment | null>(null)
 
@@ -78,6 +80,7 @@ export function PaymentPlanSection({ plans, currency, canSettle = true }: Props)
       <SettleInstallmentDialog
         installment={settleTarget}
         currency={currency}
+        soId={soId}
         onClose={() => setSettleTarget(null)}
       />
     </div>
@@ -200,10 +203,11 @@ function PlanCard({
 }
 
 function SettleInstallmentDialog({
-  installment, currency, onClose,
+  installment, currency, soId, onClose,
 }: {
   installment: PaymentInstallment | null
   currency:    string
+  soId?:       string | null
   onClose:     () => void
 }) {
   const qc = useQueryClient()
@@ -252,10 +256,14 @@ function SettleInstallmentDialog({
         )
       }
       toast.success(`Installment settled — ${formatCurrency(parsedAmount, currency)}`)
-      // Nuke every cached read that could touch this settlement — the SO
-      // dialog holds three separate payment queries (so-payments,
-      // customer-payments by invoice, payment-plans by invoice) plus the
-      // SO detail itself.
+      if (soId) {
+        void logActivity({
+          action:    'Installment Settled',
+          module:    'sale_orders',
+          entity_id: soId,
+          details:   `${formatCurrency(parsedAmount, currency)} via ${method}`,
+        })
+      }
       qc.invalidateQueries({ queryKey: queryKeys.payments.all })
       qc.invalidateQueries({ queryKey: ['so-payments'] })
       qc.invalidateQueries({ queryKey: ['payment-plans'] })
@@ -263,6 +271,7 @@ function SettleInstallmentDialog({
       qc.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       qc.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
+      qc.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       onClose()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to settle installment')

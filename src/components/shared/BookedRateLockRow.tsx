@@ -1,17 +1,17 @@
 'use client'
 
-import { Lock, PencilLine } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Lock } from 'lucide-react'
 
 export function BookedRateLockRow({
   currency,
   initialRate,
-  onEditClick,
-  disabled,
 }: {
   currency: string
   initialRate: number
-  onEditClick: () => void
+  /** @deprecated Edit affordance removed — booked rate is now immutable once
+   * captured. Prop kept for call-site compatibility. */
+  onEditClick?: () => void
+  /** @deprecated see onEditClick */
   disabled?: boolean
 }) {
   if (currency === 'QAR') return null
@@ -30,16 +30,6 @@ export function BookedRateLockRow({
           maximumFractionDigits: 4,
         })}
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 gap-1.5"
-        onClick={onEditClick}
-        disabled={disabled}
-      >
-        <PencilLine className="h-3.5 w-3.5" /> Edit
-      </Button>
     </div>
   )
 }

@@ -453,6 +453,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                             plans={paymentPlans ?? []}
                             currency={current?.currency ?? 'QAR'}
                             canSettle={!!canRecordPayment}
+                            soId={so?.id}
                           />
                         </div>
                       )}

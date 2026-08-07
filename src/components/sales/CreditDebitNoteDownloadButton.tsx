@@ -6,7 +6,7 @@ import { Download, Eye, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 interface Props {
-  note: { id: string }
+  note: { id: string; pdf_url?: string | null }
   noteKind?: 'credit' | 'debit'
   /** @deprecated resolved server-side now; kept for call-site compatibility */
   referenceNumber?: string
@@ -34,7 +34,7 @@ async function fetchPdfUrl(noteId: string, noteKind: 'credit' | 'debit'): Promis
 
 export function CreditDebitNoteDownloadButton({ note, noteKind = 'credit' }: Props) {
   const [busy, setBusy] = useState<'generate' | 'download' | null>(null)
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(note.pdf_url ?? null)
   const prefix = noteKind === 'credit' ? 'CreditNote' : 'DebitNote'
 
   async function handleGenerate() {

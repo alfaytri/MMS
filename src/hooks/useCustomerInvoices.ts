@@ -1,6 +1,7 @@
 // src/hooks/useCustomerInvoices.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/logActivity'
 import type { ArInvoice } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -88,12 +89,18 @@ export function useGenerateInvoice() {
       if (error) throw error
       return data as { id: string; invoice_id: string; invoice_type: string }
     },
-    onSuccess: (_data, soId) => {
+    onSuccess: (data, soId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.bySo(soId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(soId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      void logActivity({
+        action:  'Invoice Created',
+        module:  'sale_orders',
+        entity_id: soId,
+        details: data ? `${(data as { invoice_id: string }).invoice_id} · ${(data as { invoice_type: string }).invoice_type}` : null,
+      })
     },
   })
 }

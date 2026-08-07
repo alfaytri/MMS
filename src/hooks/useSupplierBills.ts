@@ -93,6 +93,29 @@ export function useBillsByPO(poId: string | null) {
   })
 }
 
+/** Lightweight lookup: returns the Set of purchase_order_ids that have at
+ * least one bill. Used by the PO list to hide the "Create Bill" action on
+ * rows that are already billed, without one query per row. */
+export function useBilledPoIds() {
+  return useQuery({
+    queryKey: [...queryKeys.supplierBills.all, 'po-id-set'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('bills')
+        .select('purchase_order_id')
+        .not('purchase_order_id', 'is', null)
+      if (error) throw error
+      const set = new Set<string>()
+      for (const r of data ?? []) {
+        if (r.purchase_order_id) set.add(r.purchase_order_id)
+      }
+      return set
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useCreateBill() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -141,7 +164,12 @@ export function useCreateBill() {
       })
       return bill
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all }),
+    onSuccess: (_bill, vars) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.byPo(vars.purchase_order_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(vars.purchase_order_id) })
+    },
   })
 }
 
