@@ -369,7 +369,11 @@ export default function SaleOrdersPage() {
       size: 50,
       cell: ({ row }) => {
         const so = row.original
-        const canConfirm = so.status === 'pending_approval'
+        // Confirm is legitimate only for open quotations. Pending-approval
+        // SOs must go through the approval workflow (server-side trigger
+        // enforces this — 20260807007000). Confirmed / partial / delivered
+        // states are past this action.
+        const canConfirm = so.status === 'quotation'
         const canCreateDelivery = ['confirmed', 'partial_delivery'].includes(so.status)
         const canCancel = !['cancelled', 'closed'].includes(so.status)
         const canEdit = !['cancelled', 'closed'].includes(so.status)

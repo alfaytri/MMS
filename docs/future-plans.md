@@ -7,6 +7,61 @@ Remove items from this file once shipped (do not just strike through — delete)
 
 ## Open
 
+### Credit-customer credit restoration on payment
+
+**Surfaced:** 2026-08-07 (six-domains audit follow-up)
+**Priority:** HIGH — miscomputes available credit for every credit customer
+
+**Problem.** `create_sale_order` (both 17-arg and 18-arg overloads)
+computes available credit as `credit_group.credit_limit - SUM(sale_orders.total)`
+for non-cancelled SOs. `sale_orders.total` is the order amount, not
+the outstanding balance — so when a credit customer pays an invoice,
+their available credit does not restore. Only order cancellation
+restores it. Real customers therefore hit "pending_approval" more
+often than they should, and their true available limit is
+underreported everywhere `v_available` is used.
+
+**Verified live 2026-08-07:** "Test Credit" customer has
+credit_limit=30,000, SUM(total)=337,000, computed available=-307,000
+regardless of how much they've paid.
+
+**Fix.**
+
+1. Change the two `SELECT SUM(total) INTO v_open_total` lookups in
+   `create_sale_order` (17-arg and 18-arg) to
+   `SELECT SUM(total - COALESCE(paid_amount, 0))`.
+2. Verify `sale_orders.paid_amount` is kept current by
+   `invoice_recompute_paid_fn` and `_recompute_ar_invoice_payment_status_fn`
+   — grep confirms both write to `so_invoices.paid_amount`, but check
+   whether the SO-level cache stays in sync via a trigger.
+3. Backfill: recompute available on the Sales Approvals page after the
+   fix so old pending_approval SOs may auto-clear.
+
+### Payment terms → payment plan wiring
+
+**Surfaced:** 2026-08-07 (user feedback during six-domains audit)
+**Priority:** MEDIUM — feature completion
+
+**Problem.** The New SO form collects payment terms + custom
+milestones (`100% Advance`, `Net 30`, `50/50`, or a custom milestone
+label + %). These are stored on `sale_orders.payment_terms` /
+`payment_terms_notes` / `payment_milestones` (jsonb) but never
+materialised into the `payment_plans` + `payment_installments`
+tables that the Payments tab / SoPaymentDialog use. The two systems
+are independent — the terms field is decorative today.
+
+**Fix.**
+
+1. After an SO's invoice is created with `invoice_type='credit'` AND
+   `payment_milestones` is non-empty, auto-create a `payment_plan` row
+   with `type = 'custom' | 'net_30' | '50_50' | 'advance'` and
+   `payment_installments` rows keyed off the milestone list.
+2. Milestone entries with `%` need a hint at due_date — either
+   compute from `so.expected_delivery + N` per milestone or prompt
+   the user to fill in per-installment dates.
+3. Existing PaymentPlanDialog already handles custom plans — the
+   auto-created plan should be editable there.
+
 ### Supplier bill attachment field
 
 **Surfaced:** 2026-08-06 (release checklist Section 6)

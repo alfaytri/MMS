@@ -833,24 +833,22 @@ export function useConfirmSO() {
     mutationFn: async ({ id, lineItems }: { id: string; lineItems: SOLineItem[] }) => {
       const supabase = createClient()
 
-      // 1. Update SO status
+      // Confirms only apply to quotation-status SOs (C1 six-domains fix).
+      // create_sale_order already reserved stock at quotation creation, so
+      // this path does NOT call batch_update_reserved_qty — doing so would
+      // double-count reserved_qty. The pending_approval → confirmed
+      // transition is blocked at the DB (trigger 20260807007000) and must
+      // route through approve_sales_request instead.
+
+      // 1. Update SO status (trigger will reject if this is somehow a
+      //    pending_approval row that slipped past the UI gate).
       const { error: soErr } = await supabase
         .from('sale_orders')
         .update({ status: 'confirmed' })
         .eq('id', id)
       if (soErr) throw soErr
 
-      // 2. Reserve stock via RPC
-      const reservations = lineItems
-        .filter((l) => l.brand_variant_id && l.qty > 0)
-        .map((l) => ({ bv_id: l.brand_variant_id, delta: l.qty }))
-      if (reservations.length > 0) {
-        const { error: resErr } = await supabase
-          .rpc('batch_update_reserved_qty', { p_updates: reservations })
-        if (resErr) throw resErr
-      }
-
-      // 3. Create stub delivery (warehouse_id nullable after migration)
+      // 2. Create stub delivery (warehouse_id nullable after migration)
       const { data: seqRow } = await supabase.rpc('next_delivery_number')
       const delivery_number = (seqRow as unknown as string) ?? `DEL-${Date.now()}`
       const { data: newDel, error: delErr } = await supabase.from('sale_deliveries').insert({
@@ -874,7 +872,7 @@ export function useConfirmSO() {
         if (linesErr) throw linesErr
       }
 
-      // 4. Create draft AR invoice via syncInvoiceToSalesOrder
+      // 3. Create draft AR invoice via syncInvoiceToSalesOrder
       const { syncInvoiceToSalesOrder } = await import('@/lib/invoiceSync')
       await syncInvoiceToSalesOrder(id)
     },
@@ -887,6 +885,8 @@ export function useConfirmSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard })
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.salesAging })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
     },
   })
 }
