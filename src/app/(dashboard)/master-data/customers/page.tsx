@@ -20,8 +20,9 @@ import type { CreditGroupRequest } from '@/hooks/useCreditGroupApprovals'
 import { useAllCustomers, type Customer } from '@/hooks/useSaleOrders'
 import { useCreditGroups } from '@/hooks/useCreditGroups'
 import { useHasPermission } from '@/hooks/usePermissions'
-import { useAllCustomerCredit } from '@/hooks/useCustomerCredit'
+import { useAllCustomerCredit, type CustomerCreditSummary } from '@/hooks/useCustomerCredit'
 import { CreditUtilizationBar } from '@/components/shared/CreditUtilizationBar'
+import { CreditUtilizationDetailDialog } from '@/components/master-data/CreditUtilizationDetailDialog'
 import { usePendingCreditGroupRequests } from '@/hooks/useCreditGroupApprovals'
 
 const PAGE_SIZE = 50
@@ -36,6 +37,7 @@ export default function CustomersPage() {
   const [editing, setEditing]         = useState<Customer | null>(null)
   const [pendingView, setPendingView] = useState<{ request: CreditGroupRequest; customerName: string } | null>(null)
   const [balanceView, setBalanceView] = useState<{ id: string; name: string } | null>(null)
+  const [creditDetail, setCreditDetail] = useState<CustomerCreditSummary | null>(null)
 
   function handleSearch(val: string) {
     setSearch(val)
@@ -181,13 +183,22 @@ export default function CustomersPage() {
                       {(() => {
                         const cr = creditByCustomer.get(c.id)
                         if (!cr) return <span className="text-xs text-muted-foreground">—</span>
+                        const limit = Number(cr.credit_limit ?? 0)
+                        if (limit <= 0) return <span className="text-xs text-muted-foreground">—</span>
                         return (
-                          <CreditUtilizationBar
-                            used={Number(cr.credit_used    ?? 0)}
-                            limit={Number(cr.credit_limit  ?? 0)}
-                            pct={cr.credit_utilization_pct}
-                            compact
-                          />
+                          <button
+                            type="button"
+                            onClick={() => setCreditDetail(cr)}
+                            className="rounded-sm text-left hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            title="Click for utilization breakdown"
+                          >
+                            <CreditUtilizationBar
+                              used={Number(cr.credit_used ?? 0)}
+                              limit={limit}
+                              pct={cr.credit_utilization_pct}
+                              compact
+                            />
+                          </button>
                         )
                       })()}
                     </TableCell>
@@ -280,6 +291,12 @@ export default function CustomersPage() {
           kind="customer"
         />
       )}
+
+      <CreditUtilizationDetailDialog
+        open={!!creditDetail}
+        onOpenChange={(o) => { if (!o) setCreditDetail(null) }}
+        summary={creditDetail}
+      />
     </PageWrapper>
   )
 }
