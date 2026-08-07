@@ -8384,6 +8384,7 @@ export type Database = {
         }
         Returns: string
       }
+      rpc_sync_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
       rpc_update_document_initial_rate: {
         Args: {
           p_document_id: string

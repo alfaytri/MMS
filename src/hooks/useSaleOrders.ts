@@ -883,6 +883,10 @@ export function useConfirmSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.bySo(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.dashboard })
+      queryClient.invalidateQueries({ queryKey: queryKeys.finance.salesAging })
+      queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
     },
   })
 }
