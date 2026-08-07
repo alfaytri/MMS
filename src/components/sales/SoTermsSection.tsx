@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { DollarSign, Truck, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type PaymentMilestone = { _key?: string; label: string; percent: number }
+export type PaymentMilestone = { _key?: string; label: string; percent: number; due_date?: string | null }
 
 export interface SoTermsValues {
   payment_terms:        string
@@ -110,13 +110,20 @@ export function SoTermsSection({ value, onChange, hidePaymentTerms = false }: So
           {value.payment_milestones.length > 0 && (
             <div className="space-y-1.5">
               {value.payment_milestones.map((m, idx) => (
-                <div key={m._key ?? idx} className="flex items-center gap-2">
+                <div key={m._key ?? idx} className="flex items-center gap-2 flex-wrap">
                   <Input
-                    className="flex-1 h-8 text-xs"
+                    className="flex-1 min-w-[140px] h-8 text-xs"
                     placeholder="Milestone label"
                     value={m.label}
                     readOnly={!isCustomPayment}
                     onChange={(e) => updateMilestone(idx, { label: e.target.value })}
+                  />
+                  <Input
+                    type="date"
+                    className="w-[150px] h-8 text-xs"
+                    value={m.due_date ?? ''}
+                    onChange={(e) => updateMilestone(idx, { due_date: e.target.value || null })}
+                    title="Due date (optional — leave blank for ad-hoc)"
                   />
                   <div className="flex items-center gap-0.5">
                     <Input
