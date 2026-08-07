@@ -1,10 +1,11 @@
+import { Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 
-interface Payment {
+export interface PaymentRow {
   id: string
   date: string
   amount: number
@@ -17,17 +18,23 @@ interface Payment {
 }
 
 interface PaymentSummaryTabProps {
-  payments: Payment[]
+  payments: PaymentRow[]
   totalAmount: number
   currency?: string
   canRecord?: boolean
   onRecordPayment?: () => void
+  /** When set, an Edit icon appears on each row. */
+  onEditPayment?: (payment: PaymentRow) => void
+  /** When set, a Delete icon appears on each row. */
+  onDeletePayment?: (payment: PaymentRow) => void
 }
 
 export function PaymentSummaryTab({
   payments, totalAmount, currency = 'QAR',
   canRecord, onRecordPayment,
+  onEditPayment, onDeletePayment,
 }: PaymentSummaryTabProps) {
+  const showActions = !!onEditPayment || !!onDeletePayment
   const isForeignCurrency = currency !== 'QAR'
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
   const totalPaidQar = isForeignCurrency
@@ -56,6 +63,7 @@ export function PaymentSummaryTab({
                   <TableHead className="hidden sm:table-cell">Method</TableHead>
                   <TableHead className="hidden md:table-cell">Reference</TableHead>
                   <TableHead className="hidden lg:table-cell">Notes</TableHead>
+                  {showActions && <TableHead className="w-20 text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -90,6 +98,36 @@ export function PaymentSummaryTab({
                     <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
                       {p.notes ?? '—'}
                     </TableCell>
+                    {showActions && (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-0.5">
+                          {onEditPayment && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={() => onEditPayment(p)}
+                              aria-label="Edit payment"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {onDeletePayment && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => onDeletePayment(p)}
+                              aria-label="Delete payment"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                   )
                 })}

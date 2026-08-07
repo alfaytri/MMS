@@ -8264,6 +8264,50 @@ export type Database = {
         Args: { p_comment?: string; p_decision: string; p_request_id: string }
         Returns: undefined
       }
+      rpc_delete_supplier_payment: {
+        Args: { p_payment_id: string }
+        Returns: {
+          agent_name: string | null
+          amount: number
+          amount_qar: number | null
+          bank_name: string | null
+          bill_id: string | null
+          cheque_date: string | null
+          cheque_number: string | null
+          created_at: string | null
+          credit_note_id: string | null
+          currency: string
+          currency_id: string | null
+          customer_id: string | null
+          date: string
+          debit_note_id: string | null
+          deleted_at: string | null
+          direction: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain: number
+          exchange_loss: number
+          exchange_rate: number
+          id: string
+          invoice_id: string | null
+          method: string
+          method_id: string | null
+          notes: string | null
+          payment_id: string | null
+          qb_synced: boolean | null
+          reference: string | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["payment_source_type"] | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          supplier_id: string | null
+          transaction_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rpc_dispatch_custody_assign: {
         Args: {
           p_dispatched_by_name?: string
@@ -8271,6 +8315,58 @@ export type Database = {
           p_transfer_id: string
         }
         Returns: undefined
+      }
+      rpc_edit_supplier_payment: {
+        Args: {
+          p_amount: number
+          p_date: string
+          p_exchange_rate?: number
+          p_method: string
+          p_notes: string
+          p_payment_id: string
+          p_reference: string
+        }
+        Returns: {
+          agent_name: string | null
+          amount: number
+          amount_qar: number | null
+          bank_name: string | null
+          bill_id: string | null
+          cheque_date: string | null
+          cheque_number: string | null
+          created_at: string | null
+          credit_note_id: string | null
+          currency: string
+          currency_id: string | null
+          customer_id: string | null
+          date: string
+          debit_note_id: string | null
+          deleted_at: string | null
+          direction: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain: number
+          exchange_loss: number
+          exchange_rate: number
+          id: string
+          invoice_id: string | null
+          method: string
+          method_id: string | null
+          notes: string | null
+          payment_id: string | null
+          qb_synced: boolean | null
+          reference: string | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["payment_source_type"] | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          supplier_id: string | null
+          transaction_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       rpc_financial_dashboard: { Args: never; Returns: Json }
       rpc_post_consumption: {

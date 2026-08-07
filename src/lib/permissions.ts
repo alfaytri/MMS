@@ -230,6 +230,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Supplier Payments',
+        permissions: [
+          { key: 'purchase.payments.view',   label: 'View Supplier Payments',   description: 'Access supplier payment records' },
+          { key: 'purchase.payments.manage', label: 'Edit / Delete Supplier Payments', description: 'Edit amount, method, date, reference on recorded supplier payments, and soft-delete mistaken entries. Gate this behind Accounting only.' },
+        ],
+      },
+      {
         label: 'Dead Stock Report',
         permissions: [
           { key: 'purchase.dead_stock.view', label: 'View Dead Stock Report', description: 'Access the dead stock and slow-moving inventory report' },

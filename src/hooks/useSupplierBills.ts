@@ -177,7 +177,10 @@ export function useCreateBill() {
 }
 
 export type BillPayment = {
+  /** payment_bill_allocations.id (this row's id — kept for backwards-compat) */
   id: string
+  /** payments.id (the actual payment UUID — pass this to edit/delete RPCs) */
+  payment_uuid: string
   payment_id: string
   amount: number
   method: string
@@ -186,6 +189,8 @@ export type BillPayment = {
   notes: string | null
   status: string
   full_amount?: number
+  currency: string
+  exchange_rate: number
 }
 
 export type BillReceival = {
@@ -254,7 +259,9 @@ export function useBillViewModel(id: string | null) {
               reference,
               notes,
               status,
-              amount
+              amount,
+              currency,
+              exchange_rate
             )
           `)
           .eq('bill_id', id!)
@@ -283,16 +290,19 @@ export function useBillViewModel(id: string | null) {
 
       return {
         bill: billResult.data as unknown as BillViewModel['bill'],
-        payments: (paymentsResult.data ?? [] as { id: string; amount: number; payments: { payment_id: string; method: string; date: string; reference: string | null; notes: string | null; status: string; amount: number } | null }[]).map((alloc) => ({
-          id:          alloc.id,
-          payment_id:  alloc.payments?.payment_id ?? '—',
-          amount:      alloc.amount,
-          method:      alloc.payments?.method ?? '',
-          date:        alloc.payments?.date ?? '',
-          reference:   alloc.payments?.reference ?? null,
-          notes:       alloc.payments?.notes ?? null,
-          status:      alloc.payments?.status ?? '',
-          full_amount: alloc.payments?.amount ?? 0,
+        payments: (paymentsResult.data ?? [] as { id: string; amount: number; payments: { id: string; payment_id: string; method: string; date: string; reference: string | null; notes: string | null; status: string; amount: number; currency: string; exchange_rate: number } | null }[]).map((alloc) => ({
+          id:            alloc.id,
+          payment_uuid:  alloc.payments?.id ?? '',
+          payment_id:    alloc.payments?.payment_id ?? '—',
+          amount:        alloc.amount,
+          method:        alloc.payments?.method ?? '',
+          date:          alloc.payments?.date ?? '',
+          reference:     alloc.payments?.reference ?? null,
+          notes:         alloc.payments?.notes ?? null,
+          status:        alloc.payments?.status ?? '',
+          full_amount:   alloc.payments?.amount ?? 0,
+          currency:      alloc.payments?.currency ?? 'QAR',
+          exchange_rate: alloc.payments?.exchange_rate ?? 1,
         })),
         paymentPlan: planResult.data as unknown as PaymentPlan | null,
         receival,

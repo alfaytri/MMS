@@ -304,6 +304,15 @@ export const NAV_TREE: TreeNode[] = [
             ],
           },
           {
+            id: 'ps-supplier-payments',
+            label: 'Supplier Payments',
+            icon: Receipt,
+            permissions: [
+              { key: 'purchase.payments.view',   label: 'View Supplier Payments',   description: 'Access supplier payment records' },
+              { key: 'purchase.payments.manage', label: 'Edit / Delete Supplier Payments', description: 'Edit amount, method, date, reference on recorded supplier payments, and soft-delete mistaken entries. Gate behind Accounting only.' },
+            ],
+          },
+          {
             id: 'ps-returns',
             label: 'Returns',
             icon: RotateCcw,

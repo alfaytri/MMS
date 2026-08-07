@@ -351,6 +351,30 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useAttachPaymentToBill`](src/hooks/useAttachPaymentToBill.ts)
 - **RPC:** `allocate_payment_to_bill`
 
+### Edit Supplier Payment
+- **Module:** purchase / payments
+- **Status:** Active
+- **Trigger surface(s):** `PoDetailDialog` Payments tab (pencil icon per row); `/purchase/bills/[id]` Payments popover (pencil icon per row)
+- **Primary hook(s):** [`useEditSupplierPayment`](src/hooks/useSupplierPayments.ts)
+- **RPC(s):** `rpc_edit_supplier_payment(uuid, numeric, text, date, text, text, numeric)` — SECURITY DEFINER; enforces `purchase.payments.manage`; refuses payments with more than one `payment_bill_allocations` row
+- **Writes:** `payments` (amount/amount_qar/method/date/reference/notes/exchange_rate/updated_at); mirrors single-allocation row to keep bill balance in sync
+- **Guards:** payment must be `direction='outgoing'`, not soft-deleted, and single-allocated at most
+- **Downstream side-effects:** `bill_recompute_paid_trg` fires on payment UPDATE → bill's paid_amount + payment_status recomputed automatically; installment-linked payments (via `payment_installments.payment_id`) get their `paid_amount` shifted by the delta, status recomputed, and plan active/completed re-derived (migration 20260817010000); activity log entry `Payment Edited` (PO activity when opened from PO, `module='bills'` otherwise)
+- **Dialog/component:** [`SupplierPaymentEditDialog`](src/components/purchase/SupplierPaymentEditDialog.tsx)
+- **Related flows:** [[Delete Supplier Payment]], [[Record Supplier Payment (PO)]], [[Attach Payment to Bill]]
+
+### Delete Supplier Payment
+- **Module:** purchase / payments
+- **Status:** Active
+- **Trigger surface(s):** `PoDetailDialog` Payments tab (trash icon per row); `/purchase/bills/[id]` Payments popover (trash icon per row)
+- **Primary hook(s):** [`useDeleteSupplierPayment`](src/hooks/useSupplierPayments.ts)
+- **RPC(s):** `rpc_delete_supplier_payment(uuid)` — SECURITY DEFINER; enforces `purchase.payments.manage`; idempotent (no-op on already-deleted)
+- **Writes:** `payments.deleted_at = now()`, deletes single-allocation row from `payment_bill_allocations`
+- **Guards:** payment must be `direction='outgoing'`; refuses multi-allocated payments (must detach first)
+- **Downstream side-effects:** `bill_recompute_paid_trg` fires on payment UPDATE (deleted_at set) → bill balance restored to reflect the reversal; installment-linked payments are reversed — `paid_amount` reduced, `payment_id` cleared, installment status recomputed, plan un-completed if needed (migration 20260817010000); activity log entry `Payment Deleted` with amount
+- **Dialog/component:** Inline `AlertDialog` confirmation in `PoDetailDialog` and `BillPaymentsList`
+- **Related flows:** [[Edit Supplier Payment]], [[Record Supplier Payment (PO)]]
+
 ### Attach Supplier Invoice Files to Bill
 - **Module:** purchase / bills
 - **Status:** Active
