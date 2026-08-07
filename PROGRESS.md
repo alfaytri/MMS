@@ -270,7 +270,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_None — `docs/future-plans.md` is empty. Awaiting next batch._
+🚀 **Starting: AR payment edit & delete (mirror of AP work)** on `feature/future-plans-batch-1`. Scope: mirror `rpc_edit_supplier_payment` / `rpc_delete_supplier_payment` shape for customer (AR) payments — new `rpc_edit_customer_payment` + `rpc_delete_customer_payment` (SECURITY DEFINER, gated on new `sales.payments.manage` permission, refuse `credit_note_id IS NOT NULL` since those flow through `rpc_redeem_credit_note`). Trigger `invoice_recompute_paid_trg` already recomputes `so_invoices.paid_amount` + `payment_status` on payments UPDATE/DELETE; `sale_order_paid_summary` view auto-recomputes. Handle installment reversal exactly like AP (edit shifts `paid_amount` by delta, delete clears link + restores + un-completes plan). New `useEditCustomerPayment` + `useDeleteCustomerPayment` hooks with activity logging. New `CustomerPaymentEditDialog` (mirror of the AP one). Wire pencil + trash icons into `InvoiceDetail.tsx` payment rows next to the existing detach button. Permission tree gains `sales.payments.view` + `sales.payments.manage`.
 
 ---
 
