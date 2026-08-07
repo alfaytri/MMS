@@ -499,6 +499,9 @@ export const queryKeys = {
     byPo: (poId: Nullable) => ['supplier-bills-by-po', poId] as const,
     viewModel: ['bill-view-model'] as const,
     viewModelById: (id: Nullable) => ['bill-view-model', id] as const,
+    attachments: (billId: Nullable) => ['bill-attachments', billId] as const,
+    attachmentSignedUrl: (storageKey: Nullable) =>
+      ['bill-attachment-signed-url', storageKey] as const,
   },
 
   /* ── Supplier Payments ────────────────────────────────── */

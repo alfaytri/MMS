@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/client'
 import type { Bill, BillLineItem, PaymentPlan } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
+import type { DBTable } from '@/types/database.types'
+
+export type BillAttachment = DBTable<'bill_attachments'>
 
 export type { Bill }
 
@@ -296,5 +299,109 @@ export function useBillViewModel(id: string | null) {
       }
     },
   })
+}
+
+// ─── Attachments ─────────────────────────────────────────────────────────────
+// Bill attachments live in the private `bill-attachments` bucket. The app
+// uploads on file selection (cancel-sweep pattern from landed-costs) and
+// records the storage_key in `bill_attachments` only when the parent bill
+// is created — so a cancelled dialog leaves nothing dangling in the DB.
+
+export function useBillAttachments(billId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.supplierBills.attachments(billId),
+    enabled: !!billId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('bill_attachments')
+        .select('*')
+        .eq('bill_id', billId!)
+        .order('uploaded_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return (data ?? []) as BillAttachment[]
+    },
+  })
+}
+
+/**
+ * Mint a short-lived signed URL for viewing a bill attachment.
+ * The bucket is private; the URL expires in 5 minutes.
+ */
+export async function getBillAttachmentSignedUrl(storageKey: string): Promise<string> {
+  const supabase = createClient()
+  const { data, error } = await supabase.storage
+    .from('bill-attachments')
+    .createSignedUrl(storageKey, 300)
+  if (error) throw error
+  return data.signedUrl
+}
+
+export function useDeleteBillAttachment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, storage_key, bill_id }: { id: string; storage_key: string; bill_id: string }) => {
+      const supabase = createClient()
+      // Delete storage first — if that fails the row stays and we can retry.
+      // If storage succeeds but the row delete fails, the orphan is caught by
+      // a follow-up sweep; we log a warning here.
+      const { error: storageErr } = await supabase.storage
+        .from('bill-attachments')
+        .remove([storage_key])
+      if (storageErr) throw new Error(`Storage delete failed: ${storageErr.message}`)
+
+      const { error: rowErr } = await supabase
+        .from('bill_attachments')
+        .delete()
+        .eq('id', id)
+      if (rowErr) {
+        throw new Error(
+          `Row delete failed after storage removed: ${rowErr.code} ${rowErr.message}` +
+          `${rowErr.details ? ' — ' + rowErr.details : ''}`,
+        )
+      }
+      return { bill_id }
+    },
+    onSuccess: ({ bill_id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.supplierBills.attachments(bill_id) })
+    },
+  })
+}
+
+/**
+ * Persist a list of already-uploaded storage keys as bill_attachments rows.
+ * Called from the create-bill flow after `useCreateBill` returns the new
+ * bill id. Kept as a plain async function (not a mutation) because it runs
+ * inline in the create flow.
+ */
+export async function persistBillAttachments(
+  billId: string,
+  uploads: Array<{ storage_key: string; file_name: string; mime_type: string | null; size_bytes: number }>,
+): Promise<void> {
+  if (uploads.length === 0) return
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  let uploaderId: string | null = null
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_data').select('id').eq('auth_user_id', user.id).maybeSingle()
+    uploaderId = profile?.id ?? null
+  }
+  const rows = uploads.map((u) => ({
+    bill_id: billId,
+    storage_key: u.storage_key,
+    file_name: u.file_name,
+    mime_type: u.mime_type,
+    size_bytes: u.size_bytes,
+    uploaded_by: uploaderId,
+  }))
+  const { error } = await supabase.from('bill_attachments').insert(rows)
+  if (error) {
+    throw new Error(
+      `Attach files failed: ${error.code} ${error.message}` +
+      `${error.details ? ' — ' + error.details : ''}`,
+    )
+  }
 }
 

@@ -351,6 +351,18 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useAttachPaymentToBill`](src/hooks/useAttachPaymentToBill.ts)
 - **RPC:** `allocate_payment_to_bill`
 
+### Attach Supplier Invoice Files to Bill
+- **Module:** purchase / bills
+- **Status:** Active
+- **Trigger surface(s):** `CreateBillFromPODialog`, `BillFormDialog` (upload-on-selection); `BillDetailDocument` (view / download / delete)
+- **Primary hook(s):** [`useBillAttachments`](src/hooks/useSupplierBills.ts), [`useDeleteBillAttachment`](src/hooks/useSupplierBills.ts), [`persistBillAttachments`](src/hooks/useSupplierBills.ts), [`getBillAttachmentSignedUrl`](src/hooks/useSupplierBills.ts)
+- **RPC(s):** none — direct storage upload + `INSERT INTO bill_attachments`
+- **Storage:** `bill-attachments` bucket (private, 5 MB / file, PDF/JPG/PNG/WEBP)
+- **Writes:** `bill_attachments` (bill_id, storage_key, file_name, mime_type, size_bytes, uploaded_by)
+- **Guards:** RLS — SELECT via parent-bill existence; INSERT/UPDATE/DELETE gated on `purchase.bills.manage`
+- **Cancel sweep:** dialog Cancel removes uploaded storage objects (best-effort, mirrors [[Create Landed Cost]] `lc-bills` pattern)
+- **Related flows:** [[Create Supplier Bill]]
+
 ---
 
 ## Inventory Receivals (PO receiving)

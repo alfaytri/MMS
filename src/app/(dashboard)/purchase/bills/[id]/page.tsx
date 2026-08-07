@@ -2,12 +2,14 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Printer, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Printer, Loader2, RefreshCw, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { useBillViewModel } from '@/hooks/useSupplierBills'
+import { useBillViewModel, useBillAttachments } from '@/hooks/useSupplierBills'
+import { BillAttachmentsList } from '@/components/purchase/BillAttachmentsList'
 import { cn } from '@/lib/utils'
 
 const PAY_STATUS_COLORS: Record<string, string> = {
@@ -26,6 +28,7 @@ function BillDetailContent() {
   const [error, setError] = useState<string | null>(null)
 
   const { data: viewModel } = useBillViewModel(id)
+  const { data: attachments = [] } = useBillAttachments(id)
 
   async function generatePdf() {
     setLoading(true)
@@ -81,6 +84,27 @@ function BillDetailContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger
+              render={<Button size="sm" variant="outline" className="gap-1.5" />}
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              Attachments
+              {attachments.length > 0 && (
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-mono">
+                  {attachments.length}
+                </Badge>
+              )}
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[min(90vw,28rem)] p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Supplier Invoice Attachments
+                </p>
+              </div>
+              {id && <BillAttachmentsList billId={id} />}
+            </PopoverContent>
+          </Popover>
           <Button
             size="sm"
             variant="outline"

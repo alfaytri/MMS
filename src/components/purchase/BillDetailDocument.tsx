@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { AttachBillDialog } from './AttachBillDialog'
+import { BillAttachmentsList } from './BillAttachmentsList'
 import { QRCodeSVG } from 'qrcode.react'
 import { Badge } from '@/components/ui/badge'
 import { Link2 } from 'lucide-react'
@@ -287,7 +288,14 @@ export function BillDetailDocument({
         supplierId={bill.supplier_id ?? undefined}
       />
 
-      {/* 8. Receival Info */}
+      {/* 8. Supplier invoice attachments (non-printable) */}
+      <div className="print:hidden">
+        <BillDetailSection title="Supplier Invoice Attachments">
+          <BillAttachmentsList billId={bill.id} />
+        </BillDetailSection>
+      </div>
+
+      {/* 9. Receival Info */}
       {receival && (
         <BillDetailSection title="Receival Info">
           <p className="text-xs text-muted-foreground mb-2">

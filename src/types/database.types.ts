@@ -180,6 +180,54 @@ export type Database = {
           },
         ]
       }
+      bill_attachments: {
+        Row: {
+          bill_id: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_key: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bill_id: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bill_id?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_attachments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bill_line_items: {
         Row: {
           bill_id: string
