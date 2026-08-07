@@ -7,28 +7,6 @@ Remove items from this file once shipped (do not just strike through — delete)
 
 ## Open
 
-### Supplier bill attachment field
-
-**Surfaced:** 2026-08-06 (release checklist Section 6)
-**Priority:** Medium — helpful for AP audit trail but not blocking
-
-**Problem.** The Create Supplier Bill dialog collects a Supplier Invoice #
-(reference) but has no way to attach the supplier's PDF invoice /
-scanned copy / email. Later reconciliation requires digging through email.
-
-**Required work:**
-1. Add `attachments` column (jsonb array) or a separate `bill_attachments`
-   table (bill_id, storage_key, file_name, uploaded_by, uploaded_at)
-2. File upload field in `CreateBillDialog` — accept PDF/JPG/PNG, cap 5MB,
-   upload to `bill-attachments` Supabase Storage bucket
-3. Display attachments on `BillDetailDocument` — filename + view/download
-   buttons per file
-4. Delete permission scoped to `purchase.bills.manage`
-5. RLS: attachments inherit the bill's division scope
-
-**Reference:** Same pattern as receival attachments — check
-`src/hooks/useReceivals.ts` for the existing upload flow.
-
 ### AP-side payment detach UI
 
 **Surfaced:** 2026-08-06 (money-path release checklist, Section 6)
