@@ -270,7 +270,7 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_None — awaiting next item from `docs/future-plans.md` (next up: AP-side payment detach UI)._
+🚀 **Starting: Future Plans Batch 1 — AP payment edit & delete** on `feature/future-plans-batch-1`. Sourced from `docs/future-plans.md` (rescoped from "detach UI" to full edit + hard-delete per operator decision). Scope: new `rpc_edit_supplier_payment` + `rpc_delete_supplier_payment` (SECURITY DEFINER, permission-gated on `purchase.payments.manage`, refuses multi-allocated payments to keep logic simple); soft delete via `payments.deleted_at` which the existing `bill_recompute_paid_trg` trigger already honours to restore the bill's outstanding balance; new `useEditSupplierPayment` + `useDeleteSupplierPayment` hooks; edit dialog reusing `PaymentFormDialog` in edit mode with pre-fill; pencil + trash icons in `PoDetailDialog` payment history rows and a new Payments popover on `/purchase/bills/[id]` (same shape as the Attachments popover). Permission tree gains `purchase.payments.view` + `purchase.payments.manage` entries so admins can grant them explicitly.
 
 ---
 
