@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -522,6 +497,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sale_deliveries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
           },
           {
             foreignKeyName: "cogs_entries_sale_order_id_fkey"
@@ -1549,7 +1531,7 @@ export type Database = {
           cr_url: string | null
           created_at: string | null
           credit_group_id: string | null
-          division_id: string | null
+          division_ids: string[]
           email: string | null
           entity_type:
             | Database["public"]["Enums"]["customer_entity_type"]
@@ -1570,7 +1552,7 @@ export type Database = {
           cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
-          division_id?: string | null
+          division_ids?: string[]
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
@@ -1591,7 +1573,7 @@ export type Database = {
           cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
-          division_id?: string | null
+          division_ids?: string[]
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
@@ -1612,13 +1594,6 @@ export type Database = {
             columns: ["credit_group_id"]
             isOneToOne: false
             referencedRelation: "credit_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
         ]
@@ -4924,6 +4899,13 @@ export type Database = {
             foreignKeyName: "sale_deliveries_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "sale_deliveries_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -5139,6 +5121,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_order_lines_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
           },
           {
             foreignKeyName: "sale_order_lines_sale_order_id_fkey"
@@ -5499,6 +5488,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: true
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
           },
           {
             foreignKeyName: "invoices_sale_order_id_fkey"
@@ -6950,6 +6946,13 @@ export type Database = {
             foreignKeyName: "warranty_records_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "warranty_records_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -7128,6 +7131,13 @@ export type Database = {
             foreignKeyName: "invoices_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: true
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: true
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -7233,10 +7243,24 @@ export type Database = {
             foreignKeyName: "sale_order_lines_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "sale_order_lines_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
         ]
+      }
+      sale_order_paid_summary: {
+        Row: {
+          paid_qar: number | null
+          sale_order_id: string | null
+        }
+        Relationships: []
       }
       supplier_credit_balances: {
         Row: {
@@ -7702,52 +7726,28 @@ export type Database = {
         }
         Returns: string
       }
-      create_sale_order:
-        | {
-            Args: {
-              p_currency: string
-              p_customer_id: string
-              p_customer_notes: string
-              p_delivery_terms: string
-              p_delivery_terms_notes: string
-              p_discount_amount: number
-              p_discount_label: string
-              p_discount_type: string
-              p_division_id?: string
-              p_exchange_rate: number
-              p_expected_delivery: string
-              p_intent: string
-              p_line_items: Json
-              p_payment_milestones: Json
-              p_payment_terms: string
-              p_payment_terms_notes: string
-              p_validity_days: number
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_currency: string
-              p_customer_id: string
-              p_customer_notes: string
-              p_delivery_terms: string
-              p_delivery_terms_notes: string
-              p_discount_amount: number
-              p_discount_label: string
-              p_discount_type: string
-              p_division_id: string
-              p_exchange_rate: number
-              p_intent: string
-              p_line_items: Json
-              p_notes: string
-              p_payment_milestones: Json
-              p_payment_terms: string
-              p_payment_terms_notes: string
-              p_subtotal: number
-              p_validity_days: number
-            }
-            Returns: Json
-          }
+      create_sale_order: {
+        Args: {
+          p_currency: string
+          p_customer_id: string
+          p_customer_notes: string
+          p_delivery_terms: string
+          p_delivery_terms_notes: string
+          p_discount_amount: number
+          p_discount_label: string
+          p_discount_type: string
+          p_division_id?: string
+          p_exchange_rate: number
+          p_expected_delivery: string
+          p_intent: string
+          p_line_items: Json
+          p_payment_milestones: Json
+          p_payment_terms: string
+          p_payment_terms_notes: string
+          p_validity_days: number
+        }
+        Returns: Json
+      }
       create_service_customer: {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
@@ -7998,6 +7998,10 @@ export type Database = {
       has_admin_permission: { Args: never; Returns: boolean }
       has_inventory_manager_role: {
         Args: { p_profile_id: string }
+        Returns: boolean
+      }
+      is_any_division_visible: {
+        Args: { p_division_ids: string[] }
         Returns: boolean
       }
       is_division_visible: {
@@ -8899,9 +8903,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -9139,7 +9140,6 @@ export const Constants = {
   },
 } as const
 
-// ─── Helper aliases (re-appended after every supabase gen types) ──────────
 export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

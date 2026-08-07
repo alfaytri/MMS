@@ -14,13 +14,14 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ChevronDown, Check } from 'lucide-react'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
-import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
 const BUCKET = 'customer-credit-docs'
@@ -90,8 +91,11 @@ export function CustomerDialog({
   const submitGroupChange   = useSubmitCreditGroupChange()
   const submitting = createCustomer.isPending || updateCustomer.isPending || submitGroupChange.isPending
 
-  const { activeDivisionId } = useActiveDivision()
-  const [isGlobal, setIsGlobal] = useState(false)
+  const { activeDivisionId, availableDivisions } = useActiveDivision()
+  // A customer belongs to one or more divisions (array). No "global" concept.
+  const [divisionIds, setDivisionIds] = useState<string[]>([])
+  // Only one division accessible AND creating → auto-pick and hide the selector.
+  const soleDivision = availableDivisions.length === 1 ? availableDivisions[0] : null
 
   useEffect(() => {
     if (!open) return
@@ -110,13 +114,25 @@ export function CustomerDialog({
       setSignedFormDoc(customer.signed_credit_form_url
         ? { path: customer.signed_credit_form_url, name: displayNameFromPath(customer.signed_credit_form_url, 'signed') }
         : null)
-      setIsGlobal((customer as unknown as { division_id?: string | null }).division_id == null)
+      setDivisionIds(
+        Array.isArray((customer as unknown as { division_ids?: string[] }).division_ids)
+          ? (customer as unknown as { division_ids: string[] }).division_ids
+          : [],
+      )
     } else if (!isEdit) {
       setName(''); setPhones([newPhoneRow(true)]); setEmail('')
       // New customers default to cash — a credit group must be picked to promote.
       setCustomerType('cash'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
-      setIsGlobal(activeDivisionId == null)
+      // Auto-pick when the user has exactly one division; otherwise pre-select
+      // the currently-active division (operator can add more).
+      setDivisionIds(
+        soleDivision
+          ? [soleDivision.id]
+          : activeDivisionId
+            ? [activeDivisionId]
+            : [],
+      )
     }
     setUploading(null)
   }, [open, isEdit, customer])
@@ -227,6 +243,10 @@ export function CustomerDialog({
       toast.error('CR and Establishment ID are required for business customers')
       return
     }
+    if (divisionIds.length === 0) {
+      toast.error('Pick at least one division for this customer.')
+      return
+    }
     if (isCashToCredit && signedFormDoc?.path === customer?.signed_credit_form_url) {
       toast.error('Promotion to Credit requires a freshly signed credit form upload')
       return
@@ -268,8 +288,8 @@ export function CustomerDialog({
             cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
             establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
             signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
-            // Division scope
-            division_id:            isGlobal ? null : (activeDivisionId ?? null),
+            // Division scope: null = global; otherwise the operator's chosen division.
+            division_ids:           divisionIds,
           },
           previous: {
             name:                   customer.name,
@@ -333,8 +353,8 @@ export function CustomerDialog({
         cr_url:                 docsRequired ? crDoc?.path              ?? null : null,
         establishment_id_url:   docsRequired ? establishmentIdDoc?.path ?? null : null,
         signed_credit_form_url: docsRequired ? signedFormDoc?.path      ?? null : null,
-        // Division scope: null = global, else stamp active division.
-        division_id:            isGlobal ? null : (activeDivisionId ?? null),
+        // Division scope: array — every customer belongs to at least one division.
+        division_ids:           divisionIds,
       },
       {
         onSuccess: (created: { id: string }) => {
@@ -702,26 +722,67 @@ export function CustomerDialog({
 
           {/* Division scope */}
           <div className="rounded-md border p-3 space-y-2 bg-muted/30">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="customer-global"
-                checked={isGlobal}
-                onCheckedChange={(v) => setIsGlobal(v === true)}
-                className="mt-0.5"
-              />
-              <div className="space-y-0.5">
-                <label htmlFor="customer-global" className="text-sm font-medium cursor-pointer">
-                  Global customer (visible to every division)
-                </label>
-                <p className="text-[11px] text-muted-foreground">
-                  {isGlobal
-                    ? 'This customer will be visible in every division.'
-                    : activeDivisionId
-                      ? 'Scoped to the currently active division only.'
-                      : 'No active division — customer will be created as global.'}
-                </p>
+            <Label className="text-sm font-medium">
+              Divisions <span className="text-destructive">*</span>
+            </Label>
+            {soleDivision ? (
+              <div
+                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm min-h-9 flex items-center gap-2"
+                aria-live="polite"
+              >
+                <span className="font-medium">{soleDivision.name}</span>
+                <span className="text-[10px] text-muted-foreground">(auto — only division available)</span>
               </div>
-            </div>
+            ) : (
+              <Popover>
+                <PopoverTrigger
+                  className="w-full flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm min-h-9 hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <span className={cn('truncate', divisionIds.length === 0 && 'text-muted-foreground')}>
+                    {divisionIds.length === 0
+                      ? 'Select divisions…'
+                      : divisionIds.length === 1
+                        ? availableDivisions.find((d) => d.id === divisionIds[0])?.name ?? '1 division'
+                        : `${divisionIds.length} divisions selected`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
+                  <div className="max-h-64 overflow-y-auto py-1">
+                    {availableDivisions.map((d) => {
+                      const checked = divisionIds.includes(d.id)
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            setDivisionIds((prev) =>
+                              checked ? prev.filter((x) => x !== d.id) : [...prev, d.id],
+                            )
+                          }}
+                          className={cn(
+                            'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted focus:bg-muted focus:outline-none',
+                            checked && 'font-medium',
+                          )}
+                        >
+                          <span className="flex h-4 w-4 items-center justify-center shrink-0">
+                            {checked && <Check className="h-4 w-4 text-primary" />}
+                          </span>
+                          <span className="truncate">{d.name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              {divisionIds.length === 0
+                ? 'Pick at least one division.'
+                : divisionIds.length === 1
+                  ? 'Scoped to the selected division.'
+                  : `Visible to ${divisionIds.length} divisions.`}
+            </p>
           </div>
         </div>
         <DialogFooter>
