@@ -287,6 +287,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Customer Payments',
+        permissions: [
+          { key: 'sales.payments.view',   label: 'View Customer Payments',   description: 'Access customer payment records' },
+          { key: 'sales.payments.manage', label: 'Edit / Delete Customer Payments', description: 'Edit amount, method, date, reference on recorded customer payments, and soft-delete mistaken entries. Gate behind Accounting only. Store-credit redemptions cannot be edited here.' },
+        ],
+      },
+      {
         label: 'Sale Returns',
         permissions: [
           { key: 'sales.returns.view',   label: 'View Sale Returns',   description: 'Access sale return records' },

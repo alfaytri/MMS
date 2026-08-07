@@ -368,6 +368,15 @@ export const NAV_TREE: TreeNode[] = [
             ],
           },
           {
+            id: 'ps-customer-payments',
+            label: 'Customer Payments',
+            icon: Receipt,
+            permissions: [
+              { key: 'sales.payments.view',   label: 'View Customer Payments',   description: 'Access customer payment records' },
+              { key: 'sales.payments.manage', label: 'Edit / Delete Customer Payments', description: 'Edit amount, method, date, reference on recorded customer payments, and soft-delete mistaken entries. Gate behind Accounting only. Store-credit redemptions cannot be edited here.' },
+            ],
+          },
+          {
             id: 'ps-sale-returns',
             label: 'Returns',
             icon: RotateCcw,

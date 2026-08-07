@@ -351,6 +351,30 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useAttachPaymentToBill`](src/hooks/useAttachPaymentToBill.ts)
 - **RPC:** `allocate_payment_to_bill`
 
+### Edit Customer Payment
+- **Module:** sales / payments
+- **Status:** Active
+- **Trigger surface(s):** `InvoiceDetail` payment rows (pencil icon per row); `SoDetailDialog` Payments tab (pencil icon per row via `PaymentSummaryTab.onEditPayment`)
+- **Primary hook(s):** [`useEditCustomerPayment`](src/hooks/useCustomerPayments.ts)
+- **RPC(s):** `rpc_edit_customer_payment(uuid, numeric, text, date, text, text, numeric)` — SECURITY DEFINER; enforces `sales.payments.manage`; refuses `credit_note_id IS NOT NULL` (store-credit redemptions must flow through `rpc_redeem_credit_note`)
+- **Writes:** `payments` (amount/amount_qar/method/date/reference/notes/exchange_rate/updated_at)
+- **Guards:** payment must be `direction='incoming'`, not soft-deleted, and not a CN redemption
+- **Downstream side-effects:** `invoice_recompute_paid_trg` fires on payment UPDATE → `so_invoices.paid_amount` + `payment_status` recomputed; `sale_order_paid_summary` view auto-refreshes; installment-linked payments get `paid_amount` shifted by the delta, status recomputed, plan re-derived; activity log entry `Payment Edited` (severity warning, `module='sale_orders'` when linked to an SO, `module='invoices'` otherwise)
+- **Dialog/component:** [`CustomerPaymentEditDialog`](src/components/sales/CustomerPaymentEditDialog.tsx)
+- **Related flows:** [[Delete Customer Payment]], [[Detach Payment From Invoice]], [[Edit Supplier Payment]]
+
+### Delete Customer Payment
+- **Module:** sales / payments
+- **Status:** Active
+- **Trigger surface(s):** `InvoiceDetail` payment rows (trash icon per row); `SoDetailDialog` Payments tab (trash icon per row via `PaymentSummaryTab.onDeletePayment`)
+- **Primary hook(s):** [`useDeleteCustomerPayment`](src/hooks/useCustomerPayments.ts)
+- **RPC(s):** `rpc_delete_customer_payment(uuid)` — SECURITY DEFINER; enforces `sales.payments.manage`; idempotent; refuses CN redemptions
+- **Writes:** `payments.deleted_at = now()`
+- **Guards:** payment must be `direction='incoming'`, not a CN redemption
+- **Downstream side-effects:** `invoice_recompute_paid_trg` fires → `so_invoices` balance restored; installment link cleared, `paid_amount` restored, plan un-completed if the reversed row was the last one holding it complete; activity log entry `Payment Deleted` with amount
+- **Dialog/component:** Inline `AlertDialog` confirmation in `InvoiceDetail` and `SoDetailDialog`
+- **Related flows:** [[Edit Customer Payment]], [[Detach Payment From Invoice]], [[Delete Supplier Payment]]
+
 ### Edit Supplier Payment
 - **Module:** purchase / payments
 - **Status:** Active
