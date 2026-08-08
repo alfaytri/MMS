@@ -54,6 +54,16 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'master_data.inventory.attributes.edit',   label: 'Edit Category Attributes',   description: 'Modify, archive, restore, delete existing attribute definitions and options' },
             ],
           },
+          {
+            id: 'md-inventory-catalog',
+            label: 'Inventory Catalog (Brands & Origin)',
+            icon: Package,
+            permissions: [
+              { key: 'inventory.catalog.view',   label: 'View Inventory Catalog',   description: 'View categories, items, brands, origins' },
+              { key: 'inventory.catalog.manage', label: 'Manage Inventory Catalog', description: 'Create/edit/delete categories, items, brands, origins' },
+              { key: 'inventory.pricing.manage', label: 'Manage Inventory Pricing', description: 'Change cost/selling price on variants. Gate behind Accounting.' },
+            ],
+          },
         ],
       },
       {

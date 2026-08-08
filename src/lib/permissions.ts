@@ -114,6 +114,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Inventory Catalog (Brands & Origin)',
+        permissions: [
+          { key: 'inventory.catalog.view',   label: 'View Inventory Catalog',   description: 'View categories, items, brands, origins' },
+          { key: 'inventory.catalog.manage', label: 'Manage Inventory Catalog', description: 'Create/edit/delete categories, items, brands, origins' },
+          { key: 'inventory.pricing.manage', label: 'Manage Inventory Pricing', description: 'Change cost/selling price on variants. Gate behind Accounting.' },
+        ],
+      },
+      {
         label: 'Suppliers',
         permissions: [
           { key: 'master_data.suppliers.view',   label: 'View Suppliers',   description: 'Access the suppliers list and contact details' },

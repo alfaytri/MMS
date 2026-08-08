@@ -77,3 +77,15 @@ it('includes Contact Centre permission group', () => {
   expect(group).toBeDefined()
   expect(group!.permissions.map(p => p.key)).toContain('contact_centre.view')
 })
+
+it('includes inventory.catalog.view permission', () => {
+  expect(ALL_PERMISSIONS).toContain('inventory.catalog.view')
+})
+
+it('includes inventory.catalog.manage permission', () => {
+  expect(ALL_PERMISSIONS).toContain('inventory.catalog.manage')
+})
+
+it('includes inventory.pricing.manage permission', () => {
+  expect(ALL_PERMISSIONS).toContain('inventory.pricing.manage')
+})
