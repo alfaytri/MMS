@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { OriginVariantRow, type OriginVariant } from './OriginVariantRow'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
-import { useUpdateSortOrders } from '@/hooks/useInventory'
 import type { BrandGroup } from '@/lib/inventory/groupVariants'
 
 type Props = {
@@ -17,20 +16,6 @@ type Props = {
 
 export function BrandGroupRow({ group, itemId, itemName }: Props) {
   const [addOriginOpen, setAddOriginOpen] = useState(false)
-  const updateOriginOrder = useUpdateSortOrders('inventory_item_brand_variants')
-
-  function handleMove(idx: number, direction: 'up' | 'down') {
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    const a = group.origins[idx]
-    const b = group.origins[targetIdx]
-    if (!a || !b) return
-    const aSort = typeof a.sort_order === 'number' ? a.sort_order : idx
-    const bSort = typeof b.sort_order === 'number' ? b.sort_order : targetIdx
-    updateOriginOrder.mutate([
-      { id: String(a.id), sort_order: aSort },
-      { id: String(b.id), sort_order: bSort },
-    ])
-  }
 
   const isUnbranded = group.brandKey === '__nobrand__'
   const fixedBrand = { id: isUnbranded ? null : group.brandKey, name: group.brandLabel }
@@ -75,16 +60,12 @@ export function BrandGroupRow({ group, itemId, itemName }: Props) {
         </TableCell>
       </TableRow>
 
-      {group.origins.map((origin, idx) => (
+      {group.origins.map((origin) => (
         <OriginVariantRow
           key={String(origin.id)}
           variant={origin as unknown as OriginVariant}
           itemId={itemId}
           itemName={itemName}
-          canMoveUp={idx > 0}
-          canMoveDown={idx < group.origins.length - 1}
-          onMoveUp={() => handleMove(idx, 'up')}
-          onMoveDown={() => handleMove(idx, 'down')}
         />
       ))}
 

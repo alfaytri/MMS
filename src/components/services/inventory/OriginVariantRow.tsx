@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, PackagePlus } from 'lucide-react'
+import { ChevronRight, ChevronDown, Pencil, Archive, PackagePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
@@ -41,10 +41,6 @@ type Props = {
   variant: OriginVariant
   itemId: string
   itemName: string
-  canMoveUp: boolean
-  canMoveDown: boolean
-  onMoveUp: () => void
-  onMoveDown: () => void
 }
 
 function AtpBadge({ stockLevel, reservedQty, reorderPoint }: { stockLevel: number; reservedQty: number; reorderPoint: number }) {
@@ -131,12 +127,10 @@ function WarehouseStockTooltipInner({
   )
 }
 
-export function OriginVariantRow({ variant, itemId, itemName, canMoveUp, canMoveDown, onMoveUp, onMoveDown }: Props) {
+export function OriginVariantRow({ variant, itemId, itemName }: Props) {
   // Primary row label is the ORIGIN (country), never a raw id — em dash when
   // the leaf carries no origin (e.g. a brand-only variant).
-  const originLabel = variant.country_name
-    ? `${variant.country_flag ?? ''} ${variant.country_name}`.trim()
-    : '—'
+  const originLabel = variant.country_name ?? '—'
   // Fuller "brand — origin" label for contexts outside the row (receival
   // dialog title, archive confirmation) where the brand is no longer visible
   // inline — the row itself now lives under a brand group header.
@@ -229,26 +223,6 @@ export function OriginVariantRow({ variant, itemId, itemName, canMoveUp, canMove
                 </Tooltip>
               </TooltipProvider>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 min-h-11 min-w-11 md:min-h-6 md:min-w-6 hidden sm:inline-flex"
-              disabled={!canMoveUp}
-              onClick={() => onMoveUp()}
-              aria-label="Move origin up"
-            >
-              <ArrowUp className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 min-h-11 min-w-11 md:min-h-6 md:min-w-6 hidden sm:inline-flex"
-              disabled={!canMoveDown}
-              onClick={() => onMoveDown()}
-              aria-label="Move origin down"
-            >
-              <ArrowDown className="h-3 w-3" />
-            </Button>
             <Button
               variant="ghost"
               size="icon"

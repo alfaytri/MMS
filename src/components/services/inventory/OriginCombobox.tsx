@@ -38,7 +38,7 @@ export function OriginCombobox({
     : countryCodesLoading
       ? 'Loading…'
       : selectedCountry
-        ? `${selectedCountry.flag} ${selectedCountry.name}`
+        ? selectedCountry.name
         : 'Select origin…'
 
   const filteredCountries = useMemo(() => {
@@ -100,7 +100,7 @@ export function OriginCombobox({
                   onSelect={() => selectCountry(c.id)}
                 >
                   <Check className={cn('mr-2 h-4 w-4', value === c.id ? 'opacity-100' : 'opacity-0')} />
-                  <span className="truncate">{c.flag} {c.name}</span>
+                  <span className="truncate">{c.name}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
