@@ -142,6 +142,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         nameAr !== (item.name_ar ?? '') ||
         sku !== (item.sku ?? '') ||
         unit !== (item.unit ?? 'Piece') ||
+        warrantyPolicyId !== (item?.warranty_policy_id ?? null) ||
         imageUrl !== ((item as unknown as { image_url?: string | null }).image_url ?? null) ||
         attrValues.length > 0 ||
         JSON.stringify(sharedWith.slice().sort()) !==
