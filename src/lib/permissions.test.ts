@@ -93,3 +93,27 @@ it('includes inventory.pricing.view permission', () => {
 it('includes inventory.pricing.manage permission', () => {
   expect(ALL_PERMISSIONS).toContain('inventory.pricing.manage')
 })
+
+describe('inventory permissions cleanup', () => {
+  const removed = [
+    'master_data.inventory.view',
+    'master_data.inventory.create',
+    'master_data.inventory.manage',
+    'master_data.inventory.attributes.create',
+    'master_data.inventory.attributes.edit',
+  ]
+  const present = [
+    'inventory.catalog.view',
+    'inventory.catalog.manage',
+    'inventory.pricing.view',
+    'inventory.pricing.manage',
+    'master_data.inventory.attributes.view',
+    'master_data.inventory.attributes.manage',
+  ]
+  it.each(removed)('does NOT contain removed legacy key %s', (k) => {
+    expect(ALL_PERMISSIONS).not.toContain(k)
+  })
+  it.each(present)('contains clean key %s', (k) => {
+    expect(ALL_PERMISSIONS).toContain(k)
+  })
+})

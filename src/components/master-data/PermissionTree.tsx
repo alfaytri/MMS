@@ -39,30 +39,26 @@ export const NAV_TREE: TreeNode[] = [
         label: 'Inventory',
         icon: Package,
         permissions: [
-          { key: 'master_data.inventory.view',   label: 'View Inventory',   description: 'Browse inventory items, categories, and brand variants' },
-          { key: 'master_data.inventory.create', label: 'Create Inventory', description: 'Add new inventory items, categories, and brand variants' },
-          { key: 'master_data.inventory.manage', label: 'Edit Inventory',   description: 'Edit and delete existing inventory items and variants (legacy .manage — alias of .edit)' },
+          { key: 'inventory.catalog.view',   label: 'View Inventory',   description: 'Open the Inventory page; view categories, items, brands, and origins' },
+          { key: 'inventory.catalog.manage', label: 'Manage Inventory', description: 'Create, edit, archive, and delete categories, sub-levels, items, brands, and origins' },
         ],
         children: [
+          {
+            id: 'md-inventory-pricing',
+            label: 'Inventory Pricing',
+            icon: Package,
+            permissions: [
+              { key: 'inventory.pricing.view',   label: 'View Inventory Pricing',   description: 'View cost and selling prices on variants' },
+              { key: 'inventory.pricing.manage', label: 'Manage Inventory Pricing', description: 'Change cost/selling price on variants (kept behind Accounting)' },
+            ],
+          },
           {
             id: 'md-inventory-attributes',
             label: 'Category Attributes',
             icon: Package,
             permissions: [
               { key: 'master_data.inventory.attributes.view',   label: 'View Category Attributes',   description: 'See the Attributes tab on the Inventory master-data page' },
-              { key: 'master_data.inventory.attributes.create', label: 'Create Category Attributes', description: 'Add new attribute definitions and options' },
-              { key: 'master_data.inventory.attributes.edit',   label: 'Edit Category Attributes',   description: 'Modify, archive, restore, delete existing attribute definitions and options' },
-            ],
-          },
-          {
-            id: 'md-inventory-catalog',
-            label: 'Inventory Catalog (Brands & Origin)',
-            icon: Package,
-            permissions: [
-              { key: 'inventory.catalog.view',   label: 'View Inventory Catalog',   description: 'View categories, items, brands, origins' },
-              { key: 'inventory.catalog.manage', label: 'Manage Inventory Catalog', description: 'Create/edit/delete categories, items, brands, origins' },
-              { key: 'inventory.pricing.view',   label: 'View Inventory Pricing',   description: 'View cost/selling prices on variants' },
-              { key: 'inventory.pricing.manage', label: 'Manage Inventory Pricing', description: 'Change cost/selling price on variants. Gate behind Accounting.' },
+              { key: 'master_data.inventory.attributes.manage', label: 'Manage Category Attributes', description: 'Create, edit, archive, and delete attribute definitions and options' },
             ],
           },
         ],
