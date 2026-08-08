@@ -32,17 +32,20 @@ table that currently sits unused behind free-text brand strings.
 - RLS lockdown + two new permissions on the inventory catalog + pricing.
 - Catalog tree UI: item → brand group → origin row → receivals/FIFO.
 - Manual inventory-receival flow targets the (item, brand, origin) leaf.
+- **Category parent-picker → arbitrary depth** (fold-in; today capped at 3 levels).
+- **Drop `inventory_items.markup_percent`** dead column.
 - Folded-in fixes: FIFO FK `CASCADE`→`RESTRICT`, `updated_at` triggers on the three
   tables, `ItemEditDialog` warranty dirty-check, mobile price visibility, photos
   storage-bucket lockdown, transactional archive/sort-order RPCs.
 
 **Out of scope (tracked separately)**
 - PO/SO line-editor origin awareness → `docs/inventory-brands-origin-po-so-followup.md`.
-- PO-driven receivals targeting a specific origin (depends on PO picker).
-- Category parent-picker 3-level depth cap.
-- N+1 attribute-chip fetches, `.limit()` gaps on untouched hooks, `markup_percent`
-  dead column, `fifo_cost_layers.receival_id` text→uuid, dead-component deletion, nits.
-  These are spawned as tracked task chips, not built here.
+- PO-driven receivals targeting a specific origin (depends on PO picker) → same tracker.
+- Batch the N+1 attribute-chip fetches → `docs/inventory-attribute-chip-n1-followup.md`
+  (its own task; important for quota).
+- `fifo_cost_layers.receival_id` text→uuid, dead-component deletion (incl. the two
+  superseded form dialogs, removed *after* this branch's live picker exists), and the
+  low-priority nits → logged in `docs/future-plans.md`.
 
 ## 3. Data model
 
@@ -93,6 +96,9 @@ table that currently sits unused behind free-text brand strings.
 - Wire `public.set_updated_at()` as a `BEFORE UPDATE` trigger on
   `inventory_categories`, `inventory_items`, `inventory_item_brand_variants` (none
   have it today, so audit timestamps are stuck at insert time).
+- **Drop `inventory_items.markup_percent`** — dead column left over from the removed
+  markup/margin feature (`20260708214900_remove_markup_and_margin.sql`). Verify no
+  live reader (grep `markup_percent` in `src/` returns zero) before the drop.
 
 ### 3.4 Origin backfill
 - None. Existing variants get `country_id = null` ("origin unknown"), filled over time.
@@ -175,6 +181,18 @@ Replace `USING(true) WITH CHECK(true)` on `inventory_categories`, `inventory_ite
 - Layout stability: brand/origin group rows use reserved heights so expand/collapse
   doesn't shift siblings.
 
+### 5.5 Category parent-picker — arbitrary depth (fold-in)
+- Today `CategoryEditDialog` (and `CascadeInventorySelector`) render a fixed 3-level
+  parent chooser (L1 → L2 → L3), so categories at depth ≥ 4 cannot be selected as a
+  parent even though the tree stores arbitrary depth via `parent_id`.
+- Rework the parent picker to render **N side-by-side selects dynamically** — one per
+  level, appending a new select each time a level with children is chosen (the
+  project's side-by-side dropdown rule, never flyout submenus). Stop when the chosen
+  category has no children.
+- Applies to `CategoryEditDialog`; the purchase-side `CascadeInventorySelector` cap is
+  out of scope here (it's part of the PO picker follow-up) — this fold-in covers the
+  **catalog** category editor only.
+
 ## 6. Receivals
 
 - The **manual inventory-receival flow** (inventory module) targets the
@@ -191,12 +209,18 @@ Replace `USING(true) WITH CHECK(true)` on `inventory_categories`, `inventory_ite
 3. Post-migration the picker shows real brands; the tree groups by them with a single
    "—" origin per leaf until origins are set.
 
-## 8. Deferred items (spawned as tracked chips)
+## 8. Deferred items (tracked in files, not chips)
 
-PO/SO origin pickers (own tracker); category parent-picker depth cap; N+1
-attribute-chip fetches; `.limit()` gaps on untouched hooks; `markup_percent` dead
-column; `fifo_cost_layers.receival_id` text→uuid; dead-component deletion
-(`InventoryColumnPicker`, unreferenced form dialogs); remaining nits.
+- **PO/SO origin pickers + PO-driven receival origin** →
+  `docs/inventory-brands-origin-po-so-followup.md`.
+- **N+1 attribute-chip fetches** → `docs/inventory-attribute-chip-n1-followup.md`
+  (own task; important for quota).
+- **`fifo_cost_layers.receival_id` text→uuid**, **dead-component deletion**
+  (`InventoryColumnPicker` + the two superseded form dialogs, removed after this
+  branch), and the **low-priority nits** → `docs/future-plans.md`.
+
+*(Now in scope, moved out of this list: category parent-picker arbitrary depth §5.5;
+`markup_percent` column drop §3.3.)*
 
 ## 9. Acceptance criteria
 
