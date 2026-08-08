@@ -1,5 +1,5 @@
 export const PERMISSION_TO_MODULES: Record<string, string[]> = {
-  'master_data.inventory.view':  ['inventory'],
+  'inventory.catalog.view':  ['inventory'],
   'warehouse.access':            ['warehouses'],
   'master_data.users.view':      ['profiles', 'custom_roles'],
   'master_data.admin.view':      [
