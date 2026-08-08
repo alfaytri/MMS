@@ -61,6 +61,7 @@ export const NAV_TREE: TreeNode[] = [
             permissions: [
               { key: 'inventory.catalog.view',   label: 'View Inventory Catalog',   description: 'View categories, items, brands, origins' },
               { key: 'inventory.catalog.manage', label: 'Manage Inventory Catalog', description: 'Create/edit/delete categories, items, brands, origins' },
+              { key: 'inventory.pricing.view',   label: 'View Inventory Pricing',   description: 'View cost/selling prices on variants' },
               { key: 'inventory.pricing.manage', label: 'Manage Inventory Pricing', description: 'Change cost/selling price on variants. Gate behind Accounting.' },
             ],
           },

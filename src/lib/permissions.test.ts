@@ -86,6 +86,10 @@ it('includes inventory.catalog.manage permission', () => {
   expect(ALL_PERMISSIONS).toContain('inventory.catalog.manage')
 })
 
+it('includes inventory.pricing.view permission', () => {
+  expect(ALL_PERMISSIONS).toContain('inventory.pricing.view')
+})
+
 it('includes inventory.pricing.manage permission', () => {
   expect(ALL_PERMISSIONS).toContain('inventory.pricing.manage')
 })
