@@ -270,7 +270,9 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
-_None — batch 1 fully shipped. `docs/future-plans.md` is empty._
+🚀 Starting: **Inventory Brands & Origin (catalog+receivals)** on feature/inventory-brands-and-origin
+
+Scope: catalog+receivals slice per the design spec at [docs/specs/2026-08-08-inventory-brands-origin-design.md](docs/specs/2026-08-08-inventory-brands-origin-design.md) — origin becomes a nullable priced/stocked dimension on the brand-variant leaf, the app adopts a dedicated `brands` master table (replacing the free-text brand field), and inventory RLS is locked down with catalog+pricing permissions.
 
 ---
 
