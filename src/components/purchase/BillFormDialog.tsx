@@ -10,11 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useCreateBill } from '@/hooks/useSupplierBills'
+import { useCreateBill, persistBillAttachments } from '@/hooks/useSupplierBills'
 import { usePurchaseOrders, usePurchaseOrder, usePOReceivalsByPO } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { BillAttachmentPicker, type BillAttachmentPickerHandle, type BillAttachmentUpload } from './BillAttachmentPicker'
 
 type BillLine = {
   po_line_item_id: string
@@ -45,7 +46,12 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
   const [lines, setLines] = useState<BillLine[]>([])
   const [showReceival, setShowReceival] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [attachments, setAttachments] = useState<BillAttachmentUpload[]>([])
   const guardRef = useRef<GuardedFormDialogHandle>(null)
+  const attachRef = useRef<BillAttachmentPickerHandle>(null)
+  // Marks that uploads are persisted onto a bill — handleOpenChange must
+  // not sweep the storage objects on the subsequent close.
+  const submittedRef = useRef(false)
 
   const { data: selectedPO } = usePurchaseOrder(selectedPoId || null)
   const { data: receivals } = usePOReceivalsByPO(selectedPoId || null)
@@ -94,6 +100,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
     dueDate !== '' ||
     reference !== '' ||
     notes !== '' ||
+    attachments.length > 0 ||
     lines.some((l, i) => {
       const original = selectedPO?.po_line_items?.[i]
       if (!original) return false
@@ -102,9 +109,14 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
 
   function handleOpenChange(next: boolean) {
     if (!next) {
+      // Sweep only when closing WITHOUT a successful submit.
+      if (!submittedRef.current && attachments.length > 0) {
+        void attachRef.current?.sweep()
+      }
+      submittedRef.current = false
       if (!initialPoId) setSelectedPoId('')
       setDueDate(''); setReference(''); setNotes('')
-      setLines([]); setShowReceival(false)
+      setLines([]); setShowReceival(false); setAttachments([])
     }
     onOpenChange(next)
   }
@@ -113,7 +125,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
     if (!selectedPO || !canSubmit) return
     setSaving(true)
     try {
-      await createBill.mutateAsync({
+      const newBill = await createBill.mutateAsync({
         supplier_id:       selectedPO.supplier_id,
         purchase_order_id: selectedPoId,
         po_number:         selectedPO.po_number,
@@ -121,6 +133,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
         discount_label:    selectedPO.discount_label ?? null,
         receival_id:       null,
         due_date:          dueDate,
+        source_label:      reference || null,
         notes,
         line_items: lines.filter((l) => l.bill_qty > 0).map((l) => ({
           description:  l.item_name,
@@ -131,6 +144,17 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
           match_note:   null,
         })),
       })
+      if (attachments.length > 0) {
+        try {
+          await persistBillAttachments(newBill.id, attachments)
+        } catch (err: unknown) {
+          toast.error(`Bill saved, but attaching files failed: ${(err as Error).message}`)
+        }
+      }
+      // Mark submitted before closing so handleOpenChange's sweep skips.
+      // (setAttachments([]) alone won't work — the close handler runs
+      // synchronously with the pre-clear closure.)
+      submittedRef.current = true
       toast.success('Bill created successfully')
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
@@ -253,6 +277,16 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Internal notes…"
+            />
+          </div>
+
+          {/* Supplier invoice attachments */}
+          <div className="rounded-lg border bg-muted/10 px-3 py-3">
+            <BillAttachmentPicker
+              ref={attachRef}
+              uploads={attachments}
+              onChange={setAttachments}
+              disabled={saving}
             />
           </div>
 

@@ -13,6 +13,13 @@ import { toast } from 'sonner'
 import { PoApprovalChain } from './PoApprovalChain'
 import { CreateBillFromPODialog } from './CreateBillFromPODialog'
 import { PoPaymentDialog } from './PoPaymentDialog'
+import { SupplierPaymentEditDialog, type EditablePayment } from './SupplierPaymentEditDialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useDeleteSupplierPayment } from '@/hooks/useSupplierPayments'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { PoReceiveTab } from './PoReceiveTab'
 import { ReceivalSerialsStep } from './ReceivalSerialsStep'
 import { PoVersionTabs } from './PoVersionTabs'
@@ -70,6 +77,10 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const [createBillOpen, setCreateBillOpen] = useState(false)
   const [requestEditOpen, setRequestEditOpen] = useState(false)
   const [serialsReceival, setSerialsReceival] = useState<{ id: string; number: string } | null>(null)
+  const [editPaymentTarget, setEditPaymentTarget] = useState<EditablePayment | null>(null)
+  const [deletePaymentTarget, setDeletePaymentTarget] = useState<{ id: string; amount: number; date: string; currency: string } | null>(null)
+  const canManagePayments = useHasPermission('purchase.payments.manage')
+  const deletePaymentMut = useDeleteSupplierPayment()
 
   const resolvedId = po?.id ?? poId ?? null
 
@@ -136,7 +147,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
     )
   }
 
-  const canRecordPayment = current && ['approved', 'partially_received', 'received'].includes(current.status)
+  // 'completed' included: a PO can be fully received while still carrying an
+  // outstanding balance (e.g. after a payment edit) — the operator must be
+  // able to record the remainder. PaymentSummaryTab hides the button once
+  // totalPaid >= totalAmount, so fully-paid POs never show it.
+  const canRecordPayment = current && ['approved', 'partially_received', 'received', 'completed'].includes(current.status)
   const showReturns = !isViewingSnapshot && current && ['partially_received', 'received', 'completed'].includes(current.status)
 
   return (
@@ -559,6 +574,23 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                   currency={current?.currency ?? 'QAR'}
                   canRecord={!!canRecordPayment}
                   onRecordPayment={() => setPaymentOpen(true)}
+                  onEditPayment={canManagePayments ? (p) => setEditPaymentTarget({
+                    id: p.id,
+                    amount: p.amount,
+                    method: p.method,
+                    date: p.date,
+                    reference: p.reference,
+                    notes: p.notes ?? null,
+                    currency: p.currency ?? current?.currency ?? 'QAR',
+                    exchange_rate: p.exchange_rate ?? 1,
+                    po_id: resolvedId,
+                  }) : undefined}
+                  onDeletePayment={canManagePayments ? (p) => setDeletePaymentTarget({
+                    id: p.id,
+                    amount: p.amount,
+                    date: p.date,
+                    currency: p.currency ?? current?.currency ?? 'QAR',
+                  }) : undefined}
                 />
               </TabsContent>
 
@@ -702,6 +734,55 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
           poNumber={current.po_number ?? null}
         />
       )}
+
+      <SupplierPaymentEditDialog
+        open={!!editPaymentTarget}
+        onOpenChange={(v) => { if (!v) setEditPaymentTarget(null) }}
+        payment={editPaymentTarget}
+      />
+
+      <AlertDialog
+        open={!!deletePaymentTarget}
+        onOpenChange={(v) => { if (!v) setDeletePaymentTarget(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{' '}
+              <span className="font-mono font-medium">
+                {deletePaymentTarget ? formatCurrency(deletePaymentTarget.amount, deletePaymentTarget.currency) : ''}
+              </span>
+              {deletePaymentTarget && ` recorded on ${formatDate(deletePaymentTarget.date)}`}.
+              The bill&apos;s outstanding balance will be restored automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deletePaymentTarget) return
+                try {
+                  await deletePaymentMut.mutateAsync({
+                    payment_id: deletePaymentTarget.id,
+                    po_id: resolvedId,
+                    amount: deletePaymentTarget.amount,
+                    currency: deletePaymentTarget.currency,
+                  })
+                  toast.success('Payment deleted')
+                } catch (err: unknown) {
+                  toast.error((err as Error).message ?? 'Delete failed')
+                } finally {
+                  setDeletePaymentTarget(null)
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirm tool serials — opens after any receival finishes.
           Lives here (not inside PoReceiveTab) so it survives the Receive tab

@@ -33,7 +33,9 @@ import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateRep
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useInvoicesBySO } from '@/hooks/useCustomerInvoices'
-import { useCustomerPayments } from '@/hooks/useCustomerPayments'
+import { useCustomerPayments, useDeleteCustomerPayment } from '@/hooks/useCustomerPayments'
+import { useHasPermission } from '@/hooks/usePermissions'
+import { CustomerPaymentEditDialog, type EditableCustomerPayment } from './CustomerPaymentEditDialog'
 import { usePaymentPlans } from '@/hooks/usePaymentPlans'
 import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
 import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
@@ -72,6 +74,10 @@ interface SoDetailDialogProps {
 export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: SoDetailDialogProps) {
   const [activeTab, setActiveTab] = useState('items')
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const [editPaymentTarget, setEditPaymentTarget] = useState<EditableCustomerPayment | null>(null)
+  const [deletePaymentTarget, setDeletePaymentTarget] = useState<{ id: string; amount: number; date: string; currency: string } | null>(null)
+  const canManagePayments = useHasPermission('sales.payments.manage')
+  const deletePaymentMut = useDeleteCustomerPayment()
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
   const soId = so?.id
@@ -463,6 +469,38 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                         currency={current?.currency}
                         canRecord={!!canRecordPayment}
                         onRecordPayment={() => setPaymentOpen(true)}
+                        onEditPayment={canManagePayments ? (p) => {
+                          // Credit-note redemptions can't be edited — the RPC refuses them.
+                          const pAny = p as unknown as { credit_note_id?: string | null }
+                          if (pAny.credit_note_id) {
+                            toast.error('Credit-note redemptions cannot be edited — use the credit-note flow.')
+                            return
+                          }
+                          setEditPaymentTarget({
+                            id: p.id,
+                            amount: p.amount,
+                            method: p.method,
+                            date: p.date,
+                            reference: p.reference,
+                            notes: p.notes ?? null,
+                            currency: p.currency ?? current?.currency ?? 'QAR',
+                            exchange_rate: p.exchange_rate ?? 1,
+                            sale_order_id: current?.id ?? null,
+                          })
+                        } : undefined}
+                        onDeletePayment={canManagePayments ? (p) => {
+                          const pAny = p as unknown as { credit_note_id?: string | null }
+                          if (pAny.credit_note_id) {
+                            toast.error('Credit-note redemptions cannot be deleted — void via the credit-note flow.')
+                            return
+                          }
+                          setDeletePaymentTarget({
+                            id: p.id,
+                            amount: p.amount,
+                            date: p.date,
+                            currency: p.currency ?? current?.currency ?? 'QAR',
+                          })
+                        } : undefined}
                       />
                     </>
                   )
@@ -556,6 +594,55 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
         <>
           <SoPaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} so={current} />
           <SoDeliveryDialog open={deliveryOpen} onOpenChange={setDeliveryOpen} so={current} />
+
+          <CustomerPaymentEditDialog
+            open={!!editPaymentTarget}
+            onOpenChange={(v) => { if (!v) setEditPaymentTarget(null) }}
+            payment={editPaymentTarget}
+          />
+
+          <AlertDialog
+            open={!!deletePaymentTarget}
+            onOpenChange={(v) => { if (!v) setDeletePaymentTarget(null) }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove{' '}
+                  <span className="font-mono font-medium">
+                    {deletePaymentTarget ? formatCurrency(deletePaymentTarget.amount, deletePaymentTarget.currency) : ''}
+                  </span>
+                  {deletePaymentTarget && ` recorded on ${formatDate(deletePaymentTarget.date)}`}.
+                  The invoice&apos;s outstanding balance will be restored automatically.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async () => {
+                    if (!deletePaymentTarget) return
+                    try {
+                      await deletePaymentMut.mutateAsync({
+                        payment_id: deletePaymentTarget.id,
+                        sale_order_id: current.id,
+                        amount: deletePaymentTarget.amount,
+                        currency: deletePaymentTarget.currency,
+                      })
+                      toast.success('Payment deleted')
+                    } catch (err: unknown) {
+                      toast.error((err as Error).message ?? 'Delete failed')
+                    } finally {
+                      setDeletePaymentTarget(null)
+                    }
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           {selectedReturn && (
             <ReplacementDeliveryDialog
               open={replacementOpen}

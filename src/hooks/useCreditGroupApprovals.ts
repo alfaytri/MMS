@@ -67,7 +67,7 @@ export function usePendingCreditGroupRequests() {
         .from('customer_credit_group_requests')
         .select(`
           *,
-          customer:customers(name, email, entity_type, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, customer_phones(phone, is_primary)),
+          customer:customers(name, email, entity_type, credit_group_id, customer_phones(phone, is_primary), customer_credit_docs(cr_url, establishment_id_url, signed_credit_form_url)),
           requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
           previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
           rows:customer_credit_group_approvals(*)
@@ -83,9 +83,23 @@ export function usePendingCreditGroupRequests() {
         customer_email:          r.customer?.email ?? null,
         customer_entity_type:    r.customer?.entity_type ?? null,
         customer_type:           r.customer?.credit_group_id ? 'credit' : 'cash',
-        cr_url:                  r.customer?.cr_url ?? null,
-        establishment_id_url:    r.customer?.establishment_id_url ?? null,
-        signed_credit_form_url:  r.customer?.signed_credit_form_url ?? null,
+        ...(() => {
+          // customer_credit_docs is a 1:1 join — PostgREST returns null or a
+          // single row (may still arrive as an array of length 0/1 depending
+          // on relationship inference — handle both).
+          const raw = (r.customer as unknown as {
+            customer_credit_docs?:
+              | { cr_url?: string | null; establishment_id_url?: string | null; signed_credit_form_url?: string | null }
+              | { cr_url?: string | null; establishment_id_url?: string | null; signed_credit_form_url?: string | null }[]
+              | null
+          } | null)?.customer_credit_docs
+          const row = Array.isArray(raw) ? raw[0] : raw
+          return {
+            cr_url:                 row?.cr_url                 ?? null,
+            establishment_id_url:   row?.establishment_id_url   ?? null,
+            signed_credit_form_url: row?.signed_credit_form_url ?? null,
+          }
+        })(),
         requested_group_name:    r.requested_group?.name ?? null,
         requested_group_limit:   r.requested_group?.credit_limit ?? null,
         previous_group_name:     r.previous_group?.name ?? null,
@@ -104,7 +118,7 @@ export function useCompletedCreditGroupRequests() {
         .from('customer_credit_group_requests')
         .select(`
           *,
-          customer:customers(name, email, entity_type, credit_group_id, cr_url, establishment_id_url, signed_credit_form_url, customer_phones(phone, is_primary)),
+          customer:customers(name, email, entity_type, credit_group_id, customer_phones(phone, is_primary), customer_credit_docs(cr_url, establishment_id_url, signed_credit_form_url)),
           requested_group:credit_groups!customer_credit_group_requests_requested_group_id_fkey(name, credit_limit),
           previous_group:credit_groups!customer_credit_group_requests_previous_group_id_fkey(name),
           rows:customer_credit_group_approvals(*)
@@ -120,9 +134,23 @@ export function useCompletedCreditGroupRequests() {
         customer_email:          r.customer?.email ?? null,
         customer_entity_type:    r.customer?.entity_type ?? null,
         customer_type:           r.customer?.credit_group_id ? 'credit' : 'cash',
-        cr_url:                  r.customer?.cr_url ?? null,
-        establishment_id_url:    r.customer?.establishment_id_url ?? null,
-        signed_credit_form_url:  r.customer?.signed_credit_form_url ?? null,
+        ...(() => {
+          // customer_credit_docs is a 1:1 join — PostgREST returns null or a
+          // single row (may still arrive as an array of length 0/1 depending
+          // on relationship inference — handle both).
+          const raw = (r.customer as unknown as {
+            customer_credit_docs?:
+              | { cr_url?: string | null; establishment_id_url?: string | null; signed_credit_form_url?: string | null }
+              | { cr_url?: string | null; establishment_id_url?: string | null; signed_credit_form_url?: string | null }[]
+              | null
+          } | null)?.customer_credit_docs
+          const row = Array.isArray(raw) ? raw[0] : raw
+          return {
+            cr_url:                 row?.cr_url                 ?? null,
+            establishment_id_url:   row?.establishment_id_url   ?? null,
+            signed_credit_form_url: row?.signed_credit_form_url ?? null,
+          }
+        })(),
         requested_group_name:    r.requested_group?.name ?? null,
         requested_group_limit:   r.requested_group?.credit_limit ?? null,
         previous_group_name:     r.previous_group?.name ?? null,

@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_log: {
@@ -201,6 +176,54 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_attachments: {
+        Row: {
+          bill_id: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_key: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bill_id: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bill_id?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_attachments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
             referencedColumns: ["id"]
           },
         ]
@@ -522,6 +545,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sale_deliveries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
           },
           {
             foreignKeyName: "cogs_entries_sale_order_id_fkey"
@@ -1349,6 +1379,42 @@ export type Database = {
           },
         ]
       }
+      customer_credit_docs: {
+        Row: {
+          cr_url: string | null
+          customer_id: string
+          establishment_id_url: string | null
+          signed_credit_form_url: string | null
+        }
+        Insert: {
+          cr_url?: string | null
+          customer_id: string
+          establishment_id_url?: string | null
+          signed_credit_form_url?: string | null
+        }
+        Update: {
+          cr_url?: string | null
+          customer_id?: string
+          establishment_id_url?: string | null
+          signed_credit_form_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_docs_new_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "customer_credit_docs_new_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: true
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_credit_group_approvals: {
         Row: {
           comment: string | null
@@ -1545,65 +1611,44 @@ export type Database = {
       customers: {
         Row: {
           block_reason: string | null
-          cr_uploaded_at: string | null
-          cr_url: string | null
           created_at: string | null
           credit_group_id: string | null
-          division_id: string | null
           email: string | null
           entity_type:
             | Database["public"]["Enums"]["customer_entity_type"]
             | null
-          establishment_id_uploaded_at: string | null
-          establishment_id_url: string | null
           id: string
           is_active: boolean
           name: string
           name_ar: string | null
-          signed_credit_form_uploaded_at: string | null
-          signed_credit_form_url: string | null
           updated_at: string | null
         }
         Insert: {
           block_reason?: string | null
-          cr_uploaded_at?: string | null
-          cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
-          division_id?: string | null
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
             | null
-          establishment_id_uploaded_at?: string | null
-          establishment_id_url?: string | null
           id?: string
           is_active?: boolean
           name: string
           name_ar?: string | null
-          signed_credit_form_uploaded_at?: string | null
-          signed_credit_form_url?: string | null
           updated_at?: string | null
         }
         Update: {
           block_reason?: string | null
-          cr_uploaded_at?: string | null
-          cr_url?: string | null
           created_at?: string | null
           credit_group_id?: string | null
-          division_id?: string | null
           email?: string | null
           entity_type?:
             | Database["public"]["Enums"]["customer_entity_type"]
             | null
-          establishment_id_uploaded_at?: string | null
-          establishment_id_url?: string | null
           id?: string
           is_active?: boolean
           name?: string
           name_ar?: string | null
-          signed_credit_form_uploaded_at?: string | null
-          signed_credit_form_url?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1612,13 +1657,6 @@ export type Database = {
             columns: ["credit_group_id"]
             isOneToOne: false
             referencedRelation: "credit_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
         ]
@@ -4924,6 +4962,13 @@ export type Database = {
             foreignKeyName: "sale_deliveries_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "sale_deliveries_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -5139,6 +5184,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_order_lines_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
           },
           {
             foreignKeyName: "sale_order_lines_sale_order_id_fkey"
@@ -5504,6 +5556,13 @@ export type Database = {
             foreignKeyName: "invoices_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: true
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: true
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -5850,7 +5909,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency_id: string | null
-          division_id: string | null
           email: string | null
           id: string
           is_active: boolean | null
@@ -5869,7 +5927,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
-          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -5888,7 +5945,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
-          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -5918,13 +5974,6 @@ export type Database = {
             columns: ["currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "suppliers_division_id_fkey"
-            columns: ["division_id"]
-            isOneToOne: false
-            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
         ]
@@ -6950,6 +6999,13 @@ export type Database = {
             foreignKeyName: "warranty_records_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "warranty_records_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -7128,6 +7184,13 @@ export type Database = {
             foreignKeyName: "invoices_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: true
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: true
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
@@ -7233,10 +7296,24 @@ export type Database = {
             foreignKeyName: "sale_order_lines_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "sale_order_lines_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
             referencedRelation: "sale_orders"
             referencedColumns: ["id"]
           },
         ]
+      }
+      sale_order_paid_summary: {
+        Row: {
+          paid_qar: number | null
+          sale_order_id: string | null
+        }
+        Relationships: []
       }
       supplier_credit_balances: {
         Row: {
@@ -7702,52 +7779,28 @@ export type Database = {
         }
         Returns: string
       }
-      create_sale_order:
-        | {
-            Args: {
-              p_currency: string
-              p_customer_id: string
-              p_customer_notes: string
-              p_delivery_terms: string
-              p_delivery_terms_notes: string
-              p_discount_amount: number
-              p_discount_label: string
-              p_discount_type: string
-              p_division_id?: string
-              p_exchange_rate: number
-              p_expected_delivery: string
-              p_intent: string
-              p_line_items: Json
-              p_payment_milestones: Json
-              p_payment_terms: string
-              p_payment_terms_notes: string
-              p_validity_days: number
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_currency: string
-              p_customer_id: string
-              p_customer_notes: string
-              p_delivery_terms: string
-              p_delivery_terms_notes: string
-              p_discount_amount: number
-              p_discount_label: string
-              p_discount_type: string
-              p_division_id: string
-              p_exchange_rate: number
-              p_intent: string
-              p_line_items: Json
-              p_notes: string
-              p_payment_milestones: Json
-              p_payment_terms: string
-              p_payment_terms_notes: string
-              p_subtotal: number
-              p_validity_days: number
-            }
-            Returns: Json
-          }
+      create_sale_order: {
+        Args: {
+          p_currency: string
+          p_customer_id: string
+          p_customer_notes: string
+          p_delivery_terms: string
+          p_delivery_terms_notes: string
+          p_discount_amount: number
+          p_discount_label: string
+          p_discount_type: string
+          p_division_id?: string
+          p_exchange_rate: number
+          p_expected_delivery: string
+          p_intent: string
+          p_line_items: Json
+          p_payment_milestones: Json
+          p_payment_terms: string
+          p_payment_terms_notes: string
+          p_validity_days: number
+        }
+        Returns: Json
+      }
       create_service_customer: {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
@@ -8211,6 +8264,94 @@ export type Database = {
         Args: { p_comment?: string; p_decision: string; p_request_id: string }
         Returns: undefined
       }
+      rpc_delete_customer_payment: {
+        Args: { p_payment_id: string }
+        Returns: {
+          agent_name: string | null
+          amount: number
+          amount_qar: number | null
+          bank_name: string | null
+          bill_id: string | null
+          cheque_date: string | null
+          cheque_number: string | null
+          created_at: string | null
+          credit_note_id: string | null
+          currency: string
+          currency_id: string | null
+          customer_id: string | null
+          date: string
+          debit_note_id: string | null
+          deleted_at: string | null
+          direction: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain: number
+          exchange_loss: number
+          exchange_rate: number
+          id: string
+          invoice_id: string | null
+          method: string
+          method_id: string | null
+          notes: string | null
+          payment_id: string | null
+          qb_synced: boolean | null
+          reference: string | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["payment_source_type"] | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          supplier_id: string | null
+          transaction_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rpc_delete_supplier_payment: {
+        Args: { p_payment_id: string }
+        Returns: {
+          agent_name: string | null
+          amount: number
+          amount_qar: number | null
+          bank_name: string | null
+          bill_id: string | null
+          cheque_date: string | null
+          cheque_number: string | null
+          created_at: string | null
+          credit_note_id: string | null
+          currency: string
+          currency_id: string | null
+          customer_id: string | null
+          date: string
+          debit_note_id: string | null
+          deleted_at: string | null
+          direction: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain: number
+          exchange_loss: number
+          exchange_rate: number
+          id: string
+          invoice_id: string | null
+          method: string
+          method_id: string | null
+          notes: string | null
+          payment_id: string | null
+          qb_synced: boolean | null
+          reference: string | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["payment_source_type"] | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          supplier_id: string | null
+          transaction_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rpc_dispatch_custody_assign: {
         Args: {
           p_dispatched_by_name?: string
@@ -8218,6 +8359,110 @@ export type Database = {
           p_transfer_id: string
         }
         Returns: undefined
+      }
+      rpc_edit_customer_payment: {
+        Args: {
+          p_amount: number
+          p_date: string
+          p_exchange_rate?: number
+          p_method: string
+          p_notes: string
+          p_payment_id: string
+          p_reference: string
+        }
+        Returns: {
+          agent_name: string | null
+          amount: number
+          amount_qar: number | null
+          bank_name: string | null
+          bill_id: string | null
+          cheque_date: string | null
+          cheque_number: string | null
+          created_at: string | null
+          credit_note_id: string | null
+          currency: string
+          currency_id: string | null
+          customer_id: string | null
+          date: string
+          debit_note_id: string | null
+          deleted_at: string | null
+          direction: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain: number
+          exchange_loss: number
+          exchange_rate: number
+          id: string
+          invoice_id: string | null
+          method: string
+          method_id: string | null
+          notes: string | null
+          payment_id: string | null
+          qb_synced: boolean | null
+          reference: string | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["payment_source_type"] | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          supplier_id: string | null
+          transaction_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rpc_edit_supplier_payment: {
+        Args: {
+          p_amount: number
+          p_date: string
+          p_exchange_rate?: number
+          p_method: string
+          p_notes: string
+          p_payment_id: string
+          p_reference: string
+        }
+        Returns: {
+          agent_name: string | null
+          amount: number
+          amount_qar: number | null
+          bank_name: string | null
+          bill_id: string | null
+          cheque_date: string | null
+          cheque_number: string | null
+          created_at: string | null
+          credit_note_id: string | null
+          currency: string
+          currency_id: string | null
+          customer_id: string | null
+          date: string
+          debit_note_id: string | null
+          deleted_at: string | null
+          direction: Database["public"]["Enums"]["payment_direction"]
+          exchange_gain: number
+          exchange_loss: number
+          exchange_rate: number
+          id: string
+          invoice_id: string | null
+          method: string
+          method_id: string | null
+          notes: string | null
+          payment_id: string | null
+          qb_synced: boolean | null
+          reference: string | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["payment_source_type"] | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          supplier_id: string | null
+          transaction_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       rpc_financial_dashboard: { Args: never; Returns: Json }
       rpc_post_consumption: {
@@ -8349,6 +8594,10 @@ export type Database = {
           total_outstanding: number
         }[]
       }
+      rpc_seed_payment_plan_from_so: {
+        Args: { p_invoice_id: string; p_so_id: string }
+        Returns: string
+      }
       rpc_send_damaged_for_repair: {
         Args: {
           p_expected_return_date: string
@@ -8415,6 +8664,10 @@ export type Database = {
           p_warehouse_id: string
         }
         Returns: string
+      }
+      save_customer_credit_docs: {
+        Args: { p_customer_id: string; p_docs: Json }
+        Returns: undefined
       }
       save_customer_phones: {
         Args: { p_customer_id: string; p_phones: Json }
@@ -8899,9 +9152,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],
@@ -9139,7 +9389,6 @@ export const Constants = {
   },
 } as const
 
-// ─── Helper aliases (re-appended after every supabase gen types) ──────────
 export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

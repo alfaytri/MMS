@@ -148,6 +148,7 @@ export type Customer = {
   credit_group_name?:  string | null
   credit_group_limit?: number | null
   credit_group_default_terms?: string | null
+  // Credit documents live in `customer_credit_docs` — fetched via useCustomerCreditDocs.
   cr_url?:                  string | null
   establishment_id_url?:    string | null
   signed_credit_form_url?:  string | null
@@ -307,20 +308,10 @@ export function useCreateCustomer() {
       email: string | null
       credit_group_id?: string | null
       entity_type?: 'individual' | 'business'
-      cr_url?: string | null
-      establishment_id_url?: string | null
-      signed_credit_form_url?: string | null
-      division_id?: string | null
     }) => {
       const supabase = createClient()
-      const now = new Date().toISOString()
       const { phones, ...customerFields } = payload
-      const row = {
-        ...customerFields,
-        cr_uploaded_at:                 payload.cr_url                 ? now : null,
-        establishment_id_uploaded_at:   payload.establishment_id_url   ? now : null,
-        signed_credit_form_uploaded_at: payload.signed_credit_form_url ? now : null,
-      }
+      const row = { ...customerFields }
       const { data, error } = await supabase
         .from('customers')
         .insert(row)
@@ -368,10 +359,6 @@ export function useUpdateCustomer() {
         email?:                  string | null
         entity_type?:            'individual' | 'business'
         credit_group_id?:        string | null
-        cr_url?:                 string | null
-        establishment_id_url?:   string | null
-        signed_credit_form_url?: string | null
-        division_id?:            string | null
       }
       // Old values for audit diff; only fields present here are checked
       previous: {
@@ -381,27 +368,14 @@ export function useUpdateCustomer() {
         entity_type?:            string | null
         credit_group_id?:        string | null
         credit_group_name?:      string | null
-        cr_url?:                 string | null
-        establishment_id_url?:   string | null
-        signed_credit_form_url?: string | null
       }
       new_credit_group_name?: string | null
     }) => {
       const supabase = createClient()
-      const now = new Date().toISOString()
 
       // Phones live on customer_phones; strip out of the customers update.
       const { phones: newPhones, ...customerPatch } = args.patch
       const update: Database['public']['Tables']['customers']['Update'] = { ...customerPatch }
-      if (args.patch.cr_url && args.patch.cr_url !== args.previous.cr_url) {
-        update.cr_uploaded_at = now
-      }
-      if (args.patch.establishment_id_url && args.patch.establishment_id_url !== args.previous.establishment_id_url) {
-        update.establishment_id_uploaded_at = now
-      }
-      if (args.patch.signed_credit_form_url && args.patch.signed_credit_form_url !== args.previous.signed_credit_form_url) {
-        update.signed_credit_form_uploaded_at = now
-      }
 
       const { data, error } = await supabase
         .from('customers')
@@ -453,9 +427,7 @@ export function useUpdateCustomer() {
         }
       }
       cmp('entity_type',            args.previous.entity_type)
-      cmp('cr_url',                 args.previous.cr_url,                'cr_doc')
-      cmp('establishment_id_url',   args.previous.establishment_id_url,  'establishment_id_doc')
-      cmp('signed_credit_form_url', args.previous.signed_credit_form_url,'signed_credit_form_doc')
+      // Credit documents live in customer_credit_docs — diffed by the docs hook, not here.
       // Special-case credit group so we can log human names rather than UUIDs
       if (
         args.patch.credit_group_id !== undefined &&
@@ -727,7 +699,23 @@ export function useCreateSO() {
         p_division_id:          payload.division_id ?? undefined,
       })
       if (error) throw error
-      return data as CreateSOResult
+      const result = data as CreateSOResult
+      // When the SO lands as 'confirmed', auto-create the AR invoice — the
+      // same step useConfirmSO does for a quotation → confirmed transition.
+      // rpc_sync_invoice_from_so is idempotent + the seed helper is now
+      // wired into both branches, so this also lands the payment plan
+      // whenever milestones were set.
+      if (result?.status === 'confirmed' && result.so_id) {
+        try {
+          const { syncInvoiceToSalesOrder } = await import('@/lib/invoiceSync')
+          await syncInvoiceToSalesOrder(result.so_id)
+        } catch (err) {
+          // Non-fatal — the SO is already saved. Surface a soft warning.
+          // eslint-disable-next-line no-console
+          console.warn('SO created but invoice sync failed:', err)
+        }
+      }
+      return result
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })

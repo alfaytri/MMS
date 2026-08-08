@@ -47,7 +47,7 @@ export function CreditUtilizationBar({ used, limit, pct, compact = false }: Prop
           />
         </div>
         <span className={cn('text-[10px] font-medium tabular-nums shrink-0', toneText)}>
-          {safePct}%
+          {safePct}% used
         </span>
       </div>
       <div className="text-[11px] text-muted-foreground tabular-nums leading-none">

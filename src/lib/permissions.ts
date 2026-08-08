@@ -230,6 +230,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Supplier Payments',
+        permissions: [
+          { key: 'purchase.payments.view',   label: 'View Supplier Payments',   description: 'Access supplier payment records' },
+          { key: 'purchase.payments.manage', label: 'Edit / Delete Supplier Payments', description: 'Edit amount, method, date, reference on recorded supplier payments, and soft-delete mistaken entries. Gate this behind Accounting only.' },
+        ],
+      },
+      {
         label: 'Dead Stock Report',
         permissions: [
           { key: 'purchase.dead_stock.view', label: 'View Dead Stock Report', description: 'Access the dead stock and slow-moving inventory report' },
@@ -277,6 +284,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
           { key: 'sales.invoices.view',   label: 'View Sales Invoices',   description: 'Access sales invoice records' },
           { key: 'sales.invoices.create', label: 'Create Sales Invoices', description: 'Generate new sales invoices' },
           { key: 'sales.invoices.manage', label: 'Edit Sales Invoices',   description: 'Edit and void existing sales invoices (legacy .manage — alias of .edit)' },
+        ],
+      },
+      {
+        label: 'Customer Payments',
+        permissions: [
+          { key: 'sales.payments.view',   label: 'View Customer Payments',   description: 'Access customer payment records' },
+          { key: 'sales.payments.manage', label: 'Edit / Delete Customer Payments', description: 'Edit amount, method, date, reference on recorded customer payments, and soft-delete mistaken entries. Gate behind Accounting only. Store-credit redemptions cannot be edited here.' },
         ],
       },
       {

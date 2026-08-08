@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { logActivity } from '@/lib/logActivity'
 
 // Re-exported helper used by the payment dialog; splits a total redemption
 // amount across the customer's open CNs in FIFO order and returns one
@@ -19,12 +20,16 @@ export type CustomerPayment = {
   source_type: string | null
   source_id: string | null
   amount: number
+  amount_qar: number | null
   method: string
   date: string
   reference: string | null
   notes: string | null
   direction: 'incoming'
   status: string | null
+  currency: string
+  exchange_rate: number
+  credit_note_id: string | null
   created_at: string | null
   // joined / resolved
   invoice_display?: string | null
@@ -223,6 +228,135 @@ export function useApplyStoreCredit() {
       }
       queryClient.invalidateQueries({ queryKey: ['customer-credit-balances'] })
       queryClient.invalidateQueries({ queryKey: ['open-credit-notes', variables.customer_id] })
+    },
+  })
+}
+
+// ─── Edit / Delete (AR corrections) ──────────────────────────────────────────
+// SECURITY DEFINER RPCs enforce `sales.payments.manage` server-side. The
+// existing invoice_recompute_paid_trg trigger fires on payment UPDATE/DELETE
+// and restores/recalculates so_invoices.paid_amount + payment_status. The
+// sale_order_paid_summary view is compute-on-demand.
+//
+// Store-credit redemptions (credit_note_id set) are refused by the RPC —
+// those flow through rpc_redeem_credit_note and reversing them requires
+// unwinding CN balance, which is out of scope for this task.
+
+export type EditCustomerPaymentInput = {
+  payment_id: string
+  amount: number
+  method: string
+  date: string
+  reference: string | null
+  notes: string | null
+  exchange_rate?: number | null
+  /** Context for cache invalidation + activity log — no functional effect on the RPC. */
+  invoice_id?: string | null
+  sale_order_id?: string | null
+}
+
+export function useEditCustomerPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: EditCustomerPaymentInput) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_edit_customer_payment', {
+        p_payment_id:    input.payment_id,
+        p_amount:        input.amount,
+        p_method:        input.method,
+        p_date:          input.date,
+        p_reference:     input.reference ?? '',
+        p_notes:         input.notes ?? '',
+        p_exchange_rate: input.exchange_rate ?? undefined,
+      })
+      if (error) {
+        throw new Error(
+          `Edit payment failed: ${error.code} ${error.message}` +
+          `${error.details ? ' — ' + error.details : ''}` +
+          `${error.hint ? ' (' + error.hint + ')' : ''}`,
+        )
+      }
+
+      const details =
+        `Amount → ${input.amount.toLocaleString('en-QA', { minimumFractionDigits: 2 })}` +
+        ` · ${input.method.replace(/_/g, ' ')} · ${input.date}` +
+        `${input.reference ? ` · Ref: ${input.reference}` : ''}`
+      void logActivity({
+        action: 'Payment Edited',
+        module: input.sale_order_id ? 'sale_orders' : 'invoices',
+        entity_id: input.sale_order_id ?? input.invoice_id ?? input.payment_id,
+        entity_type: input.sale_order_id ? 'sale_order' : (input.invoice_id ? 'invoice' : 'payment'),
+        details,
+        severity: 'warning',
+      })
+      return data
+    },
+    onSuccess: (_data, input) => {
+      qc.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
+      qc.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      if (input.invoice_id) {
+        qc.invalidateQueries({ queryKey: queryKeys.customerPayments.byInvoice(input.invoice_id) })
+      }
+      if (input.sale_order_id) {
+        qc.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(input.sale_order_id) })
+        qc.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(input.sale_order_id) })
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      qc.invalidateQueries({ queryKey: ['payment-plans'] })
+    },
+  })
+}
+
+export type DeleteCustomerPaymentInput = {
+  payment_id: string
+  invoice_id?: string | null
+  sale_order_id?: string | null
+  /** Display context for the activity log entry. */
+  amount?: number
+  currency?: string
+}
+
+export function useDeleteCustomerPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: DeleteCustomerPaymentInput) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_delete_customer_payment', {
+        p_payment_id: input.payment_id,
+      })
+      if (error) {
+        throw new Error(
+          `Delete payment failed: ${error.code} ${error.message}` +
+          `${error.details ? ' — ' + error.details : ''}` +
+          `${error.hint ? ' (' + error.hint + ')' : ''}`,
+        )
+      }
+
+      const details = input.amount != null
+        ? `${input.currency ?? 'QAR'} ${input.amount.toLocaleString('en-QA', { minimumFractionDigits: 2 })} removed — invoice balance restored`
+        : 'Payment removed — invoice balance restored'
+      void logActivity({
+        action: 'Payment Deleted',
+        module: input.sale_order_id ? 'sale_orders' : 'invoices',
+        entity_id: input.sale_order_id ?? input.invoice_id ?? input.payment_id,
+        entity_type: input.sale_order_id ? 'sale_order' : (input.invoice_id ? 'invoice' : 'payment'),
+        details,
+        severity: 'warning',
+      })
+      return data
+    },
+    onSuccess: (_data, input) => {
+      qc.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
+      qc.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      if (input.invoice_id) {
+        qc.invalidateQueries({ queryKey: queryKeys.customerPayments.byInvoice(input.invoice_id) })
+      }
+      if (input.sale_order_id) {
+        qc.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(input.sale_order_id) })
+        qc.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(input.sale_order_id) })
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      qc.invalidateQueries({ queryKey: ['payment-plans'] })
     },
   })
 }

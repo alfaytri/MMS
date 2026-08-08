@@ -15,10 +15,11 @@ import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { useCreateBill } from '@/hooks/useSupplierBills'
+import { useCreateBill, persistBillAttachments } from '@/hooks/useSupplierBills'
 import { usePurchaseOrder, usePOReceivalsByPO } from '@/hooks/usePurchaseOrders'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { BillAttachmentPicker, type BillAttachmentPickerHandle, type BillAttachmentUpload } from './BillAttachmentPicker'
 
 type BillLine = {
   po_line_item_id: string
@@ -48,7 +49,12 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
   const [lines, setLines] = useState<BillLine[]>([])
   const [showReceival, setShowReceival] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [attachments, setAttachments] = useState<BillAttachmentUpload[]>([])
   const guardRef = useRef<GuardedFormDialogHandle>(null)
+  const attachRef = useRef<BillAttachmentPickerHandle>(null)
+  // Marks that we've persisted the uploads onto a bill — handleOpenChange
+  // must not sweep the storage objects on the subsequent close.
+  const submittedRef = useRef(false)
 
   useEffect(() => {
     if (!open) {
@@ -57,6 +63,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
       setNotes('')
       setLines([])
       setShowReceival(false)
+      setAttachments([])
       return
     }
     if (!po) { setLines([]); return }
@@ -98,6 +105,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
     dueDate !== '' ||
     reference !== '' ||
     notes !== '' ||
+    attachments.length > 0 ||
     lines.some((l, i) => {
       const original = po?.po_line_items?.[i]
       if (!original) return false
@@ -127,6 +135,18 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
           match_note:   null,
         })),
       })
+      if (attachments.length > 0) {
+        try {
+          await persistBillAttachments(newBill.id, attachments)
+        } catch (err: unknown) {
+          // Bill was created; only the attachment rows failed. Warn but continue.
+          toast.error(`Bill saved, but attaching files failed: ${(err as Error).message}`)
+        }
+      }
+      // Mark submitted BEFORE closing — the close handler runs synchronously
+      // with the current-render closure of `attachments`, so a plain
+      // setAttachments([]) here would not prevent the sweep.
+      submittedRef.current = true
       toast.success('Bill created')
       guardRef.current?.closeAfterSubmit()
       router.push(`/purchase/bills/${newBill.id}`)
@@ -137,8 +157,20 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
     }
   }
 
+  async function handleOpenChange(next: boolean) {
+    if (!next) {
+      // Sweep only when the dialog closes WITHOUT a successful submit.
+      // Fire-and-forget: don't block the close on a storage round-trip.
+      if (!submittedRef.current && attachments.length > 0) {
+        void attachRef.current?.sweep()
+      }
+      submittedRef.current = false
+    }
+    onOpenChange(next)
+  }
+
   return (
-    <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
+    <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -218,6 +250,14 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Internal notes…"
+                  />
+                </div>
+                <div className="pt-2 border-t">
+                  <BillAttachmentPicker
+                    ref={attachRef}
+                    uploads={attachments}
+                    onChange={setAttachments}
+                    disabled={saving}
                   />
                 </div>
               </div>

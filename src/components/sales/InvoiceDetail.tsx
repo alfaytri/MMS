@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Unlink, X } from 'lucide-react'
+import { AlertTriangle, Unlink, X, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useDetachPaymentFromInvoice } from '@/hooks/useDetachPaymentFromInvoice'
 import { useDismissRefresh } from '@/hooks/useCustomerInvoices'
-import { useCustomerPayments } from '@/hooks/useCustomerPayments'
+import { useCustomerPayments, useDeleteCustomerPayment } from '@/hooks/useCustomerPayments'
+import { useHasPermission } from '@/hooks/usePermissions'
+import { CustomerPaymentEditDialog, type EditableCustomerPayment } from './CustomerPaymentEditDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { type ArInvoice } from '@/types/invoice'
 import { cn } from '@/lib/utils'
@@ -36,7 +38,11 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
   const dismissRefresh = useDismissRefresh()
   const { data: payments } = useCustomerPayments(invoice.id)
   const [detachTarget, setDetachTarget] = useState<{ id: string; payment_id: string | null } | null>(null)
+  const [editTarget, setEditTarget] = useState<EditableCustomerPayment | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; payment_id: string | null; amount: number; date: string; currency: string } | null>(null)
   const detach = useDetachPaymentFromInvoice()
+  const canManagePayments = useHasPermission('sales.payments.manage')
+  const deletePaymentMut = useDeleteCustomerPayment()
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + p.amount, 0)
   const outstanding = (invoice.total_amount ?? 0) - totalPaid
@@ -150,8 +156,59 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                           {formatDate(p.date)} · {p.method.replace(/_/g, ' ')}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{formatCurrency(p.amount, invoice.currency ?? 'QAR')}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium mr-1">{formatCurrency(p.amount, invoice.currency ?? 'QAR')}</span>
+                        {canManagePayments && !p.credit_note_id && (
+                          <>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setEditTarget({
+                                      id: p.id,
+                                      amount: p.amount,
+                                      method: p.method,
+                                      date: p.date,
+                                      reference: p.reference,
+                                      notes: p.notes,
+                                      currency: p.currency ?? invoice.currency ?? 'QAR',
+                                      exchange_rate: p.exchange_rate ?? 1,
+                                      invoice_id: invoice.id,
+                                      sale_order_id: (p.source_type === 'sale_order' ? p.source_id : null) ?? null,
+                                    })}
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Edit payment</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                    onClick={() => setDeleteTarget({
+                                      id: p.id,
+                                      payment_id: p.payment_id ?? null,
+                                      amount: p.amount,
+                                      date: p.date,
+                                      currency: p.currency ?? invoice.currency ?? 'QAR',
+                                    })}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete payment</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </>
+                        )}
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -206,6 +263,55 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
               }}
             >
               Detach
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <CustomerPaymentEditDialog
+        open={!!editTarget}
+        onOpenChange={(v) => { if (!v) setEditTarget(null) }}
+        payment={editTarget}
+      />
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{' '}
+              <span className="font-mono font-medium">
+                {deleteTarget ? formatCurrency(deleteTarget.amount, deleteTarget.currency) : ''}
+              </span>
+              {deleteTarget && ` recorded on ${formatDate(deleteTarget.date)}`}.
+              The invoice&apos;s outstanding balance will be restored automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deleteTarget) return
+                try {
+                  await deletePaymentMut.mutateAsync({
+                    payment_id: deleteTarget.id,
+                    invoice_id: invoice.id,
+                    amount: deleteTarget.amount,
+                    currency: deleteTarget.currency,
+                  })
+                  toast.success('Payment deleted')
+                } catch (err: unknown) {
+                  toast.error((err as Error).message ?? 'Delete failed')
+                } finally {
+                  setDeleteTarget(null)
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -132,18 +132,17 @@ function useSOPaymentTotals() {
     queryKey: [...queryKeys.payments.all, 'so-totals'],
     queryFn: async () => {
       const supabase = createClient()
+      // Read from the compute-on-demand view. It sums payments across every
+      // shape the SoPaymentDialog uses (source_type=sale_order/invoice + the
+      // invoice_id link column), so the row-level Paid/Unpaid chip always
+      // matches what the dialog itself shows. No stale-cache issues.
       const { data, error } = await supabase
-        .from('payments')
-        .select('source_id, amount_qar, amount')
-        .eq('source_type', 'sale_order')
-        .eq('direction', 'incoming')
-        .is('deleted_at', null)
+        .from('sale_order_paid_summary')
+        .select('sale_order_id, paid_qar')
       if (error) return {} as Record<string, number>
       const map: Record<string, number> = {}
-      for (const p of data ?? []) {
-        if (!p.source_id) continue
-        const amt = p.amount_qar ?? p.amount ?? 0
-        map[p.source_id] = (map[p.source_id] ?? 0) + amt
+      for (const row of data ?? []) {
+        if (row.sale_order_id) map[row.sale_order_id] = Number(row.paid_qar ?? 0)
       }
       return map
     },

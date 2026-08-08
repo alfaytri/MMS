@@ -351,6 +351,66 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useAttachPaymentToBill`](src/hooks/useAttachPaymentToBill.ts)
 - **RPC:** `allocate_payment_to_bill`
 
+### Edit Customer Payment
+- **Module:** sales / payments
+- **Status:** Active
+- **Trigger surface(s):** `InvoiceDetail` payment rows (pencil icon per row); `SoDetailDialog` Payments tab (pencil icon per row via `PaymentSummaryTab.onEditPayment`)
+- **Primary hook(s):** [`useEditCustomerPayment`](src/hooks/useCustomerPayments.ts)
+- **RPC(s):** `rpc_edit_customer_payment(uuid, numeric, text, date, text, text, numeric)` — SECURITY DEFINER; enforces `sales.payments.manage`; refuses `credit_note_id IS NOT NULL` (store-credit redemptions must flow through `rpc_redeem_credit_note`)
+- **Writes:** `payments` (amount/amount_qar/method/date/reference/notes/exchange_rate/updated_at)
+- **Guards:** payment must be `direction='incoming'`, not soft-deleted, and not a CN redemption
+- **Downstream side-effects:** `invoice_recompute_paid_trg` fires on payment UPDATE → `so_invoices.paid_amount` + `payment_status` recomputed; `sale_order_paid_summary` view auto-refreshes; installment-linked payments get `paid_amount` shifted by the delta, status recomputed, plan re-derived; activity log entry `Payment Edited` (severity warning, `module='sale_orders'` when linked to an SO, `module='invoices'` otherwise)
+- **Dialog/component:** [`CustomerPaymentEditDialog`](src/components/sales/CustomerPaymentEditDialog.tsx)
+- **Related flows:** [[Delete Customer Payment]], [[Detach Payment From Invoice]], [[Edit Supplier Payment]]
+
+### Delete Customer Payment
+- **Module:** sales / payments
+- **Status:** Active
+- **Trigger surface(s):** `InvoiceDetail` payment rows (trash icon per row); `SoDetailDialog` Payments tab (trash icon per row via `PaymentSummaryTab.onDeletePayment`)
+- **Primary hook(s):** [`useDeleteCustomerPayment`](src/hooks/useCustomerPayments.ts)
+- **RPC(s):** `rpc_delete_customer_payment(uuid)` — SECURITY DEFINER; enforces `sales.payments.manage`; idempotent; refuses CN redemptions
+- **Writes:** `payments.deleted_at = now()`
+- **Guards:** payment must be `direction='incoming'`, not a CN redemption
+- **Downstream side-effects:** `invoice_recompute_paid_trg` fires → `so_invoices` balance restored; installment link cleared, `paid_amount` restored, plan un-completed if the reversed row was the last one holding it complete; activity log entry `Payment Deleted` with amount
+- **Dialog/component:** Inline `AlertDialog` confirmation in `InvoiceDetail` and `SoDetailDialog`
+- **Related flows:** [[Edit Customer Payment]], [[Detach Payment From Invoice]], [[Delete Supplier Payment]]
+
+### Edit Supplier Payment
+- **Module:** purchase / payments
+- **Status:** Active
+- **Trigger surface(s):** `PoDetailDialog` Payments tab (pencil icon per row); `/purchase/bills/[id]` Payments popover (pencil icon per row)
+- **Primary hook(s):** [`useEditSupplierPayment`](src/hooks/useSupplierPayments.ts)
+- **RPC(s):** `rpc_edit_supplier_payment(uuid, numeric, text, date, text, text, numeric)` — SECURITY DEFINER; enforces `purchase.payments.manage`; refuses payments with more than one `payment_bill_allocations` row
+- **Writes:** `payments` (amount/amount_qar/method/date/reference/notes/exchange_rate/updated_at); mirrors single-allocation row to keep bill balance in sync
+- **Guards:** payment must be `direction='outgoing'`, not soft-deleted, and single-allocated at most
+- **Downstream side-effects:** `bill_recompute_paid_trg` fires on payment UPDATE → bill's paid_amount + payment_status recomputed automatically; installment-linked payments (via `payment_installments.payment_id`) get their `paid_amount` shifted by the delta, status recomputed, and plan active/completed re-derived (migration 20260817010000); activity log entry `Payment Edited` (PO activity when opened from PO, `module='bills'` otherwise)
+- **Dialog/component:** [`SupplierPaymentEditDialog`](src/components/purchase/SupplierPaymentEditDialog.tsx)
+- **Related flows:** [[Delete Supplier Payment]], [[Record Supplier Payment (PO)]], [[Attach Payment to Bill]]
+
+### Delete Supplier Payment
+- **Module:** purchase / payments
+- **Status:** Active
+- **Trigger surface(s):** `PoDetailDialog` Payments tab (trash icon per row); `/purchase/bills/[id]` Payments popover (trash icon per row)
+- **Primary hook(s):** [`useDeleteSupplierPayment`](src/hooks/useSupplierPayments.ts)
+- **RPC(s):** `rpc_delete_supplier_payment(uuid)` — SECURITY DEFINER; enforces `purchase.payments.manage`; idempotent (no-op on already-deleted)
+- **Writes:** `payments.deleted_at = now()`, deletes single-allocation row from `payment_bill_allocations`
+- **Guards:** payment must be `direction='outgoing'`; refuses multi-allocated payments (must detach first)
+- **Downstream side-effects:** `bill_recompute_paid_trg` fires on payment UPDATE (deleted_at set) → bill balance restored to reflect the reversal; installment-linked payments are reversed — `paid_amount` reduced, `payment_id` cleared, installment status recomputed, plan un-completed if needed (migration 20260817010000); activity log entry `Payment Deleted` with amount
+- **Dialog/component:** Inline `AlertDialog` confirmation in `PoDetailDialog` and `BillPaymentsList`
+- **Related flows:** [[Edit Supplier Payment]], [[Record Supplier Payment (PO)]]
+
+### Attach Supplier Invoice Files to Bill
+- **Module:** purchase / bills
+- **Status:** Active
+- **Trigger surface(s):** `CreateBillFromPODialog`, `BillFormDialog` (upload-on-selection); `BillDetailDocument` (view / download / delete)
+- **Primary hook(s):** [`useBillAttachments`](src/hooks/useSupplierBills.ts), [`useDeleteBillAttachment`](src/hooks/useSupplierBills.ts), [`persistBillAttachments`](src/hooks/useSupplierBills.ts), [`getBillAttachmentSignedUrl`](src/hooks/useSupplierBills.ts)
+- **RPC(s):** none — direct storage upload + `INSERT INTO bill_attachments`
+- **Storage:** `bill-attachments` bucket (private, 5 MB / file, PDF/JPG/PNG/WEBP)
+- **Writes:** `bill_attachments` (bill_id, storage_key, file_name, mime_type, size_bytes, uploaded_by)
+- **Guards:** RLS — SELECT via parent-bill existence; INSERT/UPDATE/DELETE gated on `purchase.bills.manage`
+- **Cancel sweep:** dialog Cancel removes uploaded storage objects (best-effort, mirrors [[Create Landed Cost]] `lc-bills` pattern)
+- **Related flows:** [[Create Supplier Bill]]
+
 ---
 
 ## Inventory Receivals (PO receiving)

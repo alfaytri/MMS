@@ -304,6 +304,15 @@ export const NAV_TREE: TreeNode[] = [
             ],
           },
           {
+            id: 'ps-supplier-payments',
+            label: 'Supplier Payments',
+            icon: Receipt,
+            permissions: [
+              { key: 'purchase.payments.view',   label: 'View Supplier Payments',   description: 'Access supplier payment records' },
+              { key: 'purchase.payments.manage', label: 'Edit / Delete Supplier Payments', description: 'Edit amount, method, date, reference on recorded supplier payments, and soft-delete mistaken entries. Gate behind Accounting only.' },
+            ],
+          },
+          {
             id: 'ps-returns',
             label: 'Returns',
             icon: RotateCcw,
@@ -356,6 +365,15 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'sales.invoices.view',   label: 'View Sales Invoices',   description: 'Access sales invoice records' },
               { key: 'sales.invoices.create', label: 'Create Sales Invoices', description: 'Generate new sales invoices' },
               { key: 'sales.invoices.manage', label: 'Edit Sales Invoices',   description: 'Edit and void existing sales invoices (legacy .manage — alias of .edit)' },
+            ],
+          },
+          {
+            id: 'ps-customer-payments',
+            label: 'Customer Payments',
+            icon: Receipt,
+            permissions: [
+              { key: 'sales.payments.view',   label: 'View Customer Payments',   description: 'Access customer payment records' },
+              { key: 'sales.payments.manage', label: 'Edit / Delete Customer Payments', description: 'Edit amount, method, date, reference on recorded customer payments, and soft-delete mistaken entries. Gate behind Accounting only. Store-credit redemptions cannot be edited here.' },
             ],
           },
           {
