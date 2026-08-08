@@ -391,6 +391,63 @@ export function useInventoryImport() {
         }
       }
 
+      // ─── Step 3.5: Resolve/create brand_id for every distinct brand text ─
+      // Task 3's migration swapped the variant unique index to
+      // (item_id, brand_id, country_id) NULLS NOT DISTINCT. Without a real
+      // brand_id, every imported variant keys to (item_id, NULL, NULL), so
+      // importing 2+ brands for the same item collides. Mirrors
+      // useCreateBrand's find-or-create semantics (src/hooks/useBrands.ts) —
+      // case-insensitive, 23505-safe — via the supabase client directly.
+      const brandIdByLower = new Map<string, string>()
+
+      const distinctBrandTexts = new Map<string, string>() // lower -> original trimmed
+      for (const row of validRows) {
+        const trimmed = row.brand.trim()
+        if (!trimmed) continue
+        const lower = trimmed.toLowerCase()
+        if (!distinctBrandTexts.has(lower)) distinctBrandTexts.set(lower, trimmed)
+      }
+
+      const { data: existingBrands, error: brandFetchErr } = await supabase
+        .from('brands')
+        .select('id, name')
+      if (brandFetchErr) throw brandFetchErr
+
+      for (const b of (existingBrands ?? []) as { id: string; name: string }[]) {
+        brandIdByLower.set(b.name.trim().toLowerCase(), b.id)
+      }
+
+      for (const [lower, original] of distinctBrandTexts) {
+        if (brandIdByLower.has(lower)) continue
+
+        const { data: newBrand, error: brandInsErr } = await supabase
+          .from('brands')
+          .insert({ name: original })
+          .select('id, name')
+          .single()
+
+        if (brandInsErr) {
+          if (isUniqueViolation(brandInsErr)) {
+            // Already exists (race or case-collision vs uq_brands_lower_name)
+            const { data: foundBrands, error: foundErr } = await supabase
+              .from('brands')
+              .select('id, name')
+              .ilike('name', original)
+              .limit(1)
+            if (foundErr) throw foundErr
+            if (foundBrands && foundBrands.length > 0) {
+              brandIdByLower.set(lower, foundBrands[0].id)
+            } else {
+              throw new Error(`Brand "${original}" conflict but could not find existing row.`)
+            }
+          } else {
+            throw brandInsErr
+          }
+        } else if (newBrand) {
+          brandIdByLower.set(lower, newBrand.id)
+        }
+      }
+
       // ─── Step 4: Create brand variants (batched) ────────────────────────
       const { data: existingVariants, error: variantFetchErr } = await supabase
         .from('inventory_item_brand_variants')
@@ -429,6 +486,7 @@ export function useInventoryImport() {
         const payloads = batch.map((p) => ({
           item_id: p.itemId,
           brand: p.row.brand,
+          brand_id: brandIdByLower.get(p.row.brand.trim().toLowerCase()) ?? null,
           cost_price: p.row.costPrice,
           selling_price: p.row.sellingPrice,
           average_cost: p.row.costPrice,
@@ -445,17 +503,12 @@ export function useInventoryImport() {
         if (batchErr) {
           if (isUniqueViolation(batchErr)) {
             for (const p of batch) {
-              const vKey = `${p.itemId}||${p.row.brand.trim().toLowerCase()}`
-              if (variantSet.has(vKey)) {
-                skipped++
-                continue
-              }
-
               const { error: singleErr } = await supabase
                 .from('inventory_item_brand_variants')
                 .insert({
                   item_id: p.itemId,
                   brand: p.row.brand,
+                  brand_id: brandIdByLower.get(p.row.brand.trim().toLowerCase()) ?? null,
                   cost_price: p.row.costPrice,
                   selling_price: p.row.sellingPrice,
                   average_cost: p.row.costPrice,
