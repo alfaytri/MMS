@@ -48,6 +48,28 @@ should be removed so there is one brand-writing path, not a dormant second one.
 `tsc --noEmit`. Do the two form dialogs **after** `feature/inventory-brands-and-origin`
 merges (so the live picker exists first).
 
+### Brand-dedup migration — cross-table safety if ever replayed
+
+**Surfaced:** 2026-08-08 (Inventory Brands & Origin, Task 1 review)
+**Priority:** Low on staging (moot), Medium before any prod/dev replay
+
+**Problem.** Migration `20260819000000_inventory_origin_and_integrity.sql` includes a
+brand-dedup pre-step (section 2a) that re-points ONLY
+`inventory_item_brand_variants.brand_id` off duplicate `brands` rows before deleting
+them. `public.brands` has (per the stale baseline) other cascade-dependent tables —
+`service_brands.brand_id` / `brand_group_members.brand_id` (`ON DELETE CASCADE`),
+`contract_services.brand_id` (`NO ACTION`). On the **current staging DB these three
+tables do not exist** (verified 2026-08-08 via `supabase inspect db table-stats` — only
+`public.brands` + `public.inventory_item_brand_variants` remain), so the dedup was safe
+and lost nothing. But if this migration chain is ever replayed on a DB where those
+tables exist and reference a merged duplicate brand, the delete could silently cascade
+(CASCADE tables) or abort (NO ACTION table).
+
+**Required work (only before a prod/dev replay):** harden the dedup to either re-point
+ALL referencing tables, or `RAISE EXCEPTION` if a to-be-deleted brand is still
+referenced outside `inventory_item_brand_variants`. Do NOT edit the already-applied
+migration file (breaks staging migration history) — add a follow-up migration if needed.
+
 ### Inventory-tree low-priority nits (batch cleanup)
 
 **Surfaced:** 2026-08-08 (inventory-tree audit)
