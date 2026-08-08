@@ -67,6 +67,13 @@ export function useHasEditPermission(area: string): boolean {
   )
 }
 
+export function useHasManagePermission(area: string): boolean {
+  const { data } = usePermissions()
+  if (!data) return false
+  if (data.isSystemAdmin) return true
+  return data.permissions.includes(`${area}.manage`)
+}
+
 export function useHasCreatePermission(area: string): boolean {
   const { data } = usePermissions()
   if (!data) return false
