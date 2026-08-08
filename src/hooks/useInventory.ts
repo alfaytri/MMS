@@ -195,9 +195,16 @@ export function useCreateBrandVariant() {
       })
       return data
     },
-    onSuccess: (_: unknown, variables: BrandVariantInsert) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsByItem(variables.item_id) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2ByItem(variables.item_id) })
+    onSuccess: () => {
+      // Bare-key (prefix) invalidation — matches useUpdateBrandVariant /
+      // useArchiveInventoryBrandVariant. The item-scoped key variant used to
+      // invalidate here (`brandVariantsV2ByItem(variables.item_id)` →
+      // ['brand-variants-v2', itemId, undefined]) fails TanStack's
+      // partialMatchKey against the tree's actual query key
+      // (['brand-variants-v2', itemId, false]) because slot 2 is `undefined`
+      // vs `false` — a type mismatch, not just a value mismatch. Invalidating
+      // the bare key instead refetches every variant list for every item.
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.allBrandNames })
     },
@@ -526,7 +533,7 @@ export function useInventoryBrandVariants(itemId: string | null, showArchived = 
       const supabase = createClient()
       let q = supabase
         .from('inventory_item_brand_variants')
-        .select('*')
+        .select('*, brands(name), country_codes(name, flag, iso)')
         .eq('item_id', itemId!)
         .order('sort_order', { ascending: true })
         .order('brand', { ascending: true })

@@ -1,172 +1,127 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Warehouse as WarehouseIcon } from 'lucide-react'
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BrandCombobox } from './BrandCombobox'
+import { OriginCombobox } from './OriginCombobox'
 import { useCreateBrandVariant, useUpdateBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
-import { useWarehouses } from '@/hooks/useWarehouses'
-import { createClient } from '@/lib/supabase/client'
-import { useQueryClient } from '@tanstack/react-query'
-import { queryKeys } from '@/lib/queryKeys'
 
 type Props = {
   open: boolean
   onOpenChange: (v: boolean) => void
   itemId: string
   variant?: BrandVariant | null
+  // When provided (and `variant` is absent), the dialog is in "add-origin"
+  // mode: brand is locked to this value and only the origin picker renders.
+  // `id: null` represents the Unbranded group — the created variant gets
+  // brand_id = null (an origin-only/generic leaf under "Unbranded").
+  fixedBrand?: { id: string | null; name: string }
 }
 
-export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: Props) {
+// Maps a raw mutation error to a readable message. Unique-violation on the
+// (item, brand, origin) leaf gets a friendly message; every other error
+// concatenates every available Postgres diagnostic field (per project rule —
+// never hide a non-duplicate error behind a generic string; PostgrestError
+// isn't an Error subclass, so `message` alone can be thin — code/details/hint
+// often carry the actually-useful part).
+function toReadableError(err: unknown): string {
+  const e = err as { code?: string; message?: string; details?: string; hint?: string } | null
+  const msg = e?.message ?? ''
+  if (e?.code === '23505' || msg.includes('uq_iibv_item_brand_origin')) {
+    return 'A variant with this brand and origin already exists for this item.'
+  }
+  const parts = [e?.code, e?.message, e?.details, e?.hint].filter(Boolean)
+  return parts.length > 0 ? parts.join(' — ') : 'Something went wrong'
+}
+
+export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant, fixedBrand }: Props) {
   const isEdit = !!variant
+  // Three modes: edit (variant provided) / add-origin (fixedBrand provided,
+  // no variant — brand picker hidden, brand locked) / add-brand (neither).
+  const isAddOrigin = !isEdit && !!fixedBrand
   const create = useCreateBrandVariant()
   const update = useUpdateBrandVariant()
-  const qc = useQueryClient()
 
-  const [brand, setBrand] = useState('')
+  const [brandId, setBrandId] = useState<string | null>(null)
+  const [countryId, setCountryId] = useState<number | null>(null)
   const [code, setCode] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
   const [reorderPoint, setReorderPoint] = useState('0')
   const [avgCost, setAvgCost] = useState('')
 
-  // Warehouse stock allocation: { warehouseId → target qty string }
-  const [whAlloc, setWhAlloc] = useState<Record<string, string>>({})
-  const [allocating, setAllocating] = useState(false)
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
-  const { data: warehouses = [] } = useWarehouses()
-  const { data: whStockData } = useVariantWarehouseStock(isEdit && open ? variant?.id : undefined)
-  const currentWhStock = whStockData?.perWarehouse ?? []
-  // Unassigned = FIFO unassigned rows OR stock_level minus whatever FIFO has tracked per-warehouse,
-  // whichever is larger. This covers variants whose stock was set directly (no FIFO layers yet).
-  const fifoUnassigned = whStockData?.unassigned ?? 0
-  const fifoWarehouseTotal = currentWhStock.reduce((s, w) => s + w.qty, 0)
-  const unassignedQty = Math.max(fifoUnassigned, (variant?.stock_level ?? 0) - fifoWarehouseTotal)
+  // Kept only for avgCostLocked/whStockLoading — the warehouse allocation UI
+  // that used to read perWarehouse/unassigned here was removed; stock is now
+  // receival-driven only (see handleSubmit — stock_level is never set here).
+  const { data: whStockData, isLoading: whStockLoading } = useVariantWarehouseStock(isEdit && open ? variant?.id : undefined)
 
   // True only after a real PO receival has created FIFO layers with a receival_id.
   // Manual allocation (Odoo migration, opening stock) does NOT lock the field.
   const avgCostLocked = isEdit && (whStockData?.hasReceivals ?? false)
 
-  // Build a map of current DB qty per warehouse for delta detection
-  const currentQtyMap = useMemo(() => {
-    const ws = whStockData?.perWarehouse ?? []
-    const m = new Map<string, number>()
-    ws.forEach((w) => m.set(w.warehouse_id, w.qty))
-    return m
-  }, [whStockData?.perWarehouse])
-
-  // Populate whAlloc inputs from DB data whenever the dialog opens or data loads
-  useEffect(() => {
-    const ws = whStockData?.perWarehouse ?? []
-    if (open && isEdit && ws.length > 0) {
-      const map: Record<string, string> = {}
-      ws.forEach((w) => { map[w.warehouse_id] = String(w.qty) })
-      setWhAlloc(map)
-    } else if (open && !isEdit) {
-      setWhAlloc({})
-    }
-  }, [open, isEdit, whStockData?.perWarehouse])
-
   useEffect(() => {
     if (open) {
-      setBrand(variant?.brand ?? '')
+      setBrandId(fixedBrand?.id ?? variant?.brand_id ?? null)
+      setCountryId(variant?.country_id ?? null)
       setCode(variant?.code ?? '')
       setSellingPrice(variant?.selling_price != null ? String(variant.selling_price) : '')
       setReorderPoint(variant ? String(variant.reorder_point ?? 0) : '0')
       setAvgCost(variant?.average_cost != null ? String(Math.round(variant.average_cost * 100) / 100) : '')
     }
-  }, [open, variant])
-
-  // Total units allocated across all warehouse inputs
-  const allocatedTotal = useMemo(
-    () => Object.values(whAlloc).reduce((sum, v) => sum + (parseInt(v) || 0), 0),
-    [whAlloc],
-  )
-
-  // How many unassigned units the current inputs would consume (capped at available unassigned)
-  const beingReassigned = useMemo(() => {
-    let delta = 0
-    for (const wh of warehouses) {
-      const target = parseInt(whAlloc[wh.id] ?? '0') || 0
-      const current = currentQtyMap.get(wh.id) ?? 0
-      if (target > current) delta += target - current
-    }
-    return Math.min(delta, unassignedQty)
-  }, [warehouses, whAlloc, currentQtyMap, unassignedQty])
-
-  const remainingUnassigned = unassignedQty - beingReassigned
-  const computedStockLevel = allocatedTotal + remainingUnassigned
+  }, [open, variant, fixedBrand])
 
   const isDirty =
-    brand !== (variant?.brand ?? '') ||
+    brandId !== (fixedBrand?.id ?? variant?.brand_id ?? null) ||
+    countryId !== (variant?.country_id ?? null) ||
     code !== (variant?.code ?? '') ||
     sellingPrice !== (variant?.selling_price != null ? String(variant.selling_price) : '') ||
     reorderPoint !== (variant ? String(variant.reorder_point ?? 0) : '0') ||
-    avgCost !== (variant?.average_cost != null ? String(Math.round(variant.average_cost * 100) / 100) : '') ||
-    warehouses.some((wh) => {
-      const target = parseInt(whAlloc[wh.id] ?? '0') || 0
-      const current = currentQtyMap.get(wh.id) ?? 0
-      return target !== current
-    })
+    avgCost !== (variant?.average_cost != null ? String(Math.round(variant.average_cost * 100) / 100) : '')
 
-  function updateWhAlloc(whId: string, qty: string) {
-    setWhAlloc((prev) => ({ ...prev, [whId]: qty }))
-  }
-
-  async function applyAllocations(variantId: string, unitCost: number): Promise<void> {
-    const supabase = createClient()
-    const changed: { warehouseId: string; targetQty: number }[] = []
-
-    for (const wh of warehouses) {
-      const target = parseInt(whAlloc[wh.id] ?? '0') || 0
-      const current = currentQtyMap.get(wh.id) ?? 0
-      // Include warehouses with qty changes OR existing stock (cost-only updates)
-      if (target !== current || current > 0) {
-        changed.push({ warehouseId: wh.id, targetQty: target })
-      }
-    }
-
-    if (changed.length === 0) return
-
-    setAllocating(true)
-    try {
-      for (const { warehouseId, targetQty } of changed) {
-          const { error } = await supabase.rpc('allocate_warehouse_stock', {
-          p_brand_variant_id: variantId,
-          p_warehouse_id: warehouseId,
-          p_target_qty: targetQty,
-          p_unit_cost: unitCost,
-        })
-        if (error) throw new Error(error.message ?? 'allocate_warehouse_stock failed')
-      }
-      qc.invalidateQueries({ queryKey: queryKeys.inventory.variantWarehouseStock })
-      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
-      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
-      qc.invalidateQueries({ queryKey: queryKeys.misc.brandVariantsUnderscore })
-    } finally {
-      setAllocating(false)
-    }
-  }
+  // Title reflects the active mode (see isAddOrigin above).
+  const dialogTitle = isAddOrigin
+    ? `Add Origin — ${fixedBrand!.name}`
+    : isEdit
+      ? 'Edit Variant'
+      : 'Add Brand'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!brand.trim()) {
-      toast.error('Brand name is required')
-      return
-    }
 
-    const unitCost = avgCost !== '' ? Number(avgCost) : 0
+    // The BEFORE INSERT/UPDATE trigger fills the denormalized `brand` text
+    // from brands.name whenever brand_id is set (non-null) — when brand_id
+    // is null, the trigger leaves `brand` exactly as sent. We only need to
+    // send `brand` ourselves in two cases:
+    //  - create: the column is NOT NULL, and '' satisfies it for
+    //    origin-only/generic variants (the trigger overwrites it once
+    //    brand_id is set).
+    //  - edit, where the user just CLEARED a previously-set brand
+    //    (brand_id went non-null → null): that orphans the old text, so we
+    //    blank it explicitly.
+    // Editing a variant that was ALREADY brand-less must NOT send `brand` —
+    // it may carry legacy text (e.g. "FLARE NUT") that's read elsewhere in
+    // the app, and omitting the key preserves it untouched.
+    const priorBrandId = variant?.brand_id ?? null
+    const brandWasCleared = isEdit && priorBrandId !== null && brandId === null
+    const includeBrandField = !isEdit || brandWasCleared
 
+    // stock_level is deliberately never set here — stock is receival-driven
+    // only. Omitting the key: on create, the column defaults to 0 (a fresh
+    // variant starts at zero until a receival lands); on edit, an omitted
+    // key leaves the existing stock_level untouched.
     const payload = {
-      brand: brand.trim(),
+      ...(includeBrandField && { brand: '' }),
+      brand_id: brandId,
+      country_id: countryId,
       code: code.trim() || null,
       selling_price: sellingPrice ? Number(sellingPrice) : 0,
       reorder_point: Number(reorderPoint),
-      stock_level: computedStockLevel,
       ...(!avgCostLocked && { average_cost: avgCost !== '' ? Number(avgCost) : null }),
     }
 
@@ -174,58 +129,70 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
       update.mutate(
         { id: variant.id, ...payload },
         {
-          onSuccess: async () => {
-            try {
-              await applyAllocations(variant.id, unitCost)
-              toast.success('Variant updated')
-              guardRef.current?.closeAfterSubmit()
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : 'Stock allocation failed')
-            }
+          onSuccess: () => {
+            toast.success('Variant updated')
+            guardRef.current?.closeAfterSubmit()
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(toReadableError(err)),
         },
       )
     } else {
       create.mutate(
         { item_id: itemId, ...payload },
         {
-          onSuccess: async (data) => {
-            const newId = (data as { id?: string } | undefined)?.id
-            try {
-              if (newId) await applyAllocations(newId, unitCost)
-              toast.success('Variant added')
-              guardRef.current?.closeAfterSubmit()
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : 'Stock allocation failed')
-            }
+          onSuccess: () => {
+            toast.success('Variant added')
+            guardRef.current?.closeAfterSubmit()
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(toReadableError(err)),
         },
       )
     }
   }
 
-  const isPending = create.isPending || update.isPending || allocating
+  const isPending = create.isPending || update.isPending
 
   return (
     <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-lg overflow-y-auto max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Brand Variant' : 'Add Brand Variant'}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Brand + Origin. add-origin mode locks brand as read-only context
+              and shows a full-width origin picker; add-brand/edit modes use
+              parallel side-by-side searchable comboboxes (never flyout). */}
+          {isAddOrigin ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Brand</Label>
+                <div className="flex h-11 min-h-11 w-full items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                  <span className="truncate">{fixedBrand!.name}</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="bv-origin">Origin</Label>
+                <OriginCombobox id="bv-origin" value={countryId} onChange={setCountryId} />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="bv-brand">Brand</Label>
+                <BrandCombobox
+                  id="bv-brand"
+                  value={brandId}
+                  onChange={(b) => setBrandId(b?.id ?? null)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="bv-origin">Origin</Label>
+                <OriginCombobox id="bv-origin" value={countryId} onChange={setCountryId} />
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
-            <Label htmlFor="bv-brand">Brand *</Label>
-            <Input
-              id="bv-brand"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              placeholder="e.g. LG, Alfacool"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="bv-sku">SKU Code</Label>
+            <Label htmlFor="bv-sku">Code (optional)</Label>
             <Input
               id="bv-sku"
               value={code}
@@ -263,8 +230,18 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
                     value={avgCost}
                     onChange={(e) => setAvgCost(e.target.value)}
                     placeholder="0.00"
+                    // Guard the load-window race: in edit mode, whStockData
+                    // resolves avgCostLocked async. Until it does, block
+                    // typing here so a value can't be entered and submitted
+                    // before we know whether this variant already has
+                    // receival-backed FIFO layers (which would lock it).
+                    disabled={isEdit && whStockLoading}
                   />
-                  <p className="text-xs text-muted-foreground">Set initial cost — overwritten by first PO receival</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isEdit && whStockLoading
+                      ? 'Checking receival history…'
+                      : 'Set initial cost — overwritten by first PO receival'}
+                  </p>
                 </div>
               )}
             </div>
@@ -278,54 +255,6 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant }: 
               />
             </div>
           </div>
-
-          {/* Warehouse Stock Allocation */}
-          {warehouses.length > 0 && (
-            <div className="space-y-2 rounded-md border p-3">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-1.5 text-sm">
-                  <WarehouseIcon className="h-3.5 w-3.5 text-primary" />
-                  Warehouse Stock
-                </Label>
-                <span className="text-xs text-muted-foreground font-medium">
-                  Total: {computedStockLevel}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                {warehouses.map((wh) => {
-                  const current = currentQtyMap.get(wh.id) ?? 0
-                  const target = parseInt(whAlloc[wh.id] ?? '0') || 0
-                  const changed = target !== current
-                  return (
-                    <div key={wh.id} className="grid grid-cols-[1fr_80px] gap-2 items-center">
-                      <span className="text-xs truncate">{wh.name}</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1"
-                        className={`h-7 text-xs text-right ${changed ? 'border-primary ring-1 ring-primary/20' : ''}`}
-                        value={whAlloc[wh.id] ?? '0'}
-                        onChange={(e) => updateWhAlloc(wh.id, e.target.value)}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-              {unassignedQty > 0 && (
-                <div className="flex items-center justify-between px-1 py-1.5 rounded bg-warning/10 border border-warning/20">
-                  <span className="text-xs text-warning font-medium">Unassigned stock</span>
-                  <span className="text-xs font-semibold text-warning">
-                    {remainingUnassigned > 0 ? remainingUnassigned : `0 (was ${unassignedQty})`}
-                  </span>
-                </div>
-              )}
-              <p className="text-[10px] text-muted-foreground">
-                {unassignedQty > 0
-                  ? 'Increase a warehouse qty to pull from unassigned stock first.'
-                  : 'Set how many units each warehouse holds. Changes are applied on save.'}
-              </p>
-            </div>
-          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>
