@@ -24,7 +24,7 @@ interface DeliveryRow {
     division_id: string | null
     customers: {
       name:  string | null
-      phone: string | null
+      customer_phones: { phone: string; is_primary: boolean }[] | null
     } | null
   } | null
 }
@@ -64,7 +64,7 @@ export async function generateWarrantyCertificatePdf(
     .from('sale_deliveries')
     .select(`
       id, delivery_number, sale_order_id, date,
-      sale_orders(so_number, division_id, customers(name, phone))
+      sale_orders(so_number, division_id, customers(name, customer_phones(phone, is_primary)))
     `)
     .eq('id', deliveryId)
     .single<DeliveryRow>()
@@ -139,7 +139,10 @@ export async function generateWarrantyCertificatePdf(
     deliveryNumber: del.delivery_number,
     soNumber:       del.sale_orders?.so_number ?? null,
     customerName:   del.sale_orders?.customers?.name  ?? null,
-    customerPhone:  del.sale_orders?.customers?.phone ?? null,
+    customerPhone:  (() => {
+      const phones = del.sale_orders?.customers?.customer_phones ?? []
+      return phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? null
+    })(),
     deliveryDate:   del.date,
     items,
     policyBlocks,
