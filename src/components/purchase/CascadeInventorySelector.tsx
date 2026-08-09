@@ -435,6 +435,9 @@ export function CascadeInventorySelector({
     setIsItemCreating(false)
     setItemOpen(false)
     setVarOpen(true)
+    setSelectedBrandKey(null)
+    setBrandOpen(false)
+    setOriginOpen(false)
   }
 
   function handleVariantCreated(variant: BrandVariantWithJoins) {
@@ -637,6 +640,9 @@ export function CascadeInventorySelector({
                                 setSelectedItem(item)
                                 onChange(null)
                                 setItemOpen(false)
+                                setSelectedBrandKey(null)
+                                setBrandOpen(false)
+                                setOriginOpen(false)
                               }}
                               className="text-xs items-start py-2"
                             >
