@@ -34,6 +34,7 @@ function storageKeyFor(soNumber: string): string {
 interface SaleOrderRow {
   id:                       string
   so_number:                string
+  status:                   string
   division_id:              string | null
   subtotal:                 number
   total:                    number
@@ -86,7 +87,7 @@ export async function generateQuotationPdf(
   const { data: so, error: fetchErr } = await supabase
     .from('sale_orders')
     .select(`
-      id, so_number, division_id, subtotal, total, discount_amount_resolved, discount_label,
+      id, so_number, status, division_id, subtotal, total, discount_amount_resolved, discount_label,
       currency, validity_days,
       payment_terms, payment_terms_notes,
       delivery_terms, delivery_terms_notes,
@@ -118,8 +119,14 @@ export async function generateQuotationPdf(
   ])
   const { assets } = brandDataToAssets(brand)
 
+  // A quotation prints as "Quotation"; once confirmed (or beyond) the same
+  // layout prints as a "Sales Order" with a status-appropriate title.
+  const isQuote = so.status === 'quotation' || so.status === 'pending_approval'
+
   const html = buildQuotationHtml({
     so_number:                so.so_number,
+    titleAr:                  isQuote ? 'عرض سعر' : 'أمر بيع',
+    titleEn:                  isQuote ? 'Quotation' : 'Sales Order',
     created_at:               so.created_at,
     validity_days:            so.validity_days,
     currency:                 so.currency,

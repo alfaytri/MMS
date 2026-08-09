@@ -36,6 +36,8 @@ export interface QuotationLineItem {
 
 export interface BuildQuotationHtmlInput {
   so_number:        string
+  titleAr?:         string                       // ribbon title (defaults to Quotation)
+  titleEn?:         string
   created_at:       string                       // ISO
   validity_days:    number
   currency:         string
@@ -88,6 +90,8 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
   const currency  = input.currency || 'QAR'
   const quoteDate = fmtDate(input.created_at)
   const validity  = `${input.validity_days} days`
+  const titleAr   = input.titleAr ?? 'عرض سعر'
+  const titleEn   = input.titleEn ?? 'Quotation'
 
   // RTL table — rightmost column = first <th>/<td> in source
   const lineRows = input.lines.map((li) => `
@@ -129,7 +133,7 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<title>Quotation — ${escapeHtml(input.so_number)}</title>
+<title>${escapeHtml(titleEn)} — ${escapeHtml(input.so_number)}</title>
 <style>
   ${fontFacesCss(input.fonts)}
   ${BASE_CSS}
@@ -147,8 +151,8 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
     ${contactStripHtml()}
     <div class="dark-strip"></div>
     <div class="ribbon">
-      <div class="ar-title">عرض سعر</div>
-      <div class="en-title">Quotation</div>
+      <div class="ar-title">${escapeHtml(titleAr)}</div>
+      <div class="en-title">${escapeHtml(titleEn)}</div>
       <div class="doc-no">${escapeHtml(input.so_number)}</div>
     </div>
   </div>
