@@ -698,17 +698,35 @@ export default function EditPOPage() {
             <AlertDialogTitle>{wasApproved ? 'Edit Approved PO' : 'Amend Pending PO'}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
-                <p>Saving this change will:</p>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li>Create a new version (PO-v{(po?.version_number ?? 1) + 1})</li>
-                  {wasApproved && <li>Drop the PO back to <strong>Pending Approval</strong></li>}
-                  <li>{wasApproved ? 'Require all approvers to approve again' : 'Reset the approval chain — every approver re-approves'}</li>
-                  {wasApproved && <li><strong>Block new receivals, bills, and payments</strong> until re-approved</li>}
-                </ul>
-                {wasApproved && (
-                  <p className="text-xs text-muted-foreground pt-1">
-                    Existing receivals, bills, and payments will stay as-is.
-                  </p>
+                {pendingSave === 'draft' ? (
+                  <>
+                    <p>Saving this as a draft will:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li>Pull the PO back to <strong>Draft</strong></li>
+                      <li>{wasApproved ? 'Clear its approval — re-submit for approval when ready' : 'Cancel the approval currently in progress'}</li>
+                      <li><strong>Block new receivals, bills, and payments</strong> until it is approved again</li>
+                    </ul>
+                    {wasApproved && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Existing receivals, bills, and payments will stay as-is.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p>Saving this change will:</p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li>Create a new version (PO-v{(po?.version_number ?? 1) + 1})</li>
+                      {wasApproved && <li>Drop the PO back to <strong>Pending Approval</strong></li>}
+                      <li>{wasApproved ? 'Require all approvers to approve again' : 'Reset the approval chain — every approver re-approves'}</li>
+                      {wasApproved && <li><strong>Block new receivals, bills, and payments</strong> until re-approved</li>}
+                    </ul>
+                    {wasApproved && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Existing receivals, bills, and payments will stay as-is.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </AlertDialogDescription>
