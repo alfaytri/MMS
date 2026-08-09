@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table'
 import { PoDetailDialog } from '@/components/purchase/PoDetailDialog'
 import { CreateBillFromPODialog } from '@/components/purchase/CreateBillFromPODialog'
-import { usePurchaseOrders, useCancelPO, type PurchaseOrder, type POStatus, type POType } from '@/hooks/usePurchaseOrders'
+import { usePurchaseOrders, useCancelPO, BILLABLE_PO_STATUSES, type PurchaseOrder, type POStatus, type POType } from '@/hooks/usePurchaseOrders'
 import { useBilledPoIds } from '@/hooks/useSupplierBills'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -503,7 +503,7 @@ export default function PurchaseOrdersPage() {
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1">
-                          {!billedPoIds?.has(po.id) && (
+                          {!billedPoIds?.has(po.id) && BILLABLE_PO_STATUSES.includes(po.status) && (
                             <Button
                               variant="outline"
                               size="sm"

@@ -43,6 +43,19 @@ export type POStatus =
   | 'cancelled'
   | 'completed'
 
+/**
+ * PO statuses for which a supplier bill may be created — the post-approval
+ * lifecycle only. Excludes draft / pending_approval / cancelled (you cannot bill
+ * a PO that hasn't been approved or has been cancelled). Shared by the PO list
+ * "Create Bill" action and the PO detail dialog so both gate identically.
+ */
+export const BILLABLE_PO_STATUSES: readonly POStatus[] = [
+  'approved',
+  'partially_received',
+  'received',
+  'completed',
+]
+
 export type POType = 'rfq' | 'draft' | 'confirmed'
 
 export type POLineItem = {

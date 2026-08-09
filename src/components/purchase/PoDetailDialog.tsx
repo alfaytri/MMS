@@ -38,6 +38,7 @@ import {
   useSubmitPOForApproval,
   useCancelPO,
   useRecallPOToDraft,
+  BILLABLE_PO_STATUSES,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useBillsByPO } from '@/hooks/useSupplierBills'
@@ -117,7 +118,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
     ['approved', 'pending_approval'].includes(current?.status ?? '') &&
     !myRoles.includes('Owner') &&
     !hasOpenRequest
-  const isApprovedLive = current?.status === 'approved'
+  const isBillableLive = !!current && BILLABLE_PO_STATUSES.includes(current.status)
   const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'
   const [activeStage, setActiveStage] = useState<Stage>(liveStage)
   const [activeVersion, setActiveVersion] = useState<number | null>(null)
@@ -306,7 +307,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       Cancel PO
                     </Button>
                   )}
-                  {!isViewingSnapshot && isApprovedLive && (
+                  {!isViewingSnapshot && isBillableLive && (
                     existingBills.length > 0 ? (
                       <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${existingBills[0].id}`) }}>
                         View Bill ({existingBills[0].bill_number})
