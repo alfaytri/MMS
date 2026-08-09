@@ -1,5 +1,15 @@
 # Follow-up: Batch the inventory attribute-chip fetches (N+1)
 
+> **Update 2026-08-10 — IMPLEMENTED (pending operator verification)** on branch
+> `chore/overnight-backlog-2026-08-10` (commit `5acf68b4`, Option A). `CategoryRow`
+> now loads its existing `useItemAttributesByCategory` map whenever expanded and
+> feeds it to the chip strips via a new optional `ItemAttributesContext`;
+> `AttributeChipStrip` reads the batch and only falls back to the per-item query when
+> no provider is present (non-list callers unaffected). `tsc`+eslint clean. **Morning
+> gate:** confirm in the Network panel that expanding a large category fires ONE
+> `inventory_item_attributes` request for chips (not N) and chips render identically.
+> Delete this doc once verified.
+
 **Status:** Deferred (tracked, important) — its own task/branch
 **Surfaced:** 2026-08-08 (inventory-tree pre-brands/origin audit)
 **Priority:** High — performance + Supabase-quota cost (project has hit Free-plan
