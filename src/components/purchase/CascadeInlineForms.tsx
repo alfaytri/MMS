@@ -222,13 +222,13 @@ export function CascadeNewVariantForm({ itemId, onCreated, onCancel }: NewVarian
           // The insert's .select() row lacks the joined names — attach the
           // brand/origin labels we already hold so the picker breadcrumb shows
           // origin immediately (before the list refetch lands).
-          const countryName = countryId != null
-            ? countryCodes.find((c) => c.id === countryId)?.name ?? null
+          const country = countryId != null
+            ? countryCodes.find((c) => c.id === countryId) ?? null
             : null
           onCreated({
             ...(variant as BrandVariant),
             brands:        brand ? { name: brand.name } : null,
-            country_codes: countryName ? { name: countryName, flag: null, iso: '' } : null,
+            country_codes: country ? { name: country.name, flag: country.flag, iso: country.iso } : null,
           })
         },
         onError: (err) => toast.error(err.message),
@@ -237,6 +237,10 @@ export function CascadeNewVariantForm({ itemId, onCreated, onCancel }: NewVarian
   }
 
   function onKeyDown(e: KeyboardEvent) {
+    // A cmdk/Radix combobox that handled this key (selecting an item on Enter,
+    // closing the popover on Escape) already called preventDefault — don't let
+    // that bubbled key also submit or cancel the whole form.
+    if (e.defaultPrevented) return
     if (e.key === 'Enter')  { e.preventDefault(); handleSubmit() }
     if (e.key === 'Escape') { e.preventDefault(); onCancel() }
   }

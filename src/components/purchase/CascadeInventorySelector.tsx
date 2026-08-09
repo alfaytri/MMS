@@ -20,7 +20,6 @@ import {
   useInventoryBrandVariants,
   type InventoryCategory,
   type InventoryItem,
-  type BrandVariant,
   type BrandVariantWithJoins,
 } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
