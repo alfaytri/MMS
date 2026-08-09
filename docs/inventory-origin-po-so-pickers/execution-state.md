@@ -11,8 +11,9 @@ THIS first, then the Phase 1 spec. Authoritative — do NOT re-derive what's her
 
 - **Task:** Origin-aware PO & SO pickers (make PO/SO line pickers resolve item → brand → origin to one priced/stocked leaf). Follow-up to the shipped Inventory Brands & Origin feature.
 - **Phase model:** TWO phases, **PO slice first** (Phase 1), SO slice second (Phase 2).
-- **Stage:** Brainstorming DONE + **Phase 1 design approved by user**. Spec WRITTEN. Implementation NOT started.
-- **Next step:** user reviews the Phase 1 spec → invoke `superpowers:writing-plans` to create the Phase 1 plan → execute via `superpowers:subagent-driven-development`.
+- **Stage:** Brainstorming DONE + Phase 1 design approved + **Phase 1 implementation PLAN WRITTEN** ([`phase-1-po-picker-plan.md`](phase-1-po-picker-plan.md), 5 tasks). Implementation NOT started. Plan doc NOT yet committed (awaiting user go-ahead per commit policy).
+- **Next step:** user picks execution mode → execute via `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`. Task order: T1 helper (pure, TDD) → T2 cascade popover + breadcrumb → T3 inline add-variant form → T4 InventoryItemLookup (unused/preparatory) → T5 receival FIFO verify (no code).
+- **One open scope decision for the user:** the plan adds origin to the *post-select breadcrumb* (+ a one-line `useBrandVariantAncestry` join) beyond the approved 4-file spec table. Cheap, single-consumer, completes the origin-visibility loop. Keep or drop before T2.
 
 ## Branch & git state
 
