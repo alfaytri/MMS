@@ -67,3 +67,27 @@ pick leaf → `brand_variant_id` on PO line → cost defaults from leaf (`cost_p
 ## Testing
 
 Unit where pure (helpers, if any extracted); tsc clean; operator smoke (⏸ user) across the three item shapes above, confirming cost defaults per origin and receival lands on the right leaf.
+
+---
+
+## Revision 2026-08-09 — Brand → Origin cascade (supersedes the combined-list picker)
+
+**Why:** After the combined-list approach (this spec's "Alternative A") shipped, the operator reviewed it live and asked for **separate Brand and Origin selectors** instead of one flat "DAIKIN — Egypt / DAIKIN — Germany / LG / Samsung" list. This is the more consistent design: it matches the standing side-by-side dropdown rule and the existing **Category → Subcategory → Type** cascade one row above. Approved 2026-08-09.
+
+**New picker UX (purchase side only):** the single "Brand / Variant" popover is replaced by a two-step cascade that mirrors the category cascade:
+
+- **Brand** select — shown once an item is chosen. Options = the distinct brands among the item's variants (grouped via the existing [`groupVariants`](../../src/lib/inventory/groupVariants.ts) helper), plus an **"Unbranded"** entry (verbatim, `groupVariants`' `NO_BRAND_LABEL`) when brandless leaves exist. Searchable. Footer keeps **"+ Add new brand / variant"** → the origin-aware inline form (unchanged from the shipped Task 3).
+- **Origin** select — **revealed only when the chosen brand has more than one origin to choose among** (exactly how Subcategory/Type appear only when their parent has children). Options = that brand's origins, a `null` origin labeled **"— No origin —"**. Selecting one resolves the exact leaf.
+
+**Degradation (confirmed with the operator):**
+- Brand with a single leaf (e.g. LG/Samsung, no origin) → **resolves immediately on brand pick; no Origin box**.
+- Item with a single brand → Brand shown **pre-selected + disabled** (the "only one option" rule); origin logic still applies.
+- Fully generic item (one leaf, no brand/no origin) → resolves on item pick; no Brand/Origin boxes.
+
+**Scope guard:** the cascade replaces the combined list **only on the purchase path (`filterByActiveDivision === false`)**. The sales-side pooled / per-division "avail" rendering (`filterByActiveDivision === true`) is **left exactly as-is** — that picker is redesigned in Phase 2, not here.
+
+**Unchanged:** the resolved leaf still flows through `handleVariantSelect` (cost defaults from `cost_price` / last FIFO — money path untouched); the post-select breadcrumb still shows brand + origin (from the shipped Task 2); `variantPickerLabel` continues to label rows; no DB migration.
+
+**Wording (confirmed):** brandless group = **"Unbranded"**; null-origin leaf under a brand = **"— No origin —"**.
+
+**Supersedes:** the "Approach (recommended)" section above (combined single-popover list) for the purchase path. That shipped code is replaced by this cascade; the origin-visibility goal and acceptance criteria are unchanged.
