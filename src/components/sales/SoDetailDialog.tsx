@@ -42,6 +42,7 @@ import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import { useReturnsBySO, useUnresolvedReturns, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { cn } from '@/lib/utils'
+import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -61,6 +62,24 @@ const inventoryTypeBadge: Record<string, { label: string; className: string }> =
   'spare-parts': { label: 'Spare Part', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
   'consumables': { label: 'Consumable', className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
   'tools':       { label: 'Tool',       className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
+}
+
+/**
+ * "Brand · Origin" label for a line's brand-variant, mirroring the PO detail
+ * display (commit 0401f332): brand wins as the primary, origin is the muted
+ * suffix, and the "Generic" fallback is suppressed so plain lines stay clean.
+ */
+function brandOriginLabel(
+  bv: { brand?: string | null; brands?: { name: string } | null; country_codes?: { name: string } | null } | null | undefined,
+): string | null {
+  if (!bv) return null
+  const v = variantPickerLabel({
+    brand_name:   bv.brands?.name ?? null,
+    brand:        bv.brand ?? null,
+    country_name: bv.country_codes?.name ?? null,
+  })
+  if (v.primary === GENERIC_VARIANT_LABEL) return null
+  return v.origin ? `${v.primary} · ${v.origin}` : v.primary
 }
 
 interface SoDetailDialogProps {
@@ -113,7 +132,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const current = fullSO ?? so
 
   const bvInfoMap = useMemo(() => {
-    const map = new Map<string, { chain: string[]; type: string | null; brand: string | null }>()
+    const map = new Map<string, { chain: string[]; type: string | null; brandOrigin: string | null }>()
     for (const li of fullSO?.sale_order_lines ?? []) {
       if (!li.brand_variant_id) continue
       const bv = li.inventory_item_brand_variants
@@ -121,7 +140,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
       map.set(li.brand_variant_id, {
         chain: cat?.ancestor_chain ?? [],
         type: cat?.type ?? null,
-        brand: bv?.brand ?? null,
+        brandOrigin: brandOriginLabel(bv),
       })
     }
     return map
@@ -238,7 +257,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                         const chain = cat?.ancestor_chain ?? []
                         const itemType = cat?.type ?? null
                         const typeBadge = itemType ? inventoryTypeBadge[itemType] : null
-                        const brandName = bv?.brand ?? null
+                        const brandOrigin = brandOriginLabel(bv)
                         const summary = summaryById.get(li.id)
                         const netDelivered = summary?.net_delivered_qty ?? li.delivered_qty
                         return (
@@ -262,8 +281,8 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                               )}
                               <div className="flex items-center gap-1.5">
                                 <span className="font-medium">{li.item_name}</span>
-                                {brandName && (
-                                  <span className="text-xs text-muted-foreground">— {brandName}</span>
+                                {brandOrigin && (
+                                  <span className="text-xs text-muted-foreground">— {brandOrigin}</span>
                                 )}
                               </div>
                             </div>
@@ -415,7 +434,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                                         )}
                                         <div className="flex items-center gap-1">
                                           <span className="font-medium">{item.item_name}</span>
-                                          {info?.brand && <span className="text-muted-foreground">— {info.brand}</span>}
+                                          {info?.brandOrigin && <span className="text-muted-foreground">— {info.brandOrigin}</span>}
                                         </div>
                                       </div>
                                     </TableCell>
