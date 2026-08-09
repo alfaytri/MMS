@@ -24,7 +24,7 @@ import {
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
-import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchArabicNamesByBrandVariant, fetchOriginsByBrandVariant } from '@/lib/pdf/arabic-names'
 
 // SO numbers like "SO-00088" don't contain slashes, but normalise anyway.
 function storageKeyFor(soNumber: string): string {
@@ -48,19 +48,23 @@ interface SaleOrderRow {
   customer_notes:           string | null
   created_at:               string
   quotation_pdf_url:        string | null
-  customers:                { name: string | null; phone: string | null } | null
+  customers:                { name: string | null; customer_phones: { phone: string; is_primary: boolean }[] | null } | null
   sale_order_lines:         QuotationLineItem[] | null
 }
 
-async function hydrateArabic<T extends { item_name_ar: string | null; brand_variant_id?: string | null }>(
+async function hydrateLines<T extends { item_name_ar: string | null; brand_variant_id?: string | null }>(
   client: SupabaseClient,
   lines:  T[],
 ): Promise<T[]> {
   if (lines.length === 0) return lines
-  const map = await fetchArabicNamesByBrandVariant(client, lines.map((l) => l.brand_variant_id))
+  const [arMap, originMap] = await Promise.all([
+    fetchArabicNamesByBrandVariant(client, lines.map((l) => l.brand_variant_id)),
+    fetchOriginsByBrandVariant(client, lines.map((l) => l.brand_variant_id)),
+  ])
   return lines.map((l) => ({
     ...l,
-    item_name_ar: l.item_name_ar ?? (l.brand_variant_id ? map.get(l.brand_variant_id) ?? null : null),
+    item_name_ar: l.item_name_ar ?? (l.brand_variant_id ? arMap.get(l.brand_variant_id) ?? null : null),
+    origin:       l.brand_variant_id ? originMap.get(l.brand_variant_id) ?? null : null,
   }))
 }
 
@@ -87,8 +91,8 @@ export async function generateQuotationPdf(
       payment_terms, payment_terms_notes,
       delivery_terms, delivery_terms_notes,
       customer_notes, created_at, quotation_pdf_url,
-      customers(name, phone),
-      sale_order_lines(item_name, item_name_ar, sku, qty, unit, unit_price, total, line_type, brand_variant_id)
+      customers(name, customer_phones(phone, is_primary)),
+      sale_order_lines(item_name, sku, qty, unit, unit_price, total, line_type, brand_variant_id)
     `)
     .eq('id', saleOrderId)
     .single<SaleOrderRow>()
@@ -120,8 +124,11 @@ export async function generateQuotationPdf(
     validity_days:            so.validity_days,
     currency:                 so.currency,
     customer_name:            so.customers?.name  ?? '',
-    customer_phone:           so.customers?.phone ?? null,
-    lines:                    await hydrateArabic(supabase, so.sale_order_lines ?? []),
+    customer_phone:           (() => {
+      const phones = so.customers?.customer_phones ?? []
+      return phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? null
+    })(),
+    lines:                    await hydrateLines(supabase, so.sale_order_lines ?? []),
     subtotal:                 Number(so.subtotal ?? 0),
     discount_amount_resolved: Number(so.discount_amount_resolved ?? 0),
     discount_label:           so.discount_label,

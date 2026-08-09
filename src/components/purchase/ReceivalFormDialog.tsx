@@ -291,7 +291,7 @@ function NonPoFreeItemDialog({
           </div>
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground uppercase tracking-wide">Select item *</Label>
-            <CascadeInventorySelector lineType={lineType} value={lookup} onChange={setLookup} />
+            <CascadeInventorySelector lineType={lineType} value={lookup} onChange={setLookup} brandOriginCascade />
           </div>
           {lookup && (
             <div className="grid grid-cols-2 gap-3">

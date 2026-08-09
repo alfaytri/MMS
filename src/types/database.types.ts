@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -231,6 +256,7 @@ export type Database = {
       bill_line_items: {
         Row: {
           bill_id: string
+          brand_variant_id: string | null
           created_at: string | null
           description: string
           id: string
@@ -242,6 +268,7 @@ export type Database = {
         }
         Insert: {
           bill_id: string
+          brand_variant_id?: string | null
           created_at?: string | null
           description: string
           id?: string
@@ -253,6 +280,7 @@ export type Database = {
         }
         Update: {
           bill_id?: string
+          brand_variant_id?: string | null
           created_at?: string | null
           description?: string
           id?: string
@@ -268,6 +296,13 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_line_items_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -2946,6 +2981,7 @@ export type Database = {
       }
       invoice_line_items: {
         Row: {
+          brand_variant_id: string | null
           created_at: string | null
           description: string
           id: string
@@ -2956,6 +2992,7 @@ export type Database = {
           unit_price: number | null
         }
         Insert: {
+          brand_variant_id?: string | null
           created_at?: string | null
           description: string
           id?: string
@@ -2966,6 +3003,7 @@ export type Database = {
           unit_price?: number | null
         }
         Update: {
+          brand_variant_id?: string | null
           created_at?: string | null
           description?: string
           id?: string
@@ -2976,6 +3014,13 @@ export type Database = {
           unit_price?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_brand_variant_id_fkey"
+            columns: ["brand_variant_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoice_line_items_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -8190,12 +8235,17 @@ export type Database = {
         Args: { p_category_id: string; p_picks?: Json }
         Returns: Json
       }
+      rpc_build_po_approval_steps: { Args: { p_po_id: string }; Returns: Json }
       rpc_cancel_consumption: {
         Args: { p_consumption_id: string }
         Returns: undefined
       }
       rpc_cancel_po_return_dispatch: {
         Args: { p_return_id: string }
+        Returns: undefined
+      }
+      rpc_clear_po_approval_steps: {
+        Args: { p_only_pending?: boolean; p_po_id: string }
         Returns: undefined
       }
       rpc_close_return: {
@@ -9170,6 +9220,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       address_type: ["blue-plate", "google-coords"],

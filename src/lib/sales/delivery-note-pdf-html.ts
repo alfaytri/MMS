@@ -11,6 +11,7 @@ import {
 export interface DeliveryNoteItem {
   itemName:     string
   itemNameAr?:  string | null
+  origin?:      string | null
   sku:          string | null
   qtyDelivered: number
 }
@@ -72,6 +73,7 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
         <td class="cell-item">
           <div class="item-name">${esc(item.itemName)}</div>
           ${item.itemNameAr ? `<div class="item-name-ar">${esc(item.itemNameAr)}</div>` : ''}
+          ${item.origin ? `<div class="item-origin">Origin: ${esc(item.origin)}</div>` : ''}
           ${item.sku ? `<div class="item-sku">${esc(item.sku)}</div>` : ''}
         </td>
         <td class="cell-num">${fmtQty(item.qtyDelivered)}</td>
@@ -89,6 +91,7 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
   ${BASE_CSS}
 
   table.lines td.cell-check { text-align: center; font-size: 14px; }
+  table.lines td.cell-item .item-origin { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); margin-top: 1px; }
 
   .total-strip {
     margin: 4mm 14mm 0;

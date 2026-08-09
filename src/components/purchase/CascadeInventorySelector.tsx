@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -14,12 +14,14 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
+import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
+import { variantsToBrandGroups, type PickerBrandGroup } from '@/lib/inventory/variantBrandGroups'
 import {
   useInventoryItemsByCategory,
   useInventoryBrandVariants,
   type InventoryCategory,
   type InventoryItem,
-  type BrandVariant,
+  type BrandVariantWithJoins,
 } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { useBrandVariantAncestry } from '@/hooks/useBrandVariantAncestry'
@@ -49,6 +51,14 @@ interface CascadeInventorySelectorProps {
    * consuming it.
    */
   filterByActiveDivision?: boolean
+  /**
+   * Opt into the Brand → Origin cascade (two side-by-side selects) instead of
+   * the combined Brand/Variant list. Set by the buying pickers (PO create,
+   * receivals). Independent of `filterByActiveDivision` — that is the division
+   * stock filter, and several sales callers set it too, so it can't be used to
+   * tell buying from selling.
+   */
+  brandOriginCascade?: boolean
 }
 
 async function fetchLastFifoCost(variantId: string): Promise<number> {
@@ -179,6 +189,7 @@ export function CascadeInventorySelector({
   onChange,
   onPriceLoading,
   filterByActiveDivision = false,
+  brandOriginCascade = false,
 }: CascadeInventorySelectorProps) {
   // Three category levels — the deepest non-null wins as the effective category.
   const [selectedL1, setSelectedL1] = useState<InventoryTreeNode | null>(null)
@@ -198,6 +209,11 @@ export function CascadeInventorySelector({
   const [selectedVariantCode,  setSelectedVariantCode]  = useState<string | null>(null)
   const [selectedVariantBrand, setSelectedVariantBrand] = useState<string | null>(null)
   const [selectedVariantStock, setSelectedVariantStock] = useState<number | null>(null)
+  const [selectedVariantOrigin, setSelectedVariantOrigin] = useState<string | null>(null)
+
+  const [brandOpen, setBrandOpen] = useState(false)
+  const [originOpen, setOriginOpen] = useState(false)
+  const [selectedBrandKey, setSelectedBrandKey] = useState<string | null>(null)
 
   const [l1Creating, setL1Creating] = useState(false)
   const [l2Creating, setL2Creating] = useState(false)
@@ -208,13 +224,26 @@ export function CascadeInventorySelector({
   const { tree: rawTree, flat: flatCategories, isLoading: catsLoading } = useInventoryTree(lineType)
   const { data: rawItems = [], isLoading: itemsLoading } =
     useInventoryItemsByCategory(selectedCategory?.id ?? null)
-  const { data: variants = [], isLoading: varsLoading } =
+  const { data: variantRows = [], isLoading: varsLoading } =
     useInventoryBrandVariants(selectedItem?.id ?? null)
+  const variants = variantRows as BrandVariantWithJoins[]
+
+  const brandGroups = useMemo(() => variantsToBrandGroups(variants), [variants])
+  // Single-brand item -> that brand is the active group (nothing to pick);
+  // multi-brand -> the group the operator picked.
+  const activeBrandGroup = useMemo(
+    () => (brandGroups.length === 1 ? brandGroups[0] : brandGroups.find((g) => g.brandKey === selectedBrandKey) ?? null),
+    [brandGroups, selectedBrandKey],
+  )
+  // Origin select appears only when the active brand has >1 origin to choose
+  // among — mirrors Subcategory/Type appearing only when the parent has children.
+  const showOrigin = brandOriginCascade && !!activeBrandGroup && activeBrandGroup.origins.length > 1
+
   // Phase D.12 Task 4 — per-variant per-division stock breakdown so each
   // variant row can expand into one row per division holding stock, with
   // a "Shared from <div>" chip on rows whose division !== active.
   const { data: variantPools } = useVariantStockByDivision(
-    filterByActiveDivision ? selectedItem?.id ?? null : null,
+    filterByActiveDivision && !brandOriginCascade ? selectedItem?.id ?? null : null,
   )
 
   // Phase D.12 Task 3 — division-aware filter (opt-in via `filterByActiveDivision`).
@@ -275,6 +304,16 @@ export function CascadeInventorySelector({
   const l2Options = l1InTree?.children ?? selectedL1?.children ?? []
   const l3Options = l2InTree?.children ?? selectedL2?.children ?? []
 
+  // Purchase path: an item with exactly one variant resolves immediately (the
+  // "only one option -> don't make them pick it" rule). Guarded by `value` so it
+  // fires once and never loops (resolving sets value -> the breadcrumb renders).
+  useEffect(() => {
+    if (!brandOriginCascade || value || varsLoading) return
+    if (!selectedItem || !selectedCategory) return
+    if (variants.length === 1) void handleVariantSelect(variants[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variants, value, varsLoading, selectedItem, selectedCategory, brandOriginCascade])
+
   // ── Selection handlers ──────────────────────────────────────────────────────
   function handleL1Select(node: InventoryTreeNode) {
     setSelectedL1(node)
@@ -303,15 +342,7 @@ export function CascadeInventorySelector({
     setL3Open(false)
   }
 
-  async function handleVariantSelect(variant: {
-    id: string
-    brand: string
-    code: string | null
-    cost_price: number | null
-    selling_price: number | null
-    stock_level?: number | null
-    reserved_qty?: number | null
-  }) {
+  async function handleVariantSelect(variant: BrandVariantWithJoins) {
     if (!selectedItem || !selectedCategory) return
     setVarOpen(false)
 
@@ -320,6 +351,7 @@ export function CascadeInventorySelector({
     setSelectedVariantStock(
       Math.max(0, (variant.stock_level ?? 0) - (variant.reserved_qty ?? 0))
     )
+    setSelectedVariantOrigin(variant.country_codes?.name ?? null)
 
     const rawCost = variant.cost_price ?? 0
     if (rawCost > 0) {
@@ -360,6 +392,21 @@ export function CascadeInventorySelector({
     }
   }
 
+  function handleBrandSelect(group: PickerBrandGroup<BrandVariantWithJoins>) {
+    setSelectedBrandKey(group.brandKey)
+    setBrandOpen(false)
+    if (group.origins.length === 1) {
+      void handleVariantSelect(group.origins[0])   // single leaf -> resolve now
+    } else {
+      setTimeout(() => setOriginOpen(true), 0)      // reveal Origin
+    }
+  }
+
+  function handleOriginSelect(leaf: BrandVariantWithJoins) {
+    setOriginOpen(false)
+    void handleVariantSelect(leaf)
+  }
+
   function handleClear() {
     onChange(null)
     setSelectedL1(null)
@@ -369,6 +416,10 @@ export function CascadeInventorySelector({
     setSelectedVariantCode(null)
     setSelectedVariantBrand(null)
     setSelectedVariantStock(null)
+    setSelectedVariantOrigin(null)
+    setSelectedBrandKey(null)
+    setBrandOpen(false)
+    setOriginOpen(false)
   }
 
   // After creating a new category at a given level, slot it into that level.
@@ -393,9 +444,12 @@ export function CascadeInventorySelector({
     setIsItemCreating(false)
     setItemOpen(false)
     setVarOpen(true)
+    setSelectedBrandKey(null)
+    setBrandOpen(false)
+    setOriginOpen(false)
   }
 
-  function handleVariantCreated(variant: BrandVariant) {
+  function handleVariantCreated(variant: BrandVariantWithJoins) {
     handleVariantSelect(variant)
     setIsVarCreating(false)
   }
@@ -414,6 +468,7 @@ export function CascadeInventorySelector({
     const inventoryName = selectedItem?.name_en ?? ancestry?.inventory_items?.name_en ?? null
     const brand = selectedVariantBrand ?? ancestry?.brand ?? null
     const code  = selectedVariantCode  ?? ancestry?.code  ?? null
+    const origin = selectedVariantOrigin ?? ancestry?.country_codes?.name ?? null
     const ancestryStock =
       ancestry != null
         ? Math.max(0, (ancestry.stock_level ?? 0) - (ancestry.reserved_qty ?? 0))
@@ -425,6 +480,7 @@ export function CascadeInventorySelector({
     if (inventoryName) breadcrumbParts.push(inventoryName)
     if (code) breadcrumbParts.push(code)
     if (brand) breadcrumbParts.push(brand)
+    if (origin) breadcrumbParts.push(origin)
     const breadcrumbText = breadcrumbParts.join(' - ')
 
     return (
@@ -540,204 +596,327 @@ export function CascadeInventorySelector({
         )}
       </div>
 
-      {/* Row 2 — Item + Variant */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {/* Item */}
-        <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) setIsItemCreating(false) }}>
-          <PopoverTrigger
-            className={cn(triggerCls, !selectedCategory && 'pointer-events-none opacity-50')}
-            render={(props) => <button type="button" disabled={!selectedCategory} {...props} />}
-          >
-            <span className="truncate">
-              {itemsLoading ? 'Loading…' : (selectedItem?.name_en ?? 'Item…')}
-            </span>
-            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
-            {isItemCreating ? (
-              <CascadeNewItemForm
-                categoryId={selectedCategory!.id}
-                onCreated={handleItemCreated}
-                onCancel={() => setIsItemCreating(false)}
-              />
-            ) : (
-              <>
-                <Command>
-                  <CommandInput placeholder="Search item…" className="h-8 text-xs" />
-                  <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-                    {itemsLoading ? 'Loading…' : 'No items found.'}
-                  </CommandEmpty>
-                  <CommandGroup className="max-h-60 overflow-y-auto">
-                    {itemsLoading ? (
-                      <div className="px-2 py-1.5 space-y-1">
-                        {[1, 2, 3].map((n) => (
-                          <div key={n} className="h-6 rounded bg-muted animate-pulse" />
-                        ))}
-                      </div>
-                    ) : (
-                      items.map((item) => {
-                        // Share-only when the filter is active and the item
-                        // is accessible but not owned by the active division.
-                        const isShareOnly =
-                          filterByActiveDivision &&
-                          !!activeDivisionId &&
-                          accessibility.accessibleItemIds?.has(item.id) === true &&
-                          !accessibility.ownedItemIds.has(item.id)
-                        return (
-                          <CommandItem
-                            key={item.id}
-                            value={item.name_en}
-                            onSelect={() => {
-                              setSelectedItem(item)
-                              onChange(null)
-                              setItemOpen(false)
-                            }}
-                            className="text-xs items-start py-2"
-                          >
-                            <Check className={cn('mr-2 mt-1 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
-                            <ItemPhoto
-                              url={(item as unknown as { image_url?: string | null }).image_url ?? null}
-                              name={item.name_en}
-                              size={32}
-                              className="mr-2 mt-0.5 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-start gap-1.5">
-                                <span className="whitespace-normal break-words leading-snug">{item.name_en}</span>
-                                {isShareOnly && (
-                                  <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
-                                    Shared
-                                  </span>
-                                )}
-                              </div>
-                              {item.name_ar && <div className="text-muted-foreground whitespace-normal break-words leading-snug mt-0.5">{item.name_ar}</div>}
-                            </div>
-                          </CommandItem>
-                        )
-                      })
-                    )}
-                  </CommandGroup>
-                </Command>
-                <div className="border-t px-2 py-1.5">
-                  <button
-                    type="button"
-                    className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
-                    onClick={() => setIsItemCreating(true)}
-                  >
-                    + Add new item
-                  </button>
-                </div>
-              </>
-            )}
-          </PopoverContent>
-        </Popover>
-
-        {/* Brand / Variant */}
-        <Popover open={varOpen} onOpenChange={(open) => { setVarOpen(open); if (!open) setIsVarCreating(false) }}>
-          <PopoverTrigger
-            className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
-            render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
-          >
-            <span className="truncate">
-              {varsLoading ? 'Loading…' : 'Brand / Variant…'}
-            </span>
-            <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-0" align="start">
-            {isVarCreating ? (
-              <CascadeNewVariantForm
-                itemId={selectedItem!.id}
-                onCreated={handleVariantCreated}
-                onCancel={() => setIsVarCreating(false)}
-              />
-            ) : (
-              <>
-                <Command>
-                  <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
-                  <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-                    {varsLoading ? 'Loading…' : 'No variants found.'}
-                  </CommandEmpty>
-                  <CommandGroup className="max-h-60 overflow-y-auto">
-                    {varsLoading ? (
-                      <div className="px-2 py-1.5 space-y-1">
-                        {[1, 2, 3].map((n) => (
-                          <div key={n} className="h-6 rounded bg-muted animate-pulse" />
-                        ))}
-                      </div>
-                    ) : (
-                      variants.flatMap((v) => {
-                        const pools = variantPools?.get(v.id) ?? []
-                        // Fall back to a single row when the pool breakdown
-                        // isn't available (filter off, still loading, or the
-                        // variant has zero stock anywhere).
-                        if (pools.length === 0) {
-                          return [(
-                            <CommandItem
-                              key={v.id}
-                              value={`${v.brand} ${v.code ?? ''}`}
-                              onSelect={() => handleVariantSelect(v)}
-                              className="text-xs"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate">{v.brand}</div>
-                                {v.code && <div className="text-muted-foreground truncate">{v.code}</div>}
-                              </div>
-                            </CommandItem>
-                          )]
-                        }
-                        return pools.map((pool: VariantDivisionPool) => {
-                          const isShared =
+      {/* Row 2 — Item + Brand/Origin. Buying pickers (brandOriginCascade) use a
+          Brand->Origin cascade mirroring Row 1; everyone else keeps the combined list. */}
+      <div className={cn('gap-2', brandOriginCascade ? 'flex flex-col sm:flex-row' : 'grid grid-cols-1 sm:grid-cols-2')}>
+        <div className={brandOriginCascade ? 'flex-1 min-w-0' : undefined}>
+          {/* Item */}
+          <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) setIsItemCreating(false) }}>
+            <PopoverTrigger
+              className={cn(triggerCls, !selectedCategory && 'pointer-events-none opacity-50')}
+              render={(props) => <button type="button" disabled={!selectedCategory} {...props} />}
+            >
+              <span className="truncate">
+                {itemsLoading ? 'Loading…' : (selectedItem?.name_en ?? 'Item…')}
+              </span>
+              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              {isItemCreating ? (
+                <CascadeNewItemForm
+                  categoryId={selectedCategory!.id}
+                  onCreated={handleItemCreated}
+                  onCancel={() => setIsItemCreating(false)}
+                />
+              ) : (
+                <>
+                  <Command>
+                    <CommandInput placeholder="Search item…" className="h-8 text-xs" />
+                    <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                      {itemsLoading ? 'Loading…' : 'No items found.'}
+                    </CommandEmpty>
+                    <CommandGroup className="max-h-60 overflow-y-auto">
+                      {itemsLoading ? (
+                        <div className="px-2 py-1.5 space-y-1">
+                          {[1, 2, 3].map((n) => (
+                            <div key={n} className="h-6 rounded bg-muted animate-pulse" />
+                          ))}
+                        </div>
+                      ) : (
+                        items.map((item) => {
+                          // Share-only when the filter is active and the item
+                          // is accessible but not owned by the active division.
+                          const isShareOnly =
+                            filterByActiveDivision &&
                             !!activeDivisionId &&
-                            pool.division_id !== null &&
-                            pool.division_id !== activeDivisionId
-                          const divisionLabel = pool.division_name ?? '—'
-                          const available = Math.max(0, pool.qty - pool.reserved)
+                            accessibility.accessibleItemIds?.has(item.id) === true &&
+                            !accessibility.ownedItemIds.has(item.id)
                           return (
                             <CommandItem
-                              key={`${v.id}:${pool.division_id ?? 'nodiv'}`}
-                              value={`${v.brand} ${v.code ?? ''} ${divisionLabel}`}
-                              onSelect={() => handleVariantSelect(v)}
-                              className="text-xs"
+                              key={item.id}
+                              value={item.name_en}
+                              onSelect={() => {
+                                setSelectedItem(item)
+                                onChange(null)
+                                setItemOpen(false)
+                                setSelectedBrandKey(null)
+                                setBrandOpen(false)
+                                setOriginOpen(false)
+                              }}
+                              className="text-xs items-start py-2"
                             >
+                              <Check className={cn('mr-2 mt-1 h-3 w-3 shrink-0', selectedItem?.id === item.id ? 'opacity-100' : 'opacity-0')} />
+                              <ItemPhoto
+                                url={(item as unknown as { image_url?: string | null }).image_url ?? null}
+                                name={item.name_en}
+                                size={32}
+                                className="mr-2 mt-0.5 shrink-0"
+                              />
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="font-medium truncate">{v.brand}</span>
-                                  {isShared && (
+                                <div className="flex flex-wrap items-start gap-1.5">
+                                  <span className="whitespace-normal break-words leading-snug">{item.name_en}</span>
+                                  {isShareOnly && (
                                     <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
-                                      Shared from {divisionLabel}
+                                      Shared
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
-                                  {v.code && <span className="truncate">{v.code}</span>}
-                                  {v.code && <span>·</span>}
-                                  {!isShared && <span className="truncate">{divisionLabel}</span>}
-                                  {!isShared && <span>·</span>}
-                                  <span className={cn(available > 0 ? 'text-success font-medium' : '')}>
-                                    {available.toLocaleString()} avail
-                                  </span>
-                                </div>
+                                {item.name_ar && <div className="text-muted-foreground whitespace-normal break-words leading-snug mt-0.5">{item.name_ar}</div>}
                               </div>
                             </CommandItem>
                           )
                         })
-                      })
-                    )}
-                  </CommandGroup>
-                </Command>
-                <div className="border-t px-2 py-1.5">
-                  <button
-                    type="button"
-                    className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
-                    onClick={() => setIsVarCreating(true)}
-                  >
-                    + Add new brand / variant
-                  </button>
-                </div>
-              </>
+                      )}
+                    </CommandGroup>
+                  </Command>
+                  <div className="border-t px-2 py-1.5">
+                    <button
+                      type="button"
+                      className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                      onClick={() => setIsItemCreating(true)}
+                    >
+                      + Add new item
+                    </button>
+                  </div>
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {!brandOriginCascade ? (
+          <div>
+            {/* Brand / Variant — combined pooled list (sales path, Phase 2 territory) */}
+            <Popover open={varOpen} onOpenChange={(open) => { setVarOpen(open); if (!open) setIsVarCreating(false) }}>
+              <PopoverTrigger
+                className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
+                render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
+              >
+                <span className="truncate">
+                  {varsLoading ? 'Loading…' : 'Brand / Variant…'}
+                </span>
+                <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="start">
+                {isVarCreating ? (
+                  <CascadeNewVariantForm
+                    itemId={selectedItem!.id}
+                    onCreated={handleVariantCreated}
+                    onCancel={() => setIsVarCreating(false)}
+                  />
+                ) : (
+                  <>
+                    <Command>
+                      <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
+                      <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                        {varsLoading ? 'Loading…' : 'No variants found.'}
+                      </CommandEmpty>
+                      <CommandGroup className="max-h-60 overflow-y-auto">
+                        {varsLoading ? (
+                          <div className="px-2 py-1.5 space-y-1">
+                            {[1, 2, 3].map((n) => (
+                              <div key={n} className="h-6 rounded bg-muted animate-pulse" />
+                            ))}
+                          </div>
+                        ) : (
+                          variants.flatMap((v) => {
+                            const pools = variantPools?.get(v.id) ?? []
+                            const label = variantPickerLabel({
+                              brand_name: v.brands?.name ?? null,
+                              brand: v.brand,
+                              country_name: v.country_codes?.name ?? null,
+                            })
+                            // Fall back to a single row when the pool breakdown
+                            // isn't available (filter off, still loading, or the
+                            // variant has zero stock anywhere).
+                            if (pools.length === 0) {
+                              const sub = [label.origin, v.code].filter(Boolean).join(' · ')
+                              return [(
+                                <CommandItem
+                                  key={v.id}
+                                  value={`${label.primary} ${v.country_codes?.name ?? ''} ${v.code ?? ''}`}
+                                  onSelect={() => handleVariantSelect(v)}
+                                  className="text-xs"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">{label.primary}</div>
+                                    {sub && <div className="text-muted-foreground truncate">{sub}</div>}
+                                  </div>
+                                </CommandItem>
+                              )]
+                            }
+                            return pools.map((pool: VariantDivisionPool) => {
+                              const isShared =
+                                !!activeDivisionId &&
+                                pool.division_id !== null &&
+                                pool.division_id !== activeDivisionId
+                              const divisionLabel = pool.division_name ?? '—'
+                              const available = Math.max(0, pool.qty - pool.reserved)
+                              const subParts = [
+                                label.origin,
+                                v.code,
+                                !isShared ? divisionLabel : null,
+                              ].filter(Boolean) as string[]
+                              return (
+                                <CommandItem
+                                  key={`${v.id}:${pool.division_id ?? 'nodiv'}`}
+                                  value={`${label.primary} ${v.country_codes?.name ?? ''} ${v.code ?? ''} ${divisionLabel}`}
+                                  onSelect={() => handleVariantSelect(v)}
+                                  className="text-xs"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="font-medium truncate">{label.primary}</span>
+                                      {isShared && (
+                                        <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
+                                          Shared from {divisionLabel}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
+                                      {subParts.length > 0 && <span className="truncate">{subParts.join(' · ')}</span>}
+                                      {subParts.length > 0 && <span>·</span>}
+                                      <span className={cn(available > 0 ? 'text-success font-medium' : '')}>
+                                        {available.toLocaleString()} avail
+                                      </span>
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })
+                          })
+                        )}
+                      </CommandGroup>
+                    </Command>
+                    <div className="border-t px-2 py-1.5">
+                      <button
+                        type="button"
+                        className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                        onClick={() => setIsVarCreating(true)}
+                      >
+                        + Add new brand / variant
+                      </button>
+                    </div>
+                  </>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+        ) : (
+          <>
+            {/* Brand select (purchase cascade) */}
+            <div className="flex-1 min-w-0">
+              <Popover open={brandOpen} onOpenChange={(open) => { setBrandOpen(open); if (!open) setIsVarCreating(false) }}>
+                <PopoverTrigger
+                  className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
+                  render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
+                >
+                  <span className="truncate">
+                    {varsLoading ? 'Loading…' : (activeBrandGroup?.brandLabel ?? 'Brand…')}
+                  </span>
+                  <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="start">
+                  {isVarCreating ? (
+                    <CascadeNewVariantForm
+                      itemId={selectedItem!.id}
+                      onCreated={handleVariantCreated}
+                      onCancel={() => setIsVarCreating(false)}
+                    />
+                  ) : (
+                    <>
+                      <Command>
+                        <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
+                        <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                          {varsLoading ? 'Loading…' : 'No brands found.'}
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-60 overflow-y-auto">
+                          {varsLoading ? (
+                            <div className="px-2 py-1.5 space-y-1">
+                              {[1, 2, 3].map((n) => (<div key={n} className="h-6 rounded bg-muted animate-pulse" />))}
+                            </div>
+                          ) : (
+                            brandGroups.map((g) => (
+                              <CommandItem
+                                key={g.brandKey}
+                                value={g.brandLabel}
+                                onSelect={() => handleBrandSelect(g)}
+                                className="text-xs"
+                              >
+                                <Check className={cn('mr-2 h-3 w-3 shrink-0', activeBrandGroup?.brandKey === g.brandKey ? 'opacity-100' : 'opacity-0')} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{g.brandLabel}</div>
+                                  {g.origins.length > 1 && (
+                                    <div className="text-muted-foreground truncate">{g.origins.length} origins</div>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))
+                          )}
+                        </CommandGroup>
+                      </Command>
+                      <div className="border-t px-2 py-1.5">
+                        <button
+                          type="button"
+                          className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                          onClick={() => setIsVarCreating(true)}
+                        >
+                          + Add new brand / variant
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Origin select — revealed only when the active brand has >1 origin */}
+            {showOrigin && (
+              <div className="flex-1 min-w-0">
+                <Popover open={originOpen} onOpenChange={setOriginOpen}>
+                  <PopoverTrigger className={triggerCls} render={(props) => <button type="button" {...props} />}>
+                    <span className="truncate">{selectedVariantOrigin ?? 'Origin…'}</span>
+                    <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search origin…" className="h-8 text-xs" />
+                      <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">No origins.</CommandEmpty>
+                      <CommandGroup className="max-h-60 overflow-y-auto">
+                        {activeBrandGroup!.origins.map((leaf) => {
+                          const originLabel = leaf.country_codes?.name ?? '— No origin —'
+                          return (
+                            <CommandItem
+                              key={leaf.id}
+                              value={`${originLabel} ${leaf.code ?? ''}`}
+                              onSelect={() => handleOriginSelect(leaf)}
+                              className="text-xs"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{originLabel}</div>
+                                {leaf.code && <div className="text-muted-foreground truncate">{leaf.code}</div>}
+                              </div>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
             )}
-          </PopoverContent>
-        </Popover>
+          </>
+        )}
       </div>
     </div>
   )

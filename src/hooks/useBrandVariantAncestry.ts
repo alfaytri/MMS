@@ -10,6 +10,7 @@ export type BrandVariantAncestry = {
   cost_price: number | null
   stock_level: number | null
   reserved_qty: number | null
+  country_codes: { name: string } | null
   inventory_items: {
     id: string
     name_en: string
@@ -34,6 +35,7 @@ export function useBrandVariantAncestry(variantId: string | null) {
         .from('inventory_item_brand_variants')
         .select(`
           id, brand, code, cost_price, stock_level, reserved_qty,
+          country_codes ( name ),
           inventory_items!inner (
             id, name_en, name_ar, unit,
             inventory_categories!inner (

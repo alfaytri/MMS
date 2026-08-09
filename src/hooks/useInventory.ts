@@ -7,6 +7,16 @@ import { logActivity } from '@/lib/logActivity'
 export type InventoryCategory = DBTable<'inventory_categories'>
 export type InventoryItem = DBTable<'inventory_items'>
 export type BrandVariant = DBTable<'inventory_item_brand_variants'>
+/**
+ * A brand variant as returned by the joined picker/catalog queries
+ * (`select('*, brands(name), country_codes(name, flag, iso)')`). The joins are
+ * optional so a plain DBTable row stays assignable — used by the PO cascade
+ * popover and the inline "add variant" form.
+ */
+export type BrandVariantWithJoins = BrandVariant & {
+  brands?: { name: string } | null
+  country_codes?: { name: string; flag: string | null; iso: string } | null
+}
 export type InventoryItemInsert = DBInsert<'inventory_items'>
 export type InventoryItemUpdate = DBUpdate<'inventory_items'>
 // Explicit insert shape (subset of DBInsert) to keep the API surface minimal.

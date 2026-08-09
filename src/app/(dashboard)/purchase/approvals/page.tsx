@@ -320,7 +320,7 @@ export default function ApprovalsPage() {
                 </div>
                 {dialogState.matchingSteps.length === 0 && (
                   <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    You don&apos;t hold any of the pending roles on this chain. Approve is disabled — use Force Approve from the list if you need to push it through as Owner.
+                    You don&apos;t hold any of the pending roles on this chain. Approve and Reject are disabled — use Force Approve from the list if you need to push it through as Owner.
                   </div>
                 )}
 
@@ -339,7 +339,16 @@ export default function ApprovalsPage() {
                           <TableRow key={li.id}>
                             <TableCell className="text-sm">{li.item_name}</TableCell>
                             <TableCell className="text-right text-sm">{li.qty}</TableCell>
-                            <TableCell className="text-right text-sm font-medium">{formatCurrency(li.total_price, dialogState.po.currency)}</TableCell>
+                            <TableCell className="text-right text-sm font-medium">
+                              <div className="flex flex-col items-end leading-tight">
+                                <span>{formatCurrency(li.total_price, dialogState.po.currency)}</span>
+                                {dialogState.po.currency !== 'QAR' && dialogState.po.exchange_rate != null && dialogState.po.exchange_rate !== 1 && (
+                                  <span className="text-[10px] font-normal text-muted-foreground/70">
+                                    ≈ {formatCurrency(li.total_price * dialogState.po.exchange_rate, 'QAR')}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -411,7 +420,7 @@ export default function ApprovalsPage() {
                 ) : (
                   <>
                     <Button variant="outline" onClick={() => setShowRejectOptions(false)} disabled={isMutating}>Back</Button>
-                    <Button variant="destructive" onClick={handleReject} disabled={isMutating || !comment.trim()}>
+                    <Button variant="destructive" onClick={handleReject} disabled={isMutating || !comment.trim() || dialogState.matchingSteps.length === 0}>
                       {rejectPO.isPending ? 'Rejecting…' : `Confirm — ${rejectMode === 'full_rejection' ? 'Cancel PO' : 'Send to Draft'}`}
                     </Button>
                   </>
@@ -467,7 +476,16 @@ export default function ApprovalsPage() {
                             <TableRow key={li.id}>
                               <TableCell className="text-sm">{li.item_name}</TableCell>
                               <TableCell className="text-right text-sm">{li.qty}</TableCell>
-                              <TableCell className="text-right text-sm font-medium">{formatCurrency(li.total_price, viewPO.currency)}</TableCell>
+                              <TableCell className="text-right text-sm font-medium">
+                                <div className="flex flex-col items-end leading-tight">
+                                  <span>{formatCurrency(li.total_price, viewPO.currency)}</span>
+                                  {viewPO.currency !== 'QAR' && viewPO.exchange_rate != null && viewPO.exchange_rate !== 1 && (
+                                    <span className="text-[10px] font-normal text-muted-foreground/70">
+                                      ≈ {formatCurrency(li.total_price * viewPO.exchange_rate, 'QAR')}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>

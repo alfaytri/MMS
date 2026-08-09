@@ -25,6 +25,7 @@ type BillLine = {
   po_line_item_id: string
   item_name: string
   sku: string | null
+  brand_variant_id: string | null
   ordered_qty: number
   received_qty: number
   bill_qty: number
@@ -71,6 +72,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
       po_line_item_id: li.id,
       item_name: li.item_name,
       sku: li.sku ?? null,
+      brand_variant_id: li.brand_variant_id ?? null,
       ordered_qty: li.qty,
       received_qty: li.received_qty ?? 0,
       bill_qty: li.qty,
@@ -133,6 +135,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
           total:        l.bill_qty * l.unit_price,
           match_status: 'matched' as const,
           match_note:   null,
+          brand_variant_id: l.brand_variant_id,
         })),
       })
       if (attachments.length > 0) {

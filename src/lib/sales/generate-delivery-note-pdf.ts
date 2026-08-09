@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
-import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchArabicNamesByBrandVariant, fetchOriginsByBrandVariant } from '@/lib/pdf/arabic-names'
 import {
   buildDeliveryNoteHtml,
   type DeliveryNoteItem,
@@ -72,10 +72,15 @@ export async function generateDeliveryNotePdf(
   }
 
   const rawLines = del.sale_delivery_lines ?? []
-  const arMap = await fetchArabicNamesByBrandVariant(supabase, rawLines.map((l) => l.brand_variant_id))
+  const bvIds = rawLines.map((l) => l.brand_variant_id)
+  const [arMap, originMap] = await Promise.all([
+    fetchArabicNamesByBrandVariant(supabase, bvIds),
+    fetchOriginsByBrandVariant(supabase, bvIds),
+  ])
   const items: DeliveryNoteItem[] = rawLines.map(i => ({
     itemName:     i.item_name,
     itemNameAr:   i.brand_variant_id ? arMap.get(i.brand_variant_id) ?? null : null,
+    origin:       i.brand_variant_id ? originMap.get(i.brand_variant_id) ?? null : null,
     sku:          i.sku,
     qtyDelivered: i.qty_delivered,
   }))

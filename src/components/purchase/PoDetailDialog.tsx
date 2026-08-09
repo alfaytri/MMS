@@ -38,6 +38,7 @@ import {
   useSubmitPOForApproval,
   useCancelPO,
   useRecallPOToDraft,
+  BILLABLE_PO_STATUSES,
   type PurchaseOrder,
 } from '@/hooks/usePurchaseOrders'
 import { useBillsByPO } from '@/hooks/useSupplierBills'
@@ -52,6 +53,7 @@ import { ReceivalCheckButton } from './ReceivalCheckButton'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -116,7 +118,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
     ['approved', 'pending_approval'].includes(current?.status ?? '') &&
     !myRoles.includes('Owner') &&
     !hasOpenRequest
-  const isApprovedLive = current?.status === 'approved'
+  const isBillableLive = !!current && BILLABLE_PO_STATUSES.includes(current.status)
   const liveStage: Stage = current?.po_type ? stageOf(current.po_type) : 'draft'
   const [activeStage, setActiveStage] = useState<Stage>(liveStage)
   const [activeVersion, setActiveVersion] = useState<number | null>(null)
@@ -305,7 +307,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                       Cancel PO
                     </Button>
                   )}
-                  {!isViewingSnapshot && isApprovedLive && (
+                  {!isViewingSnapshot && isBillableLive && (
                     existingBills.length > 0 ? (
                       <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); router.push(`/purchase/bills/${existingBills[0].id}`) }}>
                         View Bill ({existingBills[0].bill_number})
@@ -441,7 +443,16 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                             const chain = cat?.ancestor_chain ?? []
                             const itemType = cat?.type ?? null
                             const typeBadge = itemType ? inventoryTypeBadge[itemType] : null
-                            const brandName = bv?.brand ?? null
+                            const vlabel = variantPickerLabel({
+                              brand_name: bv?.brands?.name ?? null,
+                              brand: bv?.brand ?? null,
+                              country_name: bv?.country_codes?.name ?? null,
+                            })
+                            // "Brand · Origin" (or just one, or origin-only). Suppress the
+                            // "Generic" fallback so plain lines stay uncluttered as before.
+                            const brandOrigin = vlabel.primary === GENERIC_VARIANT_LABEL
+                              ? null
+                              : vlabel.origin ? `${vlabel.primary} · ${vlabel.origin}` : vlabel.primary
                             return (
                             <TableRow key={li.id}>
                               <TableCell className="py-2.5">
@@ -463,8 +474,8 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                                   )}
                                   <div className="flex items-center gap-1.5">
                                     <span className="font-medium">{li.item_name}</span>
-                                    {brandName && (
-                                      <span className="text-xs text-muted-foreground">— {brandName}</span>
+                                    {brandOrigin && (
+                                      <span className="text-xs text-muted-foreground">— {brandOrigin}</span>
                                     )}
                                   </div>
                                 </div>
