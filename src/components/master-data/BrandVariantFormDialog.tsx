@@ -96,12 +96,12 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
     const name = brandSearch.trim()
     if (!name) return
     try {
-      const newBrand = await createBrand.mutateAsync({ name })
+      const { brand: newBrand, created } = await createBrand.mutateAsync({ name })
       form.setValue('brand_id', newBrand.id, { shouldValidate: true, shouldDirty: true })
       form.setValue('brand', newBrand.name, { shouldValidate: true, shouldDirty: true })
       setBrandPickerOpen(false)
       setBrandSearch('')
-      toast.success(`Brand "${newBrand.name}" added`)
+      toast.success(created ? `Brand "${newBrand.name}" added` : `Brand "${newBrand.name}" already exists — selected`)
     } catch (err) {
       toast.error((err as Error).message)
     }

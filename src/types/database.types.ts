@@ -2684,6 +2684,7 @@ export type Database = {
           brand_id: string | null
           code: string | null
           cost_price: number | null
+          country_id: number | null
           created_at: string | null
           damaged_qty: number
           id: string
@@ -2704,6 +2705,7 @@ export type Database = {
           brand_id?: string | null
           code?: string | null
           cost_price?: number | null
+          country_id?: number | null
           created_at?: string | null
           damaged_qty?: number
           id?: string
@@ -2724,6 +2726,7 @@ export type Database = {
           brand_id?: string | null
           code?: string | null
           cost_price?: number | null
+          country_id?: number | null
           created_at?: string | null
           damaged_qty?: number
           id?: string
@@ -2751,6 +2754,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_brand_variants_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_codes"
             referencedColumns: ["id"]
           },
         ]
@@ -8172,6 +8182,10 @@ export type Database = {
         Args: { p_amount?: number; p_bill_id?: string; p_debit_note_id: string }
         Returns: string
       }
+      rpc_archive_inventory_category: {
+        Args: { p_category_id: string }
+        Returns: undefined
+      }
       rpc_attribute_picker_step: {
         Args: { p_category_id: string; p_picks?: Json }
         Returns: Json
@@ -8641,6 +8655,10 @@ export type Database = {
           p_new_rate: number
           p_reason: string
         }
+        Returns: undefined
+      }
+      rpc_update_inventory_sort_orders: {
+        Args: { p_updates: Json }
         Returns: undefined
       }
       rpc_upsert_team_or_place: {

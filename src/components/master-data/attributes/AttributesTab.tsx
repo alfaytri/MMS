@@ -13,14 +13,15 @@ import {
   type EffectiveAttribute,
   type AttributeDefinition,
 } from '@/hooks/useAttributes'
-import { useHasCreatePermission, useHasEditPermission } from '@/hooks/usePermissions'
+import { useHasManagePermission } from '@/hooks/usePermissions'
 import { AttributeFormDialog } from './AttributeFormDialog'
 
 type Props = { categoryId: string }
 
 export function AttributesTab({ categoryId }: Props) {
-  const canCreate = useHasCreatePermission('master_data.inventory.attributes')
-  const canEdit   = useHasEditPermission('master_data.inventory.attributes')
+  const canManage = useHasManagePermission('master_data.inventory.attributes')
+  const canCreate = canManage
+  const canEdit   = canManage
 
   const { data: effective = [], isLoading } = useEffectiveAttributes(categoryId)
   const { data: local = [] } = useAttributeDefinitionsForCategory(categoryId)

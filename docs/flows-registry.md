@@ -478,10 +478,12 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 ## Inventory Receivals (standalone / carve-out)
 
 ### Create Standalone Inventory Receival
-- **Trigger:** `InventoryReceivalDialog`
+- **Trigger:** `InventoryReceivalDialog`, opened **per origin leaf** from `OriginVariantRow` (the box-plus action on a brand→origin row in the catalog tree). Legacy opener `BrandVariantRow` is dead code (0 JSX callers — delete-later).
 - **Hook:** [`useCreateInventoryReceival`](src/hooks/useInventoryReceivals.ts)
+- **RPC:** `create_inventory_receival(p_mode, p_warehouse_id, p_brand_variant_id, p_qty, p_unit_cost, p_source_layer_id, p_date, p_notes, p_sub_container_id)`
 - **Writes:** `inventory_receivals`, seeds FIFO layers, books `inventory_stock_movements`
-- **Notes:** Carve-out / no-PO new stock. `source_type='inventory_import'` seed data uses this same path.
+- **Notes:** Carve-out / no-PO new stock. `source_type='inventory_import'` seed data uses this same path. **Origin-aware (brands+origin feature, 2026-08-08):** the dialog takes `brandVariantId` as a prop = the exact `(item, brand, origin)` leaf clicked in the tree; the hook forwards it as `p_brand_variant_id` and FIFO layers key off `brand_variant_id`, so new stock + cost layers land only on that origin leaf — sibling-origin leaves of the same brand are untouched. There is **no in-dialog item/brand/origin picker by design** — the row you click IS the target (cleaner than a picker; can't select the wrong leaf). Verified 2026-08-08 (received into brand `LD`→India; the `LD`→Nepal leaf stayed 0 with no cost layers).
+- **Related flows:** [[Create / Edit Brand-Origin Variant]]
 
 ---
 
@@ -567,9 +569,10 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useForceApproveStockAdjustment`](src/hooks/useWarehouseOperations.ts)
 
 ### Allocate Warehouse Stock (initial per-variant setup)
-- **Trigger:** [`BrandVariantEditDialog`](src/components/services/inventory/BrandVariantEditDialog.tsx)
+- **Status:** Deprecated — trigger removed in the brands+origin redesign (2026-08-08). `BrandVariantEditDialog` no longer carries a warehouse-allocation block; a repo grep shows **zero app callers** of `allocate_warehouse_stock` (RPC + `database.types.ts` entry remain in the DB). Drop the RPC in a future inventory cleanup.
+- **Historic trigger:** `BrandVariantEditDialog` (pre-redesign)
 - **RPC:** `allocate_warehouse_stock`
-- **Writes:** seeds `inventory_stock` for a new variant at a warehouse
+- **Writes:** seeded `inventory_stock` for a new variant at a warehouse
 
 ---
 
@@ -777,12 +780,43 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 ## Master data with status transitions or ledger side-effects
 
 ### Archive Inventory Item / Brand Variant / Category
-- **Triggers:** `ItemEditDialog`, `BrandVariantEditDialog`, `CategoryEditDialog`
+- **Triggers:** `ItemEditDialog`, `BrandVariantEditDialog`, `CategoryEditDialog`; category is also archived from row actions (`CategoryRow`, `ToolCategoryRow`).
 - **Hooks:** [`useArchiveInventoryItem`, `useArchiveInventoryBrandVariant`, `useArchiveInventoryCategory`](src/hooks/useInventory.ts)
+- **RPC(s):** Category archive routes through `rpc_archive_inventory_category(p_category_id uuid)` (brands+origin feature, 2026-08-08; migration `20260819030000_inventory_rls_permissions.sql`) — gated by RLS `inventory.catalog.manage`. Item / brand-variant archive are direct status updates.
 - **Notes:** Guards against archiving while reservations / stock exist.
+- **Related flows:** [[Reorder Inventory Catalog Tree]], [[Create / Edit Brand-Origin Variant]]
+
+### Create / Edit Brand-Origin Variant
+
+- **Module:** Master Data · Inventory
+- **Status:** Active — brands+origin feature (2026-08-08)
+- **Trigger surface(s):** Catalog tree at `/master-data/inventory`: item-level **+ Add brand** (`ItemRow`), brand-level **+ Add origin** (`BrandGroupRow`), and the **edit (pencil)** on an origin leaf (`OriginVariantRow`). Brand chosen via searchable [`BrandCombobox`](src/components/services/inventory/BrandCombobox.tsx) (A–Z, inline "Add new brand"); origin via [`OriginCombobox`](src/components/services/inventory/OriginCombobox.tsx) (country list). The same hooks also back `BrandVariantFormDialog` (master-data) and `CascadeInlineForms` (purchase).
+- **Primary hook(s):** [`useCreateBrandVariant`, `useUpdateBrandVariant`](src/hooks/useInventory.ts)
+- **RPC(s):** none — direct INSERT/UPDATE on `inventory_item_brand_variants` carrying `brand_id` (uuid) + `country_id` (int). No `margin_percent` column (it does not exist).
+- **Ledger writes:** `inventory_item_brand_variants` only (master-data table). BEFORE-trigger `trg_sync_brand_variants_brand_text` syncs the denormalized `brand` text from `brands.name` when `brand_id` is set; the dialog writes `brand=''` when clearing brand and OMITS `brand` when editing a legacy null-brand leaf (preserves legacy text).
+- **Downstream side-effects:** invalidates the bare `queryKeys.inventory.brandVariantsV2` prefix (reload-bug fix) plus related stock/items keys. The tree groups rows via [`groupVariants`](src/lib/inventory/groupVariants.ts) → BrandGroup → origin rows (Unbranded + null-origin sort last).
+- **Dialog / component:** [`BrandVariantEditDialog`](src/components/services/inventory/BrandVariantEditDialog.tsx) — 3 modes via a `fixedBrand?: {id, name}` prop (add-origin / add-brand / edit); warehouse-allocation block removed (see Deprecated [[Allocate Warehouse Stock (initial per-variant setup)]]).
+- **Guards / preconditions:** RLS `inv_var_*` policies gate INSERT/UPDATE/DELETE on `inventory.catalog.manage`. Cost/selling price UPDATEs additionally gated by `inventory_pricing_guard_trg` → `inventory.pricing.manage` (BEFORE UPDATE only; an INSERT can set price with just catalog.manage). Unique index on `(item_id, brand_id, country_id)` — a duplicate leaf raises 23505, surfaced as a friendly "this brand + origin already exists" toast.
+- **Related flows:** [[Create Standalone Inventory Receival]] (receives stock into these leaves), [[Reorder Inventory Catalog Tree]], [[Archive Inventory Item / Brand Variant / Category]]
+- **Docs / plans:** [docs/plans/2026-08-08-inventory-brands-origin.md](plans/2026-08-08-inventory-brands-origin.md); spec [docs/specs/2026-08-08-inventory-brands-origin-design.md](specs/2026-08-08-inventory-brands-origin-design.md)
+- **Migrations:** `20260819000000_inventory_origin_and_integrity.sql` (origin column + integrity + case-dup brand dedup), `20260819010000_backfill_brands_from_text.sql` (legacy brand text → `brand_id`), `20260819020000_inventory_variant_unique_swap.sql` (unique-index swap to `(item_id, brand_id, country_id)`), `20260819030000_inventory_rls_permissions.sql` (RLS + 4 permission keys + pricing guard + archive/sort RPCs). All mirrored to `supabase/migrations-staging/`; applied to STAGING only.
+
+### Reorder Inventory Catalog Tree
+
+- **Module:** Master Data · Inventory
+- **Status:** Active — brands+origin feature (2026-08-08)
+- **Trigger surface(s):** Up/Down arrows on catalog rows — categories (`CategoryRow`, `ToolCategoryRow`, `ItemsListView`, `ToolsAssetsView`), items (`CategoryRow`), and origin leaves within a brand (`BrandGroupRow`).
+- **Primary hook(s):** [`useUpdateSortOrders(table)`](src/hooks/useInventory.ts) — `table ∈ {inventory_categories, inventory_items, inventory_item_brand_variants}`.
+- **RPC(s):** `rpc_update_inventory_sort_orders(p_updates jsonb)` — jsonb array of `{table_name, id, sort_order}`; whitelists the three tables (an unknown `table_name` is silently ignored — minor, noted for review).
+- **Ledger writes:** `sort_order` column on the targeted table only.
+- **Downstream side-effects:** invalidates the relevant list query keys so the tree re-sorts.
+- **Guards / preconditions:** RLS `inventory.catalog.manage` on each targeted table.
+- **Related flows:** [[Create / Edit Brand-Origin Variant]], [[Archive Inventory Item / Brand Variant / Category]]
+- **Docs / plans:** [docs/plans/2026-08-08-inventory-brands-origin.md](plans/2026-08-08-inventory-brands-origin.md)
 
 ### Batch Update Selling Prices
-- **Trigger:** `BrandVariantEditDialog` price grid
+- **Status:** Deprecated — the multi-row price grid was removed in the brands+origin redesign (2026-08-08). Single cost/selling price is now edited per origin leaf in `BrandVariantEditDialog` (direct UPDATE, gated by `inventory_pricing_guard_trg` → `inventory.pricing.manage`). A repo grep shows **zero callers** of `useBatchUpdateSellingPrices`; the hook + `batch_update_variant_prices` RPC remain but are dead. Drop in a future cleanup.
+- **Historic trigger:** `BrandVariantEditDialog` price grid (pre-redesign)
 - **Hook:** [`useBatchUpdateSellingPrices`](src/hooks/useInventory.ts)
 - **RPC:** `batch_update_variant_prices`
 

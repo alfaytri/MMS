@@ -9,11 +9,22 @@ import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from '@
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { AttributeChipStrip } from '@/components/shared/AttributeChipStrip'
-import { BrandVariantRow } from './BrandVariantRow'
+import { BrandGroupRow } from './BrandGroupRow'
+import { VARIANT_COLUMN_COUNT } from './OriginVariantRow'
 import { ItemEditDialog } from './ItemEditDialog'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
-import { useInventoryBrandVariants, useArchiveInventoryItem, useUpdateSortOrders, type InventoryItem } from '@/hooks/useInventory'
+import { useInventoryBrandVariants, useArchiveInventoryItem, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
 import { formatCurrency } from '@/lib/utils/formatters'
+import { groupVariants, type VariantLite } from '@/lib/inventory/groupVariants'
+
+// Runtime shape returned by useInventoryBrandVariants — it embeds
+// `brands(name)` and `country_codes(name, flag, iso)` via the select string,
+// but the hook casts its result to plain BrandVariant[] (no relation fields
+// in that type). This local type restores the embed shape for grouping.
+type VariantWithRelations = BrandVariant & {
+  brands: { name: string } | null
+  country_codes: { name: string; flag: string; iso: string } | null
+}
 
 type Props = {
   item: InventoryItem
@@ -42,18 +53,19 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const [addVariantOpen, setAddVariantOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archive = useArchiveInventoryItem()
-  const updateVariantOrder = useUpdateSortOrders('inventory_item_brand_variants')
   const { data: variants = [] } = useInventoryBrandVariants(item.id, showArchived)
 
-  function handleVariantMove(idx: number, direction: 'up' | 'down') {
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    const a = variants[idx]
-    const b = variants[targetIdx]
-    updateVariantOrder.mutate([
-      { id: a.id, sort_order: a.sort_order ?? idx },
-      { id: b.id, sort_order: b.sort_order ?? targetIdx },
-    ])
-  }
+  // Flatten the embedded brands/country_codes relations into VariantLite,
+  // then group by brand → sorted origins (see groupVariants.ts for the
+  // grouping/sort rules — Unbranded and null-origin always sort last).
+  const groups = groupVariants(
+    (variants as unknown as VariantWithRelations[]).map((v): VariantLite => ({
+      ...v,
+      brand_name: v.brands?.name ?? null,
+      country_name: v.country_codes?.name ?? null,
+      country_flag: v.country_codes?.flag ?? null,
+    })),
+  )
 
   const totalAtp = variants.reduce((sum, v) => sum + (v.stock_level ?? 0) - (v.reserved_qty ?? 0), 0)
   const totalDamaged = variants.reduce((sum, v) => sum + (v.damaged_qty ?? 0), 0)
@@ -139,10 +151,10 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="text-[10px] h-7 font-semibold">BRAND</TableHead>
+                    <TableHead className="text-[10px] h-7 font-semibold">ORIGIN</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold hidden sm:table-cell">CODE</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right hidden md:table-cell">AVG COST</TableHead>
-                    <TableHead className="text-[10px] h-7 font-semibold text-right hidden md:table-cell">SELLING PRICE</TableHead>
+                    <TableHead className="text-[10px] h-7 font-semibold text-right">SELLING PRICE</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">RESERVED</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right">AVAILABLE</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold text-right hidden sm:table-cell">INCOMING</TableHead>
@@ -150,33 +162,29 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {variants.length === 0 && (
+                  {groups.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-[11px] text-muted-foreground py-4">
+                      <TableCell colSpan={VARIANT_COLUMN_COUNT} className="text-center text-[11px] text-muted-foreground py-4">
                         No variants yet
                       </TableCell>
                     </TableRow>
                   )}
-                  {variants.map((v, idx) => (
-                    <BrandVariantRow
-                      key={v.id}
-                      variant={v}
+                  {groups.map((g) => (
+                    <BrandGroupRow
+                      key={g.brandKey}
+                      group={g}
                       itemId={item.id}
                       itemName={item.name_en}
-                      canMoveUp={idx > 0}
-                      canMoveDown={idx < variants.length - 1}
-                      onMoveUp={() => handleVariantMove(idx, 'up')}
-                      onMoveDown={() => handleVariantMove(idx, 'down')}
                     />
                   ))}
                 </TableBody>
               </Table>
             </div>
             <button
-              className="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1"
+              className="mt-2 min-h-11 md:min-h-0 text-xs text-blue-600 hover:underline flex items-center gap-1"
               onClick={() => setAddVariantOpen(true)}
             >
-              <Plus className="h-3 w-3" /> Add Brand Variant
+              <Plus className="h-3 w-3" /> Add brand
             </button>
           </td>
         </tr>

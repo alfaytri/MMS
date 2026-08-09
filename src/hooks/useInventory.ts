@@ -12,8 +12,9 @@ export type InventoryItemUpdate = DBUpdate<'inventory_items'>
 // Explicit insert shape (subset of DBInsert) to keep the API surface minimal.
 export type BrandVariantInsert = {
   item_id: string
-  brand: string
+  brand?: string
   brand_id?: string | null
+  country_id?: number | null
   code?: string | null
   cost_price?: number | null
   selling_price?: number | null
@@ -68,10 +69,11 @@ export function useBrandVariants(itemId: string | null) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_item_brand_variants')
-        .select('*, brands(name)')
+        .select('*, brands(name), country_codes(name, flag, iso)')
         .eq('item_id', itemId!)
         .eq('status', 'active')
         .order('sort_order')
+        .limit(500)
       if (error) throw error
       return data
     },
@@ -174,9 +176,13 @@ export function useCreateBrandVariant() {
   return useMutation({
     mutationFn: async (values: BrandVariantInsert) => {
       const supabase = createClient()
+      // brand is NOT NULL in the DB; the brand_id sync trigger fills it from
+      // brands.name when brand_id is set, but leaves it untouched otherwise —
+      // default to '' so origin-only/generic variants (brand_id null) still insert.
+      const insertValues = { ...values, brand: values.brand ?? '' }
       const { data, error } = await supabase
         .from('inventory_item_brand_variants')
-        .insert(values as unknown as DBInsert<'inventory_item_brand_variants'>)
+        .insert(insertValues as unknown as DBInsert<'inventory_item_brand_variants'>)
         .select()
         .single()
       if (error) throw error
@@ -189,9 +195,16 @@ export function useCreateBrandVariant() {
       })
       return data
     },
-    onSuccess: (_: unknown, variables: BrandVariantInsert) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsByItem(variables.item_id) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2ByItem(variables.item_id) })
+    onSuccess: () => {
+      // Bare-key (prefix) invalidation — matches useUpdateBrandVariant /
+      // useArchiveInventoryBrandVariant. The item-scoped key variant used to
+      // invalidate here (`brandVariantsV2ByItem(variables.item_id)` →
+      // ['brand-variants-v2', itemId, undefined]) fails TanStack's
+      // partialMatchKey against the tree's actual query key
+      // (['brand-variants-v2', itemId, false]) because slot 2 is `undefined`
+      // vs `false` — a type mismatch, not just a value mismatch. Invalidating
+      // the bare key instead refetches every variant list for every item.
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.allBrandNames })
     },
@@ -520,7 +533,7 @@ export function useInventoryBrandVariants(itemId: string | null, showArchived = 
       const supabase = createClient()
       let q = supabase
         .from('inventory_item_brand_variants')
-        .select('*')
+        .select('*, brands(name), country_codes(name, flag, iso)')
         .eq('item_id', itemId!)
         .order('sort_order', { ascending: true })
         .order('brand', { ascending: true })
@@ -860,34 +873,10 @@ export function useArchiveInventoryCategory() {
     mutationFn: async (categoryId: string) => {
       const supabase = createClient()
       const { data: cat } = await supabase
-        .from('inventory_categories').select('*').eq('id', categoryId).maybeSingle()
-      const { data: items, error: fetchErr } = await supabase
-        .from('inventory_items')
-        .select('id')
-        .eq('category_id', categoryId)
-      if (fetchErr) throw fetchErr
-
-      if (items && items.length > 0) {
-        const itemIds = (items as { id: string }[]).map((i) => i.id)
-        const { error: varErr } = await supabase
-          .from('inventory_item_brand_variants')
-          .update({ status: 'archived' })
-          .in('item_id', itemIds)
-        if (varErr) throw varErr
-        const { error: itemErr } = await supabase
-          .from('inventory_items')
-          .update({ status: 'archived' })
-          .in('id', itemIds)
-        if (itemErr) throw itemErr
-      }
-
-      const { error } = await supabase
-        .from('inventory_categories')
-        .update({ status: 'archived' })
-        .eq('id', categoryId)
+        .from('inventory_categories').select('name_en').eq('id', categoryId).maybeSingle()
+      const { error } = await supabase.rpc('rpc_archive_inventory_category', { p_category_id: categoryId })
       if (error) throw error
-      const catName = (cat as { name_en?: string; name?: string } | null)?.name_en
-        ?? (cat as { name_en?: string; name?: string } | null)?.name ?? null
+      const catName = (cat as { name_en?: string } | null)?.name_en ?? null
       void logActivity({
         action: 'Category Archived',
         module: 'inventory',
@@ -914,13 +903,9 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
   return useMutation({
     mutationFn: async (updates: { id: string; sort_order: number }[]) => {
       const supabase = createClient()
-      const results = await Promise.all(
-        updates.map(({ id, sort_order }) =>
-          supabase.from(table).update({ sort_order }).eq('id', id)
-        )
-      )
-      const failed = results.find((r: { error: unknown }) => r.error)
-      if (failed) throw (failed as { error: unknown }).error
+      const p_updates = updates.map((u) => ({ table_name: table, id: u.id, sort_order: u.sort_order }))
+      const { error } = await supabase.rpc('rpc_update_inventory_sort_orders', { p_updates })
+      if (error) throw error
     },
     onSuccess: () => {
       if (table === 'inventory_categories') qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })

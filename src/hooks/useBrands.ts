@@ -43,7 +43,7 @@ export function useCreateBrand() {
         .limit(1)
       if (findErr) throw findErr
       if (existing && existing.length > 0) {
-        return existing[0] as Brand
+        return { brand: existing[0] as Brand, created: false }
       }
 
       const { data, error } = await supabase
@@ -52,7 +52,7 @@ export function useCreateBrand() {
         .select('id, name, name_ar, sort_order')
         .single()
       if (error) throw error
-      return data as Brand
+      return { brand: data as Brand, created: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.brands.all })
