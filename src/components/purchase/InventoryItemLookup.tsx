@@ -18,8 +18,9 @@ interface InventoryItemLookupProps {
 }
 
 export function InventoryItemLookup({ value, onChange, placeholder = 'Search inventory…', className }: InventoryItemLookupProps) {
+  type LookupRow = InventoryLookupResult & { origin: string | null }
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<InventoryLookupResult[]>([])
+  const [results, setResults] = useState<LookupRow[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -32,13 +33,25 @@ export function InventoryItemLookup({ value, onChange, placeholder = 'Search inv
       const safe = query.replace(/%/g, '\\%')
       const { data } = await supabase
         .from('inventory_item_brand_variants')
-        .select('id, code, cost_price, selling_price, inventory_items!inner(name_en, name_ar, sku, unit)')
+        .select('id, code, cost_price, selling_price, brands(name), country_codes(name), inventory_items!inner(name_en, name_ar, sku, unit)')
         .or(`inventory_items.name_en.ilike.%${safe}%,code.ilike.%${safe}%`)
         .eq('inventory_items.status', 'active')
         .limit(20)
 
+      // brands/country_codes aren't in the generated types yet — map through an
+      // explicit row shape rather than `any`.
+      const rows = (data ?? []) as unknown as Array<{
+        id: string
+        code: string | null
+        cost_price: number | null
+        selling_price: number | null
+        brands: { name: string } | null
+        country_codes: { name: string } | null
+        inventory_items: { name_en: string; name_ar: string | null; sku: string; unit: string }
+      }>
+
       setResults(
-        (data ?? []).map((r) => ({
+        rows.map((r) => ({
           brand_variant_id: r.id,
           item_name: r.inventory_items.name_en,
           item_name_ar: r.inventory_items.name_ar,
@@ -48,7 +61,8 @@ export function InventoryItemLookup({ value, onChange, placeholder = 'Search inv
           selling_price: r.selling_price ?? 0,
           category_name: null,
           category_name_ar: null,
-          brand: null,
+          brand: r.brands?.name ?? null,
+          origin: r.country_codes?.name ?? null,
         }))
       )
       setLoading(false)
@@ -114,7 +128,10 @@ export function InventoryItemLookup({ value, onChange, placeholder = 'Search inv
             >
               <div className="text-left">
                 <div className="font-medium">{item.item_name}</div>
-                {item.sku && <div className="text-xs text-muted-foreground">{item.sku}</div>}
+                {(() => {
+                  const meta = [item.brand, item.origin, item.sku].filter(Boolean).join(' · ')
+                  return meta ? <div className="text-xs text-muted-foreground">{meta}</div> : null
+                })()}
               </div>
               <div className="text-right text-xs text-muted-foreground">
                 {item.unit}
