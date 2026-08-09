@@ -72,10 +72,7 @@ export async function generateBillPdf(
 
   const supplier = bill.suppliers
   const po = bill.purchase_orders
-  // Cast via unknown: brand_variant_id was added by migration 20260819090000 and
-  // is present live, but database.types.ts hasn't been regenerated yet, so the
-  // typed query builder doesn't know the column. (Regen types as a follow-up.)
-  const lineItems = await hydrateBillLines(supabase, (bill.bill_line_items ?? []) as unknown as BillLineItem[])
+  const lineItems = await hydrateBillLines(supabase, (bill.bill_line_items ?? []) as BillLineItem[])
   const currency = po?.currency ?? 'QAR'
 
   // Bill payments come from three sources:

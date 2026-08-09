@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { findApplicableTiers, validateRoles, buildApprovalSteps, getNotificationRecipients } from '@/lib/approvalChainResolution'
+import { findApplicableTiers, validateRoles, getNotificationRecipients } from '@/lib/approvalChainResolution'
 import type { ApprovalChainTier, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 import { savePoSnapshot, stageOf, resolveLineItemNames } from '@/lib/poVersionHelper'
@@ -585,16 +585,11 @@ export function useSubmitPOForApproval() {
       const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)
 
-      // Determine iteration
-      const { data: existingSteps, error: iterErr } = await supabase
-        .from('po_approvals').select('iteration').eq('po_id', id).order('iteration', { ascending: false }).limit(1)
-      if (iterErr) throw iterErr
-      const iteration = existingSteps?.[0]?.iteration ? existingSteps[0].iteration + 1 : 1
-
-      // Create approval steps
-      const steps = buildApprovalSteps(id, tiers, iteration)
-      const { error: stepsErr } = await supabase.from('po_approvals').insert(steps)
-      if (stepsErr) throw stepsErr
+      // Create approval steps server-side — the RPC derives the tiers from the
+      // authoritative chain config (client can't substitute a weaker chain) and
+      // computes the iteration. Direct client INSERT on po_approvals is revoked.
+      const { error: stepsErr } = await supabase.rpc('rpc_build_po_approval_steps', { p_po_id: id })
+      if (stepsErr) throw new Error(formatPgError(stepsErr))
 
       // Update PO status and promote to confirmed type
       const { error: poErr } = await supabase
@@ -782,11 +777,8 @@ export function useRecallPOToDraft() {
       //    in the current iteration are deleted so a clean iteration starts on
       //    next submission.
       const { error: stepsErr } = await supabase
-        .from('po_approvals')
-        .delete()
-        .eq('po_id', id)
-        .eq('status', 'pending')
-      if (stepsErr) throw stepsErr
+        .rpc('rpc_clear_po_approval_steps', { p_po_id: id, p_only_pending: true })
+      if (stepsErr) throw new Error(formatPgError(stepsErr))
 
       // 3. Mark any unread po_approval_requested notifications for this PO as read
       await supabase
@@ -915,8 +907,12 @@ export function useSubmitPoVersion() {
         if (replaceErr) throw new Error(formatPgError(replaceErr))
       }
 
-      // 5. Reset approvals — delete old, insert chain-based fresh steps
-      await supabase.from('po_approvals').delete().eq('po_id', id)
+      // 5. Reset approvals — clear old + rebuild chain-based fresh steps, both
+      //    via SECURITY DEFINER RPCs (direct client INSERT/DELETE is revoked).
+      {
+        const { error: clearErr } = await supabase.rpc('rpc_clear_po_approval_steps', { p_po_id: id, p_only_pending: false })
+        if (clearErr) throw new Error(formatPgError(clearErr))
+      }
 
       // Resolve chain for the PO's division
       const { data: { user } } = await supabase.auth.getUser()
@@ -972,15 +968,9 @@ export function useSubmitPoVersion() {
       const validationError = validateRoles(tiers, roleAssignments)
       if (validationError) throw new Error(validationError)
 
-      // Determine iteration number
-      const { data: existingSteps, error: iterErr } = await supabase
-        .from('po_approvals').select('iteration').eq('po_id', id).order('iteration', { ascending: false }).limit(1)
-      if (iterErr) throw iterErr
-      const iteration = existingSteps?.[0]?.iteration ? existingSteps[0].iteration + 1 : 1
-
-      const steps = buildApprovalSteps(id, tiers, iteration)
-      const { error: approvalErr } = await supabase.from('po_approvals').insert(steps)
-      if (approvalErr) throw approvalErr
+      // Build fresh steps server-side (tiers derived from the chain config).
+      const { error: approvalErr } = await supabase.rpc('rpc_build_po_approval_steps', { p_po_id: id })
+      if (approvalErr) throw new Error(formatPgError(approvalErr))
 
       // Fire notifications to all approvers (parallel approval)
       const recipientIds = getNotificationRecipients(tiers, roleAssignments)
