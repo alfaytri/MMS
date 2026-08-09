@@ -51,6 +51,14 @@ interface CascadeInventorySelectorProps {
    * consuming it.
    */
   filterByActiveDivision?: boolean
+  /**
+   * Opt into the Brand → Origin cascade (two side-by-side selects) instead of
+   * the combined Brand/Variant list. Set by the buying pickers (PO create,
+   * receivals). Independent of `filterByActiveDivision` — that is the division
+   * stock filter, and several sales callers set it too, so it can't be used to
+   * tell buying from selling.
+   */
+  brandOriginCascade?: boolean
 }
 
 async function fetchLastFifoCost(variantId: string): Promise<number> {
@@ -181,6 +189,7 @@ export function CascadeInventorySelector({
   onChange,
   onPriceLoading,
   filterByActiveDivision = false,
+  brandOriginCascade = false,
 }: CascadeInventorySelectorProps) {
   // Three category levels — the deepest non-null wins as the effective category.
   const [selectedL1, setSelectedL1] = useState<InventoryTreeNode | null>(null)
@@ -228,13 +237,13 @@ export function CascadeInventorySelector({
   )
   // Origin select appears only when the active brand has >1 origin to choose
   // among — mirrors Subcategory/Type appearing only when the parent has children.
-  const showOrigin = !filterByActiveDivision && !!activeBrandGroup && activeBrandGroup.origins.length > 1
+  const showOrigin = brandOriginCascade && !!activeBrandGroup && activeBrandGroup.origins.length > 1
 
   // Phase D.12 Task 4 — per-variant per-division stock breakdown so each
   // variant row can expand into one row per division holding stock, with
   // a "Shared from <div>" chip on rows whose division !== active.
   const { data: variantPools } = useVariantStockByDivision(
-    filterByActiveDivision ? selectedItem?.id ?? null : null,
+    filterByActiveDivision && !brandOriginCascade ? selectedItem?.id ?? null : null,
   )
 
   // Phase D.12 Task 3 — division-aware filter (opt-in via `filterByActiveDivision`).
@@ -299,11 +308,11 @@ export function CascadeInventorySelector({
   // "only one option -> don't make them pick it" rule). Guarded by `value` so it
   // fires once and never loops (resolving sets value -> the breadcrumb renders).
   useEffect(() => {
-    if (filterByActiveDivision || value || varsLoading) return
+    if (!brandOriginCascade || value || varsLoading) return
     if (!selectedItem || !selectedCategory) return
     if (variants.length === 1) void handleVariantSelect(variants[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variants, value, varsLoading, selectedItem, selectedCategory, filterByActiveDivision])
+  }, [variants, value, varsLoading, selectedItem, selectedCategory, brandOriginCascade])
 
   // ── Selection handlers ──────────────────────────────────────────────────────
   function handleL1Select(node: InventoryTreeNode) {
@@ -587,10 +596,10 @@ export function CascadeInventorySelector({
         )}
       </div>
 
-      {/* Row 2 — Item + Brand/Origin. Purchase (filterByActiveDivision=false) uses a
-          Brand->Origin cascade mirroring Row 1; sales keeps the combined list (Phase 2). */}
-      <div className={cn('gap-2', filterByActiveDivision ? 'grid grid-cols-1 sm:grid-cols-2' : 'flex flex-col sm:flex-row')}>
-        <div className={filterByActiveDivision ? undefined : 'flex-1 min-w-0'}>
+      {/* Row 2 — Item + Brand/Origin. Buying pickers (brandOriginCascade) use a
+          Brand->Origin cascade mirroring Row 1; everyone else keeps the combined list. */}
+      <div className={cn('gap-2', brandOriginCascade ? 'flex flex-col sm:flex-row' : 'grid grid-cols-1 sm:grid-cols-2')}>
+        <div className={brandOriginCascade ? 'flex-1 min-w-0' : undefined}>
           {/* Item */}
           <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) setIsItemCreating(false) }}>
             <PopoverTrigger
@@ -685,7 +694,7 @@ export function CascadeInventorySelector({
           </Popover>
         </div>
 
-        {filterByActiveDivision ? (
+        {!brandOriginCascade ? (
           <div>
             {/* Brand / Variant — combined pooled list (sales path, Phase 2 territory) */}
             <Popover open={varOpen} onOpenChange={(open) => { setVarOpen(open); if (!open) setIsVarCreating(false) }}>

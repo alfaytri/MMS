@@ -463,6 +463,7 @@ export function PoReceiveTab({
                 lineType={nonPoLineType}
                 value={nonPoLookup}
                 onChange={setNonPoLookup}
+                brandOriginCascade
               />
             </div>
 
