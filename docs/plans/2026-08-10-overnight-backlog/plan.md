@@ -382,40 +382,46 @@ yet all read); the fix intent and target are fixed below. `grep` enumerates any
 - Per-table audit written into this section (below) once the audit agent returns.
 - `docs/plans/2026-08-10-overnight-backlog/MORNING-CHECKLIST.md`
 
-### Task 4.1: Per-table write-path audit
+### Task 4.1: Per-table write-path audit — ✅ done
 
-- [ ] Fold the audit agent's findings into a table here: for each of `payments`,
-      `so_invoices`, `so_po_returns`, `sale_deliveries`, `credit_notes`,
-      `debit_notes` (+ the 4 lower-confidence tables), record: direct client
-      write sites (`file:line`), the exact privileged columns/statuses to block,
-      the legit client writes that must pass, the DEFINER RPCs that write it, and
-      current grants. **Guard only where a real direct-write vector + direct grant
-      is confirmed.**
+- [x] Audit written to [`security-p1-audit.md`](security-p1-audit.md) (backed by a
+      dedicated read-only audit agent): per-table direct client write sites
+      (`file:line`), privileged columns/statuses to block, legit client writes that
+      must pass, DEFINER RPC writers, and current grants — for all 10 tables.
+      Key refinements vs the plan's assumptions: `debit_notes` status IS
+      client-legit (money-only guard); `so_po_returns` status machine is
+      client-driven (only `dispatched_at`/`restocked_at` safe to lock);
+      `po_line_items` cannot take a `current_user` guard (`rpc_replace_po_lines`
+      is INVOKER); `payment_plans` wants a REVOKE not a trigger; `shipments` needs
+      no guard; and `20260806000000` already `*.manage`-gates 4 of the tables.
 
-### Task 4.2: Author draft guard migrations
+### Task 4.2: Author draft guard migrations — ✅ done
 
-- [ ] For each confirmed table, write a draft `guard_<table>_<what>.sql` under
-      `draft-migrations/`, following the `guard_po_locked_columns` /
-      `guard_so_privileged_status` template EXACTLY: `SECURITY INVOKER`,
-      `SET search_path TO 'public'`, `current_user IN ('authenticated','anon')`
-      gate, `RAISE ... USING ERRCODE='42501'`, `DROP TRIGGER IF EXISTS` +
-      `CREATE TRIGGER ... BEFORE INSERT/UPDATE`.
-- [ ] Column names copied verbatim from the audit (validated against the live
-      schema in the morning before push).
+- [x] Seven drafts under [`draft-migrations/`](draft-migrations/README.md), each
+      following the `guard_po_locked_columns` / `guard_so_privileged_status`
+      template EXACTLY (`SECURITY INVOKER`, `SET search_path TO 'public'`,
+      `current_user IN ('authenticated','anon')` gate, `RAISE ... 42501`,
+      `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER`): `01` sale_deliveries,
+      `02` payments, `03` so_invoices, `04` credit_notes, `05` debit_notes
+      (money-only), `06` so_po_returns (narrow), `07` payment_plans (REVOKE).
+      `po_line_items` / `receivals` / `shipments` deliberately not drafted
+      (documented in the README + audit). Column names to be validated against the
+      live schema in the morning.
 
-### Task 4.3: Morning checklist
+### Task 4.3: Morning checklist — ✅ done
 
-- [ ] Write `MORNING-CHECKLIST.md`: per table — (1) confirm direct `authenticated`
-      grants live; (2) confirm every writer RPC `prosecdef=true`; (3) copy draft →
-      `supabase/migrations/<ts>_*.sql` + `supabase/migrations-staging/` mirror;
-      (4) `db push`; (5) live-verify trigger enabled + `prosecdef=false` on the
-      guard fn; (6) operator smoke the legit write flow; (7) commit with dual
-      trailer + registry/PROGRESS updates.
+- [x] [`MORNING-CHECKLIST.md`](MORNING-CHECKLIST.md): global pre-checks, a
+      per-table ship loop (grep → validate columns → copy to `supabase/migrations/`
+      + mirror → `db push` → live-verify trigger+`prosecdef=false` → operator smoke
+      → commit), and per-table smoke flows + the two blocking pre-checks
+      (so_invoices physical table name; rpc_create_partial_replacement DEFINER).
 
 ### Task 4.4: Record WS4 as staged
 
-- [ ] PROGRESS.md: note WS4 drafted + staged (not shipped); link this folder.
-      EOD: one line. No code commit for WS4.
+- [ ] PROGRESS.md: WS4 drafted + staged (not shipped); link this folder. EOD: one
+      line. The draft SQL + audit + checklist are committed as **docs** (loud DRAFT
+      headers, outside `supabase/migrations/`) so nothing is applied by `db push`
+      and nothing is lost; no migration/code is committed to `supabase/migrations/`.
 
 ---
 

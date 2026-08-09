@@ -262,8 +262,15 @@ client write to a privileged column AND direct grants): `po_line_items`,
       and the legit client write-paths that must still pass.
 - [ ] Draft guard migrations authored for each confirmed table under
       `draft-migrations/`, following the template exactly.
-- [ ] Nothing under `supabase/migrations/` is added; nothing pushed; nothing
-      committed for WS4. The morning checklist is written.
+- [ ] Nothing under `supabase/migrations/` is added; nothing pushed; no migration
+      is applied. The morning checklist is written.
+- **Committal note (deviation from the initial "uncommitted" wording):** the WS4
+      artifacts — audit, morning checklist, and the seven draft `.sql` files — are
+      committed as **docs** under `docs/plans/2026-08-10-overnight-backlog/` with
+      loud `DRAFT — NOT APPLIED` headers, deliberately **outside**
+      `supabase/migrations/`. This preserves the work (untracked files risk loss)
+      and keeps it reviewable, while `supabase db push` still cannot see it. No
+      migration and no application code is committed for WS4.
 
 ---
 
