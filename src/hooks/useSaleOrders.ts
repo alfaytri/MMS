@@ -721,15 +721,21 @@ export function useCreateSO() {
       }
       return result
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      // Real order total in QAR (mirrors the RPC: subtotal − discount, × rate).
+      // Previously logged data.open_total, which is the customer's existing credit
+      // usage, not this order's total.
+      const totalQar =
+        calcSOTotal(calcSOSubtotal(variables.line_items), variables.discount_amount, variables.discount_type) *
+        variables.exchange_rate
       logActivity({
         action:    `Sale Order ${data.status === 'pending_approval' ? 'Submitted for Approval' : data.status === 'confirmed' ? 'Confirmed' : 'Created'}`,
         module:    'sale_orders',
         entity_id: data.so_id,
-        details:   `${data.so_number} · Total QAR ${data.open_total + 0}`,
+        details:   `${data.so_number} · Total QAR ${totalQar.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         severity:  'info',
       })
     },

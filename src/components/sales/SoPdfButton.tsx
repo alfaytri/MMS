@@ -59,9 +59,10 @@ export function SoPdfButton({ so }: SoPdfButtonProps) {
       if (!pdfRes.ok) throw new Error(`Failed to fetch PDF (${pdfRes.status})`)
       const blob = await pdfRes.blob()
       const objectUrl = URL.createObjectURL(blob)
+      const isQuote = so.status === 'quotation' || so.status === 'pending_approval'
       const a = document.createElement('a')
       a.href = objectUrl
-      a.download = `Quotation-${soNumber}.pdf`
+      a.download = `${isQuote ? 'Quotation' : 'SalesOrder'}-${soNumber}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

@@ -587,7 +587,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   Edit SO
                 </Button>
               )}
-              {(current?.status === 'quotation' || current?.status === 'pending_approval') && fullSO && (
+              {/* PDF is available for every SO — a Quotation for quotation/pending
+                  statuses, a Sales Order once confirmed+ (title set by status). */}
+              {fullSO && (
                 <SoPdfButton so={fullSO} />
               )}
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>

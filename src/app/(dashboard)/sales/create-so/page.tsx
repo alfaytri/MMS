@@ -203,13 +203,11 @@ export default function CreateSOPage() {
 
   function saveQuotation() {
     if (!validate()) return
+    // A quotation never triggers approval (the RPC resolves intent='quotation'
+    // to 'quotation' regardless of credit), so there's no pending_approval case.
     createSO.mutate(buildPayload('quotation'), {
-      onSuccess: (result) => {
-        if (result.status === 'pending_approval') {
-          toast.warning(`Saved — exceeds credit limit (available: ${formatAmt(result.available, 'QAR')}). Submitted for owner approval.`)
-        } else {
-          toast.success('Saved as quotation')
-        }
+      onSuccess: () => {
+        toast.success('Saved as quotation')
         router.push('/sales/orders')
       },
       onError: (err) => toast.error(err.message),
