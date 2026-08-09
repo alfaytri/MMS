@@ -10,22 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToolCategoryRow } from './ToolCategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { useUpdateSortOrders } from '@/hooks/useInventory'
-import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
-
-function filterTree(nodes: InventoryTreeNode[], search: string): InventoryTreeNode[] {
-  if (!search) return nodes
-  const lower = search.toLowerCase()
-  return nodes.reduce<InventoryTreeNode[]>((acc, node) => {
-    const nameMatch =
-      node.name_en.toLowerCase().includes(lower) ||
-      (node.name_ar ?? '').toLowerCase().includes(lower)
-    const filteredChildren = filterTree(node.children, search)
-    if (nameMatch || filteredChildren.length > 0) {
-      acc.push({ ...node, children: nameMatch ? node.children : filteredChildren })
-    }
-    return acc
-  }, [])
-}
+import { useInventoryTree } from '@/hooks/useInventoryTree'
+import { filterTree } from '@/lib/inventory/filterTree'
 
 export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
   const [search, setSearch] = useState('')

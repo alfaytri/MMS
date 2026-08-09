@@ -661,6 +661,7 @@ export function useVariantWarehouseStock(variantId: string | undefined, enabled 
         .select('warehouse_id, remaining_qty, receival_id')
         .eq('brand_variant_id', variantId)
         .gt('remaining_qty', 0)
+        .limit(1000)
       if (error) throw error
 
       const whMap = new Map<string, number>()
@@ -682,7 +683,11 @@ export function useVariantWarehouseStock(variantId: string | undefined, enabled 
       }
     },
     enabled: !!variantId && enabled,
-    staleTime: 0,
+    // Was staleTime: 0 → refetched on every tooltip-open (hover noise + quota).
+    // 30s de-dupes rapid re-hovers; receival mutations still invalidate the
+    // `variantWarehouseStock` key (useInventoryReceivals.ts) so a receival's
+    // stock change shows immediately regardless of staleness.
+    staleTime: 30_000,
   })
 }
 

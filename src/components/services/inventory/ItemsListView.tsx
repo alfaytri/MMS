@@ -12,6 +12,7 @@ import { CategoryEditDialog } from './CategoryEditDialog'
 import { InventoryImportDialog } from './InventoryImportDialog'
 import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
+import { filterTree } from '@/lib/inventory/filterTree'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemDivisionMembership } from '@/hooks/useItemDivisionMembership'
 
@@ -22,21 +23,6 @@ const LABEL_MAP: Record<InventorySubType, string> = {
   'products': 'Products (Installation)',
   'spare-parts': 'Spare Parts (Sales)',
   'consumables': 'Consumables (Internal)',
-}
-
-function filterTree(nodes: InventoryTreeNode[], search: string): InventoryTreeNode[] {
-  if (!search) return nodes
-  const lower = search.toLowerCase()
-  return nodes.reduce<InventoryTreeNode[]>((acc, node) => {
-    const nameMatch =
-      node.name_en.toLowerCase().includes(lower) ||
-      (node.name_ar ?? '').toLowerCase().includes(lower)
-    const filteredChildren = filterTree(node.children, search)
-    if (nameMatch || filteredChildren.length > 0) {
-      acc.push({ ...node, children: nameMatch ? node.children : filteredChildren })
-    }
-    return acc
-  }, [])
 }
 
 type Props = {

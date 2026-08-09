@@ -273,27 +273,27 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         })()}
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" aria-label="Move category up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" aria-label="Move category down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Add subcategory" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
               <FolderPlus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Add item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
               <Plus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
             {canViewAttributes && (
-              <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Manage Attributes" onClick={() => setAttributesOpen(true)}>
+              <Button variant="ghost" size="icon" aria-label="Manage attributes" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Manage Attributes" onClick={() => setAttributesOpen(true)}>
                 <Tags className="h-3 w-3" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Archive category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
             </Button>
           </div>
