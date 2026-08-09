@@ -62,6 +62,8 @@ export type POLineItem = {
   created_at: string
   inventory_item_brand_variants?: {
     brand: string
+    brands?: { name: string } | null
+    country_codes?: { name: string } | null
     inventory_items?: {
       name_en: string
       inventory_categories?: {
@@ -295,6 +297,8 @@ export function usePurchaseOrder(id: string | null) {
             *,
             inventory_item_brand_variants(
               brand,
+              brands(name),
+              country_codes(name),
               inventory_items(
                 name_en,
                 inventory_categories(id, name_en, parent_id, type)

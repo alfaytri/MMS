@@ -20,6 +20,7 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCreateReceival } from '@/hooks/useReceivals'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
+import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import type { LineType } from '@/components/purchase/PoLineItemsEditor'
 import type { PurchaseOrder, InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 
@@ -28,6 +29,7 @@ type ReceiveRow = {
   brand_variant_id: string | null
   item_name: string        // vendor name (user-entered)
   system_name: string | null  // name from inventory system
+  variant_label: string | null  // "Brand · Origin" (null when generic)
   sku: string | null
   unit: string
   ordered: number
@@ -86,19 +88,31 @@ export function PoReceiveTab({
   }, [warehouseId, poDivisionId, eligibleSubs.length])
 
   const [rows, setRows] = useState<ReceiveRow[]>(() =>
-    (po.po_line_items ?? []).map((li) => ({
-      po_line_item_id: li.id,
-      brand_variant_id: li.brand_variant_id ?? null,
-      item_name: li.item_name,
-      system_name: (li as { inventory_item_brand_variants?: { inventory_items?: { name_en?: string } } }).inventory_item_brand_variants?.inventory_items?.name_en ?? null,
-      sku: li.sku ?? null,
-      unit: li.unit ?? '',
-      ordered: li.qty,
-      alreadyReceived: li.received_qty,
-      receiveNow: Math.max(0, li.qty - li.received_qty),
-      unitCost: li.unit_price,
-      freeQty: 0,
-    }))
+    (po.po_line_items ?? []).map((li) => {
+      const bv = li.inventory_item_brand_variants
+      const vlabel = variantPickerLabel({
+        brand_name: bv?.brands?.name ?? null,
+        brand: bv?.brand ?? null,
+        country_name: bv?.country_codes?.name ?? null,
+      })
+      const variant_label = vlabel.primary === GENERIC_VARIANT_LABEL
+        ? null
+        : vlabel.origin ? `${vlabel.primary} · ${vlabel.origin}` : vlabel.primary
+      return {
+        po_line_item_id: li.id,
+        brand_variant_id: li.brand_variant_id ?? null,
+        item_name: li.item_name,
+        system_name: bv?.inventory_items?.name_en ?? null,
+        variant_label,
+        sku: li.sku ?? null,
+        unit: li.unit ?? '',
+        ordered: li.qty,
+        alreadyReceived: li.received_qty,
+        receiveNow: Math.max(0, li.qty - li.received_qty),
+        unitCost: li.unit_price,
+        freeQty: 0,
+      }
+    })
   )
 
   const [extraFreeItems, setExtraFreeItems] = useState<ExtraFreeItem[]>([])
@@ -305,7 +319,11 @@ export function PoReceiveTab({
                 <TableRow key={row.po_line_item_id} className={done ? 'bg-muted/30' : ''}>
                   <TableCell>
                     <p className="font-medium text-sm">{row.system_name ?? row.item_name}</p>
-                    {row.sku && <p className="text-xs text-muted-foreground">{row.sku}</p>}
+                    {(row.variant_label || row.sku) && (
+                      <p className="text-xs text-muted-foreground">
+                        {[row.variant_label, row.sku].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     {row.ordered}{row.unit && <span className="text-muted-foreground ml-1 text-xs">{row.unit}</span>}
