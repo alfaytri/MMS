@@ -25,6 +25,7 @@ export interface QuotationLineItem {
   item_name:         string
   item_name_ar:      string | null
   brand_variant_id?: string | null
+  origin?:           string | null
   sku:               string | null
   qty:               number
   unit:              string
@@ -94,6 +95,7 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
       <td class="cell-item">
         <div class="item-name">${escapeHtml(li.item_name)}</div>
         ${li.item_name_ar ? `<div class="item-name-ar">${escapeHtml(li.item_name_ar)}</div>` : ''}
+        ${li.origin ? `<div class="item-origin">Origin: ${escapeHtml(li.origin)}</div>` : ''}
         ${li.sku ? `<div class="item-sku">${escapeHtml(li.sku)}</div>` : ''}
       </td>
       <td class="cell-num">${escapeHtml(String(li.qty))}</td>
@@ -132,6 +134,7 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
   ${fontFacesCss(input.fonts)}
   ${BASE_CSS}
   .summary-divider { height: 0.7px; background: var(--text); }
+  table.lines td.cell-item .item-origin { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); margin-top: 1px; }
 </style>
 </head>
 <body>
