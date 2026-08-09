@@ -139,6 +139,7 @@ export function useCreateBill() {
         total: number
         match_status: BillLineItem['match_status']
         match_note: string | null
+        brand_variant_id: string | null
       }[]
     }) => {
       const supabase = createClient()
