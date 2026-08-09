@@ -16,6 +16,7 @@ import {
   useItemAttributesByCategories,
   useEffectiveAttributes,
 } from '@/hooks/useAttributes'
+import { ItemAttributesProvider, type ItemAttributesBatch } from '@/components/shared/ItemAttributesContext'
 import { useInventoryItemsByCategories } from '@/hooks/useInventory'
 import {
   AttributeFilterBar,
@@ -102,10 +103,20 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     [effectiveAttrs, inheritedActiveIds],
   )
 
-  // Item→attribute map for THIS category's direct items. Descendant rows do
-  // their own lookups, keyed by their own category id.
+  // Item→attribute map for THIS category's direct items. Loaded whenever the
+  // category is expanded (not only when a filter is active) because it now
+  // also feeds every ItemRow's AttributeChipStrip via ItemAttributesProvider —
+  // one query per expanded category instead of one per item row. Descendant
+  // rows do their own lookups, keyed by their own category id.
   const { data: itemAttrsByItem } = useItemAttributesByCategory(
-    expanded && attrFilterActive ? node.id : null,
+    expanded ? node.id : null,
+  )
+
+  // Stable batch value for the chip-strip provider. Empty map while the query
+  // is in flight so children never fall back to a per-item query.
+  const attrBatchValue = useMemo<ItemAttributesBatch>(
+    () => ({ byItem: itemAttrsByItem ?? new Map<string, Map<string, string>>() }),
+    [itemAttrsByItem],
   )
 
   const items = useMemo(() => {
@@ -326,19 +337,26 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         />
       ))}
 
-      {/* Items — a category can hold direct items alongside sub-categories */}
-      {expanded && items.map((item, idx) => (
-        <ItemRow
-          key={item.id}
-          item={item}
-          categoryType={categoryType}
-          showArchived={showArchived}
-          canMoveUp={idx > 0}
-          canMoveDown={idx < items.length - 1}
-          onMoveUp={() => handleItemMove(idx, 'up')}
-          onMoveDown={() => handleItemMove(idx, 'down')}
-        />
-      ))}
+      {/* Items — a category can hold direct items alongside sub-categories.
+          Wrapped in the batch provider so each ItemRow's AttributeChipStrip
+          reads ONE batched query (itemAttrsByItem) instead of one per row.
+          ItemAttributesProvider emits no DOM, so it's safe between table rows. */}
+      {expanded && items.length > 0 && (
+        <ItemAttributesProvider value={attrBatchValue}>
+          {items.map((item, idx) => (
+            <ItemRow
+              key={item.id}
+              item={item}
+              categoryType={categoryType}
+              showArchived={showArchived}
+              canMoveUp={idx > 0}
+              canMoveDown={idx < items.length - 1}
+              onMoveUp={() => handleItemMove(idx, 'up')}
+              onMoveDown={() => handleItemMove(idx, 'down')}
+            />
+          ))}
+        </ItemAttributesProvider>
+      )}
 
       {expanded && isLeaf && items.length === 0 && (
         <tr className="border-b border-border">
