@@ -7,6 +7,63 @@ Remove items from this file once shipped (do not just strike through — delete)
 
 ## Open
 
+### Security P1 — per-table value/state guards on remaining direct-write tables
+
+**Surfaced:** 2026-08-09 (division-scope RLS audit) — continuation of the shipped P1 work
+**Priority:** Medium-High — closes the same tamper class already fixed for `sale_orders` and `purchase_orders`
+
+**Problem.** The app-wide `division_scope_*` RLS pattern gates writes only on
+`is_division_visible(division_id)` — not on *which column* or *state transition* is
+being written. Several tables still have direct client write grants and no
+value/state guard, so an authenticated division member could raw-PostgREST UPDATE
+money or workflow fields, bypassing the DEFINER RPCs + audit trail. P0 revoked the
+grants on the 7 RPC-only tables; P1 adds guard triggers to the tables that still
+*need* some client writes but must protect specific columns/statuses.
+
+Already shipped (the template to copy): `sale_orders` status guard
+(`20260819110000`) and `purchase_orders` financial-column lock
+(`20260819130000`) — both use a BEFORE INS/UPD trigger, `SECURITY INVOKER`,
+`SET search_path=public`, and the `current_user IN ('authenticated','anon')` test so
+only direct client writes are blocked while DEFINER workflow RPCs pass.
+
+**Remaining tables + intended guard:**
+- **`payments`** — block direct client edits to `amount` / `amount_qar` /
+  `exchange_rate` / `direction` (and re-linking `invoice_id` / `bill_id` /
+  `credit_note_id`). All legit edits go through `rpc_edit_*_payment` /
+  `rpc_delete_*_payment` (DEFINER, permission-gated) shipped in the AP/AR payment
+  edit work.
+- **`so_invoices`** — block direct client writes to totals / balance
+  (`total_amount`, `paid_amount`, `payment_status`); those are owned by the
+  recompute triggers + invoice-generation/sync DEFINER RPCs only.
+- **`so_po_returns`** — block forging workflow-only statuses directly (mirror the
+  `sale_orders` guard: allow the creation/cancel states, block the rest).
+- **`sale_deliveries`** — same: block direct writes to workflow-only delivery
+  statuses; only `complete_delivery_inventory` / delivery RPCs may set them.
+- **`credit_notes` / `debit_notes`** — lock amount + status against direct client
+  writes; issuance/redemption/void flow through their DEFINER RPCs.
+
+Also review (lower confidence, confirm each has direct grants + a real vector before
+guarding): `po_line_items`, `payment_plans`, `receivals`, `shipments`.
+
+**Required work (per table):**
+1. Confirm the table still has direct `authenticated` write grants (if a P0-style
+   full revoke is safe because every writer is DEFINER, prefer that over a guard).
+2. Audit `src/` for any legit direct client write to the protected columns/statuses
+   before adding the guard (don't break a real flow).
+3. Add the guard trigger (INVOKER, `current_user IN ('authenticated','anon')`,
+   `SET search_path=public`), STAGING-only + byte-identical mirror to
+   `supabase/migrations-staging/`.
+4. Live-verify (`prosecdef=false`, trigger enabled) + operator-smoke every legit
+   write flow still succeeds before commit.
+
+**Why deferred:** each table needs its own audit of legit write paths + an operator
+smoke of the real flow; batching them blind risks blocking a legitimate RPC or UI
+save. Do them one (or a small related group) at a time.
+
+**Plan / full list:** `docs/security/2026-08-09-division-scope-rls-audit-remediation.md`.
+Related shipped guards: `sale_orders` (`20260819110000`), `purchase_orders`
+(`20260819130000`).
+
 ### fifo_cost_layers.receival_id — text → uuid FK
 
 **Surfaced:** 2026-08-08 (inventory-tree audit)
