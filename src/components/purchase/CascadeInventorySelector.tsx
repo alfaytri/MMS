@@ -14,12 +14,14 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
+import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import {
   useInventoryItemsByCategory,
   useInventoryBrandVariants,
   type InventoryCategory,
   type InventoryItem,
   type BrandVariant,
+  type BrandVariantWithJoins,
 } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { useBrandVariantAncestry } from '@/hooks/useBrandVariantAncestry'
@@ -198,6 +200,7 @@ export function CascadeInventorySelector({
   const [selectedVariantCode,  setSelectedVariantCode]  = useState<string | null>(null)
   const [selectedVariantBrand, setSelectedVariantBrand] = useState<string | null>(null)
   const [selectedVariantStock, setSelectedVariantStock] = useState<number | null>(null)
+  const [selectedVariantOrigin, setSelectedVariantOrigin] = useState<string | null>(null)
 
   const [l1Creating, setL1Creating] = useState(false)
   const [l2Creating, setL2Creating] = useState(false)
@@ -208,8 +211,9 @@ export function CascadeInventorySelector({
   const { tree: rawTree, flat: flatCategories, isLoading: catsLoading } = useInventoryTree(lineType)
   const { data: rawItems = [], isLoading: itemsLoading } =
     useInventoryItemsByCategory(selectedCategory?.id ?? null)
-  const { data: variants = [], isLoading: varsLoading } =
+  const { data: variantRows = [], isLoading: varsLoading } =
     useInventoryBrandVariants(selectedItem?.id ?? null)
+  const variants = variantRows as BrandVariantWithJoins[]
   // Phase D.12 Task 4 — per-variant per-division stock breakdown so each
   // variant row can expand into one row per division holding stock, with
   // a "Shared from <div>" chip on rows whose division !== active.
@@ -303,15 +307,7 @@ export function CascadeInventorySelector({
     setL3Open(false)
   }
 
-  async function handleVariantSelect(variant: {
-    id: string
-    brand: string
-    code: string | null
-    cost_price: number | null
-    selling_price: number | null
-    stock_level?: number | null
-    reserved_qty?: number | null
-  }) {
+  async function handleVariantSelect(variant: BrandVariantWithJoins) {
     if (!selectedItem || !selectedCategory) return
     setVarOpen(false)
 
@@ -320,6 +316,7 @@ export function CascadeInventorySelector({
     setSelectedVariantStock(
       Math.max(0, (variant.stock_level ?? 0) - (variant.reserved_qty ?? 0))
     )
+    setSelectedVariantOrigin(variant.country_codes?.name ?? null)
 
     const rawCost = variant.cost_price ?? 0
     if (rawCost > 0) {
@@ -369,6 +366,7 @@ export function CascadeInventorySelector({
     setSelectedVariantCode(null)
     setSelectedVariantBrand(null)
     setSelectedVariantStock(null)
+    setSelectedVariantOrigin(null)
   }
 
   // After creating a new category at a given level, slot it into that level.
@@ -395,7 +393,7 @@ export function CascadeInventorySelector({
     setVarOpen(true)
   }
 
-  function handleVariantCreated(variant: BrandVariant) {
+  function handleVariantCreated(variant: BrandVariantWithJoins) {
     handleVariantSelect(variant)
     setIsVarCreating(false)
   }
@@ -414,6 +412,7 @@ export function CascadeInventorySelector({
     const inventoryName = selectedItem?.name_en ?? ancestry?.inventory_items?.name_en ?? null
     const brand = selectedVariantBrand ?? ancestry?.brand ?? null
     const code  = selectedVariantCode  ?? ancestry?.code  ?? null
+    const origin = selectedVariantOrigin ?? ancestry?.country_codes?.name ?? null
     const ancestryStock =
       ancestry != null
         ? Math.max(0, (ancestry.stock_level ?? 0) - (ancestry.reserved_qty ?? 0))
@@ -425,6 +424,7 @@ export function CascadeInventorySelector({
     if (inventoryName) breadcrumbParts.push(inventoryName)
     if (code) breadcrumbParts.push(code)
     if (brand) breadcrumbParts.push(brand)
+    if (origin) breadcrumbParts.push(origin)
     const breadcrumbText = breadcrumbParts.join(' - ')
 
     return (
@@ -667,20 +667,26 @@ export function CascadeInventorySelector({
                     ) : (
                       variants.flatMap((v) => {
                         const pools = variantPools?.get(v.id) ?? []
+                        const label = variantPickerLabel({
+                          brand_name: v.brands?.name ?? null,
+                          brand: v.brand,
+                          country_name: v.country_codes?.name ?? null,
+                        })
                         // Fall back to a single row when the pool breakdown
                         // isn't available (filter off, still loading, or the
                         // variant has zero stock anywhere).
                         if (pools.length === 0) {
+                          const sub = [label.origin, v.code].filter(Boolean).join(' · ')
                           return [(
                             <CommandItem
                               key={v.id}
-                              value={`${v.brand} ${v.code ?? ''}`}
+                              value={`${label.primary} ${v.country_codes?.name ?? ''} ${v.code ?? ''}`}
                               onSelect={() => handleVariantSelect(v)}
                               className="text-xs"
                             >
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate">{v.brand}</div>
-                                {v.code && <div className="text-muted-foreground truncate">{v.code}</div>}
+                                <div className="font-medium truncate">{label.primary}</div>
+                                {sub && <div className="text-muted-foreground truncate">{sub}</div>}
                               </div>
                             </CommandItem>
                           )]
@@ -692,16 +698,21 @@ export function CascadeInventorySelector({
                             pool.division_id !== activeDivisionId
                           const divisionLabel = pool.division_name ?? '—'
                           const available = Math.max(0, pool.qty - pool.reserved)
+                          const subParts = [
+                            label.origin,
+                            v.code,
+                            !isShared ? divisionLabel : null,
+                          ].filter(Boolean) as string[]
                           return (
                             <CommandItem
                               key={`${v.id}:${pool.division_id ?? 'nodiv'}`}
-                              value={`${v.brand} ${v.code ?? ''} ${divisionLabel}`}
+                              value={`${label.primary} ${v.country_codes?.name ?? ''} ${v.code ?? ''} ${divisionLabel}`}
                               onSelect={() => handleVariantSelect(v)}
                               className="text-xs"
                             >
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="font-medium truncate">{v.brand}</span>
+                                  <span className="font-medium truncate">{label.primary}</span>
                                   {isShared && (
                                     <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
                                       Shared from {divisionLabel}
@@ -709,10 +720,8 @@ export function CascadeInventorySelector({
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground truncate">
-                                  {v.code && <span className="truncate">{v.code}</span>}
-                                  {v.code && <span>·</span>}
-                                  {!isShared && <span className="truncate">{divisionLabel}</span>}
-                                  {!isShared && <span>·</span>}
+                                  {subParts.length > 0 && <span className="truncate">{subParts.join(' · ')}</span>}
+                                  {subParts.length > 0 && <span>·</span>}
                                   <span className={cn(available > 0 ? 'text-success font-medium' : '')}>
                                     {available.toLocaleString()} avail
                                   </span>
