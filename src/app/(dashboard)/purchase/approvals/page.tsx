@@ -339,7 +339,16 @@ export default function ApprovalsPage() {
                           <TableRow key={li.id}>
                             <TableCell className="text-sm">{li.item_name}</TableCell>
                             <TableCell className="text-right text-sm">{li.qty}</TableCell>
-                            <TableCell className="text-right text-sm font-medium">{formatCurrency(li.total_price, dialogState.po.currency)}</TableCell>
+                            <TableCell className="text-right text-sm font-medium">
+                              <div className="flex flex-col items-end leading-tight">
+                                <span>{formatCurrency(li.total_price, dialogState.po.currency)}</span>
+                                {dialogState.po.currency !== 'QAR' && dialogState.po.exchange_rate != null && dialogState.po.exchange_rate !== 1 && (
+                                  <span className="text-[10px] font-normal text-muted-foreground/70">
+                                    ≈ {formatCurrency(li.total_price * dialogState.po.exchange_rate, 'QAR')}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -467,7 +476,16 @@ export default function ApprovalsPage() {
                             <TableRow key={li.id}>
                               <TableCell className="text-sm">{li.item_name}</TableCell>
                               <TableCell className="text-right text-sm">{li.qty}</TableCell>
-                              <TableCell className="text-right text-sm font-medium">{formatCurrency(li.total_price, viewPO.currency)}</TableCell>
+                              <TableCell className="text-right text-sm font-medium">
+                                <div className="flex flex-col items-end leading-tight">
+                                  <span>{formatCurrency(li.total_price, viewPO.currency)}</span>
+                                  {viewPO.currency !== 'QAR' && viewPO.exchange_rate != null && viewPO.exchange_rate !== 1 && (
+                                    <span className="text-[10px] font-normal text-muted-foreground/70">
+                                      ≈ {formatCurrency(li.total_price * viewPO.exchange_rate, 'QAR')}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
