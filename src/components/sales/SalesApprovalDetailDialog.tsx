@@ -13,6 +13,12 @@ import {
   useApproveSalesRequest, useRejectSalesRequest, useMyApprovalRoleNames,
   type SalesApprovalSlip,
 } from '@/hooks/useSalesApprovals'
+import { useSaleOrder } from '@/hooks/useSaleOrders'
+import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
+
+function fmtMoney(n: number, currency: string): string {
+  return `${currency} ${Number(n).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
 interface Props { slip: SalesApprovalSlip | null; onClose: () => void }
 
@@ -21,6 +27,9 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
   const approve = useApproveSalesRequest()
   const reject  = useRejectSalesRequest()
   const { data: myRoles = [] } = useMyApprovalRoleNames()
+  // Load the SO's lines so the approver sees WHAT is being ordered, not just a
+  // total. Null id disables the query until a slip is open.
+  const { data: fullSO } = useSaleOrder(slip?.so.id ?? null)
 
   if (!slip) return null
 
@@ -57,27 +66,66 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
 
   return (
     <Dialog open={!!slip} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="w-full max-w-full h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:max-w-2xl sm:rounded-lg flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle>
             {slip.approval_type === 'margin' ? 'Margin Approval' : 'Credit Approval'} · {slip.so.so_number}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="rounded-md border bg-muted/30 p-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">{slip.so.customer_name}</span>
-              <Badge variant="outline">Iteration #{slip.iteration}</Badge>
+        <div className="space-y-4 px-6 pb-2 overflow-y-auto flex-1 sm:flex-initial">
+          <div className="rounded-md bg-muted p-3 space-y-1 text-sm">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Customer</span>
+              <span className="font-medium text-right">{slip.so.customer_name}</span>
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Total: {slip.so.currency} {slip.so.total.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Total</span>
+              <span className="font-semibold">{fmtMoney(slip.so.total, slip.so.currency)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">Iteration</span>
+              <Badge variant="outline">#{slip.iteration}</Badge>
             </div>
           </div>
 
+          {/* Ordered items — so the approver sees WHAT is being ordered, not just a total. */}
+          {(fullSO?.sale_order_lines?.length ?? 0) > 0 && (
+            <div className="rounded-md border text-xs">
+              <div className="border-b bg-muted/30 px-3 py-2 font-medium">Ordered items</div>
+              <div className="divide-y">
+                {(fullSO!.sale_order_lines ?? []).map((li) => {
+                  const bv = li.inventory_item_brand_variants
+                  const vlabel = variantPickerLabel({
+                    brand_name:   bv?.brands?.name ?? null,
+                    brand:        bv?.brand ?? null,
+                    country_name: bv?.country_codes?.name ?? null,
+                  })
+                  const brandOrigin = vlabel.primary === GENERIC_VARIANT_LABEL
+                    ? null
+                    : vlabel.origin ? `${vlabel.primary} · ${vlabel.origin}` : vlabel.primary
+                  return (
+                    <div key={li.id} className="flex items-start justify-between gap-3 px-3 py-1.5">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {li.item_name}
+                          {brandOrigin && <span className="font-normal text-muted-foreground"> — {brandOrigin}</span>}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {li.qty} × {fmtMoney(li.unit_price, slip.so.currency)}{li.sku ? ` · ${li.sku}` : ''}
+                        </div>
+                      </div>
+                      <div className="shrink-0 font-medium tabular-nums">{fmtMoney(li.total, slip.so.currency)}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Trigger payload — margin / credit thresholds are stored + compared in QAR
               (credit-limit + avg_cost are QAR baseline), regardless of the SO's own currency. */}
-          <div className="rounded-md border-l-4 border-amber-500 bg-amber-500/5 p-3 text-xs space-y-1">
+          <div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-xs space-y-1">
             {slip.approval_type === 'credit' ? (
               <>
                 <div>Available credit: QAR {Number(payload.available ?? 0).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -126,7 +174,7 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mx-0 mb-0 flex-col sm:flex-row gap-2 px-6 py-4 border-t shrink-0 bg-background rounded-b-lg">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button variant="destructive" onClick={handleReject} disabled={reject.isPending}>
             <XCircle className="h-4 w-4 mr-1" /> Reject
