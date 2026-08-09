@@ -8,11 +8,14 @@ import {
   useCreateInventoryCategory,
   useCreateInventoryItem,
   useCreateBrandVariant,
-  useAllBrandNames,
   type InventoryCategory,
   type InventoryItem,
   type BrandVariant,
+  type BrandVariantWithJoins,
 } from '@/hooks/useInventory'
+import { BrandCombobox } from '@/components/services/inventory/BrandCombobox'
+import { OriginCombobox } from '@/components/services/inventory/OriginCombobox'
+import { useCountryCodes } from '@/hooks/useCountryCodes'
 import type { LineType } from './PoLineItemsEditor'
 
 // ── CascadeNewCategoryForm ─────────────────────────────────────────────────────
@@ -181,33 +184,54 @@ export function CascadeNewItemForm({ categoryId, onCreated, onCancel }: NewItemF
 
 interface NewVariantFormProps {
   itemId: string
-  onCreated: (variant: BrandVariant) => void
+  onCreated: (variant: BrandVariantWithJoins) => void
   onCancel: () => void
 }
 
 export function CascadeNewVariantForm({ itemId, onCreated, onCancel }: NewVariantFormProps) {
-  const [brand,        setBrand]        = useState('')
+  const [brand,        setBrand]        = useState<{ id: string; name: string } | null>(null)
+  const [countryId,    setCountryId]    = useState<number | null>(null)
   const [code,         setCode]         = useState('')
   const [costPrice,    setCostPrice]    = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
   const create = useCreateBrandVariant()
-  const { data: allBrands = [] } = useAllBrandNames()
+  const { data: countryCodes = [] } = useCountryCodes()
 
-  const datalistId = `brands-${itemId}`
+  // Require at least a brand OR an origin — prevents an accidental empty
+  // (generic, no-origin) leaf from being created inline. A truly generic leaf
+  // is a rare case and can be added from the catalog.
+  const canSave = (brand !== null || countryId !== null) && !create.isPending
 
   function handleSubmit() {
-    if (!brand.trim()) return
+    if (!canSave) return
     create.mutate(
       {
         item_id:       itemId,
-        brand:         brand.trim(),
+        // brand is NOT NULL; '' satisfies it and the BEFORE-INSERT trigger
+        // overwrites it from brands.name once brand_id is set.
+        brand:         '',
+        brand_id:      brand?.id ?? null,
+        country_id:    countryId,
         code:          code.trim() || null,
         cost_price:    Number(costPrice)    || 0,
         selling_price: Number(sellingPrice) || 0,
       },
       {
-        onSuccess: (variant) => { toast.success('Brand/variant created'); onCreated(variant as BrandVariant) },
-        onError:   (err)     => toast.error(err.message),
+        onSuccess: (variant) => {
+          toast.success('Brand/variant created')
+          // The insert's .select() row lacks the joined names — attach the
+          // brand/origin labels we already hold so the picker breadcrumb shows
+          // origin immediately (before the list refetch lands).
+          const countryName = countryId != null
+            ? countryCodes.find((c) => c.id === countryId)?.name ?? null
+            : null
+          onCreated({
+            ...(variant as BrandVariant),
+            brands:        brand ? { name: brand.name } : null,
+            country_codes: countryName ? { name: countryName, flag: null, iso: '' } : null,
+          })
+        },
+        onError: (err) => toast.error(err.message),
       }
     )
   }
@@ -220,19 +244,12 @@ export function CascadeNewVariantForm({ itemId, onCreated, onCancel }: NewVarian
   return (
     <div className="p-3 space-y-2" onKeyDown={onKeyDown}>
       <p className="text-xs font-medium">New Brand / Variant</p>
-      <datalist id={datalistId}>
-        {allBrands.map((b) => (
-          <option key={b} value={b} />
-        ))}
-      </datalist>
-      <Input
-        autoFocus
-        list={datalistId}
-        className="h-7 text-xs w-full"
-        placeholder="Brand name *"
-        value={brand}
-        onChange={(e) => setBrand(e.target.value)}
-      />
+      {/* Brand + Origin — parallel side-by-side searchable comboboxes (never
+          flyout), matching the catalog BrandVariantEditDialog pattern. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <BrandCombobox value={brand?.id ?? null} onChange={setBrand} />
+        <OriginCombobox value={countryId} onChange={setCountryId} />
+      </div>
       <Input
         className="h-7 text-xs w-full"
         placeholder="Variant code / SKU (optional)"
@@ -264,7 +281,7 @@ export function CascadeNewVariantForm({ itemId, onCreated, onCancel }: NewVarian
           type="button"
           size="sm"
           className="h-7 text-xs flex-1"
-          disabled={!brand.trim() || create.isPending}
+          disabled={!canSave}
           onClick={handleSubmit}
         >
           {create.isPending ? 'Saving…' : 'Save'}
