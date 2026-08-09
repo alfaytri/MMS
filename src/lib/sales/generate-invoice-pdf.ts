@@ -17,15 +17,22 @@ import {
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
-import { fetchArabicNamesByEnglishName } from '@/lib/pdf/arabic-names'
+import { fetchArabicNamesByEnglishName, fetchOriginsByBrandVariant } from '@/lib/pdf/arabic-names'
 
-async function hydrateInvoiceArabic(
+async function hydrateInvoiceLines(
   client: SupabaseClient,
   lines:  InvoiceLineItem[],
 ): Promise<InvoiceLineItem[]> {
   if (lines.length === 0) return lines
-  const map = await fetchArabicNamesByEnglishName(client, lines.map((l) => l.description))
-  return lines.map((l) => ({ ...l, description_ar: map.get(l.description) ?? null }))
+  const [arMap, originMap] = await Promise.all([
+    fetchArabicNamesByEnglishName(client, lines.map((l) => l.description)),
+    fetchOriginsByBrandVariant(client, lines.map((l) => l.brand_variant_id ?? null)),
+  ])
+  return lines.map((l) => ({
+    ...l,
+    description_ar: arMap.get(l.description) ?? null,
+    origin:         l.brand_variant_id ? originMap.get(l.brand_variant_id) ?? null : null,
+  }))
 }
 
 function storageKeyFor(invoiceDisplayId: string): string {
@@ -73,7 +80,7 @@ export async function generateInvoicePdf(
       subtotal, discount_amount, total_amount, paid_amount, payment_status,
       notes, pdf_url, sale_order_id,
       customers(name, customer_phones(phone, is_primary)),
-      invoice_line_items(description, qty, unit_price, total),
+      invoice_line_items(description, qty, unit_price, total, brand_variant_id),
       sale_orders(so_number, payment_terms, division_id, currency)
     `)
     .eq('id', invoiceUuid)
@@ -156,7 +163,7 @@ export async function generateInvoicePdf(
     })(),
     so_number:      inv.sale_orders?.so_number ?? null,
     currency:       inv.sale_orders?.currency ?? 'QAR',
-    lines:          await hydrateInvoiceArabic(supabase, inv.invoice_line_items ?? []),
+    lines:          await hydrateInvoiceLines(supabase, inv.invoice_line_items ?? []),
     subtotal,
     discount,
     total_amount:   totalAmount,
