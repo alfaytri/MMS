@@ -272,6 +272,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Origin-aware PO Picker (Phase 1) Task 1: variantPickerLabel helper** on `feature/inventory-origin-po-so-pickers` (off `deploy/warehouse-shipping` @ d17fa503). Plan: [docs/inventory-origin-po-so-pickers/phase-1-po-picker-plan.md](docs/inventory-origin-po-so-pickers/phase-1-po-picker-plan.md) (5 tasks). Display/selection change only (no DB migration): surface the already-fetched `country_codes` origin in the PO cascade popover rows + breadcrumb, in the inline add-variant form (brand_id + country_id), and in `InventoryItemLookup`; verify PO receival books FIFO on the chosen leaf. Subagent-driven execution; UI tasks gated on operator smoke before branch finish.
+
 ✅ **Inventory Brands & Origin — COMPLETE** on `feature/inventory-brands-and-origin` (all 18 tasks + importer brand_id regression fix + 2 UI follow-ups; user smoke-confirmed throughout). Branch kept as-is (merge-ready; no merge/push per user). Final commit `b5afd24d`.
 
 🔄 **Inventory Permissions Cleanup** on `feature/inventory-permissions-cleanup` (off the brands branch) — **all 5 tasks code-complete + committed, awaiting one operator smoke.** Cleaned the permission tree to View/Manage, removed dead legacy `master_data.inventory.*` keys, collapsed Category Attributes to view/manage, repointed page/nav/audit to `inventory.catalog.view`, and applied an idempotent role-grant data migration to staging (live-verified, access preserved). tsc clean; 11/11 new perm tests pass; dry-run up-to-date. **Remaining:** ⏸ limited-role operator smoke (see morning checklist in the plan Task 5) — needs a human login, cannot be run by the agent.
