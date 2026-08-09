@@ -223,6 +223,7 @@ export function SoLineItemsEditor({
                             onChange={(item) => handleInventorySelect(row._key, item)}
                             onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
                             filterByActiveDivision
+                            brandOriginCascade
                           />
                         )}
                       </div>
