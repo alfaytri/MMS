@@ -822,3 +822,372 @@ Two execution options:
 
 1. **Subagent-Driven (recommended)** — dispatch a fresh subagent per task, review between tasks, controller commits after each review (pure task) or after operator "works" (UI tasks). Uses `superpowers:subagent-driven-development`.
 2. **Inline Execution** — execute tasks in this session with checkpoints. Uses `superpowers:executing-plans`.
+
+---
+
+# Revision R — Brand → Origin cascade picker (supersedes Task 2's combined list on the purchase path)
+
+> Approved 2026-08-09 (see the spec's "Revision 2026-08-09" section). Replaces the shipped combined "Brand / Variant" list with a two-step **Brand → Origin** cascade mirroring the Category → Subcategory → Type selects. **Purchase path only** (`filterByActiveDivision === false`); the sales-side pooled rendering is left untouched (Phase 2). Same subagent-driven execution + operator-smoke gate as the rest of Phase 1.
+
+## Task 6: `variantsToBrandGroups` pure helper (TDD)
+
+Groups an item's joined variants into brand groups (reusing the tested `groupVariants`), returning the **original typed variant objects** as each group's origins so the picker can pass a leaf straight to `handleVariantSelect`. Generic in the variant type — no React/hook imports.
+
+**Files:**
+- Create: `src/lib/inventory/variantBrandGroups.ts`
+- Test: `src/lib/inventory/variantBrandGroups.test.ts`
+
+**Interfaces:**
+- Consumes: `groupVariants`, `type VariantLite` from `./groupVariants`.
+- Produces:
+  - `type BrandVariantLike = { id: string; brand_id: string | null; country_id: number | null; brands?: { name: string } | null; country_codes?: { name: string } | null }`
+  - `type PickerBrandGroup<T> = { brandKey: string; brandLabel: string; origins: T[] }`
+  - `function variantsToBrandGroups<T extends BrandVariantLike>(variants: T[]): PickerBrandGroup<T>[]` — brand order + origin order come from `groupVariants` (Unbranded last, null-origin last); origins are the original `T` objects, not `VariantLite`.
+
+- [ ] **Step 1: Write the failing test** — create `src/lib/inventory/variantBrandGroups.test.ts`:
+
+```ts
+import { describe, it, expect } from 'vitest'
+import { variantsToBrandGroups } from './variantBrandGroups'
+
+type V = {
+  id: string
+  brand_id: string | null
+  country_id: number | null
+  brands?: { name: string } | null
+  country_codes?: { name: string } | null
+  code?: string | null
+}
+
+const mk = (o: Partial<V> & { id: string }): V => ({
+  brand_id: null, country_id: null, brands: null, country_codes: null, ...o,
+})
+
+describe('variantsToBrandGroups', () => {
+  it('groups by brand and keeps origin objects (full variant passthrough)', () => {
+    const daikinEg = mk({ id: 'v1', brand_id: 'b1', brands: { name: 'DAIKIN' }, country_id: 1, country_codes: { name: 'Egypt' }, code: 'A' })
+    const daikinDe = mk({ id: 'v2', brand_id: 'b1', brands: { name: 'DAIKIN' }, country_id: 2, country_codes: { name: 'Germany' }, code: 'B' })
+    const lg = mk({ id: 'v3', brand_id: 'b2', brands: { name: 'LG' }, code: 'C' })
+    const groups = variantsToBrandGroups([daikinDe, lg, daikinEg])
+    const daikin = groups.find((g) => g.brandLabel === 'DAIKIN')!
+    expect(daikin.origins.map((o) => o.id)).toEqual(['v1', 'v2']) // Egypt before Germany (A-Z)
+    expect(daikin.origins[0].code).toBe('A')                       // original object preserved
+    const lgGroup = groups.find((g) => g.brandLabel === 'LG')!
+    expect(lgGroup.origins).toHaveLength(1)
+  })
+
+  it('labels brandless leaves "Unbranded" and sorts that group last', () => {
+    const groups = variantsToBrandGroups([
+      mk({ id: 'g1' }),                                              // no brand, no origin
+      mk({ id: 'b1', brand_id: 'bx', brands: { name: 'Bosch' } }),
+    ])
+    expect(groups.map((g) => g.brandLabel)).toEqual(['Bosch', 'Unbranded'])
+  })
+
+  it('single generic leaf -> one Unbranded group with one origin', () => {
+    const groups = variantsToBrandGroups([mk({ id: 'only' })])
+    expect(groups).toHaveLength(1)
+    expect(groups[0].brandLabel).toBe('Unbranded')
+    expect(groups[0].origins).toHaveLength(1)
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails** — `npx vitest run src/lib/inventory/variantBrandGroups.test.ts` → FAIL (cannot resolve module).
+
+- [ ] **Step 3: Write the implementation** — create `src/lib/inventory/variantBrandGroups.ts`:
+
+```ts
+import { groupVariants, type VariantLite } from './groupVariants'
+
+// Minimal shape the picker groups on — the joined brand/country names plus the
+// scalar FK ids. Kept structural (no hook import) so this stays pure.
+export type BrandVariantLike = {
+  id: string
+  brand_id: string | null
+  country_id: number | null
+  brands?: { name: string } | null
+  country_codes?: { name: string } | null
+}
+
+export type PickerBrandGroup<T> = {
+  brandKey: string
+  brandLabel: string
+  origins: T[]
+}
+
+/**
+ * Group joined variants by brand for the PO cascade, delegating the grouping +
+ * ordering (Unbranded last, null-origin last) to the tested `groupVariants`,
+ * then mapping each group's origins back to the ORIGINAL typed variant objects
+ * (groupVariants only carries the VariantLite projection) so the caller can
+ * pass a leaf straight to `handleVariantSelect`.
+ */
+export function variantsToBrandGroups<T extends BrandVariantLike>(variants: T[]): PickerBrandGroup<T>[] {
+  const byId = new Map(variants.map((v) => [v.id, v]))
+  const lite: VariantLite[] = variants.map((v) => ({
+    id:           v.id,
+    brand_id:     v.brand_id ?? null,
+    brand_name:   v.brands?.name ?? null,
+    country_id:   v.country_id ?? null,
+    country_name: v.country_codes?.name ?? null,
+  }))
+  return groupVariants(lite).map((g) => ({
+    brandKey:   g.brandKey,
+    brandLabel: g.brandLabel,
+    origins:    g.origins.map((o) => byId.get(o.id)!),
+  }))
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes** — `npx vitest run src/lib/inventory/variantBrandGroups.test.ts` → PASS (3).
+
+- [ ] **Step 5: Type-check + commit** (pure task — commit when green). `npx tsc --noEmit` clean, then:
+
+```bash
+git add src/lib/inventory/variantBrandGroups.ts src/lib/inventory/variantBrandGroups.test.ts
+git commit -m "$(cat <<'EOF'
+feat(purchase): variantsToBrandGroups helper for the Brand-Origin picker
+
+Groups an item's joined variants by brand (via the tested groupVariants),
+returning the original typed variant objects as each group's origins so the PO
+cascade can pass a leaf straight to handleVariantSelect.
+
+Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+## Task 7: Brand → Origin cascade in `CascadeInventorySelector` (purchase path)
+
+Replace the shipped combined "Brand / Variant" popover with a **Brand** select + a conditionally-revealed **Origin** select, **only when `filterByActiveDivision === false`**. When `true` (sales), keep the existing combined-list popover byte-for-byte (Phase 2 territory). Resolution still flows through the unchanged `handleVariantSelect` (cost default untouched); the breadcrumb (Task 2) is unchanged.
+
+**Files:**
+- Modify: `src/components/purchase/CascadeInventorySelector.tsx`
+
+**Interfaces:**
+- Consumes: `variantsToBrandGroups`, `type PickerBrandGroup` (Task 6); existing `handleVariantSelect`, `handleVariantCreated`, `variants` (`BrandVariantWithJoins[]`), `CascadeNewVariantForm`.
+
+- [ ] **Step 1: Imports + new state.** Add `useEffect` to the React import (`import { useState, useEffect, useMemo } from 'react'`). Add `import { variantsToBrandGroups } from '@/lib/inventory/variantBrandGroups'`. Add state next to `selectedVariantOrigin`:
+
+```ts
+  const [brandOpen, setBrandOpen] = useState(false)
+  const [originOpen, setOriginOpen] = useState(false)
+  const [selectedBrandKey, setSelectedBrandKey] = useState<string | null>(null)
+```
+
+- [ ] **Step 2: Derived brand groups + active group + single-variant auto-resolve.** After `const variants = variantRows as BrandVariantWithJoins[]`:
+
+```ts
+  const brandGroups = useMemo(() => variantsToBrandGroups(variants), [variants])
+  // Single-brand item -> that brand is the active group (nothing to pick);
+  // multi-brand -> the group the operator picked.
+  const activeBrandGroup = useMemo(
+    () => (brandGroups.length === 1 ? brandGroups[0] : brandGroups.find((g) => g.brandKey === selectedBrandKey) ?? null),
+    [brandGroups, selectedBrandKey],
+  )
+  // Origin select appears only when the active brand has >1 origin to choose
+  // among — mirrors Subcategory/Type appearing only when the parent has children.
+  const showOrigin = !filterByActiveDivision && !!activeBrandGroup && activeBrandGroup.origins.length > 1
+```
+
+Add the auto-resolve effect (place in the component body below the derived values; it references `handleVariantSelect`):
+
+```ts
+  // Purchase path: an item with exactly one variant resolves immediately (the
+  // "only one option -> don't make them pick it" rule). Guarded by `value` so it
+  // fires once and never loops (resolving sets value -> the breadcrumb renders).
+  useEffect(() => {
+    if (filterByActiveDivision || value || varsLoading) return
+    if (!selectedItem || !selectedCategory) return
+    if (variants.length === 1) void handleVariantSelect(variants[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variants, value, varsLoading, selectedItem, selectedCategory, filterByActiveDivision])
+```
+
+- [ ] **Step 3: Handlers + `handleClear` resets.** Add near `handleVariantSelect`:
+
+```ts
+  function handleBrandSelect(group: import('@/lib/inventory/variantBrandGroups').PickerBrandGroup<BrandVariantWithJoins>) {
+    setSelectedBrandKey(group.brandKey)
+    setBrandOpen(false)
+    if (group.origins.length === 1) {
+      void handleVariantSelect(group.origins[0])   // single leaf -> resolve now
+    } else {
+      setTimeout(() => setOriginOpen(true), 0)      // reveal Origin
+    }
+  }
+
+  function handleOriginSelect(leaf: BrandVariantWithJoins) {
+    setOriginOpen(false)
+    void handleVariantSelect(leaf)
+  }
+```
+
+In `handleClear`, after `setSelectedVariantOrigin(null)`:
+
+```ts
+    setSelectedBrandKey(null)
+    setBrandOpen(false)
+    setOriginOpen(false)
+```
+
+- [ ] **Step 4: Branch Row 2 — purchase cascade vs sales combined list.** Convert the Row 2 container so the **Item popover is kept once (shared)** and the brand region is branched. The current `<div className="grid grid-cols-1 sm:grid-cols-2 gap-2"> … Item … Brand/Variant … </div>` becomes:
+
+```tsx
+      {/* Row 2 — Item + Brand/Origin. Purchase (filterByActiveDivision=false) uses a
+          Brand->Origin cascade mirroring Row 1; sales keeps the combined list (Phase 2). */}
+      <div className={cn('gap-2', filterByActiveDivision ? 'grid grid-cols-1 sm:grid-cols-2' : 'flex flex-col sm:flex-row')}>
+        <div className={filterByActiveDivision ? undefined : 'flex-1 min-w-0'}>
+          {/* … EXISTING Item <Popover> … (unchanged, shared — do NOT duplicate) … */}
+        </div>
+
+        {filterByActiveDivision ? (
+          <div>
+            {/* … EXISTING Brand / Variant <Popover> … (unchanged: combined list with
+                variantPickerLabel + pooled/non-pooled rows — preserves the sales path) … */}
+          </div>
+        ) : (
+          <>
+            {/* Brand select (purchase cascade) */}
+            <div className="flex-1 min-w-0">
+              <Popover open={brandOpen} onOpenChange={(open) => { setBrandOpen(open); if (!open) setIsVarCreating(false) }}>
+                <PopoverTrigger
+                  className={cn(triggerCls, !selectedItem && 'pointer-events-none opacity-50')}
+                  render={(props) => <button type="button" disabled={!selectedItem} {...props} />}
+                >
+                  <span className="truncate">
+                    {varsLoading ? 'Loading…' : (activeBrandGroup?.brandLabel ?? 'Brand…')}
+                  </span>
+                  <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="start">
+                  {isVarCreating ? (
+                    <CascadeNewVariantForm
+                      itemId={selectedItem!.id}
+                      onCreated={handleVariantCreated}
+                      onCancel={() => setIsVarCreating(false)}
+                    />
+                  ) : (
+                    <>
+                      <Command>
+                        <CommandInput placeholder="Search brand…" className="h-8 text-xs" />
+                        <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                          {varsLoading ? 'Loading…' : 'No brands found.'}
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-60 overflow-y-auto">
+                          {varsLoading ? (
+                            <div className="px-2 py-1.5 space-y-1">
+                              {[1, 2, 3].map((n) => (<div key={n} className="h-6 rounded bg-muted animate-pulse" />))}
+                            </div>
+                          ) : (
+                            brandGroups.map((g) => (
+                              <CommandItem
+                                key={g.brandKey}
+                                value={g.brandLabel}
+                                onSelect={() => handleBrandSelect(g)}
+                                className="text-xs"
+                              >
+                                <Check className={cn('mr-2 h-3 w-3 shrink-0', activeBrandGroup?.brandKey === g.brandKey ? 'opacity-100' : 'opacity-0')} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{g.brandLabel}</div>
+                                  {g.origins.length > 1 && (
+                                    <div className="text-muted-foreground truncate">{g.origins.length} origins</div>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))
+                          )}
+                        </CommandGroup>
+                      </Command>
+                      <div className="border-t px-2 py-1.5">
+                        <button
+                          type="button"
+                          className="w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 rounded hover:bg-accent"
+                          onClick={() => setIsVarCreating(true)}
+                        >
+                          + Add new brand / variant
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Origin select — revealed only when the active brand has >1 origin */}
+            {showOrigin && (
+              <div className="flex-1 min-w-0">
+                <Popover open={originOpen} onOpenChange={setOriginOpen}>
+                  <PopoverTrigger className={triggerCls} render={(props) => <button type="button" {...props} />}>
+                    <span className="truncate">{selectedVariantOrigin ?? 'Origin…'}</span>
+                    <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search origin…" className="h-8 text-xs" />
+                      <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">No origins.</CommandEmpty>
+                      <CommandGroup className="max-h-60 overflow-y-auto">
+                        {activeBrandGroup!.origins.map((leaf) => {
+                          const originLabel = leaf.country_codes?.name ?? '— No origin —'
+                          return (
+                            <CommandItem
+                              key={leaf.id}
+                              value={`${originLabel} ${leaf.code ?? ''}`}
+                              onSelect={() => handleOriginSelect(leaf)}
+                              className="text-xs"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{originLabel}</div>
+                                {leaf.code && <div className="text-muted-foreground truncate">{leaf.code}</div>}
+                              </div>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+```
+
+Implementer notes:
+- Keep the EXISTING Item popover JSX verbatim inside the first inner `<div>` (shared — do not duplicate into both branches).
+- Keep the EXISTING Brand/Variant popover JSX verbatim inside the `filterByActiveDivision ? (…)` branch (the combined list with `variantPickerLabel`, pooled + non-pooled rows). This preserves the sales path exactly.
+- `selectedVariantOrigin` is already set by `handleVariantSelect`; reused here only for the Origin trigger label before `value` collapses to the breadcrumb.
+
+- [ ] **Step 5: Verify.** `npx tsc --noEmit` clean; `npx eslint src/components/purchase/CascadeInventorySelector.tsx` clean (zero errors AND warnings — the `useEffect` deps are intentionally suppressed with the inline disable shown; confirm no OTHER warning); `npx vitest run src/lib/inventory/variantBrandGroups.test.ts` green. Do NOT run `next build`/`next dev`.
+
+- [ ] **Step 6: ⏸ OPERATOR SMOKE — then commit** (commit after code-review; smoke gates branch finish). On a PO draft with the mixed item (DAIKIN 2 origins; LG/Samsung none):
+  - Brand select lists DAIKIN / LG / Samsung / Unbranded (as applicable); picking **DAIKIN** reveals an **Origin** select (Egypt / Germany); picking origin fills cost + collapses to the breadcrumb (brand + origin).
+  - Picking **LG** (single leaf) resolves immediately, **no Origin box**.
+  - Single-brand item shows the brand pre-filled and only asks origin when >1; a single-variant item resolves on item pick.
+  - Null-origin leaf under a multi-origin brand shows **"— No origin —"**; brandless leaves group under **"Unbranded"**.
+  - No row-height shift as the Origin box appears; no raw UUIDs.
+  - **Sales side unaffected:** a sales surface still shows the old combined list with per-division "avail".
+
+Commit after review + smoke:
+
+```bash
+git add src/components/purchase/CascadeInventorySelector.tsx
+git commit -m "$(cat <<'EOF'
+feat(purchase): Brand -> Origin cascade in the PO picker (replaces combined list)
+
+Purchase path (filterByActiveDivision=false) now picks Brand then a revealed
+Origin select (mirrors the category cascade), via variantsToBrandGroups. Single
+leaf / single-variant items auto-resolve; brandless->"Unbranded", null origin->
+"- No origin -". Sales-side pooled list left untouched (Phase 2). Cost-default
+path unchanged.
+
+Co-Authored-By: Mohamed Ismail <m.Ismail@alfaytri.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+EOF
+)"
+```
