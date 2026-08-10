@@ -13,11 +13,13 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   useConsumption,
+  useConsumerLabel,
   useConsumptionAttachmentUrls,
   useConsumptionEditRequests,
   useCanApproveConsumptionEdit,
   type ConsumerType,
 } from '@/hooks/useConsumption'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { ConsumptionEditRequestBanner } from './ConsumptionEditRequestBanner'
 import { RequestConsumptionEditDialog } from './RequestConsumptionEditDialog'
 
@@ -68,6 +70,11 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
   const { data: editRequests = [] } = useConsumptionEditRequests(consumptionId)
   const { data: canApprove = false } = useCanApproveConsumptionEdit()
   const [requestOpen, setRequestOpen] = useState(false)
+  // COGS is accounting-only — field users see items + quantities, not cost.
+  const canSeeCost = useHasPermission('consumption.cost.view')
+  // Resolve the consumer name from the cross-division master list so a viewer
+  // outside the consumer team's division never sees "(team removed)".
+  const consumerLabel = useConsumerLabel()
 
   const total = (data?.lines ?? []).reduce(
     (sum, l) => sum + (l.total_cost ?? (l.qty * (l.unit_cost ?? 0))),
@@ -133,7 +140,7 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1">
                       <ConsumerIcon type={data.consumer_type} /> Consumer
                     </div>
-                    <div className="text-xs font-medium truncate">{data.consumer_display}</div>
+                    <div className="text-xs font-medium truncate">{consumerLabel(data)}</div>
                     <div className="text-[11px] text-muted-foreground">{consumerTypeLabel(data.consumer_type)}</div>
                   </div>
                 </div>
@@ -167,8 +174,8 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                         <tr>
                           <th className="text-left px-2.5 py-1.5 font-medium">Item</th>
                           <th className="text-right px-2.5 py-1.5 font-medium w-16">Qty</th>
-                          <th className="text-right px-2.5 py-1.5 font-medium w-24">Unit cost</th>
-                          <th className="text-right px-2.5 py-1.5 font-medium w-28">Total</th>
+                          {canSeeCost && <th className="text-right px-2.5 py-1.5 font-medium w-24">Unit cost</th>}
+                          {canSeeCost && <th className="text-right px-2.5 py-1.5 font-medium w-28">Total</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -179,21 +186,27 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                               {l.sku && <div className="text-[10px] text-muted-foreground">{l.sku}</div>}
                             </td>
                             <td className="px-2.5 py-1.5 text-right tabular-nums">{l.qty}</td>
-                            <td className="px-2.5 py-1.5 text-right tabular-nums">
-                              {l.unit_cost != null ? QAR.format(l.unit_cost) : '—'}
-                            </td>
-                            <td className="px-2.5 py-1.5 text-right tabular-nums font-medium">
-                              {l.total_cost != null ? QAR.format(l.total_cost) : '—'}
-                            </td>
+                            {canSeeCost && (
+                              <td className="px-2.5 py-1.5 text-right tabular-nums">
+                                {l.unit_cost != null ? QAR.format(l.unit_cost) : '—'}
+                              </td>
+                            )}
+                            {canSeeCost && (
+                              <td className="px-2.5 py-1.5 text-right tabular-nums font-medium">
+                                {l.total_cost != null ? QAR.format(l.total_cost) : '—'}
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot className="bg-muted/20 border-t">
-                        <tr>
-                          <td colSpan={3} className="px-2.5 py-1.5 text-right text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Total</td>
-                          <td className="px-2.5 py-1.5 text-right tabular-nums font-semibold">{QAR.format(total)}</td>
-                        </tr>
-                      </tfoot>
+                      {canSeeCost && (
+                        <tfoot className="bg-muted/20 border-t">
+                          <tr>
+                            <td colSpan={2} className="px-2.5 py-1.5 text-right text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Total</td>
+                            <td colSpan={2} className="px-2.5 py-1.5 text-right tabular-nums font-semibold">{QAR.format(total)}</td>
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
                   </div>
                 </div>

@@ -409,6 +409,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Consumption',
         permissions: [
           { key: 'consumption.view',            label: 'View Consumption',            description: 'Access the consumption entries list and detail dialog' },
+          { key: 'consumption.cost.view',       label: 'View Consumption Cost',       description: 'See unit cost, COGS, and totals on consumption (New dialog, list, and detail). Accounting-only — field users post consumption without seeing cost.' },
           { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants all three consumer types (team / place / internal). Legacy key retained for backwards compat. Prefer the three narrower keys below.' },
           { key: 'consumption.create.team',     label: 'Create Team Consumption',     description: 'Post consumption entries with a Team consumer' },
           { key: 'consumption.create.place',    label: 'Create Place Consumption',    description: 'Post consumption entries with a Place consumer' },
