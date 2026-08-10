@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Package } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
+import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
+import { searchRank } from '@/lib/inventory/searchRank'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -12,8 +14,13 @@ export interface PickerItem {
   id: string
   name: string
   brand: string | null
+  /** country_codes.name for the variant's origin; null = no origin. */
+  countryName?: string | null
   sku: string | null
   category: string | null
+  /** inventory item_type (products | spare-parts | consumables | tools) — drives
+   *  the type-grouped category column so the picker mirrors the inventory tree. */
+  type?: string | null
   qty?: number
   destQty?: number
   reorderPoint?: number
@@ -46,6 +53,13 @@ function DestBadge({ destQty, reorderPoint }: { destQty: number | undefined; reo
 
 // ─── Main picker ────────────────────────────────────────────────────────────────
 
+// Canonical inventory item-type order — the category column groups by these so
+// the picker reads like the inventory tree (Products → Spare Parts → …).
+const TYPE_ORDER: string[] = ['products', 'spare-parts', 'consumables', 'tools']
+const TYPE_LABEL: Record<string, string> = {
+  'products': 'Products', 'spare-parts': 'Spare Parts', 'consumables': 'Consumables', 'tools': 'Tools',
+}
+
 export function WhItemPicker({
   items,
   selectedIds,
@@ -56,11 +70,24 @@ export function WhItemPicker({
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('__all')
+  const [typeFilter, setTypeFilter] = useState<string>('__all')
+
+  // Item-type quick filter (All / Products / Spare Parts / …) — narrows the whole
+  // picker to one type before grouping + search. Only types actually present are
+  // offered, in canonical inventory order.
+  const availableTypes = useMemo(() => {
+    const present = new Set(items.map((s) => s.type ?? '').filter(Boolean))
+    return TYPE_ORDER.filter((t) => present.has(t))
+  }, [items])
+  const typedItems = useMemo(
+    () => (typeFilter === '__all' ? items : items.filter((s) => (s.type ?? '') === typeFilter)),
+    [items, typeFilter],
+  )
 
   // Group by category → item name → variants
   const grouped = useMemo(() => {
     const byCategory = new Map<string, Map<string, PickerItem[]>>()
-    for (const s of items) {
+    for (const s of typedItems) {
       const cat = s.category ?? 'Uncategorised'
       if (!byCategory.has(cat)) byCategory.set(cat, new Map())
       const catMap = byCategory.get(cat)!
@@ -69,15 +96,35 @@ export function WhItemPicker({
       catMap.get(key)!.push(s)
     }
     return byCategory
-  }, [items])
+  }, [typedItems])
 
-  const categories = useMemo(() => {
-    return Array.from(grouped.entries())
-      .map(([cat, its]) => ({
-        name: cat,
-        variantCount: Array.from(its.values()).reduce((sum, v) => sum + v.length, 0),
-      }))
-      .sort((a, b) => b.variantCount - a.variantCount)
+  // Category column grouped by inventory item_type, in canonical order, with
+  // categories sorted A→Z within each type — so the picker mirrors the
+  // inventory tree instead of a flat by-count list.
+  const categoryGroups = useMemo(() => {
+    const info = new Map<string, { type: string; count: number }>()
+    for (const [cat, its] of grouped) {
+      let type = ''
+      for (const vs of its.values()) {
+        const t = vs.find((v) => v.type)?.type
+        if (t) { type = t; break }
+      }
+      const count = Array.from(its.values()).reduce((sum, v) => sum + v.length, 0)
+      info.set(cat, { type, count })
+    }
+    const byType = new Map<string, { name: string; variantCount: number }[]>()
+    for (const [cat, i] of info) {
+      if (!byType.has(i.type)) byType.set(i.type, [])
+      byType.get(i.type)!.push({ name: cat, variantCount: i.count })
+    }
+    const groups: { key: string; label: string; cats: { name: string; variantCount: number }[] }[] = []
+    const pushType = (t: string) => {
+      const cats = byType.get(t)
+      if (cats?.length) groups.push({ key: t || 'other', label: TYPE_LABEL[t] ?? 'Other', cats: cats.sort((a, b) => a.name.localeCompare(b.name)) })
+    }
+    for (const t of TYPE_ORDER) pushType(t)
+    for (const t of byType.keys()) if (!TYPE_ORDER.includes(t)) pushType(t)
+    return groups
   }, [grouped])
 
   const searching = search.trim().length > 0
@@ -86,12 +133,21 @@ export function WhItemPicker({
     const result = new Map<string, { cat: string; name: string; variants: PickerItem[] }>()
     if (searching) {
       const q = search.toLowerCase().trim()
-      for (const s of items) {
-        const hay = [s.name, s.brand, s.sku, s.category].filter(Boolean).join(' ').toLowerCase()
-        if (!hay.includes(q)) continue
+      // Rank by WHERE the query hits: exact / prefix / word-start in the item
+      // name outrank a plain substring, which outranks brand / origin / SKU /
+      // category matches. So "80" surfaces "80 Gallon…" above an item that only
+      // matches on a code. Same match set as before (any field contains q).
+      const scored = new Map<string, { cat: string; name: string; variants: PickerItem[]; score: number }>()
+      for (const s of typedItems) {
+        const score = searchRank(q, { name: s.name, brand: s.brand, origin: s.countryName, sku: s.sku, category: s.category })
+        if (score < 0) continue
         const key = `${s.category ?? ''}||${s.name ?? ''}`
-        if (!result.has(key)) result.set(key, { cat: s.category ?? '', name: s.name ?? '', variants: [] })
-        result.get(key)!.variants.push(s)
+        const g = scored.get(key)
+        if (!g) scored.set(key, { cat: s.category ?? '', name: s.name ?? '', variants: [s], score })
+        else { g.variants.push(s); if (score < g.score) g.score = score }
+      }
+      for (const g of [...scored.values()].sort((a, b) => a.score - b.score || a.name.localeCompare(b.name))) {
+        result.set(`${g.cat}||${g.name}`, { cat: g.cat, name: g.name, variants: g.variants })
       }
       return result
     }
@@ -109,14 +165,20 @@ export function WhItemPicker({
       result.set(`${selectedCategory}||${name}`, { cat: selectedCategory, name, variants })
     }
     return result
-  }, [searching, search, selectedCategory, grouped, items])
+  }, [searching, search, selectedCategory, grouped, typedItems])
 
-  const totalItems = items.length
+  // If the active type filter is no longer present (e.g. items changed after a
+  // warehouse switch), fall back to All so the list can't get stuck empty.
+  useEffect(() => {
+    if (typeFilter !== '__all' && !availableTypes.includes(typeFilter)) setTypeFilter('__all')
+  }, [availableTypes, typeFilter])
+
+  const totalItems = typedItems.length
 
   return (
     <div className="flex flex-col h-[min(480px,var(--available-height,85vh))] w-[720px] max-w-[92vw]">
-      {/* Search bar */}
-      <div className="px-3 py-2 border-b bg-background">
+      {/* Search bar + item-type quick filter */}
+      <div className="px-3 py-2 border-b bg-background space-y-2">
         <Input
           type="text"
           placeholder="Search by name, brand, SKU, or category…"
@@ -125,6 +187,27 @@ export function WhItemPicker({
           className="h-8 text-xs"
           autoFocus
         />
+        {availableTypes.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1">
+            {['__all', ...availableTypes].map((t) => {
+              const active = typeFilter === t
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => { setTypeFilter(t); setSelectedCategory('__all') }}
+                  className={`px-2 py-0.5 rounded-full text-[10px] border transition-colors ${
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:bg-accent/50'
+                  }`}
+                >
+                  {t === '__all' ? 'All' : (TYPE_LABEL[t] ?? t)}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex min-h-0">
@@ -141,22 +224,29 @@ export function WhItemPicker({
               <span>All items</span>
               <span className="text-[9px] text-muted-foreground">{totalItems}</span>
             </button>
-            {categories.map((c) => {
-              const isActive = selectedCategory === c.name
-              return (
-                <button
-                  key={c.name}
-                  type="button"
-                  onClick={() => setSelectedCategory(c.name)}
-                  className={`w-full px-3 py-2 text-left text-[11px] flex items-center justify-between hover:bg-accent/50 border-l-2 transition-colors ${
-                    isActive ? 'bg-primary/10 text-primary font-medium border-primary' : 'border-transparent'
-                  }`}
-                >
-                  <span className="truncate pr-2">{c.name}</span>
-                  <span className="text-[9px] text-muted-foreground shrink-0">{c.variantCount}</span>
-                </button>
-              )
-            })}
+            {categoryGroups.map((g) => (
+              <div key={g.key}>
+                <div className="px-3 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+                  {g.label}
+                </div>
+                {g.cats.map((c) => {
+                  const isActive = selectedCategory === c.name
+                  return (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => setSelectedCategory(c.name)}
+                      className={`w-full px-3 py-2 text-left text-[11px] flex items-center justify-between hover:bg-accent/50 border-l-2 transition-colors ${
+                        isActive ? 'bg-primary/10 text-primary font-medium border-primary' : 'border-transparent'
+                      }`}
+                    >
+                      <span className="truncate pr-2">{c.name}</span>
+                      <span className="text-[9px] text-muted-foreground shrink-0">{c.variantCount}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
           </div>
         )}
 
@@ -209,6 +299,7 @@ export function WhItemPicker({
                           tier === 'low' ? 'bg-warning/10 text-warning ring-warning/30' :
                           'bg-success/10 text-success ring-success/30'
                         const disabled = isUsedElsewhere || (showQty && qty === 0)
+                        const vlabel = variantPickerLabel({ brand: v.brand, country_name: v.countryName })
                         return (
                           <button
                             key={v.id}
@@ -218,9 +309,12 @@ export function WhItemPicker({
                             className={`inline-flex items-center gap-0 px-0 py-0 rounded-md ring-1 text-[10px] transition-all overflow-hidden ${tierCls} ${
                               isSelected ? 'ring-2 ring-primary shadow-sm' : ''
                             } ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-105 cursor-pointer'}`}
-                            title={`${v.brand ?? ''}${v.sku ? ` (${v.sku})` : ''}${qty !== undefined ? ` — ${qty} available` : ''}${showDestBadge && v.destQty !== undefined ? ` · dest has ${v.destQty}` : ''}`}
+                            title={`${vlabel.primary}${vlabel.origin ? ` · ${vlabel.origin}` : ''}${v.sku ? ` (${v.sku})` : ''}${qty !== undefined ? ` — ${qty} available` : ''}${showDestBadge && v.destQty !== undefined ? ` · dest has ${v.destQty}` : ''}`}
                           >
-                            <span className="px-2 py-1 font-medium">{v.brand ?? '—'}</span>
+                            <span className="px-2 py-1 font-medium">
+                              {vlabel.primary}
+                              {vlabel.origin && <span className="font-normal opacity-70"> · {vlabel.origin}</span>}
+                            </span>
                             {showQty && qty !== undefined && (
                               <span className="px-1.5 py-1 bg-background/60 border-l border-current/20 tabular-nums font-bold min-w-[26px] text-center">
                                 {qty}
