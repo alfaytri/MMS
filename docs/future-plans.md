@@ -12,15 +12,31 @@ Remove items from this file once shipped (do not just strike through — delete)
 **Surfaced:** 2026-08-09 (division-scope RLS audit) — continuation of the shipped P1 work
 **Priority:** Medium-High — closes the same tamper class already fixed for `sale_orders` and `purchase_orders`
 
-> **Update 2026-08-10:** a full per-table write-path audit + **draft** guard migrations
-> now exist under `docs/plans/2026-08-10-overnight-backlog/` (audit `security-p1-audit.md`,
-> drafts `draft-migrations/01–07`, `MORNING-CHECKLIST.md`). Drafts are NOT applied — each
-> needs the attended pre-check + operator smoke in the checklist before shipping. Key
-> refinements vs the notes below: `debit_notes` status IS client-legit (money-only guard);
-> `so_po_returns` status machine is client-driven (only `dispatched_at`/`restocked_at`
-> safe to lock); `po_line_items` can't take a `current_user` guard (`rpc_replace_po_lines`
-> is INVOKER — needs a parent-PO-status guard instead); `payment_plans` → REVOKE not a
-> trigger; `shipments` needs no guard. Trim this section once the guards ship.
+> **Update 2026-08-10 — 7 guards APPLIED to staging** (migrations `20260819140000`–
+> `20260819200000` on branch `chore/overnight-backlog-2026-08-10`, not pushed; each
+> live-pre-checked + object-verified). Shipped: `sale_deliveries`, `payments`,
+> `so_invoices`, `credit_notes`, `debit_notes` guards + `so_po_returns` timestamp lock +
+> `payment_plans` REVOKE. Audit `docs/plans/2026-08-10-overnight-backlog/security-p1-audit.md`;
+> operator smoke `MORNING-CHECKLIST.md`. Refinements confirmed live: `debit_notes` status is
+> client-legit (money-only guard); `so_po_returns` status machine is client-driven (only
+> `dispatched_at`/`restocked_at` locked); `payment_plans` → REVOKE.
+>
+> **Residual P1/P2 follow-ups (still open — do NOT delete this section yet):**
+> - **`payments` linkage lock** — `invoice_id`/`bill_id` left editable because
+>   `attach_payment_to_invoice` / `detach_payment_from_invoice` are SECURITY INVOKER and
+>   client-called. Harden them into DEFINER RPCs with `auth.uid()` + division checks, THEN
+>   add the linkage columns to `guard_payments_money_columns`.
+> - **`so_invoices.paid_amount`/`payment_status` lock** — left editable because the INVOKER
+>   `invoice_recompute_paid_fn` (AFTER trigger on payments) writes them as the caller. Make
+>   that recompute DEFINER, then extend the guard.
+> - **`so_po_returns` status machine → DEFINER RPCs** (P0a-style) so a real status guard
+>   becomes possible.
+> - **`po_line_items`** — needs a parent-PO-status guard (NOT `current_user`-gated;
+>   `rpc_replace_po_lines` is INVOKER). Own design.
+> - **`receivals`** — optional narrow allowlist + `REVOKE INSERT,DELETE`. Low value.
+> - **`shipments`** — no guard needed (no financial column).
+> - **Table-wide `TRUNCATE` revoke** — `authenticated` still holds `TRUNCATE` on
+>   `payment_plans` and siblings; sweep as a P2.
 
 **Problem.** The app-wide `division_scope_*` RLS pattern gates writes only on
 `is_division_visible(division_id)` — not on *which column* or *state transition* is

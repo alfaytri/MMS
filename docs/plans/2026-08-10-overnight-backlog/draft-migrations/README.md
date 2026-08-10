@@ -1,6 +1,27 @@
 # DRAFT guard migrations — Security P1 (2026-08-10)
 
-> ⚠️ **THESE ARE DRAFTS. NOT APPLIED. NOT PUSHED.** They live here, **outside**
+> ✅ **SUPERSEDED — ALL APPLIED to staging 2026-08-10.** After the operator opted to
+> proceed, each draft was re-validated against the LIVE DB (`supabase db query --linked`)
+> and shipped as a real migration in `supabase/migrations/` (+ staging mirror):
+> `20260819140000` sale_deliveries · `…150000` payments · `…160000` so_invoices ·
+> `…170000` credit_notes · `…180000` debit_notes · `…190000` so_po_returns ·
+> `…200000` payment_plans. Each was object-verified (trigger enabled, guard
+> `prosecdef=false`, anon revoked). **These draft files are historical** — the applied
+> migrations are authoritative and differ where live checks demanded:
+> - **payments**: `invoice_id`/linkage columns are NOT guarded — `attach_payment_to_invoice`
+>   / `detach_payment_from_invoice` are SECURITY INVOKER and client-called, so guarding
+>   `invoice_id` would break attach/detach. Only pure money/value columns are locked.
+>   (Follow-up: harden attach/detach to DEFINER+auth, then lock linkage.)
+> - **so_invoices**: `paid_amount`/`payment_status` are NOT guarded — the INVOKER
+>   `invoice_recompute_paid_fn` (AFTER trigger on payments) writes them as the caller;
+>   guarding them would break payment recording. Totals + linkage + non-void status are locked.
+> - **payment_plans**: `TRUNCATE` remains granted to `authenticated` (pre-existing, table-wide
+>   P2 sweep item — not addressed here).
+>
+> The only remaining step is the per-table **behavioral operator smoke** in
+> `../MORNING-CHECKLIST.md` (needs a logged-in session; the agent cannot do it).
+
+> ⚠️ **[Original draft notice] THESE ARE DRAFTS. NOT APPLIED. NOT PUSHED.** They live here, **outside**
 > `supabase/migrations/`, on purpose so `supabase db push` can never pick them up.
 > Do NOT `db push` from this folder. The attended morning session reviews each
 > file, runs the pre-checks in `../MORNING-CHECKLIST.md`, then copies the approved

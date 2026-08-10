@@ -1,40 +1,21 @@
-# WS4 Security P1 — attended morning checklist
+# WS4 Security P1 — operator smoke checklist
 
-**Do NOT skip any step.** Each guard is a BEFORE trigger that *blocks* writes; a
-mis-audited guard silently breaks a legitimate RPC/UI save. Drafts live in
-`draft-migrations/` (outside `supabase/migrations/`). Ship **one table at a time**,
-smoke it, then the next — never batch.
+> ✅ **ALL 7 APPLIED + object-verified on staging (2026-08-10)** — migrations
+> `20260819140000`–`20260819200000` (+ mirrors), committed on
+> `chore/overnight-backlog-2026-08-10` (not pushed). Each was live-validated before
+> apply (columns/enums exist, writers DEFINER or handled) and verified after (trigger
+> enabled, guard `prosecdef=false`, anon revoked). See `draft-migrations/README.md`
+> for the deviations the live checks forced (payments linkage, so_invoices recompute
+> columns).
+>
+> **The only thing left is the behavioral smoke below** — it needs a logged-in
+> session (the guards only fire on the `authenticated`/`anon` role with a real
+> JWT+division, which the agent's `db query` role cannot simulate). Run each; every
+> legit flow must still succeed, and a raw-PostgREST tamper on a guarded column must
+> fail with `42501`. If any legit flow breaks, tell Claude — the fix is a follow-up
+> migration to drop/adjust that one guard (reversible).
 
-## Global pre-checks (once, before any table)
-
-- [ ] Confirm the CLI still targets staging `mwvblpgbgxipvrevkeff`
-      (`npx supabase migration list` / `db push --dry-run`).
-- [ ] For each table below, fetch live grants + policies + writer-RPC `prosecdef`:
-      confirm every function that writes the table is `prosecdef=true`
-      (SECURITY DEFINER). If any writer is INVOKER, STOP — the `current_user` gate
-      would block it (this is exactly why `po_line_items` is deferred).
-
-## Per-table ship loop (repeat for each shipping table)
-
-For draft `NN-*.sql`:
-
-1. [ ] Read the draft's header + its section in `security-p1-audit.md`.
-2. [ ] Re-grep `src/` for any direct client write to the guarded columns that the
-       audit might have missed (`.from('<table>').update(` / `.insert(` / `.delete(`).
-3. [ ] Validate every `NEW.<col>` referenced by the draft exists on the LIVE table
-       (`\d public.<table>` or an information_schema query). Fix column names.
-4. [ ] Copy the draft to `supabase/migrations/<YYYYMMDDHHMMSS>_<name>.sql` AND a
-       byte-identical mirror in `supabase/migrations-staging/`.
-5. [ ] `npx supabase db push`.
-6. [ ] Live-verify: trigger enabled (`pg_trigger.tgenabled='O'`) and the guard
-       function `prosecdef=false` (INVOKER).
-7. [ ] Operator-smoke every legit write flow for that table (below). Each must
-       still succeed; a raw-PostgREST tamper attempt on a guarded column must fail
-       with `42501`.
-8. [ ] Commit (dual trailer), update PROGRESS.md `## 🔒 Security Audit Log` +
-       flows-registry if a flow changed, and this checklist's box.
-
-## Table-specific pre-checks + smoke flows
+## Per-table smoke flows
 
 ### 01 `sale_deliveries` (draft 01)
 - [ ] Pre-check: `rpc_create_partial_replacement` is DEFINER + inserts a delivery
