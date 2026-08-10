@@ -91,7 +91,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
 
   // ── Variant meta for ItemTreeCell ──
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>()
+    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; origin: string | null; sku: string | null }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
         map.set(s.brand_variant_id, {
@@ -100,6 +100,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           itemType: s.item_type ?? null,
           itemName: s.item_name,
           brand: s.brand ?? null,
+          origin: s.country_name ?? null,
           sku: s.sku ?? null,
         })
       }
@@ -479,6 +480,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
                         itemType={meta?.itemType}
                         itemName={meta?.itemName ?? item.item_name}
                         brand={meta?.brand}
+                        origin={meta?.origin ?? null}
                         sku={meta?.sku ?? item.sku}
                         showSku
                       />
@@ -581,7 +583,7 @@ function ReceivalSubForm({
   onConfirm: () => void
   onCancel: () => void
   isPending: boolean
-  variantMeta: Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; sku: string | null }>
+  variantMeta: Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; origin: string | null; sku: string | null }>
 }) {
   const items = transfer.transfer_items ?? []
 
@@ -604,6 +606,7 @@ function ReceivalSubForm({
                   itemType={meta?.itemType}
                   itemName={meta?.itemName ?? item.item_name}
                   brand={meta?.brand}
+                  origin={meta?.origin ?? null}
                   sku={meta?.sku ?? item.sku}
                   showSku
                 />
