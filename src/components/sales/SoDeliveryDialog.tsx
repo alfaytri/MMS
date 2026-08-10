@@ -17,6 +17,7 @@ import {
 import { useCreateDelivery, type SaleOrder, type SOLineItem } from '@/hooks/useSaleOrders'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
+import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
@@ -230,6 +231,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
             {lines.map((line) => {
               const max = maxDeliverable(line)
               const bv = line.inventory_item_brand_variants
+              const bvLabel = brandOriginText(bv?.brand ?? null, bv?.country_codes?.name ?? null)
               const cat = bv?.inventory_items?.inventory_categories
               const chain = cat?.ancestor_chain ?? []
               const typeBadge = cat?.type ? TYPE_BADGE[cat.type] : null
@@ -253,7 +255,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
                     )}
                     <div className="text-sm font-medium truncate">
                       {line.item_name}
-                      {bv?.brand && <span className="text-xs text-muted-foreground font-normal"> — {bv.brand}</span>}
+                      {bvLabel && <span className="text-xs text-muted-foreground font-normal"> — {bvLabel}</span>}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Ordered: {line.qty} · Delivered: {line.delivered_qty} · Max: {max}

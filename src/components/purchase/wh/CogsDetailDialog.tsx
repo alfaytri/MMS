@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Loader2, ShoppingCart, Truck, Package2 } from 'lucide-react'
 import { format } from 'date-fns'
+import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
 
 // COGS entries are stored in QAR (post-Section-10 FX pipeline). Prefix so
 // the user can never mistake the number for another currency.
@@ -39,6 +40,7 @@ interface Props {
   brandVariantId: string
   itemName: string
   brand: string | null
+  origin: string | null
   sku: string | null
 }
 
@@ -125,7 +127,7 @@ function useCogsDetail(brandVariantId: string, enabled: boolean) {
   })
 }
 
-export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, brand, sku }: Props) {
+export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, brand, origin, sku }: Props) {
   const { data: entries = [], isLoading } = useCogsDetail(brandVariantId, open)
 
   const saleEntries = entries.filter((e) => e.source_type === 'sale')
@@ -136,6 +138,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
   const lcCostTotal = lcEntries.reduce((s, e) => s + e.total_cost, 0)
   const lcReversalTotal = lcReversalEntries.reduce((s, e) => s + e.total_cost, 0)
   const grandTotal = saleCostTotal + lcCostTotal + lcReversalTotal
+  const variantLabel = brandOriginText(brand, origin)
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -148,8 +151,8 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
             {itemName}
-            {brand && <span className="text-foreground font-medium"> — {brand}</span>}
-            {sku && <span className="text-primary ml-1.5">{sku}</span>}
+            {variantLabel && <span className="text-foreground font-medium"> — {variantLabel}</span>}
+            {sku && sku !== itemName && <span className="text-primary ml-1.5">{sku}</span>}
           </p>
         </div>
 

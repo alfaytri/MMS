@@ -133,7 +133,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
   const [refDialog, setRefDialog] = useState<{ type: string; id: string } | null>(null)
   const [stockDialog, setStockDialog] = useState<{
     brandVariantId: string; itemName: string; category: string | null; subcategory: string | null; itemType: string | null
-    brand: string | null; sku: string | null
+    brand: string | null; origin: string | null; sku: string | null
     breakdown: { totalQty: number; totalValue: number; warehouses: { name: string; qty: number; value: number }[] }
   } | null>(null)
 
@@ -143,10 +143,10 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
   const warehouseMap = useMemo(() => new Map(warehouses.map(w => [w.id, w.name])), [warehouses])
 
   const variantMeta = useMemo(() => {
-    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null }>()
+    const map = new Map<string, { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; origin: string | null }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
-        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null, origin: s.country_name ?? null })
       }
     }
     return map
@@ -279,6 +279,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                     itemType={meta?.itemType}
                     itemName={meta?.itemName ?? m.item_name}
                     brand={meta?.brand}
+                    origin={meta?.origin ?? m.country_name ?? null}
                     sku={m.sku}
                     showSku
                   />
@@ -356,6 +357,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                         itemType={meta?.itemType}
                         itemName={meta?.itemName ?? m.item_name}
                         brand={meta?.brand}
+                        origin={meta?.origin ?? m.country_name ?? null}
                         sku={m.sku}
                         showSku
                       />
@@ -388,6 +390,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                             subcategory: meta?.subcategoryName ?? null,
                             itemType: meta?.itemType ?? null,
                             brand: meta?.brand ?? null,
+                            origin: meta?.origin ?? m.country_name ?? null,
                             sku: m.sku,
                             breakdown: stockInfo,
                           })}
@@ -409,6 +412,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                             subcategory: meta?.subcategoryName ?? null,
                             itemType: meta?.itemType ?? null,
                             brand: meta?.brand ?? null,
+                            origin: meta?.origin ?? m.country_name ?? null,
                             sku: m.sku,
                             breakdown: stockInfo,
                           })}
@@ -486,6 +490,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           subcategory={stockDialog.subcategory}
           itemType={stockDialog.itemType}
           brand={stockDialog.brand}
+          origin={stockDialog.origin}
           sku={stockDialog.sku}
           breakdown={stockDialog.breakdown}
         />

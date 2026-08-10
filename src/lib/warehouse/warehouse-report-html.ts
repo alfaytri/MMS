@@ -1,5 +1,6 @@
 import type { PdfFonts, PdfAssets } from '@/lib/pdf/pdf-fonts'
 import { fontFacesCss, brandHeaderHtml, footerHtml, stampSectionHtml } from '@/lib/pdf/pdf-fonts'
+import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
 
 // ─── HTML helpers ────────────────────────────────────────────────────────────
 
@@ -208,6 +209,7 @@ export interface StockOverviewRow {
   subcategory_name: string | null
   item_name: string
   brand: string | null
+  origin: string | null
   sku: string | null
   item_type: string | null
   qty: number
@@ -240,7 +242,7 @@ export function buildStockOverviewReportHtml(input: StockOverviewInput): string 
       <td>${esc(r.category_name ?? '—')}</td>
       <td>${esc(r.subcategory_name ?? '—')}</td>
       <td>${esc(r.item_name)}</td>
-      <td>${esc(r.brand ?? '—')}</td>
+      <td>${esc(brandOriginText(r.brand, r.origin) ?? '—')}</td>
       <td class="mono">${esc(r.sku ?? '—')}</td>
       <td class="c">${esc(typeLabels[r.item_type ?? ''] ?? '—')}</td>
       <td class="r">${fmtQty(r.qty)}</td>
@@ -503,6 +505,7 @@ export interface StockValueReportRow {
   subcategory_name: string | null
   item_name: string
   brand: string | null
+  origin: string | null
   sku: string | null
   item_type: string | null
   qty: number
@@ -532,7 +535,7 @@ export function buildStockValueReportHtml(input: StockValueReportInput): string 
       <td>${esc(r.category_name ?? '—')}</td>
       <td>${esc(r.subcategory_name ?? '—')}</td>
       <td>${esc(r.item_name)}</td>
-      <td>${esc(r.brand ?? '—')}</td>
+      <td>${esc(brandOriginText(r.brand, r.origin) ?? '—')}</td>
       <td class="mono">${esc(r.sku ?? '—')}</td>
       <td class="r">${fmtQty(r.qty)}</td>
       <td class="r">${fmtMoney(r.avg_cost)}</td>

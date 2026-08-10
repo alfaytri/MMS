@@ -21,11 +21,12 @@ interface Props {
   subcategory?: string | null
   itemType: string | null
   brand: string | null
+  origin?: string | null
   sku: string | null
   breakdown: StockBreakdown
 }
 
-export function WhStockDetailDialog({ open, onClose, itemName, category, subcategory, itemType, brand, sku, breakdown }: Props) {
+export function WhStockDetailDialog({ open, onClose, itemName, category, subcategory, itemType, brand, origin, sku, breakdown }: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
@@ -51,6 +52,7 @@ export function WhStockDetailDialog({ open, onClose, itemName, category, subcate
               itemType={itemType}
               itemName={itemName}
               brand={brand}
+              origin={origin}
               sku={sku}
               showSku
             />

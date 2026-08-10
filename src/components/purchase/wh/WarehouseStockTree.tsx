@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { useWarehouseStock, useReorderPoints, useUpsertReorderPoint } from '@/hooks/useWarehouseOperations'
+import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
 import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 
@@ -15,6 +16,7 @@ const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits:
 
 interface BrandEntry {
   brand: string | null
+  country_name: string | null
   sku: string | null
   brand_variant_id: string
   qty: number
@@ -51,6 +53,7 @@ type StockRow = {
   brand_variant_id: string
   item_name: string
   brand: string | null
+  country_name: string | null
   sku: string | null
   qty: number | null
   total_value: number | null
@@ -129,7 +132,7 @@ function buildCategoryTree(stock: StockRow[]): CategoryGroup[] {
     const cat = catMap.get(catKey)!
 
     const brandEntry: BrandEntry = {
-      brand: s.brand, sku: s.sku, brand_variant_id: s.brand_variant_id,
+      brand: s.brand, country_name: s.country_name ?? null, sku: s.sku, brand_variant_id: s.brand_variant_id,
       qty: s.qty ?? 0, avgCost: 0, totalValue: s.total_value ?? 0,
     }
 
@@ -257,7 +260,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
         className={`grid grid-cols-[1fr_auto_auto] gap-2 ${indent} pr-3 py-1 bg-muted/5 border-b items-center`}
       >
         <div className="flex items-center gap-2 text-muted-foreground">
-          <span>{b.brand ?? '—'}</span>
+          <span>{brandOriginText(b.brand, b.country_name) ?? '—'}</span>
           {b.sku && <span className="text-[9px] text-primary">{b.sku}</span>}
         </div>
         <div className="text-right w-12">
@@ -299,6 +302,8 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
       const itemKey = `${parentKey}__${item.itemName}`
       const itemExpanded = expanded.has(itemKey)
       const hasMultipleBrands = item.brands.length > 1
+      const soleVariant = item.brands.length === 1 ? item.brands[0] : null
+      const soleLabel = soleVariant ? brandOriginText(soleVariant.brand, soleVariant.country_name) : null
       return (
         <React.Fragment key={itemKey}>
           <div
@@ -312,14 +317,14 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
                     : <ChevronRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />)
                 : <span className="inline-block w-2.5 shrink-0" />}
               <span>{item.itemName}</span>
-              {item.brands.length === 1 && item.brands[0].brand && (
-                <span className="text-[9px] text-muted-foreground">— {item.brands[0].brand}</span>
+              {soleLabel && (
+                <span className="text-[9px] text-muted-foreground">— {soleLabel}</span>
               )}
               {item.brands.length === 1 && item.brands[0].sku && (
                 <span className="text-[9px] text-primary">{item.brands[0].sku}</span>
               )}
               {hasMultipleBrands && (
-                <span className="text-[9px] text-muted-foreground italic">{item.brands.length} brands</span>
+                <span className="text-[9px] text-muted-foreground italic">{item.brands.length} variants</span>
               )}
             </div>
             <div className="text-right w-12 font-medium">
@@ -327,7 +332,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
                 qty={item.totalQty}
                 title={hasMultipleBrands ? 'Stock by Brand' : 'Stock by Warehouse'}
                 rows={hasMultipleBrands
-                  ? item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))
+                  ? item.brands.map((b) => ({ label: brandOriginText(b.brand, b.country_name) ?? '—', qty: b.qty }))
                   : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </div>
