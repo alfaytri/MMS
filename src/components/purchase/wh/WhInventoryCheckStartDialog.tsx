@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { ClipboardCheck, Users, ChevronRight, ChevronDown, Package } from 'lucide-react'
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
@@ -16,7 +15,6 @@ import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useProfiles } from '@/hooks/useProfiles'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface Props {
@@ -62,32 +60,14 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouseId, eligibleSubs.length])
 
-  // Scope the count list to the picked sub-container's FIFO layers. Falls
-  // back to warehouse-wide until a sub-container is resolved so the picker
-  // doesn't blink empty on first render.
-  const { data: subContainerLayers = [] } = useQuery({
-    queryKey: ['inv-check-sub-container-stock', subContainerId],
-    queryFn: async () => {
-      if (!subContainerId) return [] as Array<{ brand_variant_id: string }>
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('fifo_cost_layers')
-        .select('brand_variant_id')
-        .eq('sub_container_id', subContainerId)
-        .gt('remaining_qty', 0)
-        .limit(5000)
-      if (error) throw error
-      return (data ?? []) as Array<{ brand_variant_id: string }>
-    },
-    enabled: !!subContainerId,
-    staleTime: 60_000,
-  })
-
-  const scopedBvIds = useMemo(() => new Set(subContainerLayers.map((l) => l.brand_variant_id)), [subContainerLayers])
-
+  // Scope the count list to the picked sub-container by each stock row's OWN
+  // sub_container_id — exactly one row per variant in that sub-container.
+  // (Previously this filtered warehouseStock by "variants that have any layer in
+  // the sub", which wrongly pulled in the same variant's rows from OTHER
+  // sub-containers too → the same item appearing as duplicate count lines.)
   const stock = useMemo(
-    () => (subContainerId ? warehouseStock.filter((s) => scopedBvIds.has(s.brand_variant_id)) : warehouseStock),
-    [warehouseStock, subContainerId, scopedBvIds],
+    () => (subContainerId ? warehouseStock.filter((s) => s.sub_container_id === subContainerId) : warehouseStock),
+    [warehouseStock, subContainerId],
   )
 
   const activeProfiles = useMemo(
@@ -151,6 +131,7 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
           brand_variant_id: s.brand_variant_id,
           item_name:        s.item_name,
           brand:            s.brand,
+          country_name:     s.country_name ?? null,
           sku:              s.sku,
           qty:              s.qty,
           category_name:    s.category_name,

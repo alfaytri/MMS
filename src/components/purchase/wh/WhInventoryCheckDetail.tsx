@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   CheckCircle2, Clock, XCircle, ChevronDown, ChevronRight,
-  Milestone, User, AlertCircle, ArrowDownUp,
+  Milestone, User, AlertCircle, ArrowDownUp, Package, Ban,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -23,12 +23,14 @@ import {
   useSaveItemCount,
   useCompleteAssignment,
   useApproveCheckStep,
+  useCancelInventoryCheck,
 } from '@/hooks/useWarehouseOperations'
 import type { InventoryCheck, InventoryCheckItem, PostCountMovement } from '@/hooks/useWarehouseOperations'
 import { cn } from '@/lib/utils'
 import { ItemTreeCell } from './ItemTreeCell'
 import type { Profile } from '@/hooks/useProfiles'
 import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { useWorkflowSteps } from '@/hooks/useWorkflowSteps'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -56,6 +58,7 @@ const STATUS_BADGE: Record<string, string> = {
   rejected:        'bg-destructive/10 text-destructive',
   submitted:       'bg-warning/10 text-warning',
   draft:           'bg-muted text-muted-foreground',
+  cancelled:       'bg-muted text-muted-foreground line-through',
 }
 
 function statusLabel(s: string) {
@@ -66,6 +69,7 @@ function statusLabel(s: string) {
     rejected:        'Rejected',
     submitted:       'Submitted',
     draft:           'Draft',
+    cancelled:       'Cancelled',
   }[s] ?? s
 }
 
@@ -79,6 +83,7 @@ function EventIcon({ type }: { type: string }) {
   if (type === 'approved')        return <CheckCircle2 className="h-3.5 w-3.5 text-success" />
   if (type === 'rejected')        return <XCircle      className="h-3.5 w-3.5 text-destructive" />
   if (type === 'approval_action') return <User         className="h-3.5 w-3.5 text-primary" />
+  if (type === 'cancelled')       return <Ban          className="h-3.5 w-3.5 text-muted-foreground" />
   return <Clock className="h-3.5 w-3.5 text-muted-foreground" />
 }
 
@@ -91,11 +96,26 @@ function eventLabel(type: string, meta?: Record<string, unknown> | null) {
     approved:        'Check approved',
     rejected:        'Check rejected',
     approval_action: `${(meta?.action as string) === 'approved' ? 'Approved' : 'Rejected'} (approval step)`,
+    cancelled:       `Check cancelled${meta?.reason ? ` — ${String(meta.reason)}` : ''}`,
   }
   return map[type] ?? type
 }
 
 // ─── Tree item row ─────────────────────────────────────────────────────────────
+
+// Enter / ↓ focuses the next count input, ↑ the previous — a whole count can be
+// typed number-Enter-number-Enter with no mouse. Only the visible layout's
+// inputs (desktop grid OR mobile card) are navigated; hidden-layout inputs
+// (offsetParent === null) are skipped.
+function focusAdjacentCountInput(current: HTMLElement, dir: 1 | -1) {
+  const inputs = Array.from(
+    document.querySelectorAll<HTMLInputElement>('[data-count-input="1"]'),
+  ).filter((el) => el.offsetParent !== null)
+  const idx = inputs.indexOf(current as HTMLInputElement)
+  if (idx === -1) return
+  const next = inputs[idx + dir]
+  if (next) { next.focus(); next.select() }
+}
 
 function ItemCountRow({
   item,
@@ -141,6 +161,7 @@ function ItemCountRow({
           itemType={itemType}
           itemName={item.item_name}
           brand={item.brand}
+          origin={item.country_name ?? null}
         />
         <span className="text-[10px] text-muted-foreground truncate">{item.sku ?? '—'}</span>
         <span className="text-right tabular-nums">{item.system_qty}</span>
@@ -150,12 +171,19 @@ function ItemCountRow({
           <Input
             type="text"
             inputMode="decimal"
+            enterKeyHint="next"
             pattern="[0-9]*\.?[0-9]*"
+            data-count-input="1"
             className="h-7 text-xs text-right w-full"
             value={countedStr}
             onChange={(e) => {
               const v = e.target.value
               if (v === '' || /^\d*\.?\d*$/.test(v)) onCountChange(item.id, v)
+            }}
+            onFocus={(e) => e.currentTarget.select()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); focusAdjacentCountInput(e.currentTarget, 1) }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); focusAdjacentCountInput(e.currentTarget, -1) }
             }}
           />
         )}
@@ -200,22 +228,48 @@ function ItemCountRow({
         <div className="flex items-center gap-2 text-[11px]">
           <span className="text-muted-foreground">System</span>
           <span className="tabular-nums font-medium">{item.system_qty}</span>
-          <span className="text-muted-foreground ml-2">Counted</span>
-          {readOnly ? (
-            <span className="tabular-nums font-medium">{item.counted_qty ?? '—'}</span>
-          ) : (
-            <Input
-              type="text"
-              inputMode="decimal"
-              pattern="[0-9]*\.?[0-9]*"
-              className="h-8 text-xs text-right w-20 flex-shrink-0"
-              value={countedStr}
-              onChange={(e) => {
-                const v = e.target.value
-                if (v === '' || /^\d*\.?\d*$/.test(v)) onCountChange(item.id, v)
-              }}
-            />
-          )}
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="text-muted-foreground">Counted</span>
+            {readOnly ? (
+              <span className="tabular-nums font-medium">{item.counted_qty ?? '—'}</span>
+            ) : (
+              <>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  enterKeyHint="next"
+                  pattern="[0-9]*\.?[0-9]*"
+                  data-count-input="1"
+                  className="h-11 text-sm text-right w-20 flex-shrink-0"
+                  value={countedStr}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v === '' || /^\d*\.?\d*$/.test(v)) onCountChange(item.id, v)
+                  }}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); focusAdjacentCountInput(e.currentTarget, 1) }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); focusAdjacentCountInput(e.currentTarget, -1) }
+                  }}
+                />
+                {/* Soft numeric keypads (iOS) have no return key, so Enter-to-advance
+                    can't work there — this button steps to the next count field while
+                    keeping the keyboard open (pointerDown preventDefault avoids blur). */}
+                <button
+                  type="button"
+                  aria-label="Next item"
+                  className="h-11 w-11 flex-shrink-0 flex items-center justify-center rounded-md border text-muted-foreground active:bg-muted transition-colors"
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    const input = e.currentTarget.parentElement?.querySelector<HTMLInputElement>('[data-count-input="1"]')
+                    if (input) focusAdjacentCountInput(input, 1)
+                  }}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
         {!readOnly && variance !== null && variance !== 0 && (
           <Select
@@ -471,6 +525,9 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   const [reviewNotes, setReviewNotes] = useState('')
   const [approvingStep, setApprovingStep] = useState<string | null>(null)
   const [expandedAssignments, setExpandedAssignments] = useState<Set<string>>(new Set())
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
 
   function toggleAssignment(id: string) {
     setExpandedAssignments((prev) => {
@@ -500,8 +557,15 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
     return myApprovalRolesByName.has(roleName)
   }, [workflowSteps, myApprovalRolesByName])
   const approveStep                = useApproveCheckStep()
+  const cancelCheck                = useCancelInventoryCheck()
 
   const items = detail?.items ?? []
+
+  // Prefer the live detail query over the (possibly stale) list prop for status
+  // + review fields. Otherwise, after the count is marked complete, the status
+  // badge and the Approval Chain tab don't update until the dialog is closed and
+  // reopened — the completion mutation refetches `detail`, not the parent prop.
+  const liveCheck = detail ?? check
 
   const countCompletedAt = useMemo(() => {
     const allCountedEntry = logEntries.find((e) => e.event_type === 'all_counted')
@@ -509,13 +573,13 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   }, [logEntries])
 
   const approvedAt = useMemo(() => {
-    if (check.reviewed_at) return check.reviewed_at
-    if (check.status === 'approved' && approvals.length > 0) {
+    if (liveCheck.reviewed_at) return liveCheck.reviewed_at
+    if (liveCheck.status === 'approved' && approvals.length > 0) {
       const lastStep = [...approvals].reverse().find(s => s.status === 'approved')
       if (lastStep?.action_at) return lastStep.action_at
     }
     return null
-  }, [check.reviewed_at, check.status, approvals])
+  }, [liveCheck.reviewed_at, liveCheck.status, approvals])
 
   const { data: postCountMovements = [] } = usePostCountMovements(
     check.id,
@@ -552,9 +616,13 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
 
   // Current user's assignment (if any)
   const myAssignment = assignments.find((a) => a.profile_id === currentProfile?.id)
-  const checkDone = check.status === 'approved' || check.status === 'pending_approval' || check.status === 'completed'
+  const checkDone = liveCheck.status === 'approved' || liveCheck.status === 'pending_approval' || liveCheck.status === 'completed'
   const isInitiator = currentProfile?.id === check.initiated_by_profile_id
   const canSeeAll = isInitiator || !myAssignment
+  // Only the initiator or a manager (someone not tied to a single assignment)
+  // may abandon a check, and only before it finalizes. An approved check has
+  // already applied its stock adjustments; rejected/cancelled are terminal.
+  const canCancel = canSeeAll && ['draft', 'in_progress', 'pending_approval'].includes(liveCheck.status)
 
   // Group items by assignment for manager view — match on assignment_id.
   const byAssignment = useMemo(() => {
@@ -574,11 +642,13 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
   // Controlled tab state — set once per check open; doesn't react to async data changes
   const [activeTab, setActiveTab] = useState('timeline')
   useEffect(() => {
+    setConfirmingCancel(false)
+    setCancelReason('')
     if (myAssignment?.status === 'pending' || myAssignment?.status === 'in_progress') {
       setActiveTab('count')
-    } else if (check.status === 'pending_approval' && canSeeAll) {
+    } else if (liveCheck.status === 'pending_approval' && canSeeAll) {
       setActiveTab('approval')
-    } else if (check.status === 'pending_approval' && myAssignment) {
+    } else if (liveCheck.status === 'pending_approval' && myAssignment) {
       setActiveTab('count')
     } else {
       setActiveTab('timeline')
@@ -606,16 +676,41 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
     }
   }
 
+  async function handleCancel() {
+    setCancelling(true)
+    try {
+      await cancelCheck.mutateAsync({
+        checkId:     check.id,
+        profileId:   currentProfile?.id ?? null,
+        profileName: currentProfile?.full_name ?? 'Unknown',
+        reason:      cancelReason.trim() || null,
+      })
+      toast.success('Inventory check cancelled')
+      setConfirmingCancel(false)
+      setCancelReason('')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Cancel failed')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[64rem] sm:h-[85vh] sm:max-w-[95vw] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-sm flex items-center gap-2 flex-wrap">
             {check.check_number}
-            <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_BADGE[check.status] ?? 'bg-muted text-muted-foreground'}`}>
-              {statusLabel(check.status)}
+            <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_BADGE[liveCheck.status] ?? 'bg-muted text-muted-foreground'}`}>
+              {statusLabel(liveCheck.status)}
             </Badge>
-            <span className="text-xs font-normal text-muted-foreground">{check.warehouse_name}</span>
+            <span className="text-xs font-normal text-muted-foreground">{liveCheck.warehouse_name || check.warehouse_name}</span>
+            {liveCheck.sub_container_name && (
+              <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                <Package className="h-3 w-3" />
+                {shortenSubContainerName(liveCheck.sub_container_name, liveCheck.warehouse_name || check.warehouse_name)}
+              </span>
+            )}
             {check.started_at && (
               <span className="text-[10px] text-muted-foreground ml-auto">
                 Started {format(new Date(check.started_at), 'dd MMM yyyy')}
@@ -694,7 +789,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                 </Badge>
               </TabsTrigger>
             )}
-            {canSeeAll && (check.status === 'pending_approval' || check.status === 'approved' || check.status === 'rejected') && (
+            {canSeeAll && (liveCheck.status === 'pending_approval' || liveCheck.status === 'approved' || liveCheck.status === 'rejected') && (
               <TabsTrigger value="approval" className="text-xs h-7 px-3">Approval Chain</TabsTrigger>
             )}
           </TabsList>
@@ -733,7 +828,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
               const myItems = myAssignment ? (byAssignment.get(myAssignment.id) ?? []) : []
 
               // Counter with active assignment (still counting, not canSeeAll) — show only their items with input
-              if (myAssignment && myAssignment.status !== 'completed' && !canSeeAll && !checkDone) {
+              if (myAssignment && myAssignment.status !== 'completed' && !canSeeAll && !checkDone && liveCheck.status !== 'cancelled') {
                 return (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/5 border border-primary/20">
@@ -994,8 +1089,9 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                             itemType={itemTypeMap.get(m.brand_variant_id)}
                             itemName={checkItem?.item_name ?? m.item_name}
                             brand={checkItem?.brand}
+                            origin={checkItem?.country_name ?? null}
                           />
-                          <span className="text-[10px] text-muted-foreground">{MOVEMENT_LABELS[m.movement_type] ?? m.movement_type}</span>
+                          <span className="text-[10px] text-muted-foreground break-words leading-tight capitalize">{MOVEMENT_LABELS[m.movement_type] ?? m.movement_type.replace(/_/g, ' ')}</span>
                           <span className={`text-right tabular-nums font-medium ${m.qty > 0 ? 'text-success' : 'text-destructive'}`}>
                             {m.qty > 0 ? `+${m.qty}` : m.qty}
                           </span>
@@ -1052,7 +1148,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                         const startQty = item.system_qty
                         const physicalNow = (item.counted_qty ?? 0) + netMoved
                         const bookExpected = startQty + netMoved
-                        const checkClosed = check.status === 'approved' || check.status === 'rejected'
+                        const checkClosed = liveCheck.status === 'approved' || liveCheck.status === 'rejected'
                         const systemNow = checkClosed && item.system_qty_at_close != null
                           ? item.system_qty_at_close
                           : liveStockMap.get(item.brand_variant_id) ?? (item.system_qty + netMoved)
@@ -1068,6 +1164,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                                 itemType={itemTypeMap.get(item.brand_variant_id)}
                                 itemName={item.item_name}
                                 brand={item.brand}
+                                origin={item.country_name ?? null}
                               />
                             </td>
                             <td className="text-right px-2 py-2 tabular-nums align-middle text-muted-foreground">
@@ -1167,7 +1264,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                         <p className="text-[10px] text-muted-foreground pl-7 italic">{step.notes}</p>
                       )}
 
-                      {isActive && activeApprovalStep?.id === step.id && (
+                      {liveCheck.status === 'pending_approval' && isActive && activeApprovalStep?.id === step.id && (
                         canActOnStep(step.step_role) ? (
                           <div className="pl-7 space-y-2">
                             <Textarea
@@ -1214,8 +1311,54 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
           </TabsContent>
         </Tabs>
 
-        <DialogFooter>
-          <Button variant="outline" size="sm" className="text-xs" onClick={onClose}>Close</Button>
+        <DialogFooter className="gap-2">
+          {confirmingCancel ? (
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Reason for cancelling (optional)…"
+                className="h-8 text-xs sm:flex-1"
+                autoFocus
+              />
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  disabled={cancelling}
+                  onClick={() => { setConfirmingCancel(false); setCancelReason('') }}
+                >
+                  Keep check
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="text-xs gap-1"
+                  disabled={cancelling}
+                  onClick={handleCancel}
+                >
+                  <Ban className="h-3.5 w-3.5" />
+                  {cancelling ? 'Cancelling…' : 'Confirm cancel'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {canCancel && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mr-auto gap-1 text-xs text-destructive border-destructive/40 hover:bg-destructive/10"
+                  onClick={() => setConfirmingCancel(true)}
+                >
+                  <Ban className="h-3.5 w-3.5" />
+                  Cancel Check
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="text-xs" onClick={onClose}>Close</Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
