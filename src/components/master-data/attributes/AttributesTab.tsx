@@ -86,7 +86,7 @@ export function AttributesTab({ categoryId }: Props) {
   return (
     <div className="space-y-6">
       <p className="text-xs text-muted-foreground">
-        Attributes are inherited from parent categories and add to what's defined here.
+        Attributes are inherited from parent categories and add to what&apos;s defined here.
         Each attribute key can appear only once per top-level tree.
       </p>
 

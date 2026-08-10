@@ -167,7 +167,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
     onOpenChange(next)
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => () => { if (!submittedRef.current) sweepSessionUploads() }, [])
 
   const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({

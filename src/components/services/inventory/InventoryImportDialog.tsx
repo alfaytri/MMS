@@ -219,7 +219,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Import failed')
     }
-  }, [preview, importMutation, resetState, onOpenChange])
+  }, [preview, importMutation, resetState])
 
   const sortedRows = preview ? sortRowsErrorsFirst(preview.rows) : []
   const isBusy = isParsing || lookupMutation.isPending
