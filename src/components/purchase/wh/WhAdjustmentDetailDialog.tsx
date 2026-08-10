@@ -37,6 +37,7 @@ type AdjustmentRow = {
   warehouses?: { name: string } | null
   inventory_item_brand_variants?: {
     brand?: string | null
+    country_codes?: { name: string | null } | null
     inventory_items?: {
       name_en: string
       sku?: string | null
@@ -112,6 +113,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
   const item     = adjustment.inventory_item_brand_variants?.inventory_items
   const itemName = item?.name_en ?? '—'
   const brand    = adjustment.inventory_item_brand_variants?.brand ?? null
+  const origin   = adjustment.inventory_item_brand_variants?.country_codes?.name ?? null
   const categoryId = item?.inventory_categories?.id ?? null
   const itemType   = item?.inventory_categories?.type ?? null
   const category   = categoryId && categoriesFlat.length
@@ -169,7 +171,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
             <div className="space-y-4">
               {/* Item & quantity */}
               <div className="rounded-md border p-4 space-y-3">
-                <ItemTreeCell category={category} itemType={itemType} itemName={itemName} brand={brand} />
+                <ItemTreeCell category={category} itemType={itemType} itemName={itemName} brand={brand} origin={origin} />
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs pt-1">
                   <div className="space-y-0.5">
                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Warehouse</div>

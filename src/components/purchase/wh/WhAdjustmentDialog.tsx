@@ -15,8 +15,8 @@ import { Warehouse } from '@/hooks/useWarehouses'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Profile } from '@/hooks/useProfiles'
-import { useAllBrandVariantsGrouped, type BrandVariantGrouped } from '@/hooks/useInventory'
-import { useCreateStockAdjustmentV2 } from '@/hooks/useWarehouseOperations'
+import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
+import { useCreateStockAdjustmentV2, useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
@@ -37,7 +37,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const [open, setOpen] = useState(false)
   const [warehouseId, setWarehouseId] = useState('')
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
-  const [selectedVariant, setSelectedVariant] = useState<BrandVariantGrouped | null>(null)
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [itemPickerOpen, setItemPickerOpen] = useState(false)
   const [type, setType] = useState('')
   const [qty, setQty] = useState('')
@@ -49,7 +49,10 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const fileRef = useRef<HTMLInputElement>(null)
   const createAdjustment = useCreateStockAdjustmentV2()
 
-  const { data: allVariants = [] } = useAllBrandVariantsGrouped(open)
+  // Scope the item picker to stock physically in the chosen warehouse + sub-
+  // container (not the full catalog) — matches the transfer picker, and the rows
+  // carry item_type + origin so the picker groups by type and shows origin.
+  const { data: containerStock = [] } = useWarehouseStock(warehouseId || undefined, subContainerId)
 
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
   const eligibleSubs = useMemo(() => allSubs.filter((sc) => sc.is_active), [allSubs])
@@ -61,26 +64,41 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouseId, eligibleSubs.length])
 
-  const pickerItems: PickerItem[] = useMemo(
-    () => allVariants.map((v) => ({
-      id:       v.variantId,
-      name:     v.itemName ?? '(No name)',
-      brand:    v.brand ?? null,
-      sku:      v.itemSku ?? null,
-      category: v.catName ?? null,
-      imageUrl: v.imageUrl,
-    })),
-    [allVariants],
-  )
+  // Clear the picked item whenever the container scope changes.
+  useEffect(() => { setSelectedVariantId(null) }, [warehouseId, subContainerId])
+
+  const pickerItems: PickerItem[] = useMemo(() => {
+    if (!warehouseId) return []
+    // One entry per variant (a variant can span sub-containers when none is
+    // picked yet); first row wins for the display fields.
+    const seen = new Map<string, WarehouseStockItem>()
+    for (const s of containerStock) if (!seen.has(s.brand_variant_id)) seen.set(s.brand_variant_id, s)
+    return [...seen.values()].map((s) => ({
+      id:          s.brand_variant_id,
+      name:        s.item_name ?? '(No name)',
+      brand:       s.brand ?? null,
+      countryName: s.country_name ?? null,
+      sku:         s.sku ?? null,
+      category:    s.category_name ?? null,
+      type:        s.item_type ?? null,
+      qty:         s.qty,
+      imageUrl:    s.image_url ?? null,
+    }))
+  }, [containerStock, warehouseId])
+
+  const selectedItem = selectedVariantId ? pickerItems.find((p) => p.id === selectedVariantId) ?? null : null
+  const selVarLabel = selectedItem
+    ? variantPickerLabel({ brand: selectedItem.brand, country_name: selectedItem.countryName })
+    : null
 
   const subResolved = eligibleSubs.length > 0 && (eligibleSubs.length === 1 || !!subContainerId)
-  const canSubmit = !!warehouseId && subResolved && !!selectedVariant && !!type && !!qty && !!reason
+  const canSubmit = !!warehouseId && subResolved && !!selectedVariantId && !!type && !!qty && !!reason
 
   function handleClose() {
     setOpen(false)
     setWarehouseId('')
     setSubContainerId(null)
-    setSelectedVariant(null)
+    setSelectedVariantId(null)
     setItemPickerOpen(false)
     setType('')
     setQty('')
@@ -93,7 +111,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   const isDirty =
     warehouseId !== '' ||
     subContainerId !== null ||
-    selectedVariant !== null ||
+    selectedVariantId !== null ||
     type !== '' ||
     qty !== '' ||
     reason !== '' ||
@@ -139,7 +157,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   }
 
   async function handleSubmit() {
-    if (!canSubmit || !currentProfile || !selectedVariant) return
+    if (!canSubmit || !currentProfile || !selectedVariantId) return
     if (eligibleSubs.length === 0) { toast.error('Warehouse has no active sub-container'); return }
     if (eligibleSubs.length > 1 && !subContainerId) { toast.error('Pick a sub-container'); return }
     setSubmitting(true)
@@ -176,7 +194,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       await createAdjustment.mutateAsync({
         warehouseId:      warehouseId,
         subContainerId:   subContainerId,
-        brandVariantId:   selectedVariant.variantId,
+        brandVariantId:   selectedVariantId,
         adjustmentType:   type as 'increase' | 'decrease' | 'damage' | 'write_off',
         qty:              parseFloat(qty),
         reason,
@@ -257,13 +275,13 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                 <PopoverTrigger
                   className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
                 >
-                  {selectedVariant ? (
+                  {selectedItem && selVarLabel ? (
                     <span className="truncate">
-                      <span className="font-medium">{selectedVariant.itemName}</span>
-                      <span className="text-muted-foreground"> — {selectedVariant.brand}</span>
+                      <span className="font-medium">{selectedItem.name}</span>
+                      <span className="text-muted-foreground"> — {selVarLabel.primary}{selVarLabel.origin ? ` · ${selVarLabel.origin}` : ''}</span>
                     </span>
                   ) : (
-                    <span className="text-muted-foreground">Search items...</span>
+                    <span className="text-muted-foreground">{warehouseId ? 'Search items…' : 'Select a warehouse first'}</span>
                   )}
                   <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
                 </PopoverTrigger>
@@ -275,13 +293,12 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                 >
                   <WhItemPicker
                     items={pickerItems}
-                    currentValue={selectedVariant?.variantId ?? ''}
+                    currentValue={selectedVariantId ?? ''}
                     onSelect={(id) => {
-                      const v = allVariants.find((x) => x.variantId === id)
-                      if (v) setSelectedVariant(v)
+                      setSelectedVariantId(id)
                       setItemPickerOpen(false)
                     }}
-                    showQty={false}
+                    showQty
                   />
                 </PopoverContent>
               </Popover>
