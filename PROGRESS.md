@@ -13,7 +13,7 @@
 | **Project** | MMS — Maintenance Management System |
 | **Owner** | Mohamed Ismail |
 | **Working dir** | `D:/MMS` |
-| **Active branch** | `feature/invoices-module` — Invoices Module (3 finance pages) |
+| **Active branch** | `feature/warehouse-origin-visibility` — Warehouse Origin Visibility (Tier 1+2) |
 | **Goal** | Web ERP for a Qatar maintenance company (Alfaytri Maintenance, RSH Cleaning and Pest Control) |
 
 ---
@@ -278,6 +278,8 @@ Purchase & Sales▾:
 ---
 
 ## 🔄 In Progress
+
+🚀 **Starting: Warehouse Origin Visibility** on `feature/warehouse-origin-visibility` (off `deploy/warehouse-shipping`). Follow-up to the shipped Brands & Origin + PO/SO-pickers work: origin (`country_id`) is now a stocked/priced leaf dimension, but every **warehouse-operation** screen still renders variants without origin, so two same-item+same-brand variants that differ only by origin are indistinguishable — a count/transfer/adjust/ship hazard — and the printed stock report merges origins into one summed line. Scope = Tier 1 hazards + Tier 2 correctness/central displays (Tier 3 cosmetics + warranty readiness deferred/tracked). Built on 4 shared levers across 13 tasks: `warehouse_stock_view` origin column + `ItemTreeCell origin` prop + shared `WhItemPicker` origin + inventory-check origin capture + report rollup-key fix + Create-Delivery line. Migrations `20260819210000` (view) + `20260819220000` (check items) STAGING-only + mirrored. Spec + plan: [docs/plans/2026-08-10-warehouse-origin-visibility/](docs/plans/2026-08-10-warehouse-origin-visibility/plan.md).
 
 ✅ **Overnight Backlog (2026-08-10) — all four workstreams complete** on `chore/overnight-backlog-2026-08-10` (off `feature/security-p1-po-column-lock`), **not pushed**. WS1 attribute-chip N+1 batch (operator-confirmed one query per category in the Network panel), WS2 dead-component deletion, WS3 inventory-tree polish — all code-complete, `tsc`+eslint clean, per-item commits. **WS4 Security P1 write-guards — now APPLIED to staging** (7 migrations `20260819140000`–`20260819200000` + mirrors): each was live-pre-checked (`supabase db query --linked`), applied, and object-verified (trigger enabled, guard `prosecdef=false`, anon revoked). Live checks caught two INVOKER-writer traps and narrowed the guards accordingly (payments linkage + so_invoices recompute columns excluded — see Security Audit Log). **Only remaining WS4 step: the behavioral operator smoke** (`docs/plans/2026-08-10-overnight-backlog/MORNING-CHECKLIST.md`) — needs a logged-in session. Spec + plan: [docs/plans/2026-08-10-overnight-backlog/](docs/plans/2026-08-10-overnight-backlog/plan.md).
 
