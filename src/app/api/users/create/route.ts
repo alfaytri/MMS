@@ -35,7 +35,6 @@ export async function POST(request: Request) {
     full_name, username, password, role_ids,
     is_division_manager, has_contact_centre_access, threecx_extension, phone,
   } = parsed.data
-  const email = `${username}@mms.local`
 
   if (await isRateLimited({
     action: 'user.admin_create',
@@ -47,6 +46,21 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient()
+
+  // Synthetic auth-email domain is DB-driven from the primary (active) company —
+  // e.g. company "Alfaytri" → username@alfaytri.com. Not hardcoded. Login never
+  // reconstructs this domain; it resolves the stored email via resolve_login_email,
+  // so the domain can change without locking anyone out.
+  const { data: company } = await admin
+    .from('companies')
+    .select('name_en')
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  const domainSlug = (company?.name_en ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const email = domainSlug ? `${username}@${domainSlug}.com` : `${username}@mms.local`
+
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,

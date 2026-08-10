@@ -32,7 +32,14 @@ function LoginForm() {
     setLoading(true)
     const supabase = createClient()
     const normalised = username.trim().toLowerCase()
-    const email = normalised.includes('@') ? normalised : `${normalised}@mms.local`
+    // Resolve the username to the user's real stored email (domain-agnostic:
+    // works for legacy @mms.local and new @<company>.com accounts). Fall back to
+    // the raw input if unknown so a typo just fails auth normally.
+    const { data: resolved } = await supabase.rpc(
+      'resolve_login_email' as never,
+      { p_username: normalised } as never,
+    )
+    const email = (resolved as unknown as string | null) ?? normalised
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setError(error.message)
