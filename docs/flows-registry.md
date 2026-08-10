@@ -598,6 +598,14 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **RPC:** `snapshot_inventory_check_system_qty` (on reject), `apply_inventory_check_adjustments` (on final approve)
 - **Writes:** books variance stock movements
 
+### Cancel Inventory Check
+- **Trigger:** `WhInventoryCheckDetail` footer — initiator or manager only, while `draft` / `in_progress` / `pending_approval`
+- **Hook:** [`useCancelInventoryCheck`](src/hooks/useWarehouseOperations.ts)
+- **Writes:** `inventory_checks.status`→`cancelled` (guarded, row read-back); `inventory_check_log` `cancelled` event (optional reason in `meta`). No stock movements — a cancel just abandons the count.
+- **Guards:** `approved` / `rejected` / `cancelled` cannot be cancelled; race-safe `.in('status', CANCELLABLE)` + affected-row check
+- **DB:** `20260819250000` (adds `cancelled` to `inventory_check_event_type` enum), `20260819260000` (adds `cancelled` to `inventory_checks_status_check`)
+- **Related flows:** [[Start Inventory Check]]
+
 ---
 
 ## Sale Orders

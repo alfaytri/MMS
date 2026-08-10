@@ -37,6 +37,7 @@ type StockAdjustmentRow = {
   warehouses?: { name: string } | null
   inventory_item_brand_variants?: {
     brand?: string | null
+    country_codes?: { name: string | null } | null
     inventory_items?: {
       name_en: string
       sku?: string | null
@@ -154,6 +155,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
           const item     = adj.inventory_item_brand_variants?.inventory_items
           const itemName = item?.name_en ?? '—'
           const brand    = adj.inventory_item_brand_variants?.brand ?? null
+          const origin   = adj.inventory_item_brand_variants?.country_codes?.name ?? null
           const categoryId = item?.inventory_categories?.id ?? null
           const itemType   = item?.inventory_categories?.type ?? null
           const category   = categoryId && categoriesFlat.length
@@ -184,6 +186,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                     itemType={itemType}
                     itemName={itemName}
                     brand={brand}
+                    origin={origin}
                   />
                 </div>
                 <span className="text-lg font-bold tabular-nums shrink-0 leading-none pt-0.5">{adj.qty}</span>
@@ -241,6 +244,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
               const item     = adj.inventory_item_brand_variants?.inventory_items
               const itemName = item?.name_en ?? '—'
               const brand    = adj.inventory_item_brand_variants?.brand ?? null
+              const origin   = adj.inventory_item_brand_variants?.country_codes?.name ?? null
               const categoryId = item?.inventory_categories?.id ?? null
               const itemType   = item?.inventory_categories?.type ?? null
               const category   = categoryId && categoriesFlat.length
@@ -269,6 +273,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                       itemType={itemType}
                       itemName={itemName}
                       brand={brand}
+                      origin={origin}
                     />
                   </TableCell>
 

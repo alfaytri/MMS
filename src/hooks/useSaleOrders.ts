@@ -715,7 +715,7 @@ export function useCreateSO() {
           await syncInvoiceToSalesOrder(result.so_id)
         } catch (err) {
           // Non-fatal — the SO is already saved. Surface a soft warning.
-          // eslint-disable-next-line no-console
+           
           console.warn('SO created but invoice sync failed:', err)
         }
       }

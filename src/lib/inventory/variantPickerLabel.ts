@@ -43,3 +43,18 @@ export function variantPickerLabel(v: VariantLabelInput): VariantPickerLabel {
   if (origin) return { primary: origin, origin: null }
   return { primary: GENERIC_VARIANT_LABEL, origin: null }
 }
+
+/**
+ * Flatten variantPickerLabel to a single compact "Brand · Origin" (or just
+ * "Brand" / "Origin") string for one-line displays — the warehouse stock tree,
+ * overview, and value tables. Returns null when the variant has neither a real
+ * brand nor an origin, so callers keep their own em-dash fallback.
+ */
+export function brandOriginText(
+  brand: string | null | undefined,
+  origin: string | null | undefined,
+): string | null {
+  const label = variantPickerLabel({ brand, country_name: origin })
+  if (label.primary === GENERIC_VARIANT_LABEL && !label.origin) return null
+  return label.origin ? `${label.primary} · ${label.origin}` : label.primary
+}

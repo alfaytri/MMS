@@ -15,6 +15,7 @@ import { useStockValueCogsSummary } from '@/hooks/useStockValueCogsSummary'
 import { CogsDetailDialog } from './CogsDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { searchRank } from '@/lib/inventory/searchRank'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import { createClient } from '@/lib/supabase/client'
@@ -39,6 +40,7 @@ interface MergedRow {
   subcategory_name: string | null
   item_type: string | null
   brand: string | null
+  country_name: string | null
   sku: string | null
   totalQty: number
   avgCost: number
@@ -295,7 +297,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
   const [cogsDialog, setCogsDialog] = useState<{
-    brandVariantId: string; itemName: string; brand: string | null; sku: string | null
+    brandVariantId: string; itemName: string; brand: string | null; origin: string | null; sku: string | null
   } | null>(null)
 
   const queryClient = useQueryClient()
@@ -327,11 +329,36 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
     staleTime: 60 * 1000,
   })
 
+  // useWarehouses() excludes virtual (repair / team-shadow) warehouses, so stock
+  // physically held in one renders as "Unknown". get_warehouse_names is a
+  // SECURITY DEFINER RPC that resolves ANY warehouse id (virtual + cross-division)
+  // — same pattern as useWarehouseStockByItems.
+  const stockWarehouseIds = useMemo(
+    () => [...new Set(allStock.map((s) => s.warehouse_id).filter(Boolean))] as string[],
+    [allStock],
+  )
+  const { data: rpcWarehouseNames } = useQuery({
+    queryKey: ['wh-names-by-id', 'stock-value', stockWarehouseIds.slice().sort().join('|')],
+    enabled: stockWarehouseIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_warehouse_names', { p_ids: stockWarehouseIds })
+      if (error) throw error
+      const m = new Map<string, string>()
+      for (const row of (data ?? []) as Array<{ id: string; name: string }>) m.set(row.id, row.name ?? '')
+      return m
+    },
+  })
+
   const warehouseMap = useMemo(() => {
     const map = new Map<string, string>()
+    // Seed with the DEFINER-resolved names (covers virtual/cross-division)…
+    if (rpcWarehouseNames) for (const [id, name] of rpcWarehouseNames) map.set(id, name)
+    // …then let the in-scope useWarehouses list win where it has the warehouse.
     for (const wh of warehouses) map.set(wh.id, wh.name)
     return map
-  }, [warehouses])
+  }, [warehouses, rpcWarehouseNames])
 
   const toggleRow = useCallback((id: string) => {
     setExpandedRows((prev) => {
@@ -361,6 +388,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
         (r) =>
           r.item_name?.toLowerCase().includes(q) ||
           (r.brand ?? '').toLowerCase().includes(q) ||
+          (r.country_name ?? '').toLowerCase().includes(q) ||
           (r.sku ?? '').toLowerCase().includes(q) ||
           (r.category_name ?? '').toLowerCase().includes(q) ||
           (warehouseMap.get(r.warehouse_id) ?? '').toLowerCase().includes(q),
@@ -385,6 +413,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
           subcategory_name: row.subcategory_name,
           item_type: row.item_type,
           brand: row.brand,
+          country_name: row.country_name,
           sku: row.sku,
           totalQty: 0,
           avgCost: 0,
@@ -436,7 +465,16 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
   const sorted = useMemo(() => {
     const rows = [...merged]
+    const q = search.trim()
     rows.sort((a, b) => {
+      // When searching, name matches rank to the top (shared with the pickers).
+      if (q) {
+        const ra = searchRank(q, { name: a.item_name, brand: a.brand, origin: a.country_name, sku: a.sku, category: a.category_name })
+        const rb = searchRank(q, { name: b.item_name, brand: b.brand, origin: b.country_name, sku: b.sku, category: b.category_name })
+        const na = ra < 0 ? Infinity : ra
+        const nb = rb < 0 ? Infinity : rb
+        if (na !== nb) return na - nb
+      }
       let cmp = 0
       switch (sortField) {
         case 'latest_receival': {
@@ -472,7 +510,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
       return sortDir === 'asc' ? cmp : -cmp
     })
     return rows
-  }, [merged, sortField, sortDir])
+  }, [merged, sortField, sortDir, search])
 
   // ── Pagination ─────────────────────────────────────────────────────────────
 
@@ -684,8 +722,10 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                     </p>
                   )}
                   <p className="text-xs font-semibold truncate">{row.item_name}</p>
-                  {row.brand && (
-                    <p className="text-[10px] text-primary truncate">{row.brand}{row.sku ? ` · ${row.sku}` : ''}</p>
+                  {(row.brand || row.country_name) && (
+                    <p className="text-[10px] text-primary truncate">
+                      {row.brand ?? row.country_name}{row.brand && row.country_name ? ` · ${row.country_name}` : ''}{row.sku ? ` · ${row.sku}` : ''}
+                    </p>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -802,7 +842,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
                         {/* Brand / SKU */}
                         <TableCell className="text-xs py-2 hidden sm:table-cell">
-                          <div>{row.brand ?? '—'}</div>
+                          <div>{row.brand ?? row.country_name ?? '—'}{row.brand && row.country_name ? ` · ${row.country_name}` : ''}</div>
                           {row.sku && <div className="text-[10px] text-primary">{row.sku}</div>}
                         </TableCell>
 
@@ -914,6 +954,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                                   brandVariantId: row.brand_variant_id,
                                   itemName: row.item_name,
                                   brand: row.brand,
+                                  origin: row.country_name,
                                   sku: row.sku,
                                 })
                               }}
@@ -1011,6 +1052,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
             brandVariantId={cogsDialog.brandVariantId}
             itemName={cogsDialog.itemName}
             brand={cogsDialog.brand}
+            origin={cogsDialog.origin}
             sku={cogsDialog.sku}
           />
         )}

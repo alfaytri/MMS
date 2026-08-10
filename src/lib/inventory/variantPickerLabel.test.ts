@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { variantPickerLabel, GENERIC_VARIANT_LABEL } from './variantPickerLabel'
+import { variantPickerLabel, brandOriginText, GENERIC_VARIANT_LABEL } from './variantPickerLabel'
 
 describe('variantPickerLabel', () => {
   it('branded + origin: brand is primary, origin kept as a segment', () => {
@@ -35,5 +35,27 @@ describe('variantPickerLabel', () => {
   it('trims and ignores whitespace-only values', () => {
     expect(variantPickerLabel({ brand_name: '  ', brand: '  ', country_name: '  ' }))
       .toEqual({ primary: GENERIC_VARIANT_LABEL, origin: null })
+  })
+})
+
+describe('brandOriginText', () => {
+  it('brand + origin → "Brand · Origin"', () => {
+    expect(brandOriginText('Bosch', 'Germany')).toBe('Bosch · Germany')
+  })
+
+  it('brand only → just the brand', () => {
+    expect(brandOriginText('Bosch', null)).toBe('Bosch')
+  })
+
+  it('origin only → just the origin', () => {
+    expect(brandOriginText(null, 'Italy')).toBe('Italy')
+  })
+
+  it('neither → null (so callers keep their own em-dash fallback)', () => {
+    expect(brandOriginText(null, null)).toBeNull()
+  })
+
+  it('treats a literal "generic" brand with no origin as null', () => {
+    expect(brandOriginText('generic', null)).toBeNull()
   })
 })

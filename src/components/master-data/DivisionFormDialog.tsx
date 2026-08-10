@@ -228,7 +228,7 @@ export function DivisionFormDialog({
     onOpenChange(next)
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => () => { if (!submittedRef.current) sweepSessionUploads() }, [])
 
   // Force re-render on any field change so isDirty stays fresh in the closure.

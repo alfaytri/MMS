@@ -112,7 +112,8 @@ function RequestEditDialog({
   const requestEdit = useRequestReceivalEdit()
   const [reason, setReason] = useState('')
 
-  useEffect(() => { if (receival) setReason('') }, [receival?.id])
+  const receivalId = receival?.id
+  useEffect(() => { if (receivalId) setReason('') }, [receivalId])
 
   if (!receival) return null
   return (

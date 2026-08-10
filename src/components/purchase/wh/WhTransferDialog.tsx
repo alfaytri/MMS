@@ -28,6 +28,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { WhItemPicker, type PickerItem } from './WhItemPicker'
+import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { Profile } from '@/hooks/useProfiles'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
@@ -157,8 +158,10 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       id:            s.brand_variant_id,
       name:          s.item_name ?? '(No name)',
       brand:         s.brand ?? null,
+      countryName:   s.country_name ?? null,
       sku:           s.sku ?? null,
       category:      s.category_name ?? null,
+      type:          s.item_type ?? null,
       qty:           fromSubContainerId ? (availableQtyMap.get(s.brand_variant_id) ?? 0) : s.available_qty,
       destQty:       destStockMap.get(s.brand_variant_id)?.qty,
       reorderPoint:  reorderMap.get(s.brand_variant_id) ?? 0,
@@ -248,7 +251,13 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const hasValidRows = rows.some((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
   const fromSubResolved = eligibleFromSubs.length > 0 && (eligibleFromSubs.length === 1 || !!fromSubContainerId)
   const toSubResolved = eligibleToSubs.length > 0 && (eligibleToSubs.length === 1 || !!toSubContainerId)
-  const canSubmit = !!fromId && !!toId && fromSubResolved && toSubResolved && hasValidRows && !hasValidationErrors
+  // Intra-warehouse transfers are allowed, but source and destination
+  // sub-containers must differ (a same-container move is a no-op, and the DB
+  // constraint check_different_location rejects it).
+  const effFromSub = fromSubContainerId ?? (eligibleFromSubs.length === 1 ? eligibleFromSubs[0]?.id ?? null : null)
+  const effToSub   = toSubContainerId ?? (eligibleToSubs.length === 1 ? eligibleToSubs[0]?.id ?? null : null)
+  const sameContainer = !!fromId && fromId === toId && !!effFromSub && effFromSub === effToSub
+  const canSubmit = !!fromId && !!toId && fromSubResolved && toSubResolved && !sameContainer && hasValidRows && !hasValidationErrors
 
   // ─── Submit ────────────────────────────────────────────────────────────────
 
@@ -343,7 +352,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                     <SelectValue placeholder="Source warehouse" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.filter((w) => w.id !== toId).map((wh) => (
+                    {warehouses.map((wh) => (
                       <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -359,7 +368,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                     <SelectValue placeholder="Destination warehouse" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.filter((w) => w.id !== fromId).map((wh) => (
+                    {warehouses.map((wh) => (
                       <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -421,7 +430,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                       <SelectValue placeholder="Pick destination sub-container…" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 overflow-y-auto">
-                      {eligibleToSubs.map((sc) => (
+                      {eligibleToSubs.filter((sc) => !(fromId === toId && sc.id === fromSubContainerId)).map((sc) => (
                         <SelectItem key={sc.id} value={sc.id} className="text-[11px]">
                           {sc.name}{sc.division_name && !sc.name.includes(sc.division_name) ? ` — ${sc.division_name}` : ''}
                         </SelectItem>
@@ -429,6 +438,13 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                     </SelectContent>
                   </Select>
                 )}
+              </div>
+            )}
+
+            {/* ── Same-container guard (intra-warehouse transfers) ── */}
+            {sameContainer && (
+              <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-destructive/5 border border-destructive/20 text-[11px] text-destructive">
+                Source and destination sub-container must differ for a same-warehouse transfer.
               </div>
             )}
 
@@ -463,6 +479,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                 <div className="space-y-1.5">
                   {rows.map((row, idx) => {
                     const selectedItem = sourceStock.find((s) => s.brand_variant_id === row.brand_variant_id)
+                    const selLabel = selectedItem ? variantPickerLabel({ brand: selectedItem.brand, country_name: selectedItem.country_name }) : null
                     const available = row.brand_variant_id ? (availableQtyMap.get(row.brand_variant_id) ?? 0) : null
                     const error = rowErrors[idx]
 
@@ -476,11 +493,11 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                           <PopoverTrigger
                             className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
                           >
-                            {selectedItem ? (
+                            {selectedItem && selLabel ? (
                               <span className="truncate">
                                 <span className="font-medium">{selectedItem.item_name}</span>
-                                {selectedItem.brand && (
-                                  <span className="text-muted-foreground"> — {selectedItem.brand}</span>
+                                {(selectedItem.brand || selectedItem.country_name) && (
+                                  <span className="text-muted-foreground"> — {selLabel.primary}{selLabel.origin ? ` · ${selLabel.origin}` : ''}</span>
                                 )}
                               </span>
                             ) : (

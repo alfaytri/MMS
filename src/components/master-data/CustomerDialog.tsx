@@ -123,6 +123,10 @@ export function CustomerDialog({
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
     }
     setUploading(null)
+    // Form fields are (re)initialised only when the dialog opens or the target
+    // customer changes; findDoc is a render-local reader of existingDocs and must
+    // not retrigger this init (it would clobber in-progress edits).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isEdit, customer])
 
   const selectedGroup    = groups.find((g) => g.id === groupId) ?? null
@@ -497,7 +501,7 @@ export function CustomerDialog({
   })
 
   // Safety net for unmounts that bypass onOpenChange (route change etc.).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => () => { if (!submittedRef.current) sweepPendingUploads() }, [])
 
   return (

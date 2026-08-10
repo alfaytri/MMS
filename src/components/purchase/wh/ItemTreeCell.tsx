@@ -1,4 +1,5 @@
 import React from 'react'
+import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 
 const TYPE_SHORT_LABEL: Record<string, string> = {
   'products':    'Products',
@@ -13,13 +14,20 @@ interface ItemTreeCellProps {
   itemType?: string | null
   itemName: string
   brand?: string | null
+  /** country_codes.name for the variant's origin, or null. */
+  origin?: string | null
   sku?: string | null
   showSku?: boolean
 }
 
-export function ItemTreeCell({ category, subcategory, itemType, itemName, brand, sku, showSku }: ItemTreeCellProps) {
+export function ItemTreeCell({ category, subcategory, itemType, itemName, brand, origin, sku, showSku }: ItemTreeCellProps) {
   const hasParent = !!(category || subcategory)
   const depth = subcategory ? 2 : category ? 1 : 0
+  // Reuse the PO/SO label rules: brand wins as primary; origin-only leaf shows
+  // origin as primary; neither → "Generic" (suppressed below so a no-brand/
+  // no-origin row stays visually identical to today).
+  const label = variantPickerLabel({ brand, country_name: origin })
+  const showVariantLine = !!brand || !!origin
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
       {category && (
@@ -41,12 +49,13 @@ export function ItemTreeCell({ category, subcategory, itemType, itemName, brand,
       >
         {itemName}
       </span>
-      {brand && (
+      {showVariantLine && (
         <span
           className="text-[10px] text-primary truncate"
           style={{ paddingLeft: depth >= 1 ? 24 : 12 }}
         >
-          {brand}
+          {label.primary}
+          {label.origin && <span className="text-muted-foreground"> · {label.origin}</span>}
           {showSku && sku && <span className="text-muted-foreground ml-1">({sku})</span>}
         </span>
       )}

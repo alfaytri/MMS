@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect } from 'react'
-import { ClipboardCheck, Users, CheckCircle2, Clock, XCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ClipboardCheck, Users, CheckCircle2, Clock, XCircle, Eye, ChevronLeft, ChevronRight, Ban } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useInventoryChecks } from '@/hooks/useWarehouseOperations'
@@ -23,6 +23,7 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: 
   rejected:        { icon: <XCircle className="h-4 w-4" />,       color: 'text-destructive',   bg: 'bg-destructive/10', label: 'Rejected'         },
   submitted:       { icon: <Clock className="h-4 w-4" />,         color: 'text-warning',       bg: 'bg-warning/10',     label: 'Submitted'        },
   draft:           { icon: <Clock className="h-4 w-4" />,         color: 'text-muted-foreground', bg: 'bg-muted/20',   label: 'Draft'            },
+  cancelled:       { icon: <Ban className="h-4 w-4" />,           color: 'text-muted-foreground', bg: 'bg-muted/30',   label: 'Cancelled'        },
 }
 
 interface Props {

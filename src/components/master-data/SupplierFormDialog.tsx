@@ -130,6 +130,10 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       setIsGlobal(activeDivisionId == null)
       form.reset({ name: '', category: '', supplier_type: 'local' as const, currency_id: '', country: '', contact_name: '', phone: '', email: '', address: '', notes: '' })
     }
+    // New-supplier defaults read activeDivisionId as a snapshot at open time; this
+    // init must sync only on open/supplier changes, not re-run when the active
+    // division changes (that would reset an in-progress edit).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, supplier, form])
 
   function onSubmit(values: SupplierFormValues) {

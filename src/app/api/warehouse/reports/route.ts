@@ -83,7 +83,7 @@ type SupaClient = ReturnType<typeof createClient<Database>>
 async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
   let q = supabase
     .from('warehouse_stock_view')
-    .select('warehouse_id, item_name, brand, sku, qty, avg_cost, total_value, category_name, subcategory_name, item_type')
+    .select('warehouse_id, brand_variant_id, item_name, brand, sku, qty, avg_cost, total_value, category_name, subcategory_name, item_type, country_name')
     .order('category_name', { ascending: true })
     .order('subcategory_name', { ascending: true })
     .order('item_name', { ascending: true })
@@ -101,8 +101,11 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
   // Roll sub_container rows up per (warehouse, item identity) so the report
   // shape matches the pre-D.5 behaviour: one row per warehouse-item pair.
   const rolled = new Map<string, StockOverviewRow & { _qty: number; _cost_weighted: number }>()
-  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-    const key = `${r.warehouse_id ?? ''}|${r.item_name ?? ''}|${r.brand ?? ''}|${r.sku ?? ''}`
+  for (const r of (data ?? []) as unknown as Array<Record<string, unknown>>) {
+    // Key on the variant leaf, NOT item_name|brand|sku — else two distinct
+    // origin variants (same item + brand) would collapse into one summed line.
+    // Sub-container rows of the SAME variant still roll up (same brand_variant_id).
+    const key = `${r.warehouse_id ?? ''}|${r.brand_variant_id ?? ''}`
     const qty = Number(r.qty ?? 0)
     const avg = Number(r.avg_cost ?? 0)
     const val = Number(r.total_value ?? 0)
@@ -115,6 +118,7 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
         brand: (r.brand as string | null) ?? null,
         sku: (r.sku as string | null) ?? null,
         item_type: (r.item_type as string | null) ?? null,
+        origin: (r.country_name as string | null) ?? null,
         qty,
         avg_cost: avg,
         total_value: val,
@@ -137,6 +141,7 @@ async function fetchStockOverview(supabase: SupaClient, warehouseId?: string) {
     brand: r.brand,
     sku: r.sku,
     item_type: r.item_type,
+    origin: r.origin,
     qty: r.qty,
     avg_cost: r.avg_cost,
     total_value: r.total_value,
@@ -222,7 +227,7 @@ async function fetchInventoryChecks(supabase: SupaClient, fromDate?: string, toD
 async function fetchStockValue(supabase: SupaClient) {
   const { data, error } = await supabase
     .from('warehouse_stock_view')
-    .select('warehouse_id, item_name, brand, sku, qty, avg_cost, total_value, category_name, subcategory_name, item_type')
+    .select('warehouse_id, brand_variant_id, item_name, brand, sku, qty, avg_cost, total_value, category_name, subcategory_name, item_type, country_name')
     .order('category_name', { ascending: true })
     .order('item_name', { ascending: true })
     .limit(20000)
@@ -235,9 +240,10 @@ async function fetchStockValue(supabase: SupaClient) {
   // Roll sub_container rows up per (warehouse, item identity) so the value
   // report shape matches pre-D.5 — one row per warehouse-item pair.
   const rolled = new Map<string, StockValueReportRow & { _qty: number; _cost_weighted: number }>()
-  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+  for (const r of (data ?? []) as unknown as Array<Record<string, unknown>>) {
     const whId = (r.warehouse_id as string) ?? ''
-    const key = `${whId}|${r.item_name ?? ''}|${r.brand ?? ''}|${r.sku ?? ''}`
+    // Key on the variant leaf so two distinct origins never merge into one line.
+    const key = `${whId}|${r.brand_variant_id ?? ''}`
     const qty = Number(r.qty ?? 0)
     const avg = Number(r.avg_cost ?? 0)
     const val = Number(r.total_value ?? 0)
@@ -250,6 +256,7 @@ async function fetchStockValue(supabase: SupaClient) {
         brand: (r.brand as string | null) ?? null,
         sku: (r.sku as string | null) ?? null,
         item_type: (r.item_type as string | null) ?? null,
+        origin: (r.country_name as string | null) ?? null,
         qty,
         avg_cost: avg,
         total_value: val,
@@ -273,6 +280,7 @@ async function fetchStockValue(supabase: SupaClient) {
     brand: r.brand,
     sku: r.sku,
     item_type: r.item_type,
+    origin: r.origin,
     qty: r.qty,
     avg_cost: r.avg_cost,
     total_value: r.total_value,

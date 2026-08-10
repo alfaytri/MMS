@@ -23,7 +23,7 @@ interface Props {
 
 // ─── Sub-view data types ───────────────────────────────────────────────────
 
-type VariantMeta = { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null }
+type VariantMeta = { categoryName: string | null; subcategoryName: string | null; itemType: string | null; itemName: string; brand: string | null; origin: string | null }
 
 interface SaleDeliveryData {
   delivery_number: string
@@ -268,7 +268,7 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
     const map = new Map<string, VariantMeta>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
-        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null })
+        map.set(s.brand_variant_id, { categoryName: s.category_name ?? null, subcategoryName: s.subcategory_name ?? null, itemType: s.item_type ?? null, itemName: s.item_name, brand: s.brand ?? null, origin: s.country_name ?? null })
       }
     }
     return map
@@ -417,6 +417,7 @@ function ReceivalView({ data, variantMeta, isFree }: { data: ReceivalData; varia
                       itemType={meta?.itemType}
                       itemName={meta?.itemName ?? i.item_name}
                       brand={meta?.brand}
+                      origin={meta?.origin ?? null}
                       sku={i.sku}
                       showSku
                     />
@@ -524,6 +525,7 @@ function AdjustmentView({ data, variantMeta }: { data: AdjustmentData; variantMe
   const meta = data.brand_variant_id ? variantMeta.get(data.brand_variant_id) : null
   const itemName = data.inventory_item_brand_variants?.inventory_items?.name_en ?? meta?.itemName ?? '—'
   const brand = data.inventory_item_brand_variants?.brand ?? meta?.brand
+  const origin = meta?.origin ?? null
 
   const TYPE_COLORS: Record<string, string> = {
     increase:  'bg-success/10 text-success',
@@ -555,7 +557,7 @@ function AdjustmentView({ data, variantMeta }: { data: AdjustmentData; variantMe
         {/* Item highlight */}
         <div className="rounded-lg border bg-muted/20 px-4 py-3">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Item</p>
-          <p className="text-sm font-semibold">{itemName}{brand ? ` — ${brand}` : ''}</p>
+          <p className="text-sm font-semibold">{itemName}{brand ? ` — ${brand}` : ''}{origin ? ` · ${origin}` : ''}</p>
         </div>
 
         <div className="grid grid-cols-3 gap-4">

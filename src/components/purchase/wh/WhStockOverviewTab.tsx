@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
 import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ interface Props {
 
 interface BrandEntry {
   brand: string | null
+  country_name: string | null
   sku: string | null
   brand_variant_id: string
   qty: number
@@ -286,6 +288,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
       (s) =>
         s.item_name?.toLowerCase().includes(q) ||
         (s.brand ?? '').toLowerCase().includes(q) ||
+        (s.country_name ?? '').toLowerCase().includes(q) ||
         (s.sku ?? '').toLowerCase().includes(q) ||
         (s.category_name ?? '').toLowerCase().includes(q) ||
         (s.subcategory_name ?? '').toLowerCase().includes(q),
@@ -308,7 +311,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
       const cat = catMap.get(catKey)!
 
       const brandEntry: BrandEntry = {
-        brand: s.brand, sku: s.sku, brand_variant_id: s.brand_variant_id,
+        brand: s.brand, country_name: s.country_name ?? null, sku: s.sku, brand_variant_id: s.brand_variant_id,
         qty: s.qty ?? 0, avgCost: 0, totalValue: s.total_value ?? 0,
       }
 
@@ -389,7 +392,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     return brands.map((b) => (
       <TableRow key={b.brand_variant_id} className="bg-muted/5 hover:bg-muted/10">
         <TableCell className={`py-1.5 ${indentClass} text-xs text-muted-foreground`} />
-        <TableCell className="text-xs py-1.5 font-medium hidden sm:table-cell">{b.brand ?? '—'}</TableCell>
+        <TableCell className="text-xs py-1.5 font-medium hidden sm:table-cell">{brandOriginText(b.brand, b.country_name) ?? '—'}</TableCell>
         <TableCell className="text-xs py-1.5 text-primary hidden sm:table-cell">{b.sku ?? '—'}</TableCell>
         <TableCell className="text-xs text-right py-1.5 font-medium">
           <StockTooltip
@@ -427,8 +430,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             </TableCell>
             <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell">
               {item.brands.length === 1
-                ? (item.brands[0].brand ?? '—')
-                : <span className="text-[10px] italic">{item.brands.length} brands</span>}
+                ? (brandOriginText(item.brands[0].brand, item.brands[0].country_name) ?? '—')
+                : <span className="text-[10px] italic">{item.brands.length} variants</span>}
             </TableCell>
             <TableCell className="text-xs text-primary py-2 hidden sm:table-cell">
               {item.brands.length === 1 ? (item.brands[0].sku ?? '—') : '—'}
@@ -438,7 +441,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 qty={item.totalQty}
                 title={hasMultipleBrands ? 'Stock by Brand' : 'Stock by Warehouse'}
                 rows={hasMultipleBrands
-                  ? item.brands.map((b) => ({ label: b.brand ?? '—', qty: b.qty }))
+                  ? item.brands.map((b) => ({ label: brandOriginText(b.brand, b.country_name) ?? '—', qty: b.qty }))
                   : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </TableCell>
@@ -642,7 +645,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                               </button>
                               {multi && itemExpanded && item.brands.map((b) => (
                                 <div key={b.brand_variant_id} className="flex items-center gap-2 pl-16 pr-3 py-1.5 bg-muted/5 border-t border-dashed">
-                                  <span className="text-[11px] text-muted-foreground truncate flex-1">{b.brand ?? '—'}</span>
+                                  <span className="text-[11px] text-muted-foreground truncate flex-1">{brandOriginText(b.brand, b.country_name) ?? '—'}</span>
                                   <span className="text-[11px] font-medium tabular-nums shrink-0">{b.qty}</span>
                                   <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>
                                 </div>
@@ -677,7 +680,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                         </button>
                         {multi && itemExpanded && item.brands.map((b) => (
                           <div key={b.brand_variant_id} className="flex items-center gap-2 pl-12 pr-3 py-1.5 bg-muted/5 border-t border-dashed">
-                            <span className="text-[11px] text-muted-foreground truncate flex-1">{b.brand ?? '—'}</span>
+                            <span className="text-[11px] text-muted-foreground truncate flex-1">{brandOriginText(b.brand, b.country_name) ?? '—'}</span>
                             <span className="text-[11px] font-medium tabular-nums shrink-0">{b.qty}</span>
                             <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>
                           </div>

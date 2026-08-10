@@ -250,12 +250,6 @@ function calcApprovalLevel(totalQar: number): number {
 
 export type PaymentMethod = string
 
-async function generatePONumber(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const { data, error } = await supabase.rpc('next_po_number')
-  if (error || !data) throw new Error('Failed to generate PO number')
-  return data as string
-}
-
 // ─── Filters type ─────────────────────────────────────────────────────────────
 
 export interface POFilters {
