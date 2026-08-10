@@ -23,6 +23,7 @@ type PaymentMethod = {
   is_active: boolean
   sort_order: number
   requires_payment_link: boolean
+  is_cash_equivalent: boolean
 }
 
 function slugify(name: string) {
@@ -45,7 +46,7 @@ export function PaymentMethodsAdmin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payment_methods')
-        .select('id, name, slug, is_active, sort_order, requires_payment_link')
+        .select('id, name, slug, is_active, sort_order, requires_payment_link, is_cash_equivalent')
         .order('sort_order', { ascending: true })
       if (error) throw error
       return data ?? []
@@ -65,6 +66,32 @@ export function PaymentMethodsAdmin() {
       const prev = qc.getQueryData<PaymentMethod[]>(queryKeys.payments.methods)
       qc.setQueryData<PaymentMethod[]>(queryKeys.payments.methods, (old = []) =>
         old.map((m) => (m.id === id ? { ...m, is_active } : m))
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.payments.methods, ctx.prev)
+      toast.error('Failed to update payment method')
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.payments.methods })
+    },
+  })
+
+  // "Counts as cash" — drives which payments the Cash & Cash Equivalents report sums.
+  const cashMutation = useMutation({
+    mutationFn: async ({ id, is_cash_equivalent }: { id: string; is_cash_equivalent: boolean }) => {
+      const { error } = await supabase
+        .from('payment_methods')
+        .update({ is_cash_equivalent })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, is_cash_equivalent }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.payments.methods })
+      const prev = qc.getQueryData<PaymentMethod[]>(queryKeys.payments.methods)
+      qc.setQueryData<PaymentMethod[]>(queryKeys.payments.methods, (old = []) =>
+        old.map((m) => (m.id === id ? { ...m, is_cash_equivalent } : m))
       )
       return { prev }
     },
@@ -235,13 +262,28 @@ export function PaymentMethodsAdmin() {
                 </>
               )}
             </div>
-            <Switch
-              checked={m.is_active}
-              aria-label={`Toggle ${m.name}`}
-              onCheckedChange={(checked) =>
-                toggleMutation.mutate({ id: m.id, is_active: checked })
-              }
-            />
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="flex flex-col items-center gap-1">
+                <Switch
+                  checked={m.is_cash_equivalent}
+                  aria-label={`Counts as cash: ${m.name}`}
+                  onCheckedChange={(checked) =>
+                    cashMutation.mutate({ id: m.id, is_cash_equivalent: checked })
+                  }
+                />
+                <span className="text-[9px] leading-none text-muted-foreground">Cash</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Switch
+                  checked={m.is_active}
+                  aria-label={`Toggle ${m.name}`}
+                  onCheckedChange={(checked) =>
+                    toggleMutation.mutate({ id: m.id, is_active: checked })
+                  }
+                />
+                <span className="text-[9px] leading-none text-muted-foreground">Active</span>
+              </div>
+            </div>
           </div>
         ))}
         {methods.length === 0 && (

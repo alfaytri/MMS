@@ -3364,6 +3364,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean
+          is_cash_equivalent: boolean
           name: string
           requires_payment_link: boolean
           slug: string
@@ -3373,6 +3374,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean
+          is_cash_equivalent?: boolean
           name: string
           requires_payment_link?: boolean
           slug: string
@@ -3382,6 +3384,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean
+          is_cash_equivalent?: boolean
           name?: string
           requires_payment_link?: boolean
           slug?: string
