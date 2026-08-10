@@ -292,10 +292,14 @@ function bucketByItem(rows: Array<{ item_id: string; definition_id: string; opti
   return byItem
 }
 
-export function useItemAttributes(itemId: string | null) {
+export function useItemAttributes(
+  itemId: string | null,
+  options?: { enabled?: boolean },
+) {
+  const enabled = (options?.enabled ?? true) && !!itemId
   return useQuery({
     queryKey: queryKeys.attributes.itemValues(itemId ?? '__none__'),
-    enabled: !!itemId,
+    enabled,
     staleTime: 30_000,
     queryFn: async () => {
       const supabase = createClient()
@@ -303,6 +307,7 @@ export function useItemAttributes(itemId: string | null) {
         .from('inventory_item_attributes')
         .select('id, item_id, definition_id, option_id')
         .eq('item_id', itemId!)
+        .limit(500)
       if (error) throw error
       return (data ?? []) as ItemAttributeRow[]
     },

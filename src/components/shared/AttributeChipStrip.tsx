@@ -6,9 +6,9 @@ import {
   useItemAttributes,
   useAttributeOptionsBatch,
   type EffectiveAttribute,
-  type ItemAttributeRow,
   type AttributeOption,
 } from '@/hooks/useAttributes'
+import { useItemAttributesContext } from './ItemAttributesContext'
 
 type Props = {
   itemId: string
@@ -17,19 +17,43 @@ type Props = {
   maxChips?: number
 }
 
+// Stable empty reference so a provider-supplied item with no picks doesn't
+// churn the memo below.
+const EMPTY_PICKS: Map<string, string> = new Map()
+
 /**
  * Compact per-item read-only strip: renders `label: value` chips for every
  * attribute the item has picked. Silent (renders nothing) when the item has
  * no picks or the schema/options aren't loaded yet.
+ *
+ * Picks come from a batched `ItemAttributesContext` when a list container
+ * provides one (one query per expanded category — see CategoryRow); otherwise
+ * the strip fetches its own per-item picks. When a provider is present we do
+ * NOT fire the per-item query, even mid-load — that is what kills the N+1.
  */
 export function AttributeChipStrip({ itemId, categoryId, maxChips = 4 }: Props) {
   const { data: effective = [] } = useEffectiveAttributes(categoryId)
-  const { data: picks = [] } = useItemAttributes(itemId)
+
+  const batch = useItemAttributesContext()
+  const hasProvider = batch !== null
+  const { data: fallbackPicks = [] } = useItemAttributes(itemId, { enabled: !hasProvider })
+
   const { data: optionsByDefinition = new Map() } = useAttributeOptionsBatch(
     effective.map((e) => e.definition_id),
   )
 
-  const chips = useMemo(() => buildChips(effective, picks, optionsByDefinition), [effective, picks, optionsByDefinition])
+  // definition_id → option_id, from whichever source is active.
+  const pickMap = useMemo<Map<string, string>>(() => {
+    if (hasProvider) return batch!.byItem.get(itemId) ?? EMPTY_PICKS
+    const m = new Map<string, string>()
+    for (const p of fallbackPicks) m.set(p.definition_id, p.option_id)
+    return m
+  }, [hasProvider, batch, itemId, fallbackPicks])
+
+  const chips = useMemo(
+    () => buildChips(effective, pickMap, optionsByDefinition),
+    [effective, pickMap, optionsByDefinition],
+  )
   if (chips.length === 0) return null
 
   const shown = chips.slice(0, maxChips)
@@ -56,12 +80,9 @@ export function AttributeChipStrip({ itemId, categoryId, maxChips = 4 }: Props) 
 
 function buildChips(
   effective: EffectiveAttribute[],
-  picks: ItemAttributeRow[],
+  pickMap: Map<string, string>,
   optionsByDef: Map<string, AttributeOption[]>,
 ): Array<{ definition_id: string; label: string; value: string }> {
-  const pickMap = new Map<string, string>()
-  for (const p of picks) pickMap.set(p.definition_id, p.option_id)
-
   const chips: Array<{ definition_id: string; label: string; value: string }> = []
   for (const attr of effective) {
     const optionId = pickMap.get(attr.definition_id)
@@ -77,4 +98,3 @@ function buildChips(
   }
   return chips
 }
-

@@ -1044,6 +1044,18 @@ export function useSavePoAsDraft() {
       const total_qar = (subtotal - payload.discount_amount) * payload.exchange_rate
       const approval_level = calcApprovalLevel(total_qar)
 
+      // "Save as Draft" on an approved / pending-approval PO pulls it back to
+      // Draft (recall + save). It cannot stay approved while its amounts change:
+      // guard_po_locked_columns blocks an in-place financial edit that keeps a
+      // locked status, and an approved PO with silently-rewritten totals would
+      // bypass re-approval. A PO that is already draft/rfq keeps its status.
+      const { data: current } = await supabase
+        .from('purchase_orders')
+        .select('status')
+        .eq('id', id)
+        .single()
+      const wasLocked = current?.status === 'approved' || current?.status === 'pending_approval'
+
       const { error: poErr } = await supabase
         .from('purchase_orders')
         .update({
@@ -1064,6 +1076,8 @@ export function useSavePoAsDraft() {
           vendor_notes: payload.vendor_notes,
           discount_amount: payload.discount_amount,
           discount_label: payload.discount_label,
+          // Pull an approved / pending-approval PO back to Draft.
+          ...(wasLocked ? { status: 'draft', po_type: 'draft' } : {}),
         })
         .eq('id', id)
       if (poErr) throw poErr
@@ -1078,18 +1092,45 @@ export function useSavePoAsDraft() {
         if (replaceErr) throw new Error(formatPgError(replaceErr))
       }
 
+      // If we pulled the PO out of a locked state, tear down the in-flight
+      // approval chain so no approver can still act on what is now a draft, and
+      // dismiss their pending approval-request notifications. Mirrors
+      // useRecallPOToDraft; already-approved/rejected rows stay for audit.
+      if (wasLocked) {
+        const { error: stepsErr } = await supabase
+          .rpc('rpc_clear_po_approval_steps', { p_po_id: id, p_only_pending: true })
+        if (stepsErr) throw new Error(formatPgError(stepsErr))
+
+        await supabase
+          .from('notifications')
+          .update({ read_at: new Date().toISOString() })
+          .eq('related_id', id)
+          .eq('type', 'po_approval_requested')
+          .is('read_at', null)
+      }
+
       const draftPerformer = await resolveMyName()
-      await logPOActivity({
-        poId: id,
-        action: 'Draft Saved',
-        details: `${payload.line_items.length} line item(s) · Supplier: ${payload.supplier_name}`,
-        performerName: draftPerformer,
-      })
+      if (wasLocked) {
+        await logPOActivity({
+          poId: id,
+          action: 'PO Pulled Back to Draft',
+          details: `Edited & returned to draft · ${payload.line_items.length} line item(s) · re-approval required before use`,
+          performerName: draftPerformer,
+          severity: 'warning',
+        })
+      } else {
+        await logPOActivity({
+          poId: id,
+          action: 'Draft Saved',
+          details: `${payload.line_items.length} line item(s) · Supplier: ${payload.supplier_name}`,
+          performerName: draftPerformer,
+        })
+      }
 
       // Snapshot this revision under the current stage. For Save-as-Draft this
       // is almost always 'draft' (or 'rfq' for an RFQ being saved as a draft
-      // before submission). Per-stage version_number is computed inside the
-      // helper.
+      // before submission — and a pulled-back approved PO is now 'draft' too).
+      // Per-stage version_number is computed inside the helper.
       const { data: poForStage } = await supabase
         .from('purchase_orders')
         .select('po_type')
@@ -1103,6 +1144,8 @@ export function useSavePoAsDraft() {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.versions(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.poApprovals })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
     },
   })
 }

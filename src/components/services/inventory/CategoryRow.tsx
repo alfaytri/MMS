@@ -16,6 +16,7 @@ import {
   useItemAttributesByCategories,
   useEffectiveAttributes,
 } from '@/hooks/useAttributes'
+import { ItemAttributesProvider, type ItemAttributesBatch } from '@/components/shared/ItemAttributesContext'
 import { useInventoryItemsByCategories } from '@/hooks/useInventory'
 import {
   AttributeFilterBar,
@@ -102,10 +103,20 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     [effectiveAttrs, inheritedActiveIds],
   )
 
-  // Item→attribute map for THIS category's direct items. Descendant rows do
-  // their own lookups, keyed by their own category id.
+  // Item→attribute map for THIS category's direct items. Loaded whenever the
+  // category is expanded (not only when a filter is active) because it now
+  // also feeds every ItemRow's AttributeChipStrip via ItemAttributesProvider —
+  // one query per expanded category instead of one per item row. Descendant
+  // rows do their own lookups, keyed by their own category id.
   const { data: itemAttrsByItem } = useItemAttributesByCategory(
-    expanded && attrFilterActive ? node.id : null,
+    expanded ? node.id : null,
+  )
+
+  // Stable batch value for the chip-strip provider. Empty map while the query
+  // is in flight so children never fall back to a per-item query.
+  const attrBatchValue = useMemo<ItemAttributesBatch>(
+    () => ({ byItem: itemAttrsByItem ?? new Map<string, Map<string, string>>() }),
+    [itemAttrsByItem],
   )
 
   const items = useMemo(() => {
@@ -262,27 +273,27 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         })()}
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" aria-label="Move category up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" aria-label="Move category down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Add subcategory" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
               <FolderPlus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Add item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
               <Plus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
             {canViewAttributes && (
-              <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Manage Attributes" onClick={() => setAttributesOpen(true)}>
+              <Button variant="ghost" size="icon" aria-label="Manage attributes" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Manage Attributes" onClick={() => setAttributesOpen(true)}>
                 <Tags className="h-3 w-3" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="Archive category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
             </Button>
           </div>
@@ -326,19 +337,26 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         />
       ))}
 
-      {/* Items — a category can hold direct items alongside sub-categories */}
-      {expanded && items.map((item, idx) => (
-        <ItemRow
-          key={item.id}
-          item={item}
-          categoryType={categoryType}
-          showArchived={showArchived}
-          canMoveUp={idx > 0}
-          canMoveDown={idx < items.length - 1}
-          onMoveUp={() => handleItemMove(idx, 'up')}
-          onMoveDown={() => handleItemMove(idx, 'down')}
-        />
-      ))}
+      {/* Items — a category can hold direct items alongside sub-categories.
+          Wrapped in the batch provider so each ItemRow's AttributeChipStrip
+          reads ONE batched query (itemAttrsByItem) instead of one per row.
+          ItemAttributesProvider emits no DOM, so it's safe between table rows. */}
+      {expanded && items.length > 0 && (
+        <ItemAttributesProvider value={attrBatchValue}>
+          {items.map((item, idx) => (
+            <ItemRow
+              key={item.id}
+              item={item}
+              categoryType={categoryType}
+              showArchived={showArchived}
+              canMoveUp={idx > 0}
+              canMoveDown={idx < items.length - 1}
+              onMoveUp={() => handleItemMove(idx, 'up')}
+              onMoveDown={() => handleItemMove(idx, 'down')}
+            />
+          ))}
+        </ItemAttributesProvider>
+      )}
 
       {expanded && isLeaf && items.length === 0 && (
         <tr className="border-b border-border">
