@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, Boxes, Wrench } from 'lucide-react'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
+import { WarehouseStockExportButton } from '@/components/purchase/wh/WarehouseStockExportButton'
 
 interface Props {
   warehouses: Warehouse[]
@@ -184,11 +185,18 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
             </div>
           )}
 
-          <div>
+          <div className="flex items-center justify-between gap-2">
+            {displayItemCount > 0 ? (
+              <WarehouseStockExportButton
+                warehouseId={wh.id}
+                warehouseName={wh.name}
+                subContainerId={selectedSubId}
+              />
+            ) : <span />}
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 min-h-11 md:min-h-0 text-xs w-full justify-end gap-1 text-muted-foreground hover:text-foreground"
+              className="h-7 min-h-11 md:min-h-0 text-xs justify-end gap-1 text-muted-foreground hover:text-foreground"
               onClick={() => viewStock(wh.id, selectedSubId)}
             >
               View in Stock Overview
