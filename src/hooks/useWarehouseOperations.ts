@@ -36,6 +36,7 @@ export type StockMovement = {
   sub_container_name: string | null
   brand_variant_id: string
   item_name: string
+  country_name: string | null
   sku: string | null
   movement_type: StockMovementType
   qty: number
@@ -59,6 +60,8 @@ export type WarehouseStockItem = {
   brand_variant_id: string
   item_name: string
   brand: string | null
+  country_id: number | null
+  country_name: string | null
   sku: string | null
   unit: string
   qty: number
@@ -188,6 +191,7 @@ export type InventoryCheckItem = {
   brand_variant_id: string
   item_name: string
   brand: string
+  country_name: string | null
   sku: string | null
   system_qty: number
   counted_qty: number | null
@@ -276,7 +280,7 @@ export function useStockMovements({
       // the Damaged Stock page's own Movements tab was dropped.
       let goodQ = supabase
         .from('inventory_stock_movements')
-        .select('id, warehouse_id, sub_container_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at, warehouse_sub_containers:sub_container_id(name)')
+        .select('id, warehouse_id, sub_container_id, brand_variant_id, item_name, sku, movement_type, qty, unit_cost, reference_type, reference_id, notes, created_at, warehouse_sub_containers:sub_container_id(name), variant:brand_variant_id(country_codes(name))')
         .order('created_at', { ascending: false })
         .limit(limit)
       if (warehouseId) goodQ = goodQ.eq('warehouse_id', warehouseId)
@@ -303,6 +307,7 @@ export function useStockMovements({
           inventory_item_brand_variants (
             brand,
             code,
+            country_codes ( name ),
             inventory_items ( name_en, sku )
           ),
           direct_transfer:source_transfer_id (
@@ -329,10 +334,14 @@ export function useStockMovements({
       if (damagedErr) throw damagedErr
 
       const good: StockMovement[] = (goodRows ?? []).map((r) => {
-        const { warehouse_sub_containers, ...rest } = r as typeof r & { warehouse_sub_containers: { name: string } | null }
+        const { warehouse_sub_containers, variant, ...rest } = r as typeof r & {
+          warehouse_sub_containers: { name: string } | null
+          variant: { country_codes: { name: string | null } | null } | null
+        }
         return {
           ...rest,
           sub_container_name: warehouse_sub_containers?.name ?? null,
+          country_name: variant?.country_codes?.name ?? null,
           stream: 'good',
         }
       }) as StockMovement[]
@@ -351,6 +360,7 @@ export function useStockMovements({
         inventory_item_brand_variants: {
           brand: string | null
           code: string | null
+          country_codes: { name: string | null } | null
           inventory_items: { name_en: string | null; sku: string | null } | null
         } | null
         direct_transfer: { warehouse_sub_containers: { name: string | null } | null } | null
@@ -395,6 +405,7 @@ export function useStockMovements({
           sub_container_name: subName,
           brand_variant_id: r.brand_variant_id,
           item_name: itemName,
+          country_name: bv?.country_codes?.name ?? null,
           sku,
           movement_type: r.movement_type as StockMovementType,
           qty: Number(r.qty ?? 0),
@@ -422,7 +433,7 @@ export function useWarehouseStock(warehouseId?: string, subContainerId?: string 
       const supabase = createClient()
       let q = supabase
         .from('warehouse_stock_view')
-        .select('warehouse_id, sub_container_id, sub_container_name, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty, image_url')
+        .select('warehouse_id, sub_container_id, sub_container_name, brand_variant_id, item_name, brand, sku, unit, qty, avg_cost, total_value, category_name, subcategory_name, item_type, allocated_qty, available_qty, image_url, country_id, country_name')
         .order('item_name', { ascending: true })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
       if (subContainerId) q = q.eq('sub_container_id', subContainerId)
@@ -431,7 +442,10 @@ export function useWarehouseStock(warehouseId?: string, subContainerId?: string 
       const cap = warehouseId ? (subContainerId ? 1500 : 5000) : 20000
       const { data, error } = await q.limit(cap)
       if (error) throw error
-      return (data ?? []) as WarehouseStockItem[]
+      // `as unknown as` — database.types.ts is stale re: the two origin columns
+      // just added to warehouse_stock_view (20260819210000); the row is correct
+      // at runtime. Same idiom as useInventoryCheckGeneratedSAs below.
+      return (data ?? []) as unknown as WarehouseStockItem[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -691,7 +705,7 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
           *,
           warehouses(name),
           warehouse_sub_containers:sub_container_id(name),
-          inventory_item_brand_variants(brand, inventory_items(name_en, sku, inventory_categories(id, name_en, type))),
+          inventory_item_brand_variants(brand, country_codes(name), inventory_items(name_en, sku, inventory_categories(id, name_en, type))),
           stock_adjustment_approvals(
             id, adjustment_id, step_order, step_role, step_label, status,
             profile_id, profile_name, action_at, notes, created_at
@@ -928,11 +942,16 @@ export function useInventoryCheck(id: string) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_checks')
-        .select('*, items:inventory_check_items(*)')
+        .select('*, items:inventory_check_items(*), warehouse_sub_containers:sub_container_id(name)')
         .eq('id', id)
         .single()
       if (error) throw error
-      return { ...data, sub_container_name: null } as unknown as InventoryCheck
+      // Resolve the sub-container name the same way the list query does — the
+      // detail view is what the header renders, so a null here would drop the
+      // "· Kitchen" label even though the row carries a sub_container_id.
+      const { warehouse_sub_containers, ...rest } =
+        data as typeof data & { warehouse_sub_containers: { name: string } | null }
+      return { ...rest, sub_container_name: warehouse_sub_containers?.name ?? null } as unknown as InventoryCheck
     },
     enabled: !!id,
     staleTime: 2 * 60 * 1000,
@@ -1082,6 +1101,7 @@ export type CheckGeneratedSA = {
   item_name: string | null
   sku: string | null
   brand: string | null
+  country_name: string | null
 }
 
 export function useInventoryCheckGeneratedSAs(checkId: string) {
@@ -1096,7 +1116,7 @@ export function useInventoryCheckGeneratedSAs(checkId: string) {
         .select(`
           id, adjustment_type, qty, status, created_at, approved_at,
           source_check_item_id, reason, notes,
-          inventory_item_brand_variants(brand, inventory_items(name_en, sku))
+          inventory_item_brand_variants(brand, country_codes(name), inventory_items(name_en, sku))
         `)
         .eq('source_check_id', checkId)
         .order('created_at', { ascending: true })
@@ -1113,6 +1133,7 @@ export function useInventoryCheckGeneratedSAs(checkId: string) {
           notes: string | null
           inventory_item_brand_variants: {
             brand: string | null
+            country_codes: { name: string | null } | null
             inventory_items: { name_en: string | null; sku: string | null } | null
           } | null
         }> | null
@@ -1132,6 +1153,7 @@ export function useInventoryCheckGeneratedSAs(checkId: string) {
         item_name:             r.inventory_item_brand_variants?.inventory_items?.name_en ?? null,
         sku:                   r.inventory_item_brand_variants?.inventory_items?.sku ?? null,
         brand:                 r.inventory_item_brand_variants?.brand ?? null,
+        country_name:          r.inventory_item_brand_variants?.country_codes?.name ?? null,
       } as CheckGeneratedSA))
     },
     enabled: !!checkId,
@@ -1187,6 +1209,7 @@ type StartCheckPayload = {
       brand_variant_id: string
       item_name: string
       brand: string | null
+      country_name: string | null
       sku: string | null
       qty: number
       category_name: string | null
@@ -1241,12 +1264,15 @@ export function useStartInventoryCheck() {
             brand_variant_id: item.brand_variant_id,
             item_name: item.item_name,
             brand: item.brand ?? '',
+            country_name: item.country_name ?? null,
             sku: item.sku ?? null,
             system_qty: item.qty,
             is_counted: false,
             category_name: item.category_name,
           }))
-          const { error: itemsErr } = await supabase.from('inventory_check_items').insert(itemRows)
+          // `as never` — database.types.ts is stale re: the country_name column
+          // added in 20260819220000; the insert is correct at runtime.
+          const { error: itemsErr } = await supabase.from('inventory_check_items').insert(itemRows as never)
           if (itemsErr) throw itemsErr
         }
       }
@@ -1453,6 +1479,71 @@ export function useApproveCheckStep() {
           qc.invalidateQueries({ queryKey: queryKeys.notifications.all })
         }
       }
+    },
+  })
+}
+
+export function useCancelInventoryCheck() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ checkId, profileId, profileName, reason }: {
+      checkId: string
+      profileId: string | null
+      profileName: string
+      reason?: string | null
+    }) => {
+      const supabase = createClient()
+
+      // Only an unfinalized check can be abandoned. An 'approved' check has
+      // already written its stock adjustments (reversing them is a different,
+      // heavier flow); 'rejected'/'cancelled' are already terminal. Read first
+      // so we can surface a precise reason instead of a silent no-op.
+      const CANCELLABLE = ['draft', 'in_progress', 'pending_approval']
+      const { data: current, error: readErr } = await supabase
+        .from('inventory_checks')
+        .select('status')
+        .eq('id', checkId)
+        .single()
+      if (readErr) throw readErr
+      const status = (current as { status: string }).status
+      if (!CANCELLABLE.includes(status)) {
+        throw new Error(`This check is "${status}" and can no longer be cancelled.`)
+      }
+
+      const now = new Date().toISOString()
+      // Re-assert the guard in the WHERE clause and read back the affected row:
+      // if the check finalized between the read above and here, 0 rows update
+      // and we must NOT write a spurious 'cancelled' log entry. inventory_checks
+      // has no free-text review column (only status/reviewed_at/reviewed_by_name/
+      // notes) — the cancel reason rides in the log's `meta` instead.
+      const { data: updated, error: updErr } = await supabase
+        .from('inventory_checks')
+        .update({ status: 'cancelled', reviewed_at: now, reviewed_by_name: profileName } as never)
+        .eq('id', checkId)
+        .in('status', CANCELLABLE)
+        .select('id')
+      if (updErr) throw updErr
+      if (!updated || updated.length === 0) {
+        throw new Error('This check was finalized moments ago and can no longer be cancelled.')
+      }
+
+      // `as never` — database.types.ts still lists the pre-'cancelled' enum
+      // members; migration 20260819250000 adds 'cancelled' to
+      // inventory_check_event_type, so this is valid at runtime.
+      const { error: logErr } = await supabase.from('inventory_check_log').insert({
+        check_id: checkId,
+        event_type: 'cancelled',
+        profile_id: profileId,
+        profile_name: profileName,
+        meta: reason ? { reason } : null,
+      } as never)
+      if (logErr) throw logErr
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryChecks })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckDetail(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckLog(vars.checkId) })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.inventoryCheckAssignments(vars.checkId) })
     },
   })
 }
