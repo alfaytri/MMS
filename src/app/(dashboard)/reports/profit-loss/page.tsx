@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, FileSpreadsheet, Lock, Layers } from 'lucide-react'
+import { ChevronRight, Lock, Layers } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { Button } from '@/components/ui/button'
 import { ReportFilterBar, type ReportFilters } from '@/components/reports/ReportFilterBar'
 import { FxDetailDialog } from '@/components/reports/FxDetailDialog'
 import { presetRange } from '@/components/reports/DateRangePicker'
-import { exportReportToExcel } from '@/lib/reports/reportExcel'
+import { ReportExportMenu } from '@/components/reports/ReportExportMenu'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { useProfitLossReport, type PnlBasis, type PnlStatement, type PnlStreamLine } from '@/hooks/reports/useProfitLossReport'
 import { useHasPermission } from '@/hooks/usePermissions'
@@ -72,20 +71,10 @@ export default function ProfitLossReportPage() {
     return `${filters.start} → ${filters.end} · ${basis === 'cash' ? 'Cash basis' : 'Accrual basis'} · Divisions: ${dv}`
   }, [filters, divisions, basis])
 
-  function handleExport() {
-    const cols: ReportColumn<Line>[] = [
-      { header: 'Description', accessor: (r) => (r.level === 1 ? `    ${r.label}` : r.label), format: 'text' },
-      { header: 'Amount', accessor: (r) => r.amount, format: 'currency' },
-    ]
-    exportReportToExcel<Line>({
-      filename: `Profit and Loss (${basis})`,
-      title: 'Profit & Loss',
-      subtitle,
-      columns: cols,
-      rows: lines,
-      grandTotalLabel: '',
-    })
-  }
+  const pnlCols: ReportColumn<Line>[] = [
+    { header: 'Description', accessor: (r) => (r.level === 1 ? `    ${r.label}` : r.label), format: 'text' },
+    { header: 'Amount', accessor: (r) => r.amount, format: 'currency' },
+  ]
 
   if (!canView) {
     return (
@@ -113,9 +102,15 @@ export default function ProfitLossReportPage() {
           </nav>
         }
         actions={
-          <Button size="sm" onClick={handleExport} disabled={!statement} className="gap-1.5">
-            <FileSpreadsheet className="h-3.5 w-3.5" /> Export Excel
-          </Button>
+          <ReportExportMenu<Line>
+            filename={`Profit and Loss (${basis})`}
+            title="Profit & Loss"
+            subtitle={subtitle}
+            columns={pnlCols}
+            rows={lines}
+            grandTotalLabel=""
+            disabled={!statement}
+          />
         }
       />
 

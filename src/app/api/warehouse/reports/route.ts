@@ -20,6 +20,7 @@ import {
   type MovementReportRow,
   type ReceivalDeliveryReportRow,
 } from '@/lib/warehouse/warehouse-report-html'
+import { requireReportsPermission } from '@/lib/reports/reports-auth'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -33,36 +34,9 @@ const REPORT_TYPES = [
 ] as const
 type ReportType = typeof REPORT_TYPES[number]
 
-async function requireUser(req: NextRequest) {
-  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-  if (!token) return null
-  const authClient = createClient(SUPA_URL, SUPA_KEY)
-  const { data: { user }, error } = await authClient.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
-
-// Six-domains H9: gate warehouse-reports on the `reports.view` permission
-// (same permission the /reports page enforces). Without this any authenticated
-// user could POST here and hit SERVICE_ROLE_KEY-bypassed reads of every WH.
-async function requireReportsPermission(req: NextRequest): Promise<{ ok: true; profileId: string } | { ok: false; status: number; error: string }> {
-  const user = await requireUser(req)
-  if (!user) return { ok: false, status: 401, error: 'Unauthorized' }
-  const admin = createClient<Database>(SUPA_URL, SUPA_KEY)
-  const { data: profile } = await admin
-    .from('user_data')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .maybeSingle()
-  if (!profile) return { ok: false, status: 403, error: 'No profile — cannot resolve permissions' }
-  const { data: hasPerm, error: permErr } = await admin.rpc('_user_has_permission', {
-    p_profile_id: profile.id,
-    p_permission: 'reports.view',
-  })
-  if (permErr) return { ok: false, status: 500, error: permErr.message }
-  if (!hasPerm) return { ok: false, status: 403, error: 'Missing reports.view permission' }
-  return { ok: true, profileId: profile.id }
-}
+// Auth (reports.view gate) is the shared helper — see @/lib/reports/reports-auth.
+// Six-domains H9: without it any authenticated user could POST here and hit
+// SERVICE_ROLE_KEY-bypassed reads of every warehouse.
 
 // ─── Date helpers ───────────────────────────────────────────────────────────
 

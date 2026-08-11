@@ -2,15 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, FileSpreadsheet, Lock } from 'lucide-react'
+import { ChevronRight, Lock } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { Button } from '@/components/ui/button'
 import { ReportFilterBar, type ReportFilters } from '@/components/reports/ReportFilterBar'
 import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
-import { exportReportToExcel } from '@/lib/reports/reportExcel'
+import { ReportExportMenu } from '@/components/reports/ReportExportMenu'
 import { DocLink } from '@/components/reports/DocLink'
 import { docHrefFor } from '@/lib/reports/docLinks'
 import { useProductCostReport, type ProductCostRow } from '@/hooks/reports/useProductCostReport'
@@ -67,18 +66,6 @@ export default function ProductCostReportPage() {
     return `Divisions: ${dv} · Warehouses: ${wh} · As of ${new Date().toLocaleDateString('en-GB')}`
   }, [filters, divisions, warehouses])
 
-  function handleExport() {
-    exportReportToExcel<ProductCostRow>({
-      filename: 'Product Cost Report',
-      title: 'Product Cost Report (PO-wise)',
-      subtitle,
-      columns,
-      rows,
-      groupBy: (r) => r.division_name ?? '—',
-      grandTotalLabel: 'Grand total (all divisions)',
-    })
-  }
-
   if (!canView) {
     return (
       <PageWrapper>
@@ -105,9 +92,16 @@ export default function ProductCostReportPage() {
           </nav>
         }
         actions={
-          <Button size="sm" onClick={handleExport} disabled={rows.length === 0} className="gap-1.5">
-            <FileSpreadsheet className="h-3.5 w-3.5" /> Export Excel
-          </Button>
+          <ReportExportMenu<ProductCostRow>
+            filename="Product Cost Report"
+            title="Product Cost Report (PO-wise)"
+            subtitle={subtitle}
+            columns={columns}
+            rows={rows}
+            groupBy={(r) => r.division_name ?? '—'}
+            grandTotalLabel="Grand total (all divisions)"
+            disabled={rows.length === 0}
+          />
         }
       />
 
