@@ -49,6 +49,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Product Cost',          href: '/reports/product-cost',           icon: 'Package',         permission: 'reports.view' },
           { label: 'Revenue & COGS',        href: '/reports/revenue-cogs',           icon: 'Calculator',      permission: 'reports.view' },
           { label: 'Accounts Receivable',   href: '/reports/receivables',            icon: 'Receipt',         permission: 'reports.view' },
+          { label: 'Accounts Payable',      href: '/reports/payables',               icon: 'Wallet',          permission: 'reports.view' },
         ],
       },
     ],
