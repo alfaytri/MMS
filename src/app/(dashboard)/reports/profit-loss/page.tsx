@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, FileSpreadsheet, Lock } from 'lucide-react'
+import { ChevronRight, FileSpreadsheet, Lock, Layers } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { ReportFilterBar, type ReportFilters } from '@/components/reports/ReportFilterBar'
+import { FxDetailDialog } from '@/components/reports/FxDetailDialog'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { exportReportToExcel } from '@/lib/reports/reportExcel'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
@@ -53,6 +54,7 @@ function buildLines(s: PnlStatement): Line[] {
 export default function ProfitLossReportPage() {
   const canView = useHasPermission('reports.view')
   const [basis, setBasis] = useState<PnlBasis>('accrual')
+  const [fxOpen, setFxOpen] = useState(false)
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }
@@ -150,14 +152,18 @@ export default function ProfitLossReportPage() {
             ) : !statement ? (
               <tr><td className="px-4 py-10 text-center text-sm text-muted-foreground" colSpan={2}>No data for the selected period.</td></tr>
             ) : (
-              lines.map((l, i) => (
+              lines.map((l, i) => {
+                const isFx = l.label === 'Exchange Gain / Loss'
+                return (
                 <tr
                   key={`${l.label}-${i}`}
+                  onClick={isFx ? () => setFxOpen(true) : undefined}
                   className={cn(
                     'border-b last:border-0',
                     l.kind === 'grand' && 'bg-primary/5 border-t-2 border-foreground/20',
                     l.kind === 'subtotal' && 'bg-muted/40',
                     l.kind === 'header' && 'bg-muted/20',
+                    isFx && 'cursor-pointer transition-colors hover:bg-muted/40',
                   )}
                 >
                   <td className={cn(
@@ -167,18 +173,27 @@ export default function ProfitLossReportPage() {
                     l.kind === 'subtotal' && 'font-medium',
                     l.kind === 'grand' && 'font-semibold',
                   )}>
-                    {l.label}
+                    {isFx ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {l.label}
+                        <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary">
+                          <Layers className="h-3 w-3" /> details
+                        </span>
+                      </span>
+                    ) : (
+                      l.label
+                    )}
                   </td>
                   <td className={cn(
                     'px-4 py-2 text-right tabular-nums whitespace-nowrap',
                     l.kind === 'subtotal' && 'font-medium',
                     l.kind === 'grand' && 'font-bold',
-                    l.kind === 'grand' && (l.amount ?? 0) < 0 && 'text-destructive',
+                    (l.kind === 'grand' || isFx) && (l.amount ?? 0) < 0 && 'text-destructive',
                   )}>
                     {l.amount != null ? QAR.format(l.amount) : ''}
                   </td>
                 </tr>
-              ))
+              )})
             )}
           </tbody>
         </table>
@@ -187,11 +202,13 @@ export default function ProfitLossReportPage() {
       {statement && (
         <p className="text-[11px] text-muted-foreground max-w-2xl">
           Gross Profit = Revenue − COGS + Exchange Gain/Loss − Scrap. &ldquo;Scrap &amp; Defective&rdquo; counts
-          approved write-offs from the stock-adjustment &ldquo;Write Off&rdquo; flow: good-stock write-offs are
-          division- and warehouse-scoped; damaged-stock write-offs carry no division, so they are counted
-          company-wide (owner / accountant, all-divisions view only). Reads 0 until write-offs are booked.
+          approved write-offs from the stock-adjustment &ldquo;Write Off&rdquo; flow — both good-stock and
+          damaged-stock write-offs are division- and warehouse-scoped (damaged stock is attributed to the
+          division it was damaged in). Reads 0 until write-offs are booked.
         </p>
       )}
+
+      <FxDetailDialog open={fxOpen} onOpenChange={setFxOpen} filters={filters} />
     </PageWrapper>
   )
 }

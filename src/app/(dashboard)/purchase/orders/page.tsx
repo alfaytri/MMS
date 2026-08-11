@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, FileText, Clock, Package, DollarSign, Search, X, MoreVertical, ChevronDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -109,6 +109,13 @@ export default function PurchaseOrdersPage() {
   const [poTypeFilter, setPoTypeFilter] = useState<POType | ''>('')
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null)
   const [createBillPOId, setCreateBillPOId] = useState<string | null>(null)
+
+  // Deep link: /purchase/orders?po=<po_number> (e.g. from the P&L FX drill-down)
+  // pre-fills the search so that PO is surfaced immediately.
+  useEffect(() => {
+    const po = new URLSearchParams(window.location.search).get('po')
+    if (po) setSearch(po)
+  }, [])
 
   const cancelPO = useCancelPO()
   const { activeDivisionId, availableDivisions, isSuperViewer } = useActiveDivision()
