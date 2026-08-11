@@ -7,6 +7,7 @@ export type CashRow = {
   date:           string | null
   payment_method: string | null
   doc_no:         string | null
+  doc_kind:       string | null
   party:          string | null
   debit:          number | null
   credit:         number | null

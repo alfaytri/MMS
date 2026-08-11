@@ -11,6 +11,8 @@ import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { exportReportToExcel } from '@/lib/reports/reportExcel'
+import { DocLink } from '@/components/reports/DocLink'
+import { docHrefFor } from '@/lib/reports/docLinks'
 import { useProductCostReport, type ProductCostRow } from '@/hooks/reports/useProductCostReport'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useDivisions } from '@/hooks/useDivisions'
@@ -19,7 +21,8 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 
 const columns: ReportColumn<ProductCostRow>[] = [
-  { header: 'PO / Source', accessor: (r) => r.po_no,         format: 'text' },
+  { header: 'PO / Source', accessor: (r) => r.po_no,         format: 'text',
+    render: (r) => r.po_id ? <DocLink href={docHrefFor('po', r.po_no)} label={r.po_no} /> : <span>{r.po_no ?? '—'}</span> },
   { header: 'Type',        accessor: (r) => r.product_type,  format: 'text' },
   { header: 'Category',    accessor: (r) => r.category,      format: 'text' },
   { header: 'Product',     accessor: (r) => r.product_name,  format: 'text' },

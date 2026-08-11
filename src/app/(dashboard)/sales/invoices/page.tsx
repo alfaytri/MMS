@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { ShoppingCart, TrendingUp, AlertTriangle, CheckCircle2, FileText } from 'lucide-react'
@@ -34,6 +34,11 @@ const PAYMENT_FILTERS: { value: '' | 'unpaid' | 'partially_paid' | 'paid' | 'ove
 export default function CustomerInvoicesPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  // Deep link: /sales/invoices?invoice=<invoice_no> (e.g. from a report drill-down).
+  useEffect(() => {
+    const inv = new URLSearchParams(window.location.search).get('invoice')
+    if (inv) setSearch(inv)
+  }, [])
   const [payFilter, setPayFilter] = useState<'' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue'>('')
 
   const { data: invoices, isLoading } = useCustomerInvoices({})

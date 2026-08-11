@@ -12,6 +12,8 @@ import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { exportReportToExcel } from '@/lib/reports/reportExcel'
+import { DocLink } from '@/components/reports/DocLink'
+import { docHrefFor } from '@/lib/reports/docLinks'
 import { useReceivablesReport, type ReceivableRow } from '@/hooks/reports/useReceivablesReport'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useDivisions } from '@/hooks/useDivisions'
@@ -28,9 +30,11 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 const columns: ReportColumn<ReceivableRow>[] = [
-  { header: 'Invoice No', accessor: (r) => r.invoice_no,  format: 'text' },
+  { header: 'Invoice No', accessor: (r) => r.invoice_no,  format: 'text',
+    render: (r) => <DocLink href={docHrefFor('invoice', r.invoice_no)} label={r.invoice_no} /> },
   { header: 'Customer',   accessor: (r) => r.customer,    format: 'text' },
-  { header: 'SO No',      accessor: (r) => r.so_no,       format: 'text' },
+  { header: 'SO No',      accessor: (r) => r.so_no,       format: 'text',
+    render: (r) => r.sale_order_id ? <DocLink href={docHrefFor('so', r.so_no)} label={r.so_no} /> : <span>{r.so_no ?? '—'}</span> },
   { header: 'Inv. Date',  accessor: (r) => r.issued_date, format: 'text' },
   { header: 'Due Date',   accessor: (r) => r.due_date,    format: 'text' },
   { header: 'Amount',     accessor: (r) => r.amount,      format: 'currency', total: true },

@@ -12,6 +12,8 @@ import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { exportReportToExcel } from '@/lib/reports/reportExcel'
+import { DocLink } from '@/components/reports/DocLink'
+import { docHrefFor } from '@/lib/reports/docLinks'
 import { usePayablesReport, type PayableRow } from '@/hooks/reports/usePayablesReport'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useDivisions } from '@/hooks/useDivisions'
@@ -28,9 +30,11 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 const columns: ReportColumn<PayableRow>[] = [
-  { header: 'Bill No',    accessor: (r) => r.bill_no,     format: 'text' },
+  { header: 'Bill No',    accessor: (r) => r.bill_no,     format: 'text',
+    render: (r) => <DocLink href={docHrefFor('bill', r.bill_no)} label={r.bill_no} /> },
   { header: 'Supplier',   accessor: (r) => r.supplier,    format: 'text' },
-  { header: 'PO No',      accessor: (r) => r.po_no,       format: 'text' },
+  { header: 'PO No',      accessor: (r) => r.po_no,       format: 'text',
+    render: (r) => r.po_id ? <DocLink href={docHrefFor('po', r.po_no)} label={r.po_no} /> : <span>{r.po_no ?? '—'}</span> },
   { header: 'Inv. Date',  accessor: (r) => r.issued_date, format: 'text' },
   { header: 'Due Date',   accessor: (r) => r.due_date,    format: 'text' },
   { header: 'Amount',     accessor: (r) => r.amount,      format: 'currency', total: true },

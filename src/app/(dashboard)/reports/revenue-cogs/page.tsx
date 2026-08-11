@@ -11,6 +11,8 @@ import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { exportReportToExcel } from '@/lib/reports/reportExcel'
+import { DocLink } from '@/components/reports/DocLink'
+import { docHrefFor } from '@/lib/reports/docLinks'
 import { useRevenueCogsReport, type RevenueCogsRow } from '@/hooks/reports/useRevenueCogsReport'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useDivisions } from '@/hooks/useDivisions'
@@ -21,7 +23,8 @@ const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR',
 const columns: ReportColumn<RevenueCogsRow>[] = [
   { header: 'Date',        accessor: (r) => r.date,          format: 'text' },
   { header: 'Customer',    accessor: (r) => r.customer,      format: 'text' },
-  { header: 'SO No',       accessor: (r) => r.so_no,         format: 'text' },
+  { header: 'SO No',       accessor: (r) => r.so_no,         format: 'text',
+    render: (r) => r.sale_order_id ? <DocLink href={docHrefFor('so', r.so_no)} label={r.so_no} /> : <span>{r.so_no ?? '—'}</span> },
   { header: 'Product',     accessor: (r) => r.product_name,  format: 'text' },
   { header: 'Qty',         accessor: (r) => r.qty,           format: 'number',   total: true },
   { header: 'Unit Cost',   accessor: (r) => r.unit_cost,     format: 'currency' },

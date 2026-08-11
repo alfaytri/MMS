@@ -11,6 +11,8 @@ import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { exportReportToExcel } from '@/lib/reports/reportExcel'
+import { DocLink } from '@/components/reports/DocLink'
+import { docHrefFor, type DocKind } from '@/lib/reports/docLinks'
 import { useCashReport, type CashRow } from '@/hooks/reports/useCashReport'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useDivisions } from '@/hooks/useDivisions'
@@ -22,7 +24,8 @@ const columns: ReportColumn<CashRow>[] = [
   { header: 'Date',    accessor: (r) => (r.is_opening ? 'Opening' : r.date), format: 'text' },
   { header: 'Method',  accessor: (r) => r.payment_method, format: 'text',
     render: (r) => (r.is_opening ? <span className="font-medium">{r.payment_method}</span> : r.payment_method) },
-  { header: 'Doc No',  accessor: (r) => r.doc_no, format: 'text' },
+  { header: 'Doc No',  accessor: (r) => r.doc_no, format: 'text',
+    render: (r) => <DocLink href={r.doc_kind ? docHrefFor(r.doc_kind as DocKind, r.doc_no) : null} label={r.doc_no} /> },
   { header: 'Party',   accessor: (r) => r.party,  format: 'text' },
   { header: 'Debit',   accessor: (r) => r.debit ?? 0,  format: 'currency', total: true,
     render: (r) => (r.debit ? QAR.format(r.debit) : '') },
