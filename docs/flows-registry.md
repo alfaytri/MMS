@@ -190,6 +190,20 @@ Field rules:
 - **Migrations:** `20260802000600_rpc_return_from_repair.sql`, `20260802000610_fix_rpc_return_from_repair_items_column.sql` (column-name hotfix), `20260802000660_fix_damaged_rpcs_user_data_lookup.sql` (auth.uid→user_data.id lookup fix), `20260802000700_damaged_transfers_division_id_backfill.sql` (Phase 9.7 — recreates the RPC one more time to stamp `division_id` on the two inbound return transfers, closing the RLS leak from the 9.6 audit).
 - **Notes:** Two intentional departures from the plan doc: (1) plan used `notes` JSON strings to link inbound transfers back to the outbound; this uses the existing `warehouse_transfers.source_return_line_disposition_id` column instead — the 9.2 CHECK permits it for the return kinds, and it's queryable via a normal join instead of text-JSON parsing. (2) Plan assumed a `_add_good_stock_layer` helper; that helper does not exist, so the good-stock addition is inlined using the receival/adjustment pattern (fifo_cost_layers + stock_level bump + stock movement + recalc_average_cost). New `stock_movement_type` enum value `damaged_return_from_repair_as_good` added by this migration.
 
+### Custody & Consumption (unified custody warehouse model · 2026-08-12)
+
+- **Module:** Warehouse / Consumption
+- **Status:** Active (Virtual Warehouses redesign · 2026-08-12). Supersedes the split Teams/Places model.
+- **Trigger surface(s):** Custody page (`/warehouse/custody`) — one tab per custody warehouse; Master Data → Admin → Custody Locations (CRUD); New Consumption dialog; Add/Edit Warehouse **Type** field (Stock / Custody / Repair).
+- **Primary hook(s):** `useCustodyLocations` / `useCustodyWarehouses` / `useCreateCustodyLocation` / `useUpdateCustodyLocation` (replaced `useTeamSubContainers` + `usePlaceSubContainers`); `useCreateConsumption` / `useConsumerLabel` (`useConsumption.ts`).
+- **RPC(s):** `get_custody_master_list(p_warehouse_id?)` (replaced `get_teams_master_list` + `get_places_master_list`), `rpc_upsert_warehouse_sub_container` (replaced `rpc_upsert_team_or_place`), `rpc_create_custody_assign`, `rpc_create_custody_return`, `rpc_post_consumption(…, p_consumer_sub_container_id, …)` (dropped the team/place params), `generate_consumption_number` (CE-Custody / CE-Internal), `rpc_cancel_consumption`.
+- **Ledger writes:** custody assign/return → `warehouse_transfers` (kind `custody_assign` / `custody_return`) + items + FIFO on return; consumption → `consumption_entries` + `consumption_lines` + `cogs_entries` (`consumer_sub_container_id`) + `inventory_stock_movements`.
+- **Data model:** `warehouses.warehouse_kind ∈ {general, repair, custody}` (operator-picked Type; custody/repair are virtual). `teams`+`places` collapsed to `custody`; the ex-`Places` warehouse renamed **Projects**. `consumer_type ∈ {custody, internal}`; the two consumer FK columns merged into `consumer_sub_container_id` (consumption_entries + cogs_entries).
+- **Guards / preconditions:** custody RPCs enforce responsible-person + division + `inventory_manager` / `is_system_admin` (server-side, unchanged). Per-warehouse `custody.<id>.view` / `.edit` permission keys gate **UI visibility only** (client-side) — not a server boundary.
+- **Related flows:** [[Repair Vendor CRUD (sub-container of shared Repair warehouse)]], [[Dispatch Warehouse Transfer (issue)]].
+- **Migrations:** `20260820000100`–`20260820000400` (kind + Places→Projects rename, consumer_type + column merge, custody RPC rewrites, permission-grant remap).
+- **Notes:** Repair uses the SAME warehouse+sub-container backbone (vendors = sub-containers of the one shared Repair warehouse), so no repair mechanics changed. Retired: `useTeamSubContainers`, `usePlaceSubContainers`, `TeamPlaceFormDialog`, `get_teams/places_master_list`, `rpc_upsert_team_or_place`, `/master-data/admin/{teams,places}`.
+
 ### Warehouse Sub-Container Auto-Provision (planned)
 
 - **Module:** Warehouse / Inventory
