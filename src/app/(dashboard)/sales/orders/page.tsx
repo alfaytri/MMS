@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -168,6 +168,11 @@ const PAYMENT_BADGE: Record<string, { label: string; className: string }> = {
 export default function SaleOrdersPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  // Deep link: /sales/orders?so=<so_number> (e.g. from the P&L FX drill-down).
+  useEffect(() => {
+    const so = new URLSearchParams(window.location.search).get('so')
+    if (so) setSearch(so)
+  }, [])
   const [statusFilter, setStatusFilter] = useState<Set<SOStatus>>(new Set())
   const [customerFilter, setCustomerFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')

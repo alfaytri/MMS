@@ -7,6 +7,7 @@ export type PaymentMethodRow = {
   name: string
   slug: string
   is_active: boolean
+  is_cash_equivalent: boolean
   sort_order: number
 }
 
@@ -16,7 +17,7 @@ export function usePaymentMethods() {
     queryFn: async () => {
       const { data, error } = await createClient()
         .from('payment_methods')
-        .select('id, name, slug, is_active, sort_order')
+        .select('id, name, slug, is_active, is_cash_equivalent, sort_order')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
       if (error) throw error

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Plus, ShoppingCart, TrendingDown, AlertTriangle, CheckCircle2, FileText } from 'lucide-react'
@@ -35,6 +35,11 @@ const PAYMENT_FILTERS: { value: '' | 'unpaid' | 'partially_paid' | 'paid' | 'ove
 export default function BillsPage() {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  // Deep link: /purchase/bills?bill=<bill_no> (e.g. from a report drill-down).
+  useEffect(() => {
+    const bill = new URLSearchParams(window.location.search).get('bill')
+    if (bill) setSearch(bill)
+  }, [])
   const [payFilter, setPayFilter] = useState<'' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue'>('')
   const [createOpen, setCreateOpen] = useState(false)
 

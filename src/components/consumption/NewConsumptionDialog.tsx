@@ -9,28 +9,33 @@ import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogCancel,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
-import { useWarehouses } from '@/hooks/useWarehouses'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useTeams } from '@/hooks/useTeamSubContainers'
 import { usePlaces } from '@/hooks/usePlaceSubContainers'
 import {
   useCreateConsumption,
+  useMyConsumptionSources,
   uploadConsumptionAttachment,
   removeConsumptionAttachment,
   type ConsumerType,
 } from '@/hooks/useConsumption'
-import { useCanCreateConsumptionFor } from '@/hooks/usePermissions'
+import { useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -60,13 +65,42 @@ interface Props {
 type LineRow = { brand_variant_id: string; qty: string }
 
 const COOLDOWN_MS = 3000
+// A line consuming this share (or more) of the available stock is flagged in
+// the confirmation modal as a likely fat-finger — the operator must eyeball it.
+const HIGH_SHARE_RATIO = 0.9
+
+/**
+ * Consumption qty is a whole-unit integer (`consumption_lines.qty` is `int`).
+ * Parse it the SAME way for validation and submission so a stray decimal can
+ * never validate as one value and post as another.
+ */
+const parseQty = (s: string): number => parseInt(s, 10)
+
+/**
+ * Group a division-scoped list of teams/places by their division, preserving
+ * the master list's sort order. Used to render the consumer picker as a clean
+ * set of "Division → its teams" groups when the user spans more than one
+ * division.
+ */
+type DivisionScoped = { id: string; name: string; division_id: string; division_name: string }
+function groupByDivision<T extends DivisionScoped>(list: T[]): Array<{ divisionId: string; divisionName: string; items: T[] }> {
+  const groups = new Map<string, { divisionId: string; divisionName: string; items: T[] }>()
+  for (const item of list) {
+    const existing = groups.get(item.division_id)
+    if (existing) existing.items.push(item)
+    else groups.set(item.division_id, { divisionId: item.division_id, divisionName: item.division_name, items: [item] })
+  }
+  return Array.from(groups.values())
+}
 
 // ─── Dialog ─────────────────────────────────────────────────────────────
 
 /**
  * Posts a consumption via rpc_post_consumption. Draining is immediate and
- * COGS is booked to the picked consumer — the amber banner + 3-second
- * confirm cooldown is deliberate friction to prevent misfires.
+ * COGS is booked to the picked consumer. Confirming is a deliberate two-step:
+ * the main dialog gathers the lines, then a confirmation modal highlights
+ * exactly what is about to be consumed and holds a 3-second cooldown on its
+ * confirm button before the post can fire.
  */
 export function NewConsumptionDialog({ open, onOpenChange, presetSource, restrictConsumerTypes }: Props) {
   // Compute which consumer types this caller is actually allowed to pick.
@@ -74,6 +108,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const canCreateTeam     = useCanCreateConsumptionFor('team')
   const canCreatePlace    = useCanCreateConsumptionFor('place')
   const canCreateInternal = useCanCreateConsumptionFor('internal')
+  // Cost is accounting-sensitive: field teams post consumption but must not see
+  // COGS. Gate every money figure (unit cost, line cost, totals) behind the
+  // dedicated consumption-cost permission (kept separate from item pricing).
+  const canSeeCost = useHasPermission('consumption.cost.view')
   const allowedConsumerTypes = useMemo<ConsumerType[]>(() => {
     const permAllowed: ConsumerType[] = []
     if (canCreateTeam)     permAllowed.push('team')
@@ -83,17 +121,36 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     return permAllowed.filter((t) => restrictConsumerTypes.includes(t))
   }, [canCreateTeam, canCreatePlace, canCreateInternal, restrictConsumerTypes])
 
-  const { data: warehouses = [] } = useWarehouses({ includeVirtual: true })
+  const { data: sources = [] } = useMyConsumptionSources()
   const { data: teams   = [] }    = useTeams()
   const { data: places  = [] }    = usePlaces()
+
+  // Consumer scope: a regular user may only book COGS to teams/places in the
+  // division(s) they belong to. Owner/Accountant (super-viewers) oversee every
+  // division, so they see all — grouped by division for clarity.
+  const { isSuperViewer, userDivisionIds } = useUserDivisionScope()
+
+  // Distinct warehouses the user is allowed to consume from (assigned only —
+  // the picker mirrors what rpc_post_consumption will actually accept).
+  const srcWarehouses = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    for (const s of sources) {
+      if (!map.has(s.warehouse_id)) map.set(s.warehouse_id, { id: s.warehouse_id, name: s.warehouse_name })
+    }
+    return Array.from(map.values())
+  }, [sources])
 
   // ── Source
   const [srcWhId,  setSrcWhId]   = useState(presetSource?.warehouseId ?? '')
   const [srcSubId, setSrcSubId]  = useState<string | null>(presetSource?.subContainerId ?? null)
   const sourceLocked             = !!presetSource
 
-  const { data: srcSubs = [] } = useWarehouseSubContainers(srcWhId || null)
-  const eligibleSrcSubs = useMemo(() => srcSubs.filter((s) => s.is_active), [srcSubs])
+  const eligibleSrcSubs = useMemo(
+    () => sources
+      .filter((s) => s.warehouse_id === srcWhId)
+      .map((s) => ({ id: s.sub_container_id, name: s.sub_container_name })),
+    [sources, srcWhId],
+  )
 
   // Auto-pick source sub when only one exists (skip when locked).
   useEffect(() => {
@@ -117,6 +174,20 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
   const activeTeams  = useMemo(() => teams.filter((t) => t.is_active), [teams])
   const activePlaces = useMemo(() => places.filter((p) => p.is_active), [places])
+
+  // Scope the consumer picker to the user's division(s). Super-viewers see all.
+  const visibleTeams = useMemo(() => {
+    if (isSuperViewer) return activeTeams
+    const allowed = new Set(userDivisionIds)
+    return activeTeams.filter((t) => allowed.has(t.division_id))
+  }, [activeTeams, isSuperViewer, userDivisionIds])
+  const visiblePlaces = useMemo(() => {
+    if (isSuperViewer) return activePlaces
+    const allowed = new Set(userDivisionIds)
+    return activePlaces.filter((p) => allowed.has(p.division_id))
+  }, [activePlaces, isSuperViewer, userDivisionIds])
+  const teamGroups  = useMemo(() => groupByDivision(visibleTeams),  [visibleTeams])
+  const placeGroups = useMemo(() => groupByDivision(visiblePlaces), [visiblePlaces])
 
   // ── Lines
   const [rows, setRows] = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
@@ -180,24 +251,30 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const attachmentsRef = useRef<string[]>([])
   useEffect(() => { attachmentsRef.current = attachments }, [attachments])
 
-  // ── Cooldown timer — resets on open + on every edit that would change
-  // the payload. Confirm button is disabled while remaining > 0.
+  // ── Confirmation modal + cooldown ─────────────────────────────────────
+  // The 3-second cooldown lives on the confirmation modal's confirm button,
+  // not the main dialog: it starts when the modal opens and the button stays
+  // disabled until it elapses.
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [cooldownEndsAt, setCooldownEndsAt] = useState<number>(0)
   const [now, setNow] = useState<number>(0)
   const cooldownRemaining = Math.max(0, cooldownEndsAt - now)
   const cooldownSecondsLeft = Math.ceil(cooldownRemaining / 1000)
 
-  function bumpCooldown() {
-    // Use Date.now() at call-time via a small closure — the cooldown
-    // math itself only reads it through the interval below.
-    setCooldownEndsAt(Date.now() + COOLDOWN_MS)
-  }
+  // The cooldown is armed synchronously in the "Review & Post" handler (see
+  // openConfirm) so the modal's very first render already shows it disabled —
+  // no one-frame window where the confirm button is live.
 
-  // Reset entire form on close, kick off cooldown on open.
+  // Tick the countdown 4×/second while the modal is open and it still matters.
   useEffect(() => {
-    if (open) {
-      bumpCooldown()
-    } else {
+    if (!confirmOpen || cooldownRemaining <= 0) return
+    const interval = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(interval)
+  }, [confirmOpen, cooldownRemaining])
+
+  // Reset entire form on close.
+  useEffect(() => {
+    if (!open) {
       // Close without submit → drop uploads. Consumer bucket has no pending/
       // prefix, so any orphaned file is indistinguishable from a committed
       // one — best to clean them up eagerly.
@@ -220,26 +297,18 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       setNotes('')
       setAttachments([])
       setUploading(false)
+      setConfirmOpen(false)
       setCooldownEndsAt(0)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  // Tick the countdown chip 4×/second while it matters.
-  useEffect(() => {
-    if (!open || cooldownRemaining <= 0) return
-    const interval = setInterval(() => setNow(Date.now()), 250)
-    return () => clearInterval(interval)
-  }, [open, cooldownRemaining])
-
   // ── Row helpers
   function addRow() {
     setRows((prev) => [...prev, { brand_variant_id: '', qty: '' }])
-    bumpCooldown()
   }
   function removeRow(idx: number) {
     setRows((prev) => prev.filter((_, i) => i !== idx))
-    bumpCooldown()
   }
   function updateRow(idx: number, field: keyof LineRow, value: string) {
     setRows((prev) => prev.map((row, i) => {
@@ -247,7 +316,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       if (field === 'brand_variant_id') return { brand_variant_id: value, qty: '' }
       return { ...row, [field]: value }
     }))
-    bumpCooldown()
   }
 
   // ── Attachment helpers
@@ -269,7 +337,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
           : new Error(`${failed.length} of ${files.length} attachments failed to upload`)
       }
       setAttachments((prev) => [...prev, ...succeeded])
-      bumpCooldown()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Attachment upload failed')
     } finally {
@@ -282,17 +349,16 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     setAttachments((prev) => prev.filter((p) => p !== path))
     // Best-effort background delete — don't block the UI on it.
     void removeConsumptionAttachment(path).catch(() => { /* ignore */ })
-    bumpCooldown()
   }
 
   // ── Row validation
   const rowErrors = useMemo(
     () => rows.map((row) => {
       if (!row.brand_variant_id || !row.qty) return null
-      const requested = parseFloat(row.qty)
+      const requested = parseQty(row.qty)
       if (isNaN(requested) || requested <= 0) return null
       const available = availableQtyMap.get(row.brand_variant_id) ?? 0
-      if (requested > available) return `Only ${available} available`
+      if (requested > available) return `Only ${available.toLocaleString()} available`
       return null
     }),
     [rows, availableQtyMap],
@@ -305,13 +371,13 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     return true // internal — no picker
   }, [consumerType, consumerTeamSub, consumerPlaceSub])
 
-  // ── Submit gate
-  const hasValidRows        = rows.some((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
+  // ── Submit gate (opening the confirmation modal — no cooldown here)
+  const hasValidRows        = rows.some((r) => r.brand_variant_id && r.qty && parseQty(r.qty) > 0)
   const hasValidationErrors = rowErrors.some((e) => e !== null)
   const srcSubResolved      = eligibleSrcSubs.length > 0 && (eligibleSrcSubs.length === 1 || !!srcSubId)
   const post                = useCreateConsumption()
 
-  const canSubmit =
+  const canOpenConfirm =
     !!srcWhId &&
     srcSubResolved &&
     !!srcSubId &&
@@ -319,8 +385,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     hasValidRows &&
     !hasValidationErrors &&
     !uploading &&
-    !post.isPending &&
-    cooldownRemaining <= 0
+    !post.isPending
 
   const consumerLabel = useMemo(() => {
     if (consumerType === 'team')  return activeTeams.find((t)  => t.id === consumerTeamSub)?.name ?? null
@@ -328,14 +393,63 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     return 'Internal use'
   }, [consumerType, consumerTeamSub, consumerPlaceSub, activeTeams, activePlaces])
 
+  const consumerTypeLabel = consumerType === 'team' ? 'Team' : consumerType === 'place' ? 'Place' : 'Internal'
+
+  const srcWhName = useMemo(
+    () => srcWarehouses.find((w) => w.id === srcWhId)?.name ?? '—',
+    [srcWarehouses, srcWhId],
+  )
+  const srcSubName = useMemo(() => {
+    if (sourceLocked) return presetSource?.subContainerName ?? '—'
+    return eligibleSrcSubs.find((s) => s.id === srcSubId)?.name ?? '—'
+  }, [sourceLocked, presetSource, eligibleSrcSubs, srcSubId])
+
   const linesTotal = useMemo(() => {
     return rows.reduce((sum, r) => {
-      const qty = parseFloat(r.qty)
+      const qty = parseQty(r.qty)
       if (!r.brand_variant_id || isNaN(qty) || qty <= 0) return sum
       const cost = avgCostMap.get(r.brand_variant_id) ?? 0
       return sum + qty * cost
     }, 0)
   }, [rows, avgCostMap])
+
+  // Resolved lines for the confirmation modal — with the share-of-stock each
+  // line consumes, so fat-finger quantities are visible before posting.
+  const confirmLines = useMemo(() => {
+    return rows
+      .filter((r) => r.brand_variant_id && r.qty && parseQty(r.qty) > 0)
+      .map((r) => {
+        const stock     = sourceStock.find((s) => s.brand_variant_id === r.brand_variant_id)
+        const qty       = parseQty(r.qty)
+        const available = availableQtyMap.get(r.brand_variant_id) ?? 0
+        const unitCost  = avgCostMap.get(r.brand_variant_id) ?? 0
+        const share     = available > 0 ? qty / available : 1
+        const highShare = available > 0 && qty >= Math.ceil(available * HIGH_SHARE_RATIO)
+        const shareLabel = available <= 0
+          ? 'No recorded stock at this location'
+          : qty >= available
+            ? `Consuming the entire stock (${qty.toLocaleString()} of ${available.toLocaleString()})`
+            : `${Math.round(share * 100)}% of stock (${qty.toLocaleString()} of ${available.toLocaleString()})`
+        return {
+          id:       r.brand_variant_id,
+          name:     stock?.item_name ?? '(item)',
+          brand:    stock?.brand ?? null,
+          unit:     stock?.unit ?? '',
+          qty, unitCost, lineCost: qty * unitCost, available, highShare, shareLabel,
+        }
+      })
+  }, [rows, sourceStock, availableQtyMap, avgCostMap])
+
+  const anyHighShare = confirmLines.some((l) => l.highShare)
+
+  // Open the confirmation modal and arm its 3-second cooldown in the same
+  // synchronous batch, so the confirm button renders disabled from frame one.
+  function openConfirm() {
+    const t = Date.now()
+    setNow(t)
+    setCooldownEndsAt(t + COOLDOWN_MS)
+    setConfirmOpen(true)
+  }
 
   async function handleSubmit() {
     if (!srcWhId || !srcSubId) {
@@ -347,8 +461,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       return
     }
     const lines = rows
-      .filter((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
-      .map((r) => ({ brand_variant_id: r.brand_variant_id, qty: parseInt(r.qty, 10) }))
+      .filter((r) => r.brand_variant_id && r.qty && parseQty(r.qty) > 0)
+      .map((r) => ({ brand_variant_id: r.brand_variant_id, qty: parseQty(r.qty) }))
     if (lines.length === 0) {
       toast.error('Add at least one line')
       return
@@ -367,8 +481,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       })
       submittedRef.current = true
       toast.success(`Consumption posted to ${consumerLabel ?? 'consumer'} — stock deducted`)
+      setConfirmOpen(false)
       onOpenChange(false)
     } catch (err) {
+      // Keep the confirmation modal open so the operator can retry or go back.
       toast.error(err instanceof Error ? err.message : 'Failed to post consumption')
     }
   }
@@ -406,23 +522,24 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                 <Label className="text-[10px] text-muted-foreground">Warehouse</Label>
                 {sourceLocked ? (
                   <div className="h-9 flex items-center rounded-md border bg-muted/40 px-2.5 text-xs font-medium truncate">
-                    {warehouses.find((w) => w.id === srcWhId)?.name ?? 'Warehouse'}
+                    {srcWarehouses.find((w) => w.id === srcWhId)?.name ?? 'Warehouse'}
+                  </div>
+                ) : srcWarehouses.length === 0 ? (
+                  <div className="h-9 flex items-center rounded-md border border-destructive/40 bg-destructive/5 px-2.5 text-[11px] italic text-destructive">
+                    No warehouses assigned to you
                   </div>
                 ) : (
                   <Select
                     value={srcWhId}
-                    onValueChange={(v) => { setSrcWhId(v ?? ''); bumpCooldown() }}
+                    onValueChange={(v) => setSrcWhId(v ?? '')}
                   >
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue placeholder="Pick source warehouse" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 overflow-y-auto">
-                      {warehouses.map((wh) => (
+                      {srcWarehouses.map((wh) => (
                         <SelectItem key={wh.id} value={wh.id} className="text-xs">
                           {wh.name}
-                          {wh.warehouse_kind && wh.warehouse_kind !== 'general' && (
-                            <Badge variant="outline" className="ml-1.5 text-[9px] h-3.5 px-1">{wh.warehouse_kind}</Badge>
-                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -449,7 +566,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                     <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0">Auto</Badge>
                   </div>
                 ) : (
-                  <Select value={srcSubId ?? ''} onValueChange={(v) => { setSrcSubId(v || null); bumpCooldown() }}>
+                  <Select value={srcSubId ?? ''} onValueChange={(v) => setSrcSubId(v || null)}>
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue placeholder="Pick sub-container" />
                     </SelectTrigger>
@@ -479,7 +596,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                   <button
                     key={opt.key}
                     type="button"
-                    onClick={() => { setConsumerType(opt.key); bumpCooldown() }}
+                    onClick={() => setConsumerType(opt.key)}
                     className={
                       'h-7 rounded text-[11px] font-medium transition-colors ' +
                       (consumerType === opt.key
@@ -498,36 +615,50 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
             <div className="min-h-9">
               {consumerType === 'team' && (
-                <Select value={consumerTeamSub} onValueChange={(v) => { setConsumerTeamSub(v ?? ''); bumpCooldown() }}>
+                <Select value={consumerTeamSub} onValueChange={(v) => setConsumerTeamSub(v ?? '')}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Pick a team…" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {activeTeams.length === 0 && (
-                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No active teams</div>
+                    {visibleTeams.length === 0 && (
+                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No teams in your division</div>
                     )}
-                    {activeTeams.map((t) => (
-                      <SelectItem key={t.id} value={t.id} className="text-xs">
-                        {t.name} <span className="text-muted-foreground">— {t.division_name}</span>
-                      </SelectItem>
-                    ))}
+                    {teamGroups.length <= 1
+                      ? visibleTeams.map((t) => (
+                          <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                        ))
+                      : teamGroups.map((g) => (
+                          <SelectGroup key={g.divisionId}>
+                            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{g.divisionName}</SelectLabel>
+                            {g.items.map((t) => (
+                              <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))}
                   </SelectContent>
                 </Select>
               )}
               {consumerType === 'place' && (
-                <Select value={consumerPlaceSub} onValueChange={(v) => { setConsumerPlaceSub(v ?? ''); bumpCooldown() }}>
+                <Select value={consumerPlaceSub} onValueChange={(v) => setConsumerPlaceSub(v ?? '')}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Pick a place…" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {activePlaces.length === 0 && (
-                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No active places</div>
+                    {visiblePlaces.length === 0 && (
+                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No places in your division</div>
                     )}
-                    {activePlaces.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">
-                        {p.name} <span className="text-muted-foreground">— {p.division_name}</span>
-                      </SelectItem>
-                    ))}
+                    {placeGroups.length <= 1
+                      ? visiblePlaces.map((p) => (
+                          <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
+                        ))
+                      : placeGroups.map((g) => (
+                          <SelectGroup key={g.divisionId}>
+                            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{g.divisionName}</SelectLabel>
+                            {g.items.map((p) => (
+                              <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))}
                   </SelectContent>
                 </Select>
               )}
@@ -556,12 +687,15 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             ) : (
               <div className="space-y-1.5">
                 {rows.map((row, idx) => {
-                  const selected  = sourceStock.find((s) => s.brand_variant_id === row.brand_variant_id)
-                  const available = row.brand_variant_id ? (availableQtyMap.get(row.brand_variant_id) ?? 0) : null
-                  const unitCost  = row.brand_variant_id ? (avgCostMap.get(row.brand_variant_id) ?? 0) : null
-                  const qtyNum    = parseFloat(row.qty)
-                  const lineCost  = !isNaN(qtyNum) && unitCost != null ? qtyNum * unitCost : null
-                  const error     = rowErrors[idx]
+                  const selected      = sourceStock.find((s) => s.brand_variant_id === row.brand_variant_id)
+                  const available     = row.brand_variant_id ? (availableQtyMap.get(row.brand_variant_id) ?? 0) : null
+                  const unitCost      = row.brand_variant_id ? (avgCostMap.get(row.brand_variant_id) ?? 0) : null
+                  const qtyNum        = parseQty(row.qty)
+                  const lineCost      = !isNaN(qtyNum) && unitCost != null ? qtyNum * unitCost : null
+                  const error         = rowErrors[idx]
+                  const remainingAfter = available != null && !isNaN(qtyNum) && qtyNum > 0
+                    ? available - qtyNum
+                    : null
                   return (
                     <div
                       key={idx}
@@ -595,24 +729,35 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                       <div className="flex items-center gap-2 flex-wrap">
                         <Input
                           type="number"
+                          inputMode="numeric"
                           className={`h-7 w-[80px] text-[11px] ${error ? 'border-destructive' : ''}`}
                           placeholder="Qty"
-                          min="0"
+                          min="1"
+                          step="1"
+                          max={available != null ? available : undefined}
                           value={row.qty}
-                          onChange={(e) => updateRow(idx, 'qty', e.target.value)}
+                          onChange={(e) => updateRow(idx, 'qty', e.target.value.replace(/[^\d]/g, ''))}
                           disabled={!row.brand_variant_id}
                         />
                         {available !== null && (
                           <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            / {available} {selected?.unit ?? ''}
+                            / {available.toLocaleString()} {selected?.unit ?? ''}
                           </span>
                         )}
-                        {unitCost != null && unitCost > 0 && (
+                        {remainingAfter !== null && !error && (
+                          <span className={cn(
+                            'text-[10px] whitespace-nowrap',
+                            remainingAfter === 0 ? 'text-warning-foreground' : 'text-muted-foreground',
+                          )}>
+                            → {remainingAfter.toLocaleString()} left
+                          </span>
+                        )}
+                        {canSeeCost && unitCost != null && unitCost > 0 && (
                           <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                             @ {QAR.format(unitCost)}
                           </span>
                         )}
-                        {lineCost != null && lineCost > 0 && (
+                        {canSeeCost && lineCost != null && lineCost > 0 && (
                           <span className="text-[10px] font-medium tabular-nums text-foreground whitespace-nowrap">
                             = {QAR.format(lineCost)}
                           </span>
@@ -643,7 +788,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                   <Plus className="h-3 w-3" /> Add Item
                 </Button>
 
-                {linesTotal > 0 && (
+                {canSeeCost && linesTotal > 0 && (
                   <div className="flex items-center justify-end gap-2 pt-1 text-[11px]">
                     <span className="text-muted-foreground">Estimated cost:</span>
                     <span className="font-semibold tabular-nums">{QAR.format(linesTotal)}</span>
@@ -661,7 +806,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               className="text-[11px] min-h-[48px] resize-none"
               placeholder="Optional context (job ref, site visit, WO number, etc.)"
               value={notes}
-              onChange={(e) => { setNotes(e.target.value); bumpCooldown() }}
+              onChange={(e) => setNotes(e.target.value)}
             />
           </div>
 
@@ -713,13 +858,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
         <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg gap-2 sm:gap-2 flex-row items-center justify-between sm:justify-between">
           <div className="text-[10px] text-muted-foreground">
-            {cooldownRemaining > 0 ? (
-              <span className="inline-flex items-center gap-1">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
-                Confirm enabled in {cooldownSecondsLeft}s
-              </span>
-            ) : canSubmit ? (
-              <span className="text-success">Ready to post</span>
+            {canOpenConfirm ? (
+              <span className="text-success">Ready to review</span>
             ) : (
               <span>Fill required fields</span>
             )}
@@ -728,17 +868,123 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardedOnOpenChange(false)} disabled={post.isPending}>
               Cancel
             </Button>
-            <Button size="sm" className="text-[11px] h-8 min-w-[130px]" disabled={!canSubmit} onClick={handleSubmit}>
-              {post.isPending
-                ? 'Posting…'
-                : cooldownRemaining > 0
-                  ? `Confirm (${cooldownSecondsLeft}s)`
-                  : 'Confirm & Post'}
+            <Button size="sm" className="text-[11px] h-8 min-w-[130px]" disabled={!canOpenConfirm} onClick={openConfirm}>
+              Review &amp; Post
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
 
-    </Dialog>{confirmDialog}</>
+    </Dialog>
+
+    {/* Two-step confirm: highlight exactly what's about to be consumed, then
+        hold a 3-second cooldown on the confirm button before the post fires. */}
+    <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!post.isPending) setConfirmOpen(o) }}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-1.5 text-sm">
+            <HandCoins className="h-4 w-4 text-primary" />
+            Confirm consumption
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-[11px] leading-snug">
+            This deducts stock and books COGS immediately. Check the quantities — it can only be undone by a manual cancellation.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="space-y-3">
+          {/* Source + consumer summary */}
+          <div className="rounded-md border bg-muted/30 p-2.5 text-[11px] space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">From</span>
+              <span className="font-medium text-right truncate">{srcWhName} — {srcSubName}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">Consumer</span>
+              <span className="font-medium text-right truncate">
+                {consumerType === 'internal' ? 'Internal use' : `${consumerTypeLabel} — ${consumerLabel ?? ''}`}
+              </span>
+            </div>
+          </div>
+
+          {anyHighShare && (
+            <div className="rounded-md border border-warning/50 bg-warning/10 p-2 flex items-start gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
+              <span className="text-[11px] text-warning-foreground leading-snug">
+                A line below consumes almost all — or all — of the available stock. Double-check the quantity before posting.
+              </span>
+            </div>
+          )}
+
+          {/* Line breakdown */}
+          <div className="space-y-1 max-h-[38vh] overflow-y-auto">
+            {confirmLines.map((l) => (
+              <div
+                key={l.id}
+                className={cn(
+                  'flex items-start justify-between gap-2 rounded-md border px-2.5 py-1.5 text-[11px]',
+                  l.highShare ? 'border-warning/50 bg-warning/10' : 'bg-card',
+                )}
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-medium">
+                    {l.name}{l.brand ? <span className="text-muted-foreground"> — {l.brand}</span> : null}
+                  </div>
+                  {l.highShare && (
+                    <div className="mt-0.5 flex items-center gap-1 text-[10px] text-warning-foreground">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      <span>{l.shareLabel}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="shrink-0 text-right tabular-nums">
+                  <div className="flex justify-end">
+                    <span
+                      className={cn(
+                        'inline-flex items-baseline gap-1 rounded px-1.5 py-0.5 font-semibold text-foreground',
+                        l.available > 0 && l.qty >= l.available
+                          ? 'bg-destructive/15'   // consuming the entire stock
+                          : l.highShare
+                            ? 'bg-warning/25'      // ≥90% of stock
+                            : 'bg-primary/10',     // normal — draws the eye to the qty
+                      )}
+                    >
+                      {l.qty.toLocaleString()}
+                      <span className="text-[9px] font-normal opacity-60">{l.unit || 'pcs'}</span>
+                    </span>
+                  </div>
+                  {canSeeCost && l.unitCost > 0 && (
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">{QAR.format(l.lineCost)}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Total (cost — accounting only) */}
+          {canSeeCost && linesTotal > 0 && (
+            <div className="flex items-center justify-between border-t pt-2 text-xs">
+              <span className="text-muted-foreground">Estimated COGS</span>
+              <span className="font-semibold tabular-nums">{QAR.format(linesTotal)}</span>
+            </div>
+          )}
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={post.isPending} className="h-8 text-[11px]">Back</AlertDialogCancel>
+          <Button
+            className="h-8 text-[11px] min-w-[150px]"
+            disabled={cooldownRemaining > 0 || post.isPending}
+            onClick={handleSubmit}
+          >
+            {post.isPending
+              ? 'Posting…'
+              : cooldownRemaining > 0
+                ? `Confirm in ${cooldownSecondsLeft}s`
+                : 'Confirm & Post'}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    {confirmDialog}</>
   )
 }

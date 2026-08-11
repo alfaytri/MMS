@@ -409,6 +409,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         label: 'Consumption',
         permissions: [
           { key: 'consumption.view',            label: 'View Consumption',            description: 'Access the consumption entries list and detail dialog' },
+          { key: 'consumption.cost.view',       label: 'View Consumption Cost',       description: 'See unit cost, COGS, and totals on consumption (New dialog, list, and detail). Accounting-only — field users post consumption without seeing cost.' },
           { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants all three consumer types (team / place / internal). Legacy key retained for backwards compat. Prefer the three narrower keys below.' },
           { key: 'consumption.create.team',     label: 'Create Team Consumption',     description: 'Post consumption entries with a Team consumer' },
           { key: 'consumption.create.place',    label: 'Create Place Consumption',    description: 'Post consumption entries with a Place consumer' },
@@ -559,9 +560,11 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     module: 'Reports',
     icon: asFC(BarChart2),
     permissions: [
-      { key: 'reports.access', label: 'Access Reports Dropdown', description: 'Show the Reports dropdown in the top nav' },
-      { key: 'reports.view',   label: 'View Reports',            description: 'Access all report pages' },
-      { key: 'reports.manage', label: 'Export Reports',          description: 'Export report data to CSV or PDF (reports are read-only — .manage here means "can export")' },
+      { key: 'reports.access',          label: 'Access Reports Dropdown', description: 'Show the Reports dropdown in the top nav' },
+      { key: 'reports.view',            label: 'View Reports',            description: 'Access the reports section (dashboards + any report a finer permission grants)' },
+      { key: 'reports.inventory.view',  label: 'View Inventory Reports',  description: 'Product Cost + Revenue / COGS reports' },
+      { key: 'reports.accounting.view', label: 'View Accounting Reports', description: 'Accounts Receivable, Accounts Payable, Cash, and Profit & Loss reports' },
+      { key: 'reports.manage',          label: 'Export Reports',          description: 'Export report data to CSV or PDF (reports are read-only — .manage here means "can export")' },
     ],
   },
   {

@@ -46,6 +46,12 @@ export const NAV_ITEMS: NavEntry[] = [
         items: [
           { label: 'Financial Dashboard',   href: '/reports/dashboard',              icon: 'LayoutDashboard', permission: 'reports.view' },
           { label: 'Product Profitability', href: '/reports/product-profitability',  icon: 'TrendingUp',      permission: 'reports.view' },
+          { label: 'Product Cost',          href: '/reports/product-cost',           icon: 'Package',         permission: 'reports.inventory.view' },
+          { label: 'Revenue & COGS',        href: '/reports/revenue-cogs',           icon: 'Calculator',      permission: 'reports.inventory.view' },
+          { label: 'Accounts Receivable',   href: '/reports/receivables',            icon: 'Receipt',         permission: 'reports.accounting.view' },
+          { label: 'Accounts Payable',      href: '/reports/payables',               icon: 'Wallet',          permission: 'reports.accounting.view' },
+          { label: 'Cash & Cash Equivalents', href: '/reports/cash',                icon: 'HandCoins',       permission: 'reports.accounting.view' },
+          { label: 'Profit & Loss',         href: '/reports/profit-loss',            icon: 'BarChart3',       permission: 'reports.accounting.view' },
         ],
       },
     ],

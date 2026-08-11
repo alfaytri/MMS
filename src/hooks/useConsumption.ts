@@ -13,10 +13,13 @@
  * Plan: docs/plans/2026-08-03-teams-places-consumption.md (Task 9).
  */
 
+import { useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
+import { useTeams } from '@/hooks/useTeamSubContainers'
+import { usePlaces } from '@/hooks/usePlaceSubContainers'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -217,6 +220,45 @@ export function useConsumption(id: string | null) {
     },
     staleTime: 30 * 1000,
   })
+}
+
+// ─── 2b. Consumer-name resolver ───────────────────────────────────────────
+
+type ConsumerNameRow = {
+  consumer_type:          ConsumerType
+  consumer_team_sub_id:   string | null
+  consumer_place_sub_id:  string | null
+  consumer_display:       string
+}
+
+/**
+ * Resolve a consumption row's consumer name from the cross-division team/place
+ * master lists instead of trusting the list/detail query's embedded join.
+ *
+ * The `team_sub`/`place_sub` embeds in LIST_SELECT read `warehouse_sub_containers`
+ * through its RESTRICTIVE RLS (active-division OR warehouse-RP scope). A viewer
+ * whose active division differs from the consumer team's division gets a null
+ * embed → the mapper falls back to "(team removed)" even though the team is
+ * alive. `get_teams_master_list` / `get_places_master_list` are SECURITY DEFINER
+ * and return every division's rows, so this always resolves a live team/place.
+ * Falls back to the row's own `consumer_display` only if the id is genuinely
+ * unknown (truly deleted).
+ */
+export function useConsumerLabel() {
+  const { data: teams  = [] } = useTeams()
+  const { data: places = [] } = usePlaces()
+  const teamMap  = useMemo(() => new Map(teams.map((t)  => [t.id, t.name])),  [teams])
+  const placeMap = useMemo(() => new Map(places.map((p) => [p.id, p.name])), [places])
+
+  return useCallback((row: ConsumerNameRow): string => {
+    if (row.consumer_type === 'team') {
+      return teamMap.get(row.consumer_team_sub_id ?? '') ?? row.consumer_display
+    }
+    if (row.consumer_type === 'place') {
+      return placeMap.get(row.consumer_place_sub_id ?? '') ?? row.consumer_display
+    }
+    return 'Internal'
+  }, [teamMap, placeMap])
 }
 
 // ─── 3. Post mutation ───────────────────────────────────────────────────
@@ -519,5 +561,34 @@ export function useConsumptionAttachmentUrls(paths: string[] | null | undefined)
       return result
     },
     staleTime: 50 * 60 * 1000,
+  })
+}
+
+// ─── 8. Consumption sources (assigned warehouses/custody for the picker) ──
+
+export type ConsumptionSource = {
+  warehouse_id:       string
+  warehouse_name:     string
+  warehouse_kind:     string | null
+  sub_container_id:   string
+  sub_container_name: string
+}
+
+/**
+ * The (warehouse, sub-container) sources the current user may post a
+ * consumption from — assigned real warehouses, assigned custody subs, or all
+ * (minus Repair) for a custody admin. Mirrors the rpc_post_consumption guard so
+ * the picker only offers sources the DB will actually accept.
+ */
+export function useMyConsumptionSources() {
+  return useQuery({
+    queryKey: ['consumption-sources', 'mine'],
+    queryFn: async (): Promise<ConsumptionSource[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_my_consumption_sources' as never)
+      if (error) throw new Error(error.message)
+      return (data as unknown as ConsumptionSource[]) ?? []
+    },
+    staleTime: 5 * 60 * 1000,
   })
 }

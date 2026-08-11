@@ -172,7 +172,7 @@ export default function UsersRolesPage() {
       cell: ({ row }) => {
         const email = row.getValue('email') as string | null
         if (!email) return <span className="text-muted-foreground">—</span>
-        return email.replace(/@mms\.local$/, '')
+        return email.replace(/@[^@]+$/, '')
       },
     },
     {
@@ -399,7 +399,7 @@ export default function UsersRolesPage() {
                   }>
                 }).user_custom_roles
                 const email = profile.email
-                const username = email ? email.replace(/@mms\.local$/, '') : '—'
+                const username = email ? email.replace(/@[^@]+$/, '') : '—'
 
                 return (
                   <div className="flex items-start justify-between gap-3">

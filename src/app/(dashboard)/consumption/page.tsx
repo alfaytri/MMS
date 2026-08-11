@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ChevronRight, HandCoins, MapPin, Package, Plus, Users2 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
-import { useCanCreateAnyConsumption } from '@/hooks/usePermissions'
+import { useCanCreateAnyConsumption, useHasPermission } from '@/hooks/usePermissions'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDia
 import { ConsumptionDetailDialog } from '@/components/consumption/ConsumptionDetailDialog'
 import {
   useConsumptionList,
+  useConsumerLabel,
   type ConsumerType,
   type ConsumptionListRow,
   type ConsumptionStatus,
@@ -80,6 +81,14 @@ export default function ConsumptionPage() {
   // itself further filters the segmented control based on which types they
   // actually hold.
   const canCreate = useCanCreateAnyConsumption()
+  // COGS is accounting-sensitive. Field users (consumption.view without
+  // consumption.cost.view) may post consumption but must not see cost — gate
+  // every money figure on this list behind the same permission the New/Detail
+  // dialogs use.
+  const canSeeCost = useHasPermission('consumption.cost.view')
+  // Resolve the consumer team/place name from the cross-division master list
+  // so cross-division rows never render as "(team removed)".
+  const consumerLabel = useConsumerLabel()
 
   const totals = useMemo(() => {
     const posted = rows.filter((r) => r.status === 'posted')
@@ -90,7 +99,8 @@ export default function ConsumptionPage() {
     }
   }, [rows])
 
-  const columns = useMemo<ColumnDef<ConsumptionListRow>[]>(() => [
+  const columns = useMemo<ColumnDef<ConsumptionListRow>[]>(() => {
+    const cols: ColumnDef<ConsumptionListRow>[] = [
     {
       accessorKey: 'ce_number',
       header: ({ column }) => <DataTableColumnHeader column={column} title="CE #" />,
@@ -120,7 +130,7 @@ export default function ConsumptionPage() {
         <div className="min-w-0 flex items-center gap-1.5">
           <ConsumerIcon type={row.original.consumer_type} />
           <div className="min-w-0">
-            <div className="text-xs font-medium truncate">{row.original.consumer_display}</div>
+            <div className="text-xs font-medium truncate">{consumerLabel(row.original)}</div>
             <div className="text-[10px] text-muted-foreground capitalize">
               {row.original.consumer_type}
             </div>
@@ -157,7 +167,10 @@ export default function ConsumptionPage() {
         )
       },
     },
-  ], [])
+    ]
+    // Hide the COGS column entirely from users without pricing visibility.
+    return canSeeCost ? cols : cols.filter((c) => c.id !== 'total')
+  }, [canSeeCost, consumerLabel])
 
   return (
     <PageWrapper>
@@ -183,7 +196,7 @@ export default function ConsumptionPage() {
       />
 
       {/* Stat strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className={cn('grid gap-2', canSeeCost ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
         <div className="rounded-lg border bg-card px-3 py-2">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Entries</div>
           <div className="text-lg font-semibold tabular-nums">{totals.count}</div>
@@ -192,10 +205,12 @@ export default function ConsumptionPage() {
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Posted</div>
           <div className="text-lg font-semibold tabular-nums">{totals.postedCount}</div>
         </div>
-        <div className="col-span-2 sm:col-span-1 rounded-lg border bg-card px-3 py-2">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Posted COGS</div>
-          <div className="text-lg font-semibold tabular-nums">{QAR.format(totals.postedValue)}</div>
-        </div>
+        {canSeeCost && (
+          <div className="col-span-2 sm:col-span-1 rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Posted COGS</div>
+            <div className="text-lg font-semibold tabular-nums">{QAR.format(totals.postedValue)}</div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
