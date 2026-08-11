@@ -44,7 +44,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'po
 }
 
 export default function RevenueCogsReportPage() {
-  const canView = useHasPermission('reports.view')
+  const canView = useHasPermission('reports.inventory.view')
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }

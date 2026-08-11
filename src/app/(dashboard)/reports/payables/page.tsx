@@ -58,7 +58,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'ne
 }
 
 export default function PayablesReportPage() {
-  const canView = useHasPermission('reports.view')
+  const canView = useHasPermission('reports.accounting.view')
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-year')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }

@@ -51,7 +51,7 @@ function buildLines(s: PnlStatement): Line[] {
 }
 
 export default function ProfitLossReportPage() {
-  const canView = useHasPermission('reports.view')
+  const canView = useHasPermission('reports.accounting.view')
   const [basis, setBasis] = useState<PnlBasis>('accrual')
   const [fxOpen, setFxOpen] = useState(false)
   const [filters, setFilters] = useState<ReportFilters>(() => {

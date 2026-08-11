@@ -560,9 +560,11 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     module: 'Reports',
     icon: asFC(BarChart2),
     permissions: [
-      { key: 'reports.access', label: 'Access Reports Dropdown', description: 'Show the Reports dropdown in the top nav' },
-      { key: 'reports.view',   label: 'View Reports',            description: 'Access all report pages' },
-      { key: 'reports.manage', label: 'Export Reports',          description: 'Export report data to CSV or PDF (reports are read-only — .manage here means "can export")' },
+      { key: 'reports.access',          label: 'Access Reports Dropdown', description: 'Show the Reports dropdown in the top nav' },
+      { key: 'reports.view',            label: 'View Reports',            description: 'Access the reports section (dashboards + any report a finer permission grants)' },
+      { key: 'reports.inventory.view',  label: 'View Inventory Reports',  description: 'Product Cost + Revenue / COGS reports' },
+      { key: 'reports.accounting.view', label: 'View Accounting Reports', description: 'Accounts Receivable, Accounts Payable, Cash, and Profit & Loss reports' },
+      { key: 'reports.manage',          label: 'Export Reports',          description: 'Export report data to CSV or PDF (reports are read-only — .manage here means "can export")' },
     ],
   },
   {
