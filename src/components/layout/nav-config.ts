@@ -51,6 +51,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Accounts Receivable',   href: '/reports/receivables',            icon: 'Receipt',         permission: 'reports.view' },
           { label: 'Accounts Payable',      href: '/reports/payables',               icon: 'Wallet',          permission: 'reports.view' },
           { label: 'Cash & Cash Equivalents', href: '/reports/cash',                icon: 'HandCoins',       permission: 'reports.view' },
+          { label: 'Profit & Loss',         href: '/reports/profit-loss',            icon: 'BarChart3',       permission: 'reports.view' },
         ],
       },
     ],
