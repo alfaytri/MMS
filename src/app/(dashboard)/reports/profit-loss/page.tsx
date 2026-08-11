@@ -186,8 +186,10 @@ export default function ProfitLossReportPage() {
 
       {statement && (
         <p className="text-[11px] text-muted-foreground max-w-2xl">
-          Gross Profit = Revenue − COGS + Exchange Gain/Loss − Scrap. Scrap &amp; Defective is a global
-          period figure (the damaged-movement records carry no division), and reads 0 until write-offs are booked.
+          Gross Profit = Revenue − COGS + Exchange Gain/Loss − Scrap. &ldquo;Scrap &amp; Defective&rdquo; counts
+          approved write-offs from the stock-adjustment &ldquo;Write Off&rdquo; flow: good-stock write-offs are
+          division- and warehouse-scoped; damaged-stock write-offs carry no division, so they are counted
+          company-wide (owner / accountant, all-divisions view only). Reads 0 until write-offs are booked.
         </p>
       )}
     </PageWrapper>
