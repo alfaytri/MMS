@@ -204,7 +204,9 @@ export function WriteOffDamagedStockDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {subContainers.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name} — {s.division_name}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}{s.division_name && !s.name.includes(s.division_name) ? ` — ${s.division_name}` : ''}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
