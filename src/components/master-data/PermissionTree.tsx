@@ -466,10 +466,7 @@ export const NAV_TREE: TreeNode[] = [
         label: 'Custody',
         icon: HandCoins,
         permissions: [
-          { key: 'custody.teams.view',  label: 'View Teams Custody',  description: 'See the Teams tab on the Custody page (stock in team custody)' },
-          { key: 'custody.teams.edit',  label: 'Edit Teams Custody',  description: 'Assign / return / consume stock on the Teams tab (rows are created implicitly by upstream flows — no .create key)' },
-          { key: 'custody.places.view', label: 'View Places Custody', description: 'See the Places tab on the Custody page (stock at customer sites)' },
-          { key: 'custody.places.edit', label: 'Edit Places Custody', description: 'Assign / return / consume stock on the Places tab (rows are created implicitly by upstream flows — no .create key)' },
+          { key: 'custody.view', label: 'Access Custody Page', description: 'Open the Custody page + nav. Per-warehouse visibility is granted in the "Custody Warehouse Access" section below.' },
         ],
       },
       {
@@ -479,8 +476,7 @@ export const NAV_TREE: TreeNode[] = [
         permissions: [
           { key: 'consumption.view',            label: 'View Consumption',            description: 'Access the consumption entries list and detail dialog' },
           { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants all three consumer types. Prefer the three narrower keys below when you want to restrict.' },
-          { key: 'consumption.create.team',     label: 'Create Team Consumption',     description: 'Post consumption entries with a Team consumer' },
-          { key: 'consumption.create.place',    label: 'Create Place Consumption',    description: 'Post consumption entries with a Place consumer' },
+          { key: 'consumption.create.custody',  label: 'Create Custody Consumption',  description: 'Post consumption entries with a Custody consumer (team / project / site)' },
           { key: 'consumption.create.internal', label: 'Create Internal Consumption', description: 'Post consumption entries with an Internal (own-use) consumer' },
           { key: 'consumption.cancel',          label: 'Cancel Consumption',          description: 'Cancel a posted consumption or approve a cancellation request (acts as .edit for this surface)' },
         ],

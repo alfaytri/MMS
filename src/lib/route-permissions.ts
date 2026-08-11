@@ -77,7 +77,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
 
   // ── Operations ─────────────────────────────────────────────────────────
   { pathPrefix: '/consumption',              permission: 'consumption.view' },
-  { pathPrefix: '/warehouse/custody',        permission: ['custody.teams.view', 'custody.places.view'] },
+  { pathPrefix: '/warehouse/custody',        permission: 'custody.view' },
   { pathPrefix: '/warehouse/damaged-stock',  permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },
 
   // ── Teams / Map / Calendar / Team Leader ──────────────────────────────

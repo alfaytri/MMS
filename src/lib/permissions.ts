@@ -399,10 +399,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       {
         label: 'Custody',
         permissions: [
-          { key: 'custody.teams.view',  label: 'View Teams Custody',  description: 'See the Teams tab on the Custody page (stock in team custody)' },
-          { key: 'custody.teams.edit',  label: 'Edit Teams Custody',  description: 'Assign / return / consume stock on the Teams tab (rows are created implicitly by upstream flows — no .create key)' },
-          { key: 'custody.places.view', label: 'View Places Custody', description: 'See the Places tab on the Custody page (stock at customer sites)' },
-          { key: 'custody.places.edit', label: 'Edit Places Custody', description: 'Assign / return / consume stock on the Places tab (rows are created implicitly by upstream flows — no .create key)' },
+          { key: 'custody.view', label: 'Access Custody Page', description: 'Open the Custody page + nav. Which custody warehouses (Teams / Projects / …) are visible + editable is granted per-warehouse on the role editor.' },
         ],
       },
       {
@@ -410,9 +407,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         permissions: [
           { key: 'consumption.view',            label: 'View Consumption',            description: 'Access the consumption entries list and detail dialog' },
           { key: 'consumption.cost.view',       label: 'View Consumption Cost',       description: 'See unit cost, COGS, and totals on consumption (New dialog, list, and detail). Accounting-only — field users post consumption without seeing cost.' },
-          { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants all three consumer types (team / place / internal). Legacy key retained for backwards compat. Prefer the three narrower keys below.' },
-          { key: 'consumption.create.team',     label: 'Create Team Consumption',     description: 'Post consumption entries with a Team consumer' },
-          { key: 'consumption.create.place',    label: 'Create Place Consumption',    description: 'Post consumption entries with a Place consumer' },
+          { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants both consumer types (custody + internal). Prefer the narrower keys below when you want to restrict.' },
+          { key: 'consumption.create.custody',  label: 'Create Custody Consumption',  description: 'Post consumption entries with a Custody consumer (team / project / site)' },
           { key: 'consumption.create.internal', label: 'Create Internal Consumption', description: 'Post consumption entries with an Internal (own-use) consumer' },
           { key: 'consumption.cancel',          label: 'Cancel Consumption',          description: 'Cancel a posted consumption or approve a cancellation request (acts as .edit for this surface)' },
         ],

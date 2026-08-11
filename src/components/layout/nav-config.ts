@@ -110,7 +110,7 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'Custody',       href: '/warehouse/custody',        icon: 'HandCoins',     permission: ['custody.teams.view', 'custody.places.view'] },
+          { label: 'Custody',       href: '/warehouse/custody',        icon: 'HandCoins',     permission: 'custody.view' },
           { label: 'Consumption',   href: '/consumption',              icon: 'Flame',         permission: 'consumption.view' },
           { label: 'Damaged Stock', href: '/warehouse/damaged-stock',  icon: 'AlertTriangle', permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },
         ],

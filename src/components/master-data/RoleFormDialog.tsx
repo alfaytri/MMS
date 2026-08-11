@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { ChevronRight, ChevronDown } from 'lucide-react'
+import { ChevronRight, ChevronDown, Users2 } from 'lucide-react'
 import {
   DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -22,6 +22,7 @@ import {
   type GuardedFormDialogHandle,
 } from '@/components/shared/GuardedFormDialog'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
+import { useCustodyWarehouses } from '@/hooks/useCustodyLocations'
 import { NAV_TREE, countPerms, collectPermKeys, validatePermissionSet, type TreeNode } from './PermissionTree'
 
 const ALL_TREE_KEYS = collectPermKeys(NAV_TREE)
@@ -195,6 +196,14 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
   const isPending = create.isPending || update.isPending
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const guardRef = useRef<GuardedFormDialogHandle>(null)
+  // Per-warehouse custody grants are generated from the live custody-warehouse
+  // list (keys: custody.<id>.view / custody.<id>.edit) — the static NAV_TREE
+  // can't know operator-created warehouses.
+  const { data: custodyWhs = [] } = useCustodyWarehouses()
+  const custodyWhKeys = useMemo(
+    () => custodyWhs.flatMap((w) => [`custody.${w.id}.view`, `custody.${w.id}.edit`]),
+    [custodyWhs],
+  )
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
@@ -244,7 +253,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
     form.setValue('permissions', current.filter(k => !removeSet.has(k)), { shouldDirty: true })
   }, [form])
 
-  function selectAll() { form.setValue('permissions', [...ALL_TREE_KEYS], { shouldDirty: true }) }
+  function selectAll() { form.setValue('permissions', Array.from(new Set([...ALL_TREE_KEYS, ...custodyWhKeys])), { shouldDirty: true }) }
   function clearAll()  { form.setValue('permissions', [], { shouldDirty: true }) }
 
   function onSubmit(values: RoleFormValues) {
@@ -331,7 +340,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
             {/* Permissions header */}
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                PERMISSIONS ({selectedPermissions.length} / {ALL_TREE_KEYS.length})
+                PERMISSIONS ({selectedPermissions.length} / {ALL_TREE_KEYS.length + custodyWhKeys.length})
               </span>
               <div className="flex gap-3">
                 <button type="button" onClick={selectAll} className="text-xs text-primary hover:underline">Select All</button>
@@ -354,6 +363,57 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                 />
               ))}
             </div>
+
+            {/* Custody Warehouse Access — dynamic per-warehouse grants (custody.<id>.view/edit) */}
+            {custodyWhs.length > 0 && (
+              <div className="space-y-2">
+                <div className="px-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Custody Warehouse Access</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Which custody warehouses this role can see (View) and manage — assign / return / consume (Edit).
+                    Requires the Access Custody Page permission above to reach the page.
+                  </p>
+                </div>
+                <div className="border rounded-md divide-y divide-border overflow-hidden">
+                  {custodyWhs.map((w) => {
+                    const viewKey = `custody.${w.id}.view`
+                    const editKey = `custody.${w.id}.edit`
+                    const hasView = selectedSet.has(viewKey)
+                    const hasEdit = selectedSet.has(editKey)
+                    return (
+                      <div key={w.id} className="flex items-center justify-between gap-3 py-2.5 px-3 hover:bg-accent/50">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Users2 className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-sm font-medium truncate">{w.name}</span>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={hasView}
+                              onCheckedChange={(c) => {
+                                if (c) handleSelect([viewKey])
+                                else handleDeselect([viewKey, editKey])
+                              }}
+                            />
+                            View
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={hasEdit}
+                              onCheckedChange={(c) => {
+                                if (c) handleSelect([viewKey, editKey])
+                                else handleDeselect([editKey])
+                              }}
+                            />
+                            Edit
+                          </label>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             </div>
 
             <DialogFooter className="shrink-0 pt-4">

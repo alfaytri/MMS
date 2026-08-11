@@ -37,6 +37,10 @@ function invalidateRoleDependentQueries(queryClient: ReturnType<typeof useQueryC
   queryClient.invalidateQueries({ queryKey: queryKeys.receivals.canCreateInventoryReceival })
   // Profile lists that embed role data
   queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all })
+  // Permission array read by usePermissions — without this a role's own grant
+  // changes (incl. per-warehouse custody grants) don't reflect for the editing
+  // admin until the 5-min staleTime expires.
+  queryClient.invalidateQueries({ queryKey: queryKeys.permissions.user })
 }
 
 export function useCreateRole() {
