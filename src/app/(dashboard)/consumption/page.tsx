@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import Link from 'next/link'
-import { ChevronRight, HandCoins, MapPin, Package, Plus, Users2 } from 'lucide-react'
+import { ChevronRight, HandCoins, Package, Plus, Users2 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { useCanCreateAnyConsumption, useHasPermission } from '@/hooks/usePermissions'
@@ -43,8 +43,7 @@ const STATUS_CONFIG: Record<ConsumptionStatus, { label: string; className: strin
 
 const CONSUMER_TYPES: { value: ConsumerType | 'all'; label: string }[] = [
   { value: 'all',      label: 'All consumers' },
-  { value: 'team',     label: 'Team' },
-  { value: 'place',    label: 'Place' },
+  { value: 'custody',  label: 'Custody' },
   { value: 'internal', label: 'Internal' },
 ]
 
@@ -55,8 +54,7 @@ const STATUSES: { value: ConsumptionStatus | 'all'; label: string }[] = [
 ]
 
 function ConsumerIcon({ type }: { type: ConsumerType }) {
-  if (type === 'team')  return <Users2  className="h-3 w-3 text-muted-foreground" />
-  if (type === 'place') return <MapPin  className="h-3 w-3 text-muted-foreground" />
+  if (type === 'custody') return <Users2 className="h-3 w-3 text-muted-foreground" />
   return <Package className="h-3 w-3 text-muted-foreground" />
 }
 
@@ -86,8 +84,8 @@ export default function ConsumptionPage() {
   // every money figure on this list behind the same permission the New/Detail
   // dialogs use.
   const canSeeCost = useHasPermission('consumption.cost.view')
-  // Resolve the consumer team/place name from the cross-division master list
-  // so cross-division rows never render as "(team removed)".
+  // Resolve the consumer custody-location name from the cross-division master
+  // list so cross-division rows never render as "(location removed)".
   const consumerLabel = useConsumerLabel()
 
   const totals = useMemo(() => {

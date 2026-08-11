@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
-  ChevronDown, ChevronRight, HandCoins, Inbox, MapPin, Package, PackageCheck,
+  ChevronDown, ChevronRight, HandCoins, Inbox, Package, PackageCheck,
   Send, Truck, Undo2, UserRound, Users2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -18,10 +18,9 @@ import { CustodyReturnDialog } from '@/components/warehouse/custody/CustodyRetur
 import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
-import { useTeams } from '@/hooks/useTeamSubContainers'
-import { usePlaces } from '@/hooks/usePlaceSubContainers'
+import { useCustodyLocations, type CustodyLocationRow } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-import { usePermissions, useHasPermission, useHasEditPermission, useCanCreateConsumptionFor } from '@/hooks/usePermissions'
+import { usePermissions, useCanCreateConsumptionFor } from '@/hooks/usePermissions'
 import {
   usePendingCustodyAssigns,
   useAcceptCustodyAssign,
@@ -29,19 +28,6 @@ import {
   type PendingCustodyAssign,
 } from '@/hooks/useCustodyMoves'
 import type { Warehouse } from '@/hooks/useWarehouses'
-
-// ─── Types ──────────────────────────────────────────────────────────────
-
-type CustodyRow = {
-  id:                              string
-  name:                            string
-  division_id:                     string
-  division_name:                   string
-  is_active:                       boolean
-  responsible_person_profile_id:   string | null
-  responsible_person_name:         string | null
-  responsible_person_phone:        string | null
-}
 
 const QAR = new Intl.NumberFormat('en-QA', {
   style: 'currency',
@@ -53,49 +39,72 @@ const QAR = new Intl.NumberFormat('en-QA', {
 
 export default function CustodyPage() {
   const { data: warehouses = [] } = useWarehouses({ includeVirtual: true })
+  const { data: perms } = usePermissions()
 
-  const teamsWh  = useMemo(() => warehouses.find((w) => w.warehouse_kind === 'teams'),  [warehouses])
-  const placesWh = useMemo(() => warehouses.find((w) => w.warehouse_kind === 'places'), [warehouses])
+  const custodyWhs = useMemo(
+    () => warehouses.filter((w) => w.warehouse_kind === 'custody'),
+    [warehouses],
+  )
   // Warehouses only — used by cards to check whether the current user is a
   // field RP of a specific source warehouse (for the Dispatch button gate).
   const realWarehouses = useMemo(() => warehouses.filter((w) => !w.is_virtual), [warehouses])
 
-  const canSeeTeams  = useHasPermission('custody.teams.view')
-  const canSeePlaces = useHasPermission('custody.places.view')
-  const defaultTab   = canSeeTeams ? 'teams' : canSeePlaces ? 'places' : 'teams'
+  // Per-warehouse visibility: a role sees a custody warehouse's tab only if it
+  // holds custody.<id>.view/edit/manage (system-admins see all). Computed from
+  // the flat permissions array so we avoid calling a hook per warehouse.
+  const canView = useMemo(() => {
+    return (whId: string): boolean => {
+      if (!perms) return false
+      if (perms.isSystemAdmin) return true
+      return ['view', 'edit', 'manage'].some((v) => perms.permissions.includes(`custody.${whId}.${v}`))
+    }
+  }, [perms])
+  const canEdit = useMemo(() => {
+    return (whId: string): boolean => {
+      if (!perms) return false
+      if (perms.isSystemAdmin) return true
+      return ['edit', 'manage'].some((v) => perms.permissions.includes(`custody.${whId}.${v}`))
+    }
+  }, [perms])
+
+  const visibleWhs = useMemo(() => custodyWhs.filter((w) => canView(w.id)), [custodyWhs, canView])
+  const defaultTab = visibleWhs[0]?.id ?? ''
 
   return (
     <PageWrapper>
       <PageHeader
         title="Custody"
-        description="Stock that has left the warehouse and lives with a team or at a client site. Assign from a warehouse, return unused stock, or consume on a job."
+        description="Stock that has left the warehouse and lives with a team or at a project / client site. Assign from a warehouse, return unused stock, or consume on a job."
       />
 
-      <Tabs defaultValue={defaultTab} className="flex flex-col gap-4">
-        <TabsList className="self-start">
-          {canSeeTeams && (
-            <TabsTrigger value="teams" className="gap-1.5">
-              <Users2 className="h-3.5 w-3.5" /> Teams
-            </TabsTrigger>
-          )}
-          {canSeePlaces && (
-            <TabsTrigger value="places" className="gap-1.5">
-              <MapPin className="h-3.5 w-3.5" /> Places
-            </TabsTrigger>
-          )}
-        </TabsList>
+      {visibleWhs.length === 0 ? (
+        <EmptyState
+          icon={<Users2 className="h-6 w-6 text-muted-foreground" />}
+          title="No custody warehouses"
+          description="Create a Custody-type warehouse in Master Data → Warehouses, then add locations to it — or ask an admin to grant you access to one."
+        />
+      ) : (
+        <Tabs defaultValue={defaultTab} className="flex flex-col gap-4">
+          <TabsList className="self-start">
+            {visibleWhs.map((w) => (
+              <TabsTrigger key={w.id} value={w.id} className="gap-1.5">
+                <Users2 className="h-3.5 w-3.5" /> {w.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        {canSeeTeams && (
-          <TabsContent value="teams" className="mt-0">
-            <CustodyTab kind="team" virtualWhId={teamsWh?.id ?? null} realWarehouses={realWarehouses} />
-          </TabsContent>
-        )}
-        {canSeePlaces && (
-          <TabsContent value="places" className="mt-0">
-            <CustodyTab kind="place" virtualWhId={placesWh?.id ?? null} realWarehouses={realWarehouses} />
-          </TabsContent>
-        )}
-      </Tabs>
+          {visibleWhs.map((w) => (
+            <TabsContent key={w.id} value={w.id} className="mt-0">
+              <CustodyTab
+                warehouseId={w.id}
+                warehouseName={w.name}
+                canEdit={canEdit(w.id)}
+                realWarehouses={realWarehouses}
+              />
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
     </PageWrapper>
   )
 }
@@ -103,23 +112,21 @@ export default function CustodyPage() {
 // ─── Shared tab body ────────────────────────────────────────────────────
 
 function CustodyTab({
-  kind, virtualWhId, realWarehouses,
+  warehouseId, warehouseName, canEdit, realWarehouses,
 }: {
-  kind:            'team' | 'place'
-  virtualWhId:     string | null
-  realWarehouses:  Warehouse[]
+  warehouseId:    string
+  warehouseName:  string
+  canEdit:        boolean
+  realWarehouses: Warehouse[]
 }) {
-  const teams  = useTeams()
-  const places = usePlaces()
+  const locations = useCustodyLocations(warehouseId)
+  const rows: CustodyLocationRow[] = useMemo(
+    // Only surface active locations on the Custody page — deactivated ones live in Master Data only.
+    () => (locations.data ?? []).filter((r) => r.is_active),
+    [locations.data],
+  )
 
-  const query = kind === 'team' ? teams : places
-  const rows: CustodyRow[] = useMemo(() => {
-    const raw = kind === 'team' ? (teams.data ?? []) : (places.data ?? [])
-    // Only surface active subs on the Custody page — deactivated ones live in Master Data only.
-    return (raw as CustodyRow[]).filter((r) => r.is_active)
-  }, [kind, teams.data, places.data])
-
-  const { data: stock = [], isLoading: stockLoading } = useWarehouseStock(virtualWhId ?? undefined, null)
+  const { data: stock = [], isLoading: stockLoading } = useWarehouseStock(warehouseId, null)
   const { data: pending = [] }                        = usePendingCustodyAssigns()
 
   const pendingBySub = useMemo(() => {
@@ -134,16 +141,16 @@ function CustodyTab({
 
   // Group rows by division for the section headers.
   const grouped = useMemo(() => {
-    const map = new Map<string, CustodyRow[]>()
+    const map = new Map<string, CustodyLocationRow[]>()
     for (const r of rows) {
-      const key = r.division_name
+      const key = r.division_name ?? 'Unassigned'
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(r)
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [rows])
 
-  const isLoading = query.isLoading || stockLoading
+  const isLoading = locations.isLoading || stockLoading
 
   if (isLoading) {
     return (
@@ -156,13 +163,9 @@ function CustodyTab({
   if (rows.length === 0) {
     return (
       <EmptyState
-        icon={kind === 'team' ? <Users2 className="h-6 w-6 text-muted-foreground" /> : <MapPin className="h-6 w-6 text-muted-foreground" />}
-        title={kind === 'team' ? 'No teams yet' : 'No places yet'}
-        description={
-          kind === 'team'
-            ? 'Add a team in Master Data → Teams to start assigning stock out of the warehouse.'
-            : 'Add a place in Master Data → Places to track stock at off-site custody locations.'
-        }
+        icon={<Users2 className="h-6 w-6 text-muted-foreground" />}
+        title={`No locations in ${warehouseName} yet`}
+        description={`Add a location in Master Data → Custody Locations to start assigning stock into ${warehouseName}.`}
       />
     )
   }
@@ -174,16 +177,17 @@ function CustodyTab({
           <div className="flex items-baseline justify-between">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{divisionName}</h3>
             <span className="text-[11px] text-muted-foreground">
-              {subs.length} {kind === 'team' ? (subs.length === 1 ? 'team' : 'teams') : (subs.length === 1 ? 'place' : 'places')}
+              {subs.length} location{subs.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {subs.map((sub) => (
               <CustodyCard
                 key={sub.id}
-                kind={kind}
                 sub={sub}
-                virtualWhId={virtualWhId}
+                warehouseId={warehouseId}
+                warehouseName={warehouseName}
+                canEdit={canEdit}
                 realWarehouses={realWarehouses}
                 stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
                 pending={pendingBySub.get(sub.id) ?? []}
@@ -199,11 +203,12 @@ function CustodyTab({
 // ─── Card ───────────────────────────────────────────────────────────────
 
 function CustodyCard({
-  kind, sub, virtualWhId, realWarehouses, stockRows, pending,
+  sub, warehouseId, warehouseName, canEdit, realWarehouses, stockRows, pending,
 }: {
-  kind:           'team' | 'place'
-  sub:            CustodyRow
-  virtualWhId:    string | null
+  sub:            CustodyLocationRow
+  warehouseId:    string
+  warehouseName:  string
+  canEdit:        boolean
   realWarehouses: Warehouse[]
   stockRows:      Array<{ brand_variant_id: string; item_name: string; brand: string | null; sku: string | null; qty: number; total_value: number; unit: string }>
   pending:        PendingCustodyAssign[]
@@ -218,10 +223,7 @@ function CustodyCard({
   const accept            = useAcceptCustodyAssign()
   const dispatch          = useDispatchCustodyAssign()
 
-  const canEditCustody       = useHasEditPermission(kind === 'team' ? 'custody.teams' : 'custody.places')
-  // Consumption from a Team card must use consumer_type='team'; from a Place
-  // card must use consumer_type='place'. Gate accordingly.
-  const canCreateConsumption = useCanCreateConsumptionFor(kind)
+  const canCreateConsumption = useCanCreateConsumptionFor('custody')
 
   const isResponsible      = !!profile?.id && profile.id === sub.responsible_person_profile_id
   const isPrivileged       = !!perms && (perms.isSystemAdmin || perms.roles.includes('inventory_manager'))
@@ -244,9 +246,6 @@ function CustodyCard({
 
   const totalValue = stockRows.reduce((sum, r) => sum + (r.total_value ?? 0), 0)
   const totalQty   = stockRows.reduce((sum, r) => sum + (r.qty ?? 0), 0)
-
-  const kindLabel: 'Team' | 'Place' = kind === 'team' ? 'Team' : 'Place'
-  const KindIcon = kind === 'team' ? Users2 : MapPin
 
   async function handleAccept(transfer: PendingCustodyAssign) {
     try {
@@ -281,11 +280,11 @@ function CustodyCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <KindIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+              <Users2 className="h-3.5 w-3.5 text-primary shrink-0" />
               <span className="font-semibold text-sm truncate">{sub.name}</span>
             </div>
             <div className="flex items-center gap-1 mt-0.5">
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">{sub.division_name}</Badge>
+              <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">{sub.division_name ?? 'Unassigned'}</Badge>
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -419,14 +418,14 @@ function CustodyCard({
       )}
 
       {/* Actions — hidden entirely when the caller can't do any of them */}
-      {(canEditCustody || canCreateConsumption) && (
+      {(canEdit || canCreateConsumption) && (
         <div className="mt-auto flex items-center justify-between gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
-          {canEditCustody && (
+          {canEdit && (
             <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
               <Send className="h-3 w-3" /> Request
             </Button>
           )}
-          {canEditCustody && (
+          {canEdit && (
             <Button
               size="sm"
               variant="ghost"
@@ -457,31 +456,27 @@ function CustodyCard({
         onOpenChange={setAssignOpen}
         destSubId={sub.id}
         destSubName={sub.name}
-        destKindLabel={kindLabel}
+        destKindLabel={warehouseName}
       />
-      {virtualWhId && (
-        <CustodyReturnDialog
-          open={returnOpen}
-          onOpenChange={setReturnOpen}
-          sourceSubId={sub.id}
-          sourceSubName={sub.name}
-          sourceWhId={virtualWhId}
-          sourceKindLabel={kindLabel}
-        />
-      )}
-      {virtualWhId && (
-        <NewConsumptionDialog
-          open={consumeOpen}
-          onOpenChange={setConsumeOpen}
-          presetSource={{
-            warehouseId:      virtualWhId,
-            subContainerId:   sub.id,
-            subContainerName: sub.name,
-            kindLabel,
-          }}
-          restrictConsumerTypes={[kind]}
-        />
-      )}
+      <CustodyReturnDialog
+        open={returnOpen}
+        onOpenChange={setReturnOpen}
+        sourceSubId={sub.id}
+        sourceSubName={sub.name}
+        sourceWhId={warehouseId}
+        sourceKindLabel={warehouseName}
+      />
+      <NewConsumptionDialog
+        open={consumeOpen}
+        onOpenChange={setConsumeOpen}
+        presetSource={{
+          warehouseId:      warehouseId,
+          subContainerId:   sub.id,
+          subContainerName: sub.name,
+          kindLabel:        'Custody',
+        }}
+        restrictConsumerTypes={['custody']}
+      />
     </div>
   )
 }

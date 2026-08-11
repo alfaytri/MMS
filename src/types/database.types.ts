@@ -434,8 +434,7 @@ export type Database = {
           brand_variant_id: string
           consumer_customer_id: string | null
           consumer_division_id: string | null
-          consumer_place_sub_id: string | null
-          consumer_team_sub_id: string | null
+          consumer_sub_container_id: string | null
           consumer_type: string | null
           consumption_id: string | null
           created_at: string
@@ -456,8 +455,7 @@ export type Database = {
           brand_variant_id: string
           consumer_customer_id?: string | null
           consumer_division_id?: string | null
-          consumer_place_sub_id?: string | null
-          consumer_team_sub_id?: string | null
+          consumer_sub_container_id?: string | null
           consumer_type?: string | null
           consumption_id?: string | null
           created_at?: string
@@ -478,8 +476,7 @@ export type Database = {
           brand_variant_id?: string
           consumer_customer_id?: string | null
           consumer_division_id?: string | null
-          consumer_place_sub_id?: string | null
-          consumer_team_sub_id?: string | null
+          consumer_sub_container_id?: string | null
           consumer_type?: string | null
           consumption_id?: string | null
           created_at?: string
@@ -526,29 +523,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "cogs_entries_consumer_place_sub_id_fkey"
-            columns: ["consumer_place_sub_id"]
+            foreignKeyName: "cogs_entries_consumer_sub_container_id_fkey"
+            columns: ["consumer_sub_container_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_container_totals"
             referencedColumns: ["sub_container_id"]
           },
           {
-            foreignKeyName: "cogs_entries_consumer_place_sub_id_fkey"
-            columns: ["consumer_place_sub_id"]
-            isOneToOne: false
-            referencedRelation: "warehouse_sub_containers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cogs_entries_consumer_team_sub_id_fkey"
-            columns: ["consumer_team_sub_id"]
-            isOneToOne: false
-            referencedRelation: "warehouse_sub_container_totals"
-            referencedColumns: ["sub_container_id"]
-          },
-          {
-            foreignKeyName: "cogs_entries_consumer_team_sub_id_fkey"
-            columns: ["consumer_team_sub_id"]
+            foreignKeyName: "cogs_entries_consumer_sub_container_id_fkey"
+            columns: ["consumer_sub_container_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
@@ -840,8 +823,7 @@ export type Database = {
           cancelled_by: string | null
           ce_number: string
           consumer_customer_id: string | null
-          consumer_place_sub_id: string | null
-          consumer_team_sub_id: string | null
+          consumer_sub_container_id: string | null
           consumer_type: string
           created_at: string
           created_by: string | null
@@ -861,8 +843,7 @@ export type Database = {
           cancelled_by?: string | null
           ce_number: string
           consumer_customer_id?: string | null
-          consumer_place_sub_id?: string | null
-          consumer_team_sub_id?: string | null
+          consumer_sub_container_id?: string | null
           consumer_type: string
           created_at?: string
           created_by?: string | null
@@ -882,8 +863,7 @@ export type Database = {
           cancelled_by?: string | null
           ce_number?: string
           consumer_customer_id?: string | null
-          consumer_place_sub_id?: string | null
-          consumer_team_sub_id?: string | null
+          consumer_sub_container_id?: string | null
           consumer_type?: string
           created_at?: string
           created_by?: string | null
@@ -920,29 +900,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "consumption_entries_consumer_place_sub_id_fkey"
-            columns: ["consumer_place_sub_id"]
+            foreignKeyName: "consumption_entries_consumer_sub_container_id_fkey"
+            columns: ["consumer_sub_container_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_container_totals"
             referencedColumns: ["sub_container_id"]
           },
           {
-            foreignKeyName: "consumption_entries_consumer_place_sub_id_fkey"
-            columns: ["consumer_place_sub_id"]
-            isOneToOne: false
-            referencedRelation: "warehouse_sub_containers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "consumption_entries_consumer_team_sub_id_fkey"
-            columns: ["consumer_team_sub_id"]
-            isOneToOne: false
-            referencedRelation: "warehouse_sub_container_totals"
-            referencedColumns: ["sub_container_id"]
-          },
-          {
-            foreignKeyName: "consumption_entries_consumer_team_sub_id_fkey"
-            columns: ["consumer_team_sub_id"]
+            foreignKeyName: "consumption_entries_consumer_sub_container_id_fkey"
+            columns: ["consumer_sub_container_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
@@ -1041,6 +1007,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      consumption_number_counters: {
+        Row: {
+          consumer_type: string
+          last_seq: number
+          period: string
+          updated_at: string
+        }
+        Insert: {
+          consumer_type: string
+          last_seq?: number
+          period: string
+          updated_at?: string
+        }
+        Update: {
+          consumer_type?: string
+          last_seq?: number
+          period?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       country_codes: {
         Row: {
@@ -2271,6 +2258,7 @@ export type Database = {
           category_name: string | null
           check_id: string
           counted_qty: number | null
+          country_name: string | null
           created_at: string
           id: string
           is_counted: boolean
@@ -2289,6 +2277,7 @@ export type Database = {
           category_name?: string | null
           check_id: string
           counted_qty?: number | null
+          country_name?: string | null
           created_at?: string
           id?: string
           is_counted?: boolean
@@ -2307,6 +2296,7 @@ export type Database = {
           category_name?: string | null
           check_id?: string
           counted_qty?: number | null
+          country_name?: string | null
           created_at?: string
           id?: string
           is_counted?: boolean
@@ -2472,6 +2462,7 @@ export type Database = {
           brand_variant_id: string
           created_at: string
           created_by: string | null
+          division_id: string | null
           id: string
           movement_type: string
           notes: string | null
@@ -2485,6 +2476,7 @@ export type Database = {
           brand_variant_id: string
           created_at?: string
           created_by?: string | null
+          division_id?: string | null
           id?: string
           movement_type: string
           notes?: string | null
@@ -2498,6 +2490,7 @@ export type Database = {
           brand_variant_id?: string
           created_at?: string
           created_by?: string | null
+          division_id?: string | null
           id?: string
           movement_type?: string
           notes?: string | null
@@ -2520,6 +2513,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_movements_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -2588,6 +2588,7 @@ export type Database = {
         Row: {
           brand_variant_id: string
           created_by: string | null
+          division_id: string | null
           id: string
           layered_at: string
           qty_received: number
@@ -2599,6 +2600,7 @@ export type Database = {
         Insert: {
           brand_variant_id: string
           created_by?: string | null
+          division_id?: string | null
           id?: string
           layered_at?: string
           qty_received: number
@@ -2610,6 +2612,7 @@ export type Database = {
         Update: {
           brand_variant_id?: string
           created_by?: string | null
+          division_id?: string | null
           id?: string
           layered_at?: string
           qty_received?: number
@@ -2631,6 +2634,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -7398,6 +7408,8 @@ export type Database = {
           brand: string | null
           brand_variant_id: string | null
           category_name: string | null
+          country_id: number | null
+          country_name: string | null
           image_url: string | null
           item_name: string | null
           item_type: string | null
@@ -7411,6 +7423,13 @@ export type Database = {
           warehouse_id: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_item_brand_variants_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_codes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "warehouse_stock_summary_sub_container_fk"
             columns: ["sub_container_id"]
@@ -7460,6 +7479,18 @@ export type Database = {
           p_warehouse_id: string
         }
         Returns: undefined
+      }
+      _consume_damaged_stock_fifo_returning: {
+        Args: {
+          p_brand_variant_id: string
+          p_qty: number
+          p_warehouse_id: string
+        }
+        Returns: {
+          division_id: string
+          qty_taken: number
+          unit_cost: number
+        }[]
       }
       _current_user_data_id: { Args: never; Returns: string }
       _find_or_create_sub_container: {
@@ -7972,7 +8003,10 @@ export type Database = {
         Returns: number
       }
       generate_check_number: { Args: never; Returns: string }
-      generate_consumption_number: { Args: never; Returns: string }
+      generate_consumption_number: {
+        Args: { p_consumer_type: string }
+        Returns: string
+      }
       generate_contract_id: { Args: never; Returns: string }
       generate_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
       generate_order_quotation_id: { Args: never; Returns: string }
@@ -7993,6 +8027,23 @@ export type Database = {
       get_cogs_breakdown: {
         Args: { p_brand_variant_id: string }
         Returns: Json
+      }
+      get_custody_master_list: {
+        Args: { p_warehouse_id?: string }
+        Returns: {
+          created_at: string
+          division_id: string
+          division_name: string
+          id: string
+          is_active: boolean
+          name: string
+          responsible_person_name: string
+          responsible_person_phone: string
+          responsible_person_profile_id: string
+          updated_at: string
+          warehouse_id: string
+          warehouse_name: string
+        }[]
       }
       get_customer_pending_balances: { Args: never; Returns: Json }
       get_dead_stock_report: {
@@ -8032,21 +8083,6 @@ export type Database = {
       }
       get_invoice_summary: { Args: never; Returns: Json }
       get_payment_summary: { Args: never; Returns: Json }
-      get_places_master_list: {
-        Args: never
-        Returns: {
-          created_at: string
-          division_id: string
-          division_name: string
-          id: string
-          is_active: boolean
-          name: string
-          responsible_person_name: string
-          responsible_person_phone: string
-          responsible_person_profile_id: string
-          updated_at: string
-        }[]
-      }
       get_stock_value_cogs_summary: {
         Args: { p_brand_variant_ids?: string[] }
         Returns: {
@@ -8054,22 +8090,6 @@ export type Database = {
           lc_adjustment_count: number
           lc_adjustments_total: number
           sold_at_sale_total: number
-        }[]
-      }
-      get_teams_master_list: {
-        Args: never
-        Returns: {
-          created_at: string
-          division_id: string
-          division_name: string
-          id: string
-          is_active: boolean
-          name: string
-          responsible_person_name: string
-          responsible_person_phone: string
-          responsible_person_profile_id: string
-          team_id: string
-          updated_at: string
         }[]
       }
       get_warehouse_names: {
@@ -8209,6 +8229,7 @@ export type Database = {
         Args: { p_category_id: string }
         Returns: string
       }
+      resolve_login_email: { Args: { p_username: string }; Returns: string }
       resolve_warranty_division_slug: {
         Args: { p_division_id: string }
         Returns: string
@@ -8532,12 +8553,20 @@ export type Database = {
         }
       }
       rpc_financial_dashboard: { Args: never; Returns: Json }
+      rpc_my_consumption_sources: {
+        Args: never
+        Returns: {
+          sub_container_id: string
+          sub_container_name: string
+          warehouse_id: string
+          warehouse_kind: string
+          warehouse_name: string
+        }[]
+      }
       rpc_post_consumption: {
         Args: {
           p_attachments: string[]
-          p_consumer_customer_id: string
-          p_consumer_place_sub_id: string
-          p_consumer_team_sub_id: string
+          p_consumer_sub_container_id: string
           p_consumer_type: string
           p_lines: Json
           p_notes: string
@@ -8618,6 +8647,165 @@ export type Database = {
       rpc_replace_po_lines: {
         Args: { p_lines: Json; p_po_id: string }
         Returns: undefined
+      }
+      rpc_report_accounts_payable: {
+        Args: {
+          p_division_ids?: string[]
+          p_from?: string
+          p_status?: string
+          p_supplier_id?: string
+          p_to?: string
+        }
+        Returns: {
+          amount: number
+          bill_no: string
+          division_id: string
+          division_name: string
+          due: number
+          due_date: string
+          issued_date: string
+          paid: number
+          po_amount: number
+          po_currency: string
+          po_id: string
+          po_no: string
+          status: string
+          supplier: string
+        }[]
+      }
+      rpc_report_accounts_receivable: {
+        Args: {
+          p_customer_id?: string
+          p_division_ids?: string[]
+          p_from?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: {
+          amount: number
+          customer: string
+          division_id: string
+          division_name: string
+          due: number
+          due_date: string
+          invoice_no: string
+          issued_date: string
+          paid: number
+          sale_order_id: string
+          so_no: string
+          status: string
+        }[]
+      }
+      rpc_report_cash: {
+        Args: {
+          p_division_ids?: string[]
+          p_end: string
+          p_method_ids?: string[]
+          p_start: string
+        }
+        Returns: {
+          balance: number
+          credit: number
+          date: string
+          debit: number
+          division_id: string
+          division_name: string
+          doc_kind: string
+          doc_no: string
+          is_opening: boolean
+          party: string
+          payment_method: string
+        }[]
+      }
+      rpc_report_pnl: {
+        Args: {
+          p_basis?: string
+          p_division_ids?: string[]
+          p_end: string
+          p_start: string
+          p_warehouse_ids?: string[]
+        }
+        Returns: Json
+      }
+      rpc_report_pnl_fx_detail: {
+        Args: { p_division_ids?: string[]; p_end: string; p_start: string }
+        Returns: {
+          amount: number
+          amount_qar: number
+          counterparty: string
+          currency: string
+          doc_id: string
+          doc_number: string
+          doc_type: string
+          exchange_gain: number
+          exchange_loss: number
+          net_fx: number
+          payment_date: string
+          payment_id: string
+        }[]
+      }
+      rpc_report_product_cost: {
+        Args: {
+          p_brand_variant_id?: string
+          p_category_id?: string
+          p_division_ids?: string[]
+          p_po_id?: string
+          p_warehouse_ids?: string[]
+        }
+        Returns: {
+          barcode: string
+          brand_variant_id: string
+          category: string
+          division_id: string
+          division_name: string
+          layer_id: string
+          po_id: string
+          po_no: string
+          product_name: string
+          product_type: string
+          qty: number
+          sales_price: number
+          sub_category: string
+          total_cost: number
+          unit_cost: number
+          warehouse_id: string
+          warehouse_name: string
+        }[]
+      }
+      rpc_report_revenue_cogs: {
+        Args: {
+          p_brand_variant_id?: string
+          p_category_id?: string
+          p_customer_id?: string
+          p_division_ids?: string[]
+          p_end: string
+          p_start: string
+          p_warehouse_ids?: string[]
+        }
+        Returns: {
+          barcode: string
+          brand_variant_id: string
+          category: string
+          cogs_id: string
+          customer: string
+          date: string
+          division_id: string
+          division_name: string
+          gross_profit: number
+          margin_pct: number
+          product_name: string
+          product_type: string
+          qty: number
+          sale_order_id: string
+          sales_price: number
+          so_no: string
+          source_type: string
+          total_cost: number
+          total_sales: number
+          unit_cost: number
+          warehouse_id: string
+          warehouse_name: string
+        }[]
       }
       rpc_request_consumption_edit: {
         Args: { p_consumption_id: string; p_reason: string }
@@ -8713,17 +8901,6 @@ export type Database = {
       rpc_update_inventory_sort_orders: {
         Args: { p_updates: Json }
         Returns: undefined
-      }
-      rpc_upsert_team_or_place: {
-        Args: {
-          p_division_id: string
-          p_id?: string
-          p_is_active?: boolean
-          p_kind: string
-          p_name: string
-          p_responsible_person_profile_id?: string
-        }
-        Returns: string
       }
       rpc_upsert_warehouse_sub_container: {
         Args: {
@@ -8919,6 +9096,7 @@ export type Database = {
         | "approved"
         | "rejected"
         | "user_started"
+        | "cancelled"
       inventory_check_step_role:
         | "accounting_manager"
         | "inventory_manager"
@@ -9261,6 +9439,7 @@ export const Constants = {
         "approved",
         "rejected",
         "user_started",
+        "cancelled",
       ],
       inventory_check_step_role: [
         "accounting_manager",

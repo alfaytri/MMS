@@ -29,7 +29,7 @@ interface Props {
   sourceSubId:    string        // Team or Place custody sub-container
   sourceSubName:  string
   sourceWhId:     string        // Teams or Places virtual warehouse id
-  sourceKindLabel: 'Team' | 'Place'
+  sourceKindLabel: string
 }
 
 type LineRow = { brand_variant_id: string; qty: string }

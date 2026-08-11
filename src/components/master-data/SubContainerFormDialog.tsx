@@ -70,10 +70,9 @@ export function SubContainerFormDialog({
   warehouseKind,
   subContainer,
 }: Props) {
-  // Division picker visibility. Repair virtual = hide; real + teams/places = show.
+  // Division picker visibility. Repair virtual = hide; real + custody = show.
   const showDivision = !warehouseIsVirtual
-    || warehouseKind === 'teams'
-    || warehouseKind === 'places'
+    || warehouseKind === 'custody'
   const isEditing = !!subContainer
   const create = useCreateWarehouseSubContainer()
   const update = useUpdateWarehouseSubContainer()

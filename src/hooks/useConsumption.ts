@@ -18,12 +18,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
-import { useTeams } from '@/hooks/useTeamSubContainers'
-import { usePlaces } from '@/hooks/usePlaceSubContainers'
+import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-export type ConsumerType = 'team' | 'place' | 'internal'
+export type ConsumerType = 'custody' | 'internal'
 
 export type ConsumptionStatus = 'draft' | 'posted' | 'cancelled'
 
@@ -47,8 +46,7 @@ export type ConsumptionListRow = {
   source_sub_container_id:   string
   source_sub_container_name: string | null
   consumer_type:             ConsumerType
-  consumer_team_sub_id:      string | null
-  consumer_place_sub_id:     string | null
+  consumer_sub_container_id: string | null
   consumer_display:          string
   notes:                     string | null
   attachments:               string[]
@@ -82,16 +80,14 @@ type RawRow = {
   source_warehouse_id:       string
   source_sub_container_id:   string
   consumer_type:             ConsumerType
-  consumer_team_sub_id:      string | null
-  consumer_place_sub_id:     string | null
+  consumer_sub_container_id: string | null
   notes:                     string | null
   attachments:               string[] | null
   posted_at:                 string | null
   cancelled_at:              string | null
   source_warehouse:  { name: string | null }                | null
   source_sub:        { name: string | null }                | null
-  team_sub:          { name: string | null }                | null
-  place_sub:         { name: string | null }                | null
+  consumer_sub:      { name: string | null }                | null
   posted_by_user:    { full_name: string | null }           | null
   cancelled_by_user: { full_name: string | null }           | null
   division:          { name: string | null }                | null
@@ -106,8 +102,7 @@ function mapRow(row: RawRow): ConsumptionListRow {
   )
 
   let consumer_display = 'Internal'
-  if (row.consumer_type === 'team')  consumer_display = row.team_sub?.name  ?? '(team removed)'
-  if (row.consumer_type === 'place') consumer_display = row.place_sub?.name ?? '(place removed)'
+  if (row.consumer_type === 'custody') consumer_display = row.consumer_sub?.name ?? '(location removed)'
 
   return {
     id:                        row.id,
@@ -119,8 +114,7 @@ function mapRow(row: RawRow): ConsumptionListRow {
     source_sub_container_id:   row.source_sub_container_id,
     source_sub_container_name: row.source_sub?.name ?? null,
     consumer_type:             row.consumer_type,
-    consumer_team_sub_id:      row.consumer_team_sub_id,
-    consumer_place_sub_id:     row.consumer_place_sub_id,
+    consumer_sub_container_id: row.consumer_sub_container_id,
     consumer_display,
     notes:                     row.notes,
     attachments:               row.attachments ?? [],
@@ -137,12 +131,11 @@ function mapRow(row: RawRow): ConsumptionListRow {
 const LIST_SELECT = `
   id, ce_number, date, status,
   source_warehouse_id, source_sub_container_id,
-  consumer_type, consumer_team_sub_id, consumer_place_sub_id,
+  consumer_type, consumer_sub_container_id,
   notes, attachments, posted_at, cancelled_at,
   source_warehouse:source_warehouse_id(name),
   source_sub:source_sub_container_id(name),
-  team_sub:consumer_team_sub_id(name),
-  place_sub:consumer_place_sub_id(name),
+  consumer_sub:consumer_sub_container_id(name),
   posted_by_user:posted_by(full_name),
   cancelled_by_user:cancelled_by(full_name),
   division:division_id(name),
@@ -225,40 +218,33 @@ export function useConsumption(id: string | null) {
 // ─── 2b. Consumer-name resolver ───────────────────────────────────────────
 
 type ConsumerNameRow = {
-  consumer_type:          ConsumerType
-  consumer_team_sub_id:   string | null
-  consumer_place_sub_id:  string | null
-  consumer_display:       string
+  consumer_type:             ConsumerType
+  consumer_sub_container_id: string | null
+  consumer_display:          string
 }
 
 /**
- * Resolve a consumption row's consumer name from the cross-division team/place
- * master lists instead of trusting the list/detail query's embedded join.
+ * Resolve a consumption row's consumer name from the cross-division custody
+ * master list instead of trusting the list/detail query's embedded join.
  *
- * The `team_sub`/`place_sub` embeds in LIST_SELECT read `warehouse_sub_containers`
+ * The `consumer_sub` embed in LIST_SELECT reads `warehouse_sub_containers`
  * through its RESTRICTIVE RLS (active-division OR warehouse-RP scope). A viewer
- * whose active division differs from the consumer team's division gets a null
- * embed → the mapper falls back to "(team removed)" even though the team is
- * alive. `get_teams_master_list` / `get_places_master_list` are SECURITY DEFINER
- * and return every division's rows, so this always resolves a live team/place.
- * Falls back to the row's own `consumer_display` only if the id is genuinely
- * unknown (truly deleted).
+ * whose active division differs from the consumer location's division gets a null
+ * embed → the mapper falls back to "(location removed)" even though it is alive.
+ * `get_custody_master_list` is SECURITY DEFINER and returns every division's rows,
+ * so this always resolves a live location. Falls back to the row's own
+ * `consumer_display` only if the id is genuinely unknown (truly deleted).
  */
 export function useConsumerLabel() {
-  const { data: teams  = [] } = useTeams()
-  const { data: places = [] } = usePlaces()
-  const teamMap  = useMemo(() => new Map(teams.map((t)  => [t.id, t.name])),  [teams])
-  const placeMap = useMemo(() => new Map(places.map((p) => [p.id, p.name])), [places])
+  const { data: locations = [] } = useCustodyLocations()
+  const locationMap = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations])
 
   return useCallback((row: ConsumerNameRow): string => {
-    if (row.consumer_type === 'team') {
-      return teamMap.get(row.consumer_team_sub_id ?? '') ?? row.consumer_display
-    }
-    if (row.consumer_type === 'place') {
-      return placeMap.get(row.consumer_place_sub_id ?? '') ?? row.consumer_display
+    if (row.consumer_type === 'custody') {
+      return locationMap.get(row.consumer_sub_container_id ?? '') ?? row.consumer_display
     }
     return 'Internal'
-  }, [teamMap, placeMap])
+  }, [locationMap])
 }
 
 // ─── 3. Post mutation ───────────────────────────────────────────────────
@@ -269,32 +255,26 @@ export function useCreateConsumption() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (payload: {
-      source_warehouse_id:      string
-      source_sub_container_id:  string
-      consumer_type:            ConsumerType
-      consumer_team_sub_id?:    string | null
-      consumer_place_sub_id?:   string | null
-      notes?:                   string | null
-      attachments?:             string[]
-      lines:                    PostConsumptionLine[]
+      source_warehouse_id:         string
+      source_sub_container_id:     string
+      consumer_type:               ConsumerType
+      consumer_sub_container_id?:  string | null
+      notes?:                      string | null
+      attachments?:                string[]
+      lines:                       PostConsumptionLine[]
     }) => {
       const supabase = createClient()
-      // The RPC accepts NULL for the consumer FK / notes params (no NOT NULL
-      // constraint), but Supabase's generated types mark them non-nullable.
-      // Match the same cast pattern useCustodyMoves.ts / usePlaceSubContainers.ts
-      // use elsewhere for the same class of RPCs.
+      // The RPC accepts NULL for the consumer sub / notes params (no NOT NULL
+      // constraint), but Supabase's generated types mark them non-nullable, so
+      // cast the args object (same pattern used across the custody RPC hooks).
       const rpcArgs = {
-        p_source_warehouse_id:     payload.source_warehouse_id,
-        p_source_sub_container_id: payload.source_sub_container_id,
-        p_consumer_type:           payload.consumer_type,
-        p_consumer_team_sub_id:    payload.consumer_team_sub_id  ?? null,
-        p_consumer_place_sub_id:   payload.consumer_place_sub_id ?? null,
-        // Customer branch dropped in Task 9 revision — RPC signature keeps
-        // the tail param for schema stability but the DB always nulls it.
-        p_consumer_customer_id:    null,
-        p_notes:                   payload.notes ?? null,
-        p_attachments:             payload.attachments ?? [],
-        p_lines:                   payload.lines,
+        p_source_warehouse_id:       payload.source_warehouse_id,
+        p_source_sub_container_id:   payload.source_sub_container_id,
+        p_consumer_type:             payload.consumer_type,
+        p_consumer_sub_container_id: payload.consumer_sub_container_id ?? null,
+        p_notes:                     payload.notes ?? null,
+        p_attachments:               payload.attachments ?? [],
+        p_lines:                     payload.lines,
       } as unknown as Parameters<typeof supabase.rpc<'rpc_post_consumption'>>[1]
       const { data, error } = await supabase.rpc('rpc_post_consumption', rpcArgs)
       if (error) throw new Error(error.message)

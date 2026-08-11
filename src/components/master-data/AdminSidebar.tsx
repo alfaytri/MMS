@@ -23,6 +23,8 @@ import {
   Globe,
   Menu,
   ShieldCheck,
+  Users2,
+  Wrench,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -44,6 +46,8 @@ const ADMIN_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Companies & Divisions', href: '/master-data/admin/companies',  icon: Users,     permission: 'master_data.admin.view' },
       { label: 'Warehouses',            href: '/master-data/admin/warehouses', icon: Warehouse, permission: 'master_data.warehouses.manage' },
+      { label: 'Custody Locations',     href: '/master-data/admin/custody',        icon: Users2,  permission: 'master_data.warehouses.manage' },
+      { label: 'Repair Vendors',        href: '/master-data/admin/repair-vendors', icon: Wrench,  permission: 'master_data.warehouses.manage' },
     ],
   },
   {

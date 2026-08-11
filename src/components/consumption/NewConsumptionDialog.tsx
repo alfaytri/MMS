@@ -25,8 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
-import { useTeams } from '@/hooks/useTeamSubContainers'
-import { usePlaces } from '@/hooks/usePlaceSubContainers'
+import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 import {
   useCreateConsumption,
   useMyConsumptionSources,
@@ -51,13 +50,13 @@ interface Props {
     warehouseId: string
     subContainerId: string
     subContainerName: string
-    kindLabel: 'Team' | 'Place' | 'Warehouse'
+    kindLabel: 'Custody' | 'Warehouse'
   } | null
   /**
    * Restrict which consumer types the operator can pick. When opened from a
-   * Custody Team card pass `['team']`; from a Place card pass `['place']`;
-   * from the /consumption page header omit to allow all three. The dialog
-   * further filters to consumer types the caller has permission for.
+   * Custody card pass `['custody']`; from the /consumption page header omit to
+   * allow both. The dialog further filters to consumer types the caller has
+   * permission for.
    */
   restrictConsumerTypes?: ConsumerType[]
 }
@@ -77,18 +76,18 @@ const HIGH_SHARE_RATIO = 0.9
 const parseQty = (s: string): number => parseInt(s, 10)
 
 /**
- * Group a division-scoped list of teams/places by their division, preserving
- * the master list's sort order. Used to render the consumer picker as a clean
- * set of "Division → its teams" groups when the user spans more than one
- * division.
+ * Group custody locations by their warehouse (Teams / Projects / …), preserving
+ * the master list's sort order, so the consumer picker reads as a clean set of
+ * "Warehouse → its locations" groups.
  */
-type DivisionScoped = { id: string; name: string; division_id: string; division_name: string }
-function groupByDivision<T extends DivisionScoped>(list: T[]): Array<{ divisionId: string; divisionName: string; items: T[] }> {
-  const groups = new Map<string, { divisionId: string; divisionName: string; items: T[] }>()
+function groupByWarehouse<T extends { warehouse_id: string; warehouse_name: string }>(
+  list: T[],
+): Array<{ warehouseId: string; warehouseName: string; items: T[] }> {
+  const groups = new Map<string, { warehouseId: string; warehouseName: string; items: T[] }>()
   for (const item of list) {
-    const existing = groups.get(item.division_id)
+    const existing = groups.get(item.warehouse_id)
     if (existing) existing.items.push(item)
-    else groups.set(item.division_id, { divisionId: item.division_id, divisionName: item.division_name, items: [item] })
+    else groups.set(item.warehouse_id, { warehouseId: item.warehouse_id, warehouseName: item.warehouse_name, items: [item] })
   }
   return Array.from(groups.values())
 }
@@ -105,8 +104,7 @@ function groupByDivision<T extends DivisionScoped>(list: T[]): Array<{ divisionI
 export function NewConsumptionDialog({ open, onOpenChange, presetSource, restrictConsumerTypes }: Props) {
   // Compute which consumer types this caller is actually allowed to pick.
   // Intersection of (caller permissions) and (restrictConsumerTypes ?? all).
-  const canCreateTeam     = useCanCreateConsumptionFor('team')
-  const canCreatePlace    = useCanCreateConsumptionFor('place')
+  const canCreateCustody  = useCanCreateConsumptionFor('custody')
   const canCreateInternal = useCanCreateConsumptionFor('internal')
   // Cost is accounting-sensitive: field teams post consumption but must not see
   // COGS. Gate every money figure (unit cost, line cost, totals) behind the
@@ -114,20 +112,18 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const canSeeCost = useHasPermission('consumption.cost.view')
   const allowedConsumerTypes = useMemo<ConsumerType[]>(() => {
     const permAllowed: ConsumerType[] = []
-    if (canCreateTeam)     permAllowed.push('team')
-    if (canCreatePlace)    permAllowed.push('place')
+    if (canCreateCustody)  permAllowed.push('custody')
     if (canCreateInternal) permAllowed.push('internal')
     if (!restrictConsumerTypes) return permAllowed
     return permAllowed.filter((t) => restrictConsumerTypes.includes(t))
-  }, [canCreateTeam, canCreatePlace, canCreateInternal, restrictConsumerTypes])
+  }, [canCreateCustody, canCreateInternal, restrictConsumerTypes])
 
   const { data: sources = [] } = useMyConsumptionSources()
-  const { data: teams   = [] }    = useTeams()
-  const { data: places  = [] }    = usePlaces()
+  const { data: locations = [] } = useCustodyLocations()
 
-  // Consumer scope: a regular user may only book COGS to teams/places in the
-  // division(s) they belong to. Owner/Accountant (super-viewers) oversee every
-  // division, so they see all — grouped by division for clarity.
+  // Consumer scope: a regular user may only book COGS to custody locations in
+  // the division(s) they belong to. Owner/Accountant (super-viewers) oversee
+  // every division, so they see all.
   const { isSuperViewer, userDivisionIds } = useUserDivisionScope()
 
   // Distinct warehouses the user is allowed to consume from (assigned only —
@@ -164,30 +160,21 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // ── Consumer — default to the first allowed type; falls back to 'team'
   // (dialog won't open at all if the caller has zero allowed types since the
   // trigger button will be hidden upstream).
-  const [consumerType,     setConsumerType]     = useState<ConsumerType>(allowedConsumerTypes[0] ?? 'team')
-  // When opened from a Custody card the consumer IS the same team/place as
-  // the source sub — Team 2's custody feeds Team 2. Pre-fill accordingly.
-  const initialConsumerTeamSub  = presetSource?.kindLabel === 'Team'  ? presetSource.subContainerId : ''
-  const initialConsumerPlaceSub = presetSource?.kindLabel === 'Place' ? presetSource.subContainerId : ''
-  const [consumerTeamSub,  setConsumerTeamSub]  = useState<string>(initialConsumerTeamSub)
-  const [consumerPlaceSub, setConsumerPlaceSub] = useState<string>(initialConsumerPlaceSub)
+  const [consumerType, setConsumerType] = useState<ConsumerType>(allowedConsumerTypes[0] ?? 'custody')
+  // When opened from a Custody card the consumer IS the same location as the
+  // source sub — Team 2's custody feeds Team 2. Pre-fill accordingly.
+  const initialConsumerSub = presetSource?.kindLabel === 'Custody' ? presetSource.subContainerId : ''
+  const [consumerSub, setConsumerSub] = useState<string>(initialConsumerSub)
 
-  const activeTeams  = useMemo(() => teams.filter((t) => t.is_active), [teams])
-  const activePlaces = useMemo(() => places.filter((p) => p.is_active), [places])
+  const activeLocations = useMemo(() => locations.filter((l) => l.is_active), [locations])
 
   // Scope the consumer picker to the user's division(s). Super-viewers see all.
-  const visibleTeams = useMemo(() => {
-    if (isSuperViewer) return activeTeams
+  const visibleLocations = useMemo(() => {
+    if (isSuperViewer) return activeLocations
     const allowed = new Set(userDivisionIds)
-    return activeTeams.filter((t) => allowed.has(t.division_id))
-  }, [activeTeams, isSuperViewer, userDivisionIds])
-  const visiblePlaces = useMemo(() => {
-    if (isSuperViewer) return activePlaces
-    const allowed = new Set(userDivisionIds)
-    return activePlaces.filter((p) => allowed.has(p.division_id))
-  }, [activePlaces, isSuperViewer, userDivisionIds])
-  const teamGroups  = useMemo(() => groupByDivision(visibleTeams),  [visibleTeams])
-  const placeGroups = useMemo(() => groupByDivision(visiblePlaces), [visiblePlaces])
+    return activeLocations.filter((l) => allowed.has(l.division_id ?? ''))
+  }, [activeLocations, isSuperViewer, userDivisionIds])
+  const locationGroups = useMemo(() => groupByWarehouse(visibleLocations), [visibleLocations])
 
   // ── Lines
   const [rows, setRows] = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
@@ -289,9 +276,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       // Reset back to preset (if any) or empty state.
       setSrcWhId(presetSource?.warehouseId ?? '')
       setSrcSubId(presetSource?.subContainerId ?? null)
-      setConsumerType(allowedConsumerTypes[0] ?? 'team')
-      setConsumerTeamSub(presetSource?.kindLabel === 'Team'  ? presetSource.subContainerId : '')
-      setConsumerPlaceSub(presetSource?.kindLabel === 'Place' ? presetSource.subContainerId : '')
+      setConsumerType(allowedConsumerTypes[0] ?? 'custody')
+      setConsumerSub(presetSource?.kindLabel === 'Custody' ? presetSource.subContainerId : '')
       setRows([{ brand_variant_id: '', qty: '' }])
       setOpenPickerIdx(null)
       setNotes('')
@@ -366,10 +352,9 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
   // ── Consumer validation
   const consumerResolved = useMemo(() => {
-    if (consumerType === 'team')  return !!consumerTeamSub
-    if (consumerType === 'place') return !!consumerPlaceSub
+    if (consumerType === 'custody') return !!consumerSub
     return true // internal — no picker
-  }, [consumerType, consumerTeamSub, consumerPlaceSub])
+  }, [consumerType, consumerSub])
 
   // ── Submit gate (opening the confirmation modal — no cooldown here)
   const hasValidRows        = rows.some((r) => r.brand_variant_id && r.qty && parseQty(r.qty) > 0)
@@ -388,12 +373,11 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     !post.isPending
 
   const consumerLabel = useMemo(() => {
-    if (consumerType === 'team')  return activeTeams.find((t)  => t.id === consumerTeamSub)?.name ?? null
-    if (consumerType === 'place') return activePlaces.find((p) => p.id === consumerPlaceSub)?.name ?? null
+    if (consumerType === 'custody') return activeLocations.find((l) => l.id === consumerSub)?.name ?? null
     return 'Internal use'
-  }, [consumerType, consumerTeamSub, consumerPlaceSub, activeTeams, activePlaces])
+  }, [consumerType, consumerSub, activeLocations])
 
-  const consumerTypeLabel = consumerType === 'team' ? 'Team' : consumerType === 'place' ? 'Place' : 'Internal'
+  const consumerTypeLabel = consumerType === 'custody' ? 'Custody' : 'Internal'
 
   const srcWhName = useMemo(
     () => srcWarehouses.find((w) => w.id === srcWhId)?.name ?? '—',
@@ -470,13 +454,12 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
     try {
       await post.mutateAsync({
-        source_warehouse_id:     srcWhId,
-        source_sub_container_id: srcSubId,
-        consumer_type:           consumerType,
-        consumer_team_sub_id:    consumerType === 'team'  ? consumerTeamSub  : null,
-        consumer_place_sub_id:   consumerType === 'place' ? consumerPlaceSub : null,
-        notes:                   notes.trim() || null,
-        attachments:             attachments,
+        source_warehouse_id:       srcWhId,
+        source_sub_container_id:   srcSubId,
+        consumer_type:             consumerType,
+        consumer_sub_container_id: consumerType === 'custody' ? consumerSub : null,
+        notes:                     notes.trim() || null,
+        attachments:               attachments,
         lines,
       })
       submittedRef.current = true
@@ -591,7 +574,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               >
                 {(allowedConsumerTypes.map((k) => ({
                   key: k,
-                  label: k === 'team' ? 'Team' : k === 'place' ? 'Place' : 'Internal',
+                  label: k === 'custody' ? 'Custody' : 'Internal',
                 }))).map((opt) => (
                   <button
                     key={opt.key}
@@ -609,53 +592,29 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                 ))}
               </div>
             )}
-            {/* Single-option — no pill or segmented control. The Team/Place/
+            {/* Single-option — no pill or segmented control. The Custody /
                 Internal picker rendered below the section header is enough
                 context; the label + sub-picker implies the type. */}
 
             <div className="min-h-9">
-              {consumerType === 'team' && (
-                <Select value={consumerTeamSub} onValueChange={(v) => setConsumerTeamSub(v ?? '')}>
+              {consumerType === 'custody' && (
+                <Select value={consumerSub} onValueChange={(v) => setConsumerSub(v ?? '')}>
                   <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Pick a team…" />
+                    <SelectValue placeholder="Pick a custody location…" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {visibleTeams.length === 0 && (
-                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No teams in your division</div>
+                    {visibleLocations.length === 0 && (
+                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No custody locations in your division</div>
                     )}
-                    {teamGroups.length <= 1
-                      ? visibleTeams.map((t) => (
-                          <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                    {locationGroups.length <= 1
+                      ? visibleLocations.map((l) => (
+                          <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
                         ))
-                      : teamGroups.map((g) => (
-                          <SelectGroup key={g.divisionId}>
-                            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{g.divisionName}</SelectLabel>
-                            {g.items.map((t) => (
-                              <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
-                            ))}
-                          </SelectGroup>
-                        ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {consumerType === 'place' && (
-                <Select value={consumerPlaceSub} onValueChange={(v) => setConsumerPlaceSub(v ?? '')}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Pick a place…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
-                    {visiblePlaces.length === 0 && (
-                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No places in your division</div>
-                    )}
-                    {placeGroups.length <= 1
-                      ? visiblePlaces.map((p) => (
-                          <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
-                        ))
-                      : placeGroups.map((g) => (
-                          <SelectGroup key={g.divisionId}>
-                            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{g.divisionName}</SelectLabel>
-                            {g.items.map((p) => (
-                              <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
+                      : locationGroups.map((g) => (
+                          <SelectGroup key={g.warehouseId}>
+                            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{g.warehouseName}</SelectLabel>
+                            {g.items.map((l) => (
+                              <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
                             ))}
                           </SelectGroup>
                         ))}

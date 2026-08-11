@@ -28,7 +28,7 @@ interface Props {
   onOpenChange:    (open: boolean) => void
   destSubId:       string        // Team or Place sub-container id
   destSubName:     string        // Card label for the dialog header
-  destKindLabel:   'Team' | 'Place'
+  destKindLabel:   string
 }
 
 type LineRow = { brand_variant_id: string; qty: string }

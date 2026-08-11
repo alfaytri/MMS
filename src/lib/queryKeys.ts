@@ -574,6 +574,9 @@ export const queryKeys = {
     detail: (id: Nullable) => ['consumption-entries', id] as const,
   },
   custody: {
+    // Custody locations (teams / projects / sites) — sub-containers of custody warehouses.
+    locations: (warehouseId?: Nullable) => ['custody-locations', warehouseId ?? 'all'] as const,
+    warehouses: ['custody-warehouses'] as const,
     pendingByDestSub: (subId: Nullable) => ['custody-pending', subId] as const,
     pendingAll: ['custody-pending'] as const,
   },

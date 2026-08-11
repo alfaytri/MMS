@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  AlertTriangle, Calendar, ExternalLink, HandCoins, MapPin, Package,
+  AlertTriangle, Calendar, ExternalLink, HandCoins, Package,
   Paperclip, Send, Users2, Warehouse,
 } from 'lucide-react'
 import {
@@ -43,14 +43,12 @@ function formatDate(iso: string | null): string {
 }
 
 function ConsumerIcon({ type }: { type: ConsumerType }) {
-  if (type === 'team')  return <Users2 className="h-3.5 w-3.5" />
-  if (type === 'place') return <MapPin className="h-3.5 w-3.5" />
+  if (type === 'custody') return <Users2 className="h-3.5 w-3.5" />
   return <Package className="h-3.5 w-3.5" />
 }
 
 function consumerTypeLabel(type: ConsumerType): string {
-  if (type === 'team')  return 'Team'
-  if (type === 'place') return 'Place'
+  if (type === 'custody') return 'Custody'
   return 'Internal'
 }
 

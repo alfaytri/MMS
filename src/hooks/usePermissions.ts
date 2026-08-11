@@ -97,10 +97,10 @@ export function useHasViewPermission(area: string): boolean {
  * Consumption-specific granular create check. A caller can create a
  * consumption of `kind` if any of these hold:
  *   - system.admin
- *   - the umbrella `consumption.create` (grants all three)
+ *   - the umbrella `consumption.create` (grants both custody + internal)
  *   - the narrower `consumption.create.<kind>` key
  */
-export function useCanCreateConsumptionFor(kind: 'team' | 'place' | 'internal'): boolean {
+export function useCanCreateConsumptionFor(kind: 'custody' | 'internal'): boolean {
   const { data } = usePermissions()
   if (!data) return false
   if (data.isSystemAdmin) return true
@@ -120,8 +120,7 @@ export function useCanCreateAnyConsumption(): boolean {
   if (data.isSystemAdmin) return true
   return (
     data.permissions.includes('consumption.create') ||
-    data.permissions.includes('consumption.create.team') ||
-    data.permissions.includes('consumption.create.place') ||
+    data.permissions.includes('consumption.create.custody') ||
     data.permissions.includes('consumption.create.internal')
   )
 }

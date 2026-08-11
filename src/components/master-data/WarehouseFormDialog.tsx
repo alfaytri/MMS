@@ -45,11 +45,23 @@ import {
 } from '@/hooks/useWarehouseResponsiblePersons'
 import { useCompanies } from '@/hooks/useCompanies'
 
-const warehouseSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  location: z.string().optional(),
-  company_id: z.string().min(1, 'Company is required'),
-})
+const WAREHOUSE_KINDS = [
+  { value: 'general', label: 'Physical stock', hint: 'A real warehouse that holds stock — receivals, transfers, sales.' },
+  { value: 'custody', label: 'Custody',        hint: 'Virtual — holds custody locations (teams, projects, sites) as sub-containers.' },
+  { value: 'repair',  label: 'Repair',         hint: 'Virtual — repair vendors as sub-containers; the send-for-repair target.' },
+] as const
+
+const warehouseSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    warehouse_kind: z.enum(['general', 'custody', 'repair']),
+    location: z.string().optional(),
+    company_id: z.string().optional(),
+  })
+  .refine((v) => v.warehouse_kind !== 'general' || !!v.company_id, {
+    message: 'Company is required',
+    path: ['company_id'],
+  })
 
 type WarehouseFormValues = z.infer<typeof warehouseSchema>
 
@@ -75,14 +87,17 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseSchema),
-    defaultValues: { name: '', location: '', company_id: '' },
+    defaultValues: { name: '', warehouse_kind: 'general', location: '', company_id: '' },
   })
+  const kind = form.watch('warehouse_kind')
+  const isVirtual = kind !== 'general'
 
   useEffect(() => {
     if (!open) return
     if (warehouse) {
       form.reset({
         name: warehouse.name,
+        warehouse_kind: (warehouse.warehouse_kind as 'general' | 'custody' | 'repair') ?? 'general',
         location: warehouse.location ?? '',
         company_id: warehouse.company_id ?? '',
       })
@@ -90,6 +105,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       const defaultCompany = companies.length === 1 ? companies[0].id : ''
       form.reset({
         name: '',
+        warehouse_kind: 'general',
         location: '',
         company_id: defaultCompany,
       })
@@ -119,24 +135,31 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   async function onSubmit(values: WarehouseFormValues) {
     try {
+      const virtual = values.warehouse_kind !== 'general'
+      const companyId = virtual ? null : (values.company_id || null)
+      const location  = virtual ? null : (values.location || null)
       let whId: string
       if (isEditing && warehouse) {
+        // warehouse_kind is fixed at creation — an edit must never reclassify a
+        // warehouse that already holds stock / sub-containers.
         await update.mutateAsync({
           id: warehouse.id,
           name: values.name,
-          location: values.location || null,
-          company_id: values.company_id,
+          location,
+          company_id: companyId,
         })
         whId = warehouse.id
       } else {
         const created = await create.mutateAsync({
           name: values.name,
-          location: values.location || null,
-          company_id: values.company_id,
+          warehouse_kind: values.warehouse_kind,
+          is_virtual: virtual,
+          location,
+          company_id: companyId,
         })
         whId = created.id
       }
-      await replaceRPs.mutateAsync({ warehouseId: whId, profileIds: selectedRPIds })
+      await replaceRPs.mutateAsync({ warehouseId: whId, profileIds: virtual ? [] : selectedRPIds })
       toast.success(warehouse ? 'Warehouse updated' : 'Warehouse created')
       guardRef.current?.closeAfterSubmit()
     } catch (e) {
@@ -175,6 +198,34 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="warehouse_kind"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
+                      <FormControl>
+                        <SelectTrigger className="w-full h-9">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {WAREHOUSE_KINDS.map((k) => (
+                          <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      {WAREHOUSE_KINDS.find((k) => k.value === field.value)?.hint}
+                      {isEditing ? ' Type is fixed after creation.' : ''}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {!isVirtual ? (
+              <>
               <FormField
                 control={form.control}
                 name="company_id"
@@ -302,6 +353,13 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                   </>
                 )}
               </div>
+              </>
+              ) : (
+                <div className="rounded-md border bg-muted/30 px-3 py-3 text-[11px] text-muted-foreground">
+                  Virtual warehouse — no company, location, or warehouse RPs. Its members are
+                  managed as sub-containers (custody locations / repair vendors) inside it.
+                </div>
+              )}
             </div>
 
             <DialogFooter className="pt-4 border-t mt-0">
