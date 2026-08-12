@@ -14,10 +14,9 @@ import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInve
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { filterTree } from '@/lib/inventory/filterTree'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
-import { useItemDivisionMembership } from '@/hooks/useItemDivisionMembership'
+import { useItemDivisionsByStock } from '@/hooks/useItemDivisionsByStock'
 
 type InventorySubType = 'products' | 'spare-parts' | 'consumables'
-type DivisionFilter = 'all' | 'owned' | 'shared_with' | 'shared_by'
 
 const LABEL_MAP: Record<InventorySubType, string> = {
   'products': 'Products (Installation)',
@@ -33,28 +32,27 @@ type Props = {
 export function ItemsListView({ type, enabled: _enabled }: Props) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
-  const [divisionFilter, setDivisionFilter] = useState<DivisionFilter>('all')
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
 
-  const { activeDivisionId } = useActiveDivision()
+  const { viewDivisionIds } = useActiveDivision()
   const { tree, flat, isLoading } = useInventoryTree(type, showArchived)
   const { data: stockAggregates } = useCategoryStockAggregates(type)
-  const membership = useItemDivisionMembership(type, activeDivisionId)
+  const itemDivs = useItemDivisionsByStock(type)
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
 
-  // Reset chip when the reference division goes away.
-  useEffect(() => {
-    if (!activeDivisionId && divisionFilter !== 'all') setDivisionFilter('all')
-  }, [activeDivisionId, divisionFilter])
+  const divisionFiltered = viewDivisionIds.size > 0
 
-  // Item IDs matching the active chip. undefined = no item filter (chip = All).
+  // When one or more divisions are selected in the nav bar, restrict the tree
+  // to items shared with any of them. Empty selection ("All") = no filter.
   const filterItemIds = useMemo<Set<string> | undefined>(() => {
-    if (divisionFilter === 'all' || !activeDivisionId) return undefined
-    if (divisionFilter === 'owned') return membership.ownedIds
-    if (divisionFilter === 'shared_with') return membership.sharedWithMeIds
-    return membership.sharedByMeIds
-  }, [divisionFilter, activeDivisionId, membership.ownedIds, membership.sharedWithMeIds, membership.sharedByMeIds])
+    if (!divisionFiltered) return undefined
+    const keep = new Set<string>()
+    for (const [itemId, divs] of itemDivs.divisionsByItem) {
+      if (divs.some((d) => viewDivisionIds.has(d))) keep.add(itemId)
+    }
+    return keep
+  }, [divisionFiltered, viewDivisionIds, itemDivs.divisionsByItem])
 
   // Categories that should stay in the tree: any category holding a matching
   // item, plus all their ancestors so the branch renders down to the item.
@@ -64,7 +62,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
     for (const c of flat) parentMap.set(c.id, c.parent_id ?? null)
     const keep = new Set<string>()
     for (const itemId of filterItemIds) {
-      const categoryId = membership.itemCategoryMap.get(itemId)
+      const categoryId = itemDivs.itemCategoryMap.get(itemId)
       if (!categoryId) continue
       let cursor: string | null = categoryId
       while (cursor && !keep.has(cursor)) {
@@ -73,7 +71,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
       }
     }
     return keep
-  }, [filterItemIds, flat, membership.itemCategoryMap])
+  }, [filterItemIds, flat, itemDivs.itemCategoryMap])
 
   const searched = useMemo(() => filterTree(tree, search), [tree, search])
   const filtered = useMemo(() => {
@@ -88,7 +86,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [search, showArchived, type, divisionFilter])
+  useEffect(() => { setPage(1) }, [search, showArchived, type, viewDivisionIds])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filtered.slice(start, start + PAGE_SIZE)
@@ -119,6 +117,11 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
           <Switch checked={showArchived} onCheckedChange={setShowArchived} />
           <Label className="text-xs cursor-pointer" onClick={() => setShowArchived((v) => !v)}>Show archived</Label>
         </div>
+        {divisionFiltered && (
+          <span className="text-[11px] text-muted-foreground">
+            Filtered to the division{viewDivisionIds.size > 1 ? 's' : ''} selected in the top bar
+          </span>
+        )}
         <div className="flex items-center gap-2 ml-auto">
           <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setImportOpen(true)}>
             <Upload className="h-3 w-3 mr-1" /> Import
@@ -128,46 +131,6 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
           </Button>
         </div>
       </div>
-
-      {/* Division-scope filter chips — only meaningful when a specific division is active */}
-      {activeDivisionId && (
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border flex-wrap min-h-11 md:min-h-0">
-          {([
-            { key: 'all', label: 'All', count: null },
-            { key: 'owned', label: 'Owned by my division', count: membership.ownedIds.size },
-            { key: 'shared_with', label: 'Shared with me', count: membership.sharedWithMeIds.size },
-            { key: 'shared_by', label: 'Shared by my division', count: membership.sharedByMeIds.size },
-          ] as const).map((chip) => {
-            const active = divisionFilter === chip.key
-            return (
-              <button
-                key={chip.key}
-                type="button"
-                onClick={() => setDivisionFilter(chip.key)}
-                className={[
-                  'inline-flex items-center gap-1.5 h-7 min-h-11 md:min-h-0 px-2.5 rounded-full text-[11px] font-medium border transition-colors whitespace-nowrap',
-                  active
-                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                    : 'bg-white dark:bg-slate-900 text-muted-foreground border-border hover:bg-muted',
-                ].join(' ')}
-                aria-pressed={active}
-              >
-                {chip.label}
-                {chip.count !== null && (
-                  <span
-                    className={[
-                      'inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[10px] tabular-nums',
-                      active ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground',
-                    ].join(' ')}
-                  >
-                    {membership.isLoading ? '…' : chip.count}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
@@ -193,7 +156,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
                 <tr>
                   <td colSpan={6} className="text-center text-xs text-muted-foreground py-12">
                     {filterItemIds
-                      ? 'No items match this filter for the active division'
+                      ? 'No items in the selected division(s)'
                       : search
                         ? 'No categories match your search'
                         : `No ${LABEL_MAP[type].toLowerCase()} categories yet`}

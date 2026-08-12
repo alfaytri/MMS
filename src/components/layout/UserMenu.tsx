@@ -17,7 +17,6 @@ import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase/client'
 import { resetSessionVerified } from '@/components/auth/SessionGuard'
 import { resetCachedProfileId } from '@/hooks/useNotifications'
-import { DivisionSwitcherMenuItem } from '@/components/layout/DivisionSwitcher'
 
 interface UserMenuProps {
   email: string
@@ -64,8 +63,6 @@ export function UserMenu({ email, name, avatarUrl }: UserMenuProps) {
             </div>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DivisionSwitcherMenuItem />
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem className="gap-2" onClick={() => router.push('/profile')}>

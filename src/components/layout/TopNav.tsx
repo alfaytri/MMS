@@ -4,6 +4,7 @@ import { NavDropdown, NavDropdownGroup } from './NavDropdown'
 import { UserMenu } from './UserMenu'
 import { NotificationBell } from './NotificationBell'
 import { MobileNavDrawer } from './MobileNavDrawer'
+import { DivisionSwitcherChip } from './DivisionSwitcher'
 import { NAV_ITEMS } from './nav-config'
 import { Wrench } from 'lucide-react'
 
@@ -63,6 +64,7 @@ export async function TopNav() {
 
         <div className="flex-1 lg:hidden" />
 
+        {user && <DivisionSwitcherChip className="shrink-0" />}
         {user && <NotificationBell />}
         {user && (
           <UserMenu

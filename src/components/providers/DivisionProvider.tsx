@@ -17,28 +17,42 @@ import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useDivisions, type Division } from '@/hooks/useDivisions'
 import { queryKeys } from '@/lib/queryKeys'
 
-const LOCALSTORAGE_KEY = 'mms:active_division_id'
+const VIEW_KEY = 'mms:view_division_ids'
 
 interface AvailableDivision {
-  id:         string
-  name:       string
+  id: string
+  name: string
   short_name: string | null
   company_id: string | null
 }
 
 interface ActiveDivisionContextValue {
-  /** null = "All divisions" (super-viewer default) or "not yet chosen" (regular user auto-picked). */
-  activeDivisionId:   string | null
-  /** Divisions the user is allowed to switch INTO. Excludes inactive rows. */
+  /**
+   * Derived SINGLE active division for server-side RLS narrowing (JWT claim).
+   * `null` = "All" — either 0 or 2+ divisions are in the view set, so the
+   * server returns everything the caller can access and the client narrows the
+   * displayed rows via `viewDivisionIds`. When exactly one division is in the
+   * view set, that value narrows server-side exactly as before.
+   */
+  activeDivisionId: string | null
+  /** Client-side multi-select "view" filter. Empty set = All divisions. */
+  viewDivisionIds: Set<string>
+  /** Divisions the user is allowed to switch INTO (active only). */
   availableDivisions: AvailableDivision[]
-  /** True for Owner/Accountant — sees "All Divisions" option + every active division. */
-  isSuperViewer:      boolean
+  /** True for Owner/Accountant — sees every active division + "All". */
+  isSuperViewer: boolean
   /** True once JWT claims + division list have loaded at least once. */
-  isReady:            boolean
-  /** True while a switch is in flight (RPC + session refresh + query invalidate). */
-  isSwitching:        boolean
-  /** Set active. Pass null to clear ("All divisions"). Throws + toasts on error. */
-  setActiveDivision:  (divisionId: string | null) => Promise<void>
+  isReady: boolean
+  /** True while a server division-sync is in flight. */
+  isSwitching: boolean
+  /** Add/remove one division from the view set (multi-select). */
+  toggleViewDivision: (divisionId: string) => void
+  /** Replace the whole view set. */
+  setViewDivisions: (ids: string[]) => void
+  /** Clear the view set → "All divisions". */
+  clearViewDivisions: () => void
+  /** Legacy single setter — sets the view set to {id} (or All when null). */
+  setActiveDivision: (divisionId: string | null) => Promise<void>
 }
 
 const ActiveDivisionContext = createContext<ActiveDivisionContextValue | null>(null)
@@ -57,142 +71,152 @@ function readActiveFromJwt(token: string): string | null {
   }
 }
 
-function readLocalStorageHint(): string | null {
-  if (typeof window === 'undefined') return null
+function readViewFromStorage(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
   try {
-    const raw = window.localStorage.getItem(LOCALSTORAGE_KEY)
-    return raw && raw !== '' ? raw : null
+    const raw = window.localStorage.getItem(VIEW_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as unknown
+    return new Set(Array.isArray(arr) ? (arr as string[]).filter((x) => typeof x === 'string') : [])
   } catch {
-    return null
+    return new Set()
   }
 }
 
-function writeLocalStorageHint(divisionId: string | null): void {
+function writeViewToStorage(ids: Set<string>): void {
   if (typeof window === 'undefined') return
   try {
-    if (divisionId === null) window.localStorage.removeItem(LOCALSTORAGE_KEY)
-    else                     window.localStorage.setItem(LOCALSTORAGE_KEY, divisionId)
+    if (ids.size === 0) window.localStorage.removeItem(VIEW_KEY)
+    else window.localStorage.setItem(VIEW_KEY, JSON.stringify(Array.from(ids)))
   } catch {
-    /* localStorage disabled / quota — fine, JWT is source of truth */
+    /* localStorage disabled / quota — fine, JWT + memory remain source of truth */
   }
 }
 
 export function DivisionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
-
-  // Reuse the existing scope hook — it already parses user_type + division_ids from JWT.
   const { isSuperViewer, userDivisionIds } = useUserDivisionScope()
-
-  // Full division list (active only), used to build the available list.
   const { data: allActive = [] } = useDivisions()
 
-  const [activeDivisionId, setActiveDivisionState] = useState<string | null>(readLocalStorageHint)
-  const [isSwitching, setIsSwitching]              = useState(false)
-  const [isReady, setIsReady]                      = useState(false)
+  const [viewDivisionIds, setViewState] = useState<Set<string>>(readViewFromStorage)
+  const [serverActiveId, setServerActiveId] = useState<string | null>(null)
+  const [isSwitching, setIsSwitching] = useState(false)
+  const [isReady, setIsReady] = useState(false)
   const jwtCheckedRef = useRef(false)
 
-  // Once JWT is available, reconcile local hint against the server-authoritative claim.
+  const availableDivisions = useMemo<AvailableDivision[]>(() => {
+    const filtered = isSuperViewer
+      ? allActive
+      : allActive.filter((d) => userDivisionIds.includes(d.id))
+    return filtered.map((d: Division) => ({
+      id: d.id,
+      name: d.name,
+      short_name: d.short_name ?? null,
+      company_id: d.company_id ?? null,
+    }))
+  }, [isSuperViewer, allActive, userDivisionIds])
+
+  // Derived single active id for server-side RLS. One selected → that division;
+  // zero or many → null ("All").
+  const activeDivisionId = viewDivisionIds.size === 1 ? Array.from(viewDivisionIds)[0]! : null
+
+  const applyView = useCallback((next: Set<string>) => {
+    writeViewToStorage(next)
+    setViewState(next)
+  }, [])
+
+  // Reconcile the persisted view set against the server-authoritative JWT once.
   useEffect(() => {
     if (jwtCheckedRef.current) return
     let cancelled = false
     ;(async () => {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
-      if (cancelled) return
-      if (!session?.access_token) {
-        // Not logged in yet — the provider will re-run when a session appears.
-        return
-      }
+      if (cancelled || !session?.access_token) return
       jwtCheckedRef.current = true
       const claim = readActiveFromJwt(session.access_token)
-      // JWT wins. Update state + localStorage if they differ.
-      if (claim !== activeDivisionId) {
-        setActiveDivisionState(claim)
-        writeLocalStorageHint(claim)
-      }
+      setServerActiveId(claim)
+      // If nothing persisted, seed the view from the JWT claim so the UI matches
+      // whatever the server currently narrows to.
+      setViewState((prev) => (prev.size > 0 ? prev : claim ? new Set([claim]) : new Set()))
       setIsReady(true)
     })()
     return () => { cancelled = true }
-    // Intentionally only running once per mount — reconcile again after setActiveDivision.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Build available list based on scope.
-  const availableDivisions = useMemo<AvailableDivision[]>(() => {
-    const filtered = isSuperViewer
-      ? allActive
-      : allActive.filter((d) => userDivisionIds.includes(d.id))
-    return filtered.map((d: Division) => ({
-      id:         d.id,
-      name:       d.name,
-      short_name: d.short_name ?? null,
-      company_id: d.company_id ?? null,
-    }))
-  }, [isSuperViewer, allActive, userDivisionIds])
-
-  // Guard: if the active claim references a division the user no longer has access to,
-  // reset to null (which reflects "All" for super-viewers, "not chosen" for regulars).
+  // Drop any view ids the user no longer has access to.
   useEffect(() => {
-    if (!isReady) return
-    if (activeDivisionId === null) return
-    if (availableDivisions.length === 0) return
-    const stillAccessible = availableDivisions.some((d) => d.id === activeDivisionId)
-    if (stillAccessible) return
-    // Fire and forget — clear on the server too so the JWT catches up on next refresh.
-    writeLocalStorageHint(null)
-    setActiveDivisionState(null)
-    void (async () => {
-      const supabase = createClient()
-      await supabase.rpc('set_active_division', { p_division_id: null as unknown as string })
-      await supabase.auth.refreshSession()
+    if (!isReady || availableDivisions.length === 0) return
+    const allowed = new Set(availableDivisions.map((d) => d.id))
+    setViewState((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => allowed.has(id)))
+      if (next.size === prev.size) return prev
+      writeViewToStorage(next)
+      return next
+    })
+  }, [isReady, availableDivisions])
+
+  // Push the derived single active division to the server whenever it diverges
+  // from the JWT — preserves the exact server-scoping behaviour of the old
+  // single-division switcher.
+  useEffect(() => {
+    if (!isReady || activeDivisionId === serverActiveId) return
+    let cancelled = false
+    ;(async () => {
+      setIsSwitching(true)
+      try {
+        const supabase = createClient()
+        const { error } = await supabase.rpc('set_active_division', {
+          p_division_id: activeDivisionId as unknown as string,
+        })
+        if (error) throw error
+        const { error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError) throw refreshError
+        if (cancelled) return
+        setServerActiveId(activeDivisionId)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.userDivisionScope.jwtClaims })
+        await queryClient.invalidateQueries()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to switch division')
+      } finally {
+        if (!cancelled) setIsSwitching(false)
+      }
     })()
-  }, [isReady, activeDivisionId, availableDivisions])
+    return () => { cancelled = true }
+  }, [isReady, activeDivisionId, serverActiveId, queryClient])
 
-  const setActiveDivision = useCallback(async (divisionId: string | null): Promise<void> => {
-    const previous = activeDivisionId
-    if (divisionId === previous) return
+  const toggleViewDivision = useCallback((id: string) => {
+    setViewState((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      writeViewToStorage(next)
+      return next
+    })
+  }, [])
 
-    // Optimistic update — instant UI response.
-    setActiveDivisionState(divisionId)
-    writeLocalStorageHint(divisionId)
-    setIsSwitching(true)
-
-    try {
-      const supabase = createClient()
-      const { error: rpcError } = await supabase.rpc('set_active_division', {
-        p_division_id: divisionId as unknown as string,
-      })
-      if (rpcError) throw rpcError
-
-      // Refresh session → new JWT with updated active_division_id claim.
-      const { error: refreshError } = await supabase.auth.refreshSession()
-      if (refreshError) throw refreshError
-
-      // Refetch the parsed-claims cache the scope hook reads.
-      await queryClient.invalidateQueries({ queryKey: queryKeys.userDivisionScope.jwtClaims })
-
-      // Blow away every list cache — RLS filters server-side, so every fetch returns fresh data.
-      await queryClient.invalidateQueries()
-    } catch (err) {
-      // Revert.
-      setActiveDivisionState(previous)
-      writeLocalStorageHint(previous)
-      const message = err instanceof Error ? err.message : 'Failed to switch division'
-      toast.error(message)
-      throw err
-    } finally {
-      setIsSwitching(false)
-    }
-  }, [activeDivisionId, queryClient])
+  const setViewDivisions = useCallback((ids: string[]) => { applyView(new Set(ids)) }, [applyView])
+  const clearViewDivisions = useCallback(() => { applyView(new Set()) }, [applyView])
+  const setActiveDivision = useCallback(
+    async (divisionId: string | null) => { applyView(divisionId ? new Set([divisionId]) : new Set()) },
+    [applyView],
+  )
 
   const value = useMemo<ActiveDivisionContextValue>(() => ({
     activeDivisionId,
+    viewDivisionIds,
     availableDivisions,
     isSuperViewer,
     isReady,
     isSwitching,
+    toggleViewDivision,
+    setViewDivisions,
+    clearViewDivisions,
     setActiveDivision,
-  }), [activeDivisionId, availableDivisions, isSuperViewer, isReady, isSwitching, setActiveDivision])
+  }), [
+    activeDivisionId, viewDivisionIds, availableDivisions, isSuperViewer, isReady,
+    isSwitching, toggleViewDivision, setViewDivisions, clearViewDivisions, setActiveDivision,
+  ])
 
   return (
     <ActiveDivisionContext.Provider value={value}>
