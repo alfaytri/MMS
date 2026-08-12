@@ -40,6 +40,11 @@ const QAR = new Intl.NumberFormat('en-QA', {
 export default function CustodyPage() {
   const { data: warehouses = [] } = useWarehouses({ includeVirtual: true })
   const { data: perms } = usePermissions()
+  const { data: profile } = useCurrentUserProfile()
+  // All custody locations across every custody warehouse. Used to light up a
+  // warehouse for a user who is the Responsible Person of a location inside it,
+  // even when their role holds no custody.<id>.* grant.
+  const allLocations = useCustodyLocations()
 
   const custodyWhs = useMemo(
     () => warehouses.filter((w) => w.warehouse_kind === 'custody'),
@@ -49,16 +54,32 @@ export default function CustodyPage() {
   // field RP of a specific source warehouse (for the Dispatch button gate).
   const realWarehouses = useMemo(() => warehouses.filter((w) => !w.is_virtual), [warehouses])
 
-  // Per-warehouse visibility: a role sees a custody warehouse's tab only if it
-  // holds custody.<id>.view/edit/manage (system-admins see all). Computed from
-  // the flat permissions array so we avoid calling a hook per warehouse.
-  const canView = useMemo(() => {
+  // Warehouses where the current user is the RP of at least one ACTIVE location.
+  // Being an RP is a data assignment, not a permission — but a custodian must be
+  // able to see (and accept into) their own location without an explicit grant.
+  const rpWarehouseIds = useMemo(() => {
+    const s = new Set<string>()
+    if (profile?.id) {
+      for (const r of allLocations.data ?? []) {
+        if (r.is_active && r.responsible_person_profile_id === profile.id) s.add(r.warehouse_id)
+      }
+    }
+    return s
+  }, [allLocations.data, profile?.id])
+
+  // "Full" visibility = system-admin OR an explicit custody.<id>.view/edit/manage
+  // grant → the user sees the WHOLE warehouse (every location/division in it).
+  const hasFullView = useMemo(() => {
     return (whId: string): boolean => {
       if (!perms) return false
       if (perms.isSystemAdmin) return true
       return ['view', 'edit', 'manage'].some((v) => perms.permissions.includes(`custody.${whId}.${v}`))
     }
   }, [perms])
+  // A warehouse tab shows when the user has full view OR is an RP inside it.
+  const canView = useMemo(() => {
+    return (whId: string): boolean => hasFullView(whId) || rpWarehouseIds.has(whId)
+  }, [hasFullView, rpWarehouseIds])
   const canEdit = useMemo(() => {
     return (whId: string): boolean => {
       if (!perms) return false
@@ -100,6 +121,8 @@ export default function CustodyPage() {
                 warehouseName={w.name}
                 canEdit={canEdit(w.id)}
                 realWarehouses={realWarehouses}
+                restrictToOwn={!hasFullView(w.id)}
+                ownProfileId={profile?.id ?? null}
               />
             </TabsContent>
           ))}
@@ -112,18 +135,24 @@ export default function CustodyPage() {
 // ─── Shared tab body ────────────────────────────────────────────────────
 
 function CustodyTab({
-  warehouseId, warehouseName, canEdit, realWarehouses,
+  warehouseId, warehouseName, canEdit, realWarehouses, restrictToOwn, ownProfileId,
 }: {
   warehouseId:    string
   warehouseName:  string
   canEdit:        boolean
   realWarehouses: Warehouse[]
+  restrictToOwn:  boolean
+  ownProfileId:   string | null
 }) {
   const locations = useCustodyLocations(warehouseId)
   const rows: CustodyLocationRow[] = useMemo(
     // Only surface active locations on the Custody page — deactivated ones live in Master Data only.
-    () => (locations.data ?? []).filter((r) => r.is_active),
-    [locations.data],
+    // When the user reaches this warehouse purely as an RP (no full-view grant),
+    // restrict the cards to the location(s) they are personally responsible for.
+    () => (locations.data ?? []).filter(
+      (r) => r.is_active && (!restrictToOwn || r.responsible_person_profile_id === ownProfileId),
+    ),
+    [locations.data, restrictToOwn, ownProfileId],
   )
 
   const { data: stock = [], isLoading: stockLoading } = useWarehouseStock(warehouseId, null)
@@ -164,8 +193,12 @@ function CustodyTab({
     return (
       <EmptyState
         icon={<Users2 className="h-6 w-6 text-muted-foreground" />}
-        title={`No locations in ${warehouseName} yet`}
-        description={`Add a location in Master Data → Custody Locations to start assigning stock into ${warehouseName}.`}
+        title={restrictToOwn ? 'No custody assigned to you' : `No locations in ${warehouseName} yet`}
+        description={
+          restrictToOwn
+            ? `Stock you're responsible for in ${warehouseName} will appear here once a location is assigned to you.`
+            : `Add a location in Master Data → Custody Locations to start assigning stock into ${warehouseName}.`
+        }
       />
     )
   }
@@ -231,6 +264,14 @@ function CustodyCard({
   // system admin / inventory_manager. Mirror it so we only show Accept there.
   const canAccept          = isResponsible || isPrivileged
   const hasPending         = pending.length > 0
+
+  // A location's RP can act on their OWN card without any custody/consumption
+  // grant: every underlying RPC authorises the sub's responsible person directly
+  // (rpc_create_custody_assign → dest RP, rpc_create_custody_return → source RP,
+  // rpc_post_consumption → source-sub RP; all verified against the live bodies).
+  const canRequest = canEdit || isResponsible
+  const canReturn  = canEdit || isResponsible
+  const canConsume = canCreateConsumption || isResponsible
 
   // For each pending row, resolve whether the current user can DISPATCH it
   // (server-side gate: field RP of source WH OR privileged). We use the
@@ -404,14 +445,14 @@ function CustodyCard({
       )}
 
       {/* Actions — hidden entirely when the caller can't do any of them */}
-      {(canEdit || canCreateConsumption) && (
+      {(canRequest || canReturn || canConsume) && (
         <div className="mt-auto flex items-center justify-between gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
-          {canEdit && (
+          {canRequest && (
             <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
               <Send className="h-3 w-3" /> Request
             </Button>
           )}
-          {canEdit && (
+          {canReturn && (
             <Button
               size="sm"
               variant="ghost"
@@ -422,7 +463,7 @@ function CustodyCard({
               <Undo2 className="h-3 w-3" /> Return
             </Button>
           )}
-          {canCreateConsumption && (
+          {canConsume && (
             <Button
               size="sm"
               variant="ghost"
@@ -469,6 +510,7 @@ function CustodyCard({
         transferId={acceptRow?.transfer_id ?? null}
         transferNumber={acceptRow?.transfer_number ?? null}
         destSubName={sub.name}
+        sourceWarehouseName={acceptRow?.from_warehouse_name ?? null}
       />
     </div>
   )

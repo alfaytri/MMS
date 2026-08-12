@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { liveInboxQueryOptions } from '@/lib/queryOptions'
 import { sendNotifications, getApprovalScopeRecipients } from '@/lib/notify'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -564,7 +565,10 @@ export function useWarehouseTransfers({ status }: { status?: TransferStatus } = 
         }
       }) as unknown as WarehouseTransfer[]
     },
-    staleTime: 5 * 60 * 1000,
+    // Operational inbox watched by warehouse + custody staff — a request or
+    // status change by ANOTHER user must appear without a manual refresh.
+    // Bounded to 50 rows above; see liveInboxQueryOptions.
+    ...liveInboxQueryOptions,
   })
 }
 
@@ -609,6 +613,7 @@ export function useDispatchTransfer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.custody.pendingAll })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
@@ -641,6 +646,7 @@ export function useReceiveTransfer() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.custody.pendingAll })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })

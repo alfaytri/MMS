@@ -6552,6 +6552,7 @@ export type Database = {
           item_name: string
           received_qty: number | null
           requested_qty: number
+          returned_qty: number
           shrinkage_qty: number
           shrinkage_reason: string | null
           sku: string | null
@@ -6567,6 +6568,7 @@ export type Database = {
           item_name: string
           received_qty?: number | null
           requested_qty: number
+          returned_qty?: number
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null
@@ -6582,6 +6584,7 @@ export type Database = {
           item_name?: string
           received_qty?: number | null
           requested_qty?: number
+          returned_qty?: number
           shrinkage_qty?: number
           shrinkage_reason?: string | null
           sku?: string | null

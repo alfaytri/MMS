@@ -17,6 +17,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { liveInboxQueryOptions } from '@/lib/queryOptions'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -86,7 +87,10 @@ export function usePendingCustodyAssigns() {
         }
       })
     },
-    staleTime: 30 * 1000,
+    // Cross-user inbox: the destination custodian waits while a DIFFERENT user
+    // (the source-warehouse RP) dispatches, flipping the row pending → in_transit.
+    // liveInboxQueryOptions surfaces that without a manual refresh.
+    ...liveInboxQueryOptions,
   })
 }
 
@@ -159,7 +163,7 @@ export function useAcceptCustodyAssign() {
   return useMutation({
     mutationFn: async (payload: {
       transfer_id:              string
-      receipts:                 { transfer_item_id: string; received_qty: number; shrinkage_reason?: string | null }[]
+      receipts:                 { transfer_item_id: string; received_qty: number; shortfall_action?: 'writeoff' | 'restock'; shrinkage_reason?: string | null }[]
       accepted_by_profile_id?:  string | null
       accepted_by_name?:        string | null
     }) => {
