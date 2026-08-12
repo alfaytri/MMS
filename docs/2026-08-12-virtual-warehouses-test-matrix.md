@@ -2,7 +2,14 @@
 
 **Branch:** `feature/virtual-warehouses-custody-repair` (off `deploy/warehouse-shipping`) — **not merged, not pushed.**
 **DB:** staging `mwvblpgbgxipvrevkeff` only (new-prod sync held for your OK).
-**Migrations:** `20260820000100`–`20260820000500` (applied + mirrored). `…000500` adds the `consumption.cross_division` grantable permission (replaces a fragile role-name guard).
+**Migrations:** `20260820000100`–`20260820000710` (applied + mirrored). `…500` cross-division permission; `…600` item-needed request RPC; `…700`+`…710` custody accept received-qty + shrinkage (+ the missing `transfer_shrinkage` enum value).
+
+## Follow-up batch (custody UX, from 2026-08-12 smoke)
+- ✅ **Role-editor save fixed** (`df71e416`) — validator only requires a `.view` sibling when the catalog defines one (unblocked 7 & 11).
+- ✅ **① consume-from-card** hides fixed source/consumer; **② request** auto-picks the sub by division (`03f9e056`).
+- ✅ **③ item-needed request** → notifies the warehouse RP (`37f4024e`).
+- ✅ **④ accept with received-qty + shrinkage** (`8d5a14a2`) — also fixed a latent enum bug (`transfer_shrinkage` missing) that would have broken *any* short-received transfer, standard or custody.
+- Verified PASS: A20–A22 below. Operator smoke: B12–B13 below.
 **Spec:** `docs/superpowers/specs/2026-08-12-virtual-warehouses-custody-repair-design.md`
 
 Both phases shipped. Phase 2 (repair) needed **no code** — repair was already sub-container-based; it's verified intact below.
@@ -32,6 +39,9 @@ Both phases shipped. Phase 2 (repair) needed **no code** — repair was already 
 | A17 | `npx eslint` on every changed/new file = **0 problems** | ✅ PASS | final run |
 | A18 | Impeccable design hooks = 0 deterministic issues on every edited component | ✅ PASS | inline hook output |
 | A19 | **Cross-division consumption** now gated by a grantable `consumption.cross_division` permission (server-side via `_user_has_permission`), replacing the fragile role-name match | ✅ PASS | M5 on staging: single overload uses the permission, name-match gone, grant landed on Owner + Accountant, admin custody consumption still posts, a keyless user fails the bypass |
+| A20 | **Role-editor save unblocked** — `validatePermissionSet` only flags a create/edit/manage key when the catalog actually defines its `.view` sibling | ✅ PASS | code review: singular/plural + create-only areas no longer false-flag; real orphans still caught; tsc+eslint clean |
+| A21 | **③ item-needed request** inserts one `notifications` row per warehouse RP with a clear message; raises if the warehouse has no RP | ✅ PASS | rolled-back DO block (Birkat Alawamer, 2 RPs → 2 notifications) |
+| A22 | **④ accept received-qty + shrinkage** — partial receipt materialises only the received units to the custody sub, writes `transfer_shrinkage` at source, decrements `stock_level` by the miss; full receipt = 0 shrinkage | ✅ PASS | rolled-back DO block: 3 of 5 → dest FIFO 3, transfer_in 3 + transfer_shrinkage 2, stock_level −2, status received; 4 of 4 → shrinkage 0 |
 
 ---
 
@@ -52,6 +62,8 @@ Log in as admin, `npm run dev` (points at staging via `.env.local`), then:
 | B9 | **Places → Projects everywhere** | Sweep the UI | No "Places"/"Place" wording remains in custody/consumption surfaces. |
 | B10 | **Build / runtime** | `npm run build` (or your normal deploy preview) | Compiles + runs (I held the build per the no-build rule). |
 | B11 | **Cross-division consumption grant** | Role editor → the new "Book Consumption Cross-Division" checkbox. Grant it to a non-admin role (e.g. Accountant), revoke it from another. | A user whose role has the key can post a consumption to a custody location in a division they're **not** assigned to; without it they get "You can only book … in your own division." |
+| B12 | **③ Item-needed request** | Custody card → Request → pick a source warehouse → in "Need an item that isn't stocked here?" type a name + qty → Send request | The warehouse's responsible person(s) get a bell notification ("… needs 5 × …"); no stock moves; toast confirms. |
+| B13 | **④ Accept with received qty** | Custody card with a pending in-transit request → Accept | A receipt dialog lists each dispatched line with a "received /N" box (defaults to N). Enter less than dispatched → it warns the shortfall becomes shrinkage; confirm → stock lands on the location at the received qty; the shortfall leaves stock. |
 
 ---
 
