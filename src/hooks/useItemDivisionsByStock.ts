@@ -5,7 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 export type ItemShareType = 'products' | 'spare-parts' | 'consumables'
 
 export interface ItemDivisionMembership {
-  /** item id → the division ids it currently holds stock in (via sub_container.division_id). */
+  /** item id → its division ids: the UNION of explicit assignment
+   *  (inventory_items.shared_with_division_ids) and where its stock currently
+   *  sits (sub_container.division_id). Empty array = neither. */
   divisionsByItem: Map<string, string[]>
   /** item id → its category id (for tree pruning). */
   itemCategoryMap: Map<string, string>
@@ -13,14 +15,16 @@ export interface ItemDivisionMembership {
 }
 
 /**
- * For one inventory type, resolves each non-archived item's divisions from WHERE
- * ITS STOCK SITS — the distinct `division_id`s of the sub-containers holding its
- * stock (`rpc_item_divisions_by_stock`). The list view prunes the catalog tree to
- * the division(s) picked in the nav-bar multi-select.
+ * For one inventory type, resolves each non-archived item's divisions as the
+ * UNION of (a) its explicit assignment (`inventory_items.shared_with_division_ids`)
+ * and (b) where its stock currently sits — the distinct `division_id`s of the
+ * sub-containers holding its stock (`rpc_item_divisions_by_stock`). The list view
+ * prunes the catalog tree to the division(s) picked in the nav-bar multi-select.
  *
- * Only items that actually have divisioned stock come back, so a specific-division
- * filter hides items with no stock in that division. (Replaces the old
- * `shared_with_division_ids` column, which was effectively unpopulated.)
+ * Every non-archived item comes back; an item with neither an assignment nor
+ * divisioned stock gets an empty division set, so it shows only under "All".
+ * This makes a zero-stock catalog (e.g. a fresh import) still appear under the
+ * division it was assigned to.
  */
 export function useItemDivisionsByStock(type: ItemShareType): ItemDivisionMembership {
   const query = useQuery({
