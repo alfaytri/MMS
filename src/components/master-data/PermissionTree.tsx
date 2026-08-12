@@ -722,6 +722,17 @@ export function PermissionTree({ search }: { search: string }) {
   )
 }
 
+// Keys the static catalog actually defines. A create/edit/manage key is only an
+// "orphan" if its area genuinely has a matching .view key here that the role left
+// unselected. Some areas are create-only by design, and a few pair an action key
+// with a differently-named view (e.g. the singular warehouse.transfer.* /
+// warehouse.check.* actions vs the plural warehouse.transfers.view /
+// warehouse.checks.view). Demanding a same-area .view there would make otherwise
+// valid roles impossible to save. Dynamic per-warehouse custody keys
+// (custody.<id>.edit) also aren't in this set — the role editor pairs their view
+// itself — so they're correctly skipped here too.
+const CATALOG_KEY_SET = new Set(collectPermKeys(NAV_TREE))
+
 export function validatePermissionSet(perms: string[]): { valid: boolean; orphans: string[] } {
   const orphans: string[] = []
   const set = new Set(perms)
@@ -730,7 +741,10 @@ export function validatePermissionSet(perms: string[]): { valid: boolean; orphan
     if (p.endsWith('.create') || p.endsWith('.edit') || p.endsWith('.manage')) {
       const area = p.replace(/\.(create|edit|manage)$/, '')
       const viewKey = `${area}.view`
-      if (!set.has(viewKey)) orphans.push(p)
+      // Only flag when the catalog defines the sibling .view — otherwise the area
+      // is create-only (or its view is named differently) and demanding a
+      // same-area .view would wrongly block the save.
+      if (CATALOG_KEY_SET.has(viewKey) && !set.has(viewKey)) orphans.push(p)
     }
   }
   return { valid: orphans.length === 0, orphans }
