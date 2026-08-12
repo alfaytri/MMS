@@ -2,7 +2,7 @@
 
 **Branch:** `feature/virtual-warehouses-custody-repair` (off `deploy/warehouse-shipping`) — **not merged, not pushed.**
 **DB:** staging `mwvblpgbgxipvrevkeff` only (new-prod sync held for your OK).
-**Migrations:** `20260820000100`–`20260820000800` (applied + mirrored). `…500` cross-division permission; `…600` item-needed request RPC; `…700`+`…710` custody accept received-qty + shrinkage (+ the missing `transfer_shrinkage` enum value); `…800` accept shortfall disposition (write-off | give-back) + `warehouse_transfer_items.returned_qty`.
+**Migrations:** `20260820000100`–`20260820000900` (applied + mirrored). `…500` cross-division permission; `…600` item-needed request RPC; `…700`+`…710` custody accept received-qty + shrinkage (+ the missing `transfer_shrinkage` enum value); `…800` accept shortfall disposition (write-off | give-back) + `warehouse_transfer_items.returned_qty`; `…900` data fix — de-duplicated self-doubled `item_name` ("X — X" import artifact) across `inventory_items` + the display snapshots (11 items + 15/1/2 snapshot rows).
 
 ## Follow-up batch (custody UX, from 2026-08-12 smoke)
 - ✅ **Role-editor save fixed** (`df71e416`) — validator only requires a `.view` sibling when the catalog defines one (unblocked 7 & 11).
@@ -54,6 +54,7 @@ Both phases shipped. Phase 2 (repair) needed **no code** — repair was already 
 | A25 | **Shortfall default** — omitted `shortfall_action` falls back to write-off (back-compat) | ✅ PASS | rolled-back DO: line `1/0` (shrink/return) |
 | A26 | **RP consume from own sub** — a non-admin RP (Accountant, `is_custody_admin=f`) posts a custody consumption from their own Team 2 sub | ✅ PASS | rolled-back DO posts + writes `consumer_sub_container_id`; source-auth passes via the sub-RP branch, division guard via `consumption.cross_division` |
 | A27 | Accept dialog no longer throws "Maximum update depth" (root cause = unstable `data ?? []` effect dep; memoised) | ✅ PASS | code review + tsc/eslint clean |
+| A28 | **Self-doubled item names fixed** — `inventory_items.name_en` held `"X — X"` for 11 items (import artifact), surfacing as doubled labels; de-duped the source + 15/1/2 denormalised snapshot rows (stock summary / transfer items / movements). Only touches exact 2-part byte-equal halves — legit hyphenated names untouched | ✅ PASS | migration `…900`; rolled-back dry-run → 0 doubles left in all 4 tables, view reads `Electrical Control Components / Generic`, 0 legit multi-part names affected; applied + persisted-verified |
 
 ---
 
@@ -63,13 +64,13 @@ Log in as admin, `npm run dev` (points at staging via `.env.local`), then:
 
 | # | Flow | Steps | Expected |
 |---|---|---|---|
-| B1 | **Warehouse Type picker** | Master Data → Warehouses → Add Warehouse | New **Type** field: Physical stock / Custody / Repair. Picking Custody or Repair hides Company/Location/RPs and shows the virtual hint. Create a "Site A" Custody warehouse. |
-| B2 | **Custody Locations admin** | Master Data → Admin → **Custody Locations** | One tab per custody warehouse (Teams / Projects / Site A). Add a location (name + division + RP); edit; deactivate. Names never show UUIDs. |
-| B3 | **Custody page tabs** | Operations → Custody | One tab per custody warehouse (not the old Teams/Places). Cards group by division. |
-| B4 | **Custody assign → dispatch → accept** | From a custody card: Request stock from a warehouse → Dispatch (warehouse RP) → Accept (location RP) | Stock lands on the location; pending banner clears. |
-| B5 | **Custody return** | From a card with stock: Return → pick a real warehouse | Stock leaves the location. |
-| B6 | **Consumption** | Operations → Consumption → New | Consumer is **Custody \| Internal**; Custody lists locations **grouped by warehouse**; post one custody + one internal. Numbers read `CE-Custody-…` / `CE-Internal-…`. List/detail show the right consumer + icon. |
-| B7 | **Per-warehouse permissions** | Master Data → Roles → edit a **non-admin** role → tick **Projects** View (not Teams) in "Custody Warehouse Access" + grant "Access Custody Page" → assign to a test user → log in as them | Custody page shows **only Projects**; Teams tab hidden. Edit buttons appear only where you granted Edit. |
+| B1 | ✅ **Warehouse Type picker** *(confirmed)* | Master Data → Warehouses → Add Warehouse | New **Type** field: Physical stock / Custody / Repair. Picking Custody or Repair hides Company/Location/RPs and shows the virtual hint. Create a "Site A" Custody warehouse. |
+| B2 | ✅ **Custody Locations admin** *(confirmed)* | Master Data → Admin → **Custody Locations** | One tab per custody warehouse (Teams / Projects / Site A). Add a location (name + division + RP); edit; deactivate. Names never show UUIDs. |
+| B3 | ✅ **Custody page tabs** *(confirmed)* | Operations → Custody | One tab per custody warehouse (not the old Teams/Places). Cards group by division. |
+| B4 | ✅ **Custody assign → dispatch → accept** *(confirmed)* | From a custody card: Request stock from a warehouse → Dispatch (warehouse RP) → Accept (location RP) | Stock lands on the location; pending banner clears. |
+| B5 | ✅ **Custody return** *(confirmed)* | From a card with stock: Return → pick a real warehouse | Stock leaves the location. |
+| B6 | **Consumption** *(retest — self-doubled item name fixed in `…900`)* | Operations → Consumption → New | Consumer is **Custody \| Internal**; Custody lists locations **grouped by warehouse**; post one custody + one internal. Numbers read `CE-Custody-…` / `CE-Internal-…`. List/detail + confirm dialog show the right consumer + a **single** item name (no "X — X" doubling). |
+| B7 | ✅ **Per-warehouse permissions** *(confirmed)* | Master Data → Roles → edit a **non-admin** role → tick **Projects** View (not Teams) in "Custody Warehouse Access" + grant "Access Custody Page" → assign to a test user → log in as them | Custody page shows **only Projects**; Teams tab hidden. Edit buttons appear only where you granted Edit. |
 | B8 | **Repair** | Master Data → Admin → Repair Vendors → add a vendor; then send a damaged return line for repair | Vendor appears; send-for-repair routes the units to that vendor (under the Repair warehouse); return-from-repair works. |
 | B9 | **Places → Projects everywhere** | Sweep the UI | No "Places"/"Place" wording remains in custody/consumption surfaces. |
 | B10 | **Build / runtime** | `npm run build` (or your normal deploy preview) | Compiles + runs (I held the build per the no-build rule). |
