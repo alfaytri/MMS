@@ -2,7 +2,7 @@
 
 **Branch:** `feature/virtual-warehouses-custody-repair` (off `deploy/warehouse-shipping`) — **not merged, not pushed.**
 **DB:** staging `mwvblpgbgxipvrevkeff` only (new-prod sync held for your OK).
-**Migrations:** `20260820000100`–`20260820000710` (applied + mirrored). `…500` cross-division permission; `…600` item-needed request RPC; `…700`+`…710` custody accept received-qty + shrinkage (+ the missing `transfer_shrinkage` enum value).
+**Migrations:** `20260820000100`–`20260820000800` (applied + mirrored). `…500` cross-division permission; `…600` item-needed request RPC; `…700`+`…710` custody accept received-qty + shrinkage (+ the missing `transfer_shrinkage` enum value); `…800` accept shortfall disposition (write-off | give-back) + `warehouse_transfer_items.returned_qty`.
 
 ## Follow-up batch (custody UX, from 2026-08-12 smoke)
 - ✅ **Role-editor save fixed** (`df71e416`) — validator only requires a `.view` sibling when the catalog defines one (unblocked 7 & 11).
@@ -10,6 +10,13 @@
 - ✅ **③ item-needed request** → notifies the warehouse RP (`37f4024e`).
 - ✅ **④ accept with received-qty + shrinkage** (`8d5a14a2`) — also fixed a latent enum bug (`transfer_shrinkage` missing) that would have broken *any* short-received transfer, standard or custody.
 - Verified PASS: A20–A22 below. Operator smoke: B12–B13 below.
+
+### Round 2 (2026-08-12 pm smoke — operator-confirmed "all clean")
+- ✅ **RP-owned custody cards** (`522fbbda`) — a location's responsible person now sees + acts on their OWN card without a per-warehouse grant (visibility scoped to own location; Request/Return/Consume enabled — all RPCs already authorise the sub RP).
+- ✅ **Accept-dialog infinite-loop fixed** (`522fbbda`) — `data ?? []` in an effect dep re-fired endlessly; memoised the items array.
+- ✅ **Shortfall disposition** (`62dc5c47` db + `522fbbda` ui) — per short line: **Write off** (shrinkage loss, stock −miss) vs **Give back** (returns to source shelf, total stock unchanged). Default = write-off (back-compat).
+- ✅ **Live-inbox refresh preset** (`522fbbda`) — `src/lib/queryOptions.ts`; applied to the custody pending inbox + transfers list so another user's request/dispatch appears without a manual refresh; generic dispatch/receive also invalidate the custody inbox.
+- Verified PASS: A23–A27. Operator-confirmed: B14–B17.
 **Spec:** `docs/superpowers/specs/2026-08-12-virtual-warehouses-custody-repair-design.md`
 
 Both phases shipped. Phase 2 (repair) needed **no code** — repair was already sub-container-based; it's verified intact below.
@@ -42,6 +49,11 @@ Both phases shipped. Phase 2 (repair) needed **no code** — repair was already 
 | A20 | **Role-editor save unblocked** — `validatePermissionSet` only flags a create/edit/manage key when the catalog actually defines its `.view` sibling | ✅ PASS | code review: singular/plural + create-only areas no longer false-flag; real orphans still caught; tsc+eslint clean |
 | A21 | **③ item-needed request** inserts one `notifications` row per warehouse RP with a clear message; raises if the warehouse has no RP | ✅ PASS | rolled-back DO block (Birkat Alawamer, 2 RPs → 2 notifications) |
 | A22 | **④ accept received-qty + shrinkage** — partial receipt materialises only the received units to the custody sub, writes `transfer_shrinkage` at source, decrements `stock_level` by the miss; full receipt = 0 shrinkage | ✅ PASS | rolled-back DO block: 3 of 5 → dest FIFO 3, transfer_in 3 + transfer_shrinkage 2, stock_level −2, status received; 4 of 4 → shrinkage 0 |
+| A23 | **Shortfall RESTOCK** — accept 2 of 3 with `shortfall_action='restock'`: dest sub +2, source sub FIFO re-created +1, `stock_level` unchanged, line `2/0/1` (recv/shrink/return), status received | ✅ PASS | rolled-back DO on the **pushed** fn (WT-2026-00026): stock 14→14, dest 0→2, source 6→7 |
+| A24 | **Shortfall WRITEOFF** — accept 2 of 3 with `shortfall_action='writeoff'`: dest +2, `transfer_shrinkage` −1 at source, `stock_level` −1, line `2/1/0` | ✅ PASS | rolled-back DO: stock 14→13, source 6 unchanged, 1 shrinkage move |
+| A25 | **Shortfall default** — omitted `shortfall_action` falls back to write-off (back-compat) | ✅ PASS | rolled-back DO: line `1/0` (shrink/return) |
+| A26 | **RP consume from own sub** — a non-admin RP (Accountant, `is_custody_admin=f`) posts a custody consumption from their own Team 2 sub | ✅ PASS | rolled-back DO posts + writes `consumer_sub_container_id`; source-auth passes via the sub-RP branch, division guard via `consumption.cross_division` |
+| A27 | Accept dialog no longer throws "Maximum update depth" (root cause = unstable `data ?? []` effect dep; memoised) | ✅ PASS | code review + tsc/eslint clean |
 
 ---
 
@@ -64,6 +76,10 @@ Log in as admin, `npm run dev` (points at staging via `.env.local`), then:
 | B11 | **Cross-division consumption grant** | Role editor → the new "Book Consumption Cross-Division" checkbox. Grant it to a non-admin role (e.g. Accountant), revoke it from another. | A user whose role has the key can post a consumption to a custody location in a division they're **not** assigned to; without it they get "You can only book … in your own division." |
 | B12 | **③ Item-needed request** | Custody card → Request → pick a source warehouse → in "Need an item that isn't stocked here?" type a name + qty → Send request | The warehouse's responsible person(s) get a bell notification ("… needs 5 × …"); no stock moves; toast confirms. |
 | B13 | **④ Accept with received qty** | Custody card with a pending in-transit request → Accept | A receipt dialog lists each dispatched line with a "received /N" box (defaults to N). Enter less than dispatched → it warns the shortfall becomes shrinkage; confirm → stock lands on the location at the received qty; the shortfall leaves stock. |
+| B14 | ✅ **RP sees own card** *(confirmed)* | Log in as a location RP (has "Access Custody Page", no warehouse grant) → Operations → Custody | Only their own card shows under that warehouse's tab; other locations hidden. |
+| B15 | ✅ **RP acts on own card** *(confirmed)* | On the RP's own card | Request / Return / Consume all work without a per-warehouse grant. |
+| B16 | ✅ **Shortfall toggle** *(confirmed)* | Accept with received < dispatched → pick **Write off** or **Give back** | Write off → total stock −miss; Give back → source warehouse stock +miss, total unchanged. |
+| B17 | ✅ **Live refresh** *(confirmed)* | Two sessions: make a request / dispatch in one | Transfers list + custody card update within ~20s (or on tab focus) — no manual refresh. |
 
 ---
 
