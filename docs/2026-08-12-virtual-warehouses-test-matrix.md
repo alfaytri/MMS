@@ -2,7 +2,7 @@
 
 **Branch:** `feature/virtual-warehouses-custody-repair` (off `deploy/warehouse-shipping`) — **not merged, not pushed.**
 **DB:** staging `mwvblpgbgxipvrevkeff` only (new-prod sync held for your OK).
-**Migrations:** `20260820000100`–`20260820000400` (applied + mirrored).
+**Migrations:** `20260820000100`–`20260820000500` (applied + mirrored). `…000500` adds the `consumption.cross_division` grantable permission (replaces a fragile role-name guard).
 **Spec:** `docs/superpowers/specs/2026-08-12-virtual-warehouses-custody-repair-design.md`
 
 Both phases shipped. Phase 2 (repair) needed **no code** — repair was already sub-container-based; it's verified intact below.
@@ -31,6 +31,7 @@ Both phases shipped. Phase 2 (repair) needed **no code** — repair was already 
 | A16 | `npx tsc --noEmit` = **0 errors** (whole project) | ✅ PASS | final full run |
 | A17 | `npx eslint` on every changed/new file = **0 problems** | ✅ PASS | final run |
 | A18 | Impeccable design hooks = 0 deterministic issues on every edited component | ✅ PASS | inline hook output |
+| A19 | **Cross-division consumption** now gated by a grantable `consumption.cross_division` permission (server-side via `_user_has_permission`), replacing the fragile role-name match | ✅ PASS | M5 on staging: single overload uses the permission, name-match gone, grant landed on Owner + Accountant, admin custody consumption still posts, a keyless user fails the bypass |
 
 ---
 
@@ -50,6 +51,7 @@ Log in as admin, `npm run dev` (points at staging via `.env.local`), then:
 | B8 | **Repair** | Master Data → Admin → Repair Vendors → add a vendor; then send a damaged return line for repair | Vendor appears; send-for-repair routes the units to that vendor (under the Repair warehouse); return-from-repair works. |
 | B9 | **Places → Projects everywhere** | Sweep the UI | No "Places"/"Place" wording remains in custody/consumption surfaces. |
 | B10 | **Build / runtime** | `npm run build` (or your normal deploy preview) | Compiles + runs (I held the build per the no-build rule). |
+| B11 | **Cross-division consumption grant** | Role editor → the new "Book Consumption Cross-Division" checkbox. Grant it to a non-admin role (e.g. Accountant), revoke it from another. | A user whose role has the key can post a consumption to a custody location in a division they're **not** assigned to; without it they get "You can only book … in your own division." |
 
 ---
 
@@ -63,4 +65,4 @@ Log in as admin, `npm run dev` (points at staging via `.env.local`), then:
 - Custody warehouses: **Teams** (`9cc38706…`), **Projects** (`57ef60bb…`, was Places). Repair: `3cd2e1ce…`.
 - Custody locations today: Team 2 (Teams/Kitchen), F002 (Projects/Kitchen).
 - `consumption_number_counters` was empty → no numbering collision risk.
-- Roles with custody/consumption grants: only `consumption` (now `consumption.create.custody`).
+- Roles with custody/consumption grants: `consumption` (now `consumption.create.custody`); **Owner + Accountant** now hold `consumption.cross_division` (granted by M5 to preserve intent).
