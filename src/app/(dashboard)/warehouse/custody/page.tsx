@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CustodyAssignDialog } from '@/components/warehouse/custody/CustodyAssignDialog'
 import { CustodyReturnDialog } from '@/components/warehouse/custody/CustodyReturnDialog'
+import { AcceptCustodyDialog } from '@/components/warehouse/custody/AcceptCustodyDialog'
 import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
@@ -23,7 +24,6 @@ import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions, useCanCreateConsumptionFor } from '@/hooks/usePermissions'
 import {
   usePendingCustodyAssigns,
-  useAcceptCustodyAssign,
   useDispatchCustodyAssign,
   type PendingCustodyAssign,
 } from '@/hooks/useCustodyMoves'
@@ -220,8 +220,8 @@ function CustodyCard({
 
   const { data: profile } = useCurrentUserProfile()
   const { data: perms }   = usePermissions()
-  const accept            = useAcceptCustodyAssign()
   const dispatch          = useDispatchCustodyAssign()
+  const [acceptRow, setAcceptRow] = useState<PendingCustodyAssign | null>(null)
 
   const canCreateConsumption = useCanCreateConsumptionFor('custody')
 
@@ -246,19 +246,6 @@ function CustodyCard({
 
   const totalValue = stockRows.reduce((sum, r) => sum + (r.total_value ?? 0), 0)
   const totalQty   = stockRows.reduce((sum, r) => sum + (r.qty ?? 0), 0)
-
-  async function handleAccept(transfer: PendingCustodyAssign) {
-    try {
-      await accept.mutateAsync({
-        transfer_id:             transfer.transfer_id,
-        accepted_by_profile_id:  profile?.id ?? null,
-        accepted_by_name:        profile?.full_name ?? null,
-      })
-      toast.success(`Accepted ${transfer.transfer_number} — stock is now on ${sub.name}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to accept custody')
-    }
-  }
 
   async function handleDispatch(transfer: PendingCustodyAssign) {
     try {
@@ -360,8 +347,7 @@ function CustodyCard({
                     size="sm"
                     variant="secondary"
                     className="h-6 text-[10px] gap-1 shrink-0"
-                    onClick={() => handleAccept(p)}
-                    disabled={accept.isPending}
+                    onClick={() => setAcceptRow(p)}
                   >
                     <PackageCheck className="h-3 w-3" />
                     Accept
@@ -476,6 +462,13 @@ function CustodyCard({
           kindLabel:        'Custody',
         }}
         restrictConsumerTypes={['custody']}
+      />
+      <AcceptCustodyDialog
+        open={!!acceptRow}
+        onOpenChange={(o) => { if (!o) setAcceptRow(null) }}
+        transferId={acceptRow?.transfer_id ?? null}
+        transferNumber={acceptRow?.transfer_number ?? null}
+        destSubName={sub.name}
       />
     </div>
   )

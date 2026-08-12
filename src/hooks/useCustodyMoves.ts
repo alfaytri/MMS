@@ -159,15 +159,18 @@ export function useAcceptCustodyAssign() {
   return useMutation({
     mutationFn: async (payload: {
       transfer_id:              string
+      receipts:                 { transfer_item_id: string; received_qty: number; shrinkage_reason?: string | null }[]
       accepted_by_profile_id?:  string | null
       accepted_by_name?:        string | null
     }) => {
       const supabase = createClient()
-      const { error } = await supabase.rpc('rpc_accept_custody_assign', {
+      // Cast — the new 4-arg signature (adds p_receipts) is typed after the next gen-types run.
+      const { error } = await supabase.rpc('rpc_accept_custody_assign' as never, {
         p_transfer_id:            payload.transfer_id,
-        p_accepted_by_profile_id: payload.accepted_by_profile_id ?? undefined,
-        p_accepted_by_name:       payload.accepted_by_name ?? undefined,
-      })
+        p_receipts:               payload.receipts,
+        p_accepted_by_profile_id: payload.accepted_by_profile_id ?? null,
+        p_accepted_by_name:       payload.accepted_by_name ?? null,
+      } as never)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -240,5 +243,38 @@ export function useRequestWarehouseItem() {
       if (error) throw new Error(error.message)
       return data as unknown as number
     },
+  })
+}
+
+// ─── 7. Read — a custody-assign transfer's line items (for the Accept dialog) ─
+export type CustodyTransferItem = {
+  id:               string
+  brand_variant_id: string
+  item_name:        string
+  sku:              string | null
+  dispatched_qty:   number
+}
+
+export function useCustodyTransferItems(transferId: string | null) {
+  return useQuery({
+    queryKey: ['custody-transfer-items', transferId],
+    enabled: !!transferId,
+    queryFn: async (): Promise<CustodyTransferItem[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('warehouse_transfer_items')
+        .select('id, brand_variant_id, item_name, sku, dispatched_qty, requested_qty')
+        .eq('transfer_id', transferId!)
+        .order('item_name')
+      if (error) throw error
+      return (data ?? []).map((r) => ({
+        id:               r.id as string,
+        brand_variant_id: r.brand_variant_id as string,
+        item_name:        (r.item_name as string) ?? '',
+        sku:              (r.sku as string | null) ?? null,
+        dispatched_qty:   (r.dispatched_qty as number | null) ?? (r.requested_qty as number | null) ?? 0,
+      }))
+    },
+    staleTime: 30 * 1000,
   })
 }

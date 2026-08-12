@@ -8243,6 +8243,7 @@ export type Database = {
         Args: {
           p_accepted_by_name?: string
           p_accepted_by_profile_id?: string
+          p_receipts: Json
           p_transfer_id: string
         }
         Returns: undefined
@@ -8824,6 +8825,16 @@ export type Database = {
         }
         Returns: string
       }
+      rpc_request_warehouse_item: {
+        Args: {
+          p_dest_sub_container_id?: string
+          p_item_name: string
+          p_notes?: string
+          p_qty: number
+          p_warehouse_id: string
+        }
+        Returns: number
+      }
       rpc_return_damaged_from_repair: {
         Args: {
           p_notes?: string
@@ -9255,6 +9266,7 @@ export type Database = {
         | "inventory_receival_new"
         | "damaged_return_from_repair_as_good"
         | "consumption"
+        | "transfer_shrinkage"
       tl_order_type:
         | "order"
         | "site-visit-single"
@@ -9614,6 +9626,7 @@ export const Constants = {
         "inventory_receival_new",
         "damaged_return_from_repair_as_good",
         "consumption",
+        "transfer_shrinkage",
       ],
       tl_order_type: [
         "order",
