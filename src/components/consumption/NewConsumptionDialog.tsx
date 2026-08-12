@@ -854,16 +854,19 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-3">
+        {/* min-w-0 lets this grid item shrink to the modal width instead of
+            forcing the AlertDialogContent grid track wider than max-w-md when a
+            line carries a long item/consumer label. */}
+        <div className="space-y-3 min-w-0">
           {/* Source + consumer summary */}
           <div className="rounded-md border bg-muted/30 p-2.5 text-[11px] space-y-1">
             <div className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground shrink-0">From</span>
-              <span className="font-medium text-right truncate">{srcWhName} — {srcSubName}</span>
+              <span className="font-medium text-right truncate min-w-0">{srcWhName} — {srcSubName}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground shrink-0">Consumer</span>
-              <span className="font-medium text-right truncate">
+              <span className="font-medium text-right truncate min-w-0">
                 {consumerType === 'internal' ? 'Internal use' : `${consumerTypeLabel} — ${consumerLabel ?? ''}`}
               </span>
             </div>
@@ -888,7 +891,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                   l.highShare ? 'border-warning/50 bg-warning/10' : 'bg-card',
                 )}
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">
                     {l.name}{l.brand ? <span className="text-muted-foreground"> — {l.brand}</span> : null}
                   </div>
