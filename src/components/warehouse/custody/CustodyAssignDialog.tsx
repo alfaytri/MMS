@@ -90,19 +90,30 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
     return map
   }, [sourceStock])
 
-  const pickerItems: PickerItem[] = useMemo(
-    () => sourceStock.map((s) => ({
-      id:            s.brand_variant_id,
-      name:          s.item_name ?? '(No name)',
-      brand:         s.brand ?? null,
-      sku:           s.sku ?? null,
-      category:      s.category_name ?? null,
-      qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
-      reorderPoint:  0,
-      imageUrl:      s.image_url ?? null,
-    })),
-    [sourceStock, availableQtyMap],
-  )
+  // Dedupe by brand_variant_id: when no source sub is picked yet (multi-sub
+  // warehouse, e.g. an admin with no single division to auto-pick), sourceStock
+  // holds one row per (sub, variant), so a variant stocked in several subs would
+  // repeat and collide on its React key. availableQtyMap already sums the qty
+  // across subs, so keep the first row per variant with that total.
+  const pickerItems: PickerItem[] = useMemo(() => {
+    const seen = new Set<string>()
+    const out: PickerItem[] = []
+    for (const s of sourceStock) {
+      if (seen.has(s.brand_variant_id)) continue
+      seen.add(s.brand_variant_id)
+      out.push({
+        id:            s.brand_variant_id,
+        name:          s.item_name ?? '(No name)',
+        brand:         s.brand ?? null,
+        sku:           s.sku ?? null,
+        category:      s.category_name ?? null,
+        qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
+        reorderPoint:  0,
+        imageUrl:      s.image_url ?? null,
+      })
+    }
+    return out
+  }, [sourceStock, availableQtyMap])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
@@ -198,17 +209,17 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
 
   return (
     <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
-      <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
-        <DialogHeader className="px-5 pt-5 pb-0">
+      <DialogContent className="flex flex-col overflow-hidden p-0 w-[calc(100vw-1.5rem)] max-h-[88dvh] rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-h-[80vh] sm:max-w-[95vw]">
+        <DialogHeader className="px-4 pt-4 pb-0 sm:px-5 sm:pt-5">
           <DialogTitle className="text-sm font-semibold">
             Request stock for {destKindLabel} — {destSubName}
           </DialogTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="hidden sm:block text-[11px] text-muted-foreground mt-1">
             Submits a request to the source warehouse. Their responsible person confirms the load-out with Dispatch, then the {destKindLabel.toLowerCase()}&apos;s responsible person accepts on delivery.
           </p>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-3 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-3 space-y-3 sm:px-5 sm:pb-5 sm:space-y-4">
           <div className="flex items-end gap-2">
             <div className="flex-1 space-y-1">
               <Label className="text-[11px] text-muted-foreground">Source warehouse</Label>
@@ -411,11 +422,11 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
           </div>
         </div>
 
-        <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()} disabled={assign.isPending}>
+        <DialogFooter className="m-0 px-4 py-2.5 sm:px-5 sm:py-3 border-t bg-muted/30 rounded-b-lg">
+          <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => guardRef.current?.requestClose()} disabled={assign.isPending}>
             Cancel
           </Button>
-          <Button size="sm" className="text-[11px] h-8" disabled={!canSubmit} onClick={handleSubmit}>
+          <Button size="sm" className="text-[11px] h-11 sm:h-8" disabled={!canSubmit} onClick={handleSubmit}>
             {assign.isPending ? 'Submitting…' : 'Submit request'}
           </Button>
         </DialogFooter>

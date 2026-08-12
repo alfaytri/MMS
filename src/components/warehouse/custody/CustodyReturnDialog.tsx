@@ -164,17 +164,17 @@ export function CustodyReturnDialog({
 
   return (
     <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
-      <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
-        <DialogHeader className="px-5 pt-5 pb-0">
+      <DialogContent className="flex flex-col overflow-hidden p-0 w-[calc(100vw-1.5rem)] max-h-[88dvh] rounded-lg sm:w-[42rem] sm:h-[80vh] sm:max-h-[80vh] sm:max-w-[95vw]">
+        <DialogHeader className="px-4 pt-4 pb-0 sm:px-5 sm:pt-5">
           <DialogTitle className="text-sm font-semibold">
             Return from {sourceKindLabel} — {sourceSubName}
           </DialogTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="hidden sm:block text-[11px] text-muted-foreground mt-1">
             Stock leaves the {sourceKindLabel.toLowerCase()} immediately. The destination warehouse team confirms receipt from the standard transfers page.
           </p>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-3 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-3 space-y-3 sm:px-5 sm:pb-5 sm:space-y-4">
           <div className="flex items-end gap-2">
             <div className="flex-1 space-y-1">
               <Label className="text-[11px] text-muted-foreground">Source</Label>
@@ -325,11 +325,11 @@ export function CustodyReturnDialog({
           </div>
         </div>
 
-        <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()} disabled={ret.isPending}>
+        <DialogFooter className="m-0 px-4 py-2.5 sm:px-5 sm:py-3 border-t bg-muted/30 rounded-b-lg">
+          <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => guardRef.current?.requestClose()} disabled={ret.isPending}>
             Cancel
           </Button>
-          <Button size="sm" className="text-[11px] h-8" disabled={!canSubmit} onClick={handleSubmit}>
+          <Button size="sm" className="text-[11px] h-11 sm:h-8" disabled={!canSubmit} onClick={handleSubmit}>
             {ret.isPending ? 'Dispatching…' : `Return to warehouse`}
           </Button>
         </DialogFooter>

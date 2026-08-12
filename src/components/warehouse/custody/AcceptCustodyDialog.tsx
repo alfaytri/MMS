@@ -85,7 +85,7 @@ export function AcceptCustodyDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!accept.isPending) onOpenChange(o) }}>
-      <DialogContent className="w-full sm:max-w-md">
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[90dvh] overflow-y-auto rounded-lg sm:w-full sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-1.5 text-sm">
             <PackageCheck className="h-4 w-4 text-primary" /> Confirm receipt — {transferNumber}
@@ -170,12 +170,12 @@ export function AcceptCustodyDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => onOpenChange(false)} disabled={accept.isPending}>
+          <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => onOpenChange(false)} disabled={accept.isPending}>
             Cancel
           </Button>
           <Button
             size="sm"
-            className="text-[11px] h-8 min-w-[130px]"
+            className="text-[11px] h-11 sm:h-8 w-full sm:w-auto sm:min-w-[130px]"
             disabled={accept.isPending || isLoading || items.length === 0}
             onClick={handleConfirm}
           >

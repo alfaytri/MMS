@@ -200,19 +200,29 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     return map
   }, [sourceStock])
 
-  const pickerItems: PickerItem[] = useMemo(
-    () => sourceStock.map((s) => ({
-      id:            s.brand_variant_id,
-      name:          s.item_name ?? '(No name)',
-      brand:         s.brand ?? null,
-      sku:           s.sku ?? null,
-      category:      s.category_name ?? null,
-      qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
-      reorderPoint:  0,
-      imageUrl:      s.image_url ?? null,
-    })),
-    [sourceStock, availableQtyMap],
-  )
+  // Dedupe by brand_variant_id — the picker is gated on a chosen sub (so stock is
+  // normally single-sub), but stay defensive against a variant appearing in more
+  // than one sub row, which would collide on its React key. availableQtyMap sums
+  // the qty across subs.
+  const pickerItems: PickerItem[] = useMemo(() => {
+    const seen = new Set<string>()
+    const out: PickerItem[] = []
+    for (const s of sourceStock) {
+      if (seen.has(s.brand_variant_id)) continue
+      seen.add(s.brand_variant_id)
+      out.push({
+        id:            s.brand_variant_id,
+        name:          s.item_name ?? '(No name)',
+        brand:         s.brand ?? null,
+        sku:           s.sku ?? null,
+        category:      s.category_name ?? null,
+        qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
+        reorderPoint:  0,
+        imageUrl:      s.image_url ?? null,
+      })
+    }
+    return out
+  }, [sourceStock, availableQtyMap])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
@@ -476,24 +486,28 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
   return (
     <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
-      <DialogContent className="w-full h-full rounded-none sm:rounded-lg sm:w-[46rem] sm:h-[90vh] sm:max-w-[95vw] flex flex-col overflow-hidden p-0">
-        <DialogHeader className="px-5 pt-5 pb-0">
+      {/* Mobile: a content-height compact card (max 88dvh, scrolls) with side
+          margins — not a full-screen sheet with a big empty gap. Desktop keeps
+          the fixed 46rem / 90vh panel. */}
+      <DialogContent className="flex flex-col overflow-hidden p-0 w-[calc(100vw-1.5rem)] max-h-[88dvh] rounded-lg sm:w-[46rem] sm:h-[90vh] sm:max-h-[90vh] sm:max-w-[95vw]">
+        <DialogHeader className="px-4 pt-4 pb-0 sm:px-5 sm:pt-5">
           <DialogTitle className="text-sm font-semibold flex items-center gap-1.5">
             <HandCoins className="h-4 w-4 text-primary" />
             New Consumption
           </DialogTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          {/* Redundant with the amber warning below — hide on phones to save height. */}
+          <p className="hidden sm:block text-[11px] text-muted-foreground mt-1">
             Deducts stock from the source and books COGS to the picked consumer immediately.
           </p>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-3 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-3 space-y-3 sm:px-5 sm:pb-5 sm:space-y-4">
           {/* Amber irreversibility warning */}
           <div className="rounded-md border border-warning/40 bg-warning/10 p-2.5 flex items-start gap-2">
             <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
             <div className="text-[11px] text-warning-foreground leading-snug">
               <span className="font-medium">Posting a consumption immediately deducts stock and books COGS.</span>{' '}
-              This is not reversible without a manual cancellation.
+              <span className="hidden sm:inline">This is not reversible without a manual cancellation.</span>
             </div>
           </div>
 
@@ -504,7 +518,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             <div className="rounded-md border bg-muted/30 px-3 py-2.5 text-[11px]">
               <span className="text-muted-foreground">Consuming from </span>
               <span className="font-medium text-foreground">{presetSource?.subContainerName}</span>
-              <span className="text-muted-foreground"> — stock held by this custody location, booked back to it.</span>
+              <span className="hidden sm:inline text-muted-foreground"> — stock held by this custody location, booked back to it.</span>
             </div>
           )}
           {!sourceLocked && (<>
@@ -779,7 +793,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
                 <Paperclip className="h-3 w-3" /> Attachments
               </Label>
-              <span className="text-[10px] text-muted-foreground">Max 10 MB per file</span>
+              <span className="hidden sm:inline text-[10px] text-muted-foreground">Max 10 MB per file</span>
             </div>
             <input
               ref={fileInputRef}
@@ -819,19 +833,19 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
           </div>
         </div>
 
-        <DialogFooter className="m-0 px-5 py-3 border-t bg-muted/30 rounded-b-lg gap-2 sm:gap-2 flex-row items-center justify-between sm:justify-between">
-          <div className="text-[10px] text-muted-foreground">
+        <DialogFooter className="m-0 px-4 py-2.5 sm:px-5 sm:py-3 border-t bg-muted/30 rounded-b-lg gap-2 sm:gap-2 flex-row items-center justify-between sm:justify-between">
+          <div className="hidden sm:block text-[10px] text-muted-foreground">
             {canOpenConfirm ? (
               <span className="text-success">Ready to review</span>
             ) : (
               <span>Fill required fields</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardedOnOpenChange(false)} disabled={post.isPending}>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => guardedOnOpenChange(false)} disabled={post.isPending}>
               Cancel
             </Button>
-            <Button size="sm" className="text-[11px] h-8 min-w-[130px]" disabled={!canOpenConfirm} onClick={openConfirm}>
+            <Button size="sm" className="text-[11px] h-11 sm:h-8 min-w-[130px]" disabled={!canOpenConfirm} onClick={openConfirm}>
               Review &amp; Post
             </Button>
           </div>
@@ -843,7 +857,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     {/* Two-step confirm: highlight exactly what's about to be consumed, then
         hold a 3-second cooldown on the confirm button before the post fires. */}
     <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!post.isPending) setConfirmOpen(o) }}>
-      <AlertDialogContent className="max-w-md">
+      <AlertDialogContent className="max-w-md w-[calc(100vw-1.5rem)] max-h-[90dvh] overflow-y-auto rounded-lg p-4 gap-3 sm:w-full sm:p-6 sm:gap-4">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-1.5 text-sm">
             <HandCoins className="h-4 w-4 text-primary" />
@@ -936,9 +950,9 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={post.isPending} className="h-8 text-[11px]">Back</AlertDialogCancel>
+          <AlertDialogCancel disabled={post.isPending} className="h-11 sm:h-8 text-[11px]">Back</AlertDialogCancel>
           <Button
-            className="h-8 text-[11px] min-w-[150px]"
+            className="h-11 sm:h-8 text-[11px] w-full sm:w-auto sm:min-w-[150px]"
             disabled={cooldownRemaining > 0 || post.isPending}
             onClick={handleSubmit}
           >
