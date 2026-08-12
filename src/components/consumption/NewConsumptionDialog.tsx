@@ -497,17 +497,24 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             </div>
           </div>
 
+          {/* Opened from a Custody card: the source (this location) and consumer
+              (the same location) are fixed — show a one-line summary instead of the
+              pickers. The /consumption header (no presetSource) keeps the pickers. */}
+          {sourceLocked && (
+            <div className="rounded-md border bg-muted/30 px-3 py-2.5 text-[11px]">
+              <span className="text-muted-foreground">Consuming from </span>
+              <span className="font-medium text-foreground">{presetSource?.subContainerName}</span>
+              <span className="text-muted-foreground"> — stock held by this custody location, booked back to it.</span>
+            </div>
+          )}
+          {!sourceLocked && (<>
           {/* Source */}
           <div className="space-y-2">
             <Label className="text-[11px] font-medium">Source</Label>
             <div className="flex items-end gap-2">
               <div className="flex-1 space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Warehouse</Label>
-                {sourceLocked ? (
-                  <div className="h-9 flex items-center rounded-md border bg-muted/40 px-2.5 text-xs font-medium truncate">
-                    {srcWarehouses.find((w) => w.id === srcWhId)?.name ?? 'Warehouse'}
-                  </div>
-                ) : srcWarehouses.length === 0 ? (
+                {srcWarehouses.length === 0 ? (
                   <div className="h-9 flex items-center rounded-md border border-destructive/40 bg-destructive/5 px-2.5 text-[11px] italic text-destructive">
                     No warehouses assigned to you
                   </div>
@@ -531,11 +538,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               </div>
               <div className="flex-1 space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Sub-container</Label>
-                {sourceLocked ? (
-                  <div className="h-9 flex items-center rounded-md border bg-muted/40 px-2.5 text-xs font-medium truncate">
-                    {presetSource?.subContainerName ?? '—'}
-                  </div>
-                ) : !srcWhId ? (
+                {!srcWhId ? (
                   <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] text-muted-foreground italic">
                     Pick warehouse first
                   </div>
@@ -628,6 +631,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               )}
             </div>
           </div>
+          </>)}
 
           {/* Lines */}
           <div className="space-y-2">

@@ -21,6 +21,7 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useCreateCustodyAssign } from '@/hooks/useCustodyMoves'
 
 interface Props {
@@ -56,13 +57,23 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
   const { data: fromSubs = [] } = useWarehouseSubContainers(fromWhId || null)
   const eligibleFromSubs = useMemo(() => fromSubs.filter((s) => s.is_active), [fromSubs])
 
-  // Auto-pick source sub when only one exists.
+  // A single-division requester takes from their own division's shelf in the chosen
+  // warehouse — auto-pick that sub so they don't have to (and don't get) a choice.
+  const { isSuperViewer, userDivisionIds } = useUserDivisionScope()
+  const singleDivisionId = !isSuperViewer && userDivisionIds.length === 1 ? userDivisionIds[0] : null
+  const divisionMatchedSub = useMemo(
+    () => (singleDivisionId ? eligibleFromSubs.find((s) => s.division_id === singleDivisionId) ?? null : null),
+    [singleDivisionId, eligibleFromSubs],
+  )
+
+  // Auto-pick: prefer the requester's-division sub, then a lone sub; otherwise the picker.
   useEffect(() => {
-    if (eligibleFromSubs.length === 1) setFromSubId(eligibleFromSubs[0].id)
-    else if (eligibleFromSubs.length === 0) setFromSubId(null)
-    else if (fromSubId && !eligibleFromSubs.some((s) => s.id === fromSubId)) setFromSubId(null)
+    if (eligibleFromSubs.length === 0) { setFromSubId(null); return }
+    if (divisionMatchedSub) { setFromSubId(divisionMatchedSub.id); return }
+    if (eligibleFromSubs.length === 1) { setFromSubId(eligibleFromSubs[0].id); return }
+    if (fromSubId && !eligibleFromSubs.some((s) => s.id === fromSubId)) setFromSubId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromWhId, eligibleFromSubs.length])
+  }, [fromWhId, eligibleFromSubs.length, divisionMatchedSub?.id])
 
   // Source stock scoped to (warehouse, sub). Uses the D.5 view arg.
   const { data: sourceStock = [] } = useWarehouseStock(fromWhId || undefined, fromSubId)
@@ -205,6 +216,11 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
               </span>
               {eligibleFromSubs.length === 0 ? (
                 <span className="italic text-destructive">No active sub-container in this warehouse.</span>
+              ) : divisionMatchedSub ? (
+                <>
+                  <span className="font-medium text-foreground truncate max-w-[420px]">{divisionMatchedSub.name}</span>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">Your division</Badge>
+                </>
               ) : eligibleFromSubs.length === 1 ? (
                 <>
                   <span className="font-medium text-foreground truncate max-w-[420px]">{eligibleFromSubs[0].name}</span>
