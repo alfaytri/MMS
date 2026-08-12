@@ -366,6 +366,7 @@ export function CascadeInventorySelector({
         category_name:    selectedCategory.name_en,
         category_name_ar: selectedCategory.name_ar ?? null,
         brand:            variant.brand,
+        po_specification_default: selectedItem.po_specification_default ?? false,
       })
       return
     }
@@ -385,6 +386,7 @@ export function CascadeInventorySelector({
         category_name:    selectedCategory.name_en,
         category_name_ar: selectedCategory.name_ar ?? null,
         brand:            variant.brand,
+        po_specification_default: selectedItem.po_specification_default ?? false,
       })
     } finally {
       setIsPriceLoading(false)

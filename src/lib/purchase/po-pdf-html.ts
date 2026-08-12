@@ -34,6 +34,10 @@ export interface PoLineItem {
   unit:              string
   unit_price:        number
   total_price:       number
+  /** Per-line flag: whether to show the spec on this PO (set at PO creation). */
+  show_specification?: boolean
+  /** Resolved item specification text — present only when it should print. */
+  specification?:    string | null
 }
 
 export interface PoPayment {
@@ -138,6 +142,9 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
     const skuHtml = li.sku
       ? `<div class="item-sku">${escapeHtml(li.sku)}</div>`
       : ''
+    const specHtml = li.specification && li.specification.trim()
+      ? `<div class="item-spec">${escapeHtml(li.specification).replace(/\n/g, '<br>')}</div>`
+      : ''
 
     const unitPriceCell = isRfq ? RFQ_BLANK : escapeHtml(fmtMoney(li.unit_price, currency))
     const totalCell     = isRfq ? RFQ_BLANK : escapeHtml(fmtMoney(li.total_price, currency))
@@ -148,6 +155,7 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
           <div class="item-name">${escapeHtml(li.item_name)}</div>
           ${nameArHtml}
           ${skuHtml}
+          ${specHtml}
         </td>
         <td class="cell-num">${escapeHtml(li.unit)}</td>
         <td class="cell-num">${li.qty}</td>
@@ -281,6 +289,12 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
 <style>
   ${fontFacesCss(fonts)}
   ${BASE_CSS}
+
+  /* ─── PO-specific: item specification (Inventory + Purchasing only) ─── */
+  table.lines td.cell-item .item-spec {
+    font-family: 'IBMPlexSans', sans-serif; font-size: 7.5px; color: var(--muted);
+    margin-top: 2px; line-height: 1.35; white-space: normal;
+  }
 
   /* ─── PO-specific: payments table ─── */
   .payments-wrap { flex: 1; }

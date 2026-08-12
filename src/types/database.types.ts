@@ -2822,9 +2822,11 @@ export type Database = {
           linked_services_count: number | null
           name_ar: string | null
           name_en: string
+          po_specification_default: boolean
           shared_with_division_ids: string[]
           sku: string
           sort_order: number
+          specification: string | null
           status: string
           total_stock: number | null
           unit: string
@@ -2842,9 +2844,11 @@ export type Database = {
           linked_services_count?: number | null
           name_ar?: string | null
           name_en: string
+          po_specification_default?: boolean
           shared_with_division_ids?: string[]
           sku: string
           sort_order?: number
+          specification?: string | null
           status?: string
           total_stock?: number | null
           unit: string
@@ -2862,9 +2866,11 @@ export type Database = {
           linked_services_count?: number | null
           name_ar?: string | null
           name_en?: string
+          po_specification_default?: boolean
           shared_with_division_ids?: string[]
           sku?: string
           sort_order?: number
+          specification?: string | null
           status?: string
           total_stock?: number | null
           unit?: string
@@ -3849,6 +3855,7 @@ export type Database = {
           po_id: string
           qty: number
           received_qty: number | null
+          show_specification: boolean
           sku: string | null
           total_price: number
           unit: string
@@ -3865,6 +3872,7 @@ export type Database = {
           po_id: string
           qty: number
           received_qty?: number | null
+          show_specification?: boolean
           sku?: string | null
           total_price: number
           unit: string
@@ -3881,6 +3889,7 @@ export type Database = {
           po_id?: string
           qty?: number
           received_qty?: number | null
+          show_specification?: boolean
           sku?: string | null
           total_price?: number
           unit?: string
@@ -4201,6 +4210,7 @@ export type Database = {
           po_type: Database["public"]["Enums"]["po_type"]
           quote_deadline: string | null
           rfq_supplier_ids: string[] | null
+          show_specifications: boolean
           status: Database["public"]["Enums"]["po_status"] | null
           subtotal: number | null
           supplier_id: string | null
@@ -4245,6 +4255,7 @@ export type Database = {
           po_type?: Database["public"]["Enums"]["po_type"]
           quote_deadline?: string | null
           rfq_supplier_ids?: string[] | null
+          show_specifications?: boolean
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
           supplier_id?: string | null
@@ -4289,6 +4300,7 @@ export type Database = {
           po_type?: Database["public"]["Enums"]["po_type"]
           quote_deadline?: string | null
           rfq_supplier_ids?: string[] | null
+          show_specifications?: boolean
           status?: Database["public"]["Enums"]["po_status"] | null
           subtotal?: number | null
           supplier_id?: string | null

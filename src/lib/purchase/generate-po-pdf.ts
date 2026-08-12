@@ -35,6 +35,37 @@ async function hydratePoArabic(
   }))
 }
 
+/**
+ * Resolve each line's item specification (brand_variant → item → specification),
+ * but ONLY for lines flagged show_specification while the PO master switch is on.
+ * Everything else gets specification=null so the PDF prints nothing for it.
+ */
+async function hydratePoSpecs(
+  client: SupabaseClient,
+  lines:  PoLineItem[],
+  master: boolean,
+): Promise<PoLineItem[]> {
+  if (!master) return lines.map((l) => ({ ...l, specification: null }))
+  const shownIds = lines
+    .filter((l) => l.show_specification && l.brand_variant_id)
+    .map((l) => l.brand_variant_id as string)
+  if (shownIds.length === 0) return lines.map((l) => ({ ...l, specification: null }))
+  const { data } = await client
+    .from('inventory_item_brand_variants')
+    .select('id, inventory_items(specification)')
+    .in('id', shownIds)
+  const map = new Map<string, string | null>()
+  type SpecRow = { id: string; inventory_items: { specification: string | null } | { specification: string | null }[] | null }
+  for (const r of (data ?? []) as unknown as SpecRow[]) {
+    const item = Array.isArray(r.inventory_items) ? r.inventory_items[0] : r.inventory_items
+    map.set(r.id, item?.specification ?? null)
+  }
+  return lines.map((l) => ({
+    ...l,
+    specification: l.show_specification && l.brand_variant_id ? map.get(l.brand_variant_id) ?? null : null,
+  }))
+}
+
 /** Hash format: "count:totalPaid" — cheap, deterministic, catches any payment change. */
 function computePaymentHash(payments: PoPayment[]): string {
   const total = payments.reduce((s, p) => s + p.amount, 0)
@@ -70,6 +101,7 @@ interface PoRow {
   pdf_po_url:        string | null
   pdf_confirmed_url: string | null
   pdf_payment_hash:  string | null
+  show_specifications: boolean | null
   po_line_items:     PoLineItem[] | null
 }
 
@@ -118,9 +150,9 @@ export async function generatePoPdf(
       id, po_number, status, currency, subtotal, total_qar,
       discount_amount, created_date, expected_delivery,
       supplier_name, supplier_id, division_id, payment_terms, delivery_terms,
-      quote_deadline, vendor_notes,
+      quote_deadline, vendor_notes, show_specifications,
       pdf_rfq_url, pdf_draft_url, pdf_po_url, pdf_confirmed_url, pdf_payment_hash,
-      po_line_items(item_name, sku, qty, unit, unit_price, total_price, brand_variant_id)
+      po_line_items(item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, show_specification)
     `)
     .eq('id', poUuid)
     .single<PoRow>()
@@ -222,7 +254,7 @@ export async function generatePoPdf(
     supplier_phone:    supplierPhone,
     rfq_number:        rfqNumber,
     status:            po.status,
-    lines:             await hydratePoArabic(supabase, po.po_line_items ?? []),
+    lines:             await hydratePoSpecs(supabase, await hydratePoArabic(supabase, po.po_line_items ?? []), po.show_specifications ?? true),
     subtotal:          subtotalOriginal,
     discount_amount:   discountOriginal,
     total_qar:         totalOriginal,     // H5: field name kept for schema compat; value now in original currency

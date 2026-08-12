@@ -32,6 +32,8 @@ export type InventoryLookupResult = {
   category_name:    string | null
   category_name_ar: string | null
   brand:            string | null
+  /** The item's default for showing its spec on a PO line — seeds the per-line toggle. */
+  po_specification_default?: boolean
 }
 
 export type POStatus =
@@ -189,6 +191,8 @@ export type POLineItemDraft = {
   free_qty: number
   received_qty?: number
   brand_id?: string | null
+  /** Show this line's item specification on the PO / PO PDF (default false; seeded from the item's po_specification_default). */
+  show_specification?: boolean
 }
 
 export type CreatePOPayload = {
@@ -210,6 +214,8 @@ export type CreatePOPayload = {
   division_id: string | null
   po_type?: POType
   rfq_supplier_ids?: string[]
+  /** Per-PO master switch: include item specifications on this PO (default true). */
+  show_specifications?: boolean
 }
 
 export type UpdatePOPayload = Partial<CreatePOPayload> & { id: string }

@@ -20,6 +20,7 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
 import { PoLineItemsEditor, type LineItemRow } from '@/components/purchase/PoLineItemsEditor'
+import { Checkbox } from '@/components/ui/checkbox'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { useCreatePO, useSubmitPOForApproval, type CreatePOPayload } from '@/hooks/usePurchaseOrders'
@@ -76,6 +77,8 @@ export default function CreatePOPage() {
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountLabel, setDiscountLabel] = useState('')
   const [isPriceLoading, setIsPriceLoading] = useState(false)
+  // Per-PO master switch: include item specifications on this PO (default on).
+  const [showSpecifications, setShowSpecifications] = useState(true)
 
   const companiesWithDivisions = useMemo(() => {
     const map = new Map<string, { companyName: string; items: typeof divisions }>()
@@ -129,11 +132,13 @@ export default function CreatePOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty }) => ({
+      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty, show_specification }) => ({
         item_name: item_name.trim(),
         sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty,
+        show_specification: show_specification ?? false,
       })),
       division_id: divisionId || null,
+      show_specifications: showSpecifications,
     }
   }
 
@@ -407,6 +412,10 @@ export default function CreatePOPage() {
             <Badge variant="outline" className="text-[9px]">
               {validCount} valid
             </Badge>
+            <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox checked={showSpecifications} onCheckedChange={(v) => setShowSpecifications(v !== false)} />
+              <span className="text-[11px] text-muted-foreground">Include specifications on this PO</span>
+            </label>
           </div>
           <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} onPriceLoading={setIsPriceLoading} />
         </section>

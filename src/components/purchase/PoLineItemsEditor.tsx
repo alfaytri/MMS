@@ -4,6 +4,7 @@ import { Trash2, Plus, ShoppingBag, Cog, Droplets, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { CascadeInventorySelector } from './CascadeInventorySelector'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
@@ -67,6 +68,7 @@ function makeRow(line_type: LineType): LineItemRow {
     total_price: 0,
     brand_variant_id: null,
     free_qty: 0,
+    show_specification: false,
   }
 }
 
@@ -113,7 +115,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
 
   function handleInventorySelect(key: string, item: InventoryLookupResult | null) {
     if (!item) {
-      updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, brand_variant_id: null, _system_name: undefined })
+      updateRow(key, { item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0, brand_variant_id: null, _system_name: undefined, show_specification: false })
       return
     }
     const existingRow = value.find((r) => r._key === key)
@@ -126,6 +128,8 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
       unit_price:         item.cost_price,
       total_price:        item.cost_price,
       brand_variant_id:   item.brand_variant_id,
+      // Seed the per-line "show spec on PO" toggle from the item's default.
+      show_specification: item.po_specification_default ?? false,
     })
   }
 
@@ -311,6 +315,16 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                         </div>
                       </div>
                     </div>
+                    {row.brand_variant_id && (
+                      <label className="mt-2 flex w-fit items-center gap-2 cursor-pointer select-none">
+                        <Checkbox
+                          checked={row.show_specification ?? false}
+                          disabled={readOnly}
+                          onCheckedChange={(v) => updateRow(row._key, { show_specification: v === true })}
+                        />
+                        <span className="text-[11px] text-muted-foreground">Show specification on this PO</span>
+                      </label>
+                    )}
                   </div>
                 )
               })}

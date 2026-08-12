@@ -145,6 +145,7 @@ export default function EditPOPage() {
           total_price: li.total_price,
           brand_variant_id: li.brand_variant_id,
           free_qty: li.free_qty,
+          show_specification: (li as { show_specification?: boolean }).show_specification ?? false,
           line_type,
         }
       })
@@ -196,9 +197,10 @@ export default function EditPOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty }) => ({
+      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty, show_specification }) => ({
         item_name: item_name.trim(),
         sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty,
+        show_specification: show_specification ?? false,
       })),
       division_id: po?.division_id ?? null,
     }

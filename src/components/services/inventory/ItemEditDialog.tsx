@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -45,6 +46,10 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const [sku, setSku] = useState('')
   const [unit, setUnit] = useState('Piece')
   const [warrantyPolicyId, setWarrantyPolicyId] = useState<string | null>(null)
+  // Specification — an Inventory + Purchasing detail (never shown in Sales).
+  // poSpecDefault = whether the spec shows on a PO line by default (default off).
+  const [specification, setSpecification] = useState('')
+  const [poSpecDefault, setPoSpecDefault] = useState(false)
   const [attrValues, setAttrValues] = useState<Array<{ definition_id: string; option_id: string | null }>>([])
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -67,6 +72,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       setSku(item?.sku ?? '')
       setUnit(item?.unit ?? 'Piece')
       setWarrantyPolicyId(item?.warranty_policy_id ?? null)
+      setSpecification((item as unknown as { specification?: string | null } | null | undefined)?.specification ?? '')
+      setPoSpecDefault((item as unknown as { po_specification_default?: boolean } | null | undefined)?.po_specification_default ?? false)
       setAttrValues([])
       setImageUrl((item as unknown as { image_url?: string | null } | null | undefined)?.image_url ?? null)
       setUploading(false)
@@ -143,6 +150,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         sku !== (item.sku ?? '') ||
         unit !== (item.unit ?? 'Piece') ||
         warrantyPolicyId !== (item?.warranty_policy_id ?? null) ||
+        specification !== ((item as unknown as { specification?: string | null }).specification ?? '') ||
+        poSpecDefault !== ((item as unknown as { po_specification_default?: boolean }).po_specification_default ?? false) ||
         imageUrl !== ((item as unknown as { image_url?: string | null }).image_url ?? null) ||
         attrValues.length > 0 ||
         JSON.stringify(sharedWith.slice().sort()) !==
@@ -156,6 +165,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         nameAr.trim() !== '' ||
         sku.trim() !== '' ||
         unit !== 'Piece' ||
+        specification.trim() !== '' ||
+        poSpecDefault ||
         imageUrl !== null ||
         attrValues.length > 0 ||
         sharedWith.length > 0
@@ -195,6 +206,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       image_url: imageUrl,
       shared_with_division_ids: sharedWith,
       warranty_policy_id: warrantyPolicyId,
+      specification: specification.trim() || null,
+      po_specification_default: poSpecDefault,
     }
 
     try {
@@ -299,6 +312,23 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
           <div className="space-y-1">
             <Label htmlFor="item-type">Item Type</Label>
             <Input id="item-type" value={categoryType} disabled className="bg-muted text-muted-foreground capitalize" />
+          </div>
+
+          {/* Specification — an Inventory + Purchasing detail; never shown on sales documents. */}
+          <div className="space-y-1.5">
+            <Label htmlFor="item-specification">Specification</Label>
+            <Textarea
+              id="item-specification"
+              value={specification}
+              onChange={(e) => setSpecification(e.target.value)}
+              rows={3}
+              placeholder="Detailed specs — model, ratings, dimensions, material… (can be shown on POs; never on sales documents)"
+              className="text-sm resize-y"
+            />
+            <label className="flex items-center gap-2 pt-0.5 cursor-pointer select-none">
+              <Checkbox checked={poSpecDefault} onCheckedChange={(v) => setPoSpecDefault(v === true)} />
+              <span className="text-[11px] text-muted-foreground">Show this specification on purchase orders by default</span>
+            </label>
           </div>
 
           {/* Warranty policy override */}

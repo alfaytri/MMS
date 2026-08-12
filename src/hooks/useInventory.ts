@@ -57,7 +57,7 @@ export function useInventoryItems(categoryType?: string) {
       const supabase = createClient()
       let query = supabase
         .from('inventory_items')
-        .select('id, category_id, name_en, name_ar, sku, unit, cost_price, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
+        .select('id, category_id, name_en, name_ar, sku, unit, cost_price, po_specification_default, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
         .eq('status', 'active')
         .order('name_en')
 
