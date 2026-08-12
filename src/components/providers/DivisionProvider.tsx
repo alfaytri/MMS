@@ -15,7 +15,6 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useDivisions, type Division } from '@/hooks/useDivisions'
-import { queryKeys } from '@/lib/queryKeys'
 
 const VIEW_KEY = 'mms:view_division_ids'
 
@@ -93,6 +92,15 @@ function writeViewToStorage(ids: Set<string>): void {
   }
 }
 
+/** Race a promise against a timeout so a stalled network/auth call can never
+ *  hang the caller. Rejects with a timeout error once `ms` elapses. */
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise as Promise<T>,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms)),
+  ])
+}
+
 export function DivisionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const { isSuperViewer, userDivisionIds } = useUserDivisionScope()
@@ -164,23 +172,32 @@ export function DivisionProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     ;(async () => {
       setIsSwitching(true)
+      const supabase = createClient()
       try {
-        const supabase = createClient()
-        const { error } = await supabase.rpc('set_active_division', {
-          p_division_id: activeDivisionId as unknown as string,
-        })
+        // The ONLY step the switcher must wait on: persist the server-side
+        // scope. Timeout-guarded so a stalled network/auth call can never lock
+        // the control (a bare await here hung the switcher indefinitely on
+        // new-prod, 2026-08-12).
+        const { error } = await withTimeout(
+          supabase.rpc('set_active_division', { p_division_id: activeDivisionId as unknown as string }),
+          10000,
+        )
         if (error) throw error
-        const { error: refreshError } = await supabase.auth.refreshSession()
-        if (refreshError) throw refreshError
         if (cancelled) return
         setServerActiveId(activeDivisionId)
-        await queryClient.invalidateQueries({ queryKey: queryKeys.userDivisionScope.jwtClaims })
-        await queryClient.invalidateQueries()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to switch division')
-      } finally {
         if (!cancelled) setIsSwitching(false)
+        return
       }
+      // Release the switcher immediately — the client-side view filter already
+      // reacts to `viewDivisionIds`. Refresh the JWT (so server-side RLS narrows
+      // in other modules) and re-fetch lists in the BACKGROUND; never block the
+      // UI on them, and never let them hang the control.
+      if (!cancelled) setIsSwitching(false)
+      void withTimeout(supabase.auth.refreshSession(), 10000)
+        .then(() => queryClient.invalidateQueries())
+        .catch(() => { /* best-effort; next natural token refresh reconciles the claim */ })
     })()
     return () => { cancelled = true }
   }, [isReady, activeDivisionId, serverActiveId, queryClient])
