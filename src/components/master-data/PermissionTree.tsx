@@ -478,6 +478,7 @@ export const NAV_TREE: TreeNode[] = [
           { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants all three consumer types. Prefer the three narrower keys below when you want to restrict.' },
           { key: 'consumption.create.custody',  label: 'Create Custody Consumption',  description: 'Post consumption entries with a Custody consumer (team / project / site)' },
           { key: 'consumption.create.internal', label: 'Create Internal Consumption', description: 'Post consumption entries with an Internal (own-use) consumer' },
+          { key: 'consumption.cross_division',  label: 'Book Consumption Cross-Division', description: 'Book a consumption to a custody location in ANY division (not just your own). Financial-oversight grant — Owner / Accountant by default. Enforced server-side.' },
           { key: 'consumption.cancel',          label: 'Cancel Consumption',          description: 'Cancel a posted consumption or approve a cancellation request (acts as .edit for this surface)' },
         ],
       },
