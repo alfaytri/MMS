@@ -214,3 +214,31 @@ export function useCreateCustodyReturn() {
     },
   })
 }
+
+// ─── 6. Mutation — request an item the warehouse doesn't stock (notify RP) ─
+// Fires an in-app notification to every responsible person of the source
+// warehouse. No stock moves — it's a "please buy this" signal. Returns the
+// number of people notified.
+export function useRequestWarehouseItem() {
+  return useMutation({
+    mutationFn: async (payload: {
+      warehouse_id:            string
+      item_name:               string
+      qty:                     number
+      dest_sub_container_id?:  string | null
+      notes?:                  string | null
+    }) => {
+      const supabase = createClient()
+      // Cast the name/args — this RPC is typed after the next `gen types` run.
+      const { data, error } = await supabase.rpc('rpc_request_warehouse_item' as never, {
+        p_warehouse_id:          payload.warehouse_id,
+        p_item_name:             payload.item_name,
+        p_qty:                   payload.qty,
+        p_dest_sub_container_id: payload.dest_sub_container_id ?? null,
+        p_notes:                 payload.notes ?? null,
+      } as never)
+      if (error) throw new Error(error.message)
+      return data as unknown as number
+    },
+  })
+}

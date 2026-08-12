@@ -22,7 +22,7 @@ import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
-import { useCreateCustodyAssign } from '@/hooks/useCustodyMoves'
+import { useCreateCustodyAssign, useRequestWarehouseItem } from '@/hooks/useCustodyMoves'
 
 interface Props {
   open:            boolean
@@ -48,11 +48,15 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
   const [rows, setRows]                               = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
   const [notes, setNotes]                             = useState('')
   const [openPickerIdx, setOpenPickerIdx]             = useState<number | null>(null)
+  const [itemReqName, setItemReqName]                 = useState('')
+  const [itemReqQty,  setItemReqQty]                  = useState('')
   const guardRef                                       = useRef<GuardedFormDialogHandle>(null)
 
   const isDirty = fromWhId !== '' || notes.trim() !== '' || rows.some((r) => r.brand_variant_id !== '' || r.qty !== '')
+    || itemReqName.trim() !== '' || itemReqQty !== ''
 
   const assign = useCreateCustodyAssign()
+  const requestItem = useRequestWarehouseItem()
 
   const { data: fromSubs = [] } = useWarehouseSubContainers(fromWhId || null)
   const eligibleFromSubs = useMemo(() => fromSubs.filter((s) => s.is_active), [fromSubs])
@@ -110,6 +114,8 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
       setRows([{ brand_variant_id: '', qty: '' }])
       setNotes('')
       setOpenPickerIdx(null)
+      setItemReqName('')
+      setItemReqQty('')
     }
   }, [open])
 
@@ -167,6 +173,26 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
       guardRef.current?.closeAfterSubmit()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create custody assign')
+    }
+  }
+
+  const canRequestItem = !!fromWhId && itemReqName.trim() !== '' && parseInt(itemReqQty, 10) > 0 && !requestItem.isPending
+  async function handleRequestItem() {
+    if (!canRequestItem) return
+    try {
+      const n = await requestItem.mutateAsync({
+        warehouse_id:          fromWhId,
+        item_name:             itemReqName.trim(),
+        qty:                   parseInt(itemReqQty, 10),
+        dest_sub_container_id: destSubId,
+        notes:                 notes.trim() || null,
+      })
+      const whName = warehouses.find((w) => w.id === fromWhId)?.name ?? 'the warehouse'
+      toast.success(`Request sent to ${whName}${n > 1 ? ` (${n} people)` : ''} — they'll be notified to buy it.`)
+      setItemReqName('')
+      setItemReqQty('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send item request')
     }
   }
 
@@ -335,6 +361,44 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
               </div>
             )}
           </div>
+
+          {fromWhId && (
+            <div className="rounded-md border border-dashed p-2.5 space-y-2">
+              <div>
+                <Label className="text-[11px] font-medium">Need an item that isn&apos;t stocked here?</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Sends a request to {warehouses.find((w) => w.id === fromWhId)?.name ?? 'the warehouse'}&apos;s responsible person to buy it — no stock moves.
+                </p>
+              </div>
+              <Input
+                value={itemReqName}
+                onChange={(e) => setItemReqName(e.target.value)}
+                placeholder="Item name (e.g. R410A gauge set)"
+                className="h-8 text-[11px]"
+              />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  value={itemReqQty}
+                  onChange={(e) => setItemReqQty(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="Qty"
+                  className="h-8 w-[80px] text-[11px]"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[11px]"
+                  disabled={!canRequestItem}
+                  onClick={handleRequestItem}
+                >
+                  {requestItem.isPending ? 'Sending…' : 'Send request'}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Notes</Label>
