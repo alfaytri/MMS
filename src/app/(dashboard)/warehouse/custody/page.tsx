@@ -302,7 +302,7 @@ function CustodyCard({
   }
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm flex flex-col min-h-[10rem]">
+    <div className="rounded-lg border bg-card shadow-sm flex flex-col min-h-[10rem] min-w-0 overflow-hidden">
       {/* Header */}
       <div className="px-4 pt-3 pb-2 space-y-1.5">
         <div className="flex items-start justify-between gap-2">
@@ -357,18 +357,18 @@ function CustodyCard({
             const dispatchOk   = isRequest   && canDispatch(p.from_warehouse_id)
             const acceptOk     = isInTransit && canAccept
             return (
-              <div key={p.transfer_id} className="flex items-center justify-between gap-2 text-[11px]">
+              <div key={p.transfer_id} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2 text-[11px]">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium truncate">{p.transfer_number}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-medium break-all">{p.transfer_number}</span>
                     <Badge
                       variant="outline"
-                      className={`text-[9px] h-4 px-1 font-normal ${isRequest ? 'border-amber-500/40 text-amber-700 bg-amber-500/10' : 'border-blue-500/40 text-blue-700 bg-blue-500/10'}`}
+                      className={`text-[9px] h-4 px-1 font-normal shrink-0 ${isRequest ? 'border-amber-500/40 text-amber-700 bg-amber-500/10' : 'border-blue-500/40 text-blue-700 bg-blue-500/10'}`}
                     >
                       {isRequest ? 'Awaiting dispatch' : 'In transit'}
                     </Badge>
                   </div>
-                  <div className="text-[10px] text-muted-foreground truncate">
+                  <div className="text-[10px] text-muted-foreground break-words">
                     From {p.from_warehouse_name ?? 'warehouse'} · {p.item_count} item{p.item_count === 1 ? '' : 's'} · {p.total_qty} units
                   </div>
                 </div>
@@ -376,7 +376,7 @@ function CustodyCard({
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="h-11 sm:h-6 text-[10px] gap-1 shrink-0"
+                    className="h-11 sm:h-6 text-[10px] gap-1 w-full sm:w-auto justify-center shrink-0"
                     onClick={() => handleDispatch(p)}
                     disabled={dispatch.isPending}
                   >
@@ -387,14 +387,14 @@ function CustodyCard({
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="h-11 sm:h-6 text-[10px] gap-1 shrink-0"
+                    className="h-11 sm:h-6 text-[10px] gap-1 w-full sm:w-auto justify-center shrink-0"
                     onClick={() => setAcceptRow(p)}
                   >
                     <PackageCheck className="h-3 w-3" />
                     Accept
                   </Button>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground italic shrink-0">
+                  <span className="text-[10px] text-muted-foreground italic sm:shrink-0 sm:text-right">
                     {isRequest
                       ? `Awaiting ${p.from_warehouse_name ?? 'warehouse'} team`
                       : `Awaiting ${sub.responsible_person_name ?? 'custodian'}`}
@@ -418,16 +418,16 @@ function CustodyCard({
             {expanded ? 'Hide items' : 'Show items'}
           </button>
           {expanded && (
-            <div className="px-4 py-2 space-y-1 max-h-48 overflow-y-auto">
+            <div className="px-4 py-2 space-y-2 max-h-48 overflow-y-auto">
               {stockRows.map((r) => (
-                <div key={r.brand_variant_id} className="flex items-center justify-between gap-2 text-[11px]">
+                <div key={r.brand_variant_id} className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2 text-[11px]">
                   <div className="min-w-0">
-                    <div className="font-medium truncate">{r.item_name}</div>
-                    {r.brand && <div className="text-[10px] text-muted-foreground truncate">{r.brand}{r.sku ? ` · ${r.sku}` : ''}</div>}
+                    <div className="font-medium break-words">{r.item_name}</div>
+                    {r.brand && <div className="text-[10px] text-muted-foreground break-words">{r.brand}{r.sku ? ` · ${r.sku}` : ''}</div>}
                   </div>
-                  <div className="text-right tabular-nums text-[11px] shrink-0">
-                    <div>{r.qty} {r.unit}</div>
-                    <div className="text-[10px] text-muted-foreground">{QAR.format(r.total_value ?? 0)}</div>
+                  <div className="flex items-baseline gap-1.5 tabular-nums text-[11px] shrink-0 sm:flex-col sm:items-end sm:gap-0 sm:text-right">
+                    <span className="text-foreground">{r.qty} {r.unit}</span>
+                    <span className="text-[10px] text-muted-foreground">{QAR.format(r.total_value ?? 0)}</span>
                   </div>
                 </div>
               ))}
@@ -446,32 +446,32 @@ function CustodyCard({
 
       {/* Actions — hidden entirely when the caller can't do any of them */}
       {(canRequest || canReturn || canConsume) && (
-        <div className="mt-auto flex items-center justify-between gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
+        <div className="mt-auto flex items-center gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
           {canRequest && (
-            <Button size="sm" variant="ghost" className="h-11 sm:h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
-              <Send className="h-3 w-3" /> Request
+            <Button size="sm" variant="ghost" className="h-11 sm:h-7 flex-1 min-w-0 justify-center text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
+              <Send className="h-3 w-3 shrink-0" /> Request
             </Button>
           )}
           {canReturn && (
             <Button
               size="sm"
               variant="ghost"
-              className="h-11 sm:h-7 text-[11px] gap-1"
+              className="h-11 sm:h-7 flex-1 min-w-0 justify-center text-[11px] gap-1"
               onClick={() => setReturnOpen(true)}
               disabled={stockRows.length === 0}
             >
-              <Undo2 className="h-3 w-3" /> Return
+              <Undo2 className="h-3 w-3 shrink-0" /> Return
             </Button>
           )}
           {canConsume && (
             <Button
               size="sm"
               variant="ghost"
-              className="h-11 sm:h-7 text-[11px] gap-1"
+              className="h-11 sm:h-7 flex-1 min-w-0 justify-center text-[11px] gap-1"
               onClick={() => setConsumeOpen(true)}
               disabled={stockRows.length === 0}
             >
-              <HandCoins className="h-3 w-3" /> Consume
+              <HandCoins className="h-3 w-3 shrink-0" /> Consume
             </Button>
           )}
         </div>
