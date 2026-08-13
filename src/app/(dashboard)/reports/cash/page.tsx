@@ -25,7 +25,7 @@ const columns: ReportColumn<CashRow>[] = [
     render: (r) => (r.is_opening ? <span className="font-medium">{r.payment_method}</span> : r.payment_method) },
   { header: 'Doc No',  accessor: (r) => r.doc_no, format: 'text',
     render: (r) => <DocLink href={r.doc_kind ? docHrefFor(r.doc_kind as DocKind, r.doc_no) : null} label={r.doc_no} /> },
-  { header: 'Party',   accessor: (r) => r.party,  format: 'text' },
+  { header: 'Party',   accessor: (r) => r.party,  format: 'text', wrap: true },
   { header: 'Debit',   accessor: (r) => r.debit ?? 0,  format: 'currency', total: true,
     render: (r) => (r.debit ? QAR.format(r.debit) : '') },
   { header: 'Credit',  accessor: (r) => r.credit ?? 0, format: 'currency', total: true,
@@ -40,9 +40,9 @@ const columns: ReportColumn<CashRow>[] = [
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'neg' | 'pos' }) {
   return (
-    <div className="rounded-lg border bg-card px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`text-lg font-semibold tabular-nums ${tone === 'neg' ? 'text-destructive' : tone === 'pos' ? 'text-success' : ''}`}>{value}</div>
+    <div className="rounded-lg border bg-card px-3 py-2 2xl:px-4 2xl:py-3 min-w-0">
+      <div className="text-[10px] 2xl:text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`text-base sm:text-lg 2xl:text-2xl font-semibold tabular-nums break-words ${tone === 'neg' ? 'text-destructive' : tone === 'pos' ? 'text-success' : ''}`}>{value}</div>
     </div>
   )
 }
@@ -110,7 +110,7 @@ export default function CashReportPage() {
         }
       />
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         <Stat label="Cash in" value={QAR.format(totals.inSum)} tone="pos" />
         <Stat label="Cash out" value={QAR.format(totals.outSum)} tone="neg" />
         <Stat label="Closing balance" value={QAR.format(totals.closing)} tone={totals.closing < 0 ? 'neg' : undefined} />

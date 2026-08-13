@@ -122,7 +122,7 @@ export default function ProfitLossReportPage() {
               type="button"
               onClick={() => setBasis(b)}
               className={cn(
-                'h-7 rounded px-3 text-xs font-medium capitalize transition-colors',
+                'h-7 min-h-11 md:min-h-0 rounded px-3 text-xs font-medium capitalize transition-colors',
                 basis === b ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -134,14 +134,14 @@ export default function ProfitLossReportPage() {
 
       <ReportFilterBar value={filters} onChange={setFilters} showDate showWarehouse />
 
-      <div className="rounded-lg border bg-card overflow-hidden max-w-2xl">
-        <table className="w-full text-sm">
+      <div className="rounded-lg border bg-card overflow-hidden max-w-2xl 2xl:max-w-4xl">
+        <table className="w-full text-sm 2xl:text-base">
           <tbody>
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i} className="border-b last:border-0">
-                  <td className="px-4 py-2"><div className="h-3 w-40 animate-pulse rounded bg-muted" /></td>
-                  <td className="px-4 py-2"><div className="ml-auto h-3 w-24 animate-pulse rounded bg-muted" /></td>
+                  <td className="px-4 py-2 2xl:px-6 2xl:py-3"><div className="h-3 w-40 animate-pulse rounded bg-muted" /></td>
+                  <td className="px-4 py-2 2xl:px-6 2xl:py-3"><div className="ml-auto h-3 w-24 animate-pulse rounded bg-muted" /></td>
                 </tr>
               ))
             ) : !statement ? (
@@ -162,7 +162,7 @@ export default function ProfitLossReportPage() {
                   )}
                 >
                   <td className={cn(
-                    'px-4 py-2',
+                    'px-4 py-2 2xl:px-6 2xl:py-3',
                     l.level === 1 && 'pl-8 text-muted-foreground',
                     (l.kind === 'header') && 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground',
                     l.kind === 'subtotal' && 'font-medium',
@@ -180,7 +180,7 @@ export default function ProfitLossReportPage() {
                     )}
                   </td>
                   <td className={cn(
-                    'px-4 py-2 text-right tabular-nums whitespace-nowrap',
+                    'px-4 py-2 2xl:px-6 2xl:py-3 text-right tabular-nums whitespace-nowrap',
                     l.kind === 'subtotal' && 'font-medium',
                     l.kind === 'grand' && 'font-bold',
                     (l.kind === 'grand' || isFx) && (l.amount ?? 0) < 0 && 'text-destructive',
@@ -195,7 +195,7 @@ export default function ProfitLossReportPage() {
       </div>
 
       {statement && (
-        <p className="text-[11px] text-muted-foreground max-w-2xl">
+        <p className="text-[11px] 2xl:text-xs text-muted-foreground max-w-2xl 2xl:max-w-4xl">
           Gross Profit = Revenue − COGS + Exchange Gain/Loss − Scrap. &ldquo;Scrap &amp; Defective&rdquo; counts
           approved write-offs from the stock-adjustment &ldquo;Write Off&rdquo; flow — both good-stock and
           damaged-stock write-offs are division- and warehouse-scoped (damaged stock is attributed to the

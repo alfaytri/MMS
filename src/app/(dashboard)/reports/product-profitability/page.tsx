@@ -55,8 +55,8 @@ function KpiCard({
         <div className="flex items-start gap-3">
           <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', iconBg)}>{icon}</div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className={cn('text-xl font-bold tabular-nums truncate mt-0.5', valueClass)}>{value}</p>
+            <p className="text-xs 2xl:text-sm text-muted-foreground">{label}</p>
+            <p className={cn('text-xl 2xl:text-2xl font-bold tabular-nums truncate mt-0.5', valueClass)}>{value}</p>
           </div>
         </div>
         <div className="mt-3 pt-3 border-t border-border/50 min-h-[28px]">

@@ -23,10 +23,10 @@ const columns: ReportColumn<ProductCostRow>[] = [
   { header: 'PO / Source', accessor: (r) => r.po_no,         format: 'text',
     render: (r) => r.po_id ? <DocLink href={docHrefFor('po', r.po_no)} label={r.po_no} /> : <span>{r.po_no ?? '—'}</span> },
   { header: 'Type',        accessor: (r) => r.product_type,  format: 'text' },
-  { header: 'Category',    accessor: (r) => r.category,      format: 'text' },
-  { header: 'Product',     accessor: (r) => r.product_name,  format: 'text' },
+  { header: 'Category',    accessor: (r) => r.category,      format: 'text', wrap: true },
+  { header: 'Product',     accessor: (r) => r.product_name,  format: 'text', wrap: true },
   { header: 'Barcode',     accessor: (r) => r.barcode,       format: 'text' },
-  { header: 'Warehouse',   accessor: (r) => r.warehouse_name, format: 'text' },
+  { header: 'Warehouse',   accessor: (r) => r.warehouse_name, format: 'text', wrap: true },
   { header: 'Qty',         accessor: (r) => r.qty,           format: 'number',   total: true },
   { header: 'Unit Cost',   accessor: (r) => r.unit_cost,     format: 'currency' },
   { header: 'Total Cost',  accessor: (r) => r.total_cost,    format: 'currency', total: true },
@@ -35,9 +35,9 @@ const columns: ReportColumn<ProductCostRow>[] = [
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border bg-card px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold tabular-nums">{value}</div>
+    <div className="rounded-lg border bg-card px-3 py-2 2xl:px-4 2xl:py-3 min-w-0">
+      <div className="text-[10px] 2xl:text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-base sm:text-lg 2xl:text-2xl font-semibold tabular-nums break-words">{value}</div>
     </div>
   )
 }

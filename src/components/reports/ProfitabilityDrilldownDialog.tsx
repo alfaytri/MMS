@@ -365,7 +365,7 @@ function SORow({ so, isOpen, onToggle, mode }: {
         </TableCell>
         <TableCell className="font-mono text-xs whitespace-nowrap">{so.so_number}</TableCell>
         <TableCell>
-          <span className="truncate block max-w-[200px]" title={so.customer_name}>{so.customer_name}</span>
+          <span className="break-words block max-w-[200px]" title={so.customer_name}>{so.customer_name}</span>
         </TableCell>
         <TableCell className="hidden md:table-cell text-xs text-muted-foreground whitespace-nowrap">{so.order_date}</TableCell>
         <TableCell className="text-right tabular-nums">{so.item_count}</TableCell>
@@ -409,7 +409,7 @@ function LineRow({ line, mode }: { line: DrilldownLine; mode: DrilldownMode }) {
       <TableCell />
       <TableCell className="text-muted-foreground pl-6 whitespace-nowrap">{line.sku ?? '—'}</TableCell>
       <TableCell>
-        <span className="truncate block max-w-[200px]" title={line.item_name}>{line.item_name}</span>
+        <span className="break-words block max-w-[200px]" title={line.item_name}>{line.item_name}</span>
       </TableCell>
       <TableCell className="hidden md:table-cell text-muted-foreground whitespace-nowrap">
         {line.qty} × {formatCurrency(line.unit_price, 'QAR')}

@@ -48,7 +48,7 @@ function TrendChart({ data }: { data: MonthlyTrend[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-end gap-3 sm:gap-6 h-48">
+      <div className="flex items-end gap-3 sm:gap-6 h-48 2xl:h-64">
         {data.map((d, i) => {
           const salesPct = (d.invoiced / max) * 100
           const purchPct = (d.billed / max) * 100
@@ -58,14 +58,14 @@ function TrendChart({ data }: { data: MonthlyTrend[] }) {
               {/* Numbers on top */}
               <div className="flex items-end gap-1 sm:gap-2 w-full justify-center min-h-[28px]">
                 <span className={cn(
-                  'text-[10px] sm:text-xs font-medium tabular-nums transition-opacity duration-500',
+                  'text-[10px] sm:text-xs 2xl:text-sm font-medium tabular-nums transition-opacity duration-500',
                   d.invoiced > 0 ? 'text-emerald-700 opacity-100' : 'text-muted-foreground/40',
                   !grown && 'opacity-0',
                 )}>
                   {d.invoiced > 0 ? compactMoney(d.invoiced) : '—'}
                 </span>
                 <span className={cn(
-                  'text-[10px] sm:text-xs font-medium tabular-nums transition-opacity duration-500',
+                  'text-[10px] sm:text-xs 2xl:text-sm font-medium tabular-nums transition-opacity duration-500',
                   d.billed > 0 ? 'text-red-700 opacity-100' : 'text-muted-foreground/40',
                   !grown && 'opacity-0',
                 )}>
@@ -73,8 +73,8 @@ function TrendChart({ data }: { data: MonthlyTrend[] }) {
                 </span>
               </div>
               {/* Bar pair */}
-              <div className="flex items-end justify-center gap-1 sm:gap-1.5 w-full h-32 border-b border-border/40">
-                <div className="flex-1 max-w-[24px] h-full flex items-end">
+              <div className="flex items-end justify-center gap-1 sm:gap-1.5 w-full h-32 2xl:h-44 border-b border-border/40">
+                <div className="flex-1 max-w-[24px] 2xl:max-w-[32px] h-full flex items-end">
                   <div
                     className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 hover:from-emerald-600 hover:to-emerald-500 rounded-t-sm shadow-sm transition-[height,background-color] duration-700 ease-out"
                     style={{
@@ -84,7 +84,7 @@ function TrendChart({ data }: { data: MonthlyTrend[] }) {
                     title={`Sales: ${formatCurrency(d.invoiced, 'QAR')}`}
                   />
                 </div>
-                <div className="flex-1 max-w-[24px] h-full flex items-end">
+                <div className="flex-1 max-w-[24px] 2xl:max-w-[32px] h-full flex items-end">
                   <div
                     className="w-full bg-gradient-to-t from-red-500 to-red-400 hover:from-red-600 hover:to-red-500 rounded-t-sm shadow-sm transition-[height,background-color] duration-700 ease-out"
                     style={{
@@ -96,7 +96,7 @@ function TrendChart({ data }: { data: MonthlyTrend[] }) {
                 </div>
               </div>
               <span className={cn(
-                'text-[10px] sm:text-xs transition-colors',
+                'text-[10px] sm:text-xs 2xl:text-sm transition-colors',
                 isCurrent ? 'font-semibold text-foreground' : 'text-muted-foreground',
               )}>
                 {d.label}
@@ -151,10 +151,10 @@ function KpiCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="text-xs 2xl:text-sm text-muted-foreground">{label}</p>
               {href && <ArrowRight className="h-3 w-3 text-muted-foreground/50" />}
             </div>
-            <p className={cn('text-xl font-bold tabular-nums truncate mt-0.5', valueClass)}>
+            <p className={cn('text-xl 2xl:text-2xl font-bold tabular-nums truncate mt-0.5', valueClass)}>
               {value}
             </p>
           </div>

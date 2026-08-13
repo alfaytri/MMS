@@ -15,6 +15,13 @@ export type ReportColumn<T> = ExcelColumn<T> & {
   render?: (row: T) => ReactNode
   /** Override the auto alignment (numeric → right, else left). */
   align?: 'left' | 'right' | 'center'
+  /**
+   * Let this column's cells wrap onto multiple lines instead of forcing a
+   * single line. Use for long free-text columns (product / customer / supplier
+   * names, warehouse, category). Leave off for dates, doc numbers, SKUs and
+   * numeric columns so they never break mid-token. On-screen only — export is unaffected.
+   */
+  wrap?: boolean
 }
 
 const QAR = new Intl.NumberFormat('en-QA', {

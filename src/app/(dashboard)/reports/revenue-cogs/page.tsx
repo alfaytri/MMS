@@ -21,10 +21,10 @@ const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR',
 
 const columns: ReportColumn<RevenueCogsRow>[] = [
   { header: 'Date',        accessor: (r) => r.date,          format: 'text' },
-  { header: 'Customer',    accessor: (r) => r.customer,      format: 'text' },
+  { header: 'Customer',    accessor: (r) => r.customer,      format: 'text', wrap: true },
   { header: 'SO No',       accessor: (r) => r.so_no,         format: 'text',
     render: (r) => r.sale_order_id ? <DocLink href={docHrefFor('so', r.so_no)} label={r.so_no} /> : <span>{r.so_no ?? '—'}</span> },
-  { header: 'Product',     accessor: (r) => r.product_name,  format: 'text' },
+  { header: 'Product',     accessor: (r) => r.product_name,  format: 'text', wrap: true },
   { header: 'Qty',         accessor: (r) => r.qty,           format: 'number',   total: true },
   { header: 'Unit Cost',   accessor: (r) => r.unit_cost,     format: 'currency' },
   { header: 'Total Cost',  accessor: (r) => r.total_cost,    format: 'currency', total: true },
@@ -36,9 +36,9 @@ const columns: ReportColumn<RevenueCogsRow>[] = [
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'pos' | 'neg' }) {
   return (
-    <div className="rounded-lg border bg-card px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`text-lg font-semibold tabular-nums ${tone === 'neg' ? 'text-destructive' : tone === 'pos' ? 'text-success' : ''}`}>{value}</div>
+    <div className="rounded-lg border bg-card px-3 py-2 2xl:px-4 2xl:py-3 min-w-0">
+      <div className="text-[10px] 2xl:text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`text-base sm:text-lg 2xl:text-2xl font-semibold tabular-nums break-words ${tone === 'neg' ? 'text-destructive' : tone === 'pos' ? 'text-success' : ''}`}>{value}</div>
     </div>
   )
 }

@@ -52,7 +52,7 @@ export function ReportExportMenu<T>(opts: {
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={disabled || pdfPending}
-        className={buttonVariants({ size: 'sm', className: 'gap-1.5' })}
+        className={buttonVariants({ size: 'sm', className: 'gap-1.5 min-h-11 md:min-h-0' })}
       >
         {pdfPending
           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />

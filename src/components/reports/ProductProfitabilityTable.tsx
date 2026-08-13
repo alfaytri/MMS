@@ -187,9 +187,9 @@ export function ProductProfitabilityTable({ rows, rangeLabel }: Props) {
                       {r.sku ?? '—'}
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium truncate max-w-[280px]" title={r.name}>{r.name}</div>
+                      <div className="font-medium break-words max-w-[280px] 2xl:max-w-[420px]" title={r.name}>{r.name}</div>
                       {r.brand_name && (
-                        <div className="text-xs text-muted-foreground truncate">{r.brand_name}</div>
+                        <div className="text-xs text-muted-foreground break-words">{r.brand_name}</div>
                       )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{r.qty}</TableCell>

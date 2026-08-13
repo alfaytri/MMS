@@ -53,7 +53,7 @@ function MultiSelect({
             {...props}
             type="button"
             variant="outline"
-            className="h-9 min-w-[170px] justify-between gap-2 font-normal"
+            className="h-9 min-h-11 md:min-h-0 min-w-[170px] justify-between gap-2 font-normal"
           >
             <span className="flex items-center gap-1.5 min-w-0">
               <span className="shrink-0 text-muted-foreground">{icon}</span>
@@ -157,7 +157,7 @@ export function ReportFilterBar({ value, onChange, showDate = true, showWarehous
             type="button"
             variant="ghost"
             size="sm"
-            className="h-9 text-xs text-muted-foreground"
+            className="h-9 min-h-11 md:min-h-0 text-xs text-muted-foreground"
             onClick={() => onChange({ ...value, divisionIds: [], warehouseIds: [] })}
           >
             Clear

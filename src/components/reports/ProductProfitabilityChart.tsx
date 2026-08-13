@@ -30,16 +30,16 @@ export function ProductProfitabilityChart({ rows }: Props) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 2xl:space-y-3">
       {top.map((r, i) => {
         const pct = (r.profit / max) * 100
         return (
-          <div key={r.brand_variant_id} className="grid grid-cols-[minmax(0,1fr)_120px] items-center gap-3">
+          <div key={r.brand_variant_id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium truncate" title={r.name}>
+              <div className="text-sm 2xl:text-base font-medium truncate" title={r.name}>
                 {r.name}
               </div>
-              <div className="h-2 mt-1 w-full rounded-full bg-muted overflow-hidden">
+              <div className="h-2 2xl:h-3 mt-1 w-full rounded-full bg-muted overflow-hidden">
                 <div
                   className={cn(
                     'h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-[width] ease-out',
@@ -52,7 +52,7 @@ export function ProductProfitabilityChart({ rows }: Props) {
                 />
               </div>
             </div>
-            <div className="text-right text-sm font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
+            <div className="text-right text-sm 2xl:text-base font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
               {formatCurrency(r.profit, 'QAR')}
             </div>
           </div>

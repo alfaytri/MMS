@@ -100,7 +100,7 @@ export function DateRangePicker({ value, onChange, className }: Props) {
             type="button"
             variant="outline"
             className={cn(
-              'h-9 min-w-[180px] justify-start font-normal',
+              'h-9 min-h-11 md:min-h-0 min-w-[180px] justify-start font-normal',
               className,
             )}
           >

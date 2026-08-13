@@ -57,7 +57,7 @@ export function ReportGroupedTable<T>({
             <td
               key={col.header}
               className={cn(
-                'px-3 py-1.5 tabular-nums whitespace-nowrap',
+                'px-3 py-1.5 2xl:px-4 2xl:py-2 tabular-nums whitespace-nowrap',
                 alignClass[columnAlign(col)],
               )}
             >
@@ -75,14 +75,14 @@ export function ReportGroupedTable<T>({
 
   return (
     <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className="w-full text-xs">
+      <table className="w-full text-xs 2xl:text-sm">
         <thead>
           <tr className="border-b bg-muted/60">
             {columns.map((col) => (
               <th
                 key={col.header}
                 className={cn(
-                  'px-3 py-2 font-semibold text-muted-foreground whitespace-nowrap',
+                  'px-3 py-2 2xl:px-4 2xl:py-3 font-semibold text-muted-foreground whitespace-nowrap',
                   alignClass[columnAlign(col)],
                 )}
               >
@@ -96,7 +96,7 @@ export function ReportGroupedTable<T>({
             Array.from({ length: 6 }).map((_, i) => (
               <tr key={`sk-${i}`}>
                 {columns.map((col) => (
-                  <td key={col.header} className="px-3 py-2">
+                  <td key={col.header} className="px-3 py-2 2xl:px-4">
                     <div className="h-3 w-full max-w-[8rem] animate-pulse rounded bg-muted" />
                   </td>
                 ))}
@@ -112,7 +112,7 @@ export function ReportGroupedTable<T>({
             groups.map((g) => (
               <Fragment key={g.label}>
                 <tr className="bg-muted/30">
-                  <td colSpan={colCount} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <td colSpan={colCount} className="px-3 py-1.5 2xl:px-4 2xl:py-2 text-[11px] 2xl:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {g.label} <span className="font-normal normal-case opacity-60">· {g.rows.length}</span>
                   </td>
                 </tr>
@@ -122,7 +122,10 @@ export function ReportGroupedTable<T>({
                       <td
                         key={col.header}
                         className={cn(
-                          'px-3 py-1.5 whitespace-nowrap',
+                          'px-3 py-1.5 2xl:px-4 2xl:py-2 align-top',
+                          col.wrap
+                            ? 'whitespace-normal break-words min-w-[9rem] max-w-[26rem]'
+                            : 'whitespace-nowrap',
                           col.format && col.format !== 'text' ? 'tabular-nums' : '',
                           alignClass[columnAlign(col)],
                         )}
@@ -142,7 +145,10 @@ export function ReportGroupedTable<T>({
                   <td
                     key={col.header}
                     className={cn(
-                      'px-3 py-1.5 whitespace-nowrap',
+                      'px-3 py-1.5 2xl:px-4 2xl:py-2 align-top',
+                      col.wrap
+                        ? 'whitespace-normal break-words min-w-[9rem] max-w-[26rem]'
+                        : 'whitespace-nowrap',
                       col.format && col.format !== 'text' ? 'tabular-nums' : '',
                       alignClass[columnAlign(col)],
                     )}
