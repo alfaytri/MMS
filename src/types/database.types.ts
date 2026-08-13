@@ -6281,6 +6281,96 @@ export type Database = {
           },
         ]
       }
+      warehouse_item_requests: {
+        Row: {
+          created_at: string
+          dest_name: string | null
+          dest_sub_container_id: string | null
+          id: string
+          item_name: string
+          notes: string | null
+          qty: number
+          request_group_id: string | null
+          requested_by: string | null
+          requester_name: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          dest_name?: string | null
+          dest_sub_container_id?: string | null
+          id?: string
+          item_name: string
+          notes?: string | null
+          qty: number
+          request_group_id?: string | null
+          requested_by?: string | null
+          requester_name?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          dest_name?: string | null
+          dest_sub_container_id?: string | null
+          id?: string
+          item_name?: string
+          notes?: string | null
+          qty?: number
+          request_group_id?: string | null
+          requested_by?: string | null
+          requester_name?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_item_requests_dest_sub_container_id_fkey"
+            columns: ["dest_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "warehouse_item_requests_dest_sub_container_id_fkey"
+            columns: ["dest_sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_item_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_item_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_item_requests_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouse_reorder_points: {
         Row: {
           brand_variant_id: string
@@ -6660,6 +6750,7 @@ export type Database = {
           received_by_profile_id: string | null
           repair_cost: number | null
           repair_vendor_id: string | null
+          request_group_id: string | null
           source_return_line_disposition_id: string | null
           status: Database["public"]["Enums"]["transfer_status"] | null
           to_sub_container_id: string
@@ -6692,6 +6783,7 @@ export type Database = {
           received_by_profile_id?: string | null
           repair_cost?: number | null
           repair_vendor_id?: string | null
+          request_group_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_sub_container_id: string
@@ -6724,6 +6816,7 @@ export type Database = {
           received_by_profile_id?: string | null
           repair_cost?: number | null
           repair_vendor_id?: string | null
+          request_group_id?: string | null
           source_return_line_disposition_id?: string | null
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_sub_container_id?: string
@@ -8316,6 +8409,7 @@ export type Database = {
           p_dest_sub_container_id: string
           p_items: Json
           p_notes?: string
+          p_request_group_id?: string
           p_source_sub_container_id: string
           p_source_warehouse_id: string
         }
@@ -8569,6 +8663,14 @@ export type Database = {
         }
       }
       rpc_financial_dashboard: { Args: never; Returns: Json }
+      rpc_item_divisions_by_stock: {
+        Args: { p_type: string }
+        Returns: {
+          category_id: string
+          division_ids: string[]
+          item_id: string
+        }[]
+      }
       rpc_my_consumption_sources: {
         Args: never
         Returns: {
@@ -8846,9 +8948,14 @@ export type Database = {
           p_item_name: string
           p_notes?: string
           p_qty: number
+          p_request_group_id?: string
           p_warehouse_id: string
         }
-        Returns: number
+        Returns: string
+      }
+      rpc_resolve_item_request: {
+        Args: { p_note?: string; p_request_id: string; p_status: string }
+        Returns: undefined
       }
       rpc_return_damaged_from_repair: {
         Args: {
