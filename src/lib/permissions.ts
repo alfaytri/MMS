@@ -591,37 +591,11 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   },
 ]
 
-const MODULE_KEY_MAP: Record<string, string> = {
-  'Master Data':          'master_data',
-  'Purchase & Sales':     'purchase_sales',
-  'Warehouse':            'warehouse',
-  'Operations':           'operations',
-  'Orders':               'orders',
-  'Contracts':            'contracts',
-  'Invoices & Payments':  'finance',
-  'Teams':                'teams',
-  'Reports':              'reports',
-  'System':               'system',
-  'Contact Centre':       'contact_centre',
-}
-
-function getEnabledModules(): Set<string> | null {
-  const raw = process.env.NEXT_PUBLIC_ENABLED_MODULES?.trim()
-  if (!raw) return null
-  return new Set(raw.split(',').map((s) => s.trim()))
-}
-
-const BRANCH_ENABLED_MODULES = new Set(['master_data', 'purchase_sales', 'warehouse', 'operations'])
-
-export const ACTIVE_PERMISSION_GROUPS: PermissionGroup[] = (() => {
-  const enabled = getEnabledModules() ?? BRANCH_ENABLED_MODULES
-  return PERMISSION_GROUPS.filter((g) => {
-    const key = MODULE_KEY_MAP[g.module]
-    return key ? enabled.has(key) : true
-  })
-})()
-
-export const ALL_PERMISSIONS = ACTIVE_PERMISSION_GROUPS.flatMap(groupKeys)
+// Every defined permission is always active. The former NEXT_PUBLIC_ENABLED_MODULES /
+// BRANCH_ENABLED_MODULES gating (a phased-rollout switch) was removed 2026-08-13: it was
+// consumed only by this file and the permission tests, never by the live permission UI
+// (which is driven by NAV_TREE in components/master-data/PermissionTree.tsx).
+export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap(groupKeys)
 
 export const ROLE_COLORS = ['blue', 'green', 'orange', 'purple', 'teal', 'rose', 'amber', 'indigo'] as const
 export type RoleColor = (typeof ROLE_COLORS)[number]
