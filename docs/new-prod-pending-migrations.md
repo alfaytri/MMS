@@ -2,8 +2,9 @@
 
 - **Created:** 2026-08-13
 - **Target:** new-prod `optishfnnctrhffpoywg` (app `alfaytriinventory.vercel.app`, builds from `deploy/warehouse-shipping`)
-- **Status:** ⏸ NOT applied to new-prod. Applied + verified on **staging** (`mwvblpgbgxipvrevkeff`) only.
-- **Prerequisite:** rotate the exposed new-prod DB password + service-role key, then set `NEW_DB_URL` (pooler connection string) in the environment.
+- **Status:** ✅ **APPLIED to new-prod (`optishfnnctrhffpoywg`) 2026-08-13 + verified** (via `db push --db-url` using the gitignored `supabase/.temp/migrate.env`); also on staging. Frontend shipped via `deploy/warehouse-shipping` push @ `40aa39d5`. **This doc is now historical** — kept as the record of what landed.
+- **Still outstanding (hygiene):** the exposed new-prod DB password + service-role key should still be rotated — the migration used the existing connection.
+- **Post-apply verification (passed):** `recipients_for_permission` present · `rpc_resolve_item_request` present · `warehouse_item_requests` table present · `request_group_id` column on `warehouse_transfers` · `rpc_request_warehouse_item` 6-arg. All = 1.
 
 ## ⚠️ Frontend ↔ DB coupling (read before pushing)
 
