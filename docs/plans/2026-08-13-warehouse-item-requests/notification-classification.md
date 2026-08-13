@@ -97,3 +97,21 @@ All five locked by the operator; §2's proposed coupling is now the final mappin
 3. Fix the 5 bugs in §3.
 4. Add the missing route + wire the two service-change outcomes.
 5. Regression pass: for each type, prove (rolled-back DO block / unit) that exactly the intended recipients resolve.
+
+---
+
+## 6. Implementation outcome (2026-08-13)
+
+Built + verified on staging; `tsc` clean; all four ad-hoc recipient mechanisms removed (grep = 0).
+
+- **Resolver:** `recipients_for_permission(p_perm, p_warehouse_id, p_override)` SECURITY DEFINER RPC (migration `20260822000000`). Correctness DO-block-proven — exact match vs a manual query; warehouse scoping (6→2) + override (→5) direction.
+- **Client sites → `getRecipientsForPermission()`:** PO approval (submit + amend), PO edit-request, receival edit-request (narrowed from all-internal), transfer pending / dispatched / shrinkage / cancelled, stock-adj pending, inv-check pending, credit-group pending.
+- **DB creators migrated:** `20260822000100` item_request (DO-block-proven: notifications inserted == resolver set), `20260822000200` low_stock (only the loop source changed; message preserved byte-for-byte, em-dash U+2014 intact).
+- **Fixes shipped:** fail-open `approval_scopes IS NULL` gone (helper deleted); hardcoded `inventory_manager` role → `warehouse.transfer.approve`; missing routes added for **`transfer_rejected`** and **`transfer_cancelled`**.
+
+**Discoveries that corrected the inventory:**
+1. **`transfer_cancelled` — a 30th type the inventory missed.** Notifies both warehouses' transfer-viewers (RP-scoped per warehouse) + override; route was also missing and was added.
+2. **The service-change approve/reject feature does not exist** — only the `pending` trigger is built; nothing emits `service_change_approved/_rejected`. Per operator decision (2026-08-13) the two inert route entries were **removed** (re-add when the feature is built). Approved decision 4 (wire the outcomes) is therefore N/A.
+3. **item_request + low_stock had 0 RP coverage loss** under permission-coupling (verified on staging), so both DB creators were safely migrated.
+
+**Status:** ⏸ operator smoke → then commit (held per commit-only-when-confirmed); new-prod batches together with Phase 1 after credential rotation.
