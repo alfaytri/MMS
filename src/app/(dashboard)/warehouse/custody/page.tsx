@@ -106,7 +106,7 @@ export default function CustodyPage() {
         />
       ) : (
         <Tabs defaultValue={defaultTab} className="flex flex-col gap-4">
-          <TabsList className="self-start">
+          <TabsList className="self-start max-w-full overflow-x-auto">
             {visibleWhs.map((w) => (
               <TabsTrigger key={w.id} value={w.id} className="gap-1.5">
                 <Users2 className="h-3.5 w-3.5" /> {w.name}
@@ -376,7 +376,7 @@ function CustodyCard({
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="h-6 text-[10px] gap-1 shrink-0"
+                    className="h-11 sm:h-6 text-[10px] gap-1 shrink-0"
                     onClick={() => handleDispatch(p)}
                     disabled={dispatch.isPending}
                   >
@@ -387,7 +387,7 @@ function CustodyCard({
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="h-6 text-[10px] gap-1 shrink-0"
+                    className="h-11 sm:h-6 text-[10px] gap-1 shrink-0"
                     onClick={() => setAcceptRow(p)}
                   >
                     <PackageCheck className="h-3 w-3" />
@@ -448,7 +448,7 @@ function CustodyCard({
       {(canRequest || canReturn || canConsume) && (
         <div className="mt-auto flex items-center justify-between gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
           {canRequest && (
-            <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
+            <Button size="sm" variant="ghost" className="h-11 sm:h-7 text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
               <Send className="h-3 w-3" /> Request
             </Button>
           )}
@@ -456,7 +456,7 @@ function CustodyCard({
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 text-[11px] gap-1"
+              className="h-11 sm:h-7 text-[11px] gap-1"
               onClick={() => setReturnOpen(true)}
               disabled={stockRows.length === 0}
             >
@@ -467,7 +467,7 @@ function CustodyCard({
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 text-[11px] gap-1"
+              className="h-11 sm:h-7 text-[11px] gap-1"
               onClick={() => setConsumeOpen(true)}
               disabled={stockRows.length === 0}
             >

@@ -721,7 +721,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                         : row.category_name}
                     </p>
                   )}
-                  <p className="text-xs font-semibold truncate">{row.item_name}</p>
+                  <p className="text-xs font-semibold break-words">{row.item_name}</p>
                   {(row.brand || row.country_name) && (
                     <p className="text-[10px] text-primary truncate">
                       {row.brand ?? row.country_name}{row.brand && row.country_name ? ` · ${row.country_name}` : ''}{row.sku ? ` · ${row.sku}` : ''}

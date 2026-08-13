@@ -214,7 +214,7 @@ function ItemCountRow({
       <div className={`sm:hidden border-b px-3 py-2 space-y-1.5 ${rowBg}`}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium leading-tight truncate">{item.item_name}</p>
+            <p className="text-xs font-medium leading-tight break-words">{item.item_name}</p>
             <p className="text-[10px] text-muted-foreground truncate">
               {item.brand ? `${item.brand}` : ''}
               {item.sku ? ` · ${item.sku}` : ''}
@@ -1012,8 +1012,8 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
           {/* ── Generated Stock Adjustments ── */}
           <TabsContent value="adjustments" className="flex-1 min-h-0 overflow-y-auto mt-2">
             <div className="space-y-2">
-              <div className="rounded-md border overflow-hidden bg-background">
-                <div className="grid grid-cols-[1fr_90px_60px_110px_100px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="rounded-md border overflow-x-auto bg-background">
+                <div className="grid grid-cols-[1fr_90px_60px_110px_100px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground min-w-[560px]">
                   <span>Item</span>
                   <span>Type</span>
                   <span className="text-right">Qty</span>
@@ -1034,10 +1034,10 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                   return (
                     <div
                       key={sa.id}
-                      className="grid grid-cols-[1fr_90px_60px_110px_100px] gap-2 px-3 py-1.5 border-t text-xs items-center"
+                      className="grid grid-cols-[1fr_90px_60px_110px_100px] gap-2 px-3 py-1.5 border-t text-xs items-center min-w-[560px]"
                     >
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{sa.item_name ?? '—'}</p>
+                        <p className="break-words font-medium">{sa.item_name ?? '—'}</p>
                         <p className="text-[10px] text-muted-foreground truncate">
                           {sa.brand ?? '—'}{sa.sku ? ` · ${sa.sku}` : ''}
                         </p>
@@ -1073,8 +1073,8 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                     <ArrowDownUp className="h-3.5 w-3.5" />
                     Stock movements since count completed
                   </p>
-                  <div className="rounded-md border overflow-hidden bg-background">
-                    <div className="grid grid-cols-[1fr_100px_60px_110px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div className="rounded-md border overflow-x-auto bg-background">
+                    <div className="grid grid-cols-[1fr_100px_60px_110px] gap-2 px-3 py-1.5 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground min-w-[520px]">
                       <span>Item</span>
                       <span>Type</span>
                       <span className="text-right">Qty</span>
@@ -1083,7 +1083,7 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                     {postCountMovements.map((m) => {
                       const checkItem = items.find((i) => i.brand_variant_id === m.brand_variant_id)
                       return (
-                        <div key={m.id} className="grid grid-cols-[1fr_100px_60px_110px] gap-2 px-3 py-1.5 border-t text-xs items-center">
+                        <div key={m.id} className="grid grid-cols-[1fr_100px_60px_110px] gap-2 px-3 py-1.5 border-t text-xs items-center min-w-[520px]">
                           <ItemTreeCell
                             category={checkItem?.category_name}
                             itemType={itemTypeMap.get(m.brand_variant_id)}
@@ -1127,8 +1127,8 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
                         <span className="font-medium">Book expected</span> = System-at-start + Moved (what the books would show if no variance existed).
                       </p>
                     </div>
-                    <div className="rounded-md border overflow-hidden">
-                      <table className="w-full text-xs">
+                    <div className="rounded-md border overflow-x-auto">
+                      <table className="w-full min-w-[720px] text-xs">
                         <thead>
                           <tr className="bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                             <th className="text-left px-3 py-1.5 font-semibold">Item</th>

@@ -303,7 +303,7 @@ export function SendForRepairDialog({
           </DialogHeader>
         </div>
 
-        <div className="px-6 pb-6 space-y-5 overflow-y-auto sm:flex-1 sm:min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="sfr-vendor">Repair Vendor *</Label>
             <Select

@@ -189,7 +189,7 @@ function PendingRepairAssignmentSection({
           </p>
         </div>
       </div>
-      <div className="rounded-md border border-amber-200/70 dark:border-amber-900/50 bg-background overflow-x-auto">
+      <div className="hidden md:block rounded-md border border-amber-200/70 dark:border-amber-900/50 bg-background overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -214,7 +214,7 @@ function PendingRepairAssignmentSection({
                 <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDate(r.created_at)}</td>
                 {canEdit && (
                   <td className="px-3 py-2 text-right">
-                    <Button size="sm" className="h-8 text-xs" onClick={() => onAssign(r)}>
+                    <Button size="sm" className="h-11 sm:h-8 text-xs" onClick={() => onAssign(r)}>
                       Assign Vendor
                     </Button>
                   </td>
@@ -223,6 +223,29 @@ function PendingRepairAssignmentSection({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {data.map((r) => (
+          <div key={r.disposition_id} className="bg-card border rounded-md p-3 space-y-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-medium min-w-0 truncate">{r.item_name}</span>
+              <span className="text-sm font-semibold tabular-nums shrink-0">
+                {nfInt.format(r.qty)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
+              </span>
+            </div>
+            <CardLine label="Return" value={<span className="font-mono">{r.return_number}</span>} />
+            <CardLine label="SKU" value={r.sku || '—'} />
+            <CardLine label="Warehouse" value={r.warehouse_name} />
+            <CardLine label="Requested" value={formatDate(r.created_at)} />
+            {canEdit && (
+              <Button size="sm" className="w-full min-h-11 text-xs" onClick={() => onAssign(r)}>
+                Assign Vendor
+              </Button>
+            )}
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -264,7 +287,8 @@ function OnHandTab({
           description="When damaged units get restocked into a warehouse, they'll show up here."
         />
       ) : (
-        <div className="rounded-lg border bg-card overflow-x-auto">
+        <>
+        <div className="hidden md:block rounded-lg border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -297,7 +321,7 @@ function OnHandTab({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950"
+                          className="h-11 w-11 sm:h-8 sm:w-8 p-0 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950"
                           onClick={() => onSendForRepair(r)}
                           title="Send for repair"
                         >
@@ -307,7 +331,7 @@ function OnHandTab({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950"
+                          className="h-11 w-11 sm:h-8 sm:w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950"
                           onClick={() => onWriteOff(r)}
                           title="Write off"
                         >
@@ -322,6 +346,46 @@ function OnHandTab({
             </tbody>
           </table>
         </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-2">
+          {data.map((r) => (
+            <div key={r.key} className="bg-card border rounded-md p-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-medium min-w-0 truncate">{r.item_name}</span>
+                <span className="text-sm font-semibold tabular-nums shrink-0">
+                  {nfInt.format(r.qty)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
+                </span>
+              </div>
+              <CardLine label="SKU" value={r.sku || '—'} />
+              <CardLine label="Warehouse" value={r.warehouse_name} />
+              <CardLine label="Source" value={r.source_sub_container_name ?? '—'} />
+              <CardLine label="Weighted Cost" value={nfCost.format(r.weighted_unit_cost)} />
+              <CardLine label="Updated" value={formatDate(r.updated_at)} />
+              {canEdit && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 min-h-11 gap-1.5 text-xs text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:hover:bg-orange-950"
+                    onClick={() => onSendForRepair(r)}
+                  >
+                    <Wrench className="h-4 w-4" /> Send for Repair
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 min-h-11 gap-1.5 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950"
+                    onClick={() => onWriteOff(r)}
+                  >
+                    <XCircle className="h-4 w-4" /> Write Off
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        </>
       )}
     </>
   )
@@ -360,7 +424,8 @@ function OutForRepairTab({
           description="Damaged units sent to a repair vendor will appear here until you record the return."
         />
       ) : (
-        <div className="rounded-lg border bg-card overflow-x-auto">
+        <>
+        <div className="hidden md:block rounded-lg border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -391,7 +456,7 @@ function OutForRepairTab({
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDateTime(r.dispatched_at)}</td>
                   {canEdit && (
                     <td className="px-3 py-2 text-right">
-                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onReturn(r)}>
+                      <Button variant="outline" size="sm" className="h-11 sm:h-8 text-xs" onClick={() => onReturn(r)}>
                         Return from Repair
                       </Button>
                     </td>
@@ -401,6 +466,38 @@ function OutForRepairTab({
             </tbody>
           </table>
         </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-2">
+          {data.map((r) => (
+            <div key={`${r.transfer_id}:${r.brand_variant_id}`} className="bg-card border rounded-md p-3 space-y-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-medium min-w-0 truncate">{r.item_name}</span>
+                <span className="text-sm font-semibold tabular-nums shrink-0">
+                  {nfInt.format(r.qty)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
+                </span>
+              </div>
+              <CardLine label="Transfer" value={<span className="font-mono">{r.transfer_number}</span>} />
+              <CardLine label="SKU" value={r.sku || '—'} />
+              <CardLine label="Vendor" value={r.repair_vendor_name} />
+              <CardLine label="Warehouse" value={r.from_warehouse_name} />
+              <CardLine label="Source" value={r.from_sub_container_name ?? '—'} />
+              <CardLine label="Expected Return" value={formatDate(r.expected_return_date)} />
+              <CardLine label="Dispatched" value={formatDateTime(r.dispatched_at)} />
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full min-h-11 text-xs"
+                  onClick={() => onReturn(r)}
+                >
+                  Return from Repair
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+        </>
       )}
     </>
   )
@@ -409,6 +506,17 @@ function OutForRepairTab({
 // ─── Shared bits ────────────────────────────────────────────────────────
 function SummaryLine({ children }: { children: React.ReactNode }) {
   return <p className="mb-3 text-xs text-muted-foreground">{children}</p>
+}
+
+// One label:value line inside a mobile card. Label muted, value legible.
+// Mobile-only helper — the desktop tables are untouched.
+function CardLine({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-[11px] text-muted-foreground">
+      <span className="shrink-0">{label}</span>
+      <span className="min-w-0 truncate text-right text-foreground">{value}</span>
+    </div>
+  )
 }
 
 function TableSkeleton() {

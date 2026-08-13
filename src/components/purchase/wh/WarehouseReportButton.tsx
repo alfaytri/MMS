@@ -90,7 +90,7 @@ export function WarehouseReportButton({ reportType, warehouseId, label, classNam
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setCalendarTarget(null) }}>
       <PopoverTrigger
-        className={`inline-flex items-center justify-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 cursor-pointer ${className ?? ''}`}
+        className={`inline-flex items-center justify-center gap-1.5 h-8 min-h-11 md:min-h-0 px-3 text-xs font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 cursor-pointer ${className ?? ''}`}
         disabled={loading}
       >
         {loading

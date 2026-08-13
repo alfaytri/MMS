@@ -142,7 +142,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-3xl sm:rounded-xl max-h-[100vh] sm:max-h-[85vh] flex flex-col p-0 gap-0">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b shrink-0">
           <h2 className="text-base font-semibold flex items-center gap-2">
@@ -199,7 +199,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                       Sale Deliveries ({saleEntries.length})
                     </p>
                   </div>
-                  <div className="rounded-md border overflow-hidden">
+                  <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/40">
@@ -264,7 +264,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                       Landed Cost Adjustments ({lcEntries.length})
                     </p>
                   </div>
-                  <div className="rounded-md border overflow-hidden">
+                  <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/40">
@@ -326,7 +326,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                       LC Reversals ({lcReversalEntries.length})
                     </p>
                   </div>
-                  <div className="rounded-md border overflow-hidden">
+                  <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/40">

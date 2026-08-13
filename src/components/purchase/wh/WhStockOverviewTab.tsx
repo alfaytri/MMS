@@ -637,7 +637,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                                 {multi
                                   ? (itemExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />)
                                   : <span className="w-3 shrink-0" />}
-                                <span className="text-xs font-medium truncate flex-1 text-left">{item.itemName}</span>
+                                <span className="text-xs font-medium flex-1 min-w-0 break-words text-left">{item.itemName}</span>
                                 <div className="flex items-center gap-3 shrink-0 ml-1">
                                   <span className="text-xs font-semibold tabular-nums">{item.totalQty}</span>
                                   <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>
@@ -672,7 +672,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                           {multi
                             ? (itemExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />)
                             : <span className="w-3 shrink-0" />}
-                          <span className="text-xs font-medium truncate flex-1 text-left">{item.itemName}</span>
+                          <span className="text-xs font-medium flex-1 min-w-0 break-words text-left">{item.itemName}</span>
                           <div className="flex items-center gap-3 shrink-0 ml-1">
                             <span className="text-xs font-semibold tabular-nums">{item.totalQty}</span>
                             <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>

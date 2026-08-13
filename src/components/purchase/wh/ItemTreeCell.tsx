@@ -44,14 +44,14 @@ export function ItemTreeCell({ category, subcategory, itemType, itemName, brand,
         </span>
       )}
       <span
-        className="font-medium text-xs truncate"
+        className="font-medium text-xs break-words"
         style={{ paddingLeft: hasParent ? 12 : 0 }}
       >
         {itemName}
       </span>
       {showVariantLine && (
         <span
-          className="text-[10px] text-primary truncate"
+          className="text-[10px] text-primary break-words"
           style={{ paddingLeft: depth >= 1 ? 24 : 12 }}
         >
           {label.primary}
