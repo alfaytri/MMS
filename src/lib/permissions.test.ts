@@ -117,3 +117,10 @@ describe('inventory permissions cleanup', () => {
     expect(ALL_PERMISSIONS).toContain(k)
   })
 })
+
+describe('warehouse item-request permissions', () => {
+  it('exposes warehouse.item_requests.view and .manage', () => {
+    expect(ALL_PERMISSIONS).toContain('warehouse.item_requests.view')
+    expect(ALL_PERMISSIONS).toContain('warehouse.item_requests.manage')
+  })
+})

@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
   ClipboardList, ClipboardCheck, ArrowRightLeft,
-  WarehouseIcon, Layers, Activity, Truck, TrendingUp,
+  WarehouseIcon, Layers, Activity, Truck, TrendingUp, PackageSearch,
 } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
@@ -21,6 +21,7 @@ import { WhInventoryChecksTab } from '@/components/purchase/wh/WhInventoryChecks
 import { WhMovementsTab } from '@/components/purchase/wh/WhMovementsTab'
 import { WhStockValueTab } from '@/components/purchase/wh/WhStockValueTab'
 import { ReceivalsDeliveriesTab } from '@/components/purchase/wh/ReceivalsDeliveriesTab'
+import { WhItemRequestsTab } from '@/components/purchase/wh/WhItemRequestsTab'
 import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
 import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 
@@ -36,6 +37,7 @@ const TAB_PERMISSIONS: Record<string, string[]> = {
   'stock-value': ['warehouse.stock_value.view'],
   movements:     ['warehouse.movements.view'],
   receivals:     ['warehouse.receivals.view'],
+  'item-requests': ['warehouse.item_requests.view'],
 }
 
 function WarehousesPageInner() {
@@ -82,7 +84,7 @@ function WarehousesPageInner() {
 
   const visibleTabs = useMemo(() => {
     const userPerms = permData?.permissions ?? []
-    const order = ['warehouses', 'stock', 'transfers', 'adjustments', 'checks', 'stock-value', 'movements', 'receivals']
+    const order = ['warehouses', 'stock', 'transfers', 'adjustments', 'checks', 'stock-value', 'movements', 'receivals', 'item-requests']
     return new Set(
       order.filter((key) => {
         const required = TAB_PERMISSIONS[key] ?? []
@@ -203,6 +205,12 @@ function WarehousesPageInner() {
               )}
             </TabsTrigger>
           )}
+          {visibleTabs.has('item-requests') && (
+            <TabsTrigger value="item-requests" className="text-xs gap-1">
+              <PackageSearch className="h-3 w-3" />
+              Requested Items
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <div className="flex-1 overflow-auto">
@@ -244,6 +252,11 @@ function WarehousesPageInner() {
           {visibleTabs.has('receivals') && (
             <TabsContent value="receivals" className="mt-0">
               <ReceivalsDeliveriesTab warehouses={warehousesAll} currentProfile={currentProfile ?? null} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('item-requests') && (
+            <TabsContent value="item-requests" className="mt-0">
+              <WhItemRequestsTab warehouses={warehousesAll} />
             </TabsContent>
           )}
         </div>

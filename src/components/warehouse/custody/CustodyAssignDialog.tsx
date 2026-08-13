@@ -50,10 +50,11 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
   const [openPickerIdx, setOpenPickerIdx]             = useState<number | null>(null)
   const [itemReqName, setItemReqName]                 = useState('')
   const [itemReqQty,  setItemReqQty]                  = useState('')
+  const [itemReqDesc, setItemReqDesc]                 = useState('')
   const guardRef                                       = useRef<GuardedFormDialogHandle>(null)
 
   const isDirty = fromWhId !== '' || notes.trim() !== '' || rows.some((r) => r.brand_variant_id !== '' || r.qty !== '')
-    || itemReqName.trim() !== '' || itemReqQty !== ''
+    || itemReqName.trim() !== '' || itemReqQty !== '' || itemReqDesc.trim() !== ''
 
   const assign = useCreateCustodyAssign()
   const requestItem = useRequestWarehouseItem()
@@ -159,51 +160,68 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
   const hasValidRows        = rows.some((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
   const hasValidationErrors = rowErrors.some((e) => e !== null)
   const fromSubResolved     = eligibleFromSubs.length > 0 && (eligibleFromSubs.length === 1 || !!fromSubId)
-  const canSubmit           = !!fromWhId && fromSubResolved && hasValidRows && !hasValidationErrors && !assign.isPending
+  const hasAssign  = fromSubResolved && hasValidRows && !hasValidationErrors
+  const hasItemReq = itemReqName.trim() !== '' && parseInt(itemReqQty, 10) > 0
+  const canSubmit  = !!fromWhId && (hasAssign || hasItemReq) && !hasValidationErrors && !assign.isPending && !requestItem.isPending
 
+  // One submit handles whatever is filled: in-stock rows -> custody assign,
+  // and/or a free-typed item-needed -> buy-new request. Both may run together.
   async function handleSubmit() {
-    if (!fromWhId || !fromSubId) {
-      toast.error('Pick a source warehouse + sub-container')
+    if (!fromWhId) {
+      toast.error('Pick a source warehouse')
       return
     }
     const items = rows
       .filter((r) => r.brand_variant_id && r.qty && parseFloat(r.qty) > 0)
       .map((r) => ({ brand_variant_id: r.brand_variant_id, qty: parseInt(r.qty, 10) }))
+    const wantItemReq = itemReqName.trim() !== '' && parseInt(itemReqQty, 10) > 0
 
+    if (items.length === 0 && !wantItemReq) {
+      toast.error('Add a stock item to request, or an item that isn\'t stocked here')
+      return
+    }
+    if (items.length > 0 && !fromSubId) {
+      toast.error('Pick a source sub-container for the stock items')
+      return
+    }
+
+    const whName = warehouses.find((w) => w.id === fromWhId)?.name ?? 'the warehouse'
+    // One group id per submit so an in-stock assign + a buy-new request from the
+    // same dialog show as one box on the Requested Items tab.
+    const groupId = crypto.randomUUID()
     try {
-      await assign.mutateAsync({
-        source_warehouse_id:     fromWhId,
-        source_sub_container_id: fromSubId,
-        dest_sub_container_id:   destSubId,
-        items,
-        notes:                   notes.trim() || null,
-        created_by_profile_id:   profile?.id ?? null,
-        created_by_name:         profile?.full_name ?? null,
-      })
-      toast.success(`Request sent to ${warehouses.find((w) => w.id === fromWhId)?.name ?? 'warehouse'} — awaiting dispatch`)
+      const done: string[] = []
+      if (items.length > 0 && fromSubId) {
+        await assign.mutateAsync({
+          source_warehouse_id:     fromWhId,
+          source_sub_container_id: fromSubId,
+          dest_sub_container_id:   destSubId,
+          items,
+          notes:                   notes.trim() || null,
+          created_by_profile_id:   profile?.id ?? null,
+          created_by_name:         profile?.full_name ?? null,
+          request_group_id:        groupId,
+        })
+        done.push('stock request sent — awaiting dispatch')
+      }
+      if (wantItemReq) {
+        await requestItem.mutateAsync({
+          warehouse_id:          fromWhId,
+          item_name:             itemReqName.trim(),
+          qty:                   parseInt(itemReqQty, 10),
+          dest_sub_container_id: destSubId,
+          notes:                 itemReqDesc.trim() || null,
+          request_group_id:      groupId,
+        })
+        done.push('item-needed request recorded')
+        setItemReqName('')
+        setItemReqQty('')
+        setItemReqDesc('')
+      }
+      toast.success(`Sent to ${whName}: ${done.join(' · ')}`)
       guardRef.current?.closeAfterSubmit()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create custody assign')
-    }
-  }
-
-  const canRequestItem = !!fromWhId && itemReqName.trim() !== '' && parseInt(itemReqQty, 10) > 0 && !requestItem.isPending
-  async function handleRequestItem() {
-    if (!canRequestItem) return
-    try {
-      const n = await requestItem.mutateAsync({
-        warehouse_id:          fromWhId,
-        item_name:             itemReqName.trim(),
-        qty:                   parseInt(itemReqQty, 10),
-        dest_sub_container_id: destSubId,
-        notes:                 notes.trim() || null,
-      })
-      const whName = warehouses.find((w) => w.id === fromWhId)?.name ?? 'the warehouse'
-      toast.success(`Request sent to ${whName}${n > 1 ? ` (${n} people)` : ''} — they'll be notified to buy it.`)
-      setItemReqName('')
-      setItemReqQty('')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send item request')
+      toast.error(err instanceof Error ? err.message : 'Failed to submit the request')
     }
   }
 
@@ -378,7 +396,7 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
               <div>
                 <Label className="text-[11px] font-medium">Need an item that isn&apos;t stocked here?</Label>
                 <p className="text-[10px] text-muted-foreground">
-                  Sends a request to {warehouses.find((w) => w.id === fromWhId)?.name ?? 'the warehouse'}&apos;s responsible person to buy it — no stock moves.
+                  Included when you Submit — {warehouses.find((w) => w.id === fromWhId)?.name ?? 'the warehouse'}&apos;s responsible person is notified to buy it. No stock moves.
                 </p>
               </div>
               <Input
@@ -387,27 +405,21 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
                 placeholder="Item name (e.g. R410A gauge set)"
                 className="h-8 text-[11px]"
               />
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min="1"
-                  value={itemReqQty}
-                  onChange={(e) => setItemReqQty(e.target.value.replace(/[^\d]/g, ''))}
-                  placeholder="Qty"
-                  className="h-8 w-[80px] text-[11px]"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-[11px]"
-                  disabled={!canRequestItem}
-                  onClick={handleRequestItem}
-                >
-                  {requestItem.isPending ? 'Sending…' : 'Send request'}
-                </Button>
-              </div>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                value={itemReqQty}
+                onChange={(e) => setItemReqQty(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="Qty"
+                className="h-8 w-[80px] text-[11px]"
+              />
+              <Textarea
+                value={itemReqDesc}
+                onChange={(e) => setItemReqDesc(e.target.value)}
+                placeholder="Describe the item — specs, brand, model, why it's needed…"
+                className="text-[11px] min-h-[44px] resize-none"
+              />
             </div>
           )}
 
@@ -423,11 +435,11 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
         </div>
 
         <DialogFooter className="m-0 px-4 py-2.5 sm:px-5 sm:py-3 border-t bg-muted/30 rounded-b-lg">
-          <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => guardRef.current?.requestClose()} disabled={assign.isPending}>
+          <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => guardRef.current?.requestClose()} disabled={assign.isPending || requestItem.isPending}>
             Cancel
           </Button>
           <Button size="sm" className="text-[11px] h-11 sm:h-8" disabled={!canSubmit} onClick={handleSubmit}>
-            {assign.isPending ? 'Submitting…' : 'Submit request'}
+            {(assign.isPending || requestItem.isPending) ? 'Submitting…' : 'Submit request'}
           </Button>
         </DialogFooter>
       </DialogContent>

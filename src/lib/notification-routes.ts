@@ -57,6 +57,9 @@ const NOTIFICATION_ROUTES: Record<string, NotificationMeta> = {
 
   // ── Low Stock Alert ──────────────────────────────────────────
   low_stock_alert:          { route: '/master-data/warehouses', actionable: false, icon: 'stock' },
+
+  // ── Warehouse Item Requests ──────────────────────────────────
+  item_request:             { route: '/master-data/warehouses?tab=item-requests', actionable: true, icon: 'stock' },
 }
 
 export function getNotificationRoute(type: string, relatedId: string | null): string | null {

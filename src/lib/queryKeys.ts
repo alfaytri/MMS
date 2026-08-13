@@ -633,6 +633,12 @@ export const queryKeys = {
       ['warehouse_transfer_items', transferId] as const,
   },
 
+  /* ── Warehouse Item Requests ──────────────────────────── */
+  warehouseItemRequests: {
+    all: ['warehouse-item-requests'] as const,
+    list: (filters: unknown) => ['warehouse-item-requests', filters] as const,
+  },
+
   /* ── Brands (catalog) ─────────────────────────────────── */
   brands: {
     all: ['brands'] as const,

@@ -106,6 +106,7 @@ export function useCreateCustodyAssign() {
       notes?:                  string | null
       created_by_profile_id?:  string | null
       created_by_name?:        string | null
+      request_group_id?:       string | null
     }) => {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('rpc_create_custody_assign', {
@@ -116,12 +117,14 @@ export function useCreateCustodyAssign() {
         p_notes:                   payload.notes ?? undefined,
         p_created_by_profile_id:   payload.created_by_profile_id ?? undefined,
         p_created_by_name:         payload.created_by_name ?? undefined,
+        p_request_group_id:        payload.request_group_id ?? undefined,
       })
       if (error) throw new Error(error.message)
       return data as unknown as string
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.custody.pendingAll })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseItemRequests.all })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
@@ -222,10 +225,10 @@ export function useCreateCustodyReturn() {
   })
 }
 
-// ─── 6. Mutation — request an item the warehouse doesn't stock (notify RP) ─
-// Fires an in-app notification to every responsible person of the source
-// warehouse. No stock moves — it's a "please buy this" signal. Returns the
-// number of people notified.
+// ─── 6. Mutation — request an item the warehouse doesn't stock ────────────
+// Persists a warehouse_item_requests row AND fires an actionable notification
+// to every responsible person of the source warehouse. No stock moves — it's a
+// "please buy this" signal. Returns the new request id (uuid).
 export function useRequestWarehouseItem() {
   return useMutation({
     mutationFn: async (payload: {
@@ -234,18 +237,24 @@ export function useRequestWarehouseItem() {
       qty:                     number
       dest_sub_container_id?:  string | null
       notes?:                  string | null
+      request_group_id?:       string | null
     }) => {
       const supabase = createClient()
-      // Cast the name/args — this RPC is typed after the next `gen types` run.
-      const { data, error } = await supabase.rpc('rpc_request_warehouse_item' as never, {
+      const { data, error } = await supabase.rpc('rpc_request_warehouse_item', {
         p_warehouse_id:          payload.warehouse_id,
         p_item_name:             payload.item_name,
         p_qty:                   payload.qty,
-        p_dest_sub_container_id: payload.dest_sub_container_id ?? null,
-        p_notes:                 payload.notes ?? null,
-      } as never)
-      if (error) throw new Error(error.message)
-      return data as unknown as number
+        p_dest_sub_container_id: payload.dest_sub_container_id ?? undefined,
+        p_notes:                 payload.notes ?? undefined,
+        p_request_group_id:      payload.request_group_id ?? undefined,
+      })
+      if (error) {
+        throw new Error(
+          [error.code, error.message, error.details, error.hint].filter(Boolean).join(' — ')
+            || 'Failed to send the request',
+        )
+      }
+      return data as string  // the new request id (uuid)
     },
   })
 }

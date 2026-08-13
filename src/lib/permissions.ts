@@ -387,6 +387,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
           { key: 'warehouse.receivals.view', label: 'View Receivals & Deliveries', description: 'See the receivals and deliveries summary' },
         ],
       },
+      {
+        label: 'Requested Items Tab',
+        permissions: [
+          { key: 'warehouse.item_requests.view',   label: 'View Requested Items',    description: 'See the Requested Items tab for the warehouse(s) you are responsible for' },
+          { key: 'warehouse.item_requests.manage', label: 'Resolve Requested Items',  description: 'Mark item requests fulfilled or dismissed' },
+        ],
+      },
     ],
   },
   {

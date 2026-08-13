@@ -1000,3 +1000,18 @@ These modules are called out in project plans / seed docs but have no material f
 - **Contact Centre** — Wati inbound handling, 3CX call log, task creation, priority queue. Only `src/types/wati.ts` types + `docs/wati-*.md` / `docs/whapi-*.md` reference material exist; no hooks or dialogs. See `project_contact_centre` memory.
 - **Quotations / Contracts** — no dedicated quotation entity yet. Quotations are represented as an SO stage and drive off [[Create Sale Order (quotation / SO)]] → [[Confirm Sale Order]]. `OrderQuotationSettingsAdmin` only edits master-data numbering.
 - **Calendar / Teams / Contracts (Phase 2 backlog)** — see `project_future_modules` memory.
+
+### Request Warehouse Item (buy-new)
+
+- **Module:** Warehouse / Operations
+- **Status:** Active
+- **Trigger surface(s):** `CustodyAssignDialog` ("Request stock for …") → **"Need an item that isn't stocked here?"** section (item name + qty) → submitted with the dialog's main **Submit request** button (no separate button).
+- **Primary hook(s):** [`useRequestWarehouseItem`](src/hooks/useCustodyMoves.ts) (create) · [`useResolveItemRequest`](src/hooks/useWarehouseItemRequests.ts) (fulfil/dismiss) · [`useWarehouseItemRequests`](src/hooks/useWarehouseItemRequests.ts) (list)
+- **RPC(s):** `public.rpc_request_warehouse_item` (persist + notify) · `public.rpc_resolve_item_request` (resolve + clear notifications)
+- **Ledger writes:** `warehouse_item_requests` (the request record) + `notifications` (one `item_request` row per warehouse RP). No stock / FIFO movement.
+- **Downstream side-effects:** Notification is actionable, deep-links to Master Data → Warehouses → **Requested Items** tab; resolving marks the request `fulfilled` / `dismissed` and actions the related notifications for every RP.
+- **Dialog / component:** [`CustodyAssignDialog`](src/components/warehouse/custody/CustodyAssignDialog.tsx) (create) · [`WhItemRequestsTab`](src/components/purchase/wh/WhItemRequestsTab.tsx) (list + resolve)
+- **Guards / preconditions:** Create — signed-in requester, valid warehouse, qty > 0. List — RLS-scoped to the warehouse RP(s) + super-viewers / admins. Resolve — RP of the request's warehouse, super-viewer, or system admin (`rpc_resolve_item_request`, fail-closed).
+- **Related flows:** [[Create Custody Assign]]
+- **Docs / plans:** [docs/plans/2026-08-13-warehouse-item-requests/plan.md](docs/plans/2026-08-13-warehouse-item-requests/plan.md)
+- **Notes:** Free-text item (no catalog link) — by definition an item the warehouse doesn't stock. Replaces the old fire-and-forget notification (was notification-only, no record). Permissions: `warehouse.item_requests.view` / `.manage`.
