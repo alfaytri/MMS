@@ -8291,6 +8291,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      recipients_for_permission: {
+        Args: { p_override?: string; p_perm: string; p_warehouse_id?: string }
+        Returns: string[]
+      }
       refresh_all_stock_summaries: { Args: never; Returns: undefined }
       refresh_po_status: { Args: { p_po_id: string }; Returns: undefined }
       refresh_stock_summary_row: {
