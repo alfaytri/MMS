@@ -27,14 +27,16 @@ const NOTIFICATION_ROUTES: Record<string, NotificationMeta> = {
 
   // ── Service Changes ──────────────────────────────────────────
   service_change_pending:   { route: '/master-data/services/approvals', actionable: true, icon: 'service' },
-  service_change_approved:  { route: '/master-data/services/approvals', actionable: false, icon: 'service' },
-  service_change_rejected:  { route: '/master-data/services/approvals', actionable: false, icon: 'service' },
+  // service_change_approved / _rejected removed 2026-08-13 — the approve/reject
+  // feature was never built (no RPC/UI emits them). Re-add when it is.
 
   // ── Warehouse Transfers ──────────────────────────────────────
   transfer_pending:         { route: '/master-data/warehouses', actionable: true, icon: 'transfer' },
   transfer_dispatched:      { route: '/master-data/warehouses', actionable: true, icon: 'transfer' },
   transfer_received:        { route: '/master-data/warehouses', actionable: false, icon: 'transfer' },
   transfer_received_shrinkage: { route: '/master-data/warehouses', actionable: false, icon: 'transfer' },
+  transfer_rejected:        { route: '/master-data/warehouses', actionable: false, icon: 'transfer' },
+  transfer_cancelled:       { route: '/master-data/warehouses', actionable: false, icon: 'transfer' },
 
   // ── Stock Adjustments ────────────────────────────────────────
   stock_adj_pending:        { route: '/master-data/warehouses', actionable: true, icon: 'stock' },
@@ -74,4 +76,34 @@ export function isActionableNotification(type: string): boolean {
 
 export function getNotificationIcon(type: string): NotificationMeta['icon'] {
   return NOTIFICATION_ROUTES[type]?.icon ?? 'info'
+}
+
+/**
+ * Phase-2 recipient coupling — the single source of truth mapping each
+ * archetype-A (request / actionable) notification type to the feature
+ * permission whose holders should receive it. Resolved at each creation
+ * site via `getRecipientsForPermission()` (client) or the
+ * `recipients_for_permission` RPC (DB-side).
+ *
+ * - `warehouseScoped`: perm-holders are narrowed to the relevant warehouse's RPs.
+ * - `override`: a permission whose holders are always included (cross-warehouse).
+ *
+ * Archetype-B (outcome) types are intentionally absent: their recipient is the
+ * original requester, known by identity at the creation site.
+ *
+ * DB-side types (`item_request`, `low_stock_alert`, `service_change_pending`)
+ * are resolved inside their SQL creators, not here.
+ */
+export const NOTIFICATION_RECIPIENTS: Record<
+  string,
+  { permission: string; warehouseScoped?: boolean; override?: string; notifyKey?: string }
+> = {
+  po_approval_requested:   { permission: 'purchase.approvals.view', notifyKey: 'notify.purchase.po_approval' },
+  po_edit_request_pending: { permission: 'purchase.approvals.view', notifyKey: 'notify.purchase.po_approval' },
+  receival_edit_request:   { permission: 'purchase.receivals.manage', notifyKey: 'notify.purchase.receival_edit' },
+  transfer_pending:        { permission: 'warehouse.transfer.dispatch', warehouseScoped: true, override: 'warehouse.transfer.approve', notifyKey: 'notify.warehouse.transfers' },
+  transfer_dispatched:     { permission: 'warehouse.transfer.receive',  warehouseScoped: true, override: 'warehouse.transfer.approve', notifyKey: 'notify.warehouse.transfers' },
+  stock_adj_pending:       { permission: 'warehouse.adjustments.view', notifyKey: 'notify.warehouse.stock_adj' },
+  inv_check_pending:       { permission: 'warehouse.checks.view', notifyKey: 'notify.warehouse.inv_check' },
+  credit_group_pending:    { permission: 'master_data.customers.change_credit_group', notifyKey: 'notify.finance.credit_group' },
 }

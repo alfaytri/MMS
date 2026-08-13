@@ -13,7 +13,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
-import { sendNotifications, getApprovalScopeRecipients } from '@/lib/notify'
+import { sendNotifications, recipientsForNotification } from '@/lib/notify'
 
 export type CreditGroupApprovalRow = {
   id:              string
@@ -199,7 +199,7 @@ export function useSubmitCreditGroupChange() {
       qc.invalidateQueries({ queryKey: ['customers'] })
 
       if (data.status === 'pending') {
-        const recipients = await getApprovalScopeRecipients('credit_group')
+        const recipients = await recipientsForNotification('credit_group_pending')
         if (recipients.length > 0) {
           await sendNotifications(recipients.map(pid => ({
             profile_id: pid,

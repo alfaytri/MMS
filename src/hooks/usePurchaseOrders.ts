@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { findApplicableTiers, validateRoles, getNotificationRecipients } from '@/lib/approvalChainResolution'
+import { findApplicableTiers, validateRoles } from '@/lib/approvalChainResolution'
 import type { ApprovalChainTier, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
+import { recipientsForNotification } from '@/lib/notify'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 import { savePoSnapshot, stageOf, resolveLineItemNames } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
@@ -621,8 +622,8 @@ export function useSubmitPOForApproval() {
         performerName: submitPerformer,
       })
 
-      // Fire notifications to all approvers (parallel approval)
-      const recipientIds = getNotificationRecipients(tiers, roleAssignments)
+      // Notify approvals-queue holders + anyone granted the PO-approval notification override.
+      const recipientIds = await recipientsForNotification('po_approval_requested')
       if (recipientIds.length > 0) {
         const notifs = recipientIds.map((profileId: string) => ({
           profile_id: profileId,
@@ -985,8 +986,8 @@ export function useSubmitPoVersion() {
       const { error: approvalErr } = await supabase.rpc('rpc_build_po_approval_steps', { p_po_id: id })
       if (approvalErr) throw new Error(formatPgError(approvalErr))
 
-      // Fire notifications to all approvers (parallel approval)
-      const recipientIds = getNotificationRecipients(tiers, roleAssignments)
+      // Notify approvals-queue holders + anyone granted the PO-approval notification override.
+      const recipientIds = await recipientsForNotification('po_approval_requested')
       if (recipientIds.length > 0) {
         const { data: poData } = await supabase
           .from('purchase_orders').select('po_number').eq('id', id).single()

@@ -39,6 +39,7 @@ import {
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { createClient } from '@/lib/supabase/client'
+import { recipientsForNotification } from '@/lib/notify'
 import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -293,18 +294,23 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
         created_by_name: currentProfile?.full_name ?? null,
       })
 
-      if (transferId && sourceFieldRPs.length > 0) {
-        const supabase = createClient()
-        supabase.from('notifications').insert(
-          sourceFieldRPs.map((rp: { profile_id: string; full_name: string | null }) => ({
-            profile_id: rp.profile_id,
-            type: 'transfer_pending',
-            title: 'New Transfer Pending Dispatch',
-            body: `A new stock transfer to ${toWh?.name ?? 'another warehouse'} needs your dispatch approval.`,
-            related_id: transferId,
-            related_type: 'warehouse_transfer',
-          })),
-        )
+      if (transferId && fromId) {
+        // Recipients: dispatch RPs of the source warehouse + override holders +
+        // anyone granted the Transfers notification.
+        const recipientIds = await recipientsForNotification('transfer_pending', { warehouseId: fromId })
+        if (recipientIds.length > 0) {
+          const supabase = createClient()
+          await supabase.from('notifications').insert(
+            recipientIds.map((profileId) => ({
+              profile_id: profileId,
+              type: 'transfer_pending',
+              title: 'New Transfer Pending Dispatch',
+              body: `A new stock transfer to ${toWh?.name ?? 'another warehouse'} needs your dispatch approval.`,
+              related_id: transferId,
+              related_type: 'warehouse_transfer',
+            })),
+          )
+        }
       }
 
       toast.success('Transfer created successfully')

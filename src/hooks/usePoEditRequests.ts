@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { logPOActivity } from '@/lib/poActivityLogger'
+import { recipientsForNotification } from '@/lib/notify'
 
 export type EditRequestStatus = 'pending' | 'approved' | 'rejected' | 'used'
 
@@ -79,15 +80,8 @@ export function useCreateEditRequest() {
         .single()
       if (reqErr) throw reqErr
 
-      // Fan out a notification to every user holding an approval-slot role
-      const { data: approvers } = await supabase
-        .from('user_custom_roles')
-        .select('profile_id, custom_roles!inner(is_approval_slot, deleted_at)')
-        .eq('custom_roles.is_approval_slot', true)
-        .is('custom_roles.deleted_at', null)
-      const approverIds = Array.from(new Set(
-        (approvers ?? []).map((r: { profile_id: string }) => r.profile_id),
-      ))
+      // Notify approvals-queue holders + anyone granted the PO-approval notification override.
+      const approverIds = await recipientsForNotification('po_edit_request_pending')
 
       const { data: po } = await supabase
         .from('purchase_orders').select('po_number').eq('id', poId).maybeSingle()

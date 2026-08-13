@@ -40,6 +40,7 @@ import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { getRecipientsForPermission, recipientsForNotification } from '@/lib/notify'
 
 /* ─── Status badge styles ────────────────────────────────────────────────── */
 
@@ -154,23 +155,8 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
     await supabase.from('notifications').insert(rows)
   }
 
-  async function getFieldRPProfileIds(warehouseId: string): Promise<string[]> {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('warehouse_responsible_persons')
-      .select('profile_id')
-      .eq('warehouse_id', warehouseId)
-    return (data ?? []).map(r => r.profile_id)
-  }
-
-  async function getInventoryManagerProfileIds(): Promise<string[]> {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('user_custom_roles')
-      .select('profile_id, custom_roles!inner(name)')
-      .eq('custom_roles.name', 'inventory_manager')
-    return (data ?? []).map((r: { profile_id: string }) => r.profile_id)
-  }
+  // Recipient resolution now flows through getRecipientsForPermission (Phase 2) —
+  // the ad-hoc warehouse-RP and hardcoded inventory_manager queries were removed.
 
   /* ── Action handlers ───────────────────────────────────────────────────── */
 
@@ -181,7 +167,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
       {
         onSuccess: async () => {
           toast.success('Transfer dispatched')
-          const destRPs = await getFieldRPProfileIds(t.to_warehouse_id)
+          const destRPs = await recipientsForNotification('transfer_dispatched', { warehouseId: t.to_warehouse_id })
           sendNotification(
             destRPs,
             'transfer_dispatched',
@@ -240,8 +226,8 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           if (t.created_by_profile_id) targets.push(t.created_by_profile_id)
 
           if (hasShrinkage) {
-            // Also notify inventory managers on shrinkage
-            const managers = await getInventoryManagerProfileIds()
+            // Also notify transfer-override holders (Inventory Managers) on shrinkage
+            const managers = await getRecipientsForPermission('warehouse.transfer.approve')
             for (const pid of managers) {
               if (!targets.includes(pid)) targets.push(pid)
             }
@@ -294,10 +280,10 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           toast.success('Transfer cancelled')
           setCancelTarget(null)
 
-          // Notify Warehouse RPs of both warehouses
+          // Notify transfer-viewers who are RPs of either warehouse (+ override holders).
           const [srcRPs, destRPs] = await Promise.all([
-            getFieldRPProfileIds(t.from_warehouse_id),
-            getFieldRPProfileIds(t.to_warehouse_id),
+            getRecipientsForPermission('warehouse.transfers.view', { warehouseId: t.from_warehouse_id, override: 'warehouse.transfer.approve' }),
+            getRecipientsForPermission('warehouse.transfers.view', { warehouseId: t.to_warehouse_id, override: 'warehouse.transfer.approve' }),
           ])
           const allRPs = [...new Set([...srcRPs, ...destRPs])]
           sendNotification(

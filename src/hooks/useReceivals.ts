@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logPOActivity } from '@/lib/poActivityLogger'
 import { queryKeys } from '@/lib/queryKeys'
+import { recipientsForNotification } from '@/lib/notify'
 
 export type ReceivalStatus = 'pending_approval' | 'approved' | 'rejected'
 
@@ -241,11 +242,10 @@ export function useRequestReceivalEdit() {
         .select().single()
       if (error) throw error
 
-      // Notify all admin profiles
-      const { data: admins } = await supabase
-        .from('user_data').select('id').eq('user_type', 'internal')
-      const notifications = (admins ?? []).map((a: { id: string }) => ({
-        profile_id: a.id,
+      // Notify receivals-managers + anyone granted the receival-edit notification override.
+      const recipientIds = await recipientsForNotification('receival_edit_request')
+      const notifications = recipientIds.map((profileId) => ({
+        profile_id: profileId,
         title: 'Receival Edit Requested',
         body: `A receival edit was requested: ${reason}`,
         type: 'receival_edit_request',

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { liveInboxQueryOptions } from '@/lib/queryOptions'
-import { sendNotifications, getApprovalScopeRecipients } from '@/lib/notify'
+import { sendNotifications, recipientsForNotification } from '@/lib/notify'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type StockMovementType =
@@ -770,7 +770,7 @@ export function useCreateStockAdjustmentV2() {
     onSuccess: async (adjustmentId) => {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.stockAdjustments })
 
-      const recipients = await getApprovalScopeRecipients('stock_adj')
+      const recipients = await recipientsForNotification('stock_adj_pending')
       if (recipients.length > 0) {
         await sendNotifications(recipients.map(pid => ({
           profile_id: pid,
@@ -1372,7 +1372,7 @@ export function useCompleteAssignment() {
         })
         if (allCountedErr) throw allCountedErr
 
-        const recipients = await getApprovalScopeRecipients('inv_check')
+        const recipients = await recipientsForNotification('inv_check_pending')
         if (recipients.length > 0) {
           await sendNotifications(recipients.map(pid => ({
             profile_id: pid,
