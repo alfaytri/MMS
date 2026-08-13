@@ -10,7 +10,7 @@ import {
   Ship, Calculator, Receipt,
   PackageOpen, FileX2, RotateCcw, FileText, PackageCheck,
   CheckCircle, ShieldCheck, Upload, Download,
-  Flame, HandCoins, AlertTriangle,
+  Flame, HandCoins, AlertTriangle, Bell,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -525,7 +525,96 @@ export const NAV_TREE: TreeNode[] = [
       { key: 'system.export', label: 'Export Data', description: 'Export data to CSV or PDF formats' },
     ],
   },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+    children: [
+      {
+        id: 'notify-purchase',
+        label: 'Purchase',
+        icon: ShoppingBag,
+        children: [
+          {
+            id: 'notify-purchase-po',
+            label: 'PO approvals',
+            icon: ClipboardList,
+            permissions: [
+              { key: 'notify.purchase.po_approval', label: 'PO approval requests', description: 'Receive purchase-order approval-request and edit-request notifications. Anyone with the approvals queue already gets these automatically — grant this to send them to someone who does not.' },
+            ],
+          },
+          {
+            id: 'notify-purchase-receival',
+            label: 'Receival edits',
+            icon: PackageOpen,
+            permissions: [
+              { key: 'notify.purchase.receival_edit', label: 'Receival edit requests', description: 'Receive receival edit-request notifications without needing the manage-receivals permission.' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'notify-warehouse',
+        label: 'Warehouse',
+        icon: WarehouseIcon,
+        children: [
+          {
+            id: 'notify-wh-transfers',
+            label: 'Transfers',
+            icon: ArrowRightLeft,
+            permissions: [
+              { key: 'notify.warehouse.transfers', label: 'Transfer activity', description: 'Receive transfer pending-dispatch and dispatched notifications without being a warehouse RP.' },
+            ],
+          },
+          {
+            id: 'notify-wh-stockadj',
+            label: 'Stock adjustments',
+            icon: ClipboardList,
+            permissions: [
+              { key: 'notify.warehouse.stock_adj', label: 'Stock adjustment requests', description: 'Receive stock-adjustment approval notifications.' },
+            ],
+          },
+          {
+            id: 'notify-wh-invcheck',
+            label: 'Inventory checks',
+            icon: ClipboardCheck,
+            permissions: [
+              { key: 'notify.warehouse.inv_check', label: 'Inventory check requests', description: 'Receive inventory-check approval notifications.' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'notify-finance',
+        label: 'Finance',
+        icon: Receipt,
+        children: [
+          {
+            id: 'notify-finance-creditgroup',
+            label: 'Credit-group changes',
+            icon: HandCoins,
+            permissions: [
+              { key: 'notify.finance.credit_group', label: 'Credit-group change requests', description: 'Receive credit-group change approval notifications.' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ]
+
+// Maps each notification permission key → the feature permission(s) whose holders
+// already receive those notifications automatically (via the resolver's feature
+// branch). The role editor uses this to show an "Auto" state (greyed, already
+// receives) instead of a plain override checkbox when the role has the access.
+export const NOTIFICATION_AUTO_FEATURE: Record<string, string[]> = {
+  'notify.purchase.po_approval':   ['purchase.approvals.view'],
+  'notify.purchase.receival_edit': ['purchase.receivals.manage'],
+  'notify.warehouse.transfers':    ['warehouse.transfer.dispatch', 'warehouse.transfer.receive', 'warehouse.transfer.approve'],
+  'notify.warehouse.stock_adj':    ['warehouse.adjustments.view'],
+  'notify.warehouse.inv_check':    ['warehouse.checks.view'],
+  'notify.finance.credit_group':   ['master_data.customers.change_credit_group'],
+}
 
 export function countPerms(node: TreeNode): number {
   let c = node.permissions?.length ?? 0

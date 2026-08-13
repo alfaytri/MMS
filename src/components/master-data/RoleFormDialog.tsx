@@ -23,7 +23,7 @@ import {
 } from '@/components/shared/GuardedFormDialog'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
 import { useCustodyWarehouses } from '@/hooks/useCustodyLocations'
-import { NAV_TREE, countPerms, collectPermKeys, validatePermissionSet, type TreeNode } from './PermissionTree'
+import { NAV_TREE, countPerms, collectPermKeys, validatePermissionSet, NOTIFICATION_AUTO_FEATURE, type TreeNode } from './PermissionTree'
 
 const ALL_TREE_KEYS = collectPermKeys(NAV_TREE)
 
@@ -147,29 +147,47 @@ function InteractiveTreeNode({
       {/* Expanded content */}
       {isExpanded && (
         <>
-          {(node.permissions ?? []).map(perm => (
-            <label
-              key={perm.key}
-              className={`flex items-start gap-3 py-2 cursor-pointer hover:bg-accent/30 ${depthBg}`}
-              style={{
-                paddingLeft: `${32 + depth * 20}px`,
-                paddingRight: 12,
-              }}
-            >
-              <Checkbox
-                className="mt-0.5 shrink-0"
-                checked={selected.has(perm.key)}
-                onCheckedChange={(checked) => {
-                  if (checked) onSelect([perm.key])
-                  else onDeselect([perm.key])
+          {(node.permissions ?? []).map(perm => {
+            // Notification keys show an "Auto" state when the role already holds the
+            // underlying feature access (it receives those notifications automatically);
+            // otherwise the checkbox is a plain override grant.
+            const autoFeatures = NOTIFICATION_AUTO_FEATURE[perm.key]
+            const isAuto = !!autoFeatures && (selected.has('system.admin') || autoFeatures.some(f => selected.has(f)))
+            return (
+              <label
+                key={perm.key}
+                className={`flex items-start gap-3 py-2 ${isAuto ? 'cursor-default opacity-70' : 'cursor-pointer hover:bg-accent/30'} ${depthBg}`}
+                style={{
+                  paddingLeft: `${32 + depth * 20}px`,
+                  paddingRight: 12,
                 }}
-              />
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium block">{perm.label}</span>
-                <span className="text-xs text-muted-foreground">{perm.description}</span>
-              </div>
-            </label>
-          ))}
+              >
+                <Checkbox
+                  className="mt-0.5 shrink-0"
+                  checked={isAuto ? true : selected.has(perm.key)}
+                  disabled={isAuto}
+                  onCheckedChange={(checked) => {
+                    if (isAuto) return
+                    if (checked) onSelect([perm.key])
+                    else onDeselect([perm.key])
+                  }}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium block">
+                    {perm.label}
+                    {isAuto && (
+                      <span className="ml-2 inline-flex items-center rounded bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0.5 align-middle">
+                        Auto · has access
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {isAuto ? 'Already receives these via their access — no grant needed.' : perm.description}
+                  </span>
+                </div>
+              </label>
+            )
+          })}
 
           {node.children?.map(child => (
             <InteractiveTreeNode
