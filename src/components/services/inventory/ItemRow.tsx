@@ -96,6 +96,10 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
               {item.name_ar && (
                 <div className="text-[10px] text-muted-foreground" dir="rtl">{item.name_ar}</div>
               )}
+              {/* Phone-only meta line — SKU/Unit/Avg columns are hidden < sm/md, so surface them here so nothing is lost on a phone. */}
+              <div className="sm:hidden text-[10px] text-muted-foreground truncate">
+                {item.sku}{item.unit ? ` · ${item.unit}` : ''}{item.cost_price != null ? ` · Avg ${formatCurrency(item.cost_price, 'QAR')}` : ''}
+              </div>
               <AttributeChipStrip itemId={item.id} categoryId={item.category_id} />
             </div>
           </div>

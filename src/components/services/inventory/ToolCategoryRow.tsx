@@ -55,7 +55,7 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 px-2.5 text-[11px] border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                className="h-11 md:h-7 px-2.5 text-[11px] border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
                 onClick={handleAutoGenerate}
                 disabled={autoGenerate.isPending}
               >
@@ -106,7 +106,7 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
               </tbody>
             </table>
           </div>
-          <button className="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1" onClick={() => setAddUnitOpen(true)}>
+          <button className="mt-2 min-h-11 md:min-h-0 text-xs text-blue-600 hover:underline flex items-center gap-1" onClick={() => setAddUnitOpen(true)}>
             <Plus className="h-3 w-3" /> Add Unit
           </button>
         </td>

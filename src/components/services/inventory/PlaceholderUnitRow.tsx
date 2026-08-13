@@ -82,7 +82,7 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed }: Props) {
       <td className="py-1.5 px-2 text-right">
         <Button
           size="sm"
-          className="h-7 px-2 text-[11px]"
+          className="h-11 md:h-7 px-2 text-[11px]"
           disabled={update.isPending}
           onClick={handleConfirm}
         >

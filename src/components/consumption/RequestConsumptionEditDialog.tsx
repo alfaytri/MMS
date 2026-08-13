@@ -54,7 +54,7 @@ export function RequestConsumptionEditDialog({
 
   return (
     <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-md sm:rounded-xl max-h-[100vh] sm:max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold flex items-center gap-1.5">
             <Send className="h-4 w-4 text-primary" />
@@ -66,7 +66,7 @@ export function RequestConsumptionEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-1">
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-3 py-1">
           <div className="rounded-md border border-warning/40 bg-warning/10 p-2.5 flex items-start gap-2">
             <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
             <p className="text-[11px] text-warning-foreground leading-snug">
@@ -89,11 +89,11 @@ export function RequestConsumptionEditDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => guardRef.current?.requestClose()} disabled={request.isPending}>
+        <DialogFooter className="gap-2 sm:gap-2 sticky bottom-0 bg-background pt-3 border-t">
+          <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => guardRef.current?.requestClose()} disabled={request.isPending}>
             Cancel
           </Button>
-          <Button size="sm" className="text-[11px] h-8" disabled={!reason.trim() || request.isPending} onClick={handleSubmit}>
+          <Button size="sm" className="text-[11px] h-11 sm:h-8" disabled={!reason.trim() || request.isPending} onClick={handleSubmit}>
             {request.isPending ? 'Submitting…' : 'Submit request'}
           </Button>
         </DialogFooter>

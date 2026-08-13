@@ -257,6 +257,29 @@ export default function ConsumptionPage() {
             </Button>
           ) : undefined,
         }}
+        mobileCardRender={(row) => {
+          const cfg = STATUS_CONFIG[row.status]
+          return (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-sm tabular-nums">{row.ce_number}</span>
+                <Badge className={cn('text-[10px] h-4 px-1.5 border-0', cfg.className)}>{cfg.label}</Badge>
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <ConsumerIcon type={row.consumer_type} />
+                <span className="text-xs font-medium truncate">{consumerLabel(row)}</span>
+                <span className="text-[10px] text-muted-foreground capitalize shrink-0">· {row.consumer_type}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground truncate">
+                {row.source_warehouse_name ?? '—'}{row.source_sub_container_name ? ` · ${row.source_sub_container_name}` : ''}
+              </div>
+              <div className="flex items-center justify-between text-[11px] pt-0.5">
+                <span className="text-muted-foreground tabular-nums">{row.date} · {row.line_count} line{row.line_count === 1 ? '' : 's'}</span>
+                {canSeeCost && <span className="font-semibold tabular-nums">{QAR.format(row.total_value)}</span>}
+              </div>
+            </div>
+          )
+        }}
       />
 
       <NewConsumptionDialog open={newOpen} onOpenChange={setNewOpen} />

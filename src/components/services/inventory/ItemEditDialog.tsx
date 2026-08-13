@@ -235,11 +235,12 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
 
   return (
     <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
-      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg">
+      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg max-h-[100vh] sm:max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Item' : 'New Item'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-1 pr-1">
           {/* Photo — thumbnail + change / remove */}
           <div className="flex items-start gap-3">
             <ItemPhoto url={imageUrl} name={nameEn} size={64} />
@@ -462,10 +463,11 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
               </div>
             )}
           </div>
+          </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending || uploading}>
+          <DialogFooter className="sticky bottom-0 bg-background pt-3 border-t">
+            <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
+            <Button type="submit" className="min-h-11 sm:min-h-9" disabled={isPending || uploading}>
               {isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Item'}
             </Button>
           </DialogFooter>

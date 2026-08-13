@@ -80,12 +80,14 @@ export function FilterBar({
           value={dateFrom}
           onChange={onDateFromChange}
           placeholder="From date"
+          className="min-h-11 md:min-h-0"
         />
         <span className="text-muted-foreground text-sm">to</span>
         <DatePicker
           value={dateTo}
           onChange={onDateToChange}
           placeholder="To date"
+          className="min-h-11 md:min-h-0"
         />
       </div>
 

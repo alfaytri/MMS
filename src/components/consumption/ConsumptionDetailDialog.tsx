@@ -166,8 +166,8 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                 {/* Lines */}
                 <div className="space-y-1.5">
                   <div className="text-[11px] font-medium">Lines ({data.lines.length})</div>
-                  <div className="rounded-md border overflow-hidden">
-                    <table className="w-full text-[11px]">
+                  <div className="rounded-md border overflow-x-auto">
+                    <table className="w-full min-w-[380px] text-[11px]">
                       <thead className="bg-muted/40">
                         <tr>
                           <th className="text-left px-2.5 py-1.5 font-medium">Item</th>
@@ -257,7 +257,7 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-[11px] h-8 gap-1 border-warning/40 text-warning-foreground hover:bg-warning/10"
+                  className="text-[11px] h-11 sm:h-8 gap-1 border-warning/40 text-warning-foreground hover:bg-warning/10"
                   onClick={() => setRequestOpen(true)}
                 >
                   <Send className="h-3 w-3" />
@@ -270,7 +270,7 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                 </span>
               )}
             </div>
-            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" size="sm" className="text-[11px] h-11 sm:h-8" onClick={() => onOpenChange(false)}>
               Close
             </Button>
           </DialogFooter>
