@@ -5989,6 +5989,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency_id: string | null
+          division_id: string | null
           email: string | null
           id: string
           is_active: boolean | null
@@ -6007,6 +6008,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -6025,6 +6027,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency_id?: string | null
+          division_id?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
@@ -6054,6 +6057,13 @@ export type Database = {
             columns: ["currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
         ]

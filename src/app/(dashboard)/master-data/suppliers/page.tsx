@@ -11,6 +11,7 @@ import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { SupplierFormDialog } from '@/components/master-data/SupplierFormDialog'
 import { useSuppliers, type SupplierWithCurrency } from '@/hooks/useSuppliers'
+import { useDivisions } from '@/hooks/useDivisions'
 import { useSupplierCreditBalances, groupBalancesByParty } from '@/hooks/useCreditBalances'
 import { CreditBalanceDialog } from '@/components/shared/CreditBalanceDialog'
 import { Badge } from '@/components/ui/badge'
@@ -28,8 +29,14 @@ export default function SuppliersPage() {
   const [editing, setEditing] = useState<SupplierWithCurrency | null>(null)
   const [balanceView, setBalanceView] = useState<{ id: string; name: string } | null>(null)
   const { data: suppliers, isLoading } = useSuppliers()
+  const { data: divisions = [] } = useDivisions()
   const { data: balances = [] } = useSupplierCreditBalances()
   const balanceMap = useMemo(() => groupBalancesByParty(balances), [balances])
+  const divisionMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of divisions) m.set(d.id, d.short_name || d.name)
+    return m
+  }, [divisions])
 
   const columns = useMemo<ColumnDef<SupplierWithCurrency>[]>(
     () => [
@@ -49,6 +56,17 @@ export default function SuppliersPage() {
               {t}
             </Badge>
           )
+        },
+      },
+      {
+        id: 'scope',
+        header: 'Scope',
+        cell: ({ row }) => {
+          const divId = row.original.division_id
+          if (!divId) {
+            return <Badge variant="outline" className="text-[10px] text-muted-foreground">Global</Badge>
+          }
+          return <Badge variant="secondary" className="text-[10px]">{divisionMap.get(divId) ?? 'Division'}</Badge>
         },
       },
       {
@@ -159,7 +177,7 @@ export default function SuppliersPage() {
         ),
       },
     ],
-    [balanceMap]
+    [balanceMap, divisionMap]
   )
 
   return (
@@ -199,6 +217,9 @@ export default function SuppliersPage() {
                   {supplier.supplier_type}
                 </Badge>
               )}
+              {supplier.division_id
+                ? <Badge variant="secondary" className="text-[10px]">{divisionMap.get(supplier.division_id) ?? 'Division'}</Badge>
+                : <Badge variant="outline" className="text-[10px] text-muted-foreground">Global</Badge>}
               {supplier.country && <span>{supplier.country}</span>}
               {supplier.currencies?.code && (
                 <Badge variant="outline" className="text-[10px] font-mono">{supplier.currencies.code}</Badge>

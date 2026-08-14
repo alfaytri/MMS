@@ -1,8 +1,10 @@
+import { useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 
 export type Supplier = DBTable<'suppliers'>
 export type SupplierInsert = DBInsert<'suppliers'>
@@ -13,6 +15,27 @@ export type SupplierWithCurrency = Supplier & {
 }
 
 export function useSuppliers() {
+  const { viewDivisionIds, availableDivisions } = useActiveDivision()
+
+  // Visibility filter: a supplier is shown when it is global (division_id NULL)
+  // or its division is in the caller's current view set. An empty view set means
+  // "All divisions" → every division the caller can access. Supplier names are
+  // denormalised onto POs/bills, so narrowing this list never blanks an existing
+  // record's supplier name — it only scopes the picker/filter option lists.
+  const visibleDivisionIds = useMemo(
+    () =>
+      viewDivisionIds.size > 0
+        ? viewDivisionIds
+        : new Set(availableDivisions.map((d) => d.id)),
+    [viewDivisionIds, availableDivisions],
+  )
+
+  const selectVisible = useCallback(
+    (rows: SupplierWithCurrency[]) =>
+      rows.filter((s) => s.division_id == null || visibleDivisionIds.has(s.division_id)),
+    [visibleDivisionIds],
+  )
+
   return useQuery({
     queryKey: queryKeys.suppliers.all,
     queryFn: async () => {
@@ -26,6 +49,7 @@ export function useSuppliers() {
       return data as SupplierWithCurrency[]
     },
     staleTime: 5 * 60 * 1000,
+    select: selectVisible,
   })
 }
 

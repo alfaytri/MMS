@@ -38,7 +38,6 @@ import { useCreateSupplier, useUpdateSupplier, type Supplier } from '@/hooks/use
 import { useCurrencies } from '@/hooks/useCurrencies'
 import { useCountryCodes } from '@/hooks/useCountryCodes'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
-import { Checkbox } from '@/components/ui/checkbox'
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -71,12 +70,12 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
   const { data: countryCodes = [] } = useCountryCodes()
   const qarCurrency = currencies.find((c) => c.code === 'QAR')
   const guardRef = useRef<GuardedFormDialogHandle>(null)
-  const { activeDivisionId } = useActiveDivision()
-  // Global = visible to every division. On create it defaults to false when
-  // an active division is set (stamps that division), true when there's no
-  // active division (super-viewer with "All divisions" selected → global).
-  // On edit it reflects the row's current division_id.
-  const [isGlobal, setIsGlobal] = useState(false)
+  const { activeDivisionId, availableDivisions } = useActiveDivision()
+  // Visibility scope. Global (division_id NULL) = visible to every division and
+  // is the DEFAULT for new suppliers. "Specific division" stamps the chosen
+  // division_id. On edit, both reflect the row's current division_id.
+  const [isGlobal, setIsGlobal] = useState(true)
+  const [scopedDivisionId, setScopedDivisionId] = useState('')
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
@@ -112,7 +111,8 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
     if (open && supplier) {
       const { code, digits } = splitPhone(supplier.phone)
       setCountryCode(code)
-      setIsGlobal((supplier as unknown as { division_id?: string | null }).division_id == null)
+      setIsGlobal(supplier.division_id == null)
+      setScopedDivisionId(supplier.division_id ?? '')
       form.reset({
         name: supplier.name,
         category: supplier.category ?? '',
@@ -127,16 +127,19 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       })
     } else if (open) {
       setCountryCode('+974')
-      setIsGlobal(activeDivisionId == null)
+      setIsGlobal(true)
+      setScopedDivisionId('')
       form.reset({ name: '', category: '', supplier_type: 'local' as const, currency_id: '', country: '', contact_name: '', phone: '', email: '', address: '', notes: '' })
     }
-    // New-supplier defaults read activeDivisionId as a snapshot at open time; this
-    // init must sync only on open/supplier changes, not re-run when the active
-    // division changes (that would reset an in-progress edit).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Form fields (re)initialise only when the dialog opens or the target
+    // supplier changes.
   }, [open, supplier, form])
 
   function onSubmit(values: SupplierFormValues) {
+    if (!isGlobal && !scopedDivisionId) {
+      toast.error('Select a division for a division-specific supplier')
+      return
+    }
     const fullPhone = values.phone ? `${countryCode}${values.phone}` : null
     const cleanValues = {
       ...values,
@@ -150,8 +153,8 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
       address: values.address || null,
       notes: values.notes || null,
       // Division stamping: null = global (visible to every division).
-      // Otherwise stamp the currently active division.
-      division_id: isGlobal ? null : (activeDivisionId ?? null),
+      // Otherwise stamp the chosen division.
+      division_id: isGlobal ? null : scopedDivisionId,
     }
 
     if (isEditing && supplier) {
@@ -381,25 +384,51 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
 
               {/* Division scope */}
               <div className="rounded-md border p-3 space-y-2 bg-muted/30">
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="supplier-global"
-                    checked={isGlobal}
-                    onCheckedChange={(v) => setIsGlobal(v === true)}
-                    className="mt-0.5"
-                  />
-                  <div className="space-y-0.5">
-                    <label htmlFor="supplier-global" className="text-sm font-medium cursor-pointer">
-                      Global supplier (visible to every division)
-                    </label>
-                    <p className="text-[11px] text-muted-foreground">
-                      {isGlobal
-                        ? 'This supplier will be visible in every division.'
-                        : activeDivisionId
-                          ? 'Scoped to the currently active division only.'
-                          : 'No active division — supplier will be created as global.'}
-                    </p>
-                  </div>
+                <div className="space-y-0.5">
+                  <label className="text-sm font-medium">Visible to</label>
+                  <p className="text-[11px] text-muted-foreground min-h-4">
+                    {isGlobal
+                      ? 'Global — visible in every division.'
+                      : 'Visible only in the selected division.'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Select
+                    value={isGlobal ? 'global' : 'specific'}
+                    onValueChange={(v) => {
+                      const global = v === 'global'
+                      setIsGlobal(global)
+                      if (!global && !scopedDivisionId) {
+                        setScopedDivisionId(activeDivisionId ?? availableDivisions[0]?.id ?? '')
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      <SelectItem value="global">All divisions (global)</SelectItem>
+                      <SelectItem value="specific">Specific division</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!isGlobal && (
+                    <Select
+                      value={scopedDivisionId}
+                      onValueChange={(v) => setScopedDivisionId(v ?? '')}
+                      disabled={availableDivisions.length <= 1}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select division…" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60 overflow-y-auto">
+                        {availableDivisions.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             </div>
