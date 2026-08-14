@@ -141,7 +141,7 @@ export default function PurchaseOrdersPage() {
   // what the list below shows.
   const stats = useMemo(() => {
     const all = (orders ?? []).filter(
-      (o) => !activeDivisionId || o.division_id == null || o.division_id === activeDivisionId,
+      (o) => !activeDivisionId || o.division_id == null || o.division_id === activeDivisionId || (o.division_ids ?? []).includes(activeDivisionId),
     )
     return {
       total: all.length,
@@ -159,7 +159,7 @@ export default function PurchaseOrdersPage() {
   const filtered = useMemo(() => {
     let result = orders ?? []
     if (activeDivisionId) {
-      result = result.filter((o) => o.division_id == null || o.division_id === activeDivisionId)
+      result = result.filter((o) => o.division_id == null || o.division_id === activeDivisionId || (o.division_ids ?? []).includes(activeDivisionId))
     }
     if (statusFilter.size > 0) result = result.filter((o) => statusFilter.has(o.status))
     if (supplierFilter) result = result.filter((o) => o.supplier_id === supplierFilter)
@@ -476,13 +476,28 @@ export default function PurchaseOrdersPage() {
                       </TableCell>
                       {showDivisionColumn && (
                         <TableCell>
-                          {po.division_id && divisionLabelById.get(po.division_id) ? (
-                            <Badge variant="outline" className="text-[11px] font-medium">
-                              {divisionLabelById.get(po.division_id)}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          {(() => {
+                            const ids = po.division_ids ?? []
+                            if (ids.length > 1) {
+                              return (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[11px] font-medium"
+                                  title={ids.map((id) => divisionLabelById.get(id) ?? '—').join(', ')}
+                                >
+                                  Multi ({ids.length})
+                                </Badge>
+                              )
+                            }
+                            const only = ids[0] ?? po.division_id
+                            return only && divisionLabelById.get(only) ? (
+                              <Badge variant="outline" className="text-[11px] font-medium">
+                                {divisionLabelById.get(only)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )
+                          })()}
                         </TableCell>
                       )}
                       <TableCell className="text-sm text-muted-foreground">

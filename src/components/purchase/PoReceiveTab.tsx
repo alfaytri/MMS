@@ -19,6 +19,7 @@ import {
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCreateReceival } from '@/hooks/useReceivals'
+import { useDivisions } from '@/hooks/useDivisions'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import type { LineType } from '@/components/purchase/PoLineItemsEditor'
@@ -37,6 +38,7 @@ type ReceiveRow = {
   receiveNow: number
   unitCost: number
   freeQty: number
+  division_id: string | null
 }
 
 type ExtraFreeItem = {
@@ -64,6 +66,13 @@ export function PoReceiveTab({
   const [saving, setSaving] = useState(false)
 
   const poDivisionId = po.division_id ?? null
+  const { data: divisions = [] } = useDivisions()
+  const isMultiDivPO = (po.division_ids?.length ?? 0) > 1
+  const divisionShort = (idv: string | null) => {
+    if (!idv) return null
+    const d = divisions.find((x) => x.id === idv)
+    return d ? (d.short_name || d.name) : null
+  }
 
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
   // When the PO has a division, filter to matching sub-containers. When the
@@ -102,6 +111,7 @@ export function PoReceiveTab({
         po_line_item_id: li.id,
         brand_variant_id: li.brand_variant_id ?? null,
         item_name: li.item_name,
+        division_id: li.division_id ?? null,
         system_name: bv?.inventory_items?.name_en ?? null,
         variant_label,
         sku: li.sku ?? null,
@@ -318,7 +328,12 @@ export function PoReceiveTab({
               return (
                 <TableRow key={row.po_line_item_id} className={done ? 'bg-muted/30' : ''}>
                   <TableCell>
-                    <p className="font-medium text-sm">{row.system_name ?? row.item_name}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-medium text-sm">{row.system_name ?? row.item_name}</p>
+                      {isMultiDivPO && divisionShort(row.division_id) && (
+                        <Badge variant="outline" className="h-4 text-[10px] px-1.5">{divisionShort(row.division_id)}</Badge>
+                      )}
+                    </div>
                     {(row.variant_label || row.sku) && (
                       <p className="text-xs text-muted-foreground">
                         {[row.variant_label, row.sku].filter(Boolean).join(' · ')}

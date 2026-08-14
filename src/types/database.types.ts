@@ -3848,6 +3848,7 @@ export type Database = {
           brand_id: string | null
           brand_variant_id: string | null
           created_at: string | null
+          division_id: string | null
           fifo_layers: Json | null
           free_qty: number
           id: string
@@ -3865,6 +3866,7 @@ export type Database = {
           brand_id?: string | null
           brand_variant_id?: string | null
           created_at?: string | null
+          division_id?: string | null
           fifo_layers?: Json | null
           free_qty?: number
           id?: string
@@ -3882,6 +3884,7 @@ export type Database = {
           brand_id?: string | null
           brand_variant_id?: string | null
           created_at?: string | null
+          division_id?: string | null
           fifo_layers?: Json | null
           free_qty?: number
           id?: string
@@ -3908,6 +3911,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_line_items_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
           {
@@ -4189,6 +4199,7 @@ export type Database = {
           discount_amount: number
           discount_label: string | null
           division_id: string | null
+          division_ids: string[]
           exchange_gain: number
           exchange_loss: number
           exchange_net: number | null
@@ -4234,6 +4245,7 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
+          division_ids?: string[]
           exchange_gain?: number
           exchange_loss?: number
           exchange_net?: number | null
@@ -4279,6 +4291,7 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           division_id?: string | null
+          division_ids?: string[]
           exchange_gain?: number
           exchange_loss?: number
           exchange_net?: number | null
@@ -5340,6 +5353,7 @@ export type Database = {
           discount_label?: string | null
           discount_type?: string | null
           division_id?: string | null
+          division_ids?: string[]
           exchange_gain?: number
           exchange_loss?: number
           exchange_net?: number | null
@@ -5381,6 +5395,7 @@ export type Database = {
           discount_label?: string | null
           discount_type?: string | null
           division_id?: string | null
+          division_ids?: string[]
           exchange_gain?: number
           exchange_loss?: number
           exchange_net?: number | null

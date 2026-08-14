@@ -75,6 +75,7 @@ export type POLineItem = {
   fifo_layers: unknown
   brand_variant_id: string | null
   brand_id: string | null
+  division_id: string | null
   created_at: string
   inventory_item_brand_variants?: {
     brand: string
@@ -131,6 +132,7 @@ export type PurchaseOrder = {
   discount_label: string | null
   payment_milestones: { label: string; percent: number }[] | null
   division_id: string | null
+  division_ids: string[]
   created_at: string
   updated_at: string
   created_by: string | null
@@ -194,6 +196,8 @@ export type POLineItemDraft = {
   brand_id?: string | null
   /** Show this line's item specification on the PO / PO PDF (default false; seeded from the item's po_specification_default). */
   show_specification?: boolean
+  /** The division this line is purchased for (multi-division PO). Falls back to the PO header division server-side when null. */
+  division_id?: string | null
 }
 
 export type CreatePOPayload = {

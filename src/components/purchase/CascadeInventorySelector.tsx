@@ -59,6 +59,12 @@ interface CascadeInventorySelectorProps {
    * tell buying from selling.
    */
   brandOriginCascade?: boolean
+  /**
+   * Override the division used for the accessibility filter (defaults to the
+   * active division). Set per PO line so a multi-division PO filters each line's
+   * item picker to that line's division instead of the global active division.
+   */
+  divisionId?: string | null
 }
 
 async function fetchLastFifoCost(variantId: string): Promise<number> {
@@ -190,6 +196,7 @@ export function CascadeInventorySelector({
   onPriceLoading,
   filterByActiveDivision = false,
   brandOriginCascade = false,
+  divisionId,
 }: CascadeInventorySelectorProps) {
   // Three category levels — the deepest non-null wins as the effective category.
   const [selectedL1, setSelectedL1] = useState<InventoryTreeNode | null>(null)
@@ -249,9 +256,11 @@ export function CascadeInventorySelector({
   // Phase D.12 Task 3 — division-aware filter (opt-in via `filterByActiveDivision`).
   // When active, the tree collapses to only branches containing accessible items.
   const { activeDivisionId } = useActiveDivision()
+  // Per-line override (multi-division PO) falls back to the active division.
+  const effectiveDivisionId = divisionId ?? activeDivisionId
   const accessibility = useCascadeAccessibleItems(
     lineType,
-    activeDivisionId,
+    effectiveDivisionId,
     filterByActiveDivision,
   )
 
@@ -640,7 +649,7 @@ export function CascadeInventorySelector({
                           // is accessible but not owned by the active division.
                           const isShareOnly =
                             filterByActiveDivision &&
-                            !!activeDivisionId &&
+                            !!effectiveDivisionId &&
                             accessibility.accessibleItemIds?.has(item.id) === true &&
                             !accessibility.ownedItemIds.has(item.id)
                           return (
@@ -759,9 +768,9 @@ export function CascadeInventorySelector({
                             }
                             return pools.map((pool: VariantDivisionPool) => {
                               const isShared =
-                                !!activeDivisionId &&
+                                !!effectiveDivisionId &&
                                 pool.division_id !== null &&
-                                pool.division_id !== activeDivisionId
+                                pool.division_id !== effectiveDivisionId
                               const divisionLabel = pool.division_name ?? '—'
                               const available = Math.max(0, pool.qty - pool.reserved)
                               const subParts = [

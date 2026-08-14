@@ -132,10 +132,11 @@ export default function CreatePOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty, show_specification }) => ({
+      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty, show_specification, division_id }) => ({
         item_name: item_name.trim(),
         sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty,
         show_specification: show_specification ?? false,
+        division_id: division_id ?? divisionId ?? null,
       })),
       division_id: divisionId || null,
       show_specifications: showSpecifications,
@@ -143,9 +144,18 @@ export default function CreatePOPage() {
   }
 
   function validate() {
-    if (isMultiDivision && !divisionId) { toast.error('Select a division before creating the order.'); return false }
+    if (isMultiDivision && !divisionId) { toast.error('Select a default division before creating the order.'); return false }
     if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
+    if (isMultiDivision) {
+      const missingDiv = lineItems.filter((li) => !li.division_id)
+      if (missingDiv.length > 0) {
+        toast.error(missingDiv.length === 1
+          ? 'One line has no division — pick a division for every row'
+          : `${missingDiv.length} lines have no division — pick a division for every row`)
+        return false
+      }
+    }
     const missingItems = lineItems.filter((li) => !li.brand_variant_id)
     if (missingItems.length > 0) {
       toast.error(missingItems.length === 1
@@ -251,8 +261,11 @@ export default function CreatePOPage() {
           {isMultiDivision && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium">
-                Division <span className="text-destructive">*</span>
+                Default division for new lines <span className="text-destructive">*</span>
               </label>
+              <p className="text-[11px] text-muted-foreground">
+                Sets the division for lines you add. You can reassign any line to another division below.
+              </p>
               <Select value={divisionId} onValueChange={(v) => { if (v) setDivisionId(v) }}>
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Select division…" />
@@ -417,7 +430,7 @@ export default function CreatePOPage() {
               <span className="text-[11px] text-muted-foreground">Include specifications on this PO</span>
             </label>
           </div>
-          <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} onPriceLoading={setIsPriceLoading} />
+          <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} onPriceLoading={setIsPriceLoading} divisions={divisions} defaultDivisionId={divisionId || null} />
         </section>
 
         <Separator />

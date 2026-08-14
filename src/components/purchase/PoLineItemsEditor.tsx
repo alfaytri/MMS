@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CascadeInventorySelector } from './CascadeInventorySelector'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
@@ -56,7 +57,7 @@ const TYPE_CONFIG: Record<LineType, TypeConfig> = {
 
 const ALL_TYPES: LineType[] = ['products', 'spare-parts', 'consumables', 'tools']
 
-function makeRow(line_type: LineType): LineItemRow {
+function makeRow(line_type: LineType, division_id: string | null = null): LineItemRow {
   return {
     _key: crypto.randomUUID(),
     line_type,
@@ -69,7 +70,15 @@ function makeRow(line_type: LineType): LineItemRow {
     brand_variant_id: null,
     free_qty: 0,
     show_specification: false,
+    division_id,
   }
+}
+
+// Fields cleared when a row's division changes — the previously-picked item may
+// not be accessible in the new division, so reset the item selection.
+const CLEARED_ITEM: Partial<LineItemRow> = {
+  item_name: '', sku: '', unit: 'pcs', unit_price: 0, total_price: 0,
+  brand_variant_id: null, _system_name: undefined, show_specification: false,
 }
 
 interface PoLineItemsEditorProps {
@@ -78,9 +87,15 @@ interface PoLineItemsEditorProps {
   currency: string
   readOnly?: boolean
   onPriceLoading?: (loading: boolean) => void
+  /** Divisions the operator can assign lines to. When more than one, a per-line Division select shows. */
+  divisions?: { id: string; name: string }[]
+  /** Division stamped on newly-added lines (the PO's default division). */
+  defaultDivisionId?: string | null
 }
 
-export function PoLineItemsEditor({ value, onChange, currency, readOnly = false, onPriceLoading }: PoLineItemsEditorProps) {
+export function PoLineItemsEditor({ value, onChange, currency, readOnly = false, onPriceLoading, divisions = [], defaultDivisionId = null }: PoLineItemsEditorProps) {
+  const showDivisionPicker = !readOnly && divisions.length > 1
+  const divisionName = (id: string | null | undefined) => divisions.find((d) => d.id === id)?.name ?? null
   const priceLoadingKeys = useRef(new Set<string>())
 
   function handleRowPriceLoading(key: string, loading: boolean) {
@@ -93,7 +108,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
   }
 
   function addRow(line_type: LineType) {
-    onChange([...value, makeRow(line_type)])
+    onChange([...value, makeRow(line_type, defaultDivisionId)])
   }
 
   function removeRow(key: string) {
@@ -207,8 +222,30 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
               {rows.map((row) => {
                 return (
                   <div key={row._key} className="px-3 py-2.5 space-y-2">
-                    {/* Row 1: item picker + delete */}
+                    {/* Row 1: division + item picker + delete */}
                     <div className="flex items-start gap-2">
+                      {showDivisionPicker && (
+                        <div className="w-[150px] shrink-0">
+                          <Select
+                            value={row.division_id ?? ''}
+                            onValueChange={(v) => updateRow(row._key, { division_id: v || null, ...CLEARED_ITEM })}
+                          >
+                            <SelectTrigger className="h-9 w-full text-xs">
+                              <SelectValue placeholder="Division…" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60 overflow-y-auto">
+                              {divisions.map((d) => (
+                                <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {readOnly && row.division_id && divisionName(row.division_id) && (
+                        <div className="w-[150px] shrink-0 h-9 px-2 flex items-center rounded-md border bg-muted/30 text-xs text-muted-foreground truncate">
+                          {divisionName(row.division_id)}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         {readOnly ? (
                           <div className="h-9 px-2 flex items-center rounded-md border bg-muted/30 text-sm font-medium truncate">
@@ -235,6 +272,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                             }
                             onChange={(item) => handleInventorySelect(row._key, item)}
                             onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
+                            divisionId={row.division_id ?? undefined}
                             filterByActiveDivision
                             brandOriginCascade
                           />

@@ -46,6 +46,7 @@ import { usePurchaseReturnsByPO } from '@/hooks/usePurchaseReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
 import { usePoEditRequest } from '@/hooks/usePoEditRequests'
+import { useDivisions } from '@/hooks/useDivisions'
 import { EditRequestBanner } from './EditRequestBanner'
 import { RequestEditDialog } from './RequestEditDialog'
 import { RfqQuotesTab } from './RfqQuotesTab'
@@ -87,6 +88,13 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const resolvedId = po?.id ?? poId ?? null
 
   const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? resolvedId : null)
+  const { data: divisions = [] } = useDivisions()
+  const isMultiDivPO = (fullPO?.division_ids?.length ?? 0) > 1
+  const divisionShort = (id: string | null) => {
+    if (!id) return null
+    const d = divisions.find((x) => x.id === id)
+    return d ? (d.short_name || d.name) : null
+  }
   const { data: payments } = usePOPayments(open ? resolvedId : null)
   const { data: receivals } = usePOReceivalsByPO(open ? resolvedId : null)
   const { data: versions = [] } = usePoVersions(open ? resolvedId : null)
@@ -474,6 +482,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                                   )}
                                   <div className="flex items-center gap-1.5">
                                     <span className="font-medium">{li.item_name}</span>
+                                    {isMultiDivPO && divisionShort(li.division_id) && (
+                                      <Badge variant="outline" className="h-4 text-[10px] px-1.5">
+                                        {divisionShort(li.division_id)}
+                                      </Badge>
+                                    )}
                                     {brandOrigin && (
                                       <span className="text-xs text-muted-foreground">— {brandOrigin}</span>
                                     )}

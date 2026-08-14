@@ -25,6 +25,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { PoLineItemsEditor, type LineItemRow, type LineType } from '@/components/purchase/PoLineItemsEditor'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { PoTermsSection, DEFAULT_TERMS, type PoTermsValues } from '@/components/purchase/PoTermsSection'
 import { AddSupplierDialog } from '@/components/purchase/AddSupplierDialog'
 import { PoVersionTabs } from '@/components/purchase/PoVersionTabs'
@@ -65,6 +66,7 @@ export default function EditPOPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { data: po, isLoading: poLoading } = usePurchaseOrder(id)
+  const { divisions } = useUserDivisionScope()
   const { data: versions = [], isLoading: versionsLoading } = usePoVersions(id)
   const { data: suppliers } = useSuppliers()
   const { data: currencies = [] } = useCurrencies()
@@ -146,6 +148,7 @@ export default function EditPOPage() {
           brand_variant_id: li.brand_variant_id,
           free_qty: li.free_qty,
           show_specification: (li as { show_specification?: boolean }).show_specification ?? false,
+          division_id: li.division_id ?? null,
           line_type,
         }
       })
@@ -197,10 +200,11 @@ export default function EditPOPage() {
       vendor_notes: terms.vendor_notes || null,
       discount_amount: discountAmount,
       discount_label: discountLabel || null,
-      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty, show_specification }) => ({
+      line_items: lineItems.map(({ item_name, sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty, show_specification, division_id }) => ({
         item_name: item_name.trim(),
         sku, qty, unit, unit_price, total_price, brand_variant_id, free_qty,
         show_specification: show_specification ?? false,
+        division_id: division_id ?? po?.division_id ?? null,
       })),
       division_id: po?.division_id ?? null,
     }
@@ -646,7 +650,7 @@ export default function EditPOPage() {
               </h2>
               <Badge variant="outline" className="text-[9px]">{validCount} valid</Badge>
             </div>
-            <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} />
+            <PoLineItemsEditor value={lineItems} onChange={setLineItems} currency={currency} divisions={divisions} defaultDivisionId={po?.division_id ?? null} />
           </section>
 
           <Separator />
