@@ -75,15 +75,30 @@ export function PoReceiveTab({
   }
 
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
-  // When the PO has a division, filter to matching sub-containers. When the
-  // PO has no division (legacy or unassigned), let the operator pick from any
-  // active sub-container in the warehouse — the RPC's division-match guard is
-  // suppressed for null PO divisions.
+
+  // Divisions this PO may receive into: the line-division set (multi-division)
+  // is authoritative; fall back to the header division for single-division /
+  // legacy POs.
+  const allowedDivisionIds = useMemo(() => {
+    const set = po.division_ids ?? []
+    if (set.length > 0) return set
+    return poDivisionId ? [poDivisionId] : []
+  }, [po.division_ids, poDivisionId])
+
+  // Sub-containers in any of the PO's divisions are eligible. Legacy POs with no
+  // division let the operator pick any active sub-container.
   const eligibleSubs = useMemo(() => {
     const active = allSubs.filter((sc) => sc.is_active)
-    if (poDivisionId === null) return active
-    return active.filter((sc) => sc.division_id === poDivisionId)
-  }, [allSubs, poDivisionId])
+    if (allowedDivisionIds.length === 0) return active
+    return active.filter((sc) => sc.division_id && allowedDivisionIds.includes(sc.division_id))
+  }, [allSubs, allowedDivisionIds])
+
+  // The division of the chosen sub-container — a receival pass lands in one
+  // division, so lines of other divisions are received in a separate pass.
+  const selectedSubDivision = useMemo(
+    () => allSubs.find((sc) => sc.id === subContainerId)?.division_id ?? null,
+    [allSubs, subContainerId],
+  )
 
   useEffect(() => {
     if (eligibleSubs.length === 1) {
@@ -182,7 +197,7 @@ export function PoReceiveTab({
   }
 
   const subContainerOk =
-    (poDivisionId !== null && eligibleSubs.length <= 1) ||
+    (!isMultiDivPO && poDivisionId !== null && eligibleSubs.length <= 1) ||
     !!subContainerId
   const canSubmit = !!warehouseId && subContainerOk && (
     rows.some((r) => r.receiveNow > 0 || r.freeQty > 0) ||
@@ -195,6 +210,10 @@ export function PoReceiveTab({
 
     const items: NonNullable<Parameters<typeof createReceival.mutateAsync>[0]['items']> = []
     for (const r of rows) {
+      // A receival pass lands in one sub-container (one division). Skip lines
+      // whose division doesn't match the chosen bin — they're received in a
+      // separate pass (the RPC enforces this too).
+      if (isMultiDivPO && selectedSubDivision && r.division_id && r.division_id !== selectedSubDivision) continue
       if (r.receiveNow > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.receiveNow, unit_cost: r.unitCost, is_free: false })
       if (r.freeQty > 0) items.push({ po_line_item_id: r.po_line_item_id, brand_variant_id: r.brand_variant_id, item_name: r.item_name, sku: r.sku, qty_received: r.freeQty, unit_cost: r.unitCost, is_free: true })
     }
@@ -265,7 +284,7 @@ export function PoReceiveTab({
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
             <span className="inline-flex items-center gap-1 flex-shrink-0">
               <Package className="h-3 w-3" />
-              Sub-container{poDivisionId === null ? ' *' : ''}:
+              Sub-container{(poDivisionId === null || isMultiDivPO) ? ' *' : ''}:
             </span>
             {eligibleSubs.length === 0 ? (
               <span className="italic">
@@ -302,6 +321,11 @@ export function PoReceiveTab({
             )}
           </div>
         )}
+        {isMultiDivPO && (
+          <p className="text-[11px] text-amber-600">
+            This PO spans multiple divisions. Pick a sub-container for one division and receive its lines; lines for other divisions show “Other division” — receive them in a separate pass into their own warehouse.
+          </p>
+        )}
       </div>
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
@@ -325,8 +349,11 @@ export function PoReceiveTab({
             {rows.map((row) => {
               const remaining = row.ordered - row.alreadyReceived
               const done = remaining <= 0
+              // In a multi-division PO, a receival pass lands in one division's
+              // sub-container; lines of other divisions are received separately.
+              const otherDivision = isMultiDivPO && !!selectedSubDivision && !!row.division_id && row.division_id !== selectedSubDivision
               return (
-                <TableRow key={row.po_line_item_id} className={done ? 'bg-muted/30' : ''}>
+                <TableRow key={row.po_line_item_id} className={`${done ? 'bg-muted/30' : ''} ${otherDivision ? 'opacity-50' : ''}`}>
                   <TableCell>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-medium text-sm">{row.system_name ?? row.item_name}</p>
@@ -361,6 +388,8 @@ export function PoReceiveTab({
                   <TableCell className="text-right">
                     {done
                       ? <span className="text-xs text-muted-foreground">Done</span>
+                      : otherDivision
+                        ? <span className="text-[10px] text-muted-foreground" title={`Receive in the ${divisionShort(row.division_id) ?? 'line'} division's warehouse`}>Other division</span>
                       : (
                         <Input
                           type="number" min={0} max={remaining}
