@@ -1015,3 +1015,22 @@ These modules are called out in project plans / seed docs but have no material f
 - **Related flows:** [[Create Custody Assign]]
 - **Docs / plans:** [docs/plans/2026-08-13-warehouse-item-requests/plan.md](docs/plans/2026-08-13-warehouse-item-requests/plan.md)
 - **Notes:** Free-text item (no catalog link) — by definition an item the warehouse doesn't stock. Replaces the old fire-and-forget notification (was notification-only, no record). Permissions: `warehouse.item_requests.view` / `.manage`.
+
+---
+
+## Customers & Credit
+
+### Change Customer Credit Group
+
+- **Module:** Sales / Master Data
+- **Status:** Active
+- **Trigger surface(s):** Customers page → **Edit Customer** → Customer Type = **Credit** + pick a credit group with a non-zero limit → **Save Changes** (also on **New Customer**).
+- **Primary hook(s):** [`useSubmitCreditGroupChange`](src/hooks/useCreditGroupApprovals.ts) · [`useSaveCustomerCreditDocs`](src/hooks/useCustomerCreditDocs.ts) · [`useUpdateCustomer`](src/hooks/useSaleOrders.ts)
+- **RPC(s):** `public.submit_credit_group_change(uuid, uuid)` · `save_customer_credit_docs` · `approve_/reject_/force_approve_credit_group_change`
+- **Ledger writes:** `customer_credit_group_requests` (one per submitted change) + `customer_credit_group_approvals` (chain steps) · `customers.credit_group_id` + `block_reason` on approval/auto-approve · `customer_credit_docs` (docs) · `activity_log`
+- **Downstream side-effects:** notifications (`credit_group_pending` / `_approved` / `_rejected`); new customers (no prior group) are blocked while a request is pending; invalidates customer + credit-summary caches.
+- **Dialog / component:** [`CustomerDialog`](src/components/master-data/CustomerDialog.tsx) (submit) · [`CreditGroupApprovalsContent`](src/components/master-data/CreditGroupApprovalsContent.tsx) (decide).
+- **Guards / preconditions:** `master_data.customers.change_credit_group`; group limit > 0 (zero-limit groups are assigned directly, no approval); required docs — business: CR + Establishment ID + Signed Credit Form, individual: Signed Credit Form only; one pending request per customer.
+- **Related flows:** —
+- **Docs / plans:** [docs/superpowers/specs/2026-08-14-supplier-scoping-and-credit-docs-fix-design.md](docs/superpowers/specs/2026-08-14-supplier-scoping-and-credit-docs-fix-design.md)
+- **Notes:** `submit_credit_group_change` reads the customer's docs from `customer_credit_docs` (the wide docs table), **not** from `customers` — those columns were moved off `customers` by `20260815010600` / `010800`, and this function was missed until the fix in `20260823000000` (was raising `column "cr_url" does not exist` for every credit-group submission, individual + business).
