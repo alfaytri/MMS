@@ -251,12 +251,19 @@ export function useInventoryImport() {
         rowIndex: number
         defaultWarehouseId: string | null
         defaultSubContainerId: string | null
+        /** Divisions this item is assigned to — the UNION of the division_id of
+         *  every picked "Warehouse — Sub-container" across the item's rows.
+         *  Written to inventory_items.shared_with_division_ids so imported items
+         *  are division-scoped. Previously left unset, so imports landed with an
+         *  empty array and showed only under the "All" division view. */
+        defaultDivisionIds: Set<string>
       }
       const itemGroups = new Map<string, ItemGroupInfo>()
       for (const row of validRows) {
         const key = buildItemKey(row.type, row.categorySegments, row.itemName)
-        if (!itemGroups.has(key)) {
-          itemGroups.set(key, {
+        let info = itemGroups.get(key)
+        if (!info) {
+          info = {
             type: row.type,
             categorySegments: row.categorySegments,
             itemName: row.itemName,
@@ -265,8 +272,13 @@ export function useInventoryImport() {
             rowIndex: row.rowIndex,
             defaultWarehouseId:    row.subContainer?.warehouse_id ?? null,
             defaultSubContainerId: row.subContainer?.sub_container_id ?? null,
-          })
+            defaultDivisionIds: new Set<string>(),
+          }
+          itemGroups.set(key, info)
         }
+        // Accumulate across every row of this item so an item stocked in more
+        // than one sub-container/division is shared with all of them.
+        if (row.subContainer?.division_id) info.defaultDivisionIds.add(row.subContainer.division_id)
       }
 
       const resolvedItemId = new Map<string, string>()
@@ -299,7 +311,9 @@ export function useInventoryImport() {
       // Batch insert items — on unique violation, fall back to row-by-row.
       // Phase D.14: stamp default_warehouse_id + default_sub_container_id from
       // the picked composite so downstream receival/delivery dialogs may
-      // pre-fill.
+      // pre-fill. Also stamp shared_with_division_ids from the picked
+      // sub-container's division so imported items are division-scoped
+      // immediately (visible under their division, not only under "All").
       for (let i = 0; i < pendingItems.length; i += BATCH_SIZE) {
         const batch = pendingItems.slice(i, i + BATCH_SIZE)
         const payloads = batch.map((p) => ({
@@ -310,6 +324,7 @@ export function useInventoryImport() {
           category_id: p.categoryId,
           default_warehouse_id:     p.info.defaultWarehouseId,
           default_sub_container_id: p.info.defaultSubContainerId,
+          shared_with_division_ids: Array.from(p.info.defaultDivisionIds),
           status: 'active' as const,
           sort_order: 0,
         }))
@@ -339,6 +354,7 @@ export function useInventoryImport() {
                   category_id: p.categoryId,
                   default_warehouse_id:     p.info.defaultWarehouseId,
                   default_sub_container_id: p.info.defaultSubContainerId,
+                  shared_with_division_ids: Array.from(p.info.defaultDivisionIds),
                   status: 'active',
                   sort_order: 0,
                 })
