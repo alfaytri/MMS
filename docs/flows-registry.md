@@ -238,15 +238,17 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 ### Create Purchase Order (draft or RFQ)
 - **Trigger:** `/purchase/create-po`
 - **Hook:** [`useCreatePO`](src/hooks/usePurchaseOrders.ts)
-- **RPC(s):** none — direct table inserts
-- **Writes:** `purchase_orders`, `po_line_items`, seeds `po_rfq_quotes` when `po_type='rfq'`; `savePoSnapshot` + PO activity log
-- **Notes:** Draft or RFQ starting state. Confirmed state comes from [[Submit PO for Approval]].
+- **RPC(s):** `rpc_create_purchase_order(p_payload jsonb)` (SECURITY DEFINER)
+- **Writes:** `purchase_orders`, `po_line_items` (incl. per-line `division_id`), seeds `po_rfq_quotes` when `po_type='rfq'`; `savePoSnapshot` + PO activity log
+- **Multi-division:** each line carries its own `division_id` (falls back to the header division); `purchase_orders.division_ids uuid[]` is the distinct set, kept current by the `po_recompute_division_ids` trigger on `po_line_items`. Access is enforced per line via `is_division_member` (membership, NOT the active-division-narrowed `is_division_visible`). Visibility is array-aware RLS: `is_any_division_visible(division_ids)` (see migrations `20260824000000`–`000300`).
+- **Notes:** Draft or RFQ starting state. Confirmed state comes from [[Submit PO for Approval]]. Approval routing is amount-tier based, division-agnostic. Per-division financial reporting/receiving-routing is Phase 2.
 
 ### Update / Amend Purchase Order
 - **Trigger:** `/purchase/edit-po/[id]`
 - **Hook:** [`useUpdatePO`](src/hooks/usePurchaseOrders.ts)
-- **Writes:** replaces `po_line_items`, recomputes totals + approval level, saves versioned snapshot
-- **Related:** [[Request PO Edit (post-approval amendment)]]
+- **RPC(s):** `rpc_replace_po_lines(p_po_id, p_lines)` — atomic line replace (guards on existing receival/RFQ rows)
+- **Writes:** replaces `po_line_items` (carries per-line `division_id`, falls back to the PO header division; enforces `is_division_member`), recomputes totals + approval level, saves versioned snapshot; the trigger recomputes `purchase_orders.division_ids`
+- **Related:** [[Request PO Edit (post-approval amendment)]], [[Create Purchase Order (draft or RFQ)]]
 
 ### Soft-delete Purchase Order
 - **Trigger:** PO list actions
