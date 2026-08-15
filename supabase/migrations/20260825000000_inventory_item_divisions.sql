@@ -28,4 +28,5 @@ select ii.id, d.division_id, ii.category_id
 from public.inventory_items ii
 cross join lateral unnest(ii.shared_with_division_ids) as d(division_id)
 where ii.shared_with_division_ids is not null
+  and exists (select 1 from public.company_divisions cd where cd.id = d.division_id)
 on conflict (item_id, division_id) do nothing;
