@@ -29,7 +29,7 @@ The inventory model today says *"items don't belong to a division — ownership 
 
 - No change to the transfer engine itself (it already moves brand-variants between sub-containers, carrying FIFO cost).
 - No change to how stock, cost layers, or valuation are keyed (single stock identity per brand-variant is preserved).
-- **Tools stay single-type.** Tools are asset-tracked; an item must not be "a tool in one division, a product in another." The per-division category overlay is only for the interchangeable trio: **Products / Spare-parts / Consumables**.
+- **Tools stay single-type (for this feature).** Tools are asset-tracked; an item must not be "a tool in one division, a product in another." The per-division category overlay is only for the interchangeable trio: **Products / Spare-parts / Consumables**. *Forward-ref:* the follow-up **Bulk Tools** feature ([../2026-08-15-bulk-tools/NOTES.md](../2026-08-15-bulk-tools/NOTES.md), sequenced after this one) makes **bulk** tools a qty type that will opt into this model, and division-scopes serialized tool units — so this carve-out is temporary for bulk tools only.
 - No new approval/permission surface — assignment management reuses the existing `inventory.catalog.manage` permission.
 
 ## 4. Blast-radius findings (verified against live schema)
