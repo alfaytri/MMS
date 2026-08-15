@@ -70,7 +70,10 @@ export default function PayablesReportPage() {
   const totals = useMemo(() => {
     const outstanding = rows.reduce((s, r) => s + (r.due ?? 0), 0)
     const overdue = rows.filter((r) => r.status === 'Over Due').reduce((s, r) => s + (r.due ?? 0), 0)
-    return { outstanding, overdue, count: rows.length }
+    // A bill on a multi-division PO is returned as one row per division; count
+    // distinct bills so this stat reflects bills, not per-division slices.
+    const count = new Set(rows.map((r) => r.bill_no)).size
+    return { outstanding, overdue, count }
   }, [rows])
 
   const subtitle = useMemo(() => {

@@ -15,6 +15,8 @@ export type FxDetailRow = {
   exchange_loss: number
   net_fx:        number
   counterparty:  string | null
+  division_id:   string | null
+  division_name: string | null
 }
 
 /** Report 2.4 — per-document breakdown behind the P&L "Exchange Gain / Loss" line. */
