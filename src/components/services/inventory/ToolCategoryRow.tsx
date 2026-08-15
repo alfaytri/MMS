@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ItemEditDialog } from './ItemEditDialog'
 import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
+import { ToolUnitTransferDialog } from './ToolUnitTransferDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
 import { BulkToolItemRow } from './BulkToolItemRow'
 import {
@@ -21,6 +22,7 @@ import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
   const { data: units = [], isLoading } = useToolAssetUnits(itemId)
   const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
+  const [transferUnit, setTransferUnit] = useState<ToolAssetUnit | null>(null)
   const [addUnitOpen, setAddUnitOpen] = useState(false)
   const autoGenerate = useAutoGenerateToolSerials()
 
@@ -99,9 +101,14 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                     </td>
                     <td className="py-1.5 px-2">{unit.expiry ? formatDate(unit.expiry) : '—'}</td>
                     <td className="py-1.5 px-2 text-right">
-                      <Button variant="ghost" size="icon" aria-label="Edit unit" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditUnit(unit)}>
-                        <Pencil className="h-2.5 w-2.5" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <Button variant="ghost" size="icon" aria-label="Transfer unit" title="Transfer to another division" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setTransferUnit(unit)}>
+                          <ArrowRightLeft className="h-2.5 w-2.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" aria-label="Edit unit" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditUnit(unit)}>
+                          <Pencil className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -116,6 +123,9 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
       <ToolAssetUnitEditDialog open={addUnitOpen} onOpenChange={setAddUnitOpen} itemId={itemId} itemSku={itemSku} />
       {editUnit && (
         <ToolAssetUnitEditDialog open={!!editUnit} onOpenChange={(v) => { if (!v) setEditUnit(null) }} itemId={itemId} itemSku={itemSku} unit={editUnit} />
+      )}
+      {transferUnit && (
+        <ToolUnitTransferDialog open={!!transferUnit} onOpenChange={(v) => { if (!v) setTransferUnit(null) }} itemId={itemId} unit={transferUnit} />
       )}
     </>
   )

@@ -864,6 +864,40 @@ export function useAutoGenerateToolSerials() {
   })
 }
 
+/** Unit-level transfer (Task 2b.3): moves tool_asset_units.division_id (the
+ *  OWNING division) via the perm-gated `rpc_transfer_tool_unit`. Deliberately
+ *  does NOT touch assigned_to — division owns, person holds. */
+export function useTransferToolUnit() {
+  const qc = useQueryClient()
+  return useMutation<
+    void,
+    Error,
+    { unit_id: string; item_id: string; from_division_id: string | null; to_division_id: string; notes?: string | null }
+  >({
+    mutationFn: async ({ unit_id, to_division_id, notes }) => {
+      const supabase = createClient()
+      // RPC isn't in the generated types yet — cast the name + args.
+      const { error } = await supabase.rpc(
+        'rpc_transfer_tool_unit' as never,
+        { p_unit_id: unit_id, p_to_division_id: to_division_id, p_notes: notes ?? null } as never,
+      )
+      if (error) throw error
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+      void logActivity({
+        action:      'Tool Unit Transferred',
+        module:      'inventory',
+        entity_id:   v.unit_id,
+        entity_type: 'tool_unit',
+        details:     v.notes || null,
+        old_data:    { division_id: v.from_division_id },
+        new_data:    { division_id: v.to_division_id },
+      })
+    },
+  })
+}
+
 // ─── All items flat (for Service Links tab) ───────────────────────────────────
 
 export function useInventoryItemsFlat(enabled = true) {
