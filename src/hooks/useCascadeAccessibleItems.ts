@@ -61,6 +61,15 @@ export function useCascadeAccessibleItems(
   const isFilterable = true
   const effectiveEnabled = enabled && !!activeDivisionId && isFilterable
 
+  // Overlay boundary (Bulk Tools Task 2a.7 — see the Scope boundary section and
+  // design.md §6.2 last bullet of docs/plans/2026-08-15-bulk-tools/plan.md):
+  // the Phase-1 per-division CATEGORY OVERLAY (an item filed under a different
+  // category per division) is NOT built. The query below resolves membership
+  // via ASSIGNMENT (inventory_item_divisions, buy side) + owned-stock (consume
+  // side) only — the same mechanism products/spare-parts/consumables use — so
+  // bulk tool categories join that model for free with no code here. Whoever
+  // ships the overlay must extend its allowed category-type set to include
+  // bulk tools; do not re-exclude them.
   const itemsQuery = useQuery({
     queryKey: ['cascade-accessible', 'items', type],
     enabled: effectiveEnabled,

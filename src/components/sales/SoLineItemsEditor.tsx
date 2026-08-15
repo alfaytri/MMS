@@ -51,8 +51,12 @@ const TYPE_CONFIG: Record<SoLineType, TypeConfig> = {
   tools:         { label: 'Tools & Assets', icon: Wrench,      headerClass: 'bg-purple-500/10 text-purple-700 border-b border-purple-200', buttonClass: 'border-purple-300 bg-purple-500/10 text-purple-700 hover:bg-purple-500/20' },
 }
 
-// Tools & Assets intentionally excluded from SO line-item creation — tools are
-// company-owned equipment tracked as serialized assets, not sold to customers.
+// Tools & Assets intentionally excluded from SO line-item creation — internal
+// equipment, never sold to customers. This applies to BOTH tracking modes:
+// bulk tool categories (Bulk Tools plan, Task 2a.7) join the full qty / PO /
+// receival / consumption / transfer machinery like a Consumable, but stay
+// OUT of sales by the same locked decision (design.md §3 Non-goals) as
+// serialized tools. Do not add 'tools' here without a new operator decision.
 const ALL_TYPES: SoLineType[] = ['products', 'consumables', 'spare-parts']
 
 function makeRow(line_type: SoLineType): SoLineItemRow {
