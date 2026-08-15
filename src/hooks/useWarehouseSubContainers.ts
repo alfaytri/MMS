@@ -169,6 +169,9 @@ export function useWarehouseSubContainersAdmin(warehouseId?: string | null) {
         created_at:                      r.created_at,
         created_by:                      null,
         updated_at:                      r.updated_at,
+        // Admin RPC predates project/discipline tagging; not surfaced on this page.
+        project_id:                      null,
+        discipline_id:                   null,
       }))
     },
     enabled: !!warehouseId,

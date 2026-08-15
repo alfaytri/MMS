@@ -1839,6 +1839,30 @@ export type Database = {
           },
         ]
       }
+      disciplines: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       exchange_rate_change_log: {
         Row: {
           changed_at: string
@@ -4185,6 +4209,74 @@ export type Database = {
           },
         ]
       }
+      projects: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          division_id: string
+          id: string
+          is_active: boolean
+          name: string
+          project_number: string
+          responsible_person_profile_id: string | null
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          division_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          project_number: string
+          responsible_person_profile_id?: string | null
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          division_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          project_number?: string
+          responsible_person_profile_id?: string | null
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_responsible_person_profile_id_fkey"
+            columns: ["responsible_person_profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           approval_level: number | null
@@ -5353,7 +5445,6 @@ export type Database = {
           discount_label?: string | null
           discount_type?: string | null
           division_id?: string | null
-          division_ids?: string[]
           exchange_gain?: number
           exchange_loss?: number
           exchange_net?: number | null
@@ -5395,7 +5486,6 @@ export type Database = {
           discount_label?: string | null
           discount_type?: string | null
           division_id?: string | null
-          division_ids?: string[]
           exchange_gain?: number
           exchange_loss?: number
           exchange_net?: number | null
@@ -6606,10 +6696,12 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          discipline_id: string | null
           division_id: string | null
           id: string
           is_active: boolean
           name: string
+          project_id: string | null
           responsible_person_profile_id: string | null
           team_id: string | null
           updated_at: string
@@ -6618,10 +6710,12 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          discipline_id?: string | null
           division_id?: string | null
           id?: string
           is_active?: boolean
           name: string
+          project_id?: string | null
           responsible_person_profile_id?: string | null
           team_id?: string | null
           updated_at?: string
@@ -6630,10 +6724,12 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          discipline_id?: string | null
           division_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
+          project_id?: string | null
           responsible_person_profile_id?: string | null
           team_id?: string | null
           updated_at?: string
@@ -6648,10 +6744,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warehouse_sub_containers_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "warehouse_sub_containers_division_id_fkey"
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -7639,6 +7749,13 @@ export type Database = {
         Returns: boolean
       }
       _maybe_close_return: { Args: { p_return_id: string }; Returns: undefined }
+      _po_division_weights: {
+        Args: { p_po_id: string }
+        Returns: {
+          division_id: string
+          weight: number
+        }[]
+      }
       _record_customer_resolution: {
         Args: {
           p_credit_note_id?: string
@@ -7682,6 +7799,10 @@ export type Database = {
           p_profile_name: string
           p_step_id: string
         }
+        Returns: string
+      }
+      add_project_discipline: {
+        Args: { p_discipline_id: string; p_project_id: string }
         Returns: string
       }
       add_workflow_step:
@@ -7877,6 +7998,7 @@ export type Database = {
         }[]
       }
       cleanup_old_notifications: { Args: never; Returns: number }
+      close_project: { Args: { p_project_id: string }; Returns: undefined }
       complete_delivery_inventory: {
         Args: {
           p_delivery_id: string
@@ -7998,6 +8120,17 @@ export type Database = {
           p_total_amount: number
           p_type: string
           p_visit_dates: Json
+        }
+        Returns: string
+      }
+      create_project: {
+        Args: {
+          p_discipline_ids: string[]
+          p_division_id: string
+          p_name: string
+          p_project_number: string
+          p_responsible_person_profile_id?: string
+          p_warehouse_id: string
         }
         Returns: string
       }
@@ -8262,6 +8395,14 @@ export type Database = {
       has_admin_permission: { Args: never; Returns: boolean }
       has_inventory_manager_role: {
         Args: { p_profile_id: string }
+        Returns: boolean
+      }
+      is_any_division_visible: {
+        Args: { p_division_ids: string[] }
+        Returns: boolean
+      }
+      is_division_member: {
+        Args: { row_division_id: string }
         Returns: boolean
       }
       is_division_visible: {
@@ -8881,6 +9022,8 @@ export type Database = {
           amount_qar: number
           counterparty: string
           currency: string
+          division_id: string
+          division_name: string
           doc_id: string
           doc_number: string
           doc_type: string
