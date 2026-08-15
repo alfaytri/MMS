@@ -92,6 +92,18 @@ async function fetchLastFifoCost(variantId: string): Promise<number> {
 const triggerCls =
   'h-8 w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 text-xs font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
 
+// Cap how many options are rendered into a cmdk list at once. cmdk keeps every
+// item in the DOM and re-scores all of them on each keystroke, so an unbounded
+// list (a division with hundreds of catalog items) blocks the main thread for
+// seconds. We own the filtering (shouldFilter={false}) and render only this many.
+const MAX_OPTIONS = 100
+
+function filterCap<T>(rows: T[], query: string, text: (r: T) => string): { rows: T[]; total: number } {
+  const s = query.trim().toLowerCase()
+  const matched = s ? rows.filter((r) => text(r).toLowerCase().includes(s)) : rows
+  return { rows: matched.slice(0, MAX_OPTIONS), total: matched.length }
+}
+
 // ─── Single-level category select (one column, searchable) ───────────────────
 
 interface CategoryLevelSelectProps {
@@ -130,8 +142,13 @@ function CategoryLevelSelect({
   onCreated,
   emptyHint,
 }: CategoryLevelSelectProps) {
+  const [query, setQuery] = useState('')
+  const filtered = useMemo(
+    () => filterCap(options, query, (n) => `${n.name_en} ${n.name_ar ?? ''}`),
+    [options, query],
+  )
   return (
-    <Popover open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) onCancelCreate() }}>
+    <Popover open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { onCancelCreate(); setQuery('') } }}>
       <PopoverTrigger
         className={cn(triggerCls, disabled && 'pointer-events-none opacity-50')}
         render={(props) => <button type="button" disabled={disabled} {...props} />}
@@ -151,11 +168,8 @@ function CategoryLevelSelect({
           />
         ) : (
           <>
-            <Command>
-              <CommandInput placeholder="Search…" className="h-8 text-xs" />
-              <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-                {loading ? 'Loading…' : (emptyHint ?? 'No categories found.')}
-              </CommandEmpty>
+            <Command shouldFilter={false}>
+              <CommandInput placeholder="Search…" className="h-8 text-xs" value={query} onValueChange={setQuery} />
               <CommandGroup className="max-h-60 overflow-y-auto">
                 {loading ? (
                   <div className="px-2 py-1.5 space-y-1">
@@ -163,11 +177,13 @@ function CategoryLevelSelect({
                       <div key={n} className="h-6 rounded bg-muted animate-pulse" />
                     ))}
                   </div>
+                ) : filtered.rows.length === 0 ? (
+                  <div className="py-2 text-xs text-center text-muted-foreground">{emptyHint ?? 'No categories found.'}</div>
                 ) : (
-                  options.map((node) => (
+                  filtered.rows.map((node) => (
                     <CommandItem
                       key={node.id}
-                      value={`${node.name_en} ${node.name_ar ?? ''}`}
+                      value={node.id}
                       onSelect={() => onSelect(node)}
                       className="text-xs"
                     >
@@ -180,6 +196,11 @@ function CategoryLevelSelect({
                   ))
                 )}
               </CommandGroup>
+              {filtered.total > filtered.rows.length && (
+                <div className="border-t px-2 py-1 text-[10px] text-center text-muted-foreground">
+                  Showing {filtered.rows.length} of {filtered.total} — keep typing to narrow
+                </div>
+              )}
             </Command>
             <div className="border-t px-2 py-1.5">
               <button
@@ -304,6 +325,9 @@ export function CascadeInventorySelector({
     if (!accessibility.accessibleItemIds) return rawItems
     return rawItems.filter((it) => accessibility.accessibleItemIds!.has(it.id))
   }, [rawItems, accessibility.accessibleItemIds])
+
+  const [itemQuery, setItemQuery] = useState('')
+  const filteredItems = useMemo(() => filterCap(items, itemQuery, (it) => it.name_en), [items, itemQuery])
 
   const { data: ancestry, isLoading: ancestryLoading } = useBrandVariantAncestry(
     value && !selectedCategory ? value.brand_variant_id : null
@@ -622,7 +646,7 @@ export function CascadeInventorySelector({
       <div className={cn('gap-2', brandOriginCascade ? 'flex flex-col sm:flex-row' : 'grid grid-cols-1 sm:grid-cols-2')}>
         <div className={brandOriginCascade ? 'flex-1 min-w-0' : undefined}>
           {/* Item */}
-          <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) setIsItemCreating(false) }}>
+          <Popover open={itemOpen} onOpenChange={(open) => { setItemOpen(open); if (!open) { setIsItemCreating(false); setItemQuery('') } }}>
             <PopoverTrigger
               className={cn(triggerCls, !selectedCategory && 'pointer-events-none opacity-50')}
               render={(props) => <button type="button" disabled={!selectedCategory} {...props} />}
@@ -641,11 +665,8 @@ export function CascadeInventorySelector({
                 />
               ) : (
                 <>
-                  <Command>
-                    <CommandInput placeholder="Search item…" className="h-8 text-xs" />
-                    <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
-                      {itemsLoading ? 'Loading…' : 'No items found.'}
-                    </CommandEmpty>
+                  <Command shouldFilter={false}>
+                    <CommandInput placeholder="Search item…" className="h-8 text-xs" value={itemQuery} onValueChange={setItemQuery} />
                     <CommandGroup className="max-h-60 overflow-y-auto">
                       {itemsLoading ? (
                         <div className="px-2 py-1.5 space-y-1">
@@ -653,8 +674,10 @@ export function CascadeInventorySelector({
                             <div key={n} className="h-6 rounded bg-muted animate-pulse" />
                           ))}
                         </div>
+                      ) : filteredItems.rows.length === 0 ? (
+                        <div className="py-2 text-xs text-center text-muted-foreground">No items found.</div>
                       ) : (
-                        items.map((item) => {
+                        filteredItems.rows.map((item) => {
                           // Share-only when the filter is active and the item
                           // is accessible but not owned by the active division.
                           const isShareOnly =
@@ -665,7 +688,7 @@ export function CascadeInventorySelector({
                           return (
                             <CommandItem
                               key={item.id}
-                              value={item.name_en}
+                              value={item.id}
                               onSelect={() => {
                                 setSelectedItem(item)
                                 onChange(null)
@@ -699,6 +722,11 @@ export function CascadeInventorySelector({
                         })
                       )}
                     </CommandGroup>
+                    {filteredItems.total > filteredItems.rows.length && (
+                      <div className="border-t px-2 py-1 text-[10px] text-center text-muted-foreground">
+                        Showing {filteredItems.rows.length} of {filteredItems.total} — keep typing to narrow
+                      </div>
+                    )}
                   </Command>
                   <div className="border-t px-2 py-1.5">
                     <button
