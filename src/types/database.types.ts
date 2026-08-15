@@ -2900,7 +2900,6 @@ export type Database = {
           name_ar: string | null
           name_en: string
           po_specification_default: boolean
-          shared_with_division_ids: string[]
           sku: string
           sort_order: number
           specification: string | null
@@ -2922,7 +2921,6 @@ export type Database = {
           name_ar?: string | null
           name_en: string
           po_specification_default?: boolean
-          shared_with_division_ids?: string[]
           sku: string
           sort_order?: number
           specification?: string | null
@@ -2944,7 +2942,6 @@ export type Database = {
           name_ar?: string | null
           name_en?: string
           po_specification_default?: boolean
-          shared_with_division_ids?: string[]
           sku?: string
           sort_order?: number
           specification?: string | null
@@ -9233,6 +9230,10 @@ export type Database = {
           p_warehouse_id: string
         }
         Returns: string
+      }
+      rpc_set_item_divisions: {
+        Args: { p_division_ids: string[]; p_item_id: string }
+        Returns: undefined
       }
       rpc_settle_installment: {
         Args: {

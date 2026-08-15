@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/client'
 
 /**
  * The division ids an item is assigned to (inventory_item_divisions). Powers the
- * Item dialog's "Assigned divisions" section — replaces the old
- * shared_with_division_ids read.
+ * Item dialog's "Assigned divisions" section — replaces the old per-item
+ * division-sharing array column.
  */
 export function useItemDivisions(itemId: string | null) {
   return useQuery({
