@@ -9,6 +9,7 @@ import { useProjects, type ProjectWithRollup } from '@/hooks/useProjects'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useHasManagePermission } from '@/hooks/usePermissions'
 import { ProjectFormDialog } from './ProjectFormDialog'
+import { ProjectDetail } from './ProjectDetail'
 
 // Matches the sibling rendering of the same `warehouse_sub_container_totals`
 // view in WhWarehousesTab.tsx (QR prefix + en-QA locale, 2dp) — kept
@@ -20,9 +21,19 @@ function formatValue(value: number): string {
 
 export function ProjectsTab() {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const { data: projects = [], isLoading, isError, error } = useProjects()
   const { data: divisions = [] } = useDivisions()
   const canManage = useHasManagePermission('warehouse.projects')
+
+  // Re-derived from the live list (not a snapshot captured at click time) so
+  // that after an add-discipline / close-project mutation invalidates
+  // `queryKeys.projects.all`, the open detail dialog reflects the refetched
+  // rollup automatically instead of showing stale bucket data.
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId],
+  )
 
   const divisionLabel = useMemo(() => {
     const map = new Map(divisions.map((d) => [d.id, d.short_name || d.name]))
@@ -100,6 +111,7 @@ export function ProjectsTab() {
           data={projects}
           columns={columns}
           getRowKey={(p) => p.id}
+          onRowClick={(p) => setSelectedProjectId(p.id)}
           isLoading={isLoading}
           emptyState="No projects yet. Click New Project to create one."
           mobileCardRender={(p) => (
@@ -124,6 +136,25 @@ export function ProjectsTab() {
       )}
 
       <ProjectFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      {/* Mounted only when a project actually RESOLVES — ProjectDetail's own
+          useWarehouseStock(project?.warehouse_id, null) call runs as soon as
+          the component exists, so an unconditional mount here fired an
+          unscoped, uncapped-filter warehouse_stock_view read on every visit
+          to this tab. Gating on the resolved selectedProject (not just a
+          non-null selectedProjectId) also avoids mounting with a null project
+          during the transient where a selected project leaves the list (e.g.
+          right after close_project drops it), which would re-fire that read.
+          onOpenChange clears the id on close; a stale id with no matching
+          project is inert (nothing renders). */}
+      {selectedProject !== null && (
+        <ProjectDetail
+          project={selectedProject}
+          open
+          onOpenChange={(o) => {
+            if (!o) setSelectedProjectId(null)
+          }}
+        />
+      )}
     </div>
   )
 }

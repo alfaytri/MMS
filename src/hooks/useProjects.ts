@@ -158,3 +158,69 @@ export function useCreateProject() {
     },
   })
 }
+
+export type AddProjectDisciplinePayload = {
+  project_id: string
+  discipline_id: string
+}
+
+/**
+ * Adds one more discipline bucket to an existing project via the
+ * `add_project_discipline` SECURITY DEFINER RPC (auto-creates the new
+ * `warehouse_sub_containers` row, returning its new id). The partial unique
+ * index on `(project_id, discipline_id)` throws 23505 if the project
+ * already has that discipline — surfaced as a friendly message per the
+ * plan's binding spec (Task 1.7).
+ */
+export function useAddProjectDiscipline() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: AddProjectDisciplinePayload): Promise<string> => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('add_project_discipline', {
+        p_project_id: payload.project_id,
+        p_discipline_id: payload.discipline_id,
+      })
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('That discipline is already on this project')
+        }
+        throw wrapDbError(error, 'Failed to add discipline')
+      }
+      // Single-hop assertion (no `unknown` detour): `add_project_discipline`'s
+      // Functions.Returns type is already `string` (the new sub_container id),
+      // and after the error guard above `data`'s narrowed type is bare
+      // `string` (confirmed via tsc against database.types.ts), matching
+      // this function's `Promise<string>` return exactly.
+      return data as string
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects.all })
+    },
+  })
+}
+
+/**
+ * Closes a project via the `close_project` SECURITY DEFINER RPC. VERIFIED
+ * server-side guards (live staging body, 2026-08-16): (1) requires the
+ * `warehouse.projects.manage` permission, else RAISEs 42501 'Not authorized
+ * to manage projects'; (2) refuses while ANY of the project's discipline
+ * sub-containers still hold stock (`warehouse_sub_container_totals
+ * .total_qty > 0`), RAISEing 'Cannot close a project while its disciplines
+ * still hold stock' — that message is already user-friendly and MUST be
+ * surfaced verbatim (never replaced with a generic fallback); else sets the
+ * project + its sub-containers `is_active=false`.
+ */
+export function useCloseProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (projectId: string): Promise<void> => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('close_project', { p_project_id: projectId })
+      if (error) throw wrapDbError(error, 'Failed to close project')
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects.all })
+    },
+  })
+}
