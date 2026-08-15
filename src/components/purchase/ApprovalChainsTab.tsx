@@ -22,7 +22,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { cn } from '@/lib/utils'
 import {
   useApprovalChains, useUpsertApprovalChain,
-  useUpsertApprovalChainTier, useSoftDeleteApprovalChainTier,
+  useUpsertApprovalChainTier, useDeleteApprovalChainTier,
   useToggleChainActive, useArchiveApprovalChain,
 } from '@/hooks/useApprovalChains'
 import { useIsAdmin } from '@/hooks/useProfiles'
@@ -55,7 +55,7 @@ export function ApprovalChainsTab() {
   const { data: workflowSteps = [], isLoading: stepsLoading } = useWorkflowSteps()
   const upsertChain = useUpsertApprovalChain()
   const upsertTier = useUpsertApprovalChainTier()
-  const deleteTier = useSoftDeleteApprovalChainTier()
+  const deleteTier = useDeleteApprovalChainTier()
   const toggleActive = useToggleChainActive()
   const archiveChain = useArchiveApprovalChain()
 
@@ -113,8 +113,12 @@ export function ApprovalChainsTab() {
 
   function nextRank(chainId: string): number {
     const chain = chains.find((c) => c.id === chainId)
-    const tiers = (chain?.approval_chain_tiers ?? []).filter((t) => !t.deleted_at)
-    return tiers.length + 1
+    // Rank must clear EVERY physical row for this chain — including soft-deleted
+    // tiers, which keep their rank and still count against the UNIQUE(chain_id,
+    // rank) constraint. Using max(rank)+1 (not visibleCount+1) avoids colliding
+    // with a soft-deleted row, or with a gap left by deleting a middle tier.
+    const allTiers = chain?.approval_chain_tiers ?? []
+    return allTiers.reduce((max, t) => Math.max(max, t.rank), 0) + 1
   }
 
   function toggleRoleIn(roles: string[], roleName: string): string[] {
@@ -223,7 +227,10 @@ export function ApprovalChainsTab() {
       {chains.map((chain) => {
         const tiers = (chain.approval_chain_tiers ?? [])
           .filter((t) => !t.deleted_at)
-          .sort((a, b) => a.rank - b.rank)
+          // Order by amount band, not by rank. Rank is only a unique key and can
+          // drift out of amount order after edits (a delete leaves a gap and the
+          // next add takes max+1), which would otherwise show bands out of order.
+          .sort((a, b) => a.min_amount - b.min_amount)
         const divName = getDivisionName(chain)
         const isGlobal = !chain.division_id
         const isActive = chain.is_active

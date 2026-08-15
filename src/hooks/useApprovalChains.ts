@@ -161,7 +161,7 @@ export function useArchiveApprovalChain() {
   })
 }
 
-export function useSoftDeleteApprovalChainTier() {
+export function useDeleteApprovalChainTier() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ tierId, chainId: _chainId }: { tierId: string; chainId: string }) => {
@@ -175,9 +175,14 @@ export function useSoftDeleteApprovalChainTier() {
         // Simplified check — full check would filter by chain. Good enough for now.
         throw new Error('Cannot delete tier: there are POs currently pending approval.')
       }
+      // Hard delete: approval tiers are pure config and nothing FK-references
+      // them (verified — no inbound FKs on po_approval_chain_tiers), and a PO's
+      // required-approver set is snapshotted at submission. A soft delete would
+      // leave the row occupying UNIQUE(chain_id, rank) and collide with the next
+      // "Add Tier", so we remove the row outright and free its rank.
       const { error } = await supabase
         .from('po_approval_chain_tiers')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', tierId)
       if (error) throw error
     },
