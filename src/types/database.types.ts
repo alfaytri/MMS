@@ -2101,6 +2101,7 @@ export type Database = {
           sku: string | null
           sort_order: number
           status: string
+          tool_tracking_mode: Database["public"]["Enums"]["tool_tracking_mode"]
           type: Database["public"]["Enums"]["inventory_type"]
           updated_at: string | null
         }
@@ -2115,6 +2116,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number
           status?: string
+          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"]
           type: Database["public"]["Enums"]["inventory_type"]
           updated_at?: string | null
         }
@@ -2129,6 +2131,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number
           status?: string
+          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"]
           type?: Database["public"]["Enums"]["inventory_type"]
           updated_at?: string | null
         }
@@ -9625,6 +9628,7 @@ export type Database = {
         | "qc"
       tool_condition: "New" | "Good" | "Fair" | "Maintenance"
       tool_status: "available" | "assigned" | "maintenance" | "retired"
+      tool_tracking_mode: "serialized" | "bulk"
       transfer_status:
         | "pending"
         | "in_transit"
@@ -9987,6 +9991,7 @@ export const Constants = {
       ],
       tool_condition: ["New", "Good", "Fair", "Maintenance"],
       tool_status: ["available", "assigned", "maintenance", "retired"],
+      tool_tracking_mode: ["serialized", "bulk"],
       transfer_status: [
         "pending",
         "in_transit",
