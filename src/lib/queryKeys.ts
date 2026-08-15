@@ -581,6 +581,16 @@ export const queryKeys = {
     pendingAll: ['custody-pending'] as const,
   },
 
+  /* ── Virtual Warehouse Projects (Phase 1) ─────────────── */
+  disciplines: {
+    all: ['disciplines'] as const,
+  },
+  projects: {
+    all: ['projects'] as const,
+    list: (divKey: string) => ['projects', divKey] as const,
+    detail: (id: Nullable) => ['projects', 'detail', id] as const,
+  },
+
   /* ── Damaged Stock (Phase 9.6–9.7) ────────────────────── */
   damagedStock: {
     all: ['damaged-stock'] as const,

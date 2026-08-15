@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
   ClipboardList, ClipboardCheck, ArrowRightLeft,
-  WarehouseIcon, Layers, Activity, Truck, TrendingUp, PackageSearch,
+  WarehouseIcon, Layers, Activity, Truck, TrendingUp, PackageSearch, FolderKanban,
 } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
@@ -22,6 +22,7 @@ import { WhMovementsTab } from '@/components/purchase/wh/WhMovementsTab'
 import { WhStockValueTab } from '@/components/purchase/wh/WhStockValueTab'
 import { ReceivalsDeliveriesTab } from '@/components/purchase/wh/ReceivalsDeliveriesTab'
 import { WhItemRequestsTab } from '@/components/purchase/wh/WhItemRequestsTab'
+import { ProjectsTab } from '@/components/warehouse/projects/ProjectsTab'
 import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
 import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
 
@@ -38,6 +39,7 @@ const TAB_PERMISSIONS: Record<string, string[]> = {
   movements:     ['warehouse.movements.view'],
   receivals:     ['warehouse.receivals.view'],
   'item-requests': ['warehouse.item_requests.view'],
+  projects:      ['warehouse.projects.view'],
 }
 
 function WarehousesPageInner() {
@@ -84,7 +86,7 @@ function WarehousesPageInner() {
 
   const visibleTabs = useMemo(() => {
     const userPerms = permData?.permissions ?? []
-    const order = ['warehouses', 'stock', 'transfers', 'adjustments', 'checks', 'stock-value', 'movements', 'receivals', 'item-requests']
+    const order = ['warehouses', 'stock', 'transfers', 'adjustments', 'checks', 'stock-value', 'movements', 'receivals', 'item-requests', 'projects']
     return new Set(
       order.filter((key) => {
         const required = TAB_PERMISSIONS[key] ?? []
@@ -211,6 +213,12 @@ function WarehousesPageInner() {
               Requested Items
             </TabsTrigger>
           )}
+          {visibleTabs.has('projects') && (
+            <TabsTrigger value="projects" className="text-xs gap-1">
+              <FolderKanban className="h-3 w-3" />
+              Projects
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <div className="flex-1 overflow-auto">
@@ -257,6 +265,11 @@ function WarehousesPageInner() {
           {visibleTabs.has('item-requests') && (
             <TabsContent value="item-requests" className="mt-0">
               <WhItemRequestsTab warehouses={warehousesAll} />
+            </TabsContent>
+          )}
+          {visibleTabs.has('projects') && (
+            <TabsContent value="projects" className="mt-0">
+              <ProjectsTab />
             </TabsContent>
           )}
         </div>
