@@ -15,7 +15,7 @@ import {
   useStaffProfiles,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
-import { useDivisions } from '@/hooks/useDivisions'
+import { useDivisions, useAllDivisions, type Division } from '@/hooks/useDivisions'
 
 type ItemProps = {
   open: boolean
@@ -98,12 +98,26 @@ type UnitProps = {
 // enum label fails on save with a Postgres invalid-input-value error.
 const CONDITIONS = ['New', 'Good', 'Fair', 'Maintenance']
 
+// Resolve a division's display name against ALL divisions (not just the
+// active list `divisions` below, which drives the pickable options) so a
+// since-deactivated owning division still shows its real name instead of
+// "Unassigned" — the two are different states (Fix 6 / Minor 5). Display-only:
+// does not affect seeding or the save payload, both of which already carry
+// the real division_id regardless of active status.
+function divisionDisplayName(divisionId: string, allDivisions: Division[]): string {
+  if (!divisionId) return 'Unassigned'
+  const record = allDivisions.find((d) => d.id === divisionId)
+  if (!record) return 'Inactive division'
+  return record.is_active ? record.name : `${record.name} (inactive)`
+}
+
 export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, unit }: UnitProps) {
   const isEdit = !!unit
   const create = useCreateToolAssetUnit()
   const update = useUpdateToolAssetUnit()
   const { data: staffProfiles = [] } = useStaffProfiles()
   const { data: divisions = [] } = useDivisions()
+  const { data: allDivisions = [] } = useAllDivisions()
   const { data: existingUnits = [] } = useToolAssetUnits(!isEdit && open ? itemId : null)
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState('')
@@ -222,7 +236,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
                 >
                   <SelectTrigger id="tool-division" className="h-10 w-full min-w-0">
                     <span className="truncate">
-                      {divisions.find((d) => d.id === divisionId)?.name ?? 'Unassigned'}
+                      {divisionDisplayName(divisionId, allDivisions)}
                     </span>
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
