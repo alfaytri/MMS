@@ -93,7 +93,10 @@ type UnitProps = {
   unit?: ToolAssetUnit | null
 }
 
-const CONDITIONS = ['Good', 'Fair', 'Poor', 'Under Repair']
+// Must match the live `tool_condition` enum exactly (verified 2026-08-15 via
+// `db query --linked` against pg_enum) — an option here that isn't a real
+// enum label fails on save with a Postgres invalid-input-value error.
+const CONDITIONS = ['New', 'Good', 'Fair', 'Maintenance']
 
 export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, unit }: UnitProps) {
   const isEdit = !!unit
