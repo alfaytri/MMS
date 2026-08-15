@@ -889,6 +889,21 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Docs / plans:** [docs/plans/2026-08-04-category-attributes-plan.md](docs/plans/2026-08-04-category-attributes-plan.md) §Phase 4/5 (integration reshaped 2026-08-04 from a per-line guided picker to a per-category inline dropdown filter).
 - **Notes:** Deliberately NOT wired into SO / Consumption / Quotations line pickers — filtering adds value only in the tree browser where you cross many descendants at once. Guided picker + `ProductAttributePicker` component removed in same session.
 
+### Assign Item to Divisions
+
+- **Module:** Master Data · Inventory
+- **Status:** Active (shipped 2026-08-15, `feature/item-division-assignment` — replaces the retired `inventory_items.shared_with_division_ids` sharing array, dropped in migration `20260825000300`)
+- **Trigger surface(s):** `/master-data/inventory` → any leaf item → Edit → [`ItemEditDialog`](src/components/services/inventory/ItemEditDialog.tsx) → **"Assigned divisions"** checklist. Read-side consumed by the buy-side PO / receival item pickers ([`CascadeInventorySelector`](src/components/purchase/CascadeInventorySelector.tsx) via [`PoLineItemsEditor`](src/components/purchase/PoLineItemsEditor.tsx) with `divisionFilterRequiresStock={false}`).
+- **Primary hook(s):** [`useItemDivisions` + `useSetItemDivisions`](src/hooks/useItemDivisions.ts) (read + replace-set write); [`useCascadeAccessibleItems`](src/hooks/useCascadeAccessibleItems.ts) (buy-side accessibility filter); [`useItemDivisionsByStock`](src/hooks/useItemDivisionsByStock.ts) (inventory-list division filter, via the RPC below).
+- **RPC(s):** `rpc_set_item_divisions(p_item_id uuid, p_division_ids uuid[])` (SECURITY DEFINER replace-set, gated on `inventory.catalog.manage`, revoked from public); `rpc_item_divisions_by_stock(p_type text)` (STABLE DEFINER — item→divisions = explicit assignment ∪ where-stock-currently-sits).
+- **Ledger writes:** `public.inventory_item_divisions` (item_id, division_id, category_id, created_at, created_by); PK `(item_id, division_id)`. RLS `iid_select` (SELECT `TO authenticated`) + `iid_ins`/`iid_upd`/`iid_del` (write, `TO authenticated`, gated on `inventory.catalog.manage`) — tightened in migration `20260825000400`.
+- **Downstream side-effects:** invalidates `['item-divisions', itemId]`, `['cascade-accessible','assignment']`, `['item-divisions-by-stock']`. Determines which items appear in each division's **buy-side** PO/receival picker (assignment = membership) and the inventory-list division filter. The **consume/sell** side is unaffected — it gates on owning stock in the active division, not on assignment.
+- **Dialog / component:** [`ItemEditDialog`](src/components/services/inventory/ItemEditDialog.tsx) "Assigned divisions" section — seeded once per open; save guarded against a pre-load wipe (`assignedFromDb !== undefined && assignmentsChanged`).
+- **Guards / preconditions:** write requires `inventory.catalog.manage`. Empty `p_division_ids` unassigns all; an existing row's `category_id` overlay is preserved on re-save via `ON CONFLICT DO NOTHING`.
+- **Related flows:** [[Create Purchase Order (draft or RFQ)]] (buy-side consumer of the assignment membership), [[Set Item Attribute Values]] (same `ItemEditDialog`).
+- **Docs / plans:** [docs/plans/2026-08-15-item-division-assignment/design.md](plans/2026-08-15-item-division-assignment/design.md) + [plan.md](plans/2026-08-15-item-division-assignment/plan.md). Migrations `20260825000000`–`000400`.
+- **Notes:** Replaces the old "ownership-derived-from-stock + `shared_with_division_ids`" sharing model (there is no separate registry row for the old model — it was app-layer only). Each division keeps its own stock pool; cross-division movement is transfer-only (no shared consumption). The catalog importer ([reload_inventory.py](inventory-reorg/reload_inventory.py)) writes assignment rows directly. The bulk-tools follow-up ([docs/plans/2026-08-15-bulk-tools/NOTES.md](plans/2026-08-15-bulk-tools/NOTES.md)) will opt bulk tools into this model.
+
 ### Create User (auth + profile + roles)
 - **Trigger:** `AddUserDialog`
 - **Hook:** [`useCreateUser`](src/hooks/useProfiles.ts) → `/api/users/create`

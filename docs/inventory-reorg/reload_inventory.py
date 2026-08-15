@@ -187,13 +187,26 @@ try:
 
     # items — batched; map ids by (category_id, lower(name))
     ivals = [(cat_id.get(ip['cat_key']), ip['name'], ip['name'], ip['unit'], ip['spec'],
-              ip['div_ids'] or None, 'active', 0) for ip in item_plan]
+              'active', 0) for ip in item_plan]
     execute_values(cur,
-        "insert into inventory_items(category_id,name_en,sku,unit,specification,shared_with_division_ids,status,sort_order) values %s",
-        ivals, template="(%s,%s,%s,%s,%s,%s::uuid[],%s,%s)", page_size=10000)
+        "insert into inventory_items(category_id,name_en,sku,unit,specification,status,sort_order) values %s",
+        ivals, template="(%s,%s,%s,%s,%s,%s,%s)", page_size=10000)
     cur.execute("select id::text, category_id::text, lower(trim(name_en)) from inventory_items")
     imap = {(c, n): i for i, c, n in cur.fetchall()}
     item_ids = [imap[(str(cat_id.get(ip['cat_key'])), ip['name'].strip().lower())] for ip in item_plan]
+
+    # item -> division assignments (replaces the dropped shared_with_division_ids
+    # column). category_id = the item's canonical category, matching the app's
+    # backfill + rpc_set_item_divisions.
+    aivals = []
+    for i, ip in enumerate(item_plan):
+        for did in (ip['div_ids'] or []):
+            aivals.append((item_ids[i], did, cat_id.get(ip['cat_key'])))
+    if aivals:
+        execute_values(cur,
+            "insert into inventory_item_divisions(item_id,division_id,category_id) values %s "
+            "on conflict (item_id,division_id) do nothing",
+            aivals, template="(%s::uuid,%s::uuid,%s::uuid)", page_size=10000)
 
     # variants — batched
     vvals = []

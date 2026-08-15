@@ -18,7 +18,6 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { useSaleOrders } from '@/hooks/useSaleOrders'
-import { useDeliveryLineItemShares } from '@/hooks/useDeliveryLineItemShares'
 
 type Props = {
   open: boolean
@@ -47,21 +46,11 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
 
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
 
-  const lineVariantIds = useMemo(() => {
-    const ids = new Set<string>()
-    const items = (delivery.sale_delivery_lines as DeliveryItem[]) ?? []
-    for (const it of items) if (it.brand_variant_id) ids.add(it.brand_variant_id)
-    return Array.from(ids)
-  }, [delivery])
-  const { allShared } = useDeliveryLineItemShares(lineVariantIds)
-  const crossDivisionAllowed = soDivisionId !== null && allShared(soDivisionId)
-
   const eligibleSubs = useMemo(() => {
     const active = allSubs.filter((sc) => sc.is_active)
     if (soDivisionId === null) return active
-    if (crossDivisionAllowed) return active
     return active.filter((sc) => sc.division_id === soDivisionId)
-  }, [allSubs, soDivisionId, crossDivisionAllowed])
+  }, [allSubs, soDivisionId])
 
   useEffect(() => {
     if (eligibleSubs.length === 1) setSubContainerId(eligibleSubs[0].id)

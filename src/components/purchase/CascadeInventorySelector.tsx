@@ -44,11 +44,14 @@ interface CascadeInventorySelectorProps {
   /**
    * Phase D.12 Task 3 — opt into the division-aware filter. When true AND
    * an active division is set, categories/items collapse to only those the
-   * active division can legitimately consume (owns stock, or was shared to
-   * AND has stock somewhere in the caller's RLS scope). Sales-side callers
-   * (SO create, replacement delivery) set this. Purchase-side callers (PO
-   * create, receival) leave it false because they're adding stock, not
-   * consuming it.
+   * active division can access. What "access" means depends on
+   * `divisionFilterRequiresStock`: the consume/sell side (default, requires
+   * stock) collapses to items the division OWNS stock of; the buy side
+   * (`divisionFilterRequiresStock={false}`) collapses to items ASSIGNED to
+   * the division via `inventory_item_divisions`, regardless of current
+   * stock. Sales-side callers (SO create, replacement delivery) set this
+   * with the default. Purchase-side callers (PO create) set this too,
+   * paired with `divisionFilterRequiresStock={false}`.
    */
   filterByActiveDivision?: boolean
   /**
@@ -68,9 +71,10 @@ interface CascadeInventorySelectorProps {
   /**
    * Whether the division filter requires the item to already have stock.
    * Consume/sell callers leave it true (you can only move stock you have).
-   * Buy-side callers (PO create) set it FALSE: an item shared to the division
-   * is purchasable regardless of current stock (a PO is how stock is created).
-   * Without this, a freshly-loaded zero-stock catalog shows "No categories found".
+   * Buy-side callers (PO create) set it FALSE: an item ASSIGNED to the
+   * division (via `inventory_item_divisions`) is purchasable regardless of
+   * current stock (a PO is how stock is created). Without this, a
+   * freshly-loaded zero-stock catalog shows "No categories found".
    */
   divisionFilterRequiresStock?: boolean
 }
@@ -692,13 +696,6 @@ export function CascadeInventorySelector({
                         <div className="py-2 text-xs text-center text-muted-foreground">No items found.</div>
                       ) : (
                         filteredItems.rows.map((item) => {
-                          // Share-only when the filter is active and the item
-                          // is accessible but not owned by the active division.
-                          const isShareOnly =
-                            filterByActiveDivision &&
-                            !!effectiveDivisionId &&
-                            accessibility.accessibleItemIds?.has(item.id) === true &&
-                            !accessibility.ownedItemIds.has(item.id)
                           return (
                             <CommandItem
                               key={item.id}
@@ -721,14 +718,7 @@ export function CascadeInventorySelector({
                                 className="mr-2 mt-0.5 shrink-0"
                               />
                               <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-start gap-1.5">
-                                  <span className="whitespace-normal break-words leading-snug">{item.name_en}</span>
-                                  {isShareOnly && (
-                                    <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0 text-[9px] font-medium whitespace-nowrap">
-                                      Shared
-                                    </span>
-                                  )}
-                                </div>
+                                <span className="whitespace-normal break-words leading-snug">{item.name_en}</span>
                                 {item.name_ar && <div className="text-muted-foreground whitespace-normal break-words leading-snug mt-0.5">{item.name_ar}</div>}
                               </div>
                             </CommandItem>

@@ -5,10 +5,12 @@ import type { LineType } from '@/components/purchase/PoLineItemsEditor'
 
 export interface CascadeAccessibleItems {
   /**
-   * Item IDs the active division can legitimately consume — either it owns
-   * stock (any sub-container with qty > 0 whose division_id equals the active
-   * division) OR the item is shared to the active division AND has stock
-   * somewhere in the caller's RLS scope.
+   * Item IDs the active division can access. Meaning depends on which side
+   * called the hook (see `requireStock` on the hook signature below):
+   *  - Buy side (`requireStock=false`): items assigned to the active division
+   *    in `inventory_item_divisions` — purchasable regardless of stock.
+   *  - Consume/sell side (`requireStock=true`): items the active division
+   *    physically owns stock of. Identical to `ownedItemIds` in this mode.
    *
    * `null` when the filter should not be applied (no active division, or the
    * caller opted out via the enabled flag).
@@ -16,9 +18,10 @@ export interface CascadeAccessibleItems {
   accessibleItemIds: Set<string> | null
   /**
    * Items where the active division is the physical owner (holds stock).
-   * Empty when the filter isn't applied. Used to distinguish share-only
-   * items from owned ones so the picker can render a "Shared" chip on
-   * the item row.
+   * Always empty on the buy side (`requireStock=false`) — ownership isn't
+   * evaluated there. On the consume/sell side this is the same set as
+   * `accessibleItemIds`, kept as a distinct field for callers that render
+   * "owned" separately from "accessible".
    */
   ownedItemIds: Set<string>
   itemCategoryMap: Map<string, string>
@@ -26,29 +29,30 @@ export interface CascadeAccessibleItems {
 }
 
 /**
- * Phase D.12 Task 3 helper — powers the consumption-side cascade picker's
- * division-aware filter. Runs only for the four inventory line types that
- * flow through the cascade (products / spare-parts / consumables / tools).
+ * Phase D.12 Task 3 helper — powers the buy-side (PO) and consume-side
+ * cascade pickers' division-aware filter. Runs only for the four inventory
+ * line types that flow through the cascade (products / spare-parts /
+ * consumables / tools).
  *
  * When `enabled` is false, or `activeDivisionId` is null, or `type` is not
  * a filterable line type, every field is empty and `accessibleItemIds` is
  * null (i.e. no filter). Callers should treat null as "show everything".
  *
- * Filter logic:
- *   accessible = owned_by_active ∪ (shared_to_active ∩ has_stock_anywhere)
- *
- * "has stock anywhere" is scoped to whatever `warehouse_stock_summary` rows
- * the caller can see through RLS — matches the HANDOVER Task 3 spec:
- * "if the caller has RLS to see the stock and the item is either owned or
- * shared, include it."
+ * Filter logic depends on `requireStock`:
+ *  - Buy side (`requireStock=false`): accessible = items assigned to the
+ *    active division via `inventory_item_divisions`, regardless of stock.
+ *  - Consume/sell side (`requireStock=true`): accessible = items the active
+ *    division owns stock of. No cross-division consumption — stock moves
+ *    between divisions via a transfer, not a share.
  */
 export function useCascadeAccessibleItems(
   type: LineType,
   activeDivisionId: string | null,
   enabled: boolean,
-  /** Consume/sell side (default) requires the item to have stock. Buy side (PO)
-   *  passes false: an item shared to the division is purchasable regardless of
-   *  current stock — requiring stock would hide every item on a fresh catalog. */
+  /** Consume/sell side (default) requires the active division to own stock of
+   *  the item. Buy side (PO) passes false: an item assigned to the division is
+   *  purchasable regardless of current stock — requiring stock would hide
+   *  every item on a fresh catalog. */
   requireStock: boolean = true,
 ): CascadeAccessibleItems {
   const isFilterable = type !== 'tools'
@@ -62,7 +66,7 @@ export function useCascadeAccessibleItems(
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('id, category_id, shared_with_division_ids, inventory_categories!inner(type)')
+        .select('id, category_id, inventory_categories!inner(type)')
         .neq('status', 'archived')
         .eq('inventory_categories.type', type as 'products' | 'spare-parts' | 'consumables' | 'tools')
         .limit(5000)
@@ -70,7 +74,6 @@ export function useCascadeAccessibleItems(
       return (data ?? []) as unknown as Array<{
         id: string
         category_id: string
-        shared_with_division_ids: string[] | null
       }>
     },
   })
@@ -128,6 +131,26 @@ export function useCascadeAccessibleItems(
     },
   })
 
+  // Buy side (PO): membership = items explicitly assigned to the active division
+  // via inventory_item_divisions — the join table that supersedes the old
+  // per-item division-sharing array column. An assigned item is purchasable
+  // regardless of current stock.
+  const assignmentQuery = useQuery({
+    queryKey: ['cascade-accessible', 'assignment', type, activeDivisionId],
+    enabled: effectiveEnabled && !requireStock && !!activeDivisionId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('inventory_item_divisions')
+        .select('item_id')
+        .eq('division_id', activeDivisionId as string)
+        .limit(20000)
+      if (error) throw error
+      return new Set((data ?? []).map((r) => r.item_id as string))
+    },
+  })
+
   return useMemo<CascadeAccessibleItems>(() => {
     const items = itemsQuery.data ?? []
     const itemCategoryMap = new Map<string, string>()
@@ -137,40 +160,32 @@ export function useCascadeAccessibleItems(
       return { accessibleItemIds: null, ownedItemIds: new Set(), itemCategoryMap, isLoading: false }
     }
 
-    // Only report loading when there's nothing to render yet — background
-    // refetches keep the last-known set on screen.
     const itemsInitialLoad = itemsQuery.isLoading && !itemsQuery.data
 
-    const sharedToActive = new Set<string>()
-    if (activeDivisionId) {
-      for (const it of items) {
-        const shares = it.shared_with_division_ids ?? []
-        if (shares.includes(activeDivisionId)) sharedToActive.add(it.id)
+    // Buy side (PO): membership = items assigned to the active division.
+    // Purchasable regardless of current stock (a PO is how stock is created).
+    if (!requireStock) {
+      const assignmentInitialLoad = assignmentQuery.isLoading && !assignmentQuery.data
+      return {
+        accessibleItemIds: assignmentQuery.data ?? new Set<string>(),
+        ownedItemIds: new Set(),
+        itemCategoryMap,
+        isLoading: itemsInitialLoad || assignmentInitialLoad,
       }
     }
 
-    // Buy side (PO): division membership only — an item shared to the division is
-    // purchasable regardless of current stock (a PO is how stock gets created).
-    // The stock query is skipped in this mode.
-    if (!requireStock) {
-      return { accessibleItemIds: sharedToActive, ownedItemIds: new Set(), itemCategoryMap, isLoading: itemsInitialLoad }
-    }
-
-    // Consume/sell side: item must have stock. accessible = owned ∪ (shared ∩ has-stock).
+    // Consume/sell side: a division may only consume stock it OWNS in the active
+    // division. No cross-division consumption — stock moves between divisions via
+    // a transfer, not a share.
     const stockInitialLoad = stockQuery.isLoading && !stockQuery.data
     const isLoading = itemsInitialLoad || stockInitialLoad
 
     const rows = stockQuery.data ?? []
     const ownedByActive = new Set<string>()
-    const hasStockAnywhere = new Set<string>()
     for (const r of rows) {
-      hasStockAnywhere.add(r.item_id)
       if (r.division_id === activeDivisionId) ownedByActive.add(r.item_id)
     }
 
-    const accessible = new Set<string>(ownedByActive)
-    for (const id of sharedToActive) if (hasStockAnywhere.has(id)) accessible.add(id)
-
-    return { accessibleItemIds: accessible, ownedItemIds: ownedByActive, itemCategoryMap, isLoading }
-  }, [effectiveEnabled, activeDivisionId, itemsQuery.data, itemsQuery.isLoading, stockQuery.data, stockQuery.isLoading, requireStock])
+    return { accessibleItemIds: ownedByActive, ownedItemIds: ownedByActive, itemCategoryMap, isLoading }
+  }, [effectiveEnabled, activeDivisionId, itemsQuery.data, itemsQuery.isLoading, stockQuery.data, stockQuery.isLoading, assignmentQuery.data, assignmentQuery.isLoading, requireStock])
 }
