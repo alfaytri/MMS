@@ -5,7 +5,7 @@ import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useUpdateToolAssetUnit, type ToolAssetUnit } from '@/hooks/useInventory'
+import { useConfirmToolSerial, type ToolAssetUnit } from '@/hooks/useInventory'
 
 type Props = {
   unit: ToolAssetUnit
@@ -22,7 +22,7 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisi
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState(unit.brand ?? '')
   const [expiry, setExpiry] = useState(unit.expiry ?? '')
-  const update = useUpdateToolAssetUnit()
+  const confirm = useConfirmToolSerial()
 
   function handleConfirm() {
     const trimmedSerial = serial.trim()
@@ -33,14 +33,13 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisi
       (u) => u.id !== unit.id && (u.serial_number ?? '').trim().toLowerCase() === trimmedSerial.toLowerCase()
     )
     if (duplicate) { toast.error('Serial number already exists for this item'); return }
-    update.mutate(
+    confirm.mutate(
       {
-        id: unit.id,
+        unit_id: unit.id,
         item_id: unit.item_id,
-        serial_number: trimmedSerial,
+        serial: trimmedSerial,
         brand: trimmedBrand,
         expiry: expiry || null,
-        is_placeholder: false,
       },
       {
         onSuccess: () => { toast.success('Serial confirmed'); onConfirmed?.() },
@@ -90,11 +89,11 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisi
         <Button
           size="sm"
           className="h-11 md:h-7 px-2 text-[11px]"
-          disabled={update.isPending}
+          disabled={confirm.isPending}
           onClick={handleConfirm}
         >
           <Check className="h-3 w-3 mr-1" />
-          {update.isPending ? 'Saving…' : 'Confirm'}
+          {confirm.isPending ? 'Saving…' : 'Confirm'}
         </Button>
       </td>
     </tr>

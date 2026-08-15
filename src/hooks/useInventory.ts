@@ -803,6 +803,37 @@ export function useUpdateToolAssetUnit() {
   })
 }
 
+/** Confirm a placeholder serialized unit's serial via the perm-gated
+ *  `rpc_confirm_tool_serial` DEFINER RPC instead of a direct table UPDATE.
+ *  After tool_asset_units writes were locked to inventory.catalog.manage
+ *  (migration 20260828000000), receivers (purchase.receivals.create) can still
+ *  serialize units because the RPC gates on manage OR receivals.create and,
+ *  being DEFINER, bypasses the tightened RLS. */
+export function useConfirmToolSerial() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { unit_id: string; item_id: string; serial: string; brand: string; expiry?: string | null }>({
+    mutationFn: async ({ unit_id, serial, brand, expiry }) => {
+      const supabase = createClient()
+      // Types not yet regenerated for this RPC — cast to bypass the strict rpc-name union.
+      const { error } = await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
+        'rpc_confirm_tool_serial',
+        { p_unit_id: unit_id, p_serial: serial, p_brand: brand, p_expiry: expiry ?? null }
+      )
+      if (error) throw error as Error
+      void logActivity({
+        action:      'Tool Unit Serial Confirmed',
+        module:      'inventory',
+        entity_id:   unit_id,
+        entity_type: 'tool_unit',
+        new_data:    { serial_number: serial, brand } as unknown as Record<string, unknown>,
+      })
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+    },
+  })
+}
+
 export type PlaceholderUnitForReceival = ToolAssetUnit & {
   item_name: string
   item_sku: string | null
