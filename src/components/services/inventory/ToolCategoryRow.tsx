@@ -16,13 +16,13 @@ import {
   useAutoGenerateToolSerials,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
-import { useDivisions } from '@/hooks/useDivisions'
+import { useAllDivisions } from '@/hooks/useDivisions'
 import { formatDate } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
   const { data: units = [], isLoading } = useToolAssetUnits(itemId)
-  const { data: divisions = [] } = useDivisions()
+  const { data: allDivisions = [] } = useAllDivisions()
   const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
   const [transferUnit, setTransferUnit] = useState<ToolAssetUnit | null>(null)
   const [addUnitOpen, setAddUnitOpen] = useState(false)
@@ -46,6 +46,17 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
       onSuccess: (res) => toast.success(`Generated ${res.updated_count} serial${res.updated_count === 1 ? '' : 's'}`),
       onError: (err) => toast.error(err.message),
     })
+  }
+
+  // Resolve a unit's owning division name against ALL divisions (not just the
+  // active list) so a since-deactivated division still shows its real name —
+  // "Inactive division" is a distinct state from "no division set" and must
+  // not be conflated with "Unassigned" (Fix 6 / Minor 5).
+  function divisionDisplayName(divisionId: string | null) {
+    if (!divisionId) return 'Unassigned'
+    const record = allDivisions.find((d) => d.id === divisionId)
+    if (!record) return 'Inactive division'
+    return record.is_active ? record.name : `${record.name} (inactive)`
   }
 
   return (
@@ -103,7 +114,7 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                       </span>
                     </td>
                     <td className="py-1.5 px-2">
-                      {divisions.find((d) => d.id === unit.division_id)?.name ?? 'Unassigned'}
+                      {divisionDisplayName(unit.division_id)}
                     </td>
                     <td className="py-1.5 px-2">{unit.expiry ? formatDate(unit.expiry) : '—'}</td>
                     <td className="py-1.5 px-2 text-right">
@@ -288,9 +299,11 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         />
       ))}
 
-      {expanded && node.tool_tracking_mode === 'bulk'
-        ? toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)
-        : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)}
+      {expanded && (
+        node.tool_tracking_mode === 'bulk'
+          ? toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)
+          : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)
+      )}
 
       {expanded && isLeaf && toolItems.length === 0 && (
         <tr className="border-b border-border">
