@@ -167,7 +167,7 @@ export function useCascadeAccessibleItems(
     if (!requireStock) {
       const assignmentInitialLoad = assignmentQuery.isLoading && !assignmentQuery.data
       return {
-        accessibleItemIds: assignmentQuery.data ?? null,
+        accessibleItemIds: assignmentQuery.data ?? new Set<string>(),
         ownedItemIds: new Set(),
         itemCategoryMap,
         isLoading: itemsInitialLoad || assignmentInitialLoad,
