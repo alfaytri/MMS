@@ -80,10 +80,21 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
     }
   }, [open, item])
 
-  // Seed assigned divisions from the DB when the dialog opens / the fetch resolves.
+  // Seed assigned divisions ONCE per open — either when the edit fetch first
+  // resolves, or immediately for a create (no item, query disabled). A later
+  // refetch must not clobber the operator's in-progress ticks.
+  const assignedSeededRef = useRef(false)
   useEffect(() => {
-    if (open) setAssignedDivisionIds(assignedFromDb ?? [])
-  }, [open, assignedFromDb])
+    if (!open) { assignedSeededRef.current = false; return }
+    if (assignedSeededRef.current) return
+    if (assignedFromDb !== undefined) {
+      setAssignedDivisionIds(assignedFromDb)
+      assignedSeededRef.current = true
+    } else if (!item) {
+      setAssignedDivisionIds([])
+      assignedSeededRef.current = true
+    }
+  }, [open, assignedFromDb, item])
 
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
