@@ -18,6 +18,7 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCategorySubContainer } from '@/hooks/useCategorySubContainer'
 import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
+import { useCategoryHasStockOrUnits } from '@/hooks/useCategoryHasStockOrUnits'
 import { createClient } from '@/lib/supabase/client'
 import { buildLevels } from '@/lib/inventory/categoryLevels'
 
@@ -43,6 +44,7 @@ type Snapshot = {
   parentId: string | null
   subContainerId: string | null
   warrantyPolicyId: string | null
+  trackingMode: 'serialized' | 'bulk'
 }
 
 export function CategoryEditDialog({ open, onOpenChange, categoryType, category, parentId: defaultParentId }: Props) {
@@ -58,8 +60,10 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [warehouseId, setWarehouseId] = useState<string | null>(null)
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [warrantyPolicyId, setWarrantyPolicyId] = useState<string | null>(null)
+  const [trackingMode, setTrackingMode] = useState<'serialized' | 'bulk'>('serialized')
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
+  const { data: categoryHasStockOrUnits } = useCategoryHasStockOrUnits(isEdit ? (category?.id ?? null) : null)
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const parentId = selectedParentId
@@ -79,11 +83,13 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       const nextSku = category?.sku ?? ''
       const nextSubContainerId = category?.default_sub_container_id ?? null
       const nextWarrantyPolicyId = category?.default_warranty_policy_id ?? null
+      const nextTrackingMode = category?.tool_tracking_mode ?? 'serialized'
       setNameEn(nextNameEn)
       setNameAr(nextNameAr)
       setSku(nextSku)
       setSubContainerId(nextSubContainerId)
       setWarrantyPolicyId(nextWarrantyPolicyId)
+      setTrackingMode(nextTrackingMode)
 
       const targetId = isEdit ? (category?.parent_id ?? null) : (defaultParentId ?? null)
       const seededParent = targetId && flat.some((c) => c.id === targetId) ? targetId : null
@@ -96,6 +102,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
         parentId: seededParent,
         subContainerId: nextSubContainerId,
         warrantyPolicyId: nextWarrantyPolicyId,
+        trackingMode: nextTrackingMode,
       })
     }
   }, [open, category, defaultParentId, isEdit, flat])
@@ -153,7 +160,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     sku.trim() !== snapshot.sku.trim() ||
     parentId !== snapshot.parentId ||
     subContainerId !== snapshot.subContainerId ||
-    warrantyPolicyId !== snapshot.warrantyPolicyId
+    warrantyPolicyId !== snapshot.warrantyPolicyId ||
+    trackingMode !== snapshot.trackingMode
   )
 
   function handleSubmit(e: React.FormEvent) {
@@ -167,6 +175,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       parent_id: parentId || null,
       default_sub_container_id: subContainerId || null,
       default_warranty_policy_id: warrantyPolicyId || null,
+      tool_tracking_mode: trackingMode,
     }
 
     if (isEdit && category) {
@@ -359,8 +368,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
               </p>
             </div>
 
-            {/* SKU + Type */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* SKU + Type (+ Tracking Mode for tools) */}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${categoryType === 'tools' ? 'lg:grid-cols-3' : ''} gap-4`}>
               <div className="space-y-1.5">
                 <Label htmlFor="cat-sku-prefix" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">SKU Prefix</Label>
                 <Input id="cat-sku-prefix" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="Optional" className="font-mono h-10" />
@@ -370,6 +379,31 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                 <Label htmlFor="cat-type" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Category Type</Label>
                 <Input id="cat-type" value={TYPE_LABELS[categoryType] ?? categoryType} disabled className="bg-muted text-muted-foreground h-10" />
               </div>
+              {categoryType === 'tools' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="cat-tracking-mode" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tracking Mode</Label>
+                  <Select
+                    value={trackingMode}
+                    onValueChange={(v) => setTrackingMode(v as 'serialized' | 'bulk')}
+                    disabled={isEdit && !!categoryHasStockOrUnits}
+                  >
+                    <SelectTrigger id="cat-tracking-mode" className="h-10 w-full min-w-0">
+                      <span className="truncate">
+                        {trackingMode === 'bulk' ? 'Bulk (qty tracking)' : 'Serialized (per-unit)'}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="serialized">Serialized (per-unit)</SelectItem>
+                      <SelectItem value="bulk">Bulk (qty tracking)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    {isEdit && categoryHasStockOrUnits
+                      ? 'Locked — category holds stock/units. Empty it first to switch.'
+                      : 'Serialized = per-unit asset tracking. Bulk = qty/FIFO like consumables.'}
+                  </p>
+                </div>
+              )}
             </div>
 
           </div>
