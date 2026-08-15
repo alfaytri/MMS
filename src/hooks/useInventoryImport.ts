@@ -253,9 +253,8 @@ export function useInventoryImport() {
         defaultSubContainerId: string | null
         /** Divisions this item is assigned to — the UNION of the division_id of
          *  every picked "Warehouse — Sub-container" across the item's rows.
-         *  Written to inventory_items.shared_with_division_ids so imported items
-         *  are division-scoped. Previously left unset, so imports landed with an
-         *  empty array and showed only under the "All" division view. */
+         *  Used to insert inventory_item_divisions rows (Step 3.4) once the
+         *  item's id is resolved, so imported items are division-scoped. */
         defaultDivisionIds: Set<string>
       }
       const itemGroups = new Map<string, ItemGroupInfo>()
@@ -286,6 +285,7 @@ export function useInventoryImport() {
       // Separate already-existing items from pending ones
       type PendingItem = { itemKey: string; info: ItemGroupInfo; categoryId: string }
       const pendingItems: PendingItem[] = []
+      const itemKeyToCategoryId = new Map<string, string>()
 
       for (const [itemKey, info] of itemGroups) {
         const joinedLower = info.categorySegments.map((s) => s.trim().toLowerCase()).join(' > ')
@@ -297,6 +297,8 @@ export function useInventoryImport() {
           })
           continue
         }
+
+        itemKeyToCategoryId.set(itemKey, categoryId)
 
         const itemMapKey = `${categoryId}||${info.itemName.trim().toLowerCase()}`
         const existingId = itemMap.get(itemMapKey)
@@ -311,9 +313,8 @@ export function useInventoryImport() {
       // Batch insert items — on unique violation, fall back to row-by-row.
       // Phase D.14: stamp default_warehouse_id + default_sub_container_id from
       // the picked composite so downstream receival/delivery dialogs may
-      // pre-fill. Also stamp shared_with_division_ids from the picked
-      // sub-container's division so imported items are division-scoped
-      // immediately (visible under their division, not only under "All").
+      // pre-fill. Division assignment (inventory_item_divisions) happens
+      // separately in Step 3.4, once every item id is resolved.
       for (let i = 0; i < pendingItems.length; i += BATCH_SIZE) {
         const batch = pendingItems.slice(i, i + BATCH_SIZE)
         const payloads = batch.map((p) => ({
@@ -324,7 +325,6 @@ export function useInventoryImport() {
           category_id: p.categoryId,
           default_warehouse_id:     p.info.defaultWarehouseId,
           default_sub_container_id: p.info.defaultSubContainerId,
-          shared_with_division_ids: Array.from(p.info.defaultDivisionIds),
           status: 'active' as const,
           sort_order: 0,
         }))
@@ -354,7 +354,6 @@ export function useInventoryImport() {
                   category_id: p.categoryId,
                   default_warehouse_id:     p.info.defaultWarehouseId,
                   default_sub_container_id: p.info.defaultSubContainerId,
-                  shared_with_division_ids: Array.from(p.info.defaultDivisionIds),
                   status: 'active',
                   sort_order: 0,
                 })
@@ -404,6 +403,31 @@ export function useInventoryImport() {
           } else {
             errors.push({ row: p.info.rowIndex, message: `Item "${p.info.itemName}" was not returned after insert.` })
           }
+        }
+      }
+
+      // ─── Step 3.4: Assign imported items to their divisions ──────────────
+      // Each item is assigned to the union of the divisions of its picked
+      // sub-containers (inventory_item_divisions) — replaces the old
+      // per-item division column write. category_id = the item's canonical
+      // category (matches the backfill + rpc_set_item_divisions). ON CONFLICT
+      // DO NOTHING preserves any existing assignment/overlay on re-import.
+      const assignmentRows: { item_id: string; division_id: string; category_id: string | null }[] = []
+      for (const [itemKey, info] of itemGroups) {
+        const itemId = resolvedItemId.get(itemKey)
+        if (!itemId) continue
+        const catId = itemKeyToCategoryId.get(itemKey) ?? null
+        for (const divisionId of info.defaultDivisionIds) {
+          assignmentRows.push({ item_id: itemId, division_id: divisionId, category_id: catId })
+        }
+      }
+      for (let i = 0; i < assignmentRows.length; i += BATCH_SIZE) {
+        const slice = assignmentRows.slice(i, i + BATCH_SIZE)
+        const { error: assignErr } = await supabase
+          .from('inventory_item_divisions')
+          .upsert(slice, { onConflict: 'item_id,division_id', ignoreDuplicates: true })
+        if (assignErr) {
+          errors.push({ row: 0, message: `Failed to assign divisions to imported items: ${assignErr.message}` })
         }
       }
 
