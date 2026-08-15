@@ -258,7 +258,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
 
   return (
     <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
-      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg max-h-[100vh] sm:max-h-[85vh] flex flex-col">
+      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg max-h-[100vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Item' : 'New Item'}</DialogTitle>
         </DialogHeader>
@@ -457,7 +457,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
           </div>
           </div>
 
-          <DialogFooter className="sticky bottom-0 bg-background pt-3 border-t">
+          <DialogFooter className="bg-background pt-3 border-t">
             <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
             <Button type="submit" className="min-h-11 sm:min-h-9" disabled={isPending || uploading}>
               {isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Item'}
