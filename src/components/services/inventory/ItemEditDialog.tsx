@@ -18,7 +18,7 @@ import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
 import { useEffectiveWarranty } from '@/hooks/useEffectiveWarranty'
 import { ItemAttributesSection } from '@/components/master-data/attributes/ItemAttributesSection'
 import { useDivisions } from '@/hooks/useDivisions'
-import { useItemStockByDivision } from '@/hooks/useItemStockByDivision'
+import { useItemDivisions, useSetItemDivisions } from '@/hooks/useItemDivisions'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { createClient } from '@/lib/supabase/client'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -56,12 +56,12 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const fileRef = useRef<HTMLInputElement>(null)
   const sessionUploadsRef = useRef<{ url: string; path: string }[]>([])
   const submittedRef      = useRef(false)
-  // D.12 — cross-division sharing. Empty list = no additional sharing (default).
-  const [sharedWith, setSharedWith] = useState<string[]>([])
-  const [shareOpen, setShareOpen] = useState(false)
+  const [assignedDivisionIds, setAssignedDivisionIds] = useState<string[]>([])
+  const [assignOpen, setAssignOpen] = useState(true)
 
   const { data: divisions = [] } = useDivisions()
-  const { data: stockByDivision } = useItemStockByDivision(item?.id ?? null)
+  const { data: assignedFromDb } = useItemDivisions(item?.id ?? null)
+  const setItemDivisions = useSetItemDivisions()
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
   const { data: effectiveWarranty } = useEffectiveWarranty(item?.id ?? null)
 
@@ -77,11 +77,13 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       setAttrValues([])
       setImageUrl((item as unknown as { image_url?: string | null } | null | undefined)?.image_url ?? null)
       setUploading(false)
-      const shared = (item as unknown as { shared_with_division_ids?: string[] } | null | undefined)?.shared_with_division_ids ?? []
-      setSharedWith(shared)
-      setShareOpen(shared.length > 0)
     }
   }, [open, item])
+
+  // Seed assigned divisions from the DB when the dialog opens / the fetch resolves.
+  useEffect(() => {
+    if (open) setAssignedDivisionIds(assignedFromDb ?? [])
+  }, [open, assignedFromDb])
 
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -154,11 +156,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         poSpecDefault !== ((item as unknown as { po_specification_default?: boolean }).po_specification_default ?? false) ||
         imageUrl !== ((item as unknown as { image_url?: string | null }).image_url ?? null) ||
         attrValues.length > 0 ||
-        JSON.stringify(sharedWith.slice().sort()) !==
-          JSON.stringify(
-            ((item as unknown as { shared_with_division_ids?: string[] }).shared_with_division_ids ?? [])
-              .slice().sort()
-          )
+        JSON.stringify(assignedDivisionIds.slice().sort()) !==
+          JSON.stringify(((assignedFromDb ?? []) as string[]).slice().sort())
       )
     : (
         nameEn.trim() !== '' ||
@@ -169,7 +168,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         poSpecDefault ||
         imageUrl !== null ||
         attrValues.length > 0 ||
-        sharedWith.length > 0
+        assignedDivisionIds.length > 0
       )
 
   function handleOpenChange(next: boolean) {
@@ -204,7 +203,6 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       sku: sku.trim(),
       unit,
       image_url: imageUrl,
-      shared_with_division_ids: sharedWith,
       warranty_policy_id: warrantyPolicyId,
       specification: specification.trim() || null,
       po_specification_default: poSpecDefault,
@@ -222,6 +220,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       if (attrValues.length > 0) {
         await upsertItemAttributes.mutateAsync({ itemId, values: attrValues })
       }
+      await setItemDivisions.mutateAsync({ itemId, divisionIds: assignedDivisionIds })
       sessionUploadsRef.current = []
       submittedRef.current = true
       toast.success(isEdit ? 'Item updated' : 'Item created')
@@ -375,56 +374,32 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
             onChange={handleAttrChange}
           />
 
-          {/* D.12 — Access & Sharing (collapsible, default collapsed unless already set) */}
+          {/* Assigned divisions (replaces the old D.12 Access & Sharing) */}
           <div className="rounded-md border border-dashed border-border">
             <button
               type="button"
-              onClick={() => setShareOpen((v) => !v)}
+              onClick={() => setAssignOpen((v) => !v)}
               className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors rounded-md"
             >
-              {shareOpen
+              {assignOpen
                 ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                 : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium">Access &amp; Sharing</span>
-              {sharedWith.length > 0 && (
+              <span className="text-xs font-medium">Assigned divisions</span>
+              {assignedDivisionIds.length > 0 && (
                 <Badge variant="outline" className="ml-auto text-[10px] h-4 px-1.5">
-                  Shared with {sharedWith.length}
+                  Assigned to {assignedDivisionIds.length}
                 </Badge>
               )}
             </button>
-            {shareOpen && (
+            {assignOpen && (
               <div className="px-3 pb-3 pt-1 space-y-2">
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Items don&apos;t belong to a division — ownership is derived from whichever divisions physically hold stock of the item. Below, an <span className="text-success font-medium">Owner</span> tag means that division can already sell (they have stock); ticking a division adds explicit share access so they can consume stock owned by another division without a transfer. One-way per item.
+                  Divisions that stock and work with this item. Each division keeps its own quantity pool; to move stock between divisions, use a transfer.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {divisions.map((div) => {
-                    const checked = sharedWith.includes(div.id)
-                    const naturalQty = stockByDivision?.get(div.id) ?? 0
-                    const isOwner = naturalQty > 0
-                    // Owner divisions can already sell — no checkbox, no
-                    // toggling required. Render as a passive info row.
-                    if (isOwner) {
-                      return (
-                        <div
-                          key={div.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-success/30 bg-success/5 min-h-9"
-                          title={`${naturalQty} units held in ${div.name}'s sub-container`}
-                        >
-                          <span className="text-xs flex-1 truncate">
-                            {div.name}
-                            {div.short_name && (
-                              <span className="text-[10px] text-muted-foreground"> · {div.short_name}</span>
-                            )}
-                          </span>
-                          <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-success/40 text-success flex-shrink-0">
-                            Owned · {naturalQty}
-                          </Badge>
-                        </div>
-                      )
-                    }
-                    // Non-owner: rendered as a tickable share row.
+                    const checked = assignedDivisionIds.includes(div.id)
                     return (
                       <label
                         key={div.id}
@@ -433,7 +408,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => {
-                            setSharedWith((cur) =>
+                            setAssignedDivisionIds((cur) =>
                               v ? [...cur, div.id] : cur.filter((id) => id !== div.id),
                             )
                           }}
@@ -444,20 +419,13 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                             <span className="text-[10px] text-muted-foreground"> · {div.short_name}</span>
                           )}
                         </span>
-                        {checked ? (
-                          <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-primary/40 text-primary flex-shrink-0">
-                            Shared
-                          </Badge>
-                        ) : (
-                          <span className="text-[9px] text-muted-foreground flex-shrink-0">no stock</span>
-                        )}
                       </label>
                     )
                   })}
                 </div>
-                {sharedWith.length === 0 && (
+                {assignedDivisionIds.length === 0 && (
                   <p className="text-[10px] text-muted-foreground italic">
-                    No extra shares — only <span className="text-success font-medium">Owner</span> divisions above can sell this item.
+                    Not assigned to any division yet — assign at least one so it appears in that division&apos;s pickers.
                   </p>
                 )}
               </div>
