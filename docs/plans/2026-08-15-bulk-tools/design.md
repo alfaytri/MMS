@@ -42,7 +42,7 @@ A **tool** can only be tracked **serialized** today — one `tool_asset_units` r
 ### 6.1 Tracking mode (per category)
 
 - Add `inventory_categories.tool_tracking_mode` enum `('serialized','bulk')`, **default `'serialized'`** (only meaningful when `type='tools'`; ignored for the other three types).
-- **Locked once the category has items** — a category cannot flip serialized↔bulk while it holds asset units or qty stock (avoids orphaning one against the other).
+- **Switchable behind a guard** — a category can flip serialized↔bulk later, but the conversion is guarded: blocked (or requiring an explicit migration) while the category holds asset units or qty stock, so nothing is orphaned; an empty category switches freely. (Decision Q2.)
 
 ### 6.2 Bulk tools = a qty type
 
@@ -56,7 +56,7 @@ A **tool** can only be tracked **serialized** today — one `tool_asset_units` r
 
 - Add `tool_asset_units.division_id uuid → company_divisions`.
 - Add a **unit-level transfer** path (move a unit's `division_id`; keep `assigned_to` — division owns, person holds).
-- Backfill existing units' `division_id` (rule = **open question Q1**).
+- Existing units' `division_id` starts **null** — the operator sets each unit's division; no inference from stock or assignment. (Decision Q1.)
 
 ## 7. Behavioral changes
 
@@ -92,8 +92,8 @@ Each phase ships independently; P2a delivers the headline "bulk tools" value.
 | Serialized backfill picks a wrong division | Q1 — pick a deterministic, reviewable source; backfill in a rolled-back-verified migration. |
 | Bulk tools miss a type-specific behavior elsewhere | Audit every `type === 'tools'` / `!== 'tools'` branch (23 files found earlier) during planning; each must decide serialized-only vs mode-aware. |
 
-## 11. Open questions (need operator answers before the plan)
+## 11. Resolved decisions (operator, 2026-08-15)
 
-- **Q1 — Serialized units' `division_id` backfill source:** derive from the unit's **current warehouse/sub-container division**, from the item's **Phase-1 assignment**, or leave **null** (unassigned) for the operator to set? *(Proposed: sub-container division where the unit currently sits; null if none.)*
-- **Q2 — Mode switching after items exist:** hard-locked, or allowed with a guard/migration? *(Proposed: hard-locked once populated.)*
-- **Q3 — Serialized unit ownership:** keep **both** `assigned_to` (person) **and** `division_id`, or does division replace person? *(Proposed: both — division owns, person holds.)*
+- **Q1 — Serialized units' `division_id` backfill:** **Leave null** — existing units start unassigned; the operator sets each unit's division. No inference from stock location or assignment.
+- **Q2 — Mode switching after items exist:** **Allowed behind a guard/migration** — a tool category can switch Serialized↔Bulk later, but the conversion is guarded (blocked, or requires an explicit migration, while the category holds asset units or qty stock; an empty/clean category switches freely).
+- **Q3 — Serialized unit ownership:** **Both** — keep `assigned_to` (the person holding the unit) AND add `division_id` (the owning division). Division owns, person holds.
