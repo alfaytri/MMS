@@ -289,7 +289,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
       ))}
 
       {expanded && node.tool_tracking_mode === 'bulk'
-        ? toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} />)
+        ? toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)
         : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)}
 
       {expanded && isLeaf && toolItems.length === 0 && (

@@ -389,7 +389,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                   >
                     <SelectTrigger id="cat-tracking-mode" className="h-10 w-full min-w-0">
                       <span className="truncate">
-                        {trackingMode === 'bulk' ? 'Bulk (qty tracking)' : 'Serialized (per-unit)'}
+                        {trackingMode === 'bulk' ? 'Bulk' : 'Serialized'}
                       </span>
                     </SelectTrigger>
                     <SelectContent>
@@ -397,7 +397,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                       <SelectItem value="bulk">Bulk (qty tracking)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground break-words leading-snug">
                     {isEdit && categoryHasStockOrUnits
                       ? 'Locked — category holds stock/units. Empty it first to switch.'
                       : 'Serialized = per-unit asset tracking. Bulk = qty/FIFO like consumables.'}
