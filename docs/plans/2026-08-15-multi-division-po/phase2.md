@@ -47,7 +47,7 @@ Implemented in migration `20260824000500` with one source of truth for the split
 ## 3. Per-division / split approval — OUT OF SCOPE
 Approval is amount-tier based and division-agnostic; splitting one PO's approval across divisions adds significant workflow complexity for little value. Not planned.
 
-## Ship state
-- Migrations `20260824000400` (receiving) + `20260824000500` (money-out attribution) + `20260824000600` (FX drill-down split) applied to **staging** + mirrored. Frontend `tsc`+eslint clean.
-- **Awaiting review before prod** — Phase 1 is already on prod; **new-prod does NOT yet have `20260824000400`, `20260824000500`, or `20260824000600`**. After sign-off: apply all three to new-prod and push the frontend to `deploy/warehouse-shipping`.
-- Operator smoke still pending (needs a real login): open **Reports → Accounts Payable** with a bill on a multi-division PO and confirm it shows one row per division, subtotals per division, and a grand total that matches the bill.
+## Ship state — SHIPPED TO PROD
+- Migrations `20260824000400` (receiving) + `20260824000500` (money-out attribution) + `20260824000600` (FX drill-down split) applied to **staging AND new-prod** (both `db push`-recorded + mirrored) + object-verified on new-prod. Frontend `tsc`+eslint clean.
+- Commits `08bec1a8`/`fc6c12bb` (receiving) + `8ac1f5b5`/`c2336b6a` (money-out) pushed to `deploy/warehouse-shipping` (`57014f76..c2336b6a`) → Vercel prod rebuild.
+- Recommended post-ship operator smoke: open **Reports → Accounts Payable** with a bill on a multi-division PO and confirm one row per division, per-division subtotals, and a grand total matching the bill; open the P&L FX drill-down and confirm it still sums to the `fx_net` line.
