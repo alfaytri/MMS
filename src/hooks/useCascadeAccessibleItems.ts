@@ -55,7 +55,10 @@ export function useCascadeAccessibleItems(
    *  every item on a fresh catalog. */
   requireStock: boolean = true,
 ): CascadeAccessibleItems {
-  const isFilterable = type !== 'tools'
+  // Tools are no longer blanket-excluded: BULK tool categories are qty (they
+  // flow through this filter). SERIALIZED tool categories are pruned by the
+  // tool_tracking_mode='bulk' filter on the items query below.
+  const isFilterable = true
   const effectiveEnabled = enabled && !!activeDivisionId && isFilterable
 
   const itemsQuery = useQuery({
@@ -64,17 +67,18 @@ export function useCascadeAccessibleItems(
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      let q = supabase
         .from('inventory_items')
-        .select('id, category_id, inventory_categories!inner(type)')
+        .select('id, category_id, inventory_categories!inner(type, tool_tracking_mode)')
         .neq('status', 'archived')
         .eq('inventory_categories.type', type as 'products' | 'spare-parts' | 'consumables' | 'tools')
         .limit(5000)
+      // Only bulk tool categories are qty. Serialized tools stay asset-tracked
+      // and must never appear in the cascade (PO/receival/consume) picker.
+      if (type === 'tools') q = q.eq('inventory_categories.tool_tracking_mode', 'bulk')
+      const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as unknown as Array<{
-        id: string
-        category_id: string
-      }>
+      return (data ?? []) as unknown as Array<{ id: string; category_id: string }>
     },
   })
 
