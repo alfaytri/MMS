@@ -181,7 +181,7 @@ export const BASE_CSS = `
   .contact-strip { display: flex; justify-content: space-between; align-items: center; padding: 6mm 14mm; }
   .contact-strip .left, .contact-strip .right { display: flex; gap: 10mm; align-items: center; }
   .contact-strip a { color: var(--link-blue); text-decoration: none; font-family: 'IBMPlexSans', sans-serif; font-size: 11px; }
-  .dark-strip { background: var(--dark); height: 9mm; }
+  .dark-strip { background: var(--dark); height: 4mm; }
   .ribbon {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     background: var(--orange); color: #fff; padding: 3.5mm 8mm 3mm;
