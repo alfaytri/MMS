@@ -2101,6 +2101,7 @@ export type Database = {
           sku: string | null
           sort_order: number
           status: string
+          tool_tracking_mode: Database["public"]["Enums"]["tool_tracking_mode"]
           type: Database["public"]["Enums"]["inventory_type"]
           updated_at: string | null
         }
@@ -2115,6 +2116,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number
           status?: string
+          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"]
           type: Database["public"]["Enums"]["inventory_type"]
           updated_at?: string | null
         }
@@ -2129,6 +2131,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number
           status?: string
+          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"]
           type?: Database["public"]["Enums"]["inventory_type"]
           updated_at?: string | null
         }
@@ -6229,6 +6232,7 @@ export type Database = {
           brand: string | null
           condition: Database["public"]["Enums"]["tool_condition"] | null
           created_at: string | null
+          division_id: string | null
           expiry: string | null
           id: string
           is_placeholder: boolean
@@ -6242,6 +6246,7 @@ export type Database = {
           brand?: string | null
           condition?: Database["public"]["Enums"]["tool_condition"] | null
           created_at?: string | null
+          division_id?: string | null
           expiry?: string | null
           id?: string
           is_placeholder?: boolean
@@ -6255,6 +6260,7 @@ export type Database = {
           brand?: string | null
           condition?: Database["public"]["Enums"]["tool_condition"] | null
           created_at?: string | null
+          division_id?: string | null
           expiry?: string | null
           id?: string
           is_placeholder?: boolean
@@ -6264,6 +6270,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["tool_status"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tool_asset_units_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tool_asset_units_item_id_fkey"
             columns: ["item_id"]
@@ -9625,6 +9638,7 @@ export type Database = {
         | "qc"
       tool_condition: "New" | "Good" | "Fair" | "Maintenance"
       tool_status: "available" | "assigned" | "maintenance" | "retired"
+      tool_tracking_mode: "serialized" | "bulk"
       transfer_status:
         | "pending"
         | "in_transit"
@@ -9987,6 +10001,7 @@ export const Constants = {
       ],
       tool_condition: ["New", "Good", "Fair", "Maintenance"],
       tool_status: ["available", "assigned", "maintenance", "retired"],
+      tool_tracking_mode: ["serialized", "bulk"],
       transfer_status: [
         "pending",
         "in_transit",

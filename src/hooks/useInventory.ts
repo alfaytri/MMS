@@ -361,6 +361,7 @@ export type ToolAssetUnit = {
   brand: string | null
   status: string
   assigned_to: string | null
+  division_id: string | null
   condition: string
   expiry: string | null
   created_at: string
@@ -393,7 +394,7 @@ export function useInventoryCategoriesByType(type: string, showArchived = false)
 
 export function useCreateInventoryCategory() {
   const qc = useQueryClient()
-  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null }>({
+  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null; tool_tracking_mode?: 'serialized' | 'bulk' }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -422,7 +423,7 @@ export function useCreateInventoryCategory() {
 export function useUpdateInventoryCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null }) => {
+    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null; tool_tracking_mode?: 'serialized' | 'bulk' }) => {
       const supabase = createClient()
       const { data: old } = await supabase
         .from('inventory_categories')
@@ -748,7 +749,7 @@ export function useToolAssetUnits(itemId: string | null) {
 
 export function useCreateToolAssetUnit() {
   const qc = useQueryClient()
-  return useMutation<ToolAssetUnit, Error, { item_id: string; serial_number: string; brand: string; condition?: string; expiry?: string | null; status?: string; assigned_to?: string | null }>({
+  return useMutation<ToolAssetUnit, Error, { item_id: string; serial_number: string; brand: string; condition?: string; expiry?: string | null; status?: string; assigned_to?: string | null; division_id?: string | null }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -774,7 +775,7 @@ export function useCreateToolAssetUnit() {
 
 export function useUpdateToolAssetUnit() {
   const qc = useQueryClient()
-  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string | null; brand?: string; condition?: string; status?: string; expiry?: string | null; assigned_to?: string | null; is_placeholder?: boolean }>({
+  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string | null; brand?: string; condition?: string; status?: string; expiry?: string | null; assigned_to?: string | null; is_placeholder?: boolean; division_id?: string | null }>({
     mutationFn: async ({ id, item_id: _item_id, ...payload }) => {
       const supabase = createClient()
       const { data: old } = await supabase
@@ -859,6 +860,40 @@ export function useAutoGenerateToolSerials() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+    },
+  })
+}
+
+/** Unit-level transfer (Task 2b.3): moves tool_asset_units.division_id (the
+ *  OWNING division) via the perm-gated `rpc_transfer_tool_unit`. Deliberately
+ *  does NOT touch assigned_to — division owns, person holds. */
+export function useTransferToolUnit() {
+  const qc = useQueryClient()
+  return useMutation<
+    void,
+    Error,
+    { unit_id: string; item_id: string; from_division_id: string | null; to_division_id: string; notes?: string | null }
+  >({
+    mutationFn: async ({ unit_id, to_division_id, notes }) => {
+      const supabase = createClient()
+      // RPC isn't in the generated types yet — cast the name + args.
+      const { error } = await supabase.rpc(
+        'rpc_transfer_tool_unit' as never,
+        { p_unit_id: unit_id, p_to_division_id: to_division_id, p_notes: notes ?? null } as never,
+      )
+      if (error) throw error
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+      void logActivity({
+        action:      'Tool Unit Transferred',
+        module:      'inventory',
+        entity_id:   v.unit_id,
+        entity_type: 'tool_unit',
+        details:     v.notes || null,
+        old_data:    { division_id: v.from_division_id },
+        new_data:    { division_id: v.to_division_id },
+      })
     },
   })
 }

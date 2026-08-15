@@ -15,6 +15,7 @@ import {
   useStaffProfiles,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
+import { useDivisions, useAllDivisions, type Division } from '@/hooks/useDivisions'
 
 type ItemProps = {
   open: boolean
@@ -92,13 +93,31 @@ type UnitProps = {
   unit?: ToolAssetUnit | null
 }
 
-const CONDITIONS = ['Good', 'Fair', 'Poor', 'Under Repair']
+// Must match the live `tool_condition` enum exactly (verified 2026-08-15 via
+// `db query --linked` against pg_enum) — an option here that isn't a real
+// enum label fails on save with a Postgres invalid-input-value error.
+const CONDITIONS = ['New', 'Good', 'Fair', 'Maintenance']
+
+// Resolve a division's display name against ALL divisions (not just the
+// active list `divisions` below, which drives the pickable options) so a
+// since-deactivated owning division still shows its real name instead of
+// "Unassigned" — the two are different states (Fix 6 / Minor 5). Display-only:
+// does not affect seeding or the save payload, both of which already carry
+// the real division_id regardless of active status.
+function divisionDisplayName(divisionId: string, allDivisions: Division[]): string {
+  if (!divisionId) return 'Unassigned'
+  const record = allDivisions.find((d) => d.id === divisionId)
+  if (!record) return 'Inactive division'
+  return record.is_active ? record.name : `${record.name} (inactive)`
+}
 
 export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, unit }: UnitProps) {
   const isEdit = !!unit
   const create = useCreateToolAssetUnit()
   const update = useUpdateToolAssetUnit()
   const { data: staffProfiles = [] } = useStaffProfiles()
+  const { data: divisions = [] } = useDivisions()
+  const { data: allDivisions = [] } = useAllDivisions()
   const { data: existingUnits = [] } = useToolAssetUnits(!isEdit && open ? itemId : null)
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState('')
@@ -106,7 +125,9 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
   const [expiry, setExpiry] = useState('')
   const [status, setStatus] = useState('available')
   const [assignedTo, setAssignedTo] = useState<string>('')
+  const [divisionId, setDivisionId] = useState<string>('')
   const [seededSerial, setSeededSerial] = useState('')
+  const [seededDivisionId, setSeededDivisionId] = useState('')
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
@@ -126,8 +147,15 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       setExpiry(unit?.expiry ?? '')
       setStatus(unit?.status ?? 'available')
       setAssignedTo(unit?.assigned_to ?? '')
+      // Division owns the unit; person (assigned_to, above) holds it — independent fields.
+      // Pre-select when exactly one division exists (nothing else to pick); otherwise
+      // fall back to the unit's own division_id, or unassigned for new/unset units.
+      const seededDivision = unit?.division_id ?? (divisions.length === 1 ? divisions[0].id : '')
+      setDivisionId(seededDivision)
+      setSeededDivisionId(seededDivision)
     }
-  }, [open, unit, isEdit, itemId, itemSku, existingUnits.length])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, unit, isEdit, itemId, itemSku, existingUnits.length, divisions.length])
 
   const isDirty =
     serial !== seededSerial ||
@@ -135,7 +163,8 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
     condition !== (unit?.condition ?? 'Good') ||
     expiry !== (unit?.expiry ?? '') ||
     status !== (unit?.status ?? 'available') ||
-    assignedTo !== (unit?.assigned_to ?? '')
+    assignedTo !== (unit?.assigned_to ?? '') ||
+    divisionId !== seededDivisionId
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -149,6 +178,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       expiry: expiry || null,
       status,
       assigned_to: status === 'assigned' ? assignedTo : null,
+      division_id: divisionId || null,
     }
     if (isEdit && unit) {
       update.mutate({ id: unit.id, item_id: itemId, ...payload }, {
@@ -194,6 +224,26 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="maintenance">Maintenance</SelectItem>
                     <SelectItem value="retired">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tool-division">Division</Label>
+                <Select
+                  value={divisionId || '__none__'}
+                  onValueChange={(v) => { if (v !== null) setDivisionId(v === '__none__' ? '' : v) }}
+                  disabled={divisions.length <= 1}
+                >
+                  <SelectTrigger id="tool-division" className="h-10 w-full min-w-0">
+                    <span className="truncate">
+                      {divisionDisplayName(divisionId, allDivisions)}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    <SelectItem value="__none__">Unassigned</SelectItem>
+                    {divisions.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

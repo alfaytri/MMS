@@ -1,24 +1,30 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
+import { ItemEditDialog } from './ItemEditDialog'
 import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
+import { ToolUnitTransferDialog } from './ToolUnitTransferDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
+import { BulkToolItemRow } from './BulkToolItemRow'
 import {
   useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders,
   useAutoGenerateToolSerials,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
+import { useAllDivisions } from '@/hooks/useDivisions'
 import { formatDate } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
   const { data: units = [], isLoading } = useToolAssetUnits(itemId)
+  const { data: allDivisions = [] } = useAllDivisions()
   const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
+  const [transferUnit, setTransferUnit] = useState<ToolAssetUnit | null>(null)
   const [addUnitOpen, setAddUnitOpen] = useState(false)
   const autoGenerate = useAutoGenerateToolSerials()
 
@@ -40,6 +46,17 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
       onSuccess: (res) => toast.success(`Generated ${res.updated_count} serial${res.updated_count === 1 ? '' : 's'}`),
       onError: (err) => toast.error(err.message),
     })
+  }
+
+  // Resolve a unit's owning division name against ALL divisions (not just the
+  // active list) so a since-deactivated division still shows its real name —
+  // "Inactive division" is a distinct state from "no division set" and must
+  // not be conflated with "Unassigned" (Fix 6 / Minor 5).
+  function divisionDisplayName(divisionId: string | null) {
+    if (!divisionId) return 'Unassigned'
+    const record = allDivisions.find((d) => d.id === divisionId)
+    if (!record) return 'Inactive division'
+    return record.is_active ? record.name : `${record.name} (inactive)`
   }
 
   return (
@@ -73,17 +90,18 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">BRAND</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">CONDITION</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">STATUS</th>
+                  <th className="text-left text-[10px] font-semibold py-1.5 px-2">DIVISION</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">EXPIRY</th>
                   <th className="text-right text-[10px] font-semibold py-1.5 px-2" />
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <tr><td colSpan={6} className="h-8"><div className="h-4 w-full bg-muted animate-pulse rounded m-2" /></td></tr>}
+                {isLoading && <tr><td colSpan={7} className="h-8"><div className="h-4 w-full bg-muted animate-pulse rounded m-2" /></td></tr>}
                 {!isLoading && units.length === 0 && (
-                  <tr><td colSpan={6} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
+                  <tr><td colSpan={7} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
                 )}
                 {pendingUnits.map((unit) => (
-                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} />
+                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} showDivisionColumn />
                 ))}
                 {confirmedUnits.map((unit) => (
                   <tr key={unit.id} className="border-t border-border">
@@ -95,11 +113,19 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                         {unit.status}
                       </span>
                     </td>
+                    <td className="py-1.5 px-2">
+                      {divisionDisplayName(unit.division_id)}
+                    </td>
                     <td className="py-1.5 px-2">{unit.expiry ? formatDate(unit.expiry) : '—'}</td>
                     <td className="py-1.5 px-2 text-right">
-                      <Button variant="ghost" size="icon" aria-label="Edit unit" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditUnit(unit)}>
-                        <Pencil className="h-2.5 w-2.5" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <Button variant="ghost" size="icon" aria-label="Transfer unit" title="Transfer to another division" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setTransferUnit(unit)}>
+                          <ArrowRightLeft className="h-2.5 w-2.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" aria-label="Edit unit" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditUnit(unit)}>
+                          <Pencil className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -114,6 +140,9 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
       <ToolAssetUnitEditDialog open={addUnitOpen} onOpenChange={setAddUnitOpen} itemId={itemId} itemSku={itemSku} />
       {editUnit && (
         <ToolAssetUnitEditDialog open={!!editUnit} onOpenChange={(v) => { if (!v) setEditUnit(null) }} itemId={itemId} itemSku={itemSku} unit={editUnit} />
+      )}
+      {transferUnit && (
+        <ToolUnitTransferDialog open={!!transferUnit} onOpenChange={(v) => { if (!v) setTransferUnit(null) }} itemId={itemId} unit={transferUnit} />
       )}
     </>
   )
@@ -218,9 +247,20 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
           </div>
         </td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
-          {expanded && toolItems.length > 0 && (
-            <span>{toolItems.length} item{toolItems.length !== 1 ? 's' : ''}</span>
-          )}
+          <div className="flex items-center gap-1.5 min-h-[18px]">
+            <span
+              className={`inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-medium whitespace-nowrap ${
+                node.tool_tracking_mode === 'bulk'
+                  ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
+                  : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {node.tool_tracking_mode === 'bulk' ? 'Bulk' : 'Serialized'}
+            </span>
+            {expanded && toolItems.length > 0 && (
+              <span>{toolItems.length} item{toolItems.length !== 1 ? 's' : ''}</span>
+            )}
+          </div>
         </td>
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
@@ -259,9 +299,11 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         />
       ))}
 
-      {expanded && toolItems.map((item) => (
-        <ToolItemRow key={item.id} item={item} depth={depth} />
-      ))}
+      {expanded && (
+        node.tool_tracking_mode === 'bulk'
+          ? toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)
+          : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)
+      )}
 
       {expanded && isLeaf && toolItems.length === 0 && (
         <tr className="border-b border-border">
@@ -273,7 +315,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
 
       <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType="tools" category={node} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType="tools" parentId={node.id} />
-      <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} />
+      {node.tool_tracking_mode === 'bulk'
+        ? <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType="tools" />
+        : <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} />}
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
