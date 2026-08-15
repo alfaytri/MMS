@@ -12,9 +12,13 @@ type Props = {
   /** Full list of units for this same item — used for client-side duplicate detection. */
   siblingUnits: ToolAssetUnit[]
   onConfirmed?: () => void
+  /** This row is shared between the serialized-tools table (which has a DIVISION
+   *  column, Task 2b.4) and the PO-receiving serials step (which doesn't). Opt in
+   *  so the two host tables' column counts stay independently correct. */
+  showDivisionColumn?: boolean
 }
 
-export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed }: Props) {
+export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisionColumn }: Props) {
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState(unit.brand ?? '')
   const [expiry, setExpiry] = useState(unit.expiry ?? '')
@@ -71,6 +75,9 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed }: Props) {
           pending
         </span>
       </td>
+      {showDivisionColumn && (
+        <td className="py-1.5 px-2 text-muted-foreground">—</td>
+      )}
       <td className="py-1.5 px-2">
         <Input
           type="date"

@@ -16,11 +16,13 @@ import {
   useAutoGenerateToolSerials,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
+import { useDivisions } from '@/hooks/useDivisions'
 import { formatDate } from '@/lib/utils/formatters'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
   const { data: units = [], isLoading } = useToolAssetUnits(itemId)
+  const { data: divisions = [] } = useDivisions()
   const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
   const [transferUnit, setTransferUnit] = useState<ToolAssetUnit | null>(null)
   const [addUnitOpen, setAddUnitOpen] = useState(false)
@@ -77,17 +79,18 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">BRAND</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">CONDITION</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">STATUS</th>
+                  <th className="text-left text-[10px] font-semibold py-1.5 px-2">DIVISION</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">EXPIRY</th>
                   <th className="text-right text-[10px] font-semibold py-1.5 px-2" />
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <tr><td colSpan={6} className="h-8"><div className="h-4 w-full bg-muted animate-pulse rounded m-2" /></td></tr>}
+                {isLoading && <tr><td colSpan={7} className="h-8"><div className="h-4 w-full bg-muted animate-pulse rounded m-2" /></td></tr>}
                 {!isLoading && units.length === 0 && (
-                  <tr><td colSpan={6} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
+                  <tr><td colSpan={7} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
                 )}
                 {pendingUnits.map((unit) => (
-                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} />
+                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} showDivisionColumn />
                 ))}
                 {confirmedUnits.map((unit) => (
                   <tr key={unit.id} className="border-t border-border">
@@ -98,6 +101,9 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor[unit.status] ?? 'bg-muted text-muted-foreground'}`}>
                         {unit.status}
                       </span>
+                    </td>
+                    <td className="py-1.5 px-2">
+                      {divisions.find((d) => d.id === unit.division_id)?.name ?? 'Unassigned'}
                     </td>
                     <td className="py-1.5 px-2">{unit.expiry ? formatDate(unit.expiry) : '—'}</td>
                     <td className="py-1.5 px-2 text-right">
