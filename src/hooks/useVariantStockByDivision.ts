@@ -38,6 +38,7 @@ export function useVariantStockByDivision(itemId?: string | null) {
         .from('inventory_item_brand_variants')
         .select('id')
         .eq('item_id', itemId)
+        .limit(500)
       if (vErr) throw vErr
       const variantIds = (variants ?? []).map((v) => v.id as string)
       if (variantIds.length === 0) return new Map<string, VariantDivisionPool[]>()
@@ -50,6 +51,7 @@ export function useVariantStockByDivision(itemId?: string | null) {
         )
         .in('brand_variant_id', variantIds)
         .gt('qty', 0)
+        .limit(500)
       if (sErr) throw sErr
 
       const byVariant = new Map<string, Map<string, VariantDivisionPool>>()
