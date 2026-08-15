@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
+import { BulkToolItemRow } from './BulkToolItemRow'
 import {
   useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders,
   useAutoGenerateToolSerials,
@@ -218,9 +219,20 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
           </div>
         </td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
-          {expanded && toolItems.length > 0 && (
-            <span>{toolItems.length} item{toolItems.length !== 1 ? 's' : ''}</span>
-          )}
+          <div className="flex items-center gap-1.5 min-h-[18px]">
+            <span
+              className={`inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-medium whitespace-nowrap ${
+                node.tool_tracking_mode === 'bulk'
+                  ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
+                  : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {node.tool_tracking_mode === 'bulk' ? 'Bulk' : 'Serialized'}
+            </span>
+            {expanded && toolItems.length > 0 && (
+              <span>{toolItems.length} item{toolItems.length !== 1 ? 's' : ''}</span>
+            )}
+          </div>
         </td>
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
@@ -259,9 +271,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         />
       ))}
 
-      {expanded && toolItems.map((item) => (
-        <ToolItemRow key={item.id} item={item} depth={depth} />
-      ))}
+      {expanded && node.tool_tracking_mode === 'bulk'
+        ? toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} />)
+        : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)}
 
       {expanded && isLeaf && toolItems.length === 0 && (
         <tr className="border-b border-border">
