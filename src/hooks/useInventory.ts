@@ -361,6 +361,7 @@ export type ToolAssetUnit = {
   brand: string | null
   status: string
   assigned_to: string | null
+  division_id: string | null
   condition: string
   expiry: string | null
   created_at: string
