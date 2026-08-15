@@ -749,7 +749,7 @@ export function useToolAssetUnits(itemId: string | null) {
 
 export function useCreateToolAssetUnit() {
   const qc = useQueryClient()
-  return useMutation<ToolAssetUnit, Error, { item_id: string; serial_number: string; brand: string; condition?: string; expiry?: string | null; status?: string; assigned_to?: string | null }>({
+  return useMutation<ToolAssetUnit, Error, { item_id: string; serial_number: string; brand: string; condition?: string; expiry?: string | null; status?: string; assigned_to?: string | null; division_id?: string | null }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -775,7 +775,7 @@ export function useCreateToolAssetUnit() {
 
 export function useUpdateToolAssetUnit() {
   const qc = useQueryClient()
-  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string | null; brand?: string; condition?: string; status?: string; expiry?: string | null; assigned_to?: string | null; is_placeholder?: boolean }>({
+  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string | null; brand?: string; condition?: string; status?: string; expiry?: string | null; assigned_to?: string | null; is_placeholder?: boolean; division_id?: string | null }>({
     mutationFn: async ({ id, item_id: _item_id, ...payload }) => {
       const supabase = createClient()
       const { data: old } = await supabase

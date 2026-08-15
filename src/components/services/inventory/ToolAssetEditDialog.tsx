@@ -15,6 +15,7 @@ import {
   useStaffProfiles,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
+import { useDivisions } from '@/hooks/useDivisions'
 
 type ItemProps = {
   open: boolean
@@ -99,6 +100,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
   const create = useCreateToolAssetUnit()
   const update = useUpdateToolAssetUnit()
   const { data: staffProfiles = [] } = useStaffProfiles()
+  const { data: divisions = [] } = useDivisions()
   const { data: existingUnits = [] } = useToolAssetUnits(!isEdit && open ? itemId : null)
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState('')
@@ -106,7 +108,9 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
   const [expiry, setExpiry] = useState('')
   const [status, setStatus] = useState('available')
   const [assignedTo, setAssignedTo] = useState<string>('')
+  const [divisionId, setDivisionId] = useState<string>('')
   const [seededSerial, setSeededSerial] = useState('')
+  const [seededDivisionId, setSeededDivisionId] = useState('')
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   useEffect(() => {
@@ -126,8 +130,15 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       setExpiry(unit?.expiry ?? '')
       setStatus(unit?.status ?? 'available')
       setAssignedTo(unit?.assigned_to ?? '')
+      // Division owns the unit; person (assigned_to, above) holds it — independent fields.
+      // Pre-select when exactly one division exists (nothing else to pick); otherwise
+      // fall back to the unit's own division_id, or unassigned for new/unset units.
+      const seededDivision = unit?.division_id ?? (divisions.length === 1 ? divisions[0].id : '')
+      setDivisionId(seededDivision)
+      setSeededDivisionId(seededDivision)
     }
-  }, [open, unit, isEdit, itemId, itemSku, existingUnits.length])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, unit, isEdit, itemId, itemSku, existingUnits.length, divisions.length])
 
   const isDirty =
     serial !== seededSerial ||
@@ -135,7 +146,8 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
     condition !== (unit?.condition ?? 'Good') ||
     expiry !== (unit?.expiry ?? '') ||
     status !== (unit?.status ?? 'available') ||
-    assignedTo !== (unit?.assigned_to ?? '')
+    assignedTo !== (unit?.assigned_to ?? '') ||
+    divisionId !== seededDivisionId
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -149,6 +161,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       expiry: expiry || null,
       status,
       assigned_to: status === 'assigned' ? assignedTo : null,
+      division_id: divisionId || null,
     }
     if (isEdit && unit) {
       update.mutate({ id: unit.id, item_id: itemId, ...payload }, {
@@ -194,6 +207,26 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="maintenance">Maintenance</SelectItem>
                     <SelectItem value="retired">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tool-division">Division</Label>
+                <Select
+                  value={divisionId || '__none__'}
+                  onValueChange={(v) => { if (v !== null) setDivisionId(v === '__none__' ? '' : v) }}
+                  disabled={divisions.length <= 1}
+                >
+                  <SelectTrigger id="tool-division" className="h-10 w-full min-w-0">
+                    <span className="truncate">
+                      {divisions.find((d) => d.id === divisionId)?.name ?? 'Unassigned'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    <SelectItem value="__none__">Unassigned</SelectItem>
+                    {divisions.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
