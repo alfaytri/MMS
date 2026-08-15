@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { useTransferToolUnit, type ToolAssetUnit } from '@/hooks/useInventory'
-import { useDivisions } from '@/hooks/useDivisions'
+import { useDivisions, useAllDivisions } from '@/hooks/useDivisions'
 
 type Props = {
   open: boolean
@@ -23,6 +23,7 @@ type Props = {
 export function ToolUnitTransferDialog({ open, onOpenChange, itemId, unit }: Props) {
   const transfer = useTransferToolUnit()
   const { data: divisions = [] } = useDivisions()
+  const { data: allDivisions = [] } = useAllDivisions()
   const [toDivisionId, setToDivisionId] = useState('')
   const [notes, setNotes] = useState('')
   const guardRef = useRef<GuardedFormDialogHandle>(null)
@@ -31,6 +32,9 @@ export function ToolUnitTransferDialog({ open, onOpenChange, itemId, unit }: Pro
   // Everything except the unit's current division — moving "to" where it
   // already is isn't a transfer.
   const targetOptions = divisions.filter((d) => d.id !== currentDivisionId)
+  // Same seeding rule the effect below applies — used to judge dirtiness
+  // against what was actually pre-selected, not against "empty".
+  const seededToDivisionId = targetOptions.length === 1 ? targetOptions[0].id : ''
 
   useEffect(() => {
     if (open) {
@@ -40,7 +44,9 @@ export function ToolUnitTransferDialog({ open, onOpenChange, itemId, unit }: Pro
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, unit?.id, targetOptions.length])
 
-  const isDirty = toDivisionId !== '' || notes.trim() !== ''
+  // A pristine single-option open pre-seeds toDivisionId — that alone must not
+  // read as dirty. Only an actual user pick (multi-option case) or notes count.
+  const isDirty = toDivisionId !== seededToDivisionId || notes.trim() !== ''
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -55,7 +61,20 @@ export function ToolUnitTransferDialog({ open, onOpenChange, itemId, unit }: Pro
     )
   }
 
-  const currentDivisionName = divisions.find((d) => d.id === currentDivisionId)?.name ?? 'Unassigned'
+  // Resolve against ALL divisions (not just the active list) so a since-
+  // deactivated owning division still shows its real name — "Inactive
+  // division" is a distinct state from "no division set" and must not be
+  // conflated with "Unassigned".
+  const currentDivisionRecord = currentDivisionId
+    ? allDivisions.find((d) => d.id === currentDivisionId)
+    : undefined
+  const currentDivisionName = !currentDivisionId
+    ? 'Unassigned'
+    : !currentDivisionRecord
+      ? 'Inactive division'
+      : currentDivisionRecord.is_active
+        ? currentDivisionRecord.name
+        : `${currentDivisionRecord.name} (inactive)`
 
   return (
     <GuardedDialog open={open} onOpenChange={onOpenChange} isDirty={isDirty} ref={guardRef}>
@@ -80,7 +99,7 @@ export function ToolUnitTransferDialog({ open, onOpenChange, itemId, unit }: Pro
                 </div>
               ) : (
                 <Select
-                  value={toDivisionId || undefined}
+                  value={toDivisionId}
                   onValueChange={(v) => { if (v !== null) setToDivisionId(v) }}
                   disabled={targetOptions.length === 1}
                 >
