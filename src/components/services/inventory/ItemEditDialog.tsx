@@ -220,7 +220,20 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       if (attrValues.length > 0) {
         await upsertItemAttributes.mutateAsync({ itemId, values: attrValues })
       }
-      await setItemDivisions.mutateAsync({ itemId, divisionIds: assignedDivisionIds })
+      // Persist division assignments. On edit, only when the set changed AND the
+      // current set has loaded — otherwise the seed is still the empty default and
+      // saving a name-only edit before the fetch resolves would wipe real
+      // assignments. On create, write whatever the user picked.
+      const assignmentsChanged =
+        JSON.stringify(assignedDivisionIds.slice().sort()) !==
+        JSON.stringify(((assignedFromDb ?? []) as string[]).slice().sort())
+      if (isEdit && item) {
+        if (assignedFromDb !== undefined && assignmentsChanged) {
+          await setItemDivisions.mutateAsync({ itemId, divisionIds: assignedDivisionIds })
+        }
+      } else if (assignedDivisionIds.length > 0) {
+        await setItemDivisions.mutateAsync({ itemId, divisionIds: assignedDivisionIds })
+      }
       sessionUploadsRef.current = []
       submittedRef.current = true
       toast.success(isEdit ? 'Item updated' : 'Item created')
