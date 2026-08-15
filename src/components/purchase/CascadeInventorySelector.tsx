@@ -65,6 +65,14 @@ interface CascadeInventorySelectorProps {
    * item picker to that line's division instead of the global active division.
    */
   divisionId?: string | null
+  /**
+   * Whether the division filter requires the item to already have stock.
+   * Consume/sell callers leave it true (you can only move stock you have).
+   * Buy-side callers (PO create) set it FALSE: an item shared to the division
+   * is purchasable regardless of current stock (a PO is how stock is created).
+   * Without this, a freshly-loaded zero-stock catalog shows "No categories found".
+   */
+  divisionFilterRequiresStock?: boolean
 }
 
 async function fetchLastFifoCost(variantId: string): Promise<number> {
@@ -197,6 +205,7 @@ export function CascadeInventorySelector({
   filterByActiveDivision = false,
   brandOriginCascade = false,
   divisionId,
+  divisionFilterRequiresStock = true,
 }: CascadeInventorySelectorProps) {
   // Three category levels — the deepest non-null wins as the effective category.
   const [selectedL1, setSelectedL1] = useState<InventoryTreeNode | null>(null)
@@ -262,6 +271,7 @@ export function CascadeInventorySelector({
     lineType,
     effectiveDivisionId,
     filterByActiveDivision,
+    divisionFilterRequiresStock,
   )
 
   const visibleCategoryIds = useMemo<Set<string> | null>(() => {

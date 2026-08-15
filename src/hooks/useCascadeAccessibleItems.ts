@@ -46,6 +46,10 @@ export function useCascadeAccessibleItems(
   type: LineType,
   activeDivisionId: string | null,
   enabled: boolean,
+  /** Consume/sell side (default) requires the item to have stock. Buy side (PO)
+   *  passes false: an item shared to the division is purchasable regardless of
+   *  current stock — requiring stock would hide every item on a fresh catalog. */
+  requireStock: boolean = true,
 ): CascadeAccessibleItems {
   const isFilterable = type !== 'tools'
   const effectiveEnabled = enabled && !!activeDivisionId && isFilterable
@@ -76,7 +80,7 @@ export function useCascadeAccessibleItems(
 
   const stockQuery = useQuery({
     queryKey: ['cascade-accessible', 'stock', type, itemsCount],
-    enabled: effectiveEnabled && itemsReady && itemsCount > 0,
+    enabled: effectiveEnabled && itemsReady && itemsCount > 0 && requireStock,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const itemIds = (itemsQuery.data ?? []).map((i) => i.id)
@@ -136,6 +140,23 @@ export function useCascadeAccessibleItems(
     // Only report loading when there's nothing to render yet — background
     // refetches keep the last-known set on screen.
     const itemsInitialLoad = itemsQuery.isLoading && !itemsQuery.data
+
+    const sharedToActive = new Set<string>()
+    if (activeDivisionId) {
+      for (const it of items) {
+        const shares = it.shared_with_division_ids ?? []
+        if (shares.includes(activeDivisionId)) sharedToActive.add(it.id)
+      }
+    }
+
+    // Buy side (PO): division membership only — an item shared to the division is
+    // purchasable regardless of current stock (a PO is how stock gets created).
+    // The stock query is skipped in this mode.
+    if (!requireStock) {
+      return { accessibleItemIds: sharedToActive, ownedItemIds: new Set(), itemCategoryMap, isLoading: itemsInitialLoad }
+    }
+
+    // Consume/sell side: item must have stock. accessible = owned ∪ (shared ∩ has-stock).
     const stockInitialLoad = stockQuery.isLoading && !stockQuery.data
     const isLoading = itemsInitialLoad || stockInitialLoad
 
@@ -147,17 +168,9 @@ export function useCascadeAccessibleItems(
       if (r.division_id === activeDivisionId) ownedByActive.add(r.item_id)
     }
 
-    const sharedToActive = new Set<string>()
-    if (activeDivisionId) {
-      for (const it of items) {
-        const shares = it.shared_with_division_ids ?? []
-        if (shares.includes(activeDivisionId)) sharedToActive.add(it.id)
-      }
-    }
-
     const accessible = new Set<string>(ownedByActive)
     for (const id of sharedToActive) if (hasStockAnywhere.has(id)) accessible.add(id)
 
     return { accessibleItemIds: accessible, ownedItemIds: ownedByActive, itemCategoryMap, isLoading }
-  }, [effectiveEnabled, activeDivisionId, itemsQuery.data, itemsQuery.isLoading, stockQuery.data, stockQuery.isLoading])
+  }, [effectiveEnabled, activeDivisionId, itemsQuery.data, itemsQuery.isLoading, stockQuery.data, stockQuery.isLoading, requireStock])
 }

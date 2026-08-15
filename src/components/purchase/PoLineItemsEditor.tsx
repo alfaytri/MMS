@@ -274,6 +274,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                             onPriceLoading={(loading) => handleRowPriceLoading(row._key, loading)}
                             divisionId={row.division_id ?? undefined}
                             filterByActiveDivision
+                            divisionFilterRequiresStock={false}
                             brandOriginCascade
                           />
                         )}
