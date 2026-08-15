@@ -17,6 +17,7 @@ export function useItemDivisions(itemId: string | null) {
         .from('inventory_item_divisions')
         .select('division_id')
         .eq('item_id', itemId as string)
+        .limit(200)
       if (error) throw error
       return (data ?? []).map((r) => r.division_id as string)
     },
