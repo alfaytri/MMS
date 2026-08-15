@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ToolAssetItemEditDialog } from './ToolAssetEditDialog'
+import { ItemEditDialog } from './ItemEditDialog'
 import { useInventoryBrandVariants, type InventoryItem } from '@/hooks/useInventory'
 import { useVariantStockByDivision } from '@/hooks/useVariantStockByDivision'
 
@@ -71,7 +71,7 @@ export function BulkToolItemRow({ item, depth }: Props) {
           </div>
         </td>
       </tr>
-      <ToolAssetItemEditDialog open={editOpen} onOpenChange={setEditOpen} item={item} />
+      <ItemEditDialog open={editOpen} onOpenChange={setEditOpen} categoryId={item.category_id} categoryType="tools" item={item} />
     </>
   )
 }

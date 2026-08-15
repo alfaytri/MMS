@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
+import { ItemEditDialog } from './ItemEditDialog'
 import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
 import { BulkToolItemRow } from './BulkToolItemRow'
@@ -285,7 +286,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
 
       <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType="tools" category={node} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType="tools" parentId={node.id} />
-      <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} />
+      {node.tool_tracking_mode === 'bulk'
+        ? <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType="tools" />
+        : <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} />}
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
