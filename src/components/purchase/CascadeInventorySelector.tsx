@@ -98,9 +98,23 @@ const triggerCls =
 // seconds. We own the filtering (shouldFilter={false}) and render only this many.
 const MAX_OPTIONS = 100
 
-function filterCap<T>(rows: T[], query: string, text: (r: T) => string): { rows: T[]; total: number } {
+// How many rows to render before the operator has typed anything. Every cmdk row
+// mounts synchronously on popover-open — each runs a pre-paint useLayoutEffect
+// registration, and the item rows also carry a photo + two icons — so an initial
+// view of MAX_OPTIONS rows blocks paint for ~200ms (INP hit on the trigger). A
+// smaller initial window keeps the open snappy; typing still searches the full
+// set up to MAX_OPTIONS. Light rows (categories) can keep the default.
+const ITEM_INITIAL_CAP = 30
+
+function filterCap<T>(
+  rows: T[],
+  query: string,
+  text: (r: T) => string,
+  emptyCap: number = MAX_OPTIONS,
+): { rows: T[]; total: number } {
   const s = query.trim().toLowerCase()
-  const matched = s ? rows.filter((r) => text(r).toLowerCase().includes(s)) : rows
+  if (!s) return { rows: rows.slice(0, emptyCap), total: rows.length }
+  const matched = rows.filter((r) => text(r).toLowerCase().includes(s))
   return { rows: matched.slice(0, MAX_OPTIONS), total: matched.length }
 }
 
@@ -327,7 +341,7 @@ export function CascadeInventorySelector({
   }, [rawItems, accessibility.accessibleItemIds])
 
   const [itemQuery, setItemQuery] = useState('')
-  const filteredItems = useMemo(() => filterCap(items, itemQuery, (it) => it.name_en), [items, itemQuery])
+  const filteredItems = useMemo(() => filterCap(items, itemQuery, (it) => it.name_en, ITEM_INITIAL_CAP), [items, itemQuery])
 
   const { data: ancestry, isLoading: ancestryLoading } = useBrandVariantAncestry(
     value && !selectedCategory ? value.brand_variant_id : null
