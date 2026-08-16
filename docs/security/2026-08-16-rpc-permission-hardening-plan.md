@@ -1,0 +1,66 @@
+# RPC Permission Hardening — plan (2026-08-16)
+
+Follow-up to [the permission audit](2026-08-16-permission-audit.md) §E: ~40 user-callable `SECURITY DEFINER` write RPCs enforce no permission (DEFINER bypasses RLS), so most operational `.create`/action permissions are UI-only.
+
+**Key de-risker:** the roles are **already configured** with the right keys (Purchase User/Manager hold `purchase.orders/bills/receivals.create`, Sales hold `sales.orders/invoices/deliveries.create`, Inventory/Warehouse hold `warehouse.transfer.*` / `check.*`, Accounting holds `bills/invoices/credit_notes.create`, etc.). So wiring each RPC to check its key **enforces the existing config** — the intended users already hold the keys, admins bypass, so **no regression** — it only blocks users who shouldn't have access.
+
+---
+
+## Two fix patterns (decided per RPC by how it's called)
+
+- **Pattern A — service-role lockdown.** RPC is called ONLY from a server-side, permission-gated API route via the service-role client → `REVOKE EXECUTE … FROM PUBLIC, anon, authenticated` (keep `service_role`). An in-body user check can't be used (service-role call has no user JWT).
+- **Pattern B — in-body check.** RPC is called directly by the authenticated client → add `IF NOT public._auth_user_has_permission('<key>') THEN RAISE EXCEPTION … USING ERRCODE='42501'; END IF;` at the top, **preserving** any existing division/RP guard (add, don't replace).
+- **Pattern C — leave (already gated).** Approval-step RPCs gated by the approval chain (`is_approval_slot` / `user_has_approval_role_in_scope`), RP-gated custody RPCs, and reads gated by `is_division_visible`. Verify, don't add a second gate.
+
+**Per-RPC execution protocol:** (1) grep the app for the call site → pattern A or B; (2) read the body → confirm current gating (avoid double-gating / breaking a chain); (3) confirm the target roles hold the key (matrix below); (4) apply to staging + new-prod; (5) rolled-back probe (holder passes, non-holder blocked); (6) commit + mirror.
+
+---
+
+## Priority & staged batches
+
+### ✅ P0 — DONE (2026-08-16, commit `6a02e096`)
+`replace_user_custom_roles_v2` / `replace_user_custom_roles` — role assignment, was authenticated-callable + ungated → **self-assign-admin hole**. Fixed via Pattern A (service-role only). Live on staging + new-prod.
+
+### Batch 1 — integrity/security (do next)
+- **Approval-chain tampering:** `add_workflow_step` / `update_workflow_step_role` / `update_workflow_step_conditions` / `archive_workflow_step` / `toggle_workflow_step` → require `purchase.approvals.chain.manage` (Pattern B, or A if route-only). *Ungated here = a user could edit approval chains and bypass approvals — treat as P1.*
+- **RP assignment:** `replace_warehouse_responsible_persons` → `master_data.warehouses.manage` (or A if route-only).
+- **Verify (Pattern C, likely leave):** `advance_po_approval_tier`, `po_approval_action`, `advance_sales_approval`, `approve/reject/force_approve_sales_request`, `approve_stock_adjustment_inventory`, `force_approve_stock_adjustment`, `action_stock_adjustment_step`, credit-group approvals — confirm each is chain/slot-gated.
+
+### Batch 2 — money-path creates (client-called → Pattern B)
+| RPC | Require |
+|---|---|
+| `rpc_create_purchase_order` | `purchase.orders.create` OR `.manage` |
+| `rpc_create_purchase_bill` | `purchase.bills.create` OR `.manage` |
+| `generate_invoice_from_so` / `rpc_sync_invoice_from_so` | `sales.invoices.create` OR `.manage` |
+| `create_sale_order` / `create_order_with_dates` / `resubmit_sale_order` | `sales.orders.create` OR `.manage` |
+| `create_and_approve_receival` / `apply_receival_edit` | `purchase.receivals.create` / `.manage` |
+| `create_landed_cost` / `allocate_landed_cost` / `revert_landed_cost` | `purchase.landed_costs.create` / `.manage` |
+| `create_and_confirm_delivery` / `complete_delivery_inventory` / `cancel_delivery_inventory` | `sales.deliveries.create` / `.manage` |
+
+### Batch 3 — warehouse / inventory ops (client-called → Pattern B)
+`create_transfer_v2` → `warehouse.transfer.create`; `dispatch_transfer` → `.dispatch`; `receive_transfer` → `.receive`; `cancel_transfer`/`reject_transfer_v2` → `.approve` *(confirm)*; `create_stock_adjustment_v2` → `warehouse.adjustment.request`; `save_inventory_check_item_count` → `warehouse.check.count`; `snapshot_inventory_check_system_qty`/`apply_inventory_check_adjustments` → `warehouse.check.create` *(confirm)*. Custody assign (`rpc_create_custody_assign`/`dispatch`/`accept`) — verify RP-gated (Pattern C).
+
+### Batch 4 — returns / credit-notes / master-data / misc
+Returns + credit-notes RPCs (`rpc_record_return_refund`/`_store_credit`/`_process_return_restock`/`_close_return`/`rpc_redeem_credit_note`/…) → `sales.returns.manage` / `sales.credit_notes.manage` / `purchase.returns.manage` by type. Master-data RPCs (`create_customer_with_phone`, `create_service_customer`, `create_tool_item_with_default_variant`, `batch_update_variant_prices`, `service_inventory_bulk_upsert`, `upsert_package_with_services`) → the matching `.create`/`.manage` / `inventory.catalog.manage`.
+
+---
+
+## Current role → action-key grants (new-prod — proves no regression)
+```
+Purchase User/Manager : purchase.orders.create, bills.create, receivals.create, returns.create, shipments.create, landed_costs.create
+Sales User            : sales.orders.create, invoices.create, deliveries.create, returns.create
+Sales Manager         : + sales.credit_notes.create
+Accounting Junior     : bills.create, landed_costs.create, shipments.create, invoices.create
+Accounting Senior     : + credit_notes.create, warehouse adjustment/check/transfer.*
+Inventory User/Manager: receivals.create, warehouse.transfer.*, check.*, adjustment.request
+Warehouse Manager     : receivals.create, deliveries.create, warehouse.transfer.*, check.*, adjustment.request
+```
+Admins (Owner / Admin Level / exploit) bypass all checks.
+
+---
+
+## Open decisions (confirm during execution)
+1. **cancel/reject transfer** — gate on `warehouse.transfer.approve`, or on `.create` (creator can cancel own)? 
+2. **inventory-check apply/snapshot** — reuse `warehouse.check.create`, or add a distinct `warehouse.check.apply`?
+3. **Approval-step RPCs** — confirm they're chain-gated and leave (recommended), vs also add a permission key.
+4. **Reports RPCs** (`rpc_report_*`) — reads; confirm `reports.*` gating or leave (division-scoped).
