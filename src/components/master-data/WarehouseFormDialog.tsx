@@ -32,7 +32,6 @@ import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 import {
   GuardedFormDialog,
@@ -58,7 +57,6 @@ const warehouseSchema = z
     warehouse_kind: z.enum(['general', 'custody', 'repair']),
     location: z.string().optional(),
     company_id: z.string().optional(),
-    is_project_warehouse: z.boolean(),
   })
   .refine((v) => v.warehouse_kind !== 'general' || !!v.company_id, {
     message: 'Company is required',
@@ -89,7 +87,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseSchema),
-    defaultValues: { name: '', warehouse_kind: 'general', location: '', company_id: '', is_project_warehouse: false },
+    defaultValues: { name: '', warehouse_kind: 'general', location: '', company_id: '' },
   })
   const kind = form.watch('warehouse_kind')
   const isVirtual = kind !== 'general'
@@ -102,7 +100,6 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         warehouse_kind: (warehouse.warehouse_kind as 'general' | 'custody' | 'repair') ?? 'general',
         location: warehouse.location ?? '',
         company_id: warehouse.company_id ?? '',
-        is_project_warehouse: warehouse.is_project_warehouse ?? false,
       })
     } else {
       const defaultCompany = companies.length === 1 ? companies[0].id : ''
@@ -111,7 +108,6 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         warehouse_kind: 'general',
         location: '',
         company_id: defaultCompany,
-        is_project_warehouse: false,
       })
     }
     setSelectedRPIds([])
@@ -151,7 +147,6 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           name: values.name,
           location,
           company_id: companyId,
-          is_project_warehouse: values.warehouse_kind === 'custody' ? values.is_project_warehouse : false,
         })
         whId = warehouse.id
       } else {
@@ -161,7 +156,6 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           is_virtual: virtual,
           location,
           company_id: companyId,
-          is_project_warehouse: values.warehouse_kind === 'custody' ? values.is_project_warehouse : false,
         })
         whId = created.id
       }
@@ -361,36 +355,10 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
               </div>
               </>
               ) : (
-                <>
-                  {kind === 'custody' && (
-                    <FormField
-                      control={form.control}
-                      name="is_project_warehouse"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between gap-3 space-y-0 rounded-md border px-3 py-2.5">
-                          <div className="min-w-0">
-                            <FormLabel className="text-sm">Projects warehouse</FormLabel>
-                            <p className="text-[10px] text-muted-foreground">
-                              Holds projects (with a project number), disciplines &amp; milestones.
-                              Only one warehouse can be the Projects warehouse — turning this on moves it here.
-                            </p>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={isPending}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                  <div className="rounded-md border bg-muted/30 px-3 py-3 text-[11px] text-muted-foreground">
-                    Virtual warehouse — no company, location, or warehouse RPs. Its members are
-                    managed as sub-containers (custody locations / repair vendors) inside it.
-                  </div>
-                </>
+                <div className="rounded-md border bg-muted/30 px-3 py-3 text-[11px] text-muted-foreground">
+                  Virtual warehouse — no company, location, or warehouse RPs. Its members are
+                  managed as sub-containers (custody locations / repair vendors) inside it.
+                </div>
               )}
             </div>
 

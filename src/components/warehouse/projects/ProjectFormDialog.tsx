@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, X } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -28,22 +27,24 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import {
   GuardedFormDialog,
   type GuardedFormDialogHandle,
 } from '@/components/shared/GuardedFormDialog'
 import { useCreateProject } from '@/hooks/useProjects'
-import { useDisciplines, useGetOrCreateDiscipline, type Discipline } from '@/hooks/useDisciplines'
+import { useDisciplines } from '@/hooks/useDisciplines'
 import { useCustodyWarehouses } from '@/hooks/useCustodyLocations'
 import { useAllProfiles } from '@/hooks/useProfiles'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 
 const schema = z.object({
   project_number: z.string().min(1, 'Project number is required').max(60),
+  name: z.string().min(1, 'Name is required').max(200),
   division_id: z.string().min(1, 'Division is required'),
   warehouse_id: z.string().min(1, 'Custody warehouse is required'),
-  discipline_ids: z.array(z.string()).min(1, 'Add at least one discipline'),
+  discipline_ids: z.array(z.string()).min(1, 'Pick at least one discipline'),
   // '' sentinel = unassigned; any uuid = the picked profile.
   responsible_person_id: z.string(),
 })
@@ -58,28 +59,18 @@ interface Props {
 export function ProjectFormDialog({ open, onOpenChange }: Props) {
   const create = useCreateProject()
   const { data: disciplines = [] } = useDisciplines()
-  const getOrCreate = useGetOrCreateDiscipline()
-  const { data: allCustody = [] } = useCustodyWarehouses()
-  // Projects are created only in the custody warehouse flagged as the Projects
-  // warehouse (strictly one). 0 = none configured yet → the picker shows a note.
-  const projectWarehouses = allCustody.filter((w) => w.is_project_warehouse)
+  const { data: custodyWarehouses = [] } = useCustodyWarehouses()
   const { data: users = [] } = useAllProfiles()
   const { availableDivisions, activeDivisionId } = useActiveDivision()
   const isPending = create.isPending
   const guardRef = useRef<GuardedFormDialogHandle>(null)
   const prevOpenRef = useRef(false)
-  // Chosen disciplines for this project (full rows, so names render without a
-  // lookup and a just-created one shows immediately, before the list refetches).
-  // chosenRef mirrors the state so the async add (after get-or-create resolves)
-  // never appends onto a stale list.
-  const [chosen, setChosen] = useState<Discipline[]>([])
-  const chosenRef = useRef<Discipline[]>([])
-  const [nameInput, setNameInput] = useState('')
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       project_number: '',
+      name: '',
       division_id: '',
       warehouse_id: '',
       discipline_ids: [],
@@ -107,14 +98,12 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
     if (justOpened) {
       form.reset({
         project_number: '',
+        name: '',
         division_id: '',
         warehouse_id: '',
         discipline_ids: [],
         responsible_person_id: '',
       })
-      chosenRef.current = []
-      setChosen([])
-      setNameInput('')
     }
 
     if (!form.getValues('division_id')) {
@@ -122,39 +111,19 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
         activeDivisionId ?? (availableDivisions.length === 1 ? availableDivisions[0].id : '')
       if (defaultDivision) form.setValue('division_id', defaultDivision)
     }
-    if (!form.getValues('warehouse_id') && projectWarehouses.length === 1) {
-      form.setValue('warehouse_id', projectWarehouses[0].id)
+    if (!form.getValues('warehouse_id') && custodyWarehouses.length === 1) {
+      form.setValue('warehouse_id', custodyWarehouses[0].id)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, activeDivisionId, availableDivisions.length, projectWarehouses.length])
+  }, [open, activeDivisionId, availableDivisions.length, custodyWarehouses.length])
 
-  // Single source of truth: keep the ref, the visible state, and the RHF field
-  // (drives zod .min(1) validation + submit) in lockstep on every add/remove.
-  function applyChosen(next: Discipline[]) {
-    chosenRef.current = next
-    setChosen(next)
-    form.setValue('discipline_ids', next.map((d) => d.id), {
-      shouldDirty: true,
-      shouldValidate: true,
-    })
-  }
-  function addExisting(d: Discipline) {
-    if (chosenRef.current.some((c) => c.id === d.id)) return
-    applyChosen([...chosenRef.current, d])
-  }
-  async function addTyped() {
-    const name = nameInput.trim()
-    if (!name || getOrCreate.isPending) return
-    try {
-      const d = await getOrCreate.mutateAsync(name)
-      if (!chosenRef.current.some((c) => c.id === d.id)) applyChosen([...chosenRef.current, d])
-      setNameInput('')
-    } catch (e) {
-      toast.error((e as Error).message)
-    }
-  }
-  function removeChosen(id: string) {
-    applyChosen(chosenRef.current.filter((c) => c.id !== id))
+  function toggleDiscipline(id: string, checked: boolean) {
+    const current = form.getValues('discipline_ids')
+    form.setValue(
+      'discipline_ids',
+      checked ? Array.from(new Set([...current, id])) : current.filter((d) => d !== id),
+      { shouldDirty: true },
+    )
   }
 
   async function onSubmit(values: FormValues) {
@@ -162,9 +131,7 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
       const responsible = values.responsible_person_id ? values.responsible_person_id : null
       await create.mutateAsync({
         project_number: values.project_number.trim(),
-        // No separate project name — the project number is the identity; mirror it
-        // into the (NOT NULL) name column so records + lists stay consistent.
-        name: values.project_number.trim(),
+        name: values.name.trim(),
         division_id: values.division_id,
         warehouse_id: values.warehouse_id,
         discipline_ids: values.discipline_ids,
@@ -176,9 +143,6 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
       toast.error((e as Error).message)
     }
   }
-
-  // Existing master disciplines not already added — offered as one-tap chips.
-  const available = disciplines.filter((d) => !chosen.some((c) => c.id === d.id))
 
   return (
     <GuardedFormDialog open={open} onOpenChange={onOpenChange} form={form} ref={guardRef}>
@@ -203,6 +167,20 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
                     <FormLabel>Project Number *</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. PRJ-2026-014" className="h-11 sm:h-9" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Al Waab Villa Fit-out" className="h-11 sm:h-9" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -238,96 +216,68 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
                 )}
               />
 
-              {projectWarehouses.length === 0 && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
-                  No Projects warehouse is set. Enable one in Master Data → Warehouses (edit a
-                  Custody warehouse and turn on “Projects warehouse”) before creating a project.
-                </div>
-              )}
+              <FormField
+                control={form.control}
+                name="warehouse_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Custody Warehouse *</FormLabel>
+                    <Select
+                      value={field.value || ''}
+                      onValueChange={field.onChange}
+                      disabled={custodyWarehouses.length <= 1}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full h-11 sm:h-9">
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {custodyWarehouses.map((w) => (
+                          <SelectItem key={w.id} value={w.id}>
+                            {w.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <div className="space-y-2">
-                <FormLabel>Disciplines *</FormLabel>
-                <p className="text-[10px] text-muted-foreground -mt-1">
-                  One stock bucket is created per discipline. Add an existing one or type a new
-                  name — a new discipline is saved for reuse on future projects.
-                </p>
-
-                {chosen.length === 0 ? (
-                  <p className="text-xs text-muted-foreground border rounded-md px-3 py-2.5">
-                    No disciplines added yet.
-                  </p>
-                ) : (
-                  <div className="rounded-md border divide-y">
-                    {chosen.map((d) => (
-                      <div
-                        key={d.id}
-                        className="flex items-center justify-between gap-2 px-3 py-2 min-h-11"
-                      >
-                        <span className="text-sm truncate">{d.name}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 shrink-0 text-muted-foreground hover:text-destructive"
-                          onClick={() => removeChosen(d.id)}
-                          aria-label={`Remove ${d.name}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+              <FormField
+                control={form.control}
+                name="discipline_ids"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Disciplines</FormLabel>
+                    <p className="text-[10px] text-muted-foreground -mt-1">
+                      One stock bucket is created per discipline picked. More can be added later from the project.
+                    </p>
+                    {disciplines.length === 0 ? (
+                      <p className="text-xs text-muted-foreground border rounded-md px-3 py-2.5">
+                        No disciplines configured yet.
+                      </p>
+                    ) : (
+                      <div className="rounded-md border divide-y">
+                        {disciplines.map((d) => (
+                          <label
+                            key={d.id}
+                            className="flex items-center gap-2.5 px-3 py-2.5 min-h-11 cursor-pointer hover:bg-accent/30"
+                          >
+                            <Checkbox
+                              checked={field.value.includes(d.id)}
+                              onCheckedChange={(checked) => toggleDiscipline(d.id, checked === true)}
+                            />
+                            <span className="text-sm">{d.name}</span>
+                          </label>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
                 )}
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Input
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    placeholder="Add a discipline"
-                    className="h-11 sm:h-9 w-full sm:flex-1"
-                    disabled={getOrCreate.isPending}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        void addTyped()
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 min-h-11 sm:min-h-0 w-full sm:w-auto shrink-0"
-                    disabled={!nameInput.trim() || getOrCreate.isPending}
-                    onClick={addTyped}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {getOrCreate.isPending ? 'Adding…' : 'Add'}
-                  </Button>
-                </div>
-
-                {available.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {available.map((d) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => addExisting(d)}
-                        className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                      >
-                        <Plus className="h-3 w-3" />
-                        {d.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {form.formState.errors.discipline_ids && (
-                  <p className="text-sm text-destructive">
-                    {form.formState.errors.discipline_ids.message as string}
-                  </p>
-                )}
-              </div>
+              />
 
               <FormField
                 control={form.control}
@@ -369,11 +319,7 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                className="min-h-11 sm:min-h-0"
-                disabled={isPending || projectWarehouses.length === 0}
-              >
+              <Button type="submit" className="min-h-11 sm:min-h-0" disabled={isPending}>
                 {isPending ? 'Creating…' : 'Create Project'}
               </Button>
             </DialogFooter>

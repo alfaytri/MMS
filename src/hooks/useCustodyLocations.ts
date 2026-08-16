@@ -33,14 +33,12 @@ export type CustodyLocationRow = {
 }
 
 export type CustodyWarehouse = {
-  id:                   string
-  name:                 string
-  warehouse_kind:       string
-  is_project_warehouse: boolean
+  id:             string
+  name:           string
+  warehouse_kind: string
 }
 
-// 23505 is the (warehouse_id, division_id, name) unique violation on
-// warehouse_sub_containers — same name is allowed in different divisions.
+// 23505 is the (warehouse_id, name) unique violation on warehouse_sub_containers.
 function mapDbError(err: { code?: string; message?: string } | null | undefined): Error {
   if (!err) return new Error('Unknown error')
   if (err.code === '23505') {
@@ -57,7 +55,7 @@ export function useCustodyWarehouses() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('warehouses')
-        .select('id, name, warehouse_kind, is_project_warehouse')
+        .select('id, name, warehouse_kind')
         .eq('warehouse_kind', 'custody')
         .order('name')
         .limit(200)
