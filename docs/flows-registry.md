@@ -1082,3 +1082,100 @@ These modules are called out in project plans / seed docs but have no material f
 - **Related flows:** —
 - **Docs / plans:** [docs/superpowers/specs/2026-08-14-supplier-scoping-and-credit-docs-fix-design.md](docs/superpowers/specs/2026-08-14-supplier-scoping-and-credit-docs-fix-design.md)
 - **Notes:** `submit_credit_group_change` reads the customer's docs from `customer_credit_docs` (the wide docs table), **not** from `customers` — those columns were moved off `customers` by `20260815010600` / `010800`, and this function was missed until the fix in `20260823000000` (was raising `column "cr_url" does not exist` for every credit-group submission, individual + business).
+
+### Create Project (+ disciplines)
+
+- **Module:** Warehouse (Virtual Warehouse — Projects)
+- **Status:** Active
+- **Trigger surface(s):** Master Data → Warehouses → **Projects** tab → **New Project** button.
+- **Primary hook(s):** [`useCreateProject`](src/hooks/useProjects.ts)
+- **RPC(s):** `create_project` (SECURITY DEFINER; asserts custody warehouse + `is_division_member`; spins up one discipline sub-container per picked discipline, named `"{project_number} · {discipline}"`)
+- **Ledger writes:** `projects` (1 row), `warehouse_sub_containers` (1 per discipline, `project_id`+`discipline_id` set, division inherited).
+- **Downstream side-effects:** invalidates `queryKeys.projects.all`; the new discipline buckets become ordinary sub-containers usable by all stock/receival/consumption/transfer machinery.
+- **Dialog / component:** [`ProjectFormDialog`](src/components/warehouse/projects/ProjectFormDialog.tsx), listed by [`ProjectsTab`](src/components/warehouse/projects/ProjectsTab.tsx)
+- **Guards / preconditions:** `warehouse.projects.manage`; `UNIQUE(division_id, project_number)` → duplicate raises 23505 ("Project number already used in this division").
+- **Related flows:** [[Add Project Discipline]], [[Close Project]], [[Add/Close Project Milestone]]
+- **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
+
+### Add Project Discipline
+
+- **Module:** Warehouse (Virtual Warehouse — Projects)
+- **Status:** Active
+- **Trigger surface(s):** Project detail dialog → **Add Discipline** (picker of disciplines not already on the project).
+- **Primary hook(s):** [`useAddProjectDiscipline`](src/hooks/useProjects.ts)
+- **RPC(s):** `add_project_discipline` (SECURITY DEFINER; inserts one `warehouse_sub_containers` row; partial-unique `(project_id, discipline_id)` blocks dupes)
+- **Ledger writes:** `warehouse_sub_containers` (1 row).
+- **Dialog / component:** [`ProjectDetail`](src/components/warehouse/projects/ProjectDetail.tsx)
+- **Guards / preconditions:** `warehouse.projects.manage`.
+- **Related flows:** [[Create Project (+ disciplines)]], [[Close Project]]
+- **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
+
+### Close Project
+
+- **Module:** Warehouse (Virtual Warehouse — Projects)
+- **Status:** Active
+- **Trigger surface(s):** Project detail dialog → **Close Project** (AlertDialog confirm).
+- **Primary hook(s):** [`useCloseProject`](src/hooks/useProjects.ts)
+- **RPC(s):** `close_project` (SECURITY DEFINER; RAISES "Cannot close a project while its disciplines still hold stock" if any bucket has `total_qty>0`, else deactivates project + its sub-containers)
+- **Ledger writes:** `projects.is_active=false`, `warehouse_sub_containers.is_active=false` (that project's rows).
+- **Guards / preconditions:** `warehouse.projects.manage`; all discipline buckets empty.
+- **Dialog / component:** [`ProjectDetail`](src/components/warehouse/projects/ProjectDetail.tsx)
+- **Related flows:** [[Create Project (+ disciplines)]]
+- **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
+
+### Add/Close Project Milestone
+
+- **Module:** Warehouse (Virtual Warehouse — Projects)
+- **Status:** Active
+- **Trigger surface(s):** Project detail dialog → per-discipline **MilestoneManager** (add label / close milestone).
+- **Primary hook(s):** [`useAddMilestone` / `useCloseMilestone`](src/hooks/useProjectMilestones.ts)
+- **RPC(s):** `add_project_milestone(p_sub_container_id, p_label)`, `close_project_milestone(p_milestone_id)` (both SECURITY DEFINER, `warehouse.projects.manage`-gated, EXECUTE revoked from PUBLIC)
+- **Ledger writes:** `project_milestones` (add: 1 row; close: `is_active=false`, history kept).
+- **Dialog / component:** [`MilestoneManager`](src/components/warehouse/projects/MilestoneManager.tsx)
+- **Guards / preconditions:** `warehouse.projects.manage`; `UNIQUE(sub_container_id, label)` → 23505 friendly message.
+- **Related flows:** [[Post Consumption with Milestone tag]], [[Project Consumption Report]]
+- **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
+
+### Post Consumption with Milestone tag
+
+- **Module:** Warehouse (extends the existing Consumption flow)
+- **Status:** Active
+- **Trigger surface(s):** `/consumption` (or custody card) → New Consumption → optional **Milestone** picker (shown only when the custody consumer sub-container has active milestones).
+- **Primary hook(s):** [`useCreateConsumption`](src/hooks/useConsumption.ts)
+- **RPC(s):** `rpc_post_consumption(..., p_milestone_id uuid DEFAULT NULL)` (SECURITY DEFINER; validates the milestone belongs to `p_consumer_sub_container_id`; stamps `consumption_entries.milestone_id` + copies onto every per-FIFO-layer `cogs_entries` row; EXECUTE revoked from PUBLIC)
+- **Ledger writes:** `consumption_entries` (+milestone_id), `cogs_entries` (+milestone_id per layer), `inventory_stock_movements`, FIFO drain.
+- **Downstream side-effects:** milestone is a copied cost tag only — no new cost math; feeds [[Project Consumption Report]].
+- **Dialog / component:** [`NewConsumptionDialog`](src/components/consumption/NewConsumptionDialog.tsx)
+- **Guards / preconditions:** existing consumption access rules; milestone optional (null stays valid); non-custody consumption forces null.
+- **Related flows:** [[Add/Close Project Milestone]], [[Project Consumption Report]]
+- **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
+- **Notes:** Milestone anchored to the CONSUMER sub-container to stay consistent with how the report resolves discipline (`cogs.consumer_sub_container_id`).
+
+### Virtual Sub-container Transfer (project/discipline)
+
+- **Module:** Warehouse (extends the existing Transfer flow)
+- **Status:** Active
+- **Trigger surface(s):** Master Data → Warehouses → Transfers → **New Transfer** — custody warehouses are now selectable as source/destination (discipline buckets), with source + destination sub-container pickers (destination ≠ source).
+- **Primary hook(s):** [`useCreateTransfer`](src/hooks/useWarehouseOperations.ts) (dispatch/receive unchanged)
+- **RPC(s):** `create_transfer_v2(..., p_from_sub_container_id, p_to_sub_container_id)` → `dispatch_transfer` → `receive_transfer` (all pre-existing; no schema change — Task 3.1 verified no guard blocks custody→custody / cross-division / same-warehouse-different-sub; receive SoD check is skipped when from=to)
+- **Ledger writes:** `warehouse_transfers`, `warehouse_transfer_items`, stock movements + FIFO cost moved by `sub_container_id` on receive.
+- **Downstream side-effects:** cross-division receive moves value to the destination sub-container's division automatically.
+- **Dialog / component:** [`WhTransferDialog`](src/components/purchase/wh/WhTransferDialog.tsx); warehouse eligibility widened in [`master-data/warehouses/page.tsx`](src/app/(dashboard)/master-data/warehouses/page.tsx) via a `transferWarehouses` memo (real + custody, not repair).
+- **Guards / preconditions:** dispatch = field RP of FROM warehouse; receive = field RP of TO warehouse.
+- **Related flows:** [[Create Project (+ disciplines)]]
+- **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
+
+### Project Consumption Report
+
+- **Module:** Reports (Warehouse)
+- **Status:** Active
+- **Trigger surface(s):** Reports → **Project Consumption** (`/reports/project-consumption`).
+- **Primary hook(s):** [`useProjectConsumptionReport`](src/hooks/reports/useProjectConsumptionReport.ts)
+- **RPC(s):** `rpc_report_project_consumption(p_from, p_to, p_division_ids)` (read-only STABLE SECURITY DEFINER; `is_division_visible`-scoped; EXECUTE revoked from PUBLIC)
+- **Ledger writes:** none (read-only; sums `cogs_entries.total_cost`/`qty` where `source_type='consumption'`).
+- **Downstream side-effects:** none.
+- **Dialog / component:** [`reports/project-consumption/page.tsx`](src/app/(dashboard)/reports/project-consumption/page.tsx) — `ReportFilterBar` + `ReportGroupedTable` (single-level grouping by consumer; discipline + milestone as columns) + `ReportExportMenu`.
+- **Guards / preconditions:** `reports.view` OR `consumption.cost.view`.
+- **Related flows:** [[Post Consumption with Milestone tag]], [[Add/Close Project Milestone]]
+- **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
+- **Notes:** ReportGroupedTable is single-level; design's literal project→discipline→milestone nesting rendered as consumer band + discipline/milestone columns (RPC sort keeps the hierarchical read). True nested table = deferred follow-up.
