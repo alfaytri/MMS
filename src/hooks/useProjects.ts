@@ -5,12 +5,13 @@ import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import {
   rollupProjects,
   type ProjectRow,
-  type ProjectSubContainerRow,
+  type ProjectPoolRow,
+  type ProjectDisciplineRow,
   type ProjectSubTotalRow,
   type ProjectWithRollup,
 } from '@/lib/warehouse/projectsRollup'
 
-export type { ProjectWithRollup, ProjectDisciplineBucket } from '@/lib/warehouse/projectsRollup'
+export type { ProjectWithRollup, ProjectDisciplineTag } from '@/lib/warehouse/projectsRollup'
 
 // Wraps a Supabase/PostgREST error into a real Error whose message concatenates
 // the diagnostic fields — PostgrestError is a plain object, not an Error
@@ -69,45 +70,50 @@ export function useProjects() {
       if (projectsRes.error) throw wrapDbError(projectsRes.error, 'Failed to load projects')
       const projects = (projectsRes.data ?? []) as ProjectRow[]
 
-      // Bound both supporting reads to the visible project set instead of
-      // reading globally across all divisions — past the `.limit()` caps,
-      // an unscoped global read's truncation is undefined and would silently
-      // under-count disciplines/value for divisions outside the caller's view.
+      // Bound the supporting reads to the visible project set (past the
+      // `.limit()` caps, an unscoped global read's truncation is undefined).
       const projectIds = projects.map((p) => p.id)
-      let subs: ProjectSubContainerRow[] = []
+      let pools: ProjectPoolRow[] = []
+      let disciplineRows: ProjectDisciplineRow[] = []
       if (projectIds.length > 0) {
-        const subsRes = await supabase
-          .from('warehouse_sub_containers')
-          .select('id, project_id, discipline_id, is_active, disciplines(name)')
-          .in('project_id', projectIds)
-          .order('id')
-          .limit(1000)
-        if (subsRes.error) throw wrapDbError(subsRes.error, 'Failed to load project discipline buckets')
-        // Single-hop assertion (no `unknown` detour): after the error guard
-        // above, `subsRes.data`'s narrowed type is already an exact
-        // structural match for `ProjectSubContainerRow[]` — the FK on
-        // `discipline_id` embeds `disciplines(name)` as a singular nullable
-        // object (`{ name: string } | null`), not an array, matching this
-        // type field-for-field. Confirmed via tsc: assigning `subsRes.data`
-        // to an unrelated type surfaces its real inferred shape rather than
-        // `any`, so this assertion is a genuine (if redundant) narrowing.
-        subs = (subsRes.data ?? []) as ProjectSubContainerRow[]
+        const [poolsRes, discRes] = await Promise.all([
+          // The single stock pool per project (discipline_id NULL, active).
+          supabase
+            .from('warehouse_sub_containers')
+            .select('id, project_id, is_active')
+            .in('project_id', projectIds)
+            .is('discipline_id', null)
+            .eq('is_active', true)
+            .order('id')
+            .limit(1000),
+          // Discipline tags.
+          supabase
+            .from('project_disciplines')
+            .select('project_id, discipline_id, is_active, disciplines(name)')
+            .in('project_id', projectIds)
+            .order('project_id')
+            .limit(2000),
+        ])
+        if (poolsRes.error) throw wrapDbError(poolsRes.error, 'Failed to load project pools')
+        if (discRes.error) throw wrapDbError(discRes.error, 'Failed to load project disciplines')
+        pools = (poolsRes.data ?? []) as ProjectPoolRow[]
+        disciplineRows = (discRes.data ?? []) as ProjectDisciplineRow[]
       }
 
-      const subIds = subs.map((s) => s.id)
+      const poolIds = pools.map((s) => s.id)
       let totals: ProjectSubTotalRow[] = []
-      if (subIds.length > 0) {
+      if (poolIds.length > 0) {
         const totalsRes = await supabase
           .from('warehouse_sub_container_totals')
           .select('sub_container_id, total_value, item_count')
-          .in('sub_container_id', subIds)
+          .in('sub_container_id', poolIds)
           .order('sub_container_id')
           .limit(2000)
         if (totalsRes.error) throw wrapDbError(totalsRes.error, 'Failed to load stock value totals')
         totals = (totalsRes.data ?? []) as ProjectSubTotalRow[]
       }
 
-      return rollupProjects(projects, subs, totals)
+      return rollupProjects(projects, pools, disciplineRows, totals)
     },
     staleTime: 60 * 1000,
   })
@@ -123,10 +129,11 @@ export type CreateProjectPayload = {
 }
 
 /**
- * Creates a project via the `create_project` SECURITY DEFINER RPC, which
- * also auto-creates one `warehouse_sub_containers` discipline bucket per
- * picked discipline. `UNIQUE(division_id, project_number)` throws 23505 on a
- * duplicate — surfaced as a friendly message per the plan's binding spec.
+ * Creates a project via the `create_project` SECURITY DEFINER RPC, which also
+ * creates the project's single stock-pool `warehouse_sub_containers` row and
+ * records the picked disciplines as `project_disciplines` tags.
+ * `UNIQUE(division_id, project_number)` throws 23505 on a duplicate — surfaced
+ * as a friendly message per the plan's binding spec.
  */
 export function useCreateProject() {
   const qc = useQueryClient()
@@ -165,12 +172,11 @@ export type AddProjectDisciplinePayload = {
 }
 
 /**
- * Adds one more discipline bucket to an existing project via the
- * `add_project_discipline` SECURITY DEFINER RPC (auto-creates the new
- * `warehouse_sub_containers` row, returning its new id). The partial unique
- * index on `(project_id, discipline_id)` throws 23505 if the project
- * already has that discipline — surfaced as a friendly message per the
- * plan's binding spec (Task 1.7).
+ * Adds a discipline TAG to an existing project via the `add_project_discipline`
+ * SECURITY DEFINER RPC (inserts a `project_disciplines` row, returning its id;
+ * re-activates a previously removed one). The unique `(project_id,
+ * discipline_id)` is upserted, so a genuine duplicate is idempotent rather than
+ * an error.
  */
 export function useAddProjectDiscipline() {
   const qc = useQueryClient()

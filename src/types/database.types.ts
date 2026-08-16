@@ -439,6 +439,7 @@ export type Database = {
           consumption_id: string | null
           created_at: string
           date: string
+          discipline_id: string | null
           division_id: string | null
           id: string
           landed_cost_id: string | null
@@ -461,6 +462,7 @@ export type Database = {
           consumption_id?: string | null
           created_at?: string
           date?: string
+          discipline_id?: string | null
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
@@ -483,6 +485,7 @@ export type Database = {
           consumption_id?: string | null
           created_at?: string
           date?: string
+          discipline_id?: string | null
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
@@ -544,6 +547,13 @@ export type Database = {
             columns: ["consumption_id"]
             isOneToOne: false
             referencedRelation: "consumption_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
             referencedColumns: ["id"]
           },
           {
@@ -838,6 +848,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           date: string
+          discipline_id: string | null
           division_id: string | null
           id: string
           milestone_id: string | null
@@ -859,6 +870,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
+          discipline_id?: string | null
           division_id?: string | null
           id?: string
           milestone_id?: string | null
@@ -880,6 +892,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
+          discipline_id?: string | null
           division_id?: string | null
           id?: string
           milestone_id?: string | null
@@ -931,6 +944,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
             referencedColumns: ["id"]
           },
           {
@@ -4282,10 +4302,63 @@ export type Database = {
           },
         ]
       }
+      project_disciplines: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          discipline_id: string
+          id: string
+          is_active: boolean
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          discipline_id: string
+          id?: string
+          is_active?: boolean
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          discipline_id?: string
+          id?: string
+          is_active?: boolean
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_disciplines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_disciplines_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_disciplines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_milestones: {
         Row: {
           created_at: string
           created_by: string | null
+          discipline_id: string | null
           id: string
           is_active: boolean
           label: string
@@ -4296,6 +4369,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          discipline_id?: string | null
           id?: string
           is_active?: boolean
           label: string
@@ -4306,6 +4380,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          discipline_id?: string | null
           id?: string
           is_active?: boolean
           label?: string
@@ -4319,6 +4394,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestones_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
             referencedColumns: ["id"]
           },
           {
@@ -7947,7 +8029,11 @@ export type Database = {
         Returns: string
       }
       add_project_milestone: {
-        Args: { p_label: string; p_sub_container_id: string }
+        Args: {
+          p_discipline_id: string
+          p_label: string
+          p_sub_container_id: string
+        }
         Returns: string
       }
       add_workflow_step:
@@ -9014,6 +9100,7 @@ export type Database = {
           p_attachments: string[]
           p_consumer_sub_container_id: string
           p_consumer_type: string
+          p_discipline_id?: string
           p_lines: Json
           p_milestone_id?: string
           p_notes: string
@@ -9174,6 +9261,29 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_report_pnl_cogs_detail: {
+        Args: {
+          p_division_ids?: string[]
+          p_end: string
+          p_start: string
+          p_warehouse_ids?: string[]
+        }
+        Returns: {
+          code: string
+          cogs_id: string
+          counterparty: string
+          date: string
+          division_id: string
+          division_name: string
+          item_name: string
+          qty: number
+          reference: string
+          source_type: string
+          stream: string
+          total_cost: number
+          unit_cost: number
+        }[]
+      }
       rpc_report_pnl_fx_detail: {
         Args: { p_division_ids?: string[]; p_end: string; p_start: string }
         Returns: {
@@ -9219,6 +9329,19 @@ export type Database = {
           unit_cost: number
           warehouse_id: string
           warehouse_name: string
+        }[]
+      }
+      rpc_report_project_consumption: {
+        Args: { p_division_ids?: string[]; p_from: string; p_to: string }
+        Returns: {
+          consumer_id: string
+          consumer_kind: string
+          consumer_name: string
+          discipline_name: string
+          milestone_label: string
+          project_number: string
+          qty: number
+          total_cost: number
         }[]
       }
       rpc_report_revenue_cogs: {

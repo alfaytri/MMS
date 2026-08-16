@@ -39,7 +39,7 @@ import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouse
 import {
   useAddProjectDiscipline,
   useCloseProject,
-  type ProjectDisciplineBucket,
+  type ProjectDisciplineTag,
   type ProjectWithRollup,
 } from '@/hooks/useProjects'
 
@@ -110,9 +110,16 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
   // would actually accept (UUID-guard: value=id, display=name, never id).
   const remainingDisciplines = useMemo(() => {
     if (!project) return []
-    const existingIds = new Set(project.disciplineBuckets.map((b) => b.discipline_id).filter(Boolean))
+    const existingIds = new Set(project.disciplines.filter((d) => d.is_active).map((d) => d.discipline_id))
     return disciplines.filter((d) => !existingIds.has(d.id))
   }, [disciplines, project])
+
+  // Stock lives in the ONE project pool; discipline is a spend tag (Option B).
+  const poolStock = useMemo(
+    () => (project?.poolSubContainerId ? stock.filter((s) => s.sub_container_id === project.poolSubContainerId) : []),
+    [stock, project?.poolSubContainerId],
+  )
+  const activeDisciplines = useMemo(() => project?.disciplines.filter((d) => d.is_active) ?? [], [project])
 
   // Single-option pre-select, mirroring ProjectFormDialog's division/
   // warehouse selects. Re-fires whenever the remaining set shrinks (e.g.
@@ -241,24 +248,27 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
                   )
                 )}
 
-                {project.disciplineBuckets.length === 0 ? (
+                {/* The project's single stock pool. */}
+                <ProjectStockCard stockRows={poolStock} stockLoading={stockLoading} totalValue={project.totalValue} />
+
+                {/* Disciplines are spend tags; each carries its own milestones. */}
+                {activeDisciplines.length === 0 ? (
                   <EmptyState
                     icon={<Layers className="h-6 w-6 text-muted-foreground" />}
                     title="No disciplines yet"
                     description={
                       canManage
-                        ? 'Add one above to start tracking stock for this project.'
-                        : 'No stock buckets have been set up for this project.'
+                        ? 'Add one above to start tagging spend for this project.'
+                        : 'No disciplines have been set up for this project.'
                     }
                   />
                 ) : (
                   <div className="space-y-3">
-                    {project.disciplineBuckets.map((bucket) => (
-                      <DisciplineBucketCard
-                        key={bucket.sub_container_id}
-                        bucket={bucket}
-                        stockRows={stock.filter((s) => s.sub_container_id === bucket.sub_container_id)}
-                        stockLoading={stockLoading}
+                    {activeDisciplines.map((d) => (
+                      <DisciplineCard
+                        key={d.discipline_id}
+                        discipline={d}
+                        poolSubContainerId={project.poolSubContainerId}
                         canManage={canManage}
                       />
                     ))}
@@ -300,8 +310,8 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>Close {project?.project_number}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This deactivates the project and all of its discipline buckets. Closing is blocked
-              while any discipline still holds stock — consume or transfer it out first.
+              This deactivates the project and its stock pool. Closing is blocked while the
+              project still holds stock — consume or transfer it out first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -320,23 +330,18 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
   )
 }
 
-// ─── Discipline bucket card ────────────────────────────────────────────
-// A lighter, purpose-built card rather than a CustodyCard reuse — CustodyCard
-// is coupled to custody-transfer machinery (accept/dispatch/consume/return,
-// pending-transfer banners) that doesn't apply to a project discipline
-// bucket. Mirrors CustodyCard's header layout (name + value/count at right)
-// and its "Items expand" row style (item name + brand/sku line, qty/unit +
-// value at right) so the visual language still matches the rest of the app.
-function DisciplineBucketCard({
-  bucket,
+// ─── Project stock pool card ───────────────────────────────────────────
+// Option B: a project holds ALL its stock in ONE pool sub-container. Mirrors
+// CustodyCard's header (name + value/count) + item-row style so the visual
+// language matches the rest of the app.
+function ProjectStockCard({
   stockRows,
   stockLoading,
-  canManage,
+  totalValue,
 }: {
-  bucket: ProjectDisciplineBucket
   stockRows: WarehouseStockItem[]
   stockLoading: boolean
-  canManage: boolean
+  totalValue: number
 }) {
   const totalQty = stockRows.reduce((sum, r) => sum + (r.qty ?? 0), 0)
 
@@ -344,16 +349,11 @@ function DisciplineBucketCard({
     <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
       <div className="px-4 py-3 flex items-start justify-between gap-2 border-b bg-muted/30">
         <div className="min-w-0 flex items-center gap-1.5">
-          <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="font-semibold text-sm truncate">{bucket.discipline_name}</span>
-          {!bucket.is_active && (
-            <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px] font-normal text-muted-foreground">
-              Closed
-            </Badge>
-          )}
+          <Package className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="font-semibold text-sm truncate">Project stock</span>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-sm font-semibold tabular-nums">{formatValue(bucket.total_value)}</div>
+          <div className="text-sm font-semibold tabular-nums">{formatValue(totalValue)}</div>
           <div className="text-[10px] text-muted-foreground">
             {stockRows.length} item{stockRows.length === 1 ? '' : 's'} · {totalQty.toLocaleString()} units
           </div>
@@ -370,7 +370,7 @@ function DisciplineBucketCard({
         ) : stockRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
             <Package className="h-5 w-5 mb-1 opacity-30" />
-            <p className="text-[11px]">No stock in this discipline yet</p>
+            <p className="text-[11px]">No stock in this project yet — transfer stock into it to get started.</p>
           </div>
         ) : (
           <div className="divide-y max-h-64 overflow-y-auto">
@@ -400,8 +400,37 @@ function DisciplineBucketCard({
           </div>
         )}
       </div>
+    </div>
+  )
+}
 
-      <MilestoneManager subContainerId={bucket.sub_container_id} canManage={canManage} />
+// ─── Discipline card (a spend tag + its milestones) ────────────────────
+// A discipline no longer holds stock — it's a spend category. The card just
+// names it and hosts its milestones (the cost tags used when consuming).
+function DisciplineCard({
+  discipline,
+  poolSubContainerId,
+  canManage,
+}: {
+  discipline: ProjectDisciplineTag
+  poolSubContainerId: string | null
+  canManage: boolean
+}) {
+  return (
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+      <div className="px-4 py-3 flex items-center gap-1.5 border-b bg-muted/30">
+        <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="font-semibold text-sm truncate">{discipline.discipline_name}</span>
+      </div>
+      {poolSubContainerId ? (
+        <MilestoneManager
+          subContainerId={poolSubContainerId}
+          disciplineId={discipline.discipline_id}
+          canManage={canManage}
+        />
+      ) : (
+        <p className="px-4 py-3 text-[11px] text-muted-foreground">No stock pool for this project.</p>
+      )}
     </div>
   )
 }

@@ -33,7 +33,7 @@ import {
   removeConsumptionAttachment,
   type ConsumerType,
 } from '@/hooks/useConsumption'
-import { useProjectMilestones } from '@/hooks/useProjectMilestones'
+import { useProjectMilestones, usePoolDisciplines } from '@/hooks/useProjectMilestones'
 import { useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -73,6 +73,8 @@ const HIGH_SHARE_RATIO = 0.9
 // Select always has a real selected item (the "No milestone" row) instead of
 // relying on empty-string placeholder semantics.
 const NO_MILESTONE = '__none__'
+// Same sentinel pattern for the optional project-discipline spend tag.
+const NO_DISCIPLINE = '__none_discipline__'
 
 /**
  * Consumption qty is a whole-unit integer (`consumption_lines.qty` is `int`).
@@ -182,24 +184,35 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   }, [activeLocations, isSuperViewer, userDivisionIds])
   const locationGroups = useMemo(() => groupByWarehouse(visibleLocations), [visibleLocations])
 
-  // ── Milestone (optional cost tag on the consumer discipline bucket) ────
-  // Ties to consumerSub (the CONSUMER), not the source — mirrors
-  // rpc_post_consumption's p_milestone_id validation (Task 2.3). Collapsing
-  // to `null` whenever not custody (or no bucket chosen yet) both disables
-  // the underlying query (useProjectMilestones gates on `!!subContainerId`)
-  // and keeps a stale bucket's milestones from ever being fetched while the
-  // operator is on the Internal tab.
+  // ── Discipline + Milestone (optional project spend tags) ──────────────
+  // Both tie to consumerSub (the CONSUMER project pool), not the source. A
+  // project pool carries disciplines; picking one scopes the milestone list
+  // and tags the spend (mirrors rpc_post_consumption's p_discipline_id /
+  // p_milestone_id guards). A non-project custody sub has neither → both
+  // pickers stay hidden.
+  const consumerPool = consumerType === 'custody' && consumerSub ? consumerSub : null
+  const { data: poolDisciplines = [] } = usePoolDisciplines(consumerPool)
+  const [disciplineId, setDisciplineId] = useState<string>(NO_DISCIPLINE)
+  const resolvedDisciplineId = useMemo(
+    () => (consumerType === 'custody' && disciplineId !== NO_DISCIPLINE ? disciplineId : null),
+    [consumerType, disciplineId],
+  )
+  // Milestones only load once a discipline is picked — a milestone belongs to
+  // a (pool, discipline), so an unscoped list would mix disciplines.
   const { data: milestones = [] } = useProjectMilestones(
-    consumerType === 'custody' && consumerSub ? consumerSub : null,
+    resolvedDisciplineId ? consumerPool : null,
+    resolvedDisciplineId,
   )
   const [milestoneId, setMilestoneId] = useState<string>(NO_MILESTONE)
-  // Reset whenever the consumer bucket or type changes so a milestone picked
-  // for a previously-selected discipline is never carried over and
-  // accidentally submitted against a different (or no-longer-custody)
-  // consumer.
+  // Reset the discipline when the consumer/type changes; reset the milestone
+  // when the discipline (or consumer/type) changes — a tag picked for a
+  // previous discipline must never carry over.
+  useEffect(() => {
+    setDisciplineId(NO_DISCIPLINE)
+  }, [consumerSub, consumerType])
   useEffect(() => {
     setMilestoneId(NO_MILESTONE)
-  }, [consumerSub, consumerType])
+  }, [consumerSub, consumerType, disciplineId])
 
   // ── Lines
   const [rows, setRows] = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
@@ -418,8 +431,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // Resolved for the RPC payload — '__none__' (or any non-custody consumer)
   // always collapses to `null`, never a stray sentinel string.
   const resolvedMilestoneId = useMemo(
-    () => (consumerType === 'custody' && milestoneId !== NO_MILESTONE ? milestoneId : null),
-    [consumerType, milestoneId],
+    () => (consumerType === 'custody' && resolvedDisciplineId && milestoneId !== NO_MILESTONE ? milestoneId : null),
+    [consumerType, resolvedDisciplineId, milestoneId],
   )
   // Separate display-only lookup for the confirmation modal summary — a
   // `.find()` here is fine (unlike a Select trigger's rendered value) since
@@ -509,6 +522,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         consumer_type:             consumerType,
         consumer_sub_container_id: consumerType === 'custody' ? consumerSub : null,
         milestone_id:              resolvedMilestoneId,
+        discipline_id:             resolvedDisciplineId,
         notes:                     notes.trim() || null,
         attachments:               attachments,
         lines,
@@ -686,14 +700,31 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               )}
             </div>
 
+            {/* Discipline — OPTIONAL project spend tag. Appears when the
+                consumer is a project pool (has disciplines); picking one
+                scopes the milestone list below and attributes the spend. */}
+            {consumerType === 'custody' && consumerSub && poolDisciplines.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Discipline (optional)</Label>
+                <Select value={disciplineId} onValueChange={(v) => setDisciplineId(v ?? NO_DISCIPLINE)}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="No discipline" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    <SelectItem value={NO_DISCIPLINE} className="text-xs">No discipline</SelectItem>
+                    {poolDisciplines.map((d) => (
+                      <SelectItem key={d.discipline_id} value={d.discipline_id} className="text-xs">{d.discipline_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Milestone — OPTIONAL cost tag (locked Decision 7: consuming
-                with no milestone stays valid). Only appears once the picked
-                custody bucket actually has active milestones. "No milestone"
-                is always offered first and is never force-replaced even when
-                exactly one real milestone exists — the single-option
-                pre-select+disable convention used elsewhere in this dialog
-                does NOT apply here, since that would defeat optionality. */}
-            {consumerType === 'custody' && consumerSub && milestones.length > 0 && (
+                with no milestone stays valid). Only appears once a discipline
+                is picked and that discipline has active milestones. "No
+                milestone" is always offered first. */}
+            {consumerType === 'custody' && consumerSub && resolvedDisciplineId && milestones.length > 0 && (
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Milestone (optional)</Label>
                 <Select value={milestoneId} onValueChange={(v) => setMilestoneId(v ?? NO_MILESTONE)}>

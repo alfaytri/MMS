@@ -1,13 +1,13 @@
 /**
- * Pure rollup logic for the Virtual Warehouse Projects list (Task 1.6).
+ * Pure rollup logic for the Virtual Warehouse Projects list.
  *
- * A "discipline bucket" is a `warehouse_sub_containers` row with both
- * `project_id` and `discipline_id` set (created automatically by the
- * `create_project` / `add_project_discipline` RPCs). This module joins
- * projects to their discipline buckets and to the server-aggregated
- * `warehouse_sub_container_totals` view to produce, per project, a
- * discipline count and a total stock value — WITHOUT hand-summing FIFO
- * layers (per the plan's binding constraint: reuse the view).
+ * "Option B" model: a project is ONE stock pool (`warehouse_sub_containers`
+ * row with `project_id` set and `discipline_id` NULL). Disciplines are TAGS
+ * recorded in `project_disciplines` (not stock containers); milestones and
+ * consumption/COGS carry the discipline as a tag. This module joins a project
+ * to its single pool (for stock value, via the server-aggregated
+ * `warehouse_sub_container_totals` view — never hand-sum FIFO layers) and to
+ * its discipline tags.
  *
  * Kept side-effect free and framework-free so it can be unit tested in
  * isolation from React/TanStack Query/Supabase.
@@ -24,11 +24,17 @@ export type ProjectRow = {
   created_at: string
 }
 
-/** A `warehouse_sub_containers` row tagged to a project, joined to its discipline's name. */
-export type ProjectSubContainerRow = {
+/** The project's single stock-pool `warehouse_sub_containers` row (discipline_id NULL). */
+export type ProjectPoolRow = {
   id: string
   project_id: string | null
-  discipline_id: string | null
+  is_active: boolean
+}
+
+/** A `project_disciplines` row joined to its discipline's name. */
+export type ProjectDisciplineRow = {
+  project_id: string
+  discipline_id: string
   is_active: boolean
   disciplines: { name: string } | null
 }
@@ -40,38 +46,40 @@ export type ProjectSubTotalRow = {
   item_count?: number | null
 }
 
-export type ProjectDisciplineBucket = {
-  sub_container_id: string
-  discipline_id: string | null
+/** A discipline tag on a project (not a stock container). */
+export type ProjectDisciplineTag = {
+  discipline_id: string
   discipline_name: string
-  total_value: number
-  item_count: number
   is_active: boolean
 }
 
 export type ProjectWithRollup = ProjectRow & {
-  disciplineBuckets: ProjectDisciplineBucket[]
-  disciplineCount: number
+  /** The single stock-pool sub-container id (null only for a malformed legacy project). */
+  poolSubContainerId: string | null
+  /** Stock value + item count held in the pool. */
   totalValue: number
+  itemCount: number
+  /** Discipline tags (spend categories), active + inactive. */
+  disciplines: ProjectDisciplineTag[]
+  disciplineCount: number
 }
 
 const UNKNOWN_DISCIPLINE = 'Unknown discipline'
 
 /**
- * Joins `projects` to their discipline buckets (`warehouse_sub_containers`
- * where `project_id` matches) and to the `warehouse_sub_container_totals`
- * view, producing a per-project discipline count and summed stock value.
+ * Joins `projects` to their single stock pool (`warehouse_sub_containers` where
+ * `project_id` matches and `discipline_id` is NULL), the pool's row in the
+ * `warehouse_sub_container_totals` view, and their `project_disciplines` tags.
  *
  * Pure — does not mutate any input array or object.
  */
 export function rollupProjects(
   projects: ProjectRow[],
-  subContainers: ProjectSubContainerRow[],
+  pools: ProjectPoolRow[],
+  disciplineRows: ProjectDisciplineRow[],
   totals: ProjectSubTotalRow[],
 ): ProjectWithRollup[] {
-  // sub_container_id -> summed total_value / item_count. Summed defensively —
-  // the view is expected to be one row per sub-container, but a duplicate
-  // must never silently drop value.
+  // sub_container_id -> summed value / item count (summed defensively).
   const valueBySub = new Map<string, number>()
   const itemsBySub = new Map<string, number>()
   for (const t of totals) {
@@ -80,31 +88,38 @@ export function rollupProjects(
     itemsBySub.set(t.sub_container_id, (itemsBySub.get(t.sub_container_id) ?? 0) + (t.item_count ?? 0))
   }
 
-  // project_id -> its discipline-bucket sub-containers.
-  const subsByProject = new Map<string, ProjectSubContainerRow[]>()
-  for (const sub of subContainers) {
-    if (!sub.project_id) continue
-    const arr = subsByProject.get(sub.project_id)
-    if (arr) arr.push(sub)
-    else subsByProject.set(sub.project_id, [sub])
+  // project_id -> its (single) active pool sub-container id.
+  const poolByProject = new Map<string, string>()
+  for (const p of pools) {
+    if (!p.project_id || !p.is_active) continue
+    if (!poolByProject.has(p.project_id)) poolByProject.set(p.project_id, p.id)
+  }
+
+  // project_id -> discipline tags.
+  const discByProject = new Map<string, ProjectDisciplineTag[]>()
+  for (const d of disciplineRows) {
+    const tag: ProjectDisciplineTag = {
+      discipline_id: d.discipline_id,
+      discipline_name: d.disciplines?.name ?? UNKNOWN_DISCIPLINE,
+      is_active: d.is_active,
+    }
+    const arr = discByProject.get(d.project_id)
+    if (arr) arr.push(tag)
+    else discByProject.set(d.project_id, [tag])
   }
 
   return projects.map((project): ProjectWithRollup => {
-    const subs = subsByProject.get(project.id) ?? []
-    const disciplineBuckets: ProjectDisciplineBucket[] = subs.map((sub) => ({
-      sub_container_id: sub.id,
-      discipline_id: sub.discipline_id,
-      discipline_name: sub.disciplines?.name ?? UNKNOWN_DISCIPLINE,
-      total_value: valueBySub.get(sub.id) ?? 0,
-      item_count: itemsBySub.get(sub.id) ?? 0,
-      is_active: sub.is_active,
-    }))
-
+    const poolId = poolByProject.get(project.id) ?? null
+    const disciplines = (discByProject.get(project.id) ?? []).sort((a, b) =>
+      a.discipline_name.localeCompare(b.discipline_name),
+    )
     return {
       ...project,
-      disciplineBuckets,
-      disciplineCount: disciplineBuckets.length,
-      totalValue: disciplineBuckets.reduce((sum, b) => sum + b.total_value, 0),
+      poolSubContainerId: poolId,
+      totalValue: poolId ? (valueBySub.get(poolId) ?? 0) : 0,
+      itemCount: poolId ? (itemsBySub.get(poolId) ?? 0) : 0,
+      disciplines,
+      disciplineCount: disciplines.filter((d) => d.is_active).length,
     }
   })
 }

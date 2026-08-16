@@ -265,21 +265,23 @@ export function useCreateConsumption() {
       consumer_type:               ConsumerType
       consumer_sub_container_id?:  string | null
       milestone_id?:               string | null
+      discipline_id?:              string | null
       notes?:                      string | null
       attachments?:                string[]
       lines:                       PostConsumptionLine[]
     }) => {
       const supabase = createClient()
-      // The RPC accepts NULL for the consumer sub / milestone / notes params
-      // (no NOT NULL constraint), but Supabase's generated types mark them
-      // non-nullable, so cast the args object (same pattern used across the
-      // custody RPC hooks).
+      // The RPC accepts NULL for the consumer sub / milestone / discipline /
+      // notes params (no NOT NULL constraint), but Supabase's generated types
+      // mark them non-nullable, so cast the args object (same pattern used
+      // across the custody RPC hooks).
       const rpcArgs = {
         p_source_warehouse_id:       payload.source_warehouse_id,
         p_source_sub_container_id:   payload.source_sub_container_id,
         p_consumer_type:             payload.consumer_type,
         p_consumer_sub_container_id: payload.consumer_sub_container_id ?? null,
         p_milestone_id:              payload.milestone_id ?? null,
+        p_discipline_id:             payload.discipline_id ?? null,
         p_notes:                     payload.notes ?? null,
         p_attachments:               payload.attachments ?? [],
         p_lines:                     payload.lines,

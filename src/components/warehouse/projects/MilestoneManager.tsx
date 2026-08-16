@@ -24,6 +24,7 @@ import {
 
 interface Props {
   subContainerId: string
+  disciplineId: string
   canManage: boolean
 }
 
@@ -39,8 +40,8 @@ interface Props {
  * action, mirroring how the stock item list itself is visible to everyone
  * while add-discipline/close-project are gated in the parent.
  */
-export function MilestoneManager({ subContainerId, canManage }: Props) {
-  const { data: milestones = [], isLoading, isError, error } = useProjectMilestones(subContainerId)
+export function MilestoneManager({ subContainerId, disciplineId, canManage }: Props) {
+  const { data: milestones = [], isLoading, isError, error } = useProjectMilestones(subContainerId, disciplineId)
   const addMilestone = useAddMilestone()
   const closeMilestone = useCloseMilestone()
 
@@ -63,6 +64,7 @@ export function MilestoneManager({ subContainerId, canManage }: Props) {
         .from('project_milestones')
         .select('label')
         .eq('sub_container_id', subContainerId)
+        .eq('discipline_id', disciplineId)
         .limit(500)
       if (error) {
         throw new Error(
@@ -76,7 +78,7 @@ export function MilestoneManager({ subContainerId, canManage }: Props) {
         if (match) maxN = Math.max(maxN, Number(match[1]))
       }
       const label = `Milestone ${maxN + 1}`
-      await addMilestone.mutateAsync({ sub_container_id: subContainerId, label })
+      await addMilestone.mutateAsync({ sub_container_id: subContainerId, discipline_id: disciplineId, label })
       toast.success(`${label} added`)
     } catch (e) {
       toast.error((e as Error).message)

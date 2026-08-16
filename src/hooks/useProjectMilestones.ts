@@ -19,29 +19,29 @@ function wrapDbError(
 }
 
 /**
- * Active milestones scoped to one discipline bucket (a `warehouse_sub_containers`
- * row acting as a project discipline). Disabled while `subContainerId` is
- * falsy — that's the gate `NewConsumptionDialog` relies on to only query once
- * a custody consumer bucket is actually picked.
- *
- * A non-empty result here IS the "this discipline bucket has milestones"
- * signal used to decide whether to show the optional Milestone picker —
- * the caller doesn't need project_id/discipline_id in scope for that check.
+ * Active milestones scoped to a project's stock pool + one discipline (Option
+ * B: milestones hang off the single pool sub-container, tagged by discipline).
+ * Pass `disciplineId` to get just that discipline's milestones; omit it (for
+ * back-compat callers) to get every milestone on the pool. Disabled while
+ * `subContainerId` is falsy — the gate `NewConsumptionDialog` relies on to
+ * only query once a custody consumer is actually picked.
  */
-export function useProjectMilestones(subContainerId: string | null | undefined) {
+export function useProjectMilestones(
+  subContainerId: string | null | undefined,
+  disciplineId?: string | null,
+) {
   return useQuery({
-    queryKey: queryKeys.projectMilestones.bySub(subContainerId),
+    queryKey: [...queryKeys.projectMilestones.bySub(subContainerId), disciplineId ?? 'all'],
     enabled: !!subContainerId,
     queryFn: async (): Promise<ProjectMilestone[]> => {
       const supabase = createClient()
-      const { data, error } = await supabase
+      let q = supabase
         .from('project_milestones')
-        .select('id, sub_container_id, label, sort_order, is_active, created_by, created_at, updated_at')
+        .select('id, sub_container_id, discipline_id, label, sort_order, is_active, created_by, created_at, updated_at')
         .eq('sub_container_id', subContainerId!)
         .eq('is_active', true)
-        .order('sort_order')
-        .order('label')
-        .limit(200)
+      if (disciplineId) q = q.eq('discipline_id', disciplineId)
+      const { data, error } = await q.order('sort_order').order('label').limit(200)
       if (error) throw wrapDbError(error, 'Failed to load milestones')
       return (data ?? []) as ProjectMilestone[]
     },
@@ -49,16 +49,58 @@ export function useProjectMilestones(subContainerId: string | null | undefined) 
   })
 }
 
+export type PoolDiscipline = { discipline_id: string; discipline_name: string }
+
+/**
+ * Active discipline tags for the project that owns a given pool sub-container.
+ * Powers the Discipline picker in NewConsumptionDialog when the consumer is a
+ * project pool; returns [] (picker hidden) for a non-project custody sub.
+ */
+export function usePoolDisciplines(subContainerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['pool-disciplines', subContainerId],
+    enabled: !!subContainerId,
+    queryFn: async (): Promise<PoolDiscipline[]> => {
+      const supabase = createClient()
+      const { data: sub, error: subErr } = await supabase
+        .from('warehouse_sub_containers')
+        .select('project_id')
+        .eq('id', subContainerId!)
+        .maybeSingle()
+      if (subErr) throw wrapDbError(subErr, 'Failed to resolve project')
+      const projectId = (sub as { project_id: string | null } | null)?.project_id
+      if (!projectId) return []
+      const { data, error } = await supabase
+        .from('project_disciplines')
+        .select('discipline_id, disciplines(name)')
+        .eq('project_id', projectId)
+        .eq('is_active', true)
+        .limit(200)
+      if (error) throw wrapDbError(error, 'Failed to load project disciplines')
+      return (data ?? [])
+        .map((r) => ({
+          discipline_id: (r as { discipline_id: string }).discipline_id,
+          discipline_name:
+            (r as unknown as { disciplines?: { name: string } | null }).disciplines?.name ?? 'Unknown discipline',
+        }))
+        .sort((a, b) => a.discipline_name.localeCompare(b.discipline_name))
+    },
+    staleTime: 60 * 1000,
+  })
+}
+
 export type AddMilestonePayload = {
   sub_container_id: string
+  discipline_id: string
   label: string
 }
 
 /**
- * Adds a milestone to a discipline bucket via the `add_project_milestone`
- * SECURITY DEFINER RPC. `UNIQUE(sub_container_id, label)` throws 23505 on a
- * duplicate label within the same discipline — surfaced as a friendly
- * message, mirroring `useAddProjectDiscipline`'s 23505 handling.
+ * Adds a milestone to a project pool + discipline via the
+ * `add_project_milestone` SECURITY DEFINER RPC. The unique
+ * `(sub_container_id, discipline_id, label)` throws 23505 on a duplicate label
+ * within the same discipline — surfaced as a friendly message, mirroring
+ * `useAddProjectDiscipline`'s 23505 handling.
  */
 export function useAddMilestone() {
   const qc = useQueryClient()
@@ -67,6 +109,7 @@ export function useAddMilestone() {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('add_project_milestone', {
         p_sub_container_id: payload.sub_container_id,
+        p_discipline_id: payload.discipline_id,
         p_label: payload.label,
       })
       if (error) {
