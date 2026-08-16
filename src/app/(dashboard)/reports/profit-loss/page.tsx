@@ -7,6 +7,7 @@ import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ReportFilterBar, type ReportFilters } from '@/components/reports/ReportFilterBar'
 import { FxDetailDialog } from '@/components/reports/FxDetailDialog'
+import { CogsSourceDetailDialog } from '@/components/reports/CogsSourceDetailDialog'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { ReportExportMenu } from '@/components/reports/ReportExportMenu'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
@@ -54,6 +55,7 @@ export default function ProfitLossReportPage() {
   const canView = useHasPermission('reports.accounting.view')
   const [basis, setBasis] = useState<PnlBasis>('accrual')
   const [fxOpen, setFxOpen] = useState(false)
+  const [cogsOpen, setCogsOpen] = useState(false)
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }
@@ -149,16 +151,18 @@ export default function ProfitLossReportPage() {
             ) : (
               lines.map((l, i) => {
                 const isFx = l.label === 'Exchange Gain / Loss'
+                const isCogs = l.label === 'Total COGS'
+                const isDrillable = isFx || isCogs
                 return (
                 <tr
                   key={`${l.label}-${i}`}
-                  onClick={isFx ? () => setFxOpen(true) : undefined}
+                  onClick={isFx ? () => setFxOpen(true) : isCogs ? () => setCogsOpen(true) : undefined}
                   className={cn(
                     'border-b last:border-0',
                     l.kind === 'grand' && 'bg-primary/5 border-t-2 border-foreground/20',
                     l.kind === 'subtotal' && 'bg-muted/40',
                     l.kind === 'header' && 'bg-muted/20',
-                    isFx && 'cursor-pointer transition-colors hover:bg-muted/40',
+                    isDrillable && 'cursor-pointer transition-colors hover:bg-muted/40',
                   )}
                 >
                   <td className={cn(
@@ -168,7 +172,7 @@ export default function ProfitLossReportPage() {
                     l.kind === 'subtotal' && 'font-medium',
                     l.kind === 'grand' && 'font-semibold',
                   )}>
-                    {isFx ? (
+                    {isDrillable ? (
                       <span className="inline-flex items-center gap-1.5">
                         {l.label}
                         <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary">
@@ -204,6 +208,7 @@ export default function ProfitLossReportPage() {
       )}
 
       <FxDetailDialog open={fxOpen} onOpenChange={setFxOpen} filters={filters} />
+      <CogsSourceDetailDialog open={cogsOpen} onOpenChange={setCogsOpen} filters={filters} />
     </PageWrapper>
   )
 }
