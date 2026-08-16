@@ -23,7 +23,7 @@ interface CogsEntry {
   total_cost: number
   date: string
   notes: string | null
-  source_type: 'sale' | 'landed_cost' | 'landed_cost_reversal'
+  source_type: 'sale' | 'sale_return' | 'consumption' | 'landed_cost' | 'landed_cost_reversal'
   sale_delivery_id: string | null
   sale_order_id: string | null
   landed_cost_id: string | null
@@ -131,13 +131,20 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
   const { data: entries = [], isLoading } = useCogsDetail(brandVariantId, open)
 
   const saleEntries = entries.filter((e) => e.source_type === 'sale')
+  const saleReturnEntries = entries.filter((e) => e.source_type === 'sale_return')
+  const consumptionEntries = entries.filter((e) => e.source_type === 'consumption')
   const lcEntries = entries.filter((e) => e.source_type === 'landed_cost')
   const lcReversalEntries = entries.filter((e) => e.source_type === 'landed_cost_reversal')
 
   const saleCostTotal = saleEntries.reduce((s, e) => s + e.total_cost, 0)
+  const saleReturnTotal = saleReturnEntries.reduce((s, e) => s + e.total_cost, 0)
+  const consumptionTotal = consumptionEntries.reduce((s, e) => s + e.total_cost, 0)
   const lcCostTotal = lcEntries.reduce((s, e) => s + e.total_cost, 0)
   const lcReversalTotal = lcReversalEntries.reduce((s, e) => s + e.total_cost, 0)
-  const grandTotal = saleCostTotal + lcCostTotal + lcReversalTotal
+  // Total reconciles with the Stock Value COGS column, which counts ALL cost that
+  // left this variant's stock: customer sales + sale-returns + internal
+  // consumption + net landed-cost adjustments.
+  const grandTotal = saleCostTotal + saleReturnTotal + consumptionTotal + lcCostTotal + lcReversalTotal
   const variantLabel = brandOriginText(brand, origin)
 
   return (
@@ -168,16 +175,32 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
             </div>
           ) : (
             <>
-              {/* Summary cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="rounded-lg border px-4 py-3 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Sale COGS</p>
-                  <p className="text-base font-bold tabular-nums mt-1 text-destructive">{fmtVal(saleCostTotal)}</p>
-                </div>
-                <div className="rounded-lg border px-4 py-3 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">LC Adjustments</p>
-                  <p className="text-base font-bold tabular-nums mt-1 text-orange-600 dark:text-orange-400">{fmtVal(lcCostTotal)}</p>
-                </div>
+              {/* Summary cards — shown only for the cost types this item actually has */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {saleEntries.length > 0 && (
+                  <div className="rounded-lg border px-4 py-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Sale COGS</p>
+                    <p className="text-base font-bold tabular-nums mt-1 text-destructive">{fmtVal(saleCostTotal)}</p>
+                  </div>
+                )}
+                {saleReturnEntries.length > 0 && (
+                  <div className="rounded-lg border px-4 py-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Sale Returns</p>
+                    <p className="text-base font-bold tabular-nums mt-1 text-green-600 dark:text-green-400">{fmtVal(saleReturnTotal)}</p>
+                  </div>
+                )}
+                {consumptionEntries.length > 0 && (
+                  <div className="rounded-lg border px-4 py-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Consumption</p>
+                    <p className="text-base font-bold tabular-nums mt-1 text-blue-600 dark:text-blue-400">{fmtVal(consumptionTotal)}</p>
+                  </div>
+                )}
+                {lcEntries.length > 0 && (
+                  <div className="rounded-lg border px-4 py-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">LC Adjustments</p>
+                    <p className="text-base font-bold tabular-nums mt-1 text-orange-600 dark:text-orange-400">{fmtVal(lcCostTotal)}</p>
+                  </div>
+                )}
                 {lcReversalEntries.length > 0 && (
                   <div className="rounded-lg border px-4 py-3 text-center">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">LC Reversals</p>
@@ -246,6 +269,111 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                             <TableCell className="text-[11px] py-1.5" />
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums text-destructive">
                               {fmtVal(saleCostTotal)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Sale return entries (goods returned — credits COGS back) */}
+              {saleReturnEntries.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[9px] font-normal border-green-300 text-green-600 dark:text-green-400">RET</Badge>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Sale Returns ({saleReturnEntries.length})
+                    </p>
+                  </div>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="text-[10px] py-1.5">Date</TableHead>
+                          <TableHead className="text-[10px] py-1.5">SO #</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Delivery #</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Customer</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Qty</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Unit Cost</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Total Cost</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {saleReturnEntries.map((e) => (
+                          <TableRow key={e.id} className="hover:bg-muted/10">
+                            <TableCell className="text-[11px] py-1.5">{format(new Date(e.date), 'dd MMM yy')}</TableCell>
+                            <TableCell className="text-[11px] py-1.5 font-medium text-primary">{e.so_number ?? '—'}</TableCell>
+                            <TableCell className="text-[11px] py-1.5">
+                              <div className="flex items-center gap-1">
+                                <Truck className="h-3 w-3 text-muted-foreground" />
+                                {e.delivery_number ?? '—'}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5 max-w-[150px] truncate">{e.customer_name ?? '—'}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{fmtVal(e.unit_cost)}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium text-green-600 dark:text-green-400">{fmtVal(e.total_cost)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {saleReturnEntries.length > 1 && (
+                          <TableRow className="bg-muted/30 font-semibold">
+                            <TableCell colSpan={4} className="text-[11px] py-1.5">Total</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">
+                              {saleReturnEntries.reduce((s, e) => s + e.qty, 0)}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5" />
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums text-green-600 dark:text-green-400">
+                              {fmtVal(saleReturnTotal)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Consumption entries — internal use, not a customer sale */}
+              {consumptionEntries.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[9px] font-normal border-blue-300 text-blue-600 dark:text-blue-400">USE</Badge>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Consumption — internal use ({consumptionEntries.length})
+                    </p>
+                  </div>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead className="text-[10px] py-1.5">Date</TableHead>
+                          <TableHead className="text-[10px] py-1.5">Notes</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Qty</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Unit Cost</TableHead>
+                          <TableHead className="text-[10px] text-right py-1.5">Total Cost</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {consumptionEntries.map((e) => (
+                          <TableRow key={e.id} className="hover:bg-muted/10">
+                            <TableCell className="text-[11px] py-1.5">{format(new Date(e.date), 'dd MMM yy')}</TableCell>
+                            <TableCell className="text-[11px] py-1.5 max-w-[220px] truncate text-muted-foreground">{e.notes ?? '—'}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{fmtVal(e.unit_cost)}</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium text-blue-600 dark:text-blue-400">{fmtVal(e.total_cost)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {consumptionEntries.length > 1 && (
+                          <TableRow className="bg-muted/30 font-semibold">
+                            <TableCell colSpan={2} className="text-[11px] py-1.5">Total</TableCell>
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums">
+                              {consumptionEntries.reduce((s, e) => s + e.qty, 0)}
+                            </TableCell>
+                            <TableCell className="text-[11px] py-1.5" />
+                            <TableCell className="text-[11px] text-right py-1.5 tabular-nums text-blue-600 dark:text-blue-400">
+                              {fmtVal(consumptionTotal)}
                             </TableCell>
                           </TableRow>
                         )}

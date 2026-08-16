@@ -741,7 +741,12 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                   </div>
                   {row.cogsTotalCost > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">COGS</span>
+                      <span className="text-muted-foreground">
+                        COGS
+                        {row.cogsLcAdjustmentCount > 0 && (
+                          <span className="text-orange-600 dark:text-orange-400"> · incl. {row.cogsLcAdjustmentCount} LC</span>
+                        )}
+                      </span>
                       <span className="tabular-nums font-medium text-destructive">{formatCurrency(row.cogsTotalCost)}</span>
                     </div>
                   )}
@@ -943,23 +948,32 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                           )}
                         </TableCell>
 
-                        {/* COGS */}
+                        {/* COGS — total includes any landed-cost adjustments; the
+                            "incl. N LC" hint surfaces the LC count (from the summary
+                            RPC) so it's visible without opening the breakdown. */}
                         <TableCell className="text-xs text-right py-2 tabular-nums hidden md:table-cell">
                           {row.cogsTotalCost > 0 ? (
-                            <span
-                              className="cursor-pointer underline decoration-dashed underline-offset-2 text-destructive font-medium hover:text-destructive/80"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setCogsDialog({
-                                  brandVariantId: row.brand_variant_id,
-                                  itemName: row.item_name,
-                                  brand: row.brand,
-                                  origin: row.country_name,
-                                  sku: row.sku,
-                                })
-                              }}
-                            >
-                              {formatCurrency(row.cogsTotalCost)}
+                            <span className="inline-flex flex-col items-end gap-0.5">
+                              <span
+                                className="cursor-pointer underline decoration-dashed underline-offset-2 text-destructive font-medium hover:text-destructive/80"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCogsDialog({
+                                    brandVariantId: row.brand_variant_id,
+                                    itemName: row.item_name,
+                                    brand: row.brand,
+                                    origin: row.country_name,
+                                    sku: row.sku,
+                                  })
+                                }}
+                              >
+                                {formatCurrency(row.cogsTotalCost)}
+                              </span>
+                              {row.cogsLcAdjustmentCount > 0 && (
+                                <span className="text-[9px] font-normal text-orange-600 dark:text-orange-400">
+                                  incl. {row.cogsLcAdjustmentCount} LC
+                                </span>
+                              )}
                             </span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
