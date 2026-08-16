@@ -105,4 +105,15 @@ Ran a full sweep of every `SECURITY DEFINER` function matching `approv|advance|r
 - **HOLE fixed — identity spoofing:** `action_stock_adjustment_step` authorized on a **client-supplied `p_profile_id`**; rewritten to use `auth.uid()`.
 - **HOLES fixed — ungated internal mutators (REVOKEd from `authenticated`, service-role/internal only):** `approve_stock_adjustment_inventory`, `approve_receival_inventory` (orphan; posts receival inventory with no check — matches §E's flag), `advance_sales_approval`, `advance_po_approval_tier` (orphan), `build_sales_approval_chain`. All owned by `postgres` and only invoked by gated DEFINER callers → REVOKE closes the direct Data-API path without breaking the internal flow.
 
-Verified on staging + new-prod (grant removed, direct `authenticated` call → `42501`, internal path intact). **Still open:** the four *deferred* create-RPCs from Batch 4 (`create_service_customer`, `upsert_package_with_services`, `rpc_cancel_consumption`, `rpc_create_custody_return`) — no role holds their key today, so gating would make them admin-only; needs a role-grant decision.
+Verified on staging + new-prod (grant removed, direct `authenticated` call → `42501`, internal path intact). ~~Still open: the four *deferred* create-RPCs from Batch 4~~ → **✅ RESOLVED in §G (Batch 6).**
+
+## G. ✅ Deferred DEFINER create/action RPCs — COMPLETE (Batch 6, migration `20260910000300`)
+
+The four RPCs deferred in Batch 4 (no non-admin role held a matching key). Re-verified live: the matching keys **already exist** in the catalog — so gate each on its natural key; **no grants made** (operator assigns keys to roles in the role editor). Admins bypass. Guard spliced after the outer `BEGIN` (byte-faithful injector, single-key).
+
+- `create_service_customer(text,text,text)` → **`master_data.service_customers.create`**. No frontend caller (Data-API-only) — closes the hole.
+- `upsert_package_with_services(jsonb,jsonb)` → **`master_data.services.manage`**. No frontend caller (Data-API-only).
+- `rpc_cancel_consumption(uuid)` → **`consumption.cancel`**. LIVE (`useConsumption.ts`; reverses posted stock + COGS). Operator chose **Owner/admins-only** → no role holds the key, so only admins pass until it's granted. (Follow-up: confirm the Consumption page's cancel control is permission-gated client-side so non-admins don't see a button that 42501s.)
+- `rpc_create_custody_return(...)` → **Pattern C, no change.** Already RP-gated in-body (only the source sub-container's responsible person may return). Documented only.
+
+Verified on staging + new-prod via a rolled-back JWT probe (non-holder → `42501`; admin passes). **RPC permission-hardening effort now complete (P0 + batches 1–6).**

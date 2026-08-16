@@ -61,6 +61,18 @@ Resolves open decision #3. Read the body of every approval action RPC and traced
 
 Verified on staging + new-prod: rewrite landed, `authenticated` grant removed on all five, `authenticated` direct call → `42501`, owner still reaches body (internal path intact). Post-fix sweep of `approv|advance|reject|action.*step` SECDEF functions shows only the read-only preview + a trigger function remain `authenticated`-callable (both non-holes).
 
+### ✅ Batch 6 — deferred DEFINER RPCs gated (2026-08-16, migration `20260910000300`)
+Resolves the 4 Batch-4 **"Deferred"** RPCs (deferred because no non-admin role held a matching key → couldn't gate blindly). Re-verified live: the matching keys **already exist** in the catalog, so each is gated on its natural key via the byte-faithful injector (guard spliced after the outer `BEGIN`, single-key variant of the Batch-2 template). **No grants made** — the operator assigns keys to roles in the role editor; admins bypass.
+
+| RPC | Key (gate) | Notes |
+|---|---|---|
+| `create_service_customer(text,text,text)` | `master_data.service_customers.create` | no frontend caller (Data-API-only surface) — gate closes the hole |
+| `upsert_package_with_services(jsonb,jsonb)` | `master_data.services.manage` | no frontend caller (Data-API-only surface) |
+| `rpc_cancel_consumption(uuid)` | `consumption.cancel` | **LIVE** (`useConsumption.ts`; reverses posted stock + COGS). Operator chose **Owner/admins-only** → no role holds the key yet, so only admins pass until it's granted |
+| `rpc_create_custody_return(...)` | — (**Pattern C**) | **already RP-gated in-body** — only the source sub-container's responsible person may return (`"Only <name> can return stock…"`). Documented, no migration |
+
+Applied to staging (`db push`) + new-prod (single-statement `db query`). Verified on both via a rolled-back JWT probe: non-holder → `42501`, admin passes (reaches the body). **This completes the RPC permission-hardening effort (P0 + batches 1–6).**
+
 ---
 
 ## Current role → action-key grants (new-prod — proves no regression)
