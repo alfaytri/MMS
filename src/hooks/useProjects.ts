@@ -230,3 +230,30 @@ export function useCloseProject() {
     },
   })
 }
+
+/**
+ * (Re)assigns a project's responsible person via `set_project_responsible_person`,
+ * which mirrors the RP onto BOTH the projects row and its active stock pool
+ * sub-container (the pool's RP governs custody consume/return authorisation +
+ * the custody card). `null` clears it.
+ */
+export function useSetProjectResponsiblePerson() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { project_id: string; profile_id: string | null }): Promise<void> => {
+      const supabase = createClient()
+      // p_profile_id is nullable in the RPC (NULL clears the assignment) but the
+      // generated type marks it required non-nullable — cast to pass null.
+      const { error } = await supabase.rpc('set_project_responsible_person', {
+        p_project_id: payload.project_id,
+        p_profile_id: payload.profile_id,
+      } as unknown as { p_project_id: string; p_profile_id: string })
+      if (error) throw wrapDbError(error, 'Failed to assign responsible person')
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.projects.all })
+      // The custody card reads the RP from the sub-container list.
+      qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+    },
+  })
+}

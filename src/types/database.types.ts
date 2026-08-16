@@ -9587,6 +9587,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_project_responsible_person: {
+        Args: { p_profile_id: string; p_project_id: string }
+        Returns: undefined
+      }
       set_receival_check_pdf_url: {
         Args: { p_id: string; p_url: string }
         Returns: undefined

@@ -700,10 +700,16 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               )}
             </div>
 
-            {/* Discipline — OPTIONAL project spend tag. Appears when the
-                consumer is a project pool (has disciplines); picking one
-                scopes the milestone list below and attributes the spend. */}
-            {consumerType === 'custody' && consumerSub && poolDisciplines.length > 0 && (
+          </div>
+          </>)}
+
+          {/* Project spend tags — Discipline + Milestone. Rendered OUTSIDE the
+              source/consumer split so they ALSO show when opened from a custody
+              card (sourceLocked), where the consumer is the fixed project pool.
+              Both optional (Decision 7); Milestone appears once a discipline is
+              picked and that discipline has active milestones. */}
+          {consumerType === 'custody' && consumerSub && poolDisciplines.length > 0 && (
+            <div className="space-y-2">
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Discipline (optional)</Label>
                 <Select value={disciplineId} onValueChange={(v) => setDisciplineId(v ?? NO_DISCIPLINE)}>
@@ -718,30 +724,24 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                   </SelectContent>
                 </Select>
               </div>
-            )}
-
-            {/* Milestone — OPTIONAL cost tag (locked Decision 7: consuming
-                with no milestone stays valid). Only appears once a discipline
-                is picked and that discipline has active milestones. "No
-                milestone" is always offered first. */}
-            {consumerType === 'custody' && consumerSub && resolvedDisciplineId && milestones.length > 0 && (
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Milestone (optional)</Label>
-                <Select value={milestoneId} onValueChange={(v) => setMilestoneId(v ?? NO_MILESTONE)}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="No milestone" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
-                    <SelectItem value={NO_MILESTONE} className="text-xs">No milestone</SelectItem>
-                    {milestones.map((m) => (
-                      <SelectItem key={m.id} value={m.id} className="text-xs">{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          </>)}
+              {resolvedDisciplineId && milestones.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Milestone (optional)</Label>
+                  <Select value={milestoneId} onValueChange={(v) => setMilestoneId(v ?? NO_MILESTONE)}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="No milestone" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-y-auto">
+                      <SelectItem value={NO_MILESTONE} className="text-xs">No milestone</SelectItem>
+                      {milestones.map((m) => (
+                        <SelectItem key={m.id} value={m.id} className="text-xs">{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Lines */}
           <div className="space-y-2">

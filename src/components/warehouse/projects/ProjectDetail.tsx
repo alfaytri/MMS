@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Layers, Lock, Package, Plus } from 'lucide-react'
+import { Layers, Lock, Package, Plus, User } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -34,11 +34,13 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { MilestoneManager } from '@/components/warehouse/projects/MilestoneManager'
 import { useDisciplines } from '@/hooks/useDisciplines'
 import { useDivisions } from '@/hooks/useDivisions'
+import { useAllProfiles } from '@/hooks/useProfiles'
 import { useHasManagePermission } from '@/hooks/usePermissions'
 import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
 import {
   useAddProjectDiscipline,
   useCloseProject,
+  useSetProjectResponsiblePerson,
   type ProjectDisciplineTag,
   type ProjectWithRollup,
 } from '@/hooks/useProjects'
@@ -78,6 +80,8 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
   } = useWarehouseStock(project?.warehouse_id, null)
   const addDiscipline = useAddProjectDiscipline()
   const closeProject = useCloseProject()
+  const setRp = useSetProjectResponsiblePerson()
+  const { data: users = [] } = useAllProfiles()
 
   const [pickedDisciplineId, setPickedDisciplineId] = useState('')
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false)
@@ -104,6 +108,12 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
     const d = divisions.find((x) => x.id === project.division_id)
     return d?.short_name || d?.name || '—'
   }, [divisions, project])
+
+  const currentRpName = useMemo(() => {
+    if (!project?.responsible_person_profile_id) return null
+    const u = users.find((x) => x.id === project.responsible_person_profile_id)
+    return u?.full_name?.trim() || u?.email || null
+  }, [users, project])
 
   // Disciplines not yet on this project — the add-discipline picker only
   // ever offers what the `add_project_discipline` partial unique index
@@ -139,6 +149,16 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
       await addDiscipline.mutateAsync({ project_id: project.id, discipline_id: pickedDisciplineId })
       toast.success(`${discipline?.name ?? 'Discipline'} added to ${project.project_number}`)
       setPickedDisciplineId('')
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
+
+  async function handleSetRp(v: string | null) {
+    if (!project) return
+    try {
+      await setRp.mutateAsync({ project_id: project.id, profile_id: !v || v === 'none' ? null : v })
+      toast.success('Responsible person updated')
     } catch (e) {
       toast.error((e as Error).message)
     }
@@ -201,6 +221,35 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
                     {String((stockError as { message?: string } | null)?.message ?? 'Failed to load stock — the item lists below may be incomplete.')}
                   </div>
                 )}
+
+                {/* Responsible person — governs custody consume/return + shows
+                    on the custody card. Editable by managers on an open project. */}
+                <div className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-1.5 min-w-0 sm:flex-1">
+                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-[11px] text-muted-foreground shrink-0">Responsible:</span>
+                    <span className="text-sm font-medium truncate">{currentRpName ?? 'Unassigned'}</span>
+                  </div>
+                  {canManage && project.is_active && (
+                    <Select
+                      value={project.responsible_person_profile_id ?? 'none'}
+                      onValueChange={handleSetRp}
+                      disabled={setRp.isPending}
+                    >
+                      <SelectTrigger className="w-full sm:w-60 h-9">
+                        <SelectValue placeholder="Assign…" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value="none">Unassigned</SelectItem>
+                        {users.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.full_name?.trim() || u.email || 'Unnamed user'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
 
                 {canManage && project.is_active && (
                   disciplinesLoading ? (

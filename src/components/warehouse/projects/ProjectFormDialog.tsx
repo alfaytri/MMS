@@ -150,7 +150,7 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
           <p className="text-xs text-muted-foreground">
-            Creates one stock bucket per selected discipline automatically.
+            Creates one stock pool for the project; the disciplines you pick become spend tags.
           </p>
         </DialogHeader>
         <Form {...form}>
@@ -252,7 +252,7 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
                   <FormItem>
                     <FormLabel>Disciplines</FormLabel>
                     <p className="text-[10px] text-muted-foreground -mt-1">
-                      One stock bucket is created per discipline picked. More can be added later from the project.
+                      Disciplines are spend tags (not separate stock) — pick which apply. More can be added later.
                     </p>
                     {disciplines.length === 0 ? (
                       <p className="text-xs text-muted-foreground border rounded-md px-3 py-2.5">
