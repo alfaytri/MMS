@@ -43,6 +43,24 @@ Follow-up to [the permission audit](2026-08-16-permission-audit.md) §E: ~40 use
 ### Batch 4 — returns / credit-notes / master-data / misc
 Returns + credit-notes RPCs (`rpc_record_return_refund`/`_store_credit`/`_process_return_restock`/`_close_return`/`rpc_redeem_credit_note`/…) → `sales.returns.manage` / `sales.credit_notes.manage` / `purchase.returns.manage` by type. Master-data RPCs (`create_customer_with_phone`, `create_service_customer`, `create_tool_item_with_default_variant`, `batch_update_variant_prices`, `service_inventory_bulk_upsert`, `upsert_package_with_services`) → the matching `.create`/`.manage` / `inventory.catalog.manage`.
 
+### ✅ Batch 5 — approval-EXECUTION hardening (2026-08-16, migrations `20260909000000` + `20260909000100`)
+Resolves open decision #3. Read the body of every approval action RPC and traced call sites (client + internal).
+
+**Already correctly gated (Pattern C — verified, left as-is):** `po_approval_action` (derives `auth.uid()`, ignores `p_approver_*`, checks the step's role / Owner-for-force; advances tiers *inline*), `approve_sales_request` / `reject_sales_request` (inline `is_approval_slot` + scope check + four-eyes), `force_approve_sales_request` / `force_approve_stock_adjustment` (Owner-slot check), credit-group approvals. `build_inv_check_approval_chain` is a **read-only** `STABLE` preview (no writes) — left callable.
+
+**Fixed — HOLE 1 (identity spoofing):** `action_stock_adjustment_step` authorized on a **client-supplied `p_profile_id`** → a caller could pass a victim's profile_id (who holds the role) and forge an approval in their name. Rewritten to derive the real approver from `auth.uid()` for both the `user_can_action_adjustment_step` check and the attribution; `p_profile_*` args are now ignored (frontend already passes the current user's own id → zero behavior change).
+
+**Fixed — HOLES 2–5 (ungated internal mutators, Pattern A / REVOKE):** these `SECURITY DEFINER` functions posted inventory/cost or flipped approval state with **no caller authz** and were directly `authenticated`-callable; each is only ever invoked by the gated DEFINER functions above (all owned by `postgres`, so REVOKE keeps the internal `PERFORM` working). 0 client call-sites for all.
+| RPC | Effect if called directly | Caller |
+|---|---|---|
+| `approve_stock_adjustment_inventory` | approve + post FIFO/stock/cost for any adjustment | `action_stock_adjustment_step`, `force_approve_stock_adjustment` |
+| `approve_receival_inventory` | approve + post receival inventory (or reverse `received_qty`) | *orphan* (live flow = `create_and_approve_receival`) |
+| `advance_sales_approval` | flip SO → `confirmed` | `approve_sales_request`, `force_approve_sales_request` |
+| `advance_po_approval_tier` | flip PO → `approved` | *orphan* (logic inlined in `po_approval_action`) |
+| `build_sales_approval_chain` | inject arbitrary `sale_order_approvals` rows | `create_sale_order`, `apply_sale_order_edit`, `resubmit_sale_order` |
+
+Verified on staging + new-prod: rewrite landed, `authenticated` grant removed on all five, `authenticated` direct call → `42501`, owner still reaches body (internal path intact). Post-fix sweep of `approv|advance|reject|action.*step` SECDEF functions shows only the read-only preview + a trigger function remain `authenticated`-callable (both non-holes).
+
 ---
 
 ## Current role → action-key grants (new-prod — proves no regression)
@@ -62,5 +80,5 @@ Admins (Owner / Admin Level / exploit) bypass all checks.
 ## Open decisions (confirm during execution)
 1. **cancel/reject transfer** — gate on `warehouse.transfer.approve`, or on `.create` (creator can cancel own)? 
 2. **inventory-check apply/snapshot** — reuse `warehouse.check.create`, or add a distinct `warehouse.check.apply`?
-3. **Approval-step RPCs** — confirm they're chain-gated and leave (recommended), vs also add a permission key.
+3. ~~**Approval-step RPCs** — confirm they're chain-gated and leave (recommended), vs also add a permission key.~~ **RESOLVED (Batch 5):** client-facing actions were already chain/slot-gated and left; one identity-spoofing hole (`action_stock_adjustment_step`) fixed; five ungated internal mutators REVOKEd from `authenticated`.
 4. **Reports RPCs** (`rpc_report_*`) — reads; confirm `reports.*` gating or leave (division-scoped).

@@ -94,3 +94,15 @@ Most create/action flows don't insert directly — they call a `SECURITY DEFINER
 2. **B/A2 (decide):** tighten `companies/divisions/warehouses/suppliers` INSERT to require the module's `.create`/`.manage` (removes the wide-open access). Needs a call on who should create each.
 3. **A3 (per-RPC):** add the create-permission check inside the receival/transfer/shipment/check RPCs.
 4. **Reference tables:** decide whether to gate or leave open.
+
+---
+
+## F. ✅ Approval-EXECUTION layer — COMPLETE (Batch 5, migrations `20260909000000` + `20260909000100`)
+
+Ran a full sweep of every `SECURITY DEFINER` function matching `approv|advance|reject|action.*step` and read each body. Findings (details in [the hardening plan](2026-08-16-rpc-permission-hardening-plan.md) § Batch 5):
+
+- **Already correct (left as-is):** `po_approval_action`, `approve_sales_request`, `reject_sales_request`, `force_approve_sales_request`, `force_approve_stock_adjustment`, credit-group approvals — all derive identity from `auth.uid()` and check the step role / Owner slot in-body. (So §E's spot-check note above was pessimistic for `force_approve_stock_adjustment` — it *does* check the Owner role.) `build_inv_check_approval_chain` is a read-only preview — left callable.
+- **HOLE fixed — identity spoofing:** `action_stock_adjustment_step` authorized on a **client-supplied `p_profile_id`**; rewritten to use `auth.uid()`.
+- **HOLES fixed — ungated internal mutators (REVOKEd from `authenticated`, service-role/internal only):** `approve_stock_adjustment_inventory`, `approve_receival_inventory` (orphan; posts receival inventory with no check — matches §E's flag), `advance_sales_approval`, `advance_po_approval_tier` (orphan), `build_sales_approval_chain`. All owned by `postgres` and only invoked by gated DEFINER callers → REVOKE closes the direct Data-API path without breaking the internal flow.
+
+Verified on staging + new-prod (grant removed, direct `authenticated` call → `42501`, internal path intact). **Still open:** the four *deferred* create-RPCs from Batch 4 (`create_service_customer`, `upsert_package_with_services`, `rpc_cancel_consumption`, `rpc_create_custody_return`) — no role holds their key today, so gating would make them admin-only; needs a role-grant decision.
