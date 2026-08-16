@@ -325,6 +325,7 @@ export const NAV_TREE: TreeNode[] = [
             icon: Receipt,
             permissions: [
               { key: 'purchase.payments.view',   label: 'View Supplier Payments',   description: 'Access supplier payment records' },
+              { key: 'purchase.payments.record', label: 'Record Supplier Payments', description: 'Record (create) supplier payments against bills / POs. Separate from Edit / Delete.' },
               { key: 'purchase.payments.manage', label: 'Edit / Delete Supplier Payments', description: 'Edit amount, method, date, reference on recorded supplier payments, and soft-delete mistaken entries. Gate behind Accounting only.' },
             ],
           },
@@ -389,6 +390,7 @@ export const NAV_TREE: TreeNode[] = [
             icon: Receipt,
             permissions: [
               { key: 'sales.payments.view',   label: 'View Customer Payments',   description: 'Access customer payment records' },
+              { key: 'sales.payments.record', label: 'Record Customer Payments', description: 'Record (create) customer payments against invoices / sale orders. Separate from Edit / Delete.' },
               { key: 'sales.payments.manage', label: 'Edit / Delete Customer Payments', description: 'Edit amount, method, date, reference on recorded customer payments, and soft-delete mistaken entries. Gate behind Accounting only. Store-credit redemptions cannot be edited here.' },
             ],
           },
