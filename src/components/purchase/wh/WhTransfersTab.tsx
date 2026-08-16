@@ -34,7 +34,7 @@ import {
   type WarehouseTransfer,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
-import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { createClient } from '@/lib/supabase/client'
@@ -74,6 +74,12 @@ interface Props {
 export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, currentProfile }: Props) {
   const { data: transfers = [] } = useWarehouseTransfers()
   const { data: fullStock = [] } = useWarehouseStock()
+  const divVisible = useDivisionScopedVisibility()
+  // Division-scoped: show a transfer if either end is in the active-division view.
+  const scopedTransfers = useMemo(
+    () => transfers.filter((t) => divVisible(t.from_sub_container_id) || divVisible(t.to_sub_container_id)),
+    [transfers, divVisible],
+  )
 
   const dispatchMutation = useDispatchTransfer()
   const receiveMutation  = useReceiveTransfer()
@@ -304,16 +310,16 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
-  const totalPages = Math.max(1, Math.ceil(transfers.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [transfers.length])
+  const totalPages = Math.max(1, Math.ceil(scopedTransfers.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [scopedTransfers.length])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
-    return transfers.slice(start, start + PAGE_SIZE)
-  }, [transfers, page])
+    return scopedTransfers.slice(start, start + PAGE_SIZE)
+  }, [scopedTransfers, page])
 
   /* ── Empty state ───────────────────────────────────────────────────────── */
 
-  if (transfers.length === 0) {
+  if (scopedTransfers.length === 0) {
     return (
       <div className="p-4 md:p-6 flex items-center justify-center h-40">
         <p className="text-xs text-muted-foreground">No transfers yet.</p>

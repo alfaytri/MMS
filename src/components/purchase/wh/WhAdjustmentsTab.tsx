@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ItemTreeCell } from './ItemTreeCell'
 import { useStockAdjustments, useAdjustmentPhotoSignedUrls, type StockAdjustmentApprovalStep } from '@/hooks/useWarehouseOperations'
-import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { useAllCategoriesFlat, breadcrumb as categoryBreadcrumb } from '@/hooks/useInventoryTree'
 import { WhAdjustmentDetailDialog } from './WhAdjustmentDetailDialog'
 import type { Warehouse } from '@/hooks/useWarehouses'
@@ -76,6 +76,12 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
   const [detailId, setDetailId] = useState<string | null>(null)
 
   const typedAdjustments = adjustments as unknown as StockAdjustmentRow[]
+  const divVisible = useDivisionScopedVisibility()
+  // Division-scoped: hide adjustments whose sub-container is outside the view.
+  const scopedAdjustments = useMemo(
+    () => typedAdjustments.filter((a) => divVisible(a.sub_container_id)),
+    [typedAdjustments, divVisible],
+  )
 
   const detailRow = useMemo(
     () => (detailId ? typedAdjustments.find(a => a.id === detailId) ?? null : null),
@@ -83,19 +89,19 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
   )
 
   const counts = useMemo(() => {
-    const c = { all: typedAdjustments.length, pending_approval: 0, approved: 0, rejected: 0 }
-    for (const a of typedAdjustments) {
+    const c = { all: scopedAdjustments.length, pending_approval: 0, approved: 0, rejected: 0 }
+    for (const a of scopedAdjustments) {
       if (a.status === 'pending_approval') c.pending_approval++
       else if (a.status === 'approved')    c.approved++
       else if (a.status === 'rejected')    c.rejected++
     }
     return c
-  }, [typedAdjustments])
+  }, [scopedAdjustments])
 
   const filteredAdjustments = useMemo(() => {
-    if (statusFilter === 'all') return typedAdjustments
-    return typedAdjustments.filter(a => a.status === statusFilter)
-  }, [typedAdjustments, statusFilter])
+    if (statusFilter === 'all') return scopedAdjustments
+    return scopedAdjustments.filter(a => a.status === statusFilter)
+  }, [scopedAdjustments, statusFilter])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25

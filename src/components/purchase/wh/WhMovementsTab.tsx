@@ -13,7 +13,7 @@ import { WhMovementRefDialog } from './WhMovementRefDialog'
 import { WhStockDetailDialog } from './WhStockDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { useStockMovements, useWarehouseStock, StockMovement } from '@/hooks/useWarehouseOperations'
-import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { format } from 'date-fns'
 
@@ -101,6 +101,7 @@ const REF_CONFIG: Record<string, { label: string }> = {
   inventory_check:  { label: 'Inv. Check' },
   cost_adjustment:  { label: 'Cost Adjustment' },
   free_receival:    { label: 'Free Receival' },
+  consumption:      { label: 'Consumption' },
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -130,15 +131,16 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
     // id from a previously picked warehouse would otherwise hide every row.
     setSubContainerFilter('all')
   }, [warehouseFilter])
-  const [refDialog, setRefDialog] = useState<{ type: string; id: string } | null>(null)
+  const [refDialog, setRefDialog] = useState<{ type: string; id: string; subContainer: string | null } | null>(null)
   const [stockDialog, setStockDialog] = useState<{
     brandVariantId: string; itemName: string; category: string | null; subcategory: string | null; itemType: string | null
     brand: string | null; origin: string | null; sku: string | null
-    breakdown: { totalQty: number; totalValue: number; warehouses: { name: string; qty: number; value: number }[] }
+    breakdown: { totalQty: number; totalValue: number; warehouses: { name: string; subContainer: string | null; qty: number; value: number }[] }
   } | null>(null)
 
   const { data: movements = [] } = useStockMovements({ limit: 200 })
   const { data: fullStock = [] } = useWarehouseStock()
+  const divVisible = useDivisionScopedVisibility()
 
   const warehouseMap = useMemo(() => new Map(warehouses.map(w => [w.id, w.name])), [warehouses])
 
@@ -152,9 +154,12 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
     return map
   }, [fullStock])
 
-  // Per-variant warehouse breakdown for stock qty & value tooltips
+  // Per-variant warehouse breakdown for stock qty & value tooltips.
+  // warehouse_stock_view is grouped by (warehouse, sub_container, variant), so
+  // each row is a distinct (warehouse, sub-container) slice — carry the
+  // sub-container name so the breakdown popup can show it.
   const variantStockBreakdown = useMemo(() => {
-    const map = new Map<string, { totalQty: number; totalValue: number; warehouses: { name: string; qty: number; value: number }[] }>()
+    const map = new Map<string, { totalQty: number; totalValue: number; warehouses: { name: string; subContainer: string | null; qty: number; value: number }[] }>()
     for (const s of fullStock) {
       if (!map.has(s.brand_variant_id)) {
         map.set(s.brand_variant_id, { totalQty: 0, totalValue: 0, warehouses: [] })
@@ -163,7 +168,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
       entry.totalQty   += s.qty
       entry.totalValue += s.total_value
       const whName = warehouseMap.get(s.warehouse_id) ?? 'Unknown'
-      entry.warehouses.push({ name: whName, qty: s.qty, value: s.total_value })
+      entry.warehouses.push({ name: whName, subContainer: s.sub_container_name, qty: s.qty, value: s.total_value })
     }
     return map
   }, [fullStock, warehouseMap])
@@ -178,9 +183,10 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
       const matchSub = subContainerFilter === 'all' || m.sub_container_id === subContainerFilter
       const matchType = typeFilter === 'all' || m.movement_type === typeFilter
       const matchStream = streamFilter === 'all' || m.stream === streamFilter
-      return matchSearch && matchWh && matchSub && matchType && matchStream
+      const matchDiv = divVisible(m.sub_container_id)
+      return matchSearch && matchWh && matchSub && matchType && matchStream && matchDiv
     })
-  }, [movements, search, warehouseFilter, subContainerFilter, typeFilter, streamFilter])
+  }, [movements, search, warehouseFilter, subContainerFilter, typeFilter, streamFilter, divVisible])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
@@ -298,7 +304,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                 {refCfg && m.reference_id ? (
                   <span
                     className="text-[10px] text-primary hover:underline cursor-pointer"
-                    onClick={() => setRefDialog({ type: m.reference_type!, id: m.reference_id! })}
+                    onClick={() => setRefDialog({ type: m.reference_type!, id: m.reference_id!, subContainer: m.sub_container_name })}
                   >
                     {refCfg.label}
                   </span>
@@ -434,7 +440,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                         m.reference_id ? (
                           <span
                             className="text-primary hover:underline cursor-pointer"
-                            onClick={() => setRefDialog({ type: m.reference_type!, id: m.reference_id! })}
+                            onClick={() => setRefDialog({ type: m.reference_type!, id: m.reference_id!, subContainer: m.sub_container_name })}
                           >
                             {refCfg.label}
                           </span>
@@ -475,6 +481,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
         <WhMovementRefDialog
           referenceType={refDialog.type}
           referenceId={refDialog.id}
+          subContainerName={refDialog.subContainer}
           open={!!refDialog}
           onClose={() => setRefDialog(null)}
         />

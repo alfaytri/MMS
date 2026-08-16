@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useReceivalsAndDeliveries, ReceivalDelivery } from '@/hooks/useWarehouseOperations'
-import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { WhReceivalDetailDialog } from './WhReceivalDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
@@ -34,10 +34,17 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
   const [direction, setDirection] = useState<'all' | 'inbound' | 'outbound'>('all')
   const [warehouseFilter, setWarehouseFilter] = useState('all')
   const [selected, setSelected] = useState<ReceivalDelivery | null>(null)
+  const divVisible = useDivisionScopedVisibility()
+
+  // Division-scoped: hide docs whose sub-container(s) are outside the view.
+  const scopedItems = useMemo(
+    () => allItems.filter((item) => item.subContainerIds.length === 0 || item.subContainerIds.some((id) => divVisible(id))),
+    [allItems, divVisible],
+  )
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return allItems.filter((item) => {
+    return scopedItems.filter((item) => {
       const matchSearch = !q ||
         item.docNumber.toLowerCase().includes(q) ||
         item.reference.toLowerCase().includes(q) ||
@@ -46,7 +53,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
       const matchWh = warehouseFilter === 'all' || item.warehouseId === warehouseFilter
       return matchSearch && matchDirection && matchWh
     })
-  }, [allItems, search, direction, warehouseFilter])
+  }, [scopedItems, search, direction, warehouseFilter])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
@@ -57,8 +64,8 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
 
-  const inboundCount = allItems.filter(i => i.direction === 'inbound').length
-  const outboundCount = allItems.filter(i => i.direction === 'outbound').length
+  const inboundCount = scopedItems.filter(i => i.direction === 'inbound').length
+  const outboundCount = scopedItems.filter(i => i.direction === 'outbound').length
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -77,7 +84,7 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-60 overflow-y-auto">
-            <SelectItem value="all" className="text-xs">All ({allItems.length})</SelectItem>
+            <SelectItem value="all" className="text-xs">All ({scopedItems.length})</SelectItem>
             <SelectItem value="inbound" className="text-xs">Inbound ({inboundCount})</SelectItem>
             <SelectItem value="outbound" className="text-xs">Outbound ({outboundCount})</SelectItem>
           </SelectContent>

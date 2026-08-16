@@ -5,7 +5,7 @@ import { ClipboardCheck, Users, CheckCircle2, Clock, XCircle, Eye, ChevronLeft, 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useInventoryChecks } from '@/hooks/useWarehouseOperations'
-import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
 import { format } from 'date-fns'
@@ -33,15 +33,21 @@ interface Props {
 
 export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ warehouses, currentProfile }: Props) {
   const { data: checks = [] } = useInventoryChecks()
+  const divVisible = useDivisionScopedVisibility()
+  // Division-scoped: hide checks whose sub-container is outside the view.
+  const scopedChecks = useMemo(
+    () => checks.filter((c) => divVisible(c.sub_container_id)),
+    [checks, divVisible],
+  )
   const [selectedCheck, setSelectedCheck] = useState<InventoryCheck | null>(null)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
-  const totalPages = Math.max(1, Math.ceil(checks.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [checks.length])
+  const totalPages = Math.max(1, Math.ceil(scopedChecks.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [scopedChecks.length])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
-    return checks.slice(start, start + PAGE_SIZE)
-  }, [checks, page])
+    return scopedChecks.slice(start, start + PAGE_SIZE)
+  }, [scopedChecks, page])
 
   return (
     <div className="p-4 md:p-6 space-y-4">

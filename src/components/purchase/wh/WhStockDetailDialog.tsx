@@ -4,13 +4,14 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { Layers, Warehouse } from 'lucide-react'
 import { ItemTreeCell } from './ItemTreeCell'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 interface StockBreakdown {
   totalQty: number
   totalValue: number
-  warehouses: { name: string; qty: number; value: number; avgCost?: number }[]
+  warehouses: { name: string; subContainer?: string | null; qty: number; value: number; avgCost?: number }[]
 }
 
 interface Props {
@@ -29,7 +30,7 @@ interface Props {
 export function WhStockDetailDialog({ open, onClose, itemName, category, subcategory, itemType, brand, origin, sku, breakdown }: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
         <div className="px-6 pt-6 pb-4 space-y-4">
           {/* Header */}
           <div className="flex items-center gap-3">
@@ -80,12 +81,19 @@ export function WhStockDetailDialog({ open, onClose, itemName, category, subcate
                 <span className="text-right">Avg Cost</span>
                 <span className="text-right">Value</span>
               </div>
-              <div className="max-h-[220px] overflow-y-auto divide-y">
-                {breakdown.warehouses.map((w) => (
-                  <div key={w.name} className="grid grid-cols-[1fr_70px_80px_90px] gap-2 px-4 py-2.5 items-center">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Warehouse className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm font-medium truncate">{w.name}</span>
+              <div className="max-h-[280px] overflow-y-auto divide-y">
+                {breakdown.warehouses.map((w, idx) => (
+                  <div key={`${w.name}-${w.subContainer ?? ''}-${idx}`} className="grid grid-cols-[1fr_70px_80px_90px] gap-2 px-4 py-2.5 items-start">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Warehouse className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="block text-sm font-medium break-words">{w.name}</span>
+                        {w.subContainer && (
+                          <span className="block text-[11px] text-muted-foreground break-words">
+                            {shortenSubContainerName(w.subContainer, w.name)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span className="text-sm text-right tabular-nums">{w.qty}</span>
                     <span className="text-sm text-right tabular-nums">{w.qty > 0 ? fmtVal(w.value / w.qty) : '—'}</span>

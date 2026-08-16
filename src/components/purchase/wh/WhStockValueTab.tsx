@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
-import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { useStockValueCogsSummary } from '@/hooks/useStockValueCogsSummary'
 import { CogsDetailDialog } from './CogsDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
@@ -304,6 +304,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
 
   const { data: allStock = [], isLoading } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
   const { data: cogsMap } = useStockValueCogsSummary(null)
+  const divVisible = useDivisionScopedVisibility()
 
 
   // Per-variant latest receival (created_at of newest FIFO layer) for sort ordering.
@@ -376,7 +377,8 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
   // ── Filter ─────────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
-    let rows: WarehouseStockItem[] = allStock
+    // Division-scoped: hide sub-containers outside the active-division view.
+    let rows: WarehouseStockItem[] = allStock.filter((r) => divVisible(r.sub_container_id))
 
     if (activeType !== '__all__') {
       rows = rows.filter((r) => r.item_type === activeType)
@@ -396,7 +398,7 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
     }
 
     return rows
-  }, [allStock, activeType, search, warehouseMap])
+  }, [allStock, activeType, search, warehouseMap, divVisible])
 
   // ── Merge rows by brand_variant_id ─────────────────────────────────────────
 

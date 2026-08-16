@@ -1,8 +1,10 @@
+import { useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { DBTable } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 
 /**
  * D.1 auto-creates sub-containers with the name "<Warehouse> — <Division>",
@@ -110,6 +112,54 @@ export function useAllActiveSubContainers() {
       })
     },
   })
+}
+
+/**
+ * Lightweight id → division_id map for every sub-container the caller can see
+ * (RLS-scoped; a super-viewer gets all). Powers division-based hiding on the
+ * warehouse-page tabs — rows are filtered by their sub-container's division
+ * against the active-division view set.
+ */
+export function useSubContainerDivisionMap() {
+  return useQuery({
+    queryKey: ['warehouse-sub-containers', 'division-map'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('warehouse_sub_containers')
+        .select('id, division_id')
+        .limit(1000)
+      if (error) throw error
+      const map = new Map<string, string | null>()
+      for (const r of (data ?? []) as Array<{ id: string; division_id: string | null }>) {
+        map.set(r.id, r.division_id)
+      }
+      return map
+    },
+  })
+}
+
+/**
+ * Returns a predicate `(subContainerId) => visible` for the active-division
+ * view. Empty view set = "All" → everything visible. A row with no
+ * sub-container, or one whose division is unknown, stays visible (it can't be
+ * scoped). Used to hide other-division rows across the warehouse tabs so an
+ * operator viewing one division doesn't see another division's stock/movements.
+ */
+export function useDivisionScopedVisibility() {
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: divMap } = useSubContainerDivisionMap()
+  return useCallback(
+    (subContainerId: string | null | undefined): boolean => {
+      if (viewDivisionIds.size === 0) return true
+      if (!subContainerId) return true
+      const div = divMap?.get(subContainerId)
+      if (!div) return true
+      return viewDivisionIds.has(div)
+    },
+    [viewDivisionIds, divMap],
+  )
 }
 
 export function useWarehouseSubContainers(warehouseId?: string | null) {

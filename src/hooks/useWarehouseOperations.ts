@@ -248,12 +248,14 @@ export type ReceivalDelivery = {
   reference: string // po_id (inbound) | sale_order_id (outbound)
   warehouseId: string
   warehouseName: string
-  // Inbound: sub-container name(s) from receival_items — one entry per DISTINCT
-  // sub_container the receival touched. Almost always length 1 in practice.
-  // Outbound: [] — sale_deliveries has no header sub_container_id column
-  // (D.3 stamped only the movement). Sub-container is visible via Movements
-  // tab or the delivery detail dialog.
+  // Sub-container name(s) — one entry per DISTINCT sub_container the doc touched.
+  // Inbound: from receival_items.sub_container_id. Outbound: resolved from the
+  // delivery's stock movements (sale_deliveries has no header sub_container_id —
+  // D.3 stamped only the movement). Almost always length 1 in practice.
   subContainerNames: string[]
+  // The matching sub_container ids (same order-agnostic set) — used for
+  // division-scoped filtering on the Receivals & Deliveries tab.
+  subContainerIds: string[]
   counterparty: string // supplier name (inbound) | customer name (outbound)
   date: string
   items: { name: string; sku: string; qty: number; brand_variant_id?: string | null }[]
@@ -988,12 +990,48 @@ export function useReceivalsAndDeliveries() {
       if (receivalsRes.error) throw receivalsRes.error
       if (deliveriesRes.error) throw deliveriesRes.error
 
+      // Deliveries carry no sub_container_id on the header or lines (D.3 stamped
+      // only the movement), so resolve each delivery's sub-container(s) from its
+      // stock movements in one bounded batch.
+      const deliverySubMap = new Map<string, Set<string>>()
+      const deliverySubIdMap = new Map<string, Set<string>>()
+      const deliveryIds = (deliveriesRes.data ?? []).map((d) => d.id).filter(Boolean)
+      if (deliveryIds.length > 0) {
+        const { data: moveRows, error: moveErr } = await supabase
+          .from('inventory_stock_movements')
+          .select('reference_id, sub_container_id, warehouse_sub_containers:sub_container_id(name)')
+          .eq('reference_type', 'sale_delivery')
+          .in('reference_id', deliveryIds)
+          .limit(1000)
+        if (moveErr) throw moveErr
+        for (const mv of moveRows ?? []) {
+          const rid = (mv as { reference_id: string | null }).reference_id
+          const sid = (mv as { sub_container_id: string | null }).sub_container_id
+          const nm = (mv as unknown as { warehouse_sub_containers?: { name: string } | null }).warehouse_sub_containers?.name
+          if (rid && nm) {
+            if (!deliverySubMap.has(rid)) deliverySubMap.set(rid, new Set())
+            deliverySubMap.get(rid)!.add(nm)
+          }
+          if (rid && sid) {
+            if (!deliverySubIdMap.has(rid)) deliverySubIdMap.set(rid, new Set())
+            deliverySubIdMap.get(rid)!.add(sid)
+          }
+        }
+      }
+
       const inbound: ReceivalDelivery[] = (receivalsRes.data ?? []).map((r) => {
         const rItems = Array.isArray(r.receival_items) ? r.receival_items : []
         const subNames = Array.from(
           new Set(
             rItems
               .map((ri) => (ri as unknown as { warehouse_sub_containers?: { name: string } | null }).warehouse_sub_containers?.name)
+              .filter((n): n is string => !!n),
+          ),
+        )
+        const subIds = Array.from(
+          new Set(
+            rItems
+              .map((ri) => (ri as unknown as { sub_container_id?: string | null }).sub_container_id)
               .filter((n): n is string => !!n),
           ),
         )
@@ -1005,6 +1043,7 @@ export function useReceivalsAndDeliveries() {
           warehouseId: r.warehouse_id ?? '',
           warehouseName: r.warehouses?.name ?? '',
           subContainerNames: subNames,
+          subContainerIds: subIds,
           counterparty: r.purchase_orders?.supplier_name ?? '',
           date: r.date ?? '',
           items: rItems.map((ri) => ({ name: ri.item_name ?? '', sku: ri.sku ?? '', qty: ri.qty_received ?? 0, brand_variant_id: ri.brand_variant_id ?? null })),
@@ -1021,8 +1060,9 @@ export function useReceivalsAndDeliveries() {
         warehouseId: d.warehouse_id ?? '',
         warehouseName: d.warehouse_name ?? '',
         // sale_deliveries has no header sub_container_id — D.3 stamped only the
-        // movement. Left empty here; see Movements tab or delivery detail dialog.
-        subContainerNames: [],
+        // movement, so the sub-container(s) come from deliverySubMap (built above).
+        subContainerNames: Array.from(deliverySubMap.get(d.id) ?? []),
+        subContainerIds: Array.from(deliverySubIdMap.get(d.id) ?? []),
         counterparty: d.sale_orders?.customers?.name ?? '',
         date: d.date ?? '',
         items: Array.isArray(d.sale_delivery_lines) ? d.sale_delivery_lines.map((di) => ({ name: di.item_name ?? '', sku: di.sku ?? '', qty: di.qty_delivered ?? 0, brand_variant_id: di.brand_variant_id ?? null })) : [],

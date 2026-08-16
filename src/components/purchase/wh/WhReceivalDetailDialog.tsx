@@ -4,9 +4,10 @@ import { useMemo } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Package, Truck, Calendar, Warehouse, User } from 'lucide-react'
+import { Package, Truck, Calendar, Warehouse, User, Boxes } from 'lucide-react'
 import { ItemTreeCell } from './ItemTreeCell'
 import { ReceivalDelivery, useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { format } from 'date-fns'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -51,10 +52,13 @@ export function WhReceivalDetailDialog({ item, onClose }: Props) {
 
   if (!item) return null
   const isInbound = item.direction === 'inbound'
+  const subLabel = item.subContainerNames.length === 0
+    ? '—'
+    : item.subContainerNames.map((n) => shortenSubContainerName(n, item.warehouseName)).join(' · ')
 
   return (
     <Dialog open={!!item} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
         <div className="px-6 pt-6 pb-4 space-y-4">
           {/* Header */}
           <div className="flex items-center gap-3">
@@ -91,6 +95,11 @@ export function WhReceivalDetailDialog({ item, onClose }: Props) {
               icon={<Warehouse className="h-3.5 w-3.5 text-muted-foreground" />}
               label="Warehouse"
               value={item.warehouseName || '—'}
+            />
+            <MetaRow
+              icon={<Boxes className="h-3.5 w-3.5 text-muted-foreground" />}
+              label="Sub-container"
+              value={subLabel}
             />
             <MetaRow
               icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}

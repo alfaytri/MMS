@@ -7,10 +7,12 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
   Package, Truck, ArrowRightLeft, ClipboardList,
-  Receipt, ClipboardCheck, Calendar, Warehouse, User,
+  Receipt, ClipboardCheck, Calendar, Warehouse, User, Boxes,
+  PackageMinus, Flag,
 } from 'lucide-react'
 import { ItemTreeCell } from './ItemTreeCell'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 
@@ -19,6 +21,9 @@ interface Props {
   referenceId: string
   open: boolean
   onClose: () => void
+  // Sub-container of the clicked movement row (deliveries/receivals carry no
+  // usable header sub_container, so the Movements tab passes it as context).
+  subContainerName?: string | null
 }
 
 // ─── Sub-view data types ───────────────────────────────────────────────────
@@ -99,6 +104,22 @@ interface SaleReturnData {
   restock_warehouse_name: string | null
   return_lines: Array<{ id: string; item_name: string; sku: string | null; qty: number; condition: string | null }> | null
   sale_orders: { so_number: string; customers: { name: string } | null } | null
+}
+
+interface ConsumptionData {
+  ce_number: string | null
+  date: string | null
+  status: string | null
+  notes: string | null
+  consumer_type: string | null
+  consumer: {
+    name: string | null
+    disciplines: { name: string } | null
+    projects: { project_number: string; name: string | null } | null
+  } | null
+  source: { name: string | null } | null
+  milestone: { label: string } | null
+  items: Array<{ brand_variant_id: string | null; item_name: string | null; sku: string | null; qty: number; unit_cost: number | null }>
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -233,6 +254,45 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
             } satisfies SaleReturnData,
           }
         }
+        case 'consumption': {
+          // The movement's reference_id points at consumption_entries.id.
+          const { data: ce, error } = await supabase
+            .from('consumption_entries')
+            .select('id, ce_number, date, status, notes, consumer_type, consumer_sub_container_id, source_sub_container_id, milestone_id')
+            .eq('id', referenceId)
+            .maybeSingle()
+          if (error) throw error
+          if (!ce) return null
+          // Resolve consumer (→ discipline/project), source, milestone, and the
+          // consumed lines separately — robust against PostgREST join quirks.
+          const [consumerRes, sourceRes, msRes, movesRes] = await Promise.all([
+            ce.consumer_sub_container_id
+              ? supabase.from('warehouse_sub_containers')
+                  .select('name, disciplines(name), projects(project_number, name)')
+                  .eq('id', ce.consumer_sub_container_id).maybeSingle()
+              : Promise.resolve({ data: null } as const),
+            ce.source_sub_container_id
+              ? supabase.from('warehouse_sub_containers').select('name').eq('id', ce.source_sub_container_id).maybeSingle()
+              : Promise.resolve({ data: null } as const),
+            ce.milestone_id
+              ? supabase.from('project_milestones').select('label').eq('id', ce.milestone_id).maybeSingle()
+              : Promise.resolve({ data: null } as const),
+            supabase.from('inventory_stock_movements')
+              .select('brand_variant_id, item_name, sku, qty, unit_cost')
+              .eq('reference_type', 'consumption').eq('reference_id', referenceId).limit(200),
+          ])
+          const consumer = (consumerRes.data ?? null) as ConsumptionData['consumer']
+          const source = (sourceRes.data ?? null) as ConsumptionData['source']
+          const milestone = (msRes.data ?? null) as ConsumptionData['milestone']
+          return {
+            type: 'consumption' as const,
+            data: {
+              ce_number: ce.ce_number, date: ce.date, status: ce.status, notes: ce.notes,
+              consumer_type: ce.consumer_type, consumer, source, milestone,
+              items: (movesRes.data ?? []) as ConsumptionData['items'],
+            } satisfies ConsumptionData,
+          }
+        }
         default:
           return null
       }
@@ -260,7 +320,7 @@ function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 
 // ─── Main dialog ────────────────────────────────────────────────────────────
 
-export function WhMovementRefDialog({ referenceType, referenceId, open, onClose }: Props) {
+export function WhMovementRefDialog({ referenceType, referenceId, open, onClose, subContainerName }: Props) {
   const { data: result, isLoading } = useRefDetail(referenceType, referenceId, open)
   const { data: fullStock = [] } = useWarehouseStock()
 
@@ -276,27 +336,30 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl min-h-[420px] sm:min-h-[520px] max-h-[85vh] overflow-y-auto p-0">
+      {/* Fits its content (no dead space); a modest floor keeps short views and
+          the loading state from feeling cramped, and tall views scroll at 85vh. */}
+      <DialogContent className="max-w-2xl min-h-[280px] max-h-[85vh] overflow-y-auto p-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-28">
             <div className="flex flex-col items-center gap-2">
               <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
               <p className="text-xs text-muted-foreground">Loading details…</p>
             </div>
           </div>
         ) : !result ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-28">
             <p className="text-sm text-muted-foreground">Details not available</p>
           </div>
         ) : (
           <>
-            {result.type === 'sale_delivery' && <SaleDeliveryView data={result.data} />}
-            {result.type === 'receival' && <ReceivalView data={result.data} variantMeta={variantMeta} isFree={referenceType === 'free_receival'} />}
+            {result.type === 'sale_delivery' && <SaleDeliveryView data={result.data} subContainer={subContainerName ?? null} />}
+            {result.type === 'receival' && <ReceivalView data={result.data} variantMeta={variantMeta} isFree={referenceType === 'free_receival'} subContainer={subContainerName ?? null} />}
             {result.type === 'transfer' && <TransferView data={result.data} />}
             {result.type === 'adjustment' && <AdjustmentView data={result.data} variantMeta={variantMeta} />}
             {result.type === 'landed_cost' && <LandedCostView data={result.data} />}
             {result.type === 'inventory_check' && <InventoryCheckView data={result.data} />}
             {result.type === 'sale_return' && <SaleReturnView data={result.data} />}
+            {result.type === 'consumption' && <ConsumptionView data={result.data} variantMeta={variantMeta} />}
           </>
         )}
       </DialogContent>
@@ -306,7 +369,7 @@ export function WhMovementRefDialog({ referenceType, referenceId, open, onClose 
 
 // ─── Sale Delivery ──────────────────────────────────────────────────────────
 
-function SaleDeliveryView({ data }: { data: SaleDeliveryData }) {
+function SaleDeliveryView({ data, subContainer }: { data: SaleDeliveryData; subContainer: string | null }) {
   const items = Array.isArray(data.sale_delivery_lines) ? data.sale_delivery_lines : []
   const customer = data.sale_orders?.customers?.name ?? '—'
   const soNumber = data.sale_orders?.so_number ?? '—'
@@ -334,6 +397,7 @@ function SaleDeliveryView({ data }: { data: SaleDeliveryData }) {
         <div className="grid grid-cols-2 gap-4">
           <MetaRow icon={<User className="h-3.5 w-3.5 text-muted-foreground" />} label="Customer" value={customer} />
           <MetaRow icon={<Warehouse className="h-3.5 w-3.5 text-muted-foreground" />} label="Warehouse" value={data.warehouse_name ?? '—'} />
+          <MetaRow icon={<Boxes className="h-3.5 w-3.5 text-muted-foreground" />} label="Sub-container" value={subContainer ? shortenSubContainerName(subContainer, data.warehouse_name ?? '') : '—'} />
           <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.date ? format(new Date(data.date), 'dd MMM yyyy') : '—'} />
           <MetaRow icon={<Package className="h-3.5 w-3.5 text-muted-foreground" />} label="Items" value={`${items.length} item${items.length !== 1 ? 's' : ''}`} />
         </div>
@@ -364,7 +428,7 @@ function SaleDeliveryView({ data }: { data: SaleDeliveryData }) {
 
 // ─── Receival ───────────────────────────────────────────────────────────────
 
-function ReceivalView({ data, variantMeta, isFree }: { data: ReceivalData; variantMeta: Map<string, VariantMeta>; isFree: boolean }) {
+function ReceivalView({ data, variantMeta, isFree, subContainer }: { data: ReceivalData; variantMeta: Map<string, VariantMeta>; isFree: boolean; subContainer: string | null }) {
   const items = Array.isArray(data.receival_items) ? data.receival_items : []
   const supplier = data.purchase_orders?.supplier_name ?? '—'
   const poNumber = data.purchase_orders?.po_number ?? '—'
@@ -393,6 +457,7 @@ function ReceivalView({ data, variantMeta, isFree }: { data: ReceivalData; varia
         <div className="grid grid-cols-2 gap-4">
           <MetaRow icon={<User className="h-3.5 w-3.5 text-muted-foreground" />} label="Supplier" value={supplier} />
           <MetaRow icon={<Warehouse className="h-3.5 w-3.5 text-muted-foreground" />} label="Warehouse" value={data.warehouses?.name ?? '—'} />
+          <MetaRow icon={<Boxes className="h-3.5 w-3.5 text-muted-foreground" />} label="Sub-container" value={subContainer ? shortenSubContainerName(subContainer, data.warehouses?.name ?? '') : '—'} />
           <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.date ? format(new Date(data.date), 'dd MMM yyyy') : '—'} />
           <MetaRow icon={<Package className="h-3.5 w-3.5 text-muted-foreground" />} label="Items" value={`${items.length} item${items.length !== 1 ? 's' : ''}`} />
         </div>
@@ -716,6 +781,90 @@ function SaleReturnView({ data }: { data: SaleReturnData }) {
         </>
       )}
     </div>
+  )
+}
+
+// ─── Consumption ────────────────────────────────────────────────────────────
+
+function ConsumptionView({ data, variantMeta }: { data: ConsumptionData; variantMeta: Map<string, VariantMeta> }) {
+  const items = Array.isArray(data.items) ? data.items : []
+  const isProject = !!data.consumer?.projects
+  const consumerLabel = data.consumer?.projects
+    ? `${data.consumer.projects.project_number}${data.consumer.disciplines ? ' · ' + data.consumer.disciplines.name : ''}`
+    : (data.consumer?.name ?? (data.consumer_type === 'internal' ? 'Internal' : '—'))
+  const totalQty = items.reduce((s, i) => s + Math.abs(i.qty ?? 0), 0)
+
+  return (
+    <>
+      <div className="px-6 pt-6 pb-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center flex-shrink-0">
+            <PackageMinus className="h-5 w-5 text-warning" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-semibold">{data.ce_number ?? 'Consumption'}</h3>
+              {data.status && (
+                <Badge className={`text-[10px] px-2 py-0.5 capitalize ${STATUS_STYLES[data.status] ?? 'bg-muted text-muted-foreground'}`}>
+                  {data.status.replace(/_/g, ' ')}
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">{isProject ? 'Project Consumption' : 'Internal Consumption'}</p>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="grid grid-cols-2 gap-4">
+          <MetaRow icon={<Boxes className="h-3.5 w-3.5 text-muted-foreground" />} label={isProject ? 'Project · Discipline' : 'Consumer'} value={consumerLabel} />
+          <MetaRow icon={<Flag className="h-3.5 w-3.5 text-muted-foreground" />} label="Milestone" value={data.milestone?.label ?? '—'} />
+          <MetaRow icon={<Warehouse className="h-3.5 w-3.5 text-muted-foreground" />} label="Source" value={data.source?.name ?? '—'} />
+          <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.date ? format(new Date(data.date), 'dd MMM yyyy') : '—'} />
+        </div>
+
+        {data.notes && (
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Notes</p>
+            <p className="text-sm text-muted-foreground break-words">{data.notes}</p>
+          </div>
+        )}
+      </div>
+
+      {items.length > 0 && (
+        <div className="px-6 pb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Consumed Items · {totalQty} unit{totalQty !== 1 ? 's' : ''}
+          </p>
+          <div className="rounded-lg border overflow-hidden">
+            <div className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2 bg-muted/30 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>Item</span>
+              <span className="text-right">Qty</span>
+            </div>
+            <div className="max-h-[220px] overflow-y-auto divide-y">
+              {items.map((i, idx) => {
+                const meta = i.brand_variant_id ? variantMeta.get(i.brand_variant_id) : null
+                return (
+                  <div key={idx} className="grid grid-cols-[1fr_80px] gap-2 px-4 py-2.5 items-center">
+                    <ItemTreeCell
+                      category={meta?.categoryName}
+                      subcategory={meta?.subcategoryName}
+                      itemType={meta?.itemType}
+                      itemName={meta?.itemName ?? i.item_name ?? '—'}
+                      brand={meta?.brand}
+                      origin={meta?.origin ?? null}
+                      sku={i.sku}
+                      showSku
+                    />
+                    <span className="text-sm text-right tabular-nums font-medium">{Math.abs(i.qty ?? 0)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

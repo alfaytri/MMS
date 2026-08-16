@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
-import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { cn } from '@/lib/utils'
 
@@ -258,6 +258,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
 
   const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
   const { data: fullStock = [] } = useWarehouseStock()
+  const divVisible = useDivisionScopedVisibility()
 
   // D.10 — row shape now carries `subLabel` so StockTooltip can render a
   // two-level warehouse × sub-container breakdown. Same brand_variant_id in
@@ -265,6 +266,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const warehouseBreakdown = useMemo(() => {
     const map = new Map<string, TooltipRow[]>()
     for (const item of fullStock) {
+      if (!divVisible(item.sub_container_id)) continue
       if (!map.has(item.brand_variant_id)) map.set(item.brand_variant_id, [])
       const wh = warehouses.find((w) => w.id === item.warehouse_id)
       map.get(item.brand_variant_id)!.push({
@@ -274,12 +276,14 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
       })
     }
     return map
-  }, [fullStock, warehouses])
+  }, [fullStock, warehouses, divVisible])
 
   const byType = useMemo(() => {
-    if (activeType === '__all__') return allStock
-    return allStock.filter((s) => s.item_type === activeType)
-  }, [allStock, activeType])
+    // Division-scoped: hide sub-containers outside the active-division view.
+    const scoped = allStock.filter((s) => divVisible(s.sub_container_id))
+    if (activeType === '__all__') return scoped
+    return scoped.filter((s) => s.item_type === activeType)
+  }, [allStock, activeType, divVisible])
 
   const filtered = useMemo(() => {
     if (!search) return byType
