@@ -475,6 +475,7 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useCreateLandedCost`](src/hooks/useLandedCosts.ts)
 - **RPC:** `create_landed_cost`
 - **Writes:** `landed_costs` header
+- **Guards:** a receival may be attached to **multiple** LCs (e.g. one for shipping, one for customs) — each stacks its own cost onto the FIFO layers on apply. The dialog shows a non-blocking `LC: …` badge on receivals that already carry one (informational, via `useLcUsedReceivalMap`). The per-LC "apply once" lock still holds — see [[Apply / Allocate Landed Cost]].
 
 ### Apply / Allocate Landed Cost
 - **Hook:** [`useApplyLandedCost`](src/hooks/useLandedCosts.ts)

@@ -89,8 +89,10 @@ export function useLandedCosts({ search = '' }: { search?: string } = {}) {
 
 /**
  * Returns a Map<receival_id, lc_number[]> for every receival attached to a
- * non-voided landed cost. Used by the Create LC dialog to cross out receivals
- * that already have an LC while still allowing re-use.
+ * non-voided landed cost. Used by the Create LC dialog to *label* receivals
+ * that already carry an LC — purely informational, not a block. A receival can
+ * be attached to multiple landed costs (e.g. one for shipping, one for customs);
+ * each LC stacks its own cost onto the FIFO layers, so re-use is allowed.
  */
 export function useLcUsedReceivalMap() {
   return useQuery({

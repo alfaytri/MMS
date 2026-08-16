@@ -655,14 +655,10 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       return updated
     }))
   }
-  function isReceivalUsed(id: string): boolean {
-    return (usedReceivalMap?.get(id)?.length ?? 0) > 0
-  }
   function toggleReceival(id: string) {
-    // Block re-attaching a receival that already has an LC. Row is visible
-    // for context (with amber tint + LC badge) but the checkbox is disabled
-    // and this guard short-circuits any programmatic path.
-    if (isReceivalUsed(id)) return
+    // A receival can be attached to multiple landed costs (shipping, customs, …);
+    // each LC stacks its own cost onto the FIFO layers. Re-use is allowed — the
+    // row just shows an informational "LC: …" badge when it already has one.
     setSelectedReceivalIds((ids) => ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
   }
   function togglePoCollapsed(poId: string) {
@@ -674,9 +670,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     })
   }
   function togglePoSelectAll(group: { receivals: { id: string }[] }) {
-    // Never touch receivals that are already used by another LC — they
-    // stay visible with the amber badge but are excluded from bulk select.
-    const ids = group.receivals.map((r) => r.id).filter((id) => !isReceivalUsed(id))
+    const ids = group.receivals.map((r) => r.id)
     if (ids.length === 0) return
     const allSelected = ids.every((id) => selectedReceivalIds.includes(id))
     setSelectedReceivalIds((prev) => {
@@ -1005,14 +999,9 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
               <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
                 {poGroups.map((group) => {
                   const ids = group.receivals.map((r) => r.id)
-                  // Group-level checkbox reflects only receivals that CAN
-                  // still be attached — already-used ones are effectively
-                  // out-of-band and don't count for the indeterminate math.
-                  const selectableIds = ids.filter((id) => !isReceivalUsed(id))
-                  const selectedInGroup = selectableIds.filter((id) => selectedReceivalIds.includes(id)).length
-                  const groupHasSelectable = selectableIds.length > 0
-                  const allChecked = groupHasSelectable && selectedInGroup === selectableIds.length
-                  const someChecked = selectedInGroup > 0 && selectedInGroup < selectableIds.length
+                  const selectedInGroup = ids.filter((id) => selectedReceivalIds.includes(id)).length
+                  const allChecked = ids.length > 0 && selectedInGroup === ids.length
+                  const someChecked = selectedInGroup > 0 && selectedInGroup < ids.length
                   const collapsed = collapsedPoIds.has(group.po_id)
 
                   return (
@@ -1022,15 +1011,10 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                         <input
                           type="checkbox"
                           checked={allChecked}
-                          disabled={!groupHasSelectable}
                           ref={(el) => { if (el) el.indeterminate = someChecked }}
                           onChange={() => togglePoSelectAll(group)}
-                          className={cn(
-                            'h-4 w-4 shrink-0',
-                            !groupHasSelectable && 'cursor-not-allowed opacity-50',
-                          )}
+                          className="h-4 w-4 shrink-0"
                           aria-label={`Select all receivals in ${group.po_number}`}
-                          title={!groupHasSelectable ? 'All receivals in this PO already have an LC.' : undefined}
                         />
                         <button
                           type="button"
@@ -1062,26 +1046,15 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                               <div key={r.id}>
                                 <div
                                   className={cn(
-                                    'flex items-center gap-2 px-2 py-2 pl-8 min-h-11 md:min-h-0 transition-colors',
-                                    hasExistingLc
-                                      ? 'bg-amber-50/60 cursor-not-allowed'
-                                      : 'hover:bg-muted/30',
-                                    isChecked && !hasExistingLc && 'bg-blue-50/40',
+                                    'flex items-center gap-2 px-2 py-2 pl-8 min-h-11 md:min-h-0 transition-colors hover:bg-muted/30',
+                                    isChecked && 'bg-blue-50/40',
                                   )}
-                                  title={hasExistingLc
-                                    ? `This receival is already attached to ${existingLcs!.join(', ')} — a receival can only be attached to one LC.`
-                                    : undefined}
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={isChecked && !hasExistingLc}
-                                    disabled={hasExistingLc}
+                                    checked={isChecked}
                                     onChange={() => toggleReceival(r.id)}
-                                    className={cn(
-                                      'h-4 w-4 shrink-0',
-                                      hasExistingLc && 'cursor-not-allowed opacity-50',
-                                    )}
-                                    aria-disabled={hasExistingLc}
+                                    className="h-4 w-4 shrink-0"
                                   />
                                   <button
                                     type="button"
@@ -1102,7 +1075,11 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                       </Badge>
                                     )}
                                     {hasExistingLc && (
-                                      <Badge className="ml-auto text-[10px] shrink-0 bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+                                      <Badge
+                                        variant="outline"
+                                        className="ml-auto text-[10px] shrink-0 font-normal text-muted-foreground"
+                                        title={`Already attached to ${existingLcs!.join(', ')} — you can still add another landed cost (e.g. shipping now, customs later).`}
+                                      >
                                         LC: {existingLcs!.join(', ')}
                                       </Badge>
                                     )}
