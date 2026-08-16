@@ -113,7 +113,7 @@ The four RPCs deferred in Batch 4 (no non-admin role held a matching key). Re-ve
 
 - `create_service_customer(text,text,text)` → **`master_data.service_customers.create`**. No frontend caller (Data-API-only) — closes the hole.
 - `upsert_package_with_services(jsonb,jsonb)` → **`master_data.services.manage`**. No frontend caller (Data-API-only).
-- `rpc_cancel_consumption(uuid)` → **`consumption.cancel`**. LIVE (`useConsumption.ts`; reverses posted stock + COGS). Operator chose **Owner/admins-only** → no role holds the key, so only admins pass until it's granted. (Follow-up: confirm the Consumption page's cancel control is permission-gated client-side so non-admins don't see a button that 42501s.)
+- `rpc_cancel_consumption(uuid)` → **`consumption.cancel`**. The `useCancelConsumption` hook exists (`useConsumption.ts`) and reverses posted stock + COGS, but is **unwired — no UI caller anywhere in `src/`** (verified 2026-08-16), so there is no cancel button to gate; the RPC guard is the sole and sufficient protection. Operator chose **Owner/admins-only** → no role holds `consumption.cancel`, so only admins pass until it's granted. (If a cancel button is added later, gate it client-side on `consumption.cancel` to match.)
 - `rpc_create_custody_return(...)` → **Pattern C, no change.** Already RP-gated in-body (only the source sub-container's responsible person may return). Documented only.
 
 Verified on staging + new-prod via a rolled-back JWT probe (non-holder → `42501`; admin passes). **RPC permission-hardening effort now complete (P0 + batches 1–6).**
