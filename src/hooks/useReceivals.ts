@@ -40,6 +40,10 @@ export type Receival = {
   po_number?: string | null
   supplier_name?: string | null
   warehouse_name?: string
+  // Currency that receival_items.unit_cost is denominated in — PO currency for
+  // purchase receivals, QAR for inventory receivals (see migration
+  // 20260729214710). Populated by the list/detail fetch hooks below.
+  currency?: string
 }
 
 export type ReceivalEditRequest = {
@@ -87,7 +91,7 @@ export function useReceivals(filters?: {
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
-          purchase_orders!receivals_po_id_fkey(po_number,supplier_name),
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name,currency),
           warehouses!receivals_warehouse_id_fkey(name)
         `)
         .order('created_at', { ascending: false })
@@ -105,6 +109,7 @@ export function useReceivals(filters?: {
         po_number: r.purchase_orders?.po_number ?? null,
         supplier_name: r.purchase_orders?.supplier_name ?? null,
         warehouse_name: r.warehouses?.name ?? null,
+        currency: (r.purchase_orders?.currency as string | null) ?? 'QAR',
       })) as Receival[]
     },
     staleTime: 30 * 1000,
@@ -124,7 +129,7 @@ export function useReceival(id: string | null) {
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
           receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
-          purchase_orders!receivals_po_id_fkey(po_number,supplier_name,po_line_items(id,qty))
+          purchase_orders!receivals_po_id_fkey(po_number,supplier_name,currency,po_line_items(id,qty))
         `)
         .eq('id', id!)
         .single()
@@ -135,7 +140,11 @@ export function useReceival(id: string | null) {
         const matched = poLines.find((pl) => pl.id === ri.po_line_item_id)
         return { ...ri, ordered_qty: matched?.qty ?? null }
       })
-      return { ...data, receival_items: items } as Receival
+      return {
+        ...data,
+        receival_items: items,
+        currency: (data.purchase_orders?.currency as string | null) ?? 'QAR',
+      } as Receival
     },
   })
 }
@@ -430,6 +439,11 @@ export type ReceivalForLcSelector = {
   warehouse_name: string | null
   po_number: string | null
   supplier_name: string | null
+  // Currency that receival_items.unit_cost is denominated in. For purchase
+  // receivals this is the PO currency (unit_cost is stored as-entered in PO
+  // currency — see migration 20260729214710); inventory receivals have no PO
+  // and their costs are entered directly in QAR.
+  currency: string
 }
 
 export function useReceivalsForLcSelector({ search = '' }: { search?: string } = {}) {
@@ -439,7 +453,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
       const supabase = createClient()
       const q = supabase
         .from('receivals')
-        .select('id, receival_number, po_id, date, status, source_type, warehouse_id, warehouses(name), purchase_orders!receivals_po_id_fkey(po_number, supplier_name)')
+        .select('id, receival_number, po_id, date, status, source_type, warehouse_id, warehouses(name), purchase_orders!receivals_po_id_fkey(po_number, supplier_name, currency)')
         .order('date', { ascending: false })
         .limit(500)
       const { data, error } = await q
@@ -460,6 +474,7 @@ export function useReceivalsForLcSelector({ search = '' }: { search?: string } =
           warehouse_name: r.warehouses?.name ?? null,
           po_number: r.purchase_orders?.po_number ?? null,
           supplier_name: r.purchase_orders?.supplier_name ?? (isInventory ? 'Inventory Receival' : null),
+          currency: (r.purchase_orders?.currency as string | null) ?? 'QAR',
         }
       }) as ReceivalForLcSelector[]
       const needle = search.trim().toLowerCase()

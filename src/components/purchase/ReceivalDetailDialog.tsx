@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate } from '@/lib/utils/formatters'
+import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import type { Receival } from '@/hooks/useReceivals'
 
@@ -45,6 +45,10 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
   if (!receival) return null
 
   const items = receival.receival_items ?? []
+  // receival_items.unit_cost is stored in the PO's currency (QAR for inventory
+  // receivals) — see migration 20260729214710. Label it truthfully rather than
+  // assuming QAR.
+  const currency = receival.currency ?? 'QAR'
   const purchasedItems = items.filter(i => i.is_free !== true)
   const freeItems = items.filter(i => i.is_free === true)
   const subtotal = purchasedItems.reduce((sum, i) => sum + i.qty_received * i.unit_cost, 0)
@@ -183,10 +187,10 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                         <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{item.qty_received}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">
-                          {item.is_free === true ? '—' : `QAR ${item.unit_cost.toLocaleString('en', { minimumFractionDigits: 2 })}`}
+                          {item.is_free === true ? '—' : formatCurrency(item.unit_cost, currency)}
                         </td>
                         <td className="px-3 py-2.5 text-right tabular-nums font-medium">
-                          {item.is_free === true ? '—' : `QAR ${(item.qty_received * item.unit_cost).toLocaleString('en', { minimumFractionDigits: 2 })}`}
+                          {item.is_free === true ? '—' : formatCurrency(item.qty_received * item.unit_cost, currency)}
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           {item.is_free === true
@@ -209,7 +213,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
             <div className="rounded-lg border bg-muted/20 p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Purchased ({purchasedItems.length} items)</span>
-                <span className="tabular-nums">QAR {subtotal.toLocaleString('en', { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
               </div>
               {freeItems.length > 0 && (
                 <div className="flex justify-between text-sm">
@@ -220,7 +224,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
               <Separator />
               <div className="flex justify-between text-sm font-semibold">
                 <span>Grand Total</span>
-                <span className="tabular-nums">QAR {subtotal.toLocaleString('en', { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
               </div>
             </div>
           )}

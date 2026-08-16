@@ -57,7 +57,7 @@ function useAttachedReceivals(receivalIds: string[]) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('receivals')
-        .select('id, receival_number, date, source_type, purchase_orders!receivals_po_id_fkey(supplier_name)')
+        .select('id, receival_number, date, source_type, purchase_orders!receivals_po_id_fkey(supplier_name, currency)')
         .in('id', receivalIds)
         .order('date', { ascending: false })
       if (error) throw error
@@ -68,6 +68,9 @@ function useAttachedReceivals(receivalIds: string[]) {
           receival_number: r.receival_number as string,
           date: r.date as string,
           supplier_name: (r.purchase_orders?.supplier_name ?? (isInventory ? 'Inventory Receival' : 'Unknown')) as string,
+          // Currency of receival_items.unit_cost — PO currency for purchase
+          // receivals, QAR for inventory receivals (see migration 20260729214710).
+          currency: ((r.purchase_orders?.currency as string | null) ?? 'QAR'),
         }
       })
     },
@@ -304,7 +307,7 @@ function LcDetailDialog({
                   </div>
                 ) : (
                   <div className="rounded-md border divide-y">
-                    {(attachedReceivals ?? []).map((r: { id: string; receival_number: string; date: string; supplier_name: string }) => {
+                    {(attachedReceivals ?? []).map((r: { id: string; receival_number: string; date: string; supplier_name: string; currency: string }) => {
                       const isExpanded = detailExpandedReceivalId === r.id
                       return (
                         <div key={r.id}>
@@ -357,9 +360,9 @@ function LcDetailDialog({
                                         <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
                                           {item.remaining_qty}
                                         </td>
-                                        <td className="text-right py-1">{formatCurrency(item.unit_cost, 'QAR')}</td>
+                                        <td className="text-right py-1">{formatCurrency(item.unit_cost, r.currency)}</td>
                                         <td className="text-right py-1 font-medium">
-                                          {formatCurrency(item.qty_received * item.unit_cost, 'QAR')}
+                                          {formatCurrency(item.qty_received * item.unit_cost, r.currency)}
                                         </td>
                                       </tr>
                                     ))}
@@ -1133,7 +1136,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                               <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
                                                 {item.remaining_qty}
                                               </td>
-                                              <td className="text-right py-1">{formatCurrency(item.unit_cost, 'QAR')}</td>
+                                              <td className="text-right py-1">{formatCurrency(item.unit_cost, r.currency)}</td>
                                             </tr>
                                           ))}
                                         </tbody>
@@ -1270,7 +1273,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                       <td className={cn('text-right py-1 tabular-nums font-medium', it.remaining_qty === 0 && 'text-amber-600')}>
                                         {it.remaining_qty}
                                       </td>
-                                      <td className="text-right py-1 pl-2 tabular-nums">{formatCurrency(it.unit_cost, 'QAR')}</td>
+                                      <td className="text-right py-1 pl-2 tabular-nums">{formatCurrency(it.unit_cost, r.currency)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
