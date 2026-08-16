@@ -285,17 +285,9 @@ export function SoLineItemsEditor({
                           onChange={(e) => updateRow(row._key, { unit: e.target.value })}
                         />
                       </div>
-                      <div className="space-y-0.5 w-[115px]">
-                        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                          Unit Cost <span aria-hidden className="text-muted-foreground/60">🔒</span>
-                        </label>
-                        <div
-                          className="h-9 px-3 flex items-center justify-end rounded-md border bg-muted/30 text-sm tabular-nums text-muted-foreground"
-                          title="Cost basis — always in QAR (inventory average cost)"
-                        >
-                          {formatCurrency(row.avg_cost ?? 0, 'QAR')}
-                        </div>
-                      </div>
+                      {/* Unit Cost (cost basis) intentionally not shown on the sale order —
+                          the sale is priced on Sale Price. avg_cost is still tracked in
+                          state for the below-cost margin guard (hasNegativeMargin). */}
                       <div className="space-y-0.5 w-[115px]">
                         <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sale Price *</label>
                         <Input
