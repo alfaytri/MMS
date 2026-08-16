@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
+import { humanizeDbError } from '@/lib/dbErrors'
 import type { Database } from '@/types/database.types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -319,7 +320,7 @@ export function useCreateCustomer() {
         .insert(row)
         .select()
         .single()
-      if (error) throw error
+      if (error) throw new Error(humanizeDbError(error, 'create customers'))
 
       const { error: phoneErr } = await supabase.rpc('save_customer_phones', {
         p_customer_id: data.id,
@@ -952,7 +953,7 @@ export function useCreateSOPayment() {
         amount_qar: payment.amount * payment.exchange_rate,
         status: 'pending',
       } as unknown as import('@/types/database.types').DBInsert<'payments'>)
-      if (error) throw error
+      if (error) throw new Error(humanizeDbError(error, 'record payments'))
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(variables.so_id) })
