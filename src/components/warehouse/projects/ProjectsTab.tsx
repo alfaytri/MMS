@@ -56,10 +56,6 @@ export function ProjectsTab() {
         ),
       },
       {
-        header: 'Name',
-        cell: (p) => <span className="break-words">{p.name}</span>,
-      },
-      {
         header: 'Division',
         cell: (p) => <span className="text-muted-foreground">{divisionLabel(p.division_id)}</span>,
       },
@@ -124,7 +120,6 @@ export function ProjectsTab() {
                   </Badge>
                 )}
               </div>
-              <p className="break-words text-sm text-muted-foreground">{p.name}</p>
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span>{divisionLabel(p.division_id)}</span>
                 <span>{p.disciplineCount} discipline{p.disciplineCount === 1 ? '' : 's'}</span>

@@ -173,7 +173,7 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
                         </Badge>
                       )}
                     </DialogTitle>
-                    <DialogDescription className="truncate">{project.name}</DialogDescription>
+                    <DialogDescription className="sr-only">Project {project.project_number} — stock by discipline</DialogDescription>
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-sm font-semibold tabular-nums">{formatValue(project.totalValue)}</div>
