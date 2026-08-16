@@ -7197,6 +7197,7 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           id: string
+          is_project_warehouse: boolean
           is_virtual: boolean
           item_count: number | null
           location: string | null
@@ -7210,6 +7211,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           id?: string
+          is_project_warehouse?: boolean
           is_virtual?: boolean
           item_count?: number | null
           location?: string | null
@@ -7223,6 +7225,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           id?: string
+          is_project_warehouse?: boolean
           is_virtual?: boolean
           item_count?: number | null
           location?: string | null
