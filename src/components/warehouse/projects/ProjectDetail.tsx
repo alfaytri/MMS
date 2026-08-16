@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { MilestoneManager } from '@/components/warehouse/projects/MilestoneManager'
 import { useDisciplines } from '@/hooks/useDisciplines'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useHasManagePermission } from '@/hooks/usePermissions'
@@ -258,6 +259,7 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
                         bucket={bucket}
                         stockRows={stock.filter((s) => s.sub_container_id === bucket.sub_container_id)}
                         stockLoading={stockLoading}
+                        canManage={canManage}
                       />
                     ))}
                   </div>
@@ -329,10 +331,12 @@ function DisciplineBucketCard({
   bucket,
   stockRows,
   stockLoading,
+  canManage,
 }: {
   bucket: ProjectDisciplineBucket
   stockRows: WarehouseStockItem[]
   stockLoading: boolean
+  canManage: boolean
 }) {
   const totalQty = stockRows.reduce((sum, r) => sum + (r.qty ?? 0), 0)
 
@@ -396,6 +400,8 @@ function DisciplineBucketCard({
           </div>
         )}
       </div>
+
+      <MilestoneManager subContainerId={bucket.sub_container_id} canManage={canManage} />
     </div>
   )
 }

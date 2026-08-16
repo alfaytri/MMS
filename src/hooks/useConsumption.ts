@@ -10,6 +10,11 @@
  * Plus a list query, a detail query, and storage helpers for the
  * consumption-attachments bucket (20260815001400).
  *
+ * `rpc_post_consumption` gained an optional `p_milestone_id` param in
+ * 20260829000200_milestone_rpcs_and_post_consumption.sql (VWh Projects
+ * Phase 2) — nullable, tags the consumer discipline's spend with a project
+ * milestone. See `useProjectMilestones.ts` for the milestone CRUD hooks.
+ *
  * Plan: docs/plans/2026-08-03-teams-places-consumption.md (Task 9).
  */
 
@@ -259,19 +264,22 @@ export function useCreateConsumption() {
       source_sub_container_id:     string
       consumer_type:               ConsumerType
       consumer_sub_container_id?:  string | null
+      milestone_id?:               string | null
       notes?:                      string | null
       attachments?:                string[]
       lines:                       PostConsumptionLine[]
     }) => {
       const supabase = createClient()
-      // The RPC accepts NULL for the consumer sub / notes params (no NOT NULL
-      // constraint), but Supabase's generated types mark them non-nullable, so
-      // cast the args object (same pattern used across the custody RPC hooks).
+      // The RPC accepts NULL for the consumer sub / milestone / notes params
+      // (no NOT NULL constraint), but Supabase's generated types mark them
+      // non-nullable, so cast the args object (same pattern used across the
+      // custody RPC hooks).
       const rpcArgs = {
         p_source_warehouse_id:       payload.source_warehouse_id,
         p_source_sub_container_id:   payload.source_sub_container_id,
         p_consumer_type:             payload.consumer_type,
         p_consumer_sub_container_id: payload.consumer_sub_container_id ?? null,
+        p_milestone_id:              payload.milestone_id ?? null,
         p_notes:                     payload.notes ?? null,
         p_attachments:               payload.attachments ?? [],
         p_lines:                     payload.lines,

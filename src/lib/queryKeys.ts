@@ -590,6 +590,9 @@ export const queryKeys = {
     list: (divKey: string) => ['projects', divKey] as const,
     detail: (id: Nullable) => ['projects', 'detail', id] as const,
   },
+  projectMilestones: {
+    bySub: (subId: Nullable) => ['project-milestones', subId ?? null] as const,
+  },
 
   /* ── Damaged Stock (Phase 9.6–9.7) ────────────────────── */
   damagedStock: {
