@@ -78,6 +78,13 @@ function WarehousesPageInner() {
     () => warehousesAll.filter((w) => !w.is_virtual),
     [warehousesAll],
   )
+  // Transfers can move stock between any two sub-containers, including custody
+  // discipline buckets (VWh Projects). Offer real warehouses + custody, but not
+  // repair-vendor virtual shadows.
+  const transferWarehouses = useMemo(
+    () => warehousesAll.filter((w) => !w.is_virtual || w.warehouse_kind === 'custody'),
+    [warehousesAll],
+  )
   const { data: currentProfile } = useCurrentUserProfile()
   const { data: transfers = [] } = useWarehouseTransfers()
   const { data: receivalsDeliveries = [] } = useReceivalsAndDeliveries()
@@ -129,7 +136,7 @@ function WarehousesPageInner() {
               </WhAdjustmentDialog>
             )}
             {activeTab === 'transfers' && visibleTabs.has('transfers') && (
-              <WhTransferDialog warehouses={warehouses} currentProfile={currentProfile ?? null}>
+              <WhTransferDialog warehouses={transferWarehouses} currentProfile={currentProfile ?? null}>
                 <Button size="sm" variant="outline" className="gap-1.5 min-h-11 md:min-h-0">
                   <ArrowRightLeft className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Transfer Stock</span>
