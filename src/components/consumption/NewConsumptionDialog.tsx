@@ -411,6 +411,11 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const srcSubResolved      = eligibleSrcSubs.length > 0 && (eligibleSrcSubs.length === 1 || !!srcSubId)
   const post                = useCreateConsumption()
 
+  // A project-pool consumer REQUIRES a discipline + milestone — spend must be
+  // attributed. (Non-project custody / internal have no disciplines → not required.)
+  const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
+  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && milestoneId !== NO_MILESTONE)
+
   const canOpenConfirm =
     !!srcWhId &&
     srcSubResolved &&
@@ -418,6 +423,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     consumerResolved &&
     hasValidRows &&
     !hasValidationErrors &&
+    projectTagsSatisfied &&
     !uploading &&
     !post.isPending
 
@@ -440,6 +446,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const selectedMilestoneLabel = useMemo(
     () => (resolvedMilestoneId ? milestones.find((m) => m.id === resolvedMilestoneId)?.label ?? null : null),
     [resolvedMilestoneId, milestones],
+  )
+  const selectedDisciplineLabel = useMemo(
+    () => (resolvedDisciplineId ? poolDisciplines.find((d) => d.discipline_id === resolvedDisciplineId)?.discipline_name ?? null : null),
+    [resolvedDisciplineId, poolDisciplines],
   )
 
   const srcWhName = useMemo(
@@ -703,43 +713,48 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
           </div>
           </>)}
 
-          {/* Project spend tags — Discipline + Milestone. Rendered OUTSIDE the
-              source/consumer split so they ALSO show when opened from a custody
-              card (sourceLocked), where the consumer is the fixed project pool.
-              Both optional (Decision 7); Milestone appears once a discipline is
-              picked and that discipline has active milestones. */}
-          {consumerType === 'custody' && consumerSub && poolDisciplines.length > 0 && (
-            <div className="space-y-2">
+          {/* Project spend tags — Discipline + Milestone, side by side and
+              REQUIRED for a project-pool consumer (spend must be attributed).
+              Rendered OUTSIDE the source/consumer split so they also show when
+              opened from a custody card (sourceLocked = fixed project pool). */}
+          {projectTagsRequired && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
               <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Discipline (optional)</Label>
+                <Label className="text-[10px] text-muted-foreground">Discipline *</Label>
                 <Select value={disciplineId} onValueChange={(v) => setDisciplineId(v ?? NO_DISCIPLINE)}>
                   <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="No discipline" />
+                    <SelectValue placeholder="Select discipline" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    <SelectItem value={NO_DISCIPLINE} className="text-xs">No discipline</SelectItem>
                     {poolDisciplines.map((d) => (
                       <SelectItem key={d.discipline_id} value={d.discipline_id} className="text-xs">{d.discipline_name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              {resolvedDisciplineId && milestones.length > 0 && (
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Milestone (optional)</Label>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Milestone *</Label>
+                {!resolvedDisciplineId ? (
+                  <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] italic text-muted-foreground">
+                    Pick a discipline first
+                  </div>
+                ) : milestones.length === 0 ? (
+                  <div className="h-9 flex items-center rounded-md border border-warning/40 bg-warning/10 px-2.5 text-[11px] italic text-warning-foreground">
+                    No milestones — add one to this discipline first
+                  </div>
+                ) : (
                   <Select value={milestoneId} onValueChange={(v) => setMilestoneId(v ?? NO_MILESTONE)}>
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="No milestone" />
+                      <SelectValue placeholder="Select milestone" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 overflow-y-auto">
-                      <SelectItem value={NO_MILESTONE} className="text-xs">No milestone</SelectItem>
                       {milestones.map((m) => (
                         <SelectItem key={m.id} value={m.id} className="text-xs">{m.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
@@ -980,6 +995,12 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                 {consumerType === 'internal' ? 'Internal use' : `${consumerTypeLabel} — ${consumerLabel ?? ''}`}
               </span>
             </div>
+            {selectedDisciplineLabel && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">Discipline</span>
+                <span className="font-medium text-right truncate min-w-0">{selectedDisciplineLabel}</span>
+              </div>
+            )}
             {selectedMilestoneLabel && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground shrink-0">Milestone</span>
