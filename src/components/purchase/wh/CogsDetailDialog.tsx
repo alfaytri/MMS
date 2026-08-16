@@ -359,7 +359,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                         {consumptionEntries.map((e) => (
                           <TableRow key={e.id} className="hover:bg-muted/10">
                             <TableCell className="text-[11px] py-1.5">{format(new Date(e.date), 'dd MMM yy')}</TableCell>
-                            <TableCell className="text-[11px] py-1.5 max-w-[220px] truncate text-muted-foreground">{e.notes ?? '—'}</TableCell>
+                            <TableCell className="text-[11px] py-1.5 min-w-[180px] max-w-[300px] whitespace-normal break-words align-top text-muted-foreground">{e.notes ?? '—'}</TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{fmtVal(e.unit_cost)}</TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums font-medium text-blue-600 dark:text-blue-400">{fmtVal(e.total_cost)}</TableCell>
@@ -417,7 +417,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                             <TableCell className="text-[11px] py-1.5">
                               {e.lc_applied_at ? format(new Date(e.lc_applied_at), 'dd MMM yy') : '—'}
                             </TableCell>
-                            <TableCell className="text-[11px] py-1.5 max-w-[150px] truncate text-muted-foreground">
+                            <TableCell className="text-[11px] py-1.5 min-w-[180px] max-w-[300px] whitespace-normal break-words align-top text-muted-foreground">
                               {e.notes ?? '—'}
                             </TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
@@ -475,7 +475,7 @@ export function CogsDetailDialog({ open, onClose, brandVariantId, itemName, bran
                             <TableCell className="text-[11px] py-1.5 font-medium text-primary">
                               {e.lc_number ?? '—'}
                             </TableCell>
-                            <TableCell className="text-[11px] py-1.5 max-w-[200px] truncate text-muted-foreground">
+                            <TableCell className="text-[11px] py-1.5 min-w-[180px] max-w-[300px] whitespace-normal break-words align-top text-muted-foreground">
                               {e.notes ?? '—'}
                             </TableCell>
                             <TableCell className="text-[11px] text-right py-1.5 tabular-nums">{e.qty}</TableCell>
