@@ -44,7 +44,7 @@ const schema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   division_id: z.string().min(1, 'Division is required'),
   warehouse_id: z.string().min(1, 'Custody warehouse is required'),
-  discipline_ids: z.array(z.string()),
+  discipline_ids: z.array(z.string()).min(1, 'Pick at least one discipline'),
   // '' sentinel = unassigned; any uuid = the picked profile.
   responsible_person_id: z.string(),
 })
