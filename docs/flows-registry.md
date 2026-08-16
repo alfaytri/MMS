@@ -475,12 +475,13 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useCreateLandedCost`](src/hooks/useLandedCosts.ts)
 - **RPC:** `create_landed_cost`
 - **Writes:** `landed_costs` header
-- **Guards:** a receival may be attached to **multiple** LCs (e.g. one for shipping, one for customs) — each stacks its own cost onto the FIFO layers on apply. The dialog shows a non-blocking `LC: …` badge on receivals that already carry one (informational, via `useLcUsedReceivalMap`). The per-LC "apply once" lock still holds — see [[Apply / Allocate Landed Cost]].
+- **Guards:** a receival may be attached to **multiple** LCs (e.g. one for shipping, one for customs) — each stacks its own cost onto the FIFO layers on apply. The dialog shows a non-blocking `LC: …` badge on receivals that already carry one (informational, via `useLcUsedReceivalMap`). A non-blocking amber note warns when the selected receivals span more than one PO currency (the LC splits by QAR-converted value — the warn flags an accidental wrong-receival pick; consolidated multi-currency invoices are valid). The per-LC "apply once" lock still holds — see [[Apply / Allocate Landed Cost]].
 
 ### Apply / Allocate Landed Cost
 - **Hook:** [`useApplyLandedCost`](src/hooks/useLandedCosts.ts)
 - **RPC:** `allocate_landed_cost`
 - **Writes:** allocates cost across receival lines, adjusts FIFO layer cost
+- **Currency:** `receival_items.unit_cost` is in the PO's original currency; the RPC converts each item to QAR (`× COALESCE(purchase_orders.initial_exchange_rate, 1)`, joined via `receivals.po_id`) before computing the value-share base **and** the `original_unit_cost`/`updated_unit_cost` audit columns — so allocation is correct across mixed-currency LCs and the audit columns are coherent QAR (migration `20260816100000`, built on the live `20260815004600` body). The Apply-preview mirrors this via `useReceivalItemsBatch.unit_cost_qar`. (Coordinated with `20260910000000`, which reproduces this QAR block verbatim + adds COGS `division_id`/`source_id` P&L stamping.)
 
 ### Revert Landed Cost
 - **Hook:** [`useRevertLandedCost`](src/hooks/useLandedCosts.ts)

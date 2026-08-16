@@ -25,6 +25,9 @@ export interface BuildReceivalReceiptHtmlInput {
   receivedBy:     string | null
   date:           string | null
   notes:          string | null
+  /** Currency receival_items.unit_cost is denominated in (PO currency; QAR for
+   *  inventory receivals). Defaults to 'QAR' if not supplied. */
+  currency?:      string
   items:          ReceivalReceiptItem[]
   assets:         PdfAssets
   fonts:          PdfFonts
@@ -67,6 +70,7 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
     receivedBy, date, notes, items, assets, fonts,
   } = input
 
+  const cur = esc(input.currency ?? 'QAR')
   const purchasedItems = items.filter(i => !i.isFree)
   const freeItems = items.filter(i => i.isFree)
   const subtotal = purchasedItems.reduce((sum, i) => sum + i.qtyReceived * i.unitCost, 0)
@@ -186,7 +190,7 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
           <span class="s-label">المشتريات</span>
           <span class="s-en">Purchased (${purchasedItems.length} items)</span>
           <span class="s-sep">—</span>
-          <span class="s-amount">QAR ${fmtMoney(subtotal)}</span>
+          <span class="s-amount">${cur} ${fmtMoney(subtotal)}</span>
         </div>
         ${freeItems.length > 0 ? `
         <div class="summary-row">
@@ -199,7 +203,7 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
           <span class="s-label">الإجمالي الكلي</span>
           <span class="s-en">Grand Total</span>
           <span class="s-sep">—</span>
-          <span class="s-amount">QAR ${fmtMoney(subtotal)}</span>
+          <span class="s-amount">${cur} ${fmtMoney(subtotal)}</span>
         </div>
       </div>
     </div>

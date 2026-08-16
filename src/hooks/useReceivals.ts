@@ -512,7 +512,7 @@ export function useReceivalItemsBatch(receivalIds: string[] | null) {
     queryFn: async () => {
       const supabase = createClient()
       const ids = receivalIds!
-      const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
+      const [{ data: items, error: iErr }, { data: layers, error: lErr }, { data: rcvs, error: rErr }] = await Promise.all([
         supabase
           .from('receival_items')
           .select('id, receival_id, item_name, sku, qty_received, unit_cost, brand_variant_id')
@@ -524,8 +524,17 @@ export function useReceivalItemsBatch(receivalIds: string[] | null) {
           .select('brand_variant_id, receival_id, remaining_qty')
           .in('receival_id', ids)
           .gt('remaining_qty', 0),
+        // PO booked rate per receival — receival_items.unit_cost is in PO
+        // currency; multiply by initial_exchange_rate to get QAR (inventory
+        // receivals have no PO → rate 1). Keeps the client value-share preview
+        // consistent with the allocate_landed_cost RPC (migration 20260816100000).
+        supabase
+          .from('receivals')
+          .select('id, purchase_orders!receivals_po_id_fkey(initial_exchange_rate)')
+          .in('id', ids)
+          .limit(1000),
       ])
-      if (iErr || lErr) throw iErr ?? lErr
+      if (iErr || lErr || rErr) throw iErr ?? lErr ?? rErr
       // Key by `${receival_id}|${brand_variant_id}` so two receivals of the
       // same variant don't share a remaining count.
       const remainingMap = new Map<string, number>()
@@ -534,16 +543,29 @@ export function useReceivalItemsBatch(receivalIds: string[] | null) {
         const k = `${l.receival_id}|${l.brand_variant_id}`
         remainingMap.set(k, (remainingMap.get(k) ?? 0) + l.remaining_qty)
       }
-      return (items ?? []).map((item) => ({
-        id: item.id as string,
-        receival_id: item.receival_id as string,
-        item_name: item.item_name as string,
-        sku: item.sku as string | null,
-        qty_received: Number(item.qty_received),
-        unit_cost: Number(item.unit_cost),
-        brand_variant_id: item.brand_variant_id as string | null,
-        remaining_qty: remainingMap.get(`${item.receival_id}|${item.brand_variant_id}`) ?? 0,
-      }))
+      const rateByReceival = new Map<string, number>()
+      for (const r of rcvs ?? []) {
+        const po = r.purchase_orders as { initial_exchange_rate: number | null } | null
+        const rate = Number(po?.initial_exchange_rate ?? 1)
+        rateByReceival.set(r.id as string, rate > 0 ? rate : 1)
+      }
+      return (items ?? []).map((item) => {
+        const rate = rateByReceival.get(item.receival_id as string) ?? 1
+        const unitCost = Number(item.unit_cost)
+        return {
+          id: item.id as string,
+          receival_id: item.receival_id as string,
+          item_name: item.item_name as string,
+          sku: item.sku as string | null,
+          qty_received: Number(item.qty_received),
+          unit_cost: unitCost,
+          // QAR-converted unit cost for value-share math (display still uses
+          // unit_cost in the PO currency).
+          unit_cost_qar: unitCost * rate,
+          brand_variant_id: item.brand_variant_id as string | null,
+          remaining_qty: remainingMap.get(`${item.receival_id}|${item.brand_variant_id}`) ?? 0,
+        }
+      })
     },
     staleTime: 2 * 60 * 1000,
   })

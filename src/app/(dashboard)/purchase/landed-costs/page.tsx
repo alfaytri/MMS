@@ -147,13 +147,15 @@ function LcDetailDialog({
 
   // For the Apply preview: pull every billable item across the attached
   // receivals so we can show how much landed-cost value will land on each.
-  // Allocation is proportional to (qty_received × unit_cost), same as the
-  // server-side allocate_landed_cost RPC.
+  // Allocation is proportional to (qty_received × QAR-converted unit cost),
+  // matching the server-side allocate_landed_cost RPC (migration 20260816100000)
+  // — receival_items.unit_cost is in PO currency, so mixed-currency LCs must be
+  // weighted in QAR or the split diverges from what the RPC books.
   const { data: previewItems, isLoading: loadingPreview } = useReceivalItemsBatch(
     applyOpen && lc ? lc.attached_receival_ids : null,
   )
   const previewTotalValueShare = (previewItems ?? []).reduce(
-    (sum, item) => sum + item.qty_received * item.unit_cost,
+    (sum, item) => sum + item.qty_received * (item.unit_cost_qar ?? item.unit_cost),
     0,
   )
   // Map brand_variant_id → unit_cost so we can compute per-unit LC for each
@@ -169,7 +171,7 @@ function LcDetailDialog({
       if (!it.brand_variant_id) continue
       const g = grouped.get(it.brand_variant_id) ?? { totalQty: 0, totalValueShare: 0 }
       g.totalQty += it.qty_received
-      g.totalValueShare += it.qty_received * it.unit_cost
+      g.totalValueShare += it.qty_received * (it.unit_cost_qar ?? it.unit_cost)
       grouped.set(it.brand_variant_id, g)
     }
     for (const [bvId, g] of grouped.entries()) {
@@ -637,6 +639,22 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       })
   })()
 
+  // Cumulative id→currency cache. useReceivalsForLcSelector filters client-side
+  // by the search term, so `receivals` only holds the current matches — remember
+  // every currency we've seen this session so a selected-but-filtered-out
+  // receival still counts toward the mixed-currency check below.
+  const receivalCurrencyRef = useRef<Map<string, string>>(new Map())
+  useEffect(() => {
+    for (const r of receivals ?? []) receivalCurrencyRef.current.set(r.id, r.currency || 'QAR')
+  }, [receivals])
+  const selectedCurrencies = Array.from(
+    new Set(selectedReceivalIds.map((id) => receivalCurrencyRef.current.get(id) ?? 'QAR')),
+  )
+  // Non-blocking: the landed cost splits by QAR-converted value, so mixing
+  // currencies is valid (one consolidated freight/customs invoice) — we just
+  // flag it so an accidental wrong-receival pick is visible.
+  const isMixedCurrency = selectedCurrencies.length > 1
+
   function addLine() { setLines((l) => [...l, { description: '', amount: 0, currency: 'QAR', exchange_rate: 1 }]) }
   function removeLine(i: number) {
     const droppedPath = lines[i]?.bill_path
@@ -991,6 +1009,12 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
               onChange={(e) => setReceivalSearch(e.target.value)}
               className="h-8 text-sm"
             />
+            {isMixedCurrency && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Selected receivals span {selectedCurrencies.length} currencies ({selectedCurrencies.join(', ')}).
+                The landed cost is split by QAR-converted value — make sure this is one consolidated invoice.
+              </div>
+            )}
             {poGroups.length === 0 ? (
               <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
                 {receivalSearch ? 'No receivals match your search' : 'No receivals found'}
@@ -1194,6 +1218,12 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
             <p className="text-xs uppercase tracking-wider text-blue-700 font-semibold">Total (QAR)</p>
             <p className="text-lg font-bold text-blue-900 tabular-nums">{formatCurrency(total, 'QAR')}</p>
           </div>
+          {isMixedCurrency && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              These receivals span {selectedCurrencies.length} currencies ({selectedCurrencies.join(', ')}).
+              Landed cost is split by QAR-converted value.
+            </div>
+          )}
           <div>
             <p className="text-xs text-muted-foreground mb-1.5">
               Attached Receivals ({selectedReceivalIds.length})
