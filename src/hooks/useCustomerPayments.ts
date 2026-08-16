@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
+import { humanizeDbError } from '@/lib/dbErrors'
 
 // Re-exported helper used by the payment dialog; splits a total redemption
 // amount across the customer's open CNs in FIFO order and returns one
@@ -138,7 +139,7 @@ export function useCreateCustomerPayment() {
         .insert(insertRow as unknown as import('@/types/database.types').DBInsert<'payments'>)
         .select()
         .single()
-      if (error) throw error
+      if (error) throw new Error(humanizeDbError(error, 'record payments'))
 
       // H14: the client-side recompute has been removed. The DB trigger
       // (_recompute_ar_invoice_payment_status_fn on payments) is the sole

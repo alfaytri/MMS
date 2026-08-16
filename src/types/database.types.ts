@@ -442,6 +442,7 @@ export type Database = {
           division_id: string | null
           id: string
           landed_cost_id: string | null
+          milestone_id: string | null
           notes: string | null
           qty: number
           sale_delivery_id: string | null
@@ -463,6 +464,7 @@ export type Database = {
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
+          milestone_id?: string | null
           notes?: string | null
           qty: number
           sale_delivery_id?: string | null
@@ -484,6 +486,7 @@ export type Database = {
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
+          milestone_id?: string | null
           notes?: string | null
           qty?: number
           sale_delivery_id?: string | null
@@ -555,6 +558,13 @@ export type Database = {
             columns: ["landed_cost_id"]
             isOneToOne: false
             referencedRelation: "landed_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "project_milestones"
             referencedColumns: ["id"]
           },
           {
@@ -830,6 +840,7 @@ export type Database = {
           date: string
           division_id: string | null
           id: string
+          milestone_id: string | null
           notes: string | null
           posted_at: string | null
           posted_by: string | null
@@ -850,6 +861,7 @@ export type Database = {
           date?: string
           division_id?: string | null
           id?: string
+          milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
@@ -870,6 +882,7 @@ export type Database = {
           date?: string
           division_id?: string | null
           id?: string
+          milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
@@ -925,6 +938,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "project_milestones"
             referencedColumns: ["id"]
           },
           {
@@ -4258,6 +4278,61 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_milestones: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          sub_container_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          sub_container_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          sub_container_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_milestones_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestones_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "project_milestones_sub_container_id_fkey"
+            columns: ["sub_container_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
             referencedColumns: ["id"]
           },
         ]
@@ -7868,6 +7943,10 @@ export type Database = {
         Args: { p_discipline_id: string; p_project_id: string }
         Returns: string
       }
+      add_project_milestone: {
+        Args: { p_label: string; p_sub_container_id: string }
+        Returns: string
+      }
       add_workflow_step:
         | {
             Args: {
@@ -8062,6 +8141,10 @@ export type Database = {
       }
       cleanup_old_notifications: { Args: never; Returns: number }
       close_project: { Args: { p_project_id: string }; Returns: undefined }
+      close_project_milestone: {
+        Args: { p_milestone_id: string }
+        Returns: undefined
+      }
       complete_delivery_inventory: {
         Args: {
           p_delivery_id: string
@@ -8635,6 +8718,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      rpc_confirm_tool_serial: {
+        Args: {
+          p_brand: string
+          p_expiry?: string
+          p_serial: string
+          p_unit_id: string
+        }
+        Returns: undefined
+      }
       rpc_create_custody_assign: {
         Args: {
           p_created_by_name?: string
@@ -8920,6 +9012,7 @@ export type Database = {
           p_consumer_sub_container_id: string
           p_consumer_type: string
           p_lines: Json
+          p_milestone_id?: string
           p_notes: string
           p_source_sub_container_id: string
           p_source_warehouse_id: string
@@ -9261,6 +9354,10 @@ export type Database = {
         Returns: string
       }
       rpc_sync_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
+      rpc_transfer_tool_unit: {
+        Args: { p_notes?: string; p_to_division_id: string; p_unit_id: string }
+        Returns: undefined
+      }
       rpc_update_document_initial_rate: {
         Args: {
           p_document_id: string

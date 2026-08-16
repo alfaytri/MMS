@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronRight, Lock,
   Database, ShoppingBag, BarChart3, LayoutDashboard, Settings2,
   Package, Warehouse as WarehouseIcon, UserCog, ScrollText, Settings,
-  Layers, ArrowRightLeft, ClipboardList, ClipboardCheck, TrendingUp,
+  Layers, ArrowRightLeft, ClipboardList, ClipboardCheck, TrendingUp, FolderKanban,
   Activity, Truck, UserCheck, Building2, Wrench,
   Ship, Calculator, Receipt,
   PackageOpen, FileX2, RotateCcw, FileText, PackageCheck,
@@ -81,6 +81,15 @@ export const NAV_TREE: TreeNode[] = [
             permissions: [
               { key: 'warehouse.warehouses.view', label: 'View Warehouses Tab', description: 'See the Warehouses tab listing physical warehouses' },
               { key: 'warehouse.settings.manage', label: 'Manage WH Settings', description: 'Edit warehouses, assign Warehouse RPs, configure reorder points' },
+            ],
+          },
+          {
+            id: 'md-wh-projects',
+            label: 'Projects',
+            icon: FolderKanban,
+            permissions: [
+              { key: 'warehouse.projects.view',   label: 'View Projects',   description: 'See the Projects tab (custody projects split into discipline buckets)' },
+              { key: 'warehouse.projects.manage', label: 'Manage Projects', description: 'Create/close projects, add disciplines, and manage milestones' },
             ],
           },
           {

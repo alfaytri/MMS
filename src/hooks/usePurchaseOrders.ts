@@ -6,6 +6,7 @@ import { recipientsForNotification } from '@/lib/notify'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 import { savePoSnapshot, stageOf, resolveLineItemNames } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
+import { humanizeDbError } from '@/lib/dbErrors'
 
 // PostgrestError is not an Error subclass — surface code/message/details/hint
 // so the toast shows the RAISE from the RPC (e.g. receival/RFQ guard) instead
@@ -715,7 +716,7 @@ export function useCreatePOPayment() {
         direction: 'outgoing',
         status: 'pending',
       } as unknown as import('@/types/database.types').DBInsert<'payments'>)
-      if (error) throw error
+      if (error) throw new Error(humanizeDbError(error, 'record payments'))
 
       await supabase.rpc('refresh_po_status', { p_po_id: payment.po_id })
 

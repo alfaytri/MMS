@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const REASON_MESSAGES: Record<string, string> = {
   timeout:    'You were signed out due to 30 minutes of inactivity.',
@@ -54,10 +54,11 @@ function LoginForm() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">MMS</CardTitle>
-        <CardDescription>
-          Maintenance Management System — sign in to continue
-        </CardDescription>
+        {/* Company name hardcoded here by request: this card renders pre-auth,
+            where companies.name_en isn't readable (RLS is authenticated-only). */}
+        <CardTitle className="text-2xl font-bold">
+          Alfaytri
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {reason && REASON_MESSAGES[reason] && (

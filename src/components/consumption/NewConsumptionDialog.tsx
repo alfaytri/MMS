@@ -33,6 +33,7 @@ import {
   removeConsumptionAttachment,
   type ConsumerType,
 } from '@/hooks/useConsumption'
+import { useProjectMilestones } from '@/hooks/useProjectMilestones'
 import { useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -67,6 +68,11 @@ const COOLDOWN_MS = 3000
 // A line consuming this share (or more) of the available stock is flagged in
 // the confirmation modal as a likely fat-finger — the operator must eyeball it.
 const HIGH_SHARE_RATIO = 0.9
+// Sentinel Select value for "no milestone tag" — never sent to the RPC as-is;
+// it resolves to `null` for `p_milestone_id`. Kept distinct from '' so the
+// Select always has a real selected item (the "No milestone" row) instead of
+// relying on empty-string placeholder semantics.
+const NO_MILESTONE = '__none__'
 
 /**
  * Consumption qty is a whole-unit integer (`consumption_lines.qty` is `int`).
@@ -175,6 +181,25 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     return activeLocations.filter((l) => allowed.has(l.division_id ?? ''))
   }, [activeLocations, isSuperViewer, userDivisionIds])
   const locationGroups = useMemo(() => groupByWarehouse(visibleLocations), [visibleLocations])
+
+  // ── Milestone (optional cost tag on the consumer discipline bucket) ────
+  // Ties to consumerSub (the CONSUMER), not the source — mirrors
+  // rpc_post_consumption's p_milestone_id validation (Task 2.3). Collapsing
+  // to `null` whenever not custody (or no bucket chosen yet) both disables
+  // the underlying query (useProjectMilestones gates on `!!subContainerId`)
+  // and keeps a stale bucket's milestones from ever being fetched while the
+  // operator is on the Internal tab.
+  const { data: milestones = [] } = useProjectMilestones(
+    consumerType === 'custody' && consumerSub ? consumerSub : null,
+  )
+  const [milestoneId, setMilestoneId] = useState<string>(NO_MILESTONE)
+  // Reset whenever the consumer bucket or type changes so a milestone picked
+  // for a previously-selected discipline is never carried over and
+  // accidentally submitted against a different (or no-longer-custody)
+  // consumer.
+  useEffect(() => {
+    setMilestoneId(NO_MILESTONE)
+  }, [consumerSub, consumerType])
 
   // ── Lines
   const [rows, setRows] = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
@@ -288,6 +313,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       setSrcSubId(presetSource?.subContainerId ?? null)
       setConsumerType(allowedConsumerTypes[0] ?? 'custody')
       setConsumerSub(presetSource?.kindLabel === 'Custody' ? presetSource.subContainerId : '')
+      setMilestoneId(NO_MILESTONE)
       setRows([{ brand_variant_id: '', qty: '' }])
       setOpenPickerIdx(null)
       setNotes('')
@@ -389,6 +415,20 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
   const consumerTypeLabel = consumerType === 'custody' ? 'Custody' : 'Internal'
 
+  // Resolved for the RPC payload — '__none__' (or any non-custody consumer)
+  // always collapses to `null`, never a stray sentinel string.
+  const resolvedMilestoneId = useMemo(
+    () => (consumerType === 'custody' && milestoneId !== NO_MILESTONE ? milestoneId : null),
+    [consumerType, milestoneId],
+  )
+  // Separate display-only lookup for the confirmation modal summary — a
+  // `.find()` here is fine (unlike a Select trigger's rendered value) since
+  // it's a one-off read surface, not a controlled component's display value.
+  const selectedMilestoneLabel = useMemo(
+    () => (resolvedMilestoneId ? milestones.find((m) => m.id === resolvedMilestoneId)?.label ?? null : null),
+    [resolvedMilestoneId, milestones],
+  )
+
   const srcWhName = useMemo(
     () => srcWarehouses.find((w) => w.id === srcWhId)?.name ?? '—',
     [srcWarehouses, srcWhId],
@@ -468,6 +508,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         source_sub_container_id:   srcSubId,
         consumer_type:             consumerType,
         consumer_sub_container_id: consumerType === 'custody' ? consumerSub : null,
+        milestone_id:              resolvedMilestoneId,
         notes:                     notes.trim() || null,
         attachments:               attachments,
         lines,
@@ -644,6 +685,30 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                 </div>
               )}
             </div>
+
+            {/* Milestone — OPTIONAL cost tag (locked Decision 7: consuming
+                with no milestone stays valid). Only appears once the picked
+                custody bucket actually has active milestones. "No milestone"
+                is always offered first and is never force-replaced even when
+                exactly one real milestone exists — the single-option
+                pre-select+disable convention used elsewhere in this dialog
+                does NOT apply here, since that would defeat optionality. */}
+            {consumerType === 'custody' && consumerSub && milestones.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Milestone (optional)</Label>
+                <Select value={milestoneId} onValueChange={(v) => setMilestoneId(v ?? NO_MILESTONE)}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="No milestone" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    <SelectItem value={NO_MILESTONE} className="text-xs">No milestone</SelectItem>
+                    {milestones.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="text-xs">{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           </>)}
 
@@ -884,6 +949,12 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                 {consumerType === 'internal' ? 'Internal use' : `${consumerTypeLabel} — ${consumerLabel ?? ''}`}
               </span>
             </div>
+            {selectedMilestoneLabel && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">Milestone</span>
+                <span className="font-medium text-right truncate min-w-0">{selectedMilestoneLabel}</span>
+              </div>
+            )}
           </div>
 
           {anyHighShare && (
