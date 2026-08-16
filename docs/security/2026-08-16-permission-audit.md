@@ -76,6 +76,19 @@ Internal-ERP context lowers the practical risk (all users are staff), but the RL
 
 ---
 
+## E. ⚠️ Operational write RPCs bypass permissions entirely (systemic — found during batch 2)
+
+Most create/action flows don't insert directly — they call a `SECURITY DEFINER` RPC, which **bypasses RLS**. Almost none of those RPCs check a permission key (or even division/RP scope) in-body, so the matching catalog keys are **cosmetic (UI-only)**: any authenticated user can perform the action by calling the RPC directly via the Data API.
+
+**Confirmed DEFINER + `checks_perm = false`** (spot-checked `rpc_create_purchase_bill` + `generate_invoice_from_so` = **no access control at all**, only field validation):
+- Bills `rpc_create_purchase_bill` · Invoices `generate_invoice_from_so` · POs `rpc_create_purchase_order` · Receivals `create_and_approve_receival` · Transfers `create_transfer_v2` / `dispatch_transfer` / `receive_transfer` / `cancel_transfer` / `reject_transfer_v2` · Adjustments `create_stock_adjustment_v2` / `apply_adjustment` / `approve_stock_adjustment_inventory` / `force_approve_stock_adjustment` · Deliveries `create_and_confirm_delivery` / `complete_delivery_inventory` / `cancel_delivery_inventory` · Returns/credit-notes `rpc_record_return_refund` / `rpc_record_return_store_credit` / `rpc_process_return_restock` / `rpc_create_custody_return` / `rpc_redeem_credit_note` · Inventory checks `save_inventory_check_item_count` / `apply_inventory_check_adjustments` / `snapshot_inventory_check_system_qty`.
+
+**Counter-examples that DO check** (`create_inventory_receival`, `rpc_transfer_tool_unit`, VWh `create_project`/milestone RPCs) — the pattern exists; it's just applied inconsistently, so the gaps read as oversights, not design.
+
+**Impact.** Batch-2's items (bills / invoices / credit-notes `.create`) are part of this. Making any of them enforceable means adding a permission check **inside the RPC**. Each is a **tightening** (ungated today → requires a permission), so each needs a role-impact check + granting the key to the roles that should perform it. ~30 money-path RPCs → a planned, staged hardening effort, not an ad-hoc fix.
+
+---
+
 ## Recommended fix order
 1. **A1 (quick, high-value):** make `roles/bills/invoices/credit_notes` INSERT honor `.create OR .manage`. Small migrations, same shape as customers, no regression.
 2. **B/A2 (decide):** tighten `companies/divisions/warehouses/suppliers` INSERT to require the module's `.create`/`.manage` (removes the wide-open access). Needs a call on who should create each.
