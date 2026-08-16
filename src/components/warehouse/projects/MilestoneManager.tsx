@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { createClient } from '@/lib/supabase/client'
 import {
   useAddMilestone,
   useCloseMilestone,
@@ -44,18 +44,44 @@ export function MilestoneManager({ subContainerId, canManage }: Props) {
   const addMilestone = useAddMilestone()
   const closeMilestone = useCloseMilestone()
 
-  const [newLabel, setNewLabel] = useState('')
+  const [isAdding, setIsAdding] = useState(false)
   const [closeTarget, setCloseTarget] = useState<ProjectMilestone | null>(null)
 
+  // Auto-number milestones as "Milestone 1", "Milestone 2", … — one click, no
+  // typing. Next number = the highest existing "Milestone <n>" for this bucket
+  // + 1, computed over BOTH active and closed rows: UNIQUE(sub_container_id,
+  // label) covers inactive rows too, so numbering off the visible (active-only)
+  // list would collide the moment the latest milestone is closed and a new one
+  // is added. pm_read RLS is division-scoped only (no is_active filter), so the
+  // client can read closed rows for this max.
   async function handleAdd() {
-    const label = newLabel.trim()
-    if (!label) return
+    if (isAdding || addMilestone.isPending) return
+    setIsAdding(true)
     try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('project_milestones')
+        .select('label')
+        .eq('sub_container_id', subContainerId)
+        .limit(500)
+      if (error) {
+        throw new Error(
+          [error.code, error.message, error.details, error.hint].filter(Boolean).join(' — ')
+            || 'Failed to read existing milestones',
+        )
+      }
+      let maxN = 0
+      for (const row of data ?? []) {
+        const match = /^Milestone (\d+)$/.exec((row.label ?? '').trim())
+        if (match) maxN = Math.max(maxN, Number(match[1]))
+      }
+      const label = `Milestone ${maxN + 1}`
       await addMilestone.mutateAsync({ sub_container_id: subContainerId, label })
-      toast.success(`Milestone "${label}" added`)
-      setNewLabel('')
+      toast.success(`${label} added`)
     } catch (e) {
       toast.error((e as Error).message)
+    } finally {
+      setIsAdding(false)
     }
   }
 
@@ -117,31 +143,16 @@ export function MilestoneManager({ subContainerId, canManage }: Props) {
       )}
 
       {canManage && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center rounded-md border border-dashed p-3">
-          <Input
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            placeholder="Milestone label (e.g. M1)"
-            className="w-full sm:flex-1 h-11 sm:h-9 text-sm"
-            disabled={addMilestone.isPending}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && newLabel.trim() && !addMilestone.isPending) {
-                e.preventDefault()
-                void handleAdd()
-              }
-            }}
-          />
-          <Button
-            type="button"
-            size="sm"
-            className="gap-1.5 min-h-11 sm:min-h-0 w-full sm:w-auto shrink-0"
-            disabled={!newLabel.trim() || addMilestone.isPending}
-            onClick={handleAdd}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {addMilestone.isPending ? 'Adding…' : 'Add milestone'}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="gap-1.5 min-h-11 sm:min-h-0 w-full sm:w-auto"
+          disabled={isAdding || addMilestone.isPending}
+          onClick={handleAdd}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {isAdding || addMilestone.isPending ? 'Adding…' : 'Add milestone'}
+        </Button>
       )}
 
       <AlertDialog open={!!closeTarget} onOpenChange={(o) => { if (!o) setCloseTarget(null) }}>
