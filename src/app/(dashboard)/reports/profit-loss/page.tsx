@@ -17,7 +17,7 @@ import { useDivisions } from '@/hooks/useDivisions'
 import { cn } from '@/lib/utils'
 
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
-const STREAM_ORDER = ['Products', 'Spare Parts', 'Consumables', 'Tools']
+const STREAM_ORDER = ['Products', 'Spare Parts', 'Consumables', 'Tools', 'LC Variation']
 
 type Line = { label: string; amount: number | null; level: 0 | 1; kind: 'header' | 'line' | 'subtotal' | 'grand' }
 

@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const CHROMIUM_FILES = ['./node_modules/@sparticuz/chromium/**/*']
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core', 'exceljs'],
 
   outputFileTracingIncludes: {
     '/api/**/pdf':                                  CHROMIUM_FILES,
