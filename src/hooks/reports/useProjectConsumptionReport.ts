@@ -9,6 +9,9 @@ export type ProjectConsumptionRow = {
   project_number:  string | null
   discipline_name: string | null
   milestone_label: string
+  item_name:       string | null
+  sku:             string | null
+  consumed_on:     string
   qty:             number
   total_cost:      number
 }

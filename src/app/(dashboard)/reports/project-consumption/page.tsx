@@ -31,6 +31,8 @@ const columns: ReportColumn<ProjectConsumptionRow>[] = [
     render: (r) => <ConsumerKindBadge kind={r.consumer_kind} /> },
   { header: 'Discipline', accessor: (r) => r.discipline_name ?? '—', format: 'text', wrap: true },
   { header: 'Milestone',  accessor: (r) => r.milestone_label,       format: 'text' },
+  { header: 'Item',       accessor: (r) => r.item_name ?? '—',       format: 'text', wrap: true },
+  { header: 'Date',       accessor: (r) => r.consumed_on,            format: 'text' },
   { header: 'Qty',        accessor: (r) => r.qty,                   format: 'number',   total: true },
   { header: 'Total Cost', accessor: (r) => r.total_cost,            format: 'currency', total: true },
 ]
@@ -83,7 +85,7 @@ export default function ProjectConsumptionReportPage() {
     <PageWrapper>
       <PageHeader
         title="Project Consumption"
-        description="Consumption spend per team or project, broken down by discipline and milestone."
+        description="Consumption spend per team or project — each item consumed, with its date, discipline and milestone."
         breadcrumb={
           <nav aria-label="Breadcrumb" className="flex items-center gap-1">
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
