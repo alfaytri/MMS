@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
 import { ConsumptionDetailDialog } from '@/components/consumption/ConsumptionDetailDialog'
 import {
@@ -61,6 +62,9 @@ function ConsumerIcon({ type }: { type: ConsumerType }) {
 // ─── Page ───────────────────────────────────────────────────────────────
 
 export default function ConsumptionPage() {
+  // Primary split: Service items vs Team-held items (is_team_item). Orthogonal to
+  // the consumer-type filter (custody / internal), which stays a secondary filter.
+  const [tab, setTab] = useState<'service' | 'team'>('service')
   const [status,       setStatus]       = useState<ConsumptionStatus | 'all'>('all')
   const [consumerType, setConsumerType] = useState<ConsumerType      | 'all'>('all')
   const [fromDate, setFromDate] = useState('')
@@ -71,6 +75,7 @@ export default function ConsumptionPage() {
     consumerType,
     fromDate: fromDate || null,
     toDate:   toDate   || null,
+    teamItems: tab === 'team',
   })
 
   const [newOpen, setNewOpen] = useState(false)
@@ -193,6 +198,18 @@ export default function ConsumptionPage() {
         }
       />
 
+      {/* Service vs Team-item consumption — same posting engine, split by is_team_item */}
+      <Tabs value={tab} onValueChange={(v) => setTab((v as 'service' | 'team') ?? 'service')}>
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="service" className="flex-1 sm:flex-none gap-1.5">
+            <Package className="h-3.5 w-3.5" /> Service items
+          </TabsTrigger>
+          <TabsTrigger value="team" className="flex-1 sm:flex-none gap-1.5">
+            <Users2 className="h-3.5 w-3.5" /> Team items
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Stat strip */}
       <div className={cn('grid gap-2', canSeeCost ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
         <div className="rounded-lg border bg-card px-3 py-2">
@@ -249,8 +266,10 @@ export default function ConsumptionPage() {
         onRowClick={(row) => setDetailId(row.id)}
         emptyState={{
           icon: <HandCoins className="h-6 w-6 text-muted-foreground" />,
-          title: 'No consumption entries yet',
-          description: 'Post a consumption to deduct stock and book COGS to a consumer.',
+          title: tab === 'team' ? 'No team-item consumption yet' : 'No service consumption yet',
+          description: tab === 'team'
+            ? 'Team-held items (refrigerant, plastic rolls) consumed from custody appear here.'
+            : 'Items consumed from a warehouse for a job appear here.',
           action: canCreate ? (
             <Button size="sm" onClick={() => setNewOpen(true)} className="gap-1.5">
               <Plus className="h-3.5 w-3.5" /> New Consumption
@@ -282,7 +301,7 @@ export default function ConsumptionPage() {
         }}
       />
 
-      <NewConsumptionDialog open={newOpen} onOpenChange={setNewOpen} />
+      <NewConsumptionDialog open={newOpen} onOpenChange={setNewOpen} mode={tab} />
       <ConsumptionDetailDialog
         open={!!detailId}
         onOpenChange={(o) => { if (!o) setDetailId(null) }}

@@ -29,6 +29,7 @@ import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 import {
   useCreateConsumption,
   useMyConsumptionSources,
+  useTeamItemVariantIds,
   uploadConsumptionAttachment,
   removeConsumptionAttachment,
   type ConsumerType,
@@ -60,6 +61,12 @@ interface Props {
    * permission for.
    */
   restrictConsumerTypes?: ConsumerType[]
+  /**
+   * Consumption-tab mode. 'service' HIDES team-items from the item picker;
+   * 'team' shows ONLY team-items and restricts the source to custody holdings.
+   * Omitted (custody card / legacy callers) → no team-item filtering.
+   */
+  mode?: 'service' | 'team'
 }
 
 type LineRow = { brand_variant_id: string; qty: string }
@@ -88,7 +95,7 @@ const LOC_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 
  * exactly what is about to be consumed and holds a 3-second cooldown on its
  * confirm button before the post can fire.
  */
-export function NewConsumptionDialog({ open, onOpenChange, presetSource, restrictConsumerTypes }: Props) {
+export function NewConsumptionDialog({ open, onOpenChange, presetSource, restrictConsumerTypes, mode }: Props) {
   // Compute which consumer types this caller is actually allowed to pick.
   // Intersection of (caller permissions) and (restrictConsumerTypes ?? all).
   const canCreateCustody  = useCanCreateConsumptionFor('custody')
@@ -107,6 +114,16 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
   const { data: sources = [] } = useMyConsumptionSources()
   const { data: locations = [] } = useCustodyLocations()
+  // Team-item variant set — scopes the item picker per mode (Service excludes
+  // team-items, Team shows only team-items). undefined while loading.
+  const { data: teamVariantIds } = useTeamItemVariantIds()
+
+  // In Team mode the source must be a custody holding (a team consumes what it
+  // holds); Service / legacy callers keep all assigned sources.
+  const modeSources = useMemo(
+    () => (mode === 'team' ? sources.filter((s) => s.warehouse_kind === 'custody') : sources),
+    [sources, mode],
+  )
 
   // Consumer scope: a regular user may only book COGS to custody locations in
   // the division(s) they belong to. Owner/Accountant (super-viewers) oversee
@@ -117,11 +134,11 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // the picker mirrors what rpc_post_consumption will actually accept).
   const srcWarehouses = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>()
-    for (const s of sources) {
+    for (const s of modeSources) {
       if (!map.has(s.warehouse_id)) map.set(s.warehouse_id, { id: s.warehouse_id, name: s.warehouse_name })
     }
     return Array.from(map.values())
-  }, [sources])
+  }, [modeSources])
 
   // ── Source
   const [srcWhId,  setSrcWhId]   = useState(presetSource?.warehouseId ?? '')
@@ -129,10 +146,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const sourceLocked             = !!presetSource
 
   const eligibleSrcSubs = useMemo(
-    () => sources
+    () => modeSources
       .filter((s) => s.warehouse_id === srcWhId)
       .map((s) => ({ id: s.sub_container_id, name: s.sub_container_name })),
-    [sources, srcWhId],
+    [modeSources, srcWhId],
   )
 
   // Auto-pick source sub when only one exists (skip when locked).
@@ -285,6 +302,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     const out: PickerItem[] = []
     for (const s of sourceStock) {
       if (seen.has(s.brand_variant_id)) continue
+      // Per-tab scoping: Service hides team-items, Team shows only team-items.
+      // (Legacy callers pass no mode → no filtering.)
+      if (mode === 'service' && teamVariantIds?.has(s.brand_variant_id)) continue
+      if (mode === 'team'    && !teamVariantIds?.has(s.brand_variant_id)) continue
       seen.add(s.brand_variant_id)
       out.push({
         id:            s.brand_variant_id,
@@ -298,7 +319,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       })
     }
     return out
-  }, [sourceStock, availableQtyMap])
+  }, [sourceStock, availableQtyMap, mode, teamVariantIds])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
@@ -607,7 +628,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         <DialogHeader className="px-4 pt-4 pb-0 sm:px-5 sm:pt-5">
           <DialogTitle className="text-sm font-semibold flex items-center gap-1.5">
             <HandCoins className="h-4 w-4 text-primary" />
-            New Consumption
+            New {mode === 'team' ? 'Team-item ' : mode === 'service' ? 'Service ' : ''}Consumption
           </DialogTitle>
           {/* Redundant with the amber warning below — hide on phones to save height. */}
           <p className="hidden sm:block text-[11px] text-muted-foreground mt-1">

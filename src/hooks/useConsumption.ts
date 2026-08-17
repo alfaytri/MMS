@@ -52,6 +52,7 @@ export type ConsumptionListRow = {
   source_sub_container_name: string | null
   consumer_type:             ConsumerType
   consumer_sub_container_id: string | null
+  is_team_item:              boolean
   consumer_display:          string
   notes:                     string | null
   attachments:               string[]
@@ -73,6 +74,7 @@ export type ConsumptionListFilters = {
   consumerType?:  ConsumerType | 'all'
   fromDate?:      string | null   // yyyy-mm-dd inclusive
   toDate?:        string | null   // yyyy-mm-dd inclusive
+  teamItems?:     boolean         // true = Team tab, false = Service tab, undefined = both
 }
 
 // Raw row shape from the embedded select — mapped to ConsumptionListRow by
@@ -86,6 +88,7 @@ type RawRow = {
   source_sub_container_id:   string
   consumer_type:             ConsumerType
   consumer_sub_container_id: string | null
+  is_team_item:              boolean
   notes:                     string | null
   attachments:               string[] | null
   posted_at:                 string | null
@@ -120,6 +123,7 @@ function mapRow(row: RawRow): ConsumptionListRow {
     source_sub_container_name: row.source_sub?.name ?? null,
     consumer_type:             row.consumer_type,
     consumer_sub_container_id: row.consumer_sub_container_id,
+    is_team_item:              row.is_team_item ?? false,
     consumer_display,
     notes:                     row.notes,
     attachments:               row.attachments ?? [],
@@ -136,7 +140,7 @@ function mapRow(row: RawRow): ConsumptionListRow {
 const LIST_SELECT = `
   id, ce_number, date, status,
   source_warehouse_id, source_sub_container_id,
-  consumer_type, consumer_sub_container_id,
+  consumer_type, consumer_sub_container_id, is_team_item,
   notes, attachments, posted_at, cancelled_at,
   source_warehouse:source_warehouse_id(name),
   source_sub:source_sub_container_id(name),
@@ -169,6 +173,8 @@ export function useConsumptionList(filters: ConsumptionListFilters = {}) {
       }
       if (filters.fromDate) q = q.gte('date', filters.fromDate)
       if (filters.toDate)   q = q.lte('date', filters.toDate)
+      // Cast past the stale generated types — is_team_item is newer (20260918000000).
+      if (typeof filters.teamItems === 'boolean') q = q.eq('is_team_item' as never, filters.teamItems as never)
 
       const { data, error } = await q
       if (error) throw error
@@ -581,6 +587,27 @@ export function useMyConsumptionSources() {
       const { data, error } = await supabase.rpc('rpc_my_consumption_sources' as never)
       if (error) throw new Error(error.message)
       return (data as unknown as ConsumptionSource[]) ?? []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ─── 9. Team-item variant ids (for the New Consumption picker) ────────────
+
+/**
+ * The set of brand_variant ids that are team-items (effective flag =
+ * COALESCE(item, category, false)). The New Consumption dialog scopes its item
+ * picker with this per tab: the Service tab EXCLUDES these, the Team tab shows
+ * ONLY these. Backed by rpc_team_item_variant_ids (SECURITY INVOKER, non-anon).
+ */
+export function useTeamItemVariantIds() {
+  return useQuery({
+    queryKey: ['team-item-variant-ids'],
+    queryFn: async (): Promise<Set<string>> => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_team_item_variant_ids' as never)
+      if (error) throw new Error(error.message)
+      return new Set((data as unknown as string[]) ?? [])
     },
     staleTime: 5 * 60 * 1000,
   })
