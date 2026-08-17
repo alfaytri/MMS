@@ -1175,6 +1175,21 @@ These modules are called out in project plans / seed docs but have no material f
 - **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
 - **Notes:** Milestone anchored to the CONSUMER sub-container to stay consistent with how the report resolves discipline (`cogs.consumer_sub_container_id`). A free-text **code** tag was added 2026-08-17 (migration `20260917000000`): `rpc_post_consumption(..., p_code text DEFAULT NULL)` stamps `consumption_entries.code` + copies it onto every per-layer `cogs_entries` row. UI-required for a project pool (the dialog gate), but the RPC does NOT hard-require it — `p_code` stays `DEFAULT NULL` so the param is backward compatible and consistent with discipline/milestone (also UI-only-required). Column is nullable; non-project / internal consumptions carry no code.
 
+### Team vs Service item consumption (tabs)
+
+- **Module:** Warehouse / Consumption (routing layer over the existing Post Consumption flow)
+- **Status:** Active (staging 2026-08-18; not yet on prod)
+- **Trigger surface(s):** `/consumption` — two tabs **Service items** / **Team items**; inventory editors mark items team-held (a **Team item category** switch on `CategoryEditDialog`; a tri-state Inherit/Yes/No per-item override on `ItemEditDialog`).
+- **Primary hook(s):** [`useConsumptionList`](src/hooks/useConsumption.ts) (`teamItems` filter) · [`useTeamItemVariantIds`](src/hooks/useConsumption.ts) (picker scoping) · [`useItemTeamItemContext`](src/hooks/useInventory.ts) (editor seed) · [`useCreateConsumption`](src/hooks/useConsumption.ts) (posting, unchanged).
+- **RPC(s):** `rpc_post_consumption(…)` — signature unchanged; now DERIVES + stamps `consumption_entries.is_team_item` from the consumed items (effective = `COALESCE(item, category, false)`) and RAISEs on a mixed post (homogeneity). `rpc_team_item_variant_ids()` (STABLE SECURITY INVOKER, revoked from anon/public) returns the effective team-item variant ids for the picker.
+- **Ledger writes:** same as [[Post Consumption with Milestone tag]] — `consumption_entries` (+`is_team_item`) / `consumption_lines` / per-layer `cogs_entries` / `inventory_stock_movements` / FIFO drain. **No cost or stock behaviour change** — is_team_item is a UI routing attribute only.
+- **Downstream side-effects:** the two history lists split by `is_team_item`; the New dialog `mode` scopes the item picker (Service excludes team-items; Team shows only team-items and restricts the source to custody holdings).
+- **Dialog / component:** [`NewConsumptionDialog`](src/components/consumption/NewConsumptionDialog.tsx) (`mode` prop) · [`consumption/page.tsx`](<src/app/(dashboard)/consumption/page.tsx>) (Tabs).
+- **Guards / preconditions:** existing consumption access rules unchanged; team-item routing is UI-enforced (picker filter + Team-mode custody-only source) plus the RPC homogeneity assertion. A team-item sitting in a real warehouse (unassigned) appears in neither tab — consumable only once in a team's custody.
+- **Migrations:** `20260918000000` (flag columns), `20260919000000` (stamp in rpc_post_consumption), `20260919000100` (variant-ids RPC). Staging only so far.
+- **Related flows:** [[Post Consumption with Milestone tag]], [[Custody & Consumption]]
+- **Docs / plans:** [docs/consumption/2026-08-18-team-vs-service-consumption-design.md](docs/consumption/2026-08-18-team-vs-service-consumption-design.md)
+
 ### Virtual Sub-container Transfer (project/discipline)
 
 - **Module:** Warehouse (extends the existing Transfer flow)
