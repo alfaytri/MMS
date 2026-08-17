@@ -10,14 +10,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { requireReportsPermission } from '@/lib/reports/reports-auth'
 import { buildReportWorkbookBuffer } from '@/lib/reports/reportExcelServer'
+import { fileSlug } from '@/lib/reports/fileSlug'
 import type { ReportExcelPayload } from '@/lib/reports/reportExcelTypes'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
-
-function fileSlug(name: string): string {
-  return (name || 'report').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'report'
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireReportsPermission(req)

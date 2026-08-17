@@ -9,13 +9,10 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { buildReportHtml, type ReportPdfPayload } from '@/lib/reports/reportHtml'
 import { requireReportsPermission } from '@/lib/reports/reports-auth'
+import { fileSlug } from '@/lib/reports/fileSlug'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
-
-function fileSlug(title: string): string {
-  return (title || 'report').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'report'
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireReportsPermission(req)
