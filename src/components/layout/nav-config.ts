@@ -52,7 +52,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Accounts Payable',      href: '/reports/payables',               icon: 'Wallet',          permission: 'reports.payables.view' },
           { label: 'Cash & Cash Equivalents', href: '/reports/cash',                icon: 'HandCoins',       permission: 'reports.cash.view' },
           { label: 'Profit & Loss',         href: '/reports/profit-loss',            icon: 'BarChart3',       permission: 'reports.profit_loss.view' },
-          { label: 'Project Consumption',   href: '/reports/project-consumption',    icon: 'Flame',           permission: ['reports.view', 'reports.project_consumption.view', 'consumption.cost.view'] },
+          { label: 'Consumption',           href: '/reports/project-consumption',    icon: 'Flame',           permission: ['reports.view', 'reports.project_consumption.view', 'consumption.cost.view'] },
         ],
       },
     ],

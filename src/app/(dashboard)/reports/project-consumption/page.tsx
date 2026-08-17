@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { ChevronRight, Lock } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { Badge } from '@/components/ui/badge'
 import { ReportFilterBar } from '@/components/reports/ReportFilterBar'
 import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
@@ -15,26 +14,24 @@ import { useProjectConsumptionReport, type ProjectConsumptionRow } from '@/hooks
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useReportFilters } from '@/hooks/useReportFilters'
 import { useDivisions } from '@/hooks/useDivisions'
-import { cn } from '@/lib/utils'
 
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 
-function ConsumerKindBadge({ kind }: { kind: string }) {
-  const cls =
-    kind === 'project' ? 'bg-primary/10 text-primary border-primary/30'
-    : 'bg-muted text-muted-foreground border-muted-foreground/30'
-  return <Badge className={cn('text-[10px] h-4 px-1.5 border font-normal capitalize hover:bg-current/10', cls)}>{kind}</Badge>
-}
-
-const columns: ReportColumn<ProjectConsumptionRow>[] = [
-  { header: 'Type',       accessor: (r) => r.consumer_kind,          format: 'text',
-    render: (r) => <ConsumerKindBadge kind={r.consumer_kind} /> },
+// On-screen the Team/Project split is shown as two labelled sections, so the
+// per-row Type badge is redundant and dropped here. The export keeps a Type
+// column so the flat file still distinguishes teams from projects.
+const screenColumns: ReportColumn<ProjectConsumptionRow>[] = [
   { header: 'Discipline', accessor: (r) => r.discipline_name ?? '—', format: 'text', wrap: true },
   { header: 'Milestone',  accessor: (r) => r.milestone_label,       format: 'text' },
   { header: 'Item',       accessor: (r) => r.item_name ?? '—',       format: 'text', wrap: true },
   { header: 'Date',       accessor: (r) => r.consumed_on,            format: 'text' },
-  { header: 'Qty',        accessor: (r) => r.qty,                   format: 'number',   total: true },
-  { header: 'Total Cost', accessor: (r) => r.total_cost,            format: 'currency', total: true },
+  { header: 'Qty',        accessor: (r) => r.qty,                    format: 'number',   total: true },
+  { header: 'Total Cost', accessor: (r) => r.total_cost,             format: 'currency', total: true },
+]
+
+const exportColumns: ReportColumn<ProjectConsumptionRow>[] = [
+  { header: 'Type', accessor: (r) => (r.consumer_kind === 'project' ? 'Project' : 'Team'), format: 'text' },
+  ...screenColumns,
 ]
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -46,7 +43,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function ProjectConsumptionReportPage() {
+export default function ConsumptionReportPage() {
   const canView = useHasPermission(['reports.view', 'reports.project_consumption.view', 'consumption.cost.view'])
   const [filters, setFilters] = useReportFilters(() => {
     const r = presetRange('this-year')
@@ -55,6 +52,10 @@ export default function ProjectConsumptionReportPage() {
 
   const { data: rows = [], isLoading } = useProjectConsumptionReport(filters, canView)
   const { data: divisions = [] } = useDivisions()
+
+  // Split the consumers by kind — Teams vs Projects — into two sections.
+  const teamRows = useMemo(() => rows.filter((r) => r.consumer_kind !== 'project'), [rows])
+  const projectRows = useMemo(() => rows.filter((r) => r.consumer_kind === 'project'), [rows])
 
   const totals = useMemo(() => {
     const spend = rows.reduce((s, r) => s + (r.total_cost ?? 0), 0)
@@ -84,25 +85,25 @@ export default function ProjectConsumptionReportPage() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Project Consumption"
-        description="Consumption spend per team or project — each item consumed, with its date, discipline and milestone."
+        title="Consumption"
+        description="Consumption spend split into Teams and Projects — each item consumed, with its date, discipline and milestone."
         breadcrumb={
           <nav aria-label="Breadcrumb" className="flex items-center gap-1">
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
             <ChevronRight className="h-3 w-3" />
             <span>Reports</span>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-foreground font-medium">Project Consumption</span>
+            <span className="text-foreground font-medium">Consumption</span>
           </nav>
         }
         actions={
           <ReportExportMenu<ProjectConsumptionRow>
-            filename="Project Consumption"
-            title="Project Consumption"
+            filename="Consumption"
+            title="Consumption"
             subtitle={subtitle}
-            columns={columns}
+            columns={exportColumns}
             rows={rows}
-            groupBy={(r) => r.consumer_name ?? '—'}
+            groupBy={(r) => `${r.consumer_kind === 'project' ? 'Project' : 'Team'} — ${r.consumer_name ?? '—'}`}
             grandTotalLabel="Grand total (all consumers)"
             disabled={rows.length === 0}
           />
@@ -117,14 +118,29 @@ export default function ProjectConsumptionReportPage() {
 
       <ReportFilterBar value={filters} onChange={setFilters} showDate />
 
-      <ReportGroupedTable
-        columns={columns}
-        rows={rows}
-        groupBy={(r) => r.consumer_name ?? '—'}
-        isLoading={isLoading}
-        grandTotalLabel="Grand total (all consumers)"
-        emptyText="No consumption in the selected period."
-      />
+      <section className="space-y-2">
+        <h2 className="px-1 text-sm font-semibold">👷 Teams</h2>
+        <ReportGroupedTable
+          columns={screenColumns}
+          rows={teamRows}
+          groupBy={(r) => r.consumer_name ?? '—'}
+          isLoading={isLoading}
+          grandTotalLabel="All teams"
+          emptyText="No team consumption in the selected period."
+        />
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="px-1 text-sm font-semibold">🏗️ Projects</h2>
+        <ReportGroupedTable
+          columns={screenColumns}
+          rows={projectRows}
+          groupBy={(r) => r.consumer_name ?? '—'}
+          isLoading={isLoading}
+          grandTotalLabel="All projects"
+          emptyText="No project consumption in the selected period."
+        />
+      </section>
     </PageWrapper>
   )
 }

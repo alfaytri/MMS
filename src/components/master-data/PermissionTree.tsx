@@ -539,7 +539,7 @@ export const NAV_TREE: TreeNode[] = [
           { key: 'reports.payables.view',              label: 'View Accounts Payable',        description: 'The Accounts Payable report' },
           { key: 'reports.cash.view',                  label: 'View Cash & Cash Equivalents', description: 'The Cash & Cash Equivalents report' },
           { key: 'reports.profit_loss.view',           label: 'View Profit & Loss',           description: 'The Profit & Loss report' },
-          { key: 'reports.project_consumption.view',   label: 'View Project Consumption',     description: 'The Project Consumption report' },
+          { key: 'reports.project_consumption.view',   label: 'View Consumption',             description: 'The Consumption report (teams + projects)' },
         ],
       },
     ],
