@@ -68,13 +68,6 @@ const COOLDOWN_MS = 3000
 // A line consuming this share (or more) of the available stock is flagged in
 // the confirmation modal as a likely fat-finger — the operator must eyeball it.
 const HIGH_SHARE_RATIO = 0.9
-// Sentinel Select value for "no milestone tag" — never sent to the RPC as-is;
-// it resolves to `null` for `p_milestone_id`. Kept distinct from '' so the
-// Select always has a real selected item (the "No milestone" row) instead of
-// relying on empty-string placeholder semantics.
-const NO_MILESTONE = '__none__'
-// Same sentinel pattern for the optional project-discipline spend tag.
-const NO_DISCIPLINE = '__none_discipline__'
 
 /**
  * Consumption qty is a whole-unit integer (`consumption_lines.qty` is `int`).
@@ -192,9 +185,12 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // pickers stay hidden.
   const consumerPool = consumerType === 'custody' && consumerSub ? consumerSub : null
   const { data: poolDisciplines = [] } = usePoolDisciplines(consumerPool)
-  const [disciplineId, setDisciplineId] = useState<string>(NO_DISCIPLINE)
+  // null = unselected. Base UI Select renders BLANK for a sentinel string that
+  // matches no item (never falling back to the placeholder), so the unselected
+  // state must be null for the "Select …" placeholder to show.
+  const [disciplineId, setDisciplineId] = useState<string | null>(null)
   const resolvedDisciplineId = useMemo(
-    () => (consumerType === 'custody' && disciplineId !== NO_DISCIPLINE ? disciplineId : null),
+    () => (consumerType === 'custody' && disciplineId ? disciplineId : null),
     [consumerType, disciplineId],
   )
   // Milestones only load once a discipline is picked — a milestone belongs to
@@ -203,15 +199,15 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     resolvedDisciplineId ? consumerPool : null,
     resolvedDisciplineId,
   )
-  const [milestoneId, setMilestoneId] = useState<string>(NO_MILESTONE)
+  const [milestoneId, setMilestoneId] = useState<string | null>(null)
   // Reset the discipline when the consumer/type changes; reset the milestone
   // when the discipline (or consumer/type) changes — a tag picked for a
   // previous discipline must never carry over.
   useEffect(() => {
-    setDisciplineId(NO_DISCIPLINE)
+    setDisciplineId(null)
   }, [consumerSub, consumerType])
   useEffect(() => {
-    setMilestoneId(NO_MILESTONE)
+    setMilestoneId(null)
   }, [consumerSub, consumerType, disciplineId])
 
   // ── Lines
@@ -326,7 +322,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       setSrcSubId(presetSource?.subContainerId ?? null)
       setConsumerType(allowedConsumerTypes[0] ?? 'custody')
       setConsumerSub(presetSource?.kindLabel === 'Custody' ? presetSource.subContainerId : '')
-      setMilestoneId(NO_MILESTONE)
+      setDisciplineId(null)
+      setMilestoneId(null)
       setRows([{ brand_variant_id: '', qty: '' }])
       setOpenPickerIdx(null)
       setNotes('')
@@ -414,7 +411,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // A project-pool consumer REQUIRES a discipline + milestone — spend must be
   // attributed. (Non-project custody / internal have no disciplines → not required.)
   const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
-  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && milestoneId !== NO_MILESTONE)
+  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId)
 
   const canOpenConfirm =
     !!srcWhId &&
@@ -437,7 +434,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // Resolved for the RPC payload — '__none__' (or any non-custody consumer)
   // always collapses to `null`, never a stray sentinel string.
   const resolvedMilestoneId = useMemo(
-    () => (consumerType === 'custody' && resolvedDisciplineId && milestoneId !== NO_MILESTONE ? milestoneId : null),
+    () => (consumerType === 'custody' && resolvedDisciplineId && milestoneId ? milestoneId : null),
     [consumerType, resolvedDisciplineId, milestoneId],
   )
   // Separate display-only lookup for the confirmation modal summary — a
@@ -721,7 +718,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Discipline *</Label>
-                <Select value={disciplineId} onValueChange={(v) => setDisciplineId(v ?? NO_DISCIPLINE)}>
+                <Select value={disciplineId} onValueChange={(v) => setDisciplineId(v)}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Select discipline" />
                   </SelectTrigger>
@@ -743,7 +740,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                     No milestones — add one to this discipline first
                   </div>
                 ) : (
-                  <Select value={milestoneId} onValueChange={(v) => setMilestoneId(v ?? NO_MILESTONE)}>
+                  <Select value={milestoneId} onValueChange={(v) => setMilestoneId(v)}>
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue placeholder="Select milestone" />
                     </SelectTrigger>
