@@ -11,6 +11,12 @@ type Props<T> = {
   rows: T[]
   /** Group rows under labelled bands with a per-group subtotal. Omit for a flat table. */
   groupBy?: (row: T) => string
+  /**
+   * Optional second level rendered as an indented sub-header inside each group
+   * (e.g. by date). Rows sharing a sub-value stack beneath one header instead of
+   * repeating the value on every row. Requires `groupBy`; sub-headers sort ascending.
+   */
+  subGroupBy?: (row: T) => string
   isLoading?: boolean
   emptyText?: string
   /** First-cell label on the grand-total footer. */
@@ -20,7 +26,7 @@ type Props<T> = {
 const alignClass = { left: 'text-left', right: 'text-right', center: 'text-center' } as const
 
 export function ReportGroupedTable<T>({
-  columns, rows, groupBy, isLoading, emptyText = 'No data for the selected filters.', grandTotalLabel = 'Grand total',
+  columns, rows, groupBy, subGroupBy, isLoading, emptyText = 'No data for the selected filters.', grandTotalLabel = 'Grand total',
 }: Props<T>) {
   const groups = useMemo(() => {
     if (!groupBy) return null
@@ -40,6 +46,44 @@ export function ReportGroupedTable<T>({
   function cell(row: T, col: ReportColumn<T>) {
     if (col.render) return col.render(row)
     return formatReportValue(col.accessor(row), col.format)
+  }
+
+  /** One data <tr>. Extracted so flat, grouped and nested paths render identically. */
+  function dataRow(row: T, key: string) {
+    return (
+      <tr key={key} className="hover:bg-accent/40 transition-colors">
+        {columns.map((col) => (
+          <td
+            key={col.header}
+            className={cn(
+              'px-3 py-1.5 2xl:px-4 2xl:py-2 align-top',
+              col.wrap
+                ? 'whitespace-normal break-words min-w-[9rem] max-w-[26rem]'
+                : 'whitespace-nowrap',
+              col.format && col.format !== 'text' ? 'tabular-nums' : '',
+              alignClass[columnAlign(col)],
+            )}
+          >
+            {cell(row, col)}
+          </td>
+        ))}
+      </tr>
+    )
+  }
+
+  /** Partition a group's rows by the sub-value, sorted ascending by label. */
+  function splitSub(groupRows: T[]) {
+    const fn = subGroupBy!
+    const map = new Map<string, T[]>()
+    for (const r of groupRows) {
+      const k = fn(r) || '—'
+      const arr = map.get(k) ?? []
+      arr.push(r)
+      map.set(k, arr)
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([label, rws]) => ({ label, rows: rws }))
   }
 
   function TotalsRow({ label, groupRows, variant }: { label: string; groupRows: T[]; variant: 'subtotal' | 'grand' }) {
@@ -116,48 +160,26 @@ export function ReportGroupedTable<T>({
                     {g.label} <span className="font-normal normal-case opacity-60">· {g.rows.length}</span>
                   </td>
                 </tr>
-                {g.rows.map((row, ri) => (
-                  <tr key={`${g.label}-${ri}`} className="hover:bg-accent/40 transition-colors">
-                    {columns.map((col) => (
-                      <td
-                        key={col.header}
-                        className={cn(
-                          'px-3 py-1.5 2xl:px-4 2xl:py-2 align-top',
-                          col.wrap
-                            ? 'whitespace-normal break-words min-w-[9rem] max-w-[26rem]'
-                            : 'whitespace-nowrap',
-                          col.format && col.format !== 'text' ? 'tabular-nums' : '',
-                          alignClass[columnAlign(col)],
-                        )}
-                      >
-                        {cell(row, col)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                {subGroupBy
+                  ? splitSub(g.rows).map((sg) => (
+                      <Fragment key={`${g.label}::${sg.label}`}>
+                        <tr className="bg-muted/10">
+                          <td
+                            colSpan={colCount}
+                            className="px-3 py-1 2xl:px-4 2xl:py-1.5 pl-6 2xl:pl-8 text-[11px] 2xl:text-xs font-medium text-foreground/75 whitespace-nowrap"
+                          >
+                            {sg.label} <span className="font-normal opacity-60">· {sg.rows.length}</span>
+                          </td>
+                        </tr>
+                        {sg.rows.map((row, ri) => dataRow(row, `${g.label}-${sg.label}-${ri}`))}
+                      </Fragment>
+                    ))
+                  : g.rows.map((row, ri) => dataRow(row, `${g.label}-${ri}`))}
                 {totalCols.size > 0 && <TotalsRow label={`Subtotal — ${g.label}`} groupRows={g.rows} variant="subtotal" />}
               </Fragment>
             ))
           ) : (
-            rows.map((row, ri) => (
-              <tr key={ri} className="hover:bg-accent/40 transition-colors">
-                {columns.map((col) => (
-                  <td
-                    key={col.header}
-                    className={cn(
-                      'px-3 py-1.5 2xl:px-4 2xl:py-2 align-top',
-                      col.wrap
-                        ? 'whitespace-normal break-words min-w-[9rem] max-w-[26rem]'
-                        : 'whitespace-nowrap',
-                      col.format && col.format !== 'text' ? 'tabular-nums' : '',
-                      alignClass[columnAlign(col)],
-                    )}
-                  >
-                    {cell(row, col)}
-                  </td>
-                ))}
-              </tr>
-            ))
+            rows.map((row, ri) => dataRow(row, String(ri)))
           )}
         </tbody>
         {!isLoading && rows.length > 0 && totalCols.size > 0 && (

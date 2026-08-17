@@ -18,17 +18,23 @@ import { useDivisions } from '@/hooks/useDivisions'
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 
 // Teams consume directly — they carry no discipline/milestone tags (those are
-// project-only), so the on-screen Teams table drops both columns and leads with
-// the date: what a team consumed, and when.
-const teamColumns: ReportColumn<ProjectConsumptionRow>[] = [
-  { header: 'Date',       accessor: (r) => r.consumed_on,      format: 'text' },
+// project-only). On screen the date is a sub-header (see `subGroupBy` below) with
+// that day's items stacked beneath it, so the row itself is just item + qty + cost.
+const teamScreenColumns: ReportColumn<ProjectConsumptionRow>[] = [
   { header: 'Item',       accessor: (r) => r.item_name ?? '—', format: 'text', wrap: true },
   { header: 'Qty',        accessor: (r) => r.qty,              format: 'number',   total: true },
   { header: 'Total Cost', accessor: (r) => r.total_cost,       format: 'currency', total: true },
 ]
 
+// The Teams export is a flat sheet (one row per consumption), so Date is a real
+// column there — sortable/filterable in Excel rather than a visual header.
+const teamExportColumns: ReportColumn<ProjectConsumptionRow>[] = [
+  { header: 'Date', accessor: (r) => r.consumed_on, format: 'text' },
+  ...teamScreenColumns,
+]
+
 // Projects keep the full breakdown — discipline and milestone are the tags a
-// project's spend is grouped by.
+// project's spend is grouped by. The same columns drive the screen and the export.
 const projectColumns: ReportColumn<ProjectConsumptionRow>[] = [
   { header: 'Discipline', accessor: (r) => r.discipline_name ?? '—', format: 'text', wrap: true },
   { header: 'Milestone',  accessor: (r) => r.milestone_label,        format: 'text' },
@@ -36,13 +42,6 @@ const projectColumns: ReportColumn<ProjectConsumptionRow>[] = [
   { header: 'Date',       accessor: (r) => r.consumed_on,            format: 'text' },
   { header: 'Qty',        accessor: (r) => r.qty,                    format: 'number',   total: true },
   { header: 'Total Cost', accessor: (r) => r.total_cost,             format: 'currency', total: true },
-]
-
-// The flat export keeps a uniform superset (Type + every dimension) so teams and
-// projects share one sheet; discipline/milestone stay blank for team rows.
-const exportColumns: ReportColumn<ProjectConsumptionRow>[] = [
-  { header: 'Type', accessor: (r) => (r.consumer_kind === 'project' ? 'Project' : 'Team'), format: 'text' },
-  ...projectColumns,
 ]
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -107,18 +106,6 @@ export default function ConsumptionReportPage() {
             <span className="text-foreground font-medium">Consumption</span>
           </nav>
         }
-        actions={
-          <ReportExportMenu<ProjectConsumptionRow>
-            filename="Consumption"
-            title="Consumption"
-            subtitle={subtitle}
-            columns={exportColumns}
-            rows={rows}
-            groupBy={(r) => `${r.consumer_kind === 'project' ? 'Project' : 'Team'} — ${r.consumer_name ?? '—'}`}
-            grandTotalLabel="Grand total (all consumers)"
-            disabled={rows.length === 0}
-          />
-        }
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -130,11 +117,24 @@ export default function ConsumptionReportPage() {
       <ReportFilterBar value={filters} onChange={setFilters} showDate />
 
       <section className="space-y-2">
-        <h2 className="px-1 text-sm font-semibold">👷 Teams</h2>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <h2 className="text-sm font-semibold">👷 Teams</h2>
+          <ReportExportMenu<ProjectConsumptionRow>
+            filename="Consumption — Teams"
+            title="Consumption — Teams"
+            subtitle={subtitle}
+            columns={teamExportColumns}
+            rows={teamRows}
+            groupBy={(r) => r.consumer_name ?? '—'}
+            grandTotalLabel="All teams"
+            disabled={teamRows.length === 0}
+          />
+        </div>
         <ReportGroupedTable
-          columns={teamColumns}
+          columns={teamScreenColumns}
           rows={teamRows}
           groupBy={(r) => r.consumer_name ?? '—'}
+          subGroupBy={(r) => r.consumed_on}
           isLoading={isLoading}
           grandTotalLabel="All teams"
           emptyText="No team consumption in the selected period."
@@ -142,7 +142,19 @@ export default function ConsumptionReportPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="px-1 text-sm font-semibold">🏗️ Projects</h2>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <h2 className="text-sm font-semibold">🏗️ Projects</h2>
+          <ReportExportMenu<ProjectConsumptionRow>
+            filename="Consumption — Projects"
+            title="Consumption — Projects"
+            subtitle={subtitle}
+            columns={projectColumns}
+            rows={projectRows}
+            groupBy={(r) => r.consumer_name ?? '—'}
+            grandTotalLabel="All projects"
+            disabled={projectRows.length === 0}
+          />
+        </div>
         <ReportGroupedTable
           columns={projectColumns}
           rows={projectRows}
