@@ -487,6 +487,7 @@ export const NAV_TREE: TreeNode[] = [
         icon: Flame,
         permissions: [
           { key: 'consumption.view',            label: 'View Consumption',            description: 'Access the consumption entries list and detail dialog' },
+          { key: 'consumption.cost.view',       label: 'View Consumption Cost',       description: 'See unit cost, COGS, and totals on consumption (New dialog, list, detail) and view the Project Consumption report. Accounting-oriented — field users post consumption without seeing cost.' },
           { key: 'consumption.create',          label: 'Create Any Consumption',      description: 'Umbrella create key — grants all three consumer types. Prefer the three narrower keys below when you want to restrict.' },
           { key: 'consumption.create.custody',  label: 'Create Custody Consumption',  description: 'Post consumption entries with a Custody consumer (team / project / site)' },
           { key: 'consumption.create.internal', label: 'Create Internal Consumption', description: 'Post consumption entries with an Internal (own-use) consumer' },
@@ -520,9 +521,25 @@ export const NAV_TREE: TreeNode[] = [
         label: 'Financial Dashboard',
         icon: LayoutDashboard,
         permissions: [
-          { key: 'reports.view', label: 'View Reports', description: 'Access all report pages' },
+          { key: 'reports.view', label: 'View Reports', description: 'View the Financial Dashboard, Product Profitability & Project Consumption reports (Inventory + Accounting reports have their own keys below)' },
           { key: 'reports.manage', label: 'Export Reports', description: 'Export report data to CSV or PDF (reports are read-only — .manage here means "can export")' },
           { key: 'reports.dashboard_finance', label: 'View Financial Dashboard', description: 'See Receivables, Payables, Cash In/Out, trend chart and overdue tables on the home dashboard' },
+        ],
+      },
+      {
+        id: 'rpt-inventory',
+        label: 'Inventory Reports',
+        icon: Package,
+        permissions: [
+          { key: 'reports.inventory.view', label: 'View Inventory Reports', description: 'Product Cost and Revenue / COGS report pages' },
+        ],
+      },
+      {
+        id: 'rpt-accounting',
+        label: 'Accounting Reports',
+        icon: Calculator,
+        permissions: [
+          { key: 'reports.accounting.view', label: 'View Accounting Reports', description: 'Accounts Receivable, Accounts Payable, Cash & Cash Equivalents, and Profit & Loss report pages' },
         ],
       },
     ],
