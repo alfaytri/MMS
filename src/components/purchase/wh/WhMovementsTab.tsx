@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect } from 'react'
-import { Search, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight as ChevronRightIcon, Gift } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -293,7 +293,8 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                 <span className="text-lg font-bold tabular-nums shrink-0 leading-none pt-0.5">{m.qty}</span>
               </div>
               <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                <Badge className={`text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
+                <Badge className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
+                  {m.movement_type === 'free_receival' && <Gift className="h-3 w-3" />}
                   {MOVEMENT_LABELS[m.movement_type] ?? m.movement_type?.replace(/_/g, ' ')}
                 </Badge>
                 {m.stream === 'damaged' && (
@@ -370,7 +371,8 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">
-                        <Badge className={`text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
+                        <Badge className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0 ${MOVEMENT_STYLES[m.movement_type] ?? 'bg-muted text-muted-foreground'}`}>
+                          {m.movement_type === 'free_receival' && <Gift className="h-3 w-3" />}
                           {MOVEMENT_LABELS[m.movement_type] ?? m.movement_type?.replace(/_/g, ' ')}
                         </Badge>
                         {m.stream === 'damaged' && (

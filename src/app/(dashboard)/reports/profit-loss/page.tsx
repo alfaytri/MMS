@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Lock, Layers } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -51,11 +51,116 @@ function buildLines(s: PnlStatement): Line[] {
   ]
 }
 
+/** A flat P&L line (FX / Scrap / Gross Profit / cash-basis rows). */
+function PnlRow({
+  label, amount, grand, drill, onClick, negativeAware,
+}: {
+  label: string
+  amount: number | null
+  grand?: boolean
+  drill?: boolean
+  onClick?: () => void
+  negativeAware?: boolean
+}) {
+  const negative = negativeAware && (amount ?? 0) < 0
+  return (
+    <div
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+      className={cn(
+        'flex items-center justify-between gap-3 px-4 py-2.5 2xl:px-6 2xl:py-3',
+        grand && 'bg-primary/5 border-t-2 border-foreground/20',
+        onClick && 'cursor-pointer transition-colors hover:bg-muted/40',
+      )}
+    >
+      <span className={cn('inline-flex items-center gap-1.5', grand ? 'font-semibold' : 'text-foreground')}>
+        {label}
+        {drill && (
+          <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary">
+            <Layers className="h-3 w-3" /> details
+          </span>
+        )}
+      </span>
+      <span className={cn('tabular-nums whitespace-nowrap', grand && 'font-bold', negative && 'text-destructive')}>
+        {amount != null ? QAR.format(amount) : ''}
+      </span>
+    </div>
+  )
+}
+
+/** A collapsible P&L section (Revenue / COGS): total on the header, per-stream
+ *  breakdown drops open with an animated height transition. */
+function PnlSection({
+  label, total, streams, open, onToggle, footer,
+}: {
+  label: string
+  total: number
+  streams: PnlStreamLine[]
+  open: boolean
+  onToggle: () => void
+  footer?: ReactNode
+}) {
+  const hasBreakdown = streams.length > 0
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={hasBreakdown ? onToggle : undefined}
+        aria-expanded={hasBreakdown ? open : undefined}
+        className={cn(
+          'flex w-full items-center justify-between gap-3 px-4 py-2.5 2xl:px-6 2xl:py-3 text-left',
+          hasBreakdown && 'cursor-pointer transition-colors hover:bg-muted/40',
+        )}
+      >
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          {hasBreakdown && (
+            <ChevronRight
+              className={cn(
+                'h-3.5 w-3.5 text-muted-foreground transition-transform duration-300 ease-out motion-reduce:transition-none',
+                open && 'rotate-90',
+              )}
+            />
+          )}
+          {label}
+        </span>
+        <span className="tabular-nums whitespace-nowrap font-medium">{QAR.format(total)}</span>
+      </button>
+      {hasBreakdown && (
+        <div
+          className={cn(
+            'grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none',
+            open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+          )}
+        >
+          <div className="overflow-hidden">
+            <div className="bg-muted/10 pb-1">
+              {streams.map((s) => (
+                <div
+                  key={s.stream}
+                  className="flex items-center justify-between gap-3 py-2 pl-10 pr-4 2xl:pr-6 text-sm text-muted-foreground"
+                >
+                  <span>{s.stream}</span>
+                  <span className="tabular-nums whitespace-nowrap">{QAR.format(s.amount)}</span>
+                </div>
+              ))}
+              {footer}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ProfitLossReportPage() {
   const canView = useHasPermission('reports.accounting.view')
   const [basis, setBasis] = useState<PnlBasis>('accrual')
   const [fxOpen, setFxOpen] = useState(false)
   const [cogsOpen, setCogsOpen] = useState(false)
+  const [revExpanded, setRevExpanded] = useState(false)
+  const [cogsExpanded, setCogsExpanded] = useState(false)
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }
@@ -65,6 +170,8 @@ export default function ProfitLossReportPage() {
   const { data: divisions = [] } = useDivisions()
 
   const lines = useMemo(() => (statement ? buildLines(statement) : []), [statement])
+  const revenueStreams = useMemo(() => (statement ? orderStreams(statement.revenue) : []), [statement])
+  const cogsStreams = useMemo(() => (statement ? orderStreams(statement.cogs) : []), [statement])
 
   const subtitle = useMemo(() => {
     const dv = filters.divisionIds.length
@@ -136,66 +243,56 @@ export default function ProfitLossReportPage() {
 
       <ReportFilterBar value={filters} onChange={setFilters} showDate showWarehouse />
 
-      <div className="rounded-lg border bg-card overflow-hidden max-w-2xl 2xl:max-w-4xl">
-        <table className="w-full text-sm 2xl:text-base">
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <tr key={i} className="border-b last:border-0">
-                  <td className="px-4 py-2 2xl:px-6 2xl:py-3"><div className="h-3 w-40 animate-pulse rounded bg-muted" /></td>
-                  <td className="px-4 py-2 2xl:px-6 2xl:py-3"><div className="ml-auto h-3 w-24 animate-pulse rounded bg-muted" /></td>
-                </tr>
-              ))
-            ) : !statement ? (
-              <tr><td className="px-4 py-10 text-center text-sm text-muted-foreground" colSpan={2}>No data for the selected period.</td></tr>
-            ) : (
-              lines.map((l, i) => {
-                const isFx = l.label === 'Exchange Gain / Loss'
-                const isCogs = l.label === 'Total COGS'
-                const isDrillable = isFx || isCogs
-                return (
-                <tr
-                  key={`${l.label}-${i}`}
-                  onClick={isFx ? () => setFxOpen(true) : isCogs ? () => setCogsOpen(true) : undefined}
-                  className={cn(
-                    'border-b last:border-0',
-                    l.kind === 'grand' && 'bg-primary/5 border-t-2 border-foreground/20',
-                    l.kind === 'subtotal' && 'bg-muted/40',
-                    l.kind === 'header' && 'bg-muted/20',
-                    isDrillable && 'cursor-pointer transition-colors hover:bg-muted/40',
-                  )}
+      <div className="rounded-lg border bg-card overflow-hidden max-w-2xl 2xl:max-w-4xl text-sm 2xl:text-base">
+        {isLoading ? (
+          <div className="divide-y">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between px-4 py-3 2xl:px-6">
+                <div className="h-3 w-40 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        ) : !statement ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">No data for the selected period.</div>
+        ) : statement.basis === 'cash' ? (
+          <div className="divide-y">
+            <PnlRow label="Cash Received" amount={statement.cash_in ?? 0} />
+            <PnlRow label="Cash Paid" amount={statement.cash_out ?? 0} />
+            <PnlRow label="Exchange Gain / Loss" amount={statement.fx_net} drill onClick={() => setFxOpen(true)} negativeAware />
+            <PnlRow label="Scrap & Defective" amount={statement.scrap} />
+            <PnlRow label="Gross Profit" amount={statement.gross_profit} grand negativeAware />
+          </div>
+        ) : (
+          <div className="divide-y">
+            <PnlSection
+              label="Revenue"
+              total={statement.revenue_total ?? 0}
+              streams={revenueStreams}
+              open={revExpanded}
+              onToggle={() => setRevExpanded((v) => !v)}
+            />
+            <PnlSection
+              label="Cost of Goods Sold"
+              total={statement.cogs_total ?? 0}
+              streams={cogsStreams}
+              open={cogsExpanded}
+              onToggle={() => setCogsExpanded((v) => !v)}
+              footer={
+                <button
+                  type="button"
+                  onClick={() => setCogsOpen(true)}
+                  className="inline-flex items-center gap-1 py-2 pl-10 pr-4 2xl:pr-6 text-[11px] font-medium text-primary hover:underline"
                 >
-                  <td className={cn(
-                    'px-4 py-2 2xl:px-6 2xl:py-3',
-                    l.level === 1 && 'pl-8 text-muted-foreground',
-                    (l.kind === 'header') && 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground',
-                    l.kind === 'subtotal' && 'font-medium',
-                    l.kind === 'grand' && 'font-semibold',
-                  )}>
-                    {isDrillable ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        {l.label}
-                        <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary">
-                          <Layers className="h-3 w-3" /> details
-                        </span>
-                      </span>
-                    ) : (
-                      l.label
-                    )}
-                  </td>
-                  <td className={cn(
-                    'px-4 py-2 2xl:px-6 2xl:py-3 text-right tabular-nums whitespace-nowrap',
-                    l.kind === 'subtotal' && 'font-medium',
-                    l.kind === 'grand' && 'font-bold',
-                    (l.kind === 'grand' || isFx) && (l.amount ?? 0) < 0 && 'text-destructive',
-                  )}>
-                    {l.amount != null ? QAR.format(l.amount) : ''}
-                  </td>
-                </tr>
-              )})
-            )}
-          </tbody>
-        </table>
+                  <Layers className="h-3 w-3" /> View COGS by source
+                </button>
+              }
+            />
+            <PnlRow label="Exchange Gain / Loss" amount={statement.fx_net} drill onClick={() => setFxOpen(true)} negativeAware />
+            <PnlRow label="Scrap & Defective" amount={statement.scrap} />
+            <PnlRow label="Gross Profit" amount={statement.gross_profit} grand negativeAware />
+          </div>
+        )}
       </div>
 
       {statement && (

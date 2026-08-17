@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
-  Package, Calendar, Warehouse, User, Hash, Loader2, Download,
+  Package, Calendar, Warehouse, User, Hash, Loader2, Download, Gift,
 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -194,7 +194,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           {item.is_free === true
-                            ? <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">Free</span>
+                            ? <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200"><Gift className="h-3 w-3" />Free</span>
                             : <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Purchased</span>}
                         </td>
                       </tr>
@@ -231,7 +231,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
 
           {/* Notes */}
           {receival.notes && (
-            <div className="rounded-lg border-l-2 border-primary bg-muted/20 px-4 py-3">
+            <div className="rounded-lg border bg-muted/20 px-4 py-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
               <p className="text-sm">{receival.notes}</p>
             </div>
