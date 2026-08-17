@@ -27,44 +27,45 @@ export function ReportExportMenu<T>(opts: {
   disabled?: boolean
 }) {
   const { disabled, ...exportOpts } = opts
-  const [pdfPending, setPdfPending] = useState(false)
+  // One shared busy flag for both formats — Excel previously had NO pending
+  // state or feedback at all, so a silent background download read as "nothing
+  // happened". Now every click shows an instant toast + a trigger spinner, and
+  // resolves to a success/error toast so the outcome is always visible.
+  const [busy, setBusy] = useState<null | 'excel' | 'pdf'>(null)
 
-  async function doExcel() {
+  async function run(kind: 'excel' | 'pdf') {
+    if (busy) return
+    const label = kind === 'excel' ? 'Excel' : 'PDF'
+    setBusy(kind)
+    const toastId = toast.loading(`Preparing ${label}…`)
     try {
-      await exportReportToExcel<T>(exportOpts)
+      if (kind === 'excel') await exportReportToExcel<T>(exportOpts)
+      else await exportReportToPdf<T>(exportOpts)
+      toast.success(`${label} downloaded`, { id: toastId })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Excel export failed')
-    }
-  }
-
-  async function doPdf() {
-    setPdfPending(true)
-    try {
-      await exportReportToPdf<T>(exportOpts)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'PDF export failed')
+      toast.error(e instanceof Error ? e.message : `${label} export failed`, { id: toastId })
     } finally {
-      setPdfPending(false)
+      setBusy(null)
     }
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        disabled={disabled || pdfPending}
+        disabled={disabled || busy !== null}
         className={buttonVariants({ size: 'sm', className: 'gap-1.5 min-h-11 md:min-h-0' })}
       >
-        {pdfPending
+        {busy
           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
           : <FileSpreadsheet className="h-3.5 w-3.5" />}
         Export
         <ChevronDown className="h-3.5 w-3.5 opacity-70" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={doExcel} className="gap-2">
+        <DropdownMenuItem onClick={() => run('excel')} className="gap-2">
           <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={doPdf} className="gap-2">
+        <DropdownMenuItem onClick={() => run('pdf')} className="gap-2">
           <FileText className="h-3.5 w-3.5" /> PDF
         </DropdownMenuItem>
       </DropdownMenuContent>
