@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Lock } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Badge } from '@/components/ui/badge'
-import { ReportFilterBar, type ReportFilters } from '@/components/reports/ReportFilterBar'
+import { ReportFilterBar } from '@/components/reports/ReportFilterBar'
 import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
@@ -15,6 +15,7 @@ import { DocLink } from '@/components/reports/DocLink'
 import { docHrefFor } from '@/lib/reports/docLinks'
 import { usePayablesReport, type PayableRow } from '@/hooks/reports/usePayablesReport'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useReportFilters } from '@/hooks/useReportFilters'
 import { useDivisions } from '@/hooks/useDivisions'
 import { cn } from '@/lib/utils'
 
@@ -59,7 +60,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'ne
 
 export default function PayablesReportPage() {
   const canView = useHasPermission('reports.payables.view')
-  const [filters, setFilters] = useState<ReportFilters>(() => {
+  const [filters, setFilters] = useReportFilters(() => {
     const r = presetRange('this-year')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }
   })

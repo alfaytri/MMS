@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Lock } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { ReportFilterBar, type ReportFilters } from '@/components/reports/ReportFilterBar'
+import { ReportFilterBar } from '@/components/reports/ReportFilterBar'
 import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
 import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
@@ -14,6 +14,7 @@ import { DocLink } from '@/components/reports/DocLink'
 import { docHrefFor } from '@/lib/reports/docLinks'
 import { useProductCostReport, type ProductCostRow } from '@/hooks/reports/useProductCostReport'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useReportFilters } from '@/hooks/useReportFilters'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useWarehouses } from '@/hooks/useWarehouses'
 
@@ -44,7 +45,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 export default function ProductCostReportPage() {
   const canView = useHasPermission('reports.product_cost.view')
-  const [filters, setFilters] = useState<ReportFilters>(() => {
+  const [filters, setFilters] = useReportFilters(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }
   })

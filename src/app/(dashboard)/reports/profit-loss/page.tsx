@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, Lock, Layers } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { ReportFilterBar, type ReportFilters } from '@/components/reports/ReportFilterBar'
+import { ReportFilterBar } from '@/components/reports/ReportFilterBar'
 import { FxDetailDialog } from '@/components/reports/FxDetailDialog'
 import { CogsSourceDetailDialog } from '@/components/reports/CogsSourceDetailDialog'
 import { presetRange } from '@/components/reports/DateRangePicker'
@@ -13,6 +13,7 @@ import { ReportExportMenu } from '@/components/reports/ReportExportMenu'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { useProfitLossReport, type PnlBasis, type PnlStatement, type PnlStreamLine } from '@/hooks/reports/useProfitLossReport'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useReportFilters } from '@/hooks/useReportFilters'
 import { useDivisions } from '@/hooks/useDivisions'
 import { cn } from '@/lib/utils'
 
@@ -161,7 +162,7 @@ export default function ProfitLossReportPage() {
   const [cogsOpen, setCogsOpen] = useState(false)
   const [revExpanded, setRevExpanded] = useState(false)
   const [cogsExpanded, setCogsExpanded] = useState(false)
-  const [filters, setFilters] = useState<ReportFilters>(() => {
+  const [filters, setFilters] = useReportFilters(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }
   })
