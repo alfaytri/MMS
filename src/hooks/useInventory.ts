@@ -707,16 +707,25 @@ export type CategoryStockAggregate = {
   variant_count: number
 }
 
-export function useCategoryStockAggregates(categoryType: string) {
+export function useCategoryStockAggregates(categoryType: string, divisionIds: string[] = []) {
+  // Empty set ("All divisions") → global aggregates (p_division_ids NULL, the
+  // exact pre-existing behaviour). One or more divisions → the RPC rolls good
+  // stock up from warehouse_stock_summary via sub_container -> division.
+  const divKey = [...divisionIds].sort().join(',')
   return useQuery({
-    queryKey: queryKeys.inventory.categoryStockAggregates(categoryType),
+    queryKey: [...queryKeys.inventory.categoryStockAggregates(categoryType), divKey],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('get_category_stock_aggregates', { p_type: categoryType })
+      // `p_division_ids` isn't in the (stale) generated types yet — cast like the
+      // report RPCs do so the defaulted param can be passed.
+      const { data, error } = await supabase.rpc('get_category_stock_aggregates' as never, {
+        p_type: categoryType,
+        p_division_ids: divisionIds.length ? divisionIds : null,
+      } as never)
       if (error) throw error
       const map = new Map<string, CategoryStockAggregate>()
-      for (const row of (data ?? [])) {
-        map.set(row.category_id, row as CategoryStockAggregate)
+      for (const row of ((data ?? []) as unknown as CategoryStockAggregate[])) {
+        map.set(row.category_id, row)
       }
       return map
     },

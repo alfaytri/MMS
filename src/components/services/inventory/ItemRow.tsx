@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,8 @@ import { VARIANT_COLUMN_COUNT } from './OriginVariantRow'
 import { ItemEditDialog } from './ItemEditDialog'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
 import { useInventoryBrandVariants, useArchiveInventoryItem, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { useItemVariantDivisionStock } from '@/hooks/useItemVariantDivisionStock'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { groupVariants, type VariantLite } from '@/lib/inventory/groupVariants'
 
@@ -55,11 +57,33 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const archive = useArchiveInventoryItem()
   const { data: variants = [] } = useInventoryBrandVariants(item.id, showArchived)
 
+  // Division-scoped view: when the top bar has a division selected, override
+  // each variant's good-stock / reserved / avg-cost with that division's pool
+  // (from warehouse_stock_summary). Damaged / incoming / reorder stay global —
+  // damaged is tracked per warehouse, not per division.
+  const { viewDivisionIds } = useActiveDivision()
+  const divisionScoped = viewDivisionIds.size > 0
+  const divisionIds = useMemo(() => Array.from(viewDivisionIds), [viewDivisionIds])
+  const { data: scopedStock } = useItemVariantDivisionStock(divisionScoped ? item.id : null, divisionIds)
+
+  const effectiveVariants = useMemo(() => {
+    if (!divisionScoped || !scopedStock) return variants
+    return variants.map((v) => {
+      const s = scopedStock.get(v.id)
+      return {
+        ...v,
+        stock_level:  s?.qty ?? 0,
+        reserved_qty: s?.reserved ?? 0,
+        average_cost: s?.avg_cost ?? 0,
+      }
+    })
+  }, [variants, divisionScoped, scopedStock])
+
   // Flatten the embedded brands/country_codes relations into VariantLite,
   // then group by brand → sorted origins (see groupVariants.ts for the
   // grouping/sort rules — Unbranded and null-origin always sort last).
   const groups = groupVariants(
-    (variants as unknown as VariantWithRelations[]).map((v): VariantLite => ({
+    (effectiveVariants as unknown as VariantWithRelations[]).map((v): VariantLite => ({
       ...v,
       brand_name: v.brands?.name ?? null,
       country_name: v.country_codes?.name ?? null,
@@ -67,11 +91,21 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
     })),
   )
 
-  const totalAtp = variants.reduce((sum, v) => sum + (v.stock_level ?? 0) - (v.reserved_qty ?? 0), 0)
-  const totalDamaged = variants.reduce((sum, v) => sum + (v.damaged_qty ?? 0), 0)
-  const minReorder = Math.min(...variants.map((v) => v.reorder_point ?? 0), Infinity)
+  const totalAtp = effectiveVariants.reduce((sum, v) => sum + (v.stock_level ?? 0) - (v.reserved_qty ?? 0), 0)
+  const totalDamaged = effectiveVariants.reduce((sum, v) => sum + (v.damaged_qty ?? 0), 0)
+  const minReorder = Math.min(...effectiveVariants.map((v) => v.reorder_point ?? 0), Infinity)
   const reorderPoint = isFinite(minReorder) ? minReorder : 0
   const linkedCount = item.linked_services_count ?? 0
+
+  // Item-level weighted avg cost — scoped from the (overridden) variants when a
+  // division is selected, else the item's global cost_price.
+  const scopedItemAvg = useMemo(() => {
+    if (!divisionScoped) return null
+    const qty = effectiveVariants.reduce((s, v) => s + (v.stock_level ?? 0), 0)
+    const val = effectiveVariants.reduce((s, v) => s + (v.average_cost ?? 0) * (v.stock_level ?? 0), 0)
+    return qty > 0 ? val / qty : 0
+  }, [divisionScoped, effectiveVariants])
+  const displayAvg = divisionScoped ? scopedItemAvg : (item.cost_price ?? null)
 
   return (
     <>
@@ -98,7 +132,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
               )}
               {/* Phone-only meta line — SKU/Unit/Avg columns are hidden < sm/md, so surface them here so nothing is lost on a phone. */}
               <div className="sm:hidden text-[10px] text-muted-foreground truncate">
-                {item.sku}{item.unit ? ` · ${item.unit}` : ''}{item.cost_price != null ? ` · Avg ${formatCurrency(item.cost_price, 'QAR')}` : ''}
+                {item.sku}{item.unit ? ` · ${item.unit}` : ''}{displayAvg != null ? ` · Avg ${formatCurrency(displayAvg, 'QAR')}` : ''}
               </div>
               <AttributeChipStrip itemId={item.id} categoryId={item.category_id} />
             </div>
@@ -107,8 +141,8 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
         <td className="py-2 px-2 text-[11px] font-mono text-muted-foreground hidden sm:table-cell">{item.sku}</td>
         <td className="py-2 px-2 text-[11px] hidden md:table-cell">{item.unit}</td>
         <td className="py-2 px-2 text-[11px] hidden md:table-cell">
-          {item.cost_price != null ? (
-            <span className="text-muted-foreground">Avg: {formatCurrency(item.cost_price, 'QAR')}</span>
+          {displayAvg != null ? (
+            <span className="text-muted-foreground">Avg: {formatCurrency(displayAvg, 'QAR')}</span>
           ) : '—'}
         </td>
         <td className="py-2 px-2">
@@ -116,10 +150,12 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
             <StockBadge atp={totalAtp} reorderPoint={reorderPoint} />
             {totalDamaged > 0 && (
               <span
-                title={`${totalDamaged} damaged unit${totalDamaged > 1 ? 's' : ''} — not sellable`}
+                title={divisionScoped
+                  ? `${totalDamaged} damaged unit${totalDamaged > 1 ? 's' : ''} company-wide — damaged stock isn't tracked per division`
+                  : `${totalDamaged} damaged unit${totalDamaged > 1 ? 's' : ''} — not sellable`}
                 className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-red-100 text-red-700"
               >
-                {totalDamaged} dmg
+                {totalDamaged} dmg{divisionScoped ? ' · all' : ''}
               </span>
             )}
             {linkedCount > 0 && (

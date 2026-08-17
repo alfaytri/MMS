@@ -37,7 +37,8 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
 
   const { viewDivisionIds } = useActiveDivision()
   const { tree, flat, isLoading } = useInventoryTree(type, showArchived)
-  const { data: stockAggregates } = useCategoryStockAggregates(type)
+  // Division-scoped category aggregates when a division is selected (empty = global).
+  const { data: stockAggregates } = useCategoryStockAggregates(type, Array.from(viewDivisionIds))
   const itemDivs = useItemDivisionsByStock(type)
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
 
@@ -119,7 +120,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
         </div>
         {divisionFiltered && (
           <span className="text-[11px] text-muted-foreground">
-            Filtered to the division{viewDivisionIds.size > 1 ? 's' : ''} selected in the top bar
+            Stock shown for the selected division{viewDivisionIds.size > 1 ? 's' : ''} · damaged is company-wide
           </span>
         )}
         <div className="flex items-center gap-2 ml-auto">
