@@ -94,11 +94,11 @@ export function useBrandVariants(itemId: string | null) {
 export function useCreateInventoryItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (values: InventoryItemInsert) => {
+    mutationFn: async (values: InventoryItemInsert & { is_team_item?: boolean | null }) => {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_items')
-        .insert(values)
+        .insert(values as unknown as InventoryItemInsert)
         .select()
         .single()
       if (error) throw error
@@ -121,7 +121,7 @@ export function useCreateInventoryItem() {
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...values }: InventoryItemUpdate & { id: string }) => {
+    mutationFn: async ({ id, ...values }: InventoryItemUpdate & { id: string; is_team_item?: boolean | null }) => {
       const supabase = createClient()
       const { data: old } = await supabase
         .from('inventory_items')
@@ -130,7 +130,7 @@ export function useUpdateInventoryItem() {
         .maybeSingle()
       const { data, error } = await supabase
         .from('inventory_items')
-        .update(values)
+        .update(values as unknown as InventoryItemUpdate)
         .eq('id', id)
         .select()
         .single()
@@ -148,6 +148,36 @@ export function useUpdateInventoryItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
     },
+  })
+}
+
+/**
+ * Effective team-item context for the item editor: the category's default flag
+ * (always) plus the item's own override (edit only). Read via select('*') + cast
+ * because is_team_item is newer than the generated types (migration
+ * 20260918000000). Effective value = itemFlag ?? categoryFlag.
+ */
+export function useItemTeamItemContext(categoryId: string | null, itemId: string | null) {
+  return useQuery({
+    queryKey: ['inventory', 'team-item-context', categoryId, itemId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const [cat, itm] = await Promise.all([
+        categoryId
+          ? supabase.from('inventory_categories').select('*').eq('id', categoryId).maybeSingle()
+          : Promise.resolve({ data: null }),
+        itemId
+          ? supabase.from('inventory_items').select('*').eq('id', itemId).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+      const categoryFlag = ((cat.data as unknown as { is_team_item?: boolean } | null)?.is_team_item) ?? false
+      const itemFlag = itemId
+        ? ((itm.data as unknown as { is_team_item?: boolean | null } | null)?.is_team_item ?? null)
+        : null
+      return { categoryFlag, itemFlag }
+    },
+    enabled: !!categoryId,
+    staleTime: 60 * 1000,
   })
 }
 
@@ -394,7 +424,7 @@ export function useInventoryCategoriesByType(type: string, showArchived = false)
 
 export function useCreateInventoryCategory() {
   const qc = useQueryClient()
-  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null; tool_tracking_mode?: 'serialized' | 'bulk' }>({
+  return useMutation<InventoryCategory, Error, { name_en: string; name_ar?: string | null; sku?: string | null; type: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null; tool_tracking_mode?: 'serialized' | 'bulk'; is_team_item?: boolean }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -423,7 +453,7 @@ export function useCreateInventoryCategory() {
 export function useUpdateInventoryCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null; tool_tracking_mode?: 'serialized' | 'bulk' }) => {
+    mutationFn: async ({ id, ...payload }: { id: string; name_en?: string; name_ar?: string | null; sku?: string | null; status?: string; parent_id?: string | null; default_sub_container_id?: string | null; default_warranty_policy_id?: string | null; tool_tracking_mode?: 'serialized' | 'bulk'; is_team_item?: boolean }) => {
       const supabase = createClient()
       const { data: old } = await supabase
         .from('inventory_categories')
@@ -432,7 +462,7 @@ export function useUpdateInventoryCategory() {
         .maybeSingle()
       const { data, error } = await supabase
         .from('inventory_categories')
-        .update(payload)
+        .update(payload as unknown as DBUpdate<'inventory_categories'>)
         .eq('id', id)
         .select()
         .single()

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   GuardedDialog,
   type GuardedFormDialogHandle,
@@ -45,6 +46,7 @@ type Snapshot = {
   subContainerId: string | null
   warrantyPolicyId: string | null
   trackingMode: 'serialized' | 'bulk'
+  isTeamItem: boolean
 }
 
 export function CategoryEditDialog({ open, onOpenChange, categoryType, category, parentId: defaultParentId }: Props) {
@@ -61,6 +63,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [warrantyPolicyId, setWarrantyPolicyId] = useState<string | null>(null)
   const [trackingMode, setTrackingMode] = useState<'serialized' | 'bulk'>('serialized')
+  const [isTeamItem, setIsTeamItem] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
   const { data: categoryHasStockOrUnits } = useCategoryHasStockOrUnits(isEdit ? (category?.id ?? null) : null)
@@ -84,12 +87,14 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       const nextSubContainerId = category?.default_sub_container_id ?? null
       const nextWarrantyPolicyId = category?.default_warranty_policy_id ?? null
       const nextTrackingMode = category?.tool_tracking_mode ?? 'serialized'
+      const nextIsTeamItem = (category as unknown as { is_team_item?: boolean } | null)?.is_team_item ?? false
       setNameEn(nextNameEn)
       setNameAr(nextNameAr)
       setSku(nextSku)
       setSubContainerId(nextSubContainerId)
       setWarrantyPolicyId(nextWarrantyPolicyId)
       setTrackingMode(nextTrackingMode)
+      setIsTeamItem(nextIsTeamItem)
 
       const targetId = isEdit ? (category?.parent_id ?? null) : (defaultParentId ?? null)
       const seededParent = targetId && flat.some((c) => c.id === targetId) ? targetId : null
@@ -103,6 +108,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
         subContainerId: nextSubContainerId,
         warrantyPolicyId: nextWarrantyPolicyId,
         trackingMode: nextTrackingMode,
+        isTeamItem: nextIsTeamItem,
       })
     }
   }, [open, category, defaultParentId, isEdit, flat])
@@ -161,7 +167,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     parentId !== snapshot.parentId ||
     subContainerId !== snapshot.subContainerId ||
     warrantyPolicyId !== snapshot.warrantyPolicyId ||
-    trackingMode !== snapshot.trackingMode
+    trackingMode !== snapshot.trackingMode ||
+    isTeamItem !== snapshot.isTeamItem
   )
 
   function handleSubmit(e: React.FormEvent) {
@@ -176,6 +183,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       default_sub_container_id: subContainerId || null,
       default_warranty_policy_id: warrantyPolicyId || null,
       tool_tracking_mode: trackingMode,
+      is_team_item: isTeamItem,
     }
 
     if (isEdit && category) {
@@ -367,6 +375,19 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                 Items in this category inherit this policy unless they override it. Leave blank to inherit from a parent category.
               </p>
             </div>
+
+            {/* Team item — routes items to the Team consumption tab (not for Tools/Assets) */}
+            {categoryType !== 'tools' && (
+              <div className="flex items-start justify-between gap-3 rounded-md border border-dashed border-border p-3">
+                <div className="space-y-0.5 min-w-0">
+                  <Label htmlFor="cat-team-item" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team item category</Label>
+                  <p className="text-[10px] text-muted-foreground leading-snug">
+                    Items here are held by field teams and consumed from their custody — they show under the <span className="font-medium text-foreground">Team</span> consumption tab. Any single item can override this.
+                  </p>
+                </div>
+                <Switch id="cat-team-item" checked={isTeamItem} onCheckedChange={setIsTeamItem} className="mt-0.5 shrink-0" />
+              </div>
+            )}
 
             {/* SKU + Type (+ Tracking Mode for tools) */}
             <div className={`grid grid-cols-1 sm:grid-cols-2 ${categoryType === 'tools' ? 'lg:grid-cols-3' : ''} gap-4`}>

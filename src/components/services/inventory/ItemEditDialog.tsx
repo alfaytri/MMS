@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
-import { useCreateInventoryItem, useUpdateInventoryItem, type InventoryItem } from '@/hooks/useInventory'
+import { useCreateInventoryItem, useUpdateInventoryItem, useItemTeamItemContext, type InventoryItem } from '@/hooks/useInventory'
 import { useUpsertItemAttributes } from '@/hooks/useAttributes'
 import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
 import { useEffectiveWarranty } from '@/hooks/useEffectiveWarranty'
@@ -50,6 +50,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   // poSpecDefault = whether the spec shows on a PO line by default (default off).
   const [specification, setSpecification] = useState('')
   const [poSpecDefault, setPoSpecDefault] = useState(false)
+  // Team-item override: null = inherit category, true = force team item, false = force normal.
+  const [teamOverride, setTeamOverride] = useState<boolean | null>(null)
   const [attrValues, setAttrValues] = useState<Array<{ definition_id: string; option_id: string | null }>>([])
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -64,6 +66,9 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const setItemDivisions = useSetItemDivisions()
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
   const { data: effectiveWarranty } = useEffectiveWarranty(item?.id ?? null)
+  // Category default + item override for the team-item flag (fetched by id — the
+  // list query that feeds `item` doesn't carry is_team_item).
+  const { data: teamCtx } = useItemTeamItemContext(categoryId, item?.id ?? null)
 
   useEffect(() => {
     if (open) {
@@ -95,6 +100,16 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       assignedSeededRef.current = true
     }
   }, [open, assignedFromDb, item])
+
+  // Seed the team-item override ONCE per open — from the item's stored value on
+  // edit (once teamCtx resolves), or null (inherit) on create.
+  const teamSeededRef = useRef(false)
+  useEffect(() => {
+    if (!open) { teamSeededRef.current = false; return }
+    if (teamSeededRef.current) return
+    if (!isEdit) { setTeamOverride(null); teamSeededRef.current = true; return }
+    if (teamCtx) { setTeamOverride(teamCtx.itemFlag); teamSeededRef.current = true }
+  }, [open, isEdit, teamCtx])
 
   async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -168,7 +183,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         imageUrl !== ((item as unknown as { image_url?: string | null }).image_url ?? null) ||
         attrValues.length > 0 ||
         JSON.stringify(assignedDivisionIds.slice().sort()) !==
-          JSON.stringify(((assignedFromDb ?? []) as string[]).slice().sort())
+          JSON.stringify(((assignedFromDb ?? []) as string[]).slice().sort()) ||
+        teamOverride !== (teamCtx?.itemFlag ?? null)
       )
     : (
         nameEn.trim() !== '' ||
@@ -179,7 +195,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         poSpecDefault ||
         imageUrl !== null ||
         attrValues.length > 0 ||
-        assignedDivisionIds.length > 0
+        assignedDivisionIds.length > 0 ||
+        teamOverride !== null
       )
 
   function handleOpenChange(next: boolean) {
@@ -217,6 +234,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       warranty_policy_id: warrantyPolicyId,
       specification: specification.trim() || null,
       po_specification_default: poSpecDefault,
+      is_team_item: teamOverride,
     }
 
     try {
@@ -391,6 +409,35 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
               </p>
             )}
           </div>
+
+          {/* Team item — routes this item to the Team consumption tab (not for Tools) */}
+          {categoryType !== 'tools' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team item</Label>
+              <Select
+                value={teamOverride === null ? '__inherit__' : teamOverride ? 'yes' : 'no'}
+                onValueChange={(v) => { if (v === null) return; setTeamOverride(v === '__inherit__' ? null : v === 'yes') }}
+              >
+                <SelectTrigger className="h-10 w-full min-w-0">
+                  <span className="truncate">
+                    {teamOverride === null ? 'Inherit from category' : teamOverride ? 'Yes — team item' : 'No — not a team item'}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__inherit__">Inherit from category</SelectItem>
+                  <SelectItem value="yes">Yes — team item</SelectItem>
+                  <SelectItem value="no">No — not a team item</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                {teamOverride === null
+                  ? <>Inherits the category — currently <span className="font-medium text-foreground">{teamCtx?.categoryFlag ? 'a team item' : 'not a team item'}</span>. Team items are held by a team and consumed from the Team tab.</>
+                  : teamOverride
+                    ? 'Forced on — held by a team and consumed from the Team consumption tab.'
+                    : 'Forced off — a normal Service item regardless of the category.'}
+              </p>
+            </div>
+          )}
 
           <ItemAttributesSection
             itemId={item?.id ?? null}
