@@ -2,50 +2,55 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import { useHasPermission } from '@/hooks/usePermissions'
-import { useMyResponsibleWarehouses } from '@/hooks/useMyResponsibleWarehouses'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useMyTransferSources } from '@/hooks/useMyTransferSources'
 import { PictureTransferHome } from '@/components/warehouse/picture-transfer/PictureTransferHome'
 import { PictureSendFlow } from '@/components/warehouse/picture-transfer/PictureSendFlow'
 import { PictureReceive } from '@/components/warehouse/picture-transfer/PictureReceive'
 
 /**
  * Picture Transfer (v2) — a picture-first Send/Receive surface for low-literacy
- * warehouse staff. Gated by `warehouse.transfer.simple`; the source warehouse
- * is derived from the user's Responsible-Person assignment (never chosen). The
- * classic transfer surface (Master Data → Warehouses → Transfers) is untouched.
+ * warehouse staff. Gated by `warehouse.transfer.simple`; the source is derived
+ * from the user's Responsible-Person assignment — at the WAREHOUSE level or the
+ * SUB-CONTAINER level (`get_my_transfer_sources`) — never chosen from scratch.
+ * The classic transfer surface is untouched.
  */
 export default function PictureTransferPage() {
   const canUse = useHasPermission('warehouse.transfer.simple')
-  const { data: myWhs = [], isLoading } = useMyResponsibleWarehouses()
+  const { data: sources = [], isLoading } = useMyTransferSources()
   const [mode, setMode] = useState<'home' | 'send' | 'receive'>('home')
   const [pickedWhId, setPickedWhId] = useState<string | null>(null)
-  const [pickedAreaId, setPickedAreaId] = useState<string | null>(null)
+  const [pickedSubId, setPickedSubId] = useState<string | null>(null)
 
-  // Source warehouse: the only one he's RP of, or the one he tapped.
-  const whId = pickedWhId ?? (myWhs.length === 1 ? myWhs[0].id : null)
-  const { data: subs = [] } = useWarehouseSubContainers(whId)
-  const activeSubs = useMemo(() => subs.filter((s) => s.is_active), [subs])
-  // Source area (sub-container): the only active one, or the one he tapped.
-  // create_transfer_v2 REQUIRES an explicit sub when a warehouse has >1.
-  const subId = pickedAreaId ?? (activeSubs.length === 1 ? activeSubs[0].id : null)
+  // Distinct warehouses across his sources.
+  const warehouses = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const s of sources) if (!m.has(s.warehouse_id)) m.set(s.warehouse_id, s.warehouse_name)
+    return Array.from(m, ([id, name]) => ({ id, name }))
+  }, [sources])
+  const whId = pickedWhId ?? (warehouses.length === 1 ? warehouses[0].id : null)
 
-  const myWarehouseIds = useMemo(() => myWhs.map((w) => w.id), [myWhs])
+  // The sub-containers he may send from within the chosen warehouse.
+  const subsForWh = useMemo(() => sources.filter((s) => s.warehouse_id === whId), [sources, whId])
+  const subId = pickedSubId ?? (subsForWh.length === 1 ? subsForWh[0].sub_container_id : null)
+
+  // Every sub-container he's responsible for — used to scope the Receive inbox.
+  const mySubIds = useMemo(() => sources.map((s) => s.sub_container_id), [sources])
 
   if (!canUse) return <Center>You don’t have access to Picture Transfer.</Center>
   if (isLoading) return <Center>Loading…</Center>
-  if (myWhs.length === 0)
+  if (sources.length === 0)
     return (
       <Center>
-        You’re not assigned to a warehouse yet.
+        You’re not assigned to a warehouse or area yet.
         <br />
-        Ask an admin to make you a Warehouse Responsible Person.
+        Ask an admin to make you a Responsible Person.
       </Center>
     )
 
   if (!whId)
     return (
       <Picker title="Which store are you in?">
-        {myWhs.map((w) => (
+        {warehouses.map((w) => (
           <button
             key={w.id}
             type="button"
@@ -61,14 +66,14 @@ export default function PictureTransferPage() {
   if (!subId)
     return (
       <Picker title="Which area?">
-        {activeSubs.map((s) => (
+        {subsForWh.map((s) => (
           <button
-            key={s.id}
+            key={s.sub_container_id}
             type="button"
-            onClick={() => setPickedAreaId(s.id)}
+            onClick={() => setPickedSubId(s.sub_container_id)}
             className="min-h-16 rounded-2xl border-2 border-border p-5 text-lg font-bold"
           >
-            {s.name}
+            {s.sub_container_name}
           </button>
         ))}
       </Picker>
@@ -79,9 +84,9 @@ export default function PictureTransferPage() {
   return (
     <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col bg-background">
       {mode === 'send' && <PictureSendFlow source={source} onExit={() => setMode('home')} />}
-      {mode === 'receive' && <PictureReceive myWarehouseIds={myWarehouseIds} onExit={() => setMode('home')} />}
+      {mode === 'receive' && <PictureReceive mySubIds={mySubIds} onExit={() => setMode('home')} />}
       {mode === 'home' && (
-        <PictureTransferHome myWarehouseIds={myWarehouseIds} onSend={() => setMode('send')} onReceive={() => setMode('receive')} />
+        <PictureTransferHome mySubIds={mySubIds} onSend={() => setMode('send')} onReceive={() => setMode('receive')} />
       )}
     </div>
   )

@@ -15,16 +15,16 @@ import { QtyStepper } from './QtyStepper'
  * fewer" reveals per-item steppers (the existing shrinkage path).
  */
 export function PictureReceive({
-  myWarehouseIds,
+  mySubIds,
   onExit,
 }: {
-  myWarehouseIds: string[]
+  mySubIds: string[]
   onExit: () => void
 }) {
   const { data: inTransit = [], isLoading } = useWarehouseTransfers({ status: 'in_transit' })
   const mine = useMemo(
-    () => inTransit.filter((t) => myWarehouseIds.includes(t.to_warehouse_id)),
-    [inTransit, myWarehouseIds],
+    () => inTransit.filter((t) => t.to_sub_container_id != null && mySubIds.includes(t.to_sub_container_id)),
+    [inTransit, mySubIds],
   )
   const allVariantIds = useMemo(
     () => mine.flatMap((t) => (t.transfer_items ?? []).map((i) => i.brand_variant_id)),
@@ -95,7 +95,7 @@ export function PictureReceive({
                       <div key={i.id} className="flex items-center gap-4">
                         <PicturePhoto url={images?.get(i.brand_variant_id) ?? null} name={i.item_name} size={64} />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-base font-bold">{i.item_name}</div>
+                          <div className="break-words text-base font-bold leading-tight">{i.item_name}</div>
                           {showFewer && (
                             <div className="mt-1 w-40">
                               <QtyStepper value={val} min={0} max={dispatched} onChange={(n) => setQtys((p) => ({ ...p, [i.id]: n }))} />

@@ -29,7 +29,7 @@ export function PictureConfirm({
           <div key={item.brand_variant_id} className="flex items-center gap-4 rounded-2xl border bg-card p-3">
             <PicturePhoto url={item.image_url} name={item.item_name} size={72} />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-base font-bold">{item.item_name}</div>
+              <div className="break-words text-base font-bold leading-tight">{item.item_name}</div>
               <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
                 → {destLabel}
               </div>

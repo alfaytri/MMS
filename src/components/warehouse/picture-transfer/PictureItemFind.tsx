@@ -147,11 +147,11 @@ export function PictureItemFind({
                       key={s.brand_variant_id}
                       type="button"
                       onClick={() => toggle(s)}
-                      className={`flex w-20 shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-2 text-center ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-transparent'}`}
+                      className={`flex w-24 shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-2 text-center ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-transparent'}`}
                     >
                       <PicturePhoto url={s.image_url} name={s.item_name} size={64} />
-                      <span className="w-full truncate text-xs font-semibold">{s.item_name}</span>
-                      <span className="text-[11px] text-muted-foreground">{Math.floor(s.available_qty ?? 0)} left</span>
+                      <span className="w-full min-h-[2.5em] break-words text-xs font-semibold leading-tight">{s.item_name}</span>
+                      <span className="mt-auto text-[11px] font-bold text-muted-foreground">{Math.floor(s.available_qty ?? 0)} left</span>
                     </button>
                   )
                 })}
@@ -173,7 +173,7 @@ export function PictureItemFind({
                   >
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-2xl">📦</span>
                     <span className="min-w-0">
-                      <span className="block truncate font-bold">{g.name}</span>
+                      <span className="break-words font-bold leading-tight">{g.name}</span>
                       <span className="block text-xs text-muted-foreground">
                         {g.items.length} item{g.items.length === 1 ? '' : 's'}
                       </span>
@@ -209,15 +209,13 @@ function ItemCard({
           ✓
         </span>
       )}
-      <button type="button" onClick={() => onToggle(s)} className="flex flex-col gap-2 text-left">
+      <button type="button" onClick={() => onToggle(s)} className="flex flex-col gap-1.5 text-left">
         <PicturePhoto url={s.image_url} name={s.item_name} />
-        <span className="truncate text-sm font-bold">{s.item_name}</span>
+        <span className="min-h-[2.5em] break-words text-sm font-bold leading-tight">{s.item_name}</span>
       </button>
-      {selected ? (
-        <QtyStepper value={line!.qty} min={1} max={max} onChange={(n) => onQty(s, n)} />
-      ) : (
-        <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{Math.floor(s.available_qty ?? 0)} left</span>
-      )}
+      {/* Available qty is ALWAYS visible — even once selected, so the worker sees his ceiling while stepping. */}
+      <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{Math.floor(s.available_qty ?? 0)} left</span>
+      {selected && <QtyStepper value={line!.qty} min={1} max={max} onChange={(n) => onQty(s, n)} />}
     </div>
   )
 }

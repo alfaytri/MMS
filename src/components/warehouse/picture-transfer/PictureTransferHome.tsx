@@ -9,18 +9,18 @@ import { useWarehouseTransfers } from '@/hooks/useWarehouseOperations'
  * (green, with a "waiting" count badge). No text to read to get started.
  */
 export function PictureTransferHome({
-  myWarehouseIds,
+  mySubIds,
   onSend,
   onReceive,
 }: {
-  myWarehouseIds: string[]
+  mySubIds: string[]
   onSend: () => void
   onReceive: () => void
 }) {
   const { data: inTransit = [] } = useWarehouseTransfers({ status: 'in_transit' })
   const receiveCount = useMemo(
-    () => inTransit.filter((t) => myWarehouseIds.includes(t.to_warehouse_id)).length,
-    [inTransit, myWarehouseIds],
+    () => inTransit.filter((t) => t.to_sub_container_id != null && mySubIds.includes(t.to_sub_container_id)).length,
+    [inTransit, mySubIds],
   )
 
   return (
