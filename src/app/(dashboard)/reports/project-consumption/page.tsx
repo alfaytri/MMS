@@ -17,21 +17,32 @@ import { useDivisions } from '@/hooks/useDivisions'
 
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 
-// On-screen the Team/Project split is shown as two labelled sections, so the
-// per-row Type badge is redundant and dropped here. The export keeps a Type
-// column so the flat file still distinguishes teams from projects.
-const screenColumns: ReportColumn<ProjectConsumptionRow>[] = [
+// Teams consume directly — they carry no discipline/milestone tags (those are
+// project-only), so the on-screen Teams table drops both columns and leads with
+// the date: what a team consumed, and when.
+const teamColumns: ReportColumn<ProjectConsumptionRow>[] = [
+  { header: 'Date',       accessor: (r) => r.consumed_on,      format: 'text' },
+  { header: 'Item',       accessor: (r) => r.item_name ?? '—', format: 'text', wrap: true },
+  { header: 'Qty',        accessor: (r) => r.qty,              format: 'number',   total: true },
+  { header: 'Total Cost', accessor: (r) => r.total_cost,       format: 'currency', total: true },
+]
+
+// Projects keep the full breakdown — discipline and milestone are the tags a
+// project's spend is grouped by.
+const projectColumns: ReportColumn<ProjectConsumptionRow>[] = [
   { header: 'Discipline', accessor: (r) => r.discipline_name ?? '—', format: 'text', wrap: true },
-  { header: 'Milestone',  accessor: (r) => r.milestone_label,       format: 'text' },
+  { header: 'Milestone',  accessor: (r) => r.milestone_label,        format: 'text' },
   { header: 'Item',       accessor: (r) => r.item_name ?? '—',       format: 'text', wrap: true },
   { header: 'Date',       accessor: (r) => r.consumed_on,            format: 'text' },
   { header: 'Qty',        accessor: (r) => r.qty,                    format: 'number',   total: true },
   { header: 'Total Cost', accessor: (r) => r.total_cost,             format: 'currency', total: true },
 ]
 
+// The flat export keeps a uniform superset (Type + every dimension) so teams and
+// projects share one sheet; discipline/milestone stay blank for team rows.
 const exportColumns: ReportColumn<ProjectConsumptionRow>[] = [
   { header: 'Type', accessor: (r) => (r.consumer_kind === 'project' ? 'Project' : 'Team'), format: 'text' },
-  ...screenColumns,
+  ...projectColumns,
 ]
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -121,7 +132,7 @@ export default function ConsumptionReportPage() {
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-semibold">👷 Teams</h2>
         <ReportGroupedTable
-          columns={screenColumns}
+          columns={teamColumns}
           rows={teamRows}
           groupBy={(r) => r.consumer_name ?? '—'}
           isLoading={isLoading}
@@ -133,7 +144,7 @@ export default function ConsumptionReportPage() {
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-semibold">🏗️ Projects</h2>
         <ReportGroupedTable
-          columns={screenColumns}
+          columns={projectColumns}
           rows={projectRows}
           groupBy={(r) => r.consumer_name ?? '—'}
           isLoading={isLoading}
