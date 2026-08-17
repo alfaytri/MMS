@@ -566,6 +566,28 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useRejectTransfer`](src/hooks/useWarehouseOperations.ts)
 - **RPC:** `reject_transfer_v2`
 
+### Picture Transfer — Send (create pending)
+- **Status:** Built (staging RPCs applied 2026-08-17); coexists with the classic flow — awaiting operator smoke + prod ship.
+- **Module:** Warehouse (picture-first front-end over the SAME engine; classic `WhTransferDialog` untouched).
+- **Trigger surface(s):** `/warehouse/picture-transfer` (route [`page.tsx`](src/app/(dashboard)/warehouse/picture-transfer/page.tsx)) → SEND → [`PictureSendFlow`](src/components/warehouse/picture-transfer/PictureSendFlow.tsx) (Find → Where → Confirm). Nav entry gated by `warehouse.transfer.simple` ([`nav-config.ts`](src/components/layout/nav-config.ts)).
+- **Primary hook(s):** [`useCreateTransfer`](src/hooks/useWarehouseOperations.ts); source from [`useMyResponsibleWarehouses`](src/hooks/useMyResponsibleWarehouses.ts) + `useWarehouseSubContainers`; ⭐ strip from [`useOftenMovedVariants`](src/hooks/useOftenMovedVariants.ts); destination from `useCustodyLocations`.
+- **RPC(s):** `create_transfer_v2` (reused; requires `warehouse.transfer.create`) + reads `get_my_responsible_warehouses()`, `get_often_moved_variants(uuid,int)` (both new, SECURITY DEFINER, RP-guarded, `revoke … from public`).
+- **Ledger writes:** `warehouse_transfers` + items, reserves source stock (`status='pending'`). Dispatch stays on the classic surface.
+- **Guards:** `warehouse.transfer.simple` (route/nav) + `warehouse.transfer.create` (RPC) + must be a Warehouse RP of the source warehouse (source derivation). Destination = custody locations only.
+- **Dialog/component:** `PictureTransferHome`, `PictureItemFind`, `PictureWhere`, `PictureConfirm`, `PicturePhoto`, `QtyStepper`.
+- **Related flows:** [[Create Warehouse Transfer]] (same RPC, classic UI), [[Dispatch Warehouse Transfer (issue)]] (downstream), [[Picture Transfer — Receive]].
+- **Docs/plans:** [design.md](docs/superpowers/specs/2026-08-17-picture-transfer/design.md) + [plan.md](docs/plans/2026-08-17-picture-transfer/plan.md). Migrations `20260916000000`, `20260916000100`.
+
+### Picture Transfer — Receive
+- **Status:** Built (staging) — awaiting operator smoke + prod ship.
+- **Module:** Warehouse (picture-first Receive; reuses the classic `receive_transfer`).
+- **Trigger surface(s):** `/warehouse/picture-transfer` → RECEIVE → [`PictureReceive`](src/components/warehouse/picture-transfer/PictureReceive.tsx). Shows `in_transit` transfers whose `to_warehouse_id` is one of the worker's RP warehouses.
+- **Primary hook(s):** [`useReceiveTransfer`](src/hooks/useWarehouseOperations.ts), `useWarehouseTransfers({status:'in_transit'})`, [`useVariantImages`](src/hooks/useVariantImages.ts) (photos for transfer items).
+- **RPC(s):** `receive_transfer` (reused; requires `warehouse.transfer.receive` + `is_field_rp_of(destination)`).
+- **Ledger writes:** books incoming FIFO layers at destination; "I got fewer" drives the existing shrinkage path.
+- **Guards:** `warehouse.transfer.simple` (route) + `warehouse.transfer.receive` + Warehouse RP of the destination.
+- **Related flows:** [[Receive Warehouse Transfer]] (same RPC, classic UI), [[Picture Transfer — Send (create pending)]].
+
 ---
 
 ## Stock Adjustments

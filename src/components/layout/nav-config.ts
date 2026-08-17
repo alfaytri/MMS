@@ -118,4 +118,19 @@ export const NAV_ITEMS: NavEntry[] = [
       },
     ],
   },
+  {
+    // Picture Transfer (v2) — a dedicated, permission-gated top-level entry for
+    // low-literacy warehouse staff. A user whose role holds ONLY
+    // warehouse.transfer.simple sees just this one entry.
+    label: 'Transfer',
+    icon: 'ArrowRightLeft',
+    permission: 'warehouse.transfer.simple',
+    groups: [
+      {
+        items: [
+          { label: 'Picture Transfer', href: '/warehouse/picture-transfer', icon: 'ArrowRightLeft', permission: 'warehouse.transfer.simple' },
+        ],
+      },
+    ],
+  },
 ]

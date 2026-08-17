@@ -110,6 +110,7 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'warehouse.transfer.dispatch', label: 'Dispatch Transfers', description: 'Approve items leaving a warehouse (Warehouse RP only)' },
               { key: 'warehouse.transfer.receive', label: 'Receive Transfers', description: 'Confirm items arriving at a warehouse (Warehouse RP only)' },
               { key: 'warehouse.transfer.approve', label: 'Override Transfers', description: 'Override/approve any transfer step (Inventory Manager)' },
+              { key: 'warehouse.transfer.simple', label: 'Picture Transfer (simple)', description: 'Use the picture-first Transfer page (send + receive) instead of the classic surface — for low-literacy staff. Grant TOGETHER with warehouse.transfer.create + warehouse.transfer.receive, and assign the user as a Warehouse RP of their warehouse.' },
             ],
           },
           {

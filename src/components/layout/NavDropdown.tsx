@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   ChevronDown,
   Lock,
+  ArrowRightLeft,
   Database,
   ShoppingCart,
   FileText,
@@ -113,6 +114,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Calculator, BarChart3, RotateCcw, Package, PackageCheck, FileX, FileX2,
   PackageOpen, Wallet, MapPin, Calendar, Crown, ShieldCheck, CheckSquare,
   LayoutDashboard, TrendingUp, AlertTriangle, HandCoins, Flame,
+  ArrowRightLeft,
 }
 
 function canAccess(
