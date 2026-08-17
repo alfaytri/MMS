@@ -48,7 +48,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'ne
 }
 
 export default function CashReportPage() {
-  const canView = useHasPermission('reports.accounting.view')
+  const canView = useHasPermission('reports.cash.view')
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }

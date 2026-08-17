@@ -155,7 +155,7 @@ function PnlSection({
 }
 
 export default function ProfitLossReportPage() {
-  const canView = useHasPermission('reports.accounting.view')
+  const canView = useHasPermission('reports.profit_loss.view')
   const [basis, setBasis] = useState<PnlBasis>('accrual')
   const [fxOpen, setFxOpen] = useState(false)
   const [cogsOpen, setCogsOpen] = useState(false)

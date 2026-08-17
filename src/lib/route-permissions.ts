@@ -85,8 +85,18 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/calendar',    permission: 'calendar.view' },
   { pathPrefix: '/team-leader', permission: 'teams.team_leader.view' },
 
-  // ── Reports ────────────────────────────────────────────────────────────
-  { pathPrefix: '/reports', permission: 'reports.view' },
+  // ── Reports (per-report gating; longest matching prefix wins, ANY-of) ────
+  { pathPrefix: '/reports/dashboard',             permission: ['reports.view', 'reports.dashboard.view'] },
+  { pathPrefix: '/reports/product-profitability', permission: ['reports.view', 'reports.product_profitability.view'] },
+  { pathPrefix: '/reports/product-cost',          permission: 'reports.product_cost.view' },
+  { pathPrefix: '/reports/revenue-cogs',          permission: 'reports.revenue_cogs.view' },
+  { pathPrefix: '/reports/receivables',           permission: 'reports.receivables.view' },
+  { pathPrefix: '/reports/payables',              permission: 'reports.payables.view' },
+  { pathPrefix: '/reports/cash',                  permission: 'reports.cash.view' },
+  { pathPrefix: '/reports/profit-loss',           permission: 'reports.profit_loss.view' },
+  { pathPrefix: '/reports/project-consumption',   permission: ['reports.view', 'reports.project_consumption.view', 'consumption.cost.view'] },
+  // Section root / catch-all: any single report key admits you to /reports.
+  { pathPrefix: '/reports', permission: ['reports.view', 'reports.dashboard.view', 'reports.product_profitability.view', 'reports.product_cost.view', 'reports.revenue_cogs.view', 'reports.receivables.view', 'reports.payables.view', 'reports.cash.view', 'reports.profit_loss.view', 'reports.project_consumption.view', 'consumption.cost.view'] },
 
   // /admin/* is already gated server-side by src/app/(dashboard)/admin/layout.tsx
   // (Contact Centre admin pages). No entry needed here.

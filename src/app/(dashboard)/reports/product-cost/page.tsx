@@ -43,7 +43,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function ProductCostReportPage() {
-  const canView = useHasPermission('reports.inventory.view')
+  const canView = useHasPermission('reports.product_cost.view')
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-month')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }

@@ -44,7 +44,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default function ProjectConsumptionReportPage() {
-  const canView = useHasPermission(['reports.view', 'consumption.cost.view'])
+  const canView = useHasPermission(['reports.view', 'reports.project_consumption.view', 'consumption.cost.view'])
   const [filters, setFilters] = useState<ReportFilters>(() => {
     const r = presetRange('this-year')
     return { start: r.start, end: r.end, divisionIds: [], warehouseIds: [] }
