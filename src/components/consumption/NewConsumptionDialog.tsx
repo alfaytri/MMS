@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
@@ -76,22 +76,8 @@ const HIGH_SHARE_RATIO = 0.9
  */
 const parseQty = (s: string): number => parseInt(s, 10)
 
-/**
- * Group custody locations by their warehouse (Teams / Projects / …), preserving
- * the master list's sort order, so the consumer picker reads as a clean set of
- * "Warehouse → its locations" groups.
- */
-function groupByWarehouse<T extends { warehouse_id: string; warehouse_name: string }>(
-  list: T[],
-): Array<{ warehouseId: string; warehouseName: string; items: T[] }> {
-  const groups = new Map<string, { warehouseId: string; warehouseName: string; items: T[] }>()
-  for (const item of list) {
-    const existing = groups.get(item.warehouse_id)
-    if (existing) existing.items.push(item)
-    else groups.set(item.warehouse_id, { warehouseId: item.warehouse_id, warehouseName: item.warehouse_name, items: [item] })
-  }
-  return Array.from(groups.values())
-}
+// Natural/numeric collation so "Team 2" sorts before "Team 10" in the picker.
+const LOC_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 // ─── Dialog ─────────────────────────────────────────────────────────────
 
@@ -175,7 +161,58 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     const allowed = new Set(userDivisionIds)
     return activeLocations.filter((l) => allowed.has(l.division_id ?? ''))
   }, [activeLocations, isSuperViewer, userDivisionIds])
-  const locationGroups = useMemo(() => groupByWarehouse(visibleLocations), [visibleLocations])
+
+  // Cascade for the consumer picker: Type (custody warehouse) → Division (only
+  // when the type spans 2+) → Location. Keeps a 100-team list out of one
+  // dropdown. '' = unset; '__nodiv__' = a location carrying no division.
+  const [custodyWhId, setCustodyWhId]   = useState<string>('')
+  const [custodyDivId, setCustodyDivId] = useState<string>('')
+
+  const custodyTypes = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const l of visibleLocations) if (!m.has(l.warehouse_id)) m.set(l.warehouse_id, l.warehouse_name)
+    return Array.from(m, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [visibleLocations])
+
+  const divisionsForType = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const l of visibleLocations) {
+      if (l.warehouse_id !== custodyWhId) continue
+      const id = l.division_id ?? '__nodiv__'
+      if (!m.has(id)) m.set(id, l.division_name ?? 'Unassigned')
+    }
+    return Array.from(m, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [visibleLocations, custodyWhId])
+
+  const needsDivisionStep = divisionsForType.length > 1
+
+  const locationsForSelection = useMemo(() => (
+    visibleLocations
+      .filter((l) => l.warehouse_id === custodyWhId && (!custodyDivId || (l.division_id ?? '__nodiv__') === custodyDivId))
+      .sort((a, b) => LOC_COLLATOR.compare(a.name, b.name))
+  ), [visibleLocations, custodyWhId, custodyDivId])
+
+  // Auto-pick the only type; clear a stale one. Skipped while opened from a
+  // custody card (sourceLocked) — consumerSub is fixed to that card there.
+  useEffect(() => {
+    if (sourceLocked) return
+    if (custodyTypes.length === 1) { if (custodyWhId !== custodyTypes[0].id) setCustodyWhId(custodyTypes[0].id) }
+    else if (custodyWhId && !custodyTypes.some((t) => t.id === custodyWhId)) setCustodyWhId('')
+  }, [sourceLocked, custodyTypes, custodyWhId])
+
+  // Auto-pick the only division for the chosen type; clear a stale one.
+  useEffect(() => {
+    if (sourceLocked) return
+    if (!custodyWhId) { if (custodyDivId) setCustodyDivId(''); return }
+    if (divisionsForType.length === 1) { if (custodyDivId !== divisionsForType[0].id) setCustodyDivId(divisionsForType[0].id) }
+    else if (custodyDivId && !divisionsForType.some((d) => d.id === custodyDivId)) setCustodyDivId('')
+  }, [sourceLocked, custodyWhId, divisionsForType, custodyDivId])
+
+  // Drop the chosen location when it falls outside the current type + division.
+  useEffect(() => {
+    if (sourceLocked) return
+    if (consumerSub && !locationsForSelection.some((l) => l.id === consumerSub)) setConsumerSub('')
+  }, [sourceLocked, locationsForSelection, consumerSub])
 
   // ── Discipline + Milestone (optional project spend tags) ──────────────
   // Both tie to consumerSub (the CONSUMER project pool), not the source. A
@@ -322,6 +359,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       setSrcSubId(presetSource?.subContainerId ?? null)
       setConsumerType(allowedConsumerTypes[0] ?? 'custody')
       setConsumerSub(presetSource?.kindLabel === 'Custody' ? presetSource.subContainerId : '')
+      setCustodyWhId('')
+      setCustodyDivId('')
       setDisciplineId(null)
       setMilestoneId(null)
       setRows([{ brand_variant_id: '', qty: '' }])
@@ -677,28 +716,71 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
 
             <div className="min-h-9">
               {consumerType === 'custody' && (
-                <Select value={consumerSub} onValueChange={(v) => setConsumerSub(v ?? '')}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Pick a custody location…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-y-auto">
-                    {visibleLocations.length === 0 && (
-                      <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No custody locations in your division</div>
-                    )}
-                    {locationGroups.length <= 1
-                      ? visibleLocations.map((l) => (
-                          <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
-                        ))
-                      : locationGroups.map((g) => (
-                          <SelectGroup key={g.warehouseId}>
-                            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{g.warehouseName}</SelectLabel>
-                            {g.items.map((l) => (
-                              <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
+                visibleLocations.length === 0 ? (
+                  <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] italic text-muted-foreground">
+                    No custody locations in your division
+                  </div>
+                ) : (
+                  // Cascade: Type → Division (only when the type spans 2+) → Location.
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    {custodyTypes.length > 1 && (
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Type</Label>
+                        <Select value={custodyWhId} onValueChange={(v) => setCustodyWhId(v ?? '')}>
+                          <SelectTrigger className="h-9 w-full text-xs">
+                            <SelectValue placeholder="Pick type" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60 overflow-y-auto">
+                            {custodyTypes.map((t) => (
+                              <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
                             ))}
-                          </SelectGroup>
-                        ))}
-                  </SelectContent>
-                </Select>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {custodyWhId && needsDivisionStep && (
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Division</Label>
+                        <Select value={custodyDivId} onValueChange={(v) => setCustodyDivId(v ?? '')}>
+                          <SelectTrigger className="h-9 w-full text-xs">
+                            <SelectValue placeholder="Pick division" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60 overflow-y-auto">
+                            {divisionsForType.map((d) => (
+                              <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Location</Label>
+                      <Select value={consumerSub} onValueChange={(v) => setConsumerSub(v ?? '')}>
+                        <SelectTrigger
+                          className="h-9 w-full text-xs"
+                          disabled={!custodyWhId || (needsDivisionStep && !custodyDivId)}
+                        >
+                          <SelectValue placeholder={
+                            !custodyWhId
+                              ? 'Pick type first'
+                              : (needsDivisionStep && !custodyDivId)
+                                ? 'Pick division first'
+                                : 'Pick a location…'
+                          } />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60 overflow-y-auto">
+                          {locationsForSelection.length === 0 ? (
+                            <div className="px-2 py-1.5 text-[11px] italic text-muted-foreground">No locations here</div>
+                          ) : (
+                            locationsForSelection.map((l) => (
+                              <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )
               )}
               {consumerType === 'internal' && (
                 <div className="h-9 flex items-center rounded-md border bg-muted/40 px-2.5 text-[11px] text-muted-foreground italic">

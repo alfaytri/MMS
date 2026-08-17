@@ -17,6 +17,7 @@ import { CustodyAssignDialog } from '@/components/warehouse/custody/CustodyAssig
 import { CustodyReturnDialog } from '@/components/warehouse/custody/CustodyReturnDialog'
 import { AcceptCustodyDialog } from '@/components/warehouse/custody/AcceptCustodyDialog'
 import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCustodyLocations, type CustodyLocationRow } from '@/hooks/useCustodyLocations'
@@ -34,6 +35,9 @@ const QAR = new Intl.NumberFormat('en-QA', {
   currency: 'QAR',
   maximumFractionDigits: 2,
 })
+
+// Natural/numeric collation so "Team 2" sorts before "Team 10" (not lexicographic).
+const LOCATION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 // ─── Page ───────────────────────────────────────────────────────────────
 
@@ -145,14 +149,24 @@ function CustodyTab({
   ownProfileId:   string | null
 }) {
   const locations = useCustodyLocations(warehouseId)
+  // Top-bar division view filter — empty set = "All divisions".
+  const { viewDivisionIds } = useActiveDivision()
+  const divisionFiltered = viewDivisionIds.size > 0
   const rows: CustodyLocationRow[] = useMemo(
     // Only surface active locations on the Custody page — deactivated ones live in Master Data only.
     // When the user reaches this warehouse purely as an RP (no full-view grant),
     // restrict the cards to the location(s) they are personally responsible for.
-    () => (locations.data ?? []).filter(
-      (r) => r.is_active && (!restrictToOwn || r.responsible_person_profile_id === ownProfileId),
-    ),
-    [locations.data, restrictToOwn, ownProfileId],
+    // Honour the top-bar division filter (Kitchen must not show Maintenance teams),
+    // then sort numerically so "Team 2" precedes "Team 10".
+    () => (locations.data ?? [])
+      .filter(
+        (r) =>
+          r.is_active &&
+          (!restrictToOwn || r.responsible_person_profile_id === ownProfileId) &&
+          (viewDivisionIds.size === 0 || (r.division_id != null && viewDivisionIds.has(r.division_id))),
+      )
+      .sort((a, b) => LOCATION_COLLATOR.compare(a.name, b.name)),
+    [locations.data, restrictToOwn, ownProfileId, viewDivisionIds],
   )
 
   const { data: stock = [], isLoading: stockLoading } = useWarehouseStock(warehouseId, null)
@@ -190,15 +204,21 @@ function CustodyTab({
   }
 
   if (rows.length === 0) {
+    const title = restrictToOwn
+      ? 'No custody assigned to you'
+      : divisionFiltered
+        ? 'No locations in the selected division'
+        : `No locations in ${warehouseName} yet`
+    const description = restrictToOwn
+      ? `Stock you're responsible for in ${warehouseName} will appear here once a location is assigned to you.`
+      : divisionFiltered
+        ? `${warehouseName} has no locations in the division selected in the top bar. Switch division (or pick "All") to see the rest.`
+        : `Add a location in Master Data → Custody Locations to start assigning stock into ${warehouseName}.`
     return (
       <EmptyState
         icon={<Users2 className="h-6 w-6 text-muted-foreground" />}
-        title={restrictToOwn ? 'No custody assigned to you' : `No locations in ${warehouseName} yet`}
-        description={
-          restrictToOwn
-            ? `Stock you're responsible for in ${warehouseName} will appear here once a location is assigned to you.`
-            : `Add a location in Master Data → Custody Locations to start assigning stock into ${warehouseName}.`
-        }
+        title={title}
+        description={description}
       />
     )
   }
