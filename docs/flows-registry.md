@@ -1173,7 +1173,7 @@ These modules are called out in project plans / seed docs but have no material f
 - **Guards / preconditions:** existing consumption access rules; milestone optional (null stays valid); non-custody consumption forces null.
 - **Related flows:** [[Add/Close Project Milestone]], [[Project Consumption Report]]
 - **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
-- **Notes:** Milestone anchored to the CONSUMER sub-container to stay consistent with how the report resolves discipline (`cogs.consumer_sub_container_id`).
+- **Notes:** Milestone anchored to the CONSUMER sub-container to stay consistent with how the report resolves discipline (`cogs.consumer_sub_container_id`). A free-text **code** tag was added 2026-08-17 (migration `20260917000000`): `rpc_post_consumption(..., p_code text DEFAULT NULL)` stamps `consumption_entries.code` + copies it onto every per-layer `cogs_entries` row. UI-required for a project pool (the dialog gate), but the RPC does NOT hard-require it — `p_code` stays `DEFAULT NULL` so the param is backward compatible and consistent with discipline/milestone (also UI-only-required). Column is nullable; non-project / internal consumptions carry no code.
 
 ### Virtual Sub-container Transfer (project/discipline)
 
@@ -1202,4 +1202,4 @@ These modules are called out in project plans / seed docs but have no material f
 - **Guards / preconditions:** `reports.view` OR `consumption.cost.view`.
 - **Related flows:** [[Post Consumption with Milestone tag]], [[Add/Close Project Milestone]]
 - **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
-- **Notes:** ReportGroupedTable is single-level; design's literal project→discipline→milestone nesting rendered as consumer band + discipline/milestone columns (RPC sort keeps the hierarchical read). True nested table = deferred follow-up.
+- **Notes:** Renamed to **Consumption** + split into Teams (day-cards) / Projects (grouped table) 2026-08-17; nav/title/breadcrumb say "Consumption" (route + `reports.project_consumption.view` key unchanged). The RPC now also returns a **code** column (migration `20260917000000`) so the Projects table reads project → discipline → milestone → **code** → item → date. Per-section PDF/Excel export; Day (calendar) / Team / Project drill-in filters. ReportGroupedTable is single-level; hierarchy carried by RPC sort + columns.

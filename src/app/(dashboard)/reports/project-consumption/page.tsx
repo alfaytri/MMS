@@ -39,6 +39,7 @@ const teamExportColumns: ReportColumn<ProjectConsumptionRow>[] = [
 const projectColumns: ReportColumn<ProjectConsumptionRow>[] = [
   { header: 'Discipline', accessor: (r) => r.discipline_name ?? '—', format: 'text', wrap: true },
   { header: 'Milestone',  accessor: (r) => r.milestone_label,        format: 'text' },
+  { header: 'Code',       accessor: (r) => r.code ?? '—',            format: 'text' },
   { header: 'Item',       accessor: (r) => r.item_name ?? '—',       format: 'text', wrap: true },
   { header: 'Date',       accessor: (r) => r.consumed_on,            format: 'text' },
   { header: 'Qty',        accessor: (r) => r.qty,                    format: 'number',   total: true },

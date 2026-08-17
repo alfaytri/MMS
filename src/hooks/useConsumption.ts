@@ -266,15 +266,17 @@ export function useCreateConsumption() {
       consumer_sub_container_id?:  string | null
       milestone_id?:               string | null
       discipline_id?:              string | null
+      code?:                       string | null
       notes?:                      string | null
       attachments?:                string[]
       lines:                       PostConsumptionLine[]
     }) => {
       const supabase = createClient()
       // The RPC accepts NULL for the consumer sub / milestone / discipline /
-      // notes params (no NOT NULL constraint), but Supabase's generated types
-      // mark them non-nullable, so cast the args object (same pattern used
-      // across the custody RPC hooks).
+      // code / notes params (no NOT NULL constraint), but Supabase's generated
+      // types mark them non-nullable, so cast the args object (same pattern used
+      // across the custody RPC hooks). p_code is required server-side only for
+      // project spend (a discipline is tagged); the dialog enforces that too.
       const rpcArgs = {
         p_source_warehouse_id:       payload.source_warehouse_id,
         p_source_sub_container_id:   payload.source_sub_container_id,
@@ -282,6 +284,7 @@ export function useCreateConsumption() {
         p_consumer_sub_container_id: payload.consumer_sub_container_id ?? null,
         p_milestone_id:              payload.milestone_id ?? null,
         p_discipline_id:             payload.discipline_id ?? null,
+        p_code:                      payload.code ?? null,
         p_notes:                     payload.notes ?? null,
         p_attachments:               payload.attachments ?? [],
         p_lines:                     payload.lines,

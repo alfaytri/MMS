@@ -237,11 +237,16 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     resolvedDisciplineId,
   )
   const [milestoneId, setMilestoneId] = useState<string | null>(null)
-  // Reset the discipline when the consumer/type changes; reset the milestone
-  // when the discipline (or consumer/type) changes — a tag picked for a
+  // Free-text project code (a cost / WO / drawing ref). Required for a
+  // project-pool consumer; independent of discipline, so it survives a discipline
+  // change — only a new consumer/type clears it.
+  const [code, setCode] = useState('')
+  // Reset the discipline (+ code) when the consumer/type changes; reset the
+  // milestone when the discipline (or consumer/type) changes — a tag picked for a
   // previous discipline must never carry over.
   useEffect(() => {
     setDisciplineId(null)
+    setCode('')
   }, [consumerSub, consumerType])
   useEffect(() => {
     setMilestoneId(null)
@@ -308,6 +313,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     (!presetSource && (srcWhId !== '' || srcSubId !== null)) ||
     rows.some((r) => r.brand_variant_id !== '' || r.qty !== '') ||
     notes.trim() !== '' ||
+    code.trim() !== '' ||
     attachments.length > 0
 
   const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
@@ -363,6 +369,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       setCustodyDivId('')
       setDisciplineId(null)
       setMilestoneId(null)
+      setCode('')
       setRows([{ brand_variant_id: '', qty: '' }])
       setOpenPickerIdx(null)
       setNotes('')
@@ -450,7 +457,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // A project-pool consumer REQUIRES a discipline + milestone — spend must be
   // attributed. (Non-project custody / internal have no disciplines → not required.)
   const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
-  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId)
+  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId && code.trim() !== '')
 
   const canOpenConfirm =
     !!srcWhId &&
@@ -475,6 +482,11 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const resolvedMilestoneId = useMemo(
     () => (consumerType === 'custody' && resolvedDisciplineId && milestoneId ? milestoneId : null),
     [consumerType, resolvedDisciplineId, milestoneId],
+  )
+  // Code is a project-spend tag only — collapses to null for non-project consumers.
+  const resolvedCode = useMemo(
+    () => (projectTagsRequired ? (code.trim() || null) : null),
+    [projectTagsRequired, code],
   )
   // Separate display-only lookup for the confirmation modal summary — a
   // `.find()` here is fine (unlike a Select trigger's rendered value) since
@@ -569,6 +581,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         consumer_sub_container_id: consumerType === 'custody' ? consumerSub : null,
         milestone_id:              resolvedMilestoneId,
         discipline_id:             resolvedDisciplineId,
+        code:                      resolvedCode,
         notes:                     notes.trim() || null,
         attachments:               attachments,
         lines,
@@ -797,6 +810,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               Rendered OUTSIDE the source/consumer split so they also show when
               opened from a custody card (sourceLocked = fixed project pool). */}
           {projectTagsRequired && (
+            <div className="space-y-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Discipline *</Label>
@@ -834,6 +848,16 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                   </Select>
                 )}
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Code *</Label>
+              <Input
+                className="h-9 text-xs"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                maxLength={64}
+              />
+            </div>
             </div>
           )}
 
@@ -1084,6 +1108,12 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground shrink-0">Milestone</span>
                 <span className="font-medium text-right truncate min-w-0">{selectedMilestoneLabel}</span>
+              </div>
+            )}
+            {resolvedCode && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">Code</span>
+                <span className="font-medium text-right truncate min-w-0">{resolvedCode}</span>
               </div>
             )}
           </div>
