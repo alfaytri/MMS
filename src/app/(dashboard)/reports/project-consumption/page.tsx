@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Lock, Calendar, Users, FolderKanban } from 'lucide-react'
+import { ChevronRight, Lock, CalendarIcon, Users, FolderKanban } from 'lucide-react'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ReportFilterBar } from '@/components/reports/ReportFilterBar'
@@ -12,6 +12,11 @@ import { presetRange } from '@/components/reports/DateRangePicker'
 import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { ReportExportMenu } from '@/components/reports/ReportExportMenu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { format, parse } from 'date-fns'
 import { useProjectConsumptionReport, type ProjectConsumptionRow } from '@/hooks/reports/useProjectConsumptionReport'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useReportFilters } from '@/hooks/useReportFilters'
@@ -75,6 +80,58 @@ function FilterSelect({
   )
 }
 
+// The day filter is a calendar (not a text list of dates). "All days" clears it;
+// picking a day narrows both sections. Opens on the most-recent-consumption month.
+function DayFilter({
+  value, onChange, anchorDate,
+}: {
+  value: string
+  onChange: (v: string) => void
+  anchorDate?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const date = value !== 'all' ? parse(value, 'yyyy-MM-dd', new Date()) : undefined
+  const valid = !!date && !isNaN(date.getTime())
+  const anchor = anchorDate ? parse(anchorDate, 'yyyy-MM-dd', new Date()) : undefined
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={(props) => (
+          <Button
+            {...props}
+            type="button"
+            variant="outline"
+            className="h-9 min-h-11 md:min-h-0 min-w-[150px] justify-start gap-1.5 font-normal"
+          >
+            <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{valid ? format(date!, 'dd MMM yyyy') : 'All days'}</span>
+          </Button>
+        )}
+      />
+      <PopoverContent className="w-auto p-0" align="start">
+        <button
+          type="button"
+          onClick={() => { onChange('all'); setOpen(false) }}
+          className={cn(
+            'flex w-full items-center gap-2 border-b px-3 py-2 text-sm hover:bg-accent transition-colors',
+            value === 'all' && 'font-medium',
+          )}
+        >
+          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" /> All days
+        </button>
+        <Calendar
+          mode="single"
+          selected={valid ? date : undefined}
+          onSelect={(sel: Date | undefined) => { onChange(sel ? format(sel, 'yyyy-MM-dd') : 'all'); setOpen(false) }}
+          defaultMonth={valid ? date : anchor}
+          autoFocus
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export default function ConsumptionReportPage() {
   const canView = useHasPermission(['reports.view', 'reports.project_consumption.view', 'consumption.cost.view'])
   const [filters, setFilters] = useReportFilters(() => {
@@ -94,9 +151,10 @@ export default function ConsumptionReportPage() {
   const [teamFilter, setTeamFilter] = useState('all')
   const [projectFilter, setProjectFilter] = useState('all')
 
-  const dayOptions = useMemo(() => {
-    const days = [...new Set(rows.map((r) => r.consumed_on))].sort((a, b) => b.localeCompare(a))
-    return [{ value: 'all', label: 'All days' }, ...days.map((d) => ({ value: d, label: d }))]
+  // Month the calendar opens on: the most recent consumption date in range.
+  const anchorDay = useMemo(() => {
+    const days = rows.map((r) => r.consumed_on)
+    return days.length ? days.reduce((m, d) => (d > m ? d : m)) : undefined
   }, [rows])
 
   const teamOptions = useMemo(() => {
@@ -115,7 +173,6 @@ export default function ConsumptionReportPage() {
 
   // Reset a filter to "all" once its selected value drops out of the data
   // (e.g. after changing the date range), so it never strands an empty section.
-  useEffect(() => { if (dayFilter !== 'all' && !rows.some((r) => r.consumed_on === dayFilter)) setDayFilter('all') }, [rows, dayFilter])
   useEffect(() => { if (teamFilter !== 'all' && !teamRows.some((r) => r.consumer_id === teamFilter)) setTeamFilter('all') }, [teamRows, teamFilter])
   useEffect(() => { if (projectFilter !== 'all' && !projectRows.some((r) => r.consumer_id === projectFilter)) setProjectFilter('all') }, [projectRows, projectFilter])
 
@@ -177,12 +234,7 @@ export default function ConsumptionReportPage() {
       </div>
 
       <ReportFilterBar value={filters} onChange={setFilters} showDate>
-        <FilterSelect
-          icon={<Calendar className="h-3.5 w-3.5" />}
-          value={dayOptions.some((o) => o.value === dayFilter) ? dayFilter : 'all'}
-          onChange={setDayFilter}
-          options={dayOptions}
-        />
+        <DayFilter value={dayFilter} onChange={setDayFilter} anchorDate={anchorDay} />
       </ReportFilterBar>
 
       <section className="space-y-3">
