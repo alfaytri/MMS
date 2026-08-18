@@ -47,7 +47,7 @@
 **Next action:** decide whether the hub can assign a placeholder unit to a team, or requires a confirmed serial first. Recommend allowing assignment but surfacing an "unconfirmed serial" badge.
 
 ### ISSUE-8 — Cross-division Transfer must release an open team assignment 🟠
-**Status:** OPEN.
+**Status:** RESOLVED 2026-08-18 — chose **(a) auto-release**. `rpc_transfer_tool_unit` (migration `20260920000200`, rebased on the live body) closes the open assignment (`release_reason='moved'`) + clears the pointer when the division actually changes. Probe-green.
 **Discovered:** 2026-08-18 (design — operator constraint: tools are division-owned and mostly stay put).
 **Description:** The hub's assign/move is **same-division only** (design §4.3). Changing a unit's owning division is the existing `rpc_transfer_tool_unit`. But once the ledger exists, a unit can be **held by a team** (open `tool_unit_assignments` row) whose `division_id` is the unit's current division. If the unit is transferred to another division while still assigned, the open assignment would point at a team in the wrong division — an inconsistent state.
 **Options:** (a) **extend `rpc_transfer_tool_unit`** to close the open assignment (`release_reason='moved'`/new `division_transfer`) + clear `current_custody_location_id` in the same txn; or (b) **block the transfer** while the unit is assigned (force a Return first).
