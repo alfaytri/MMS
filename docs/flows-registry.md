@@ -188,7 +188,7 @@ Field rules:
 - **Related flows:** [[Send Damaged for Repair]] (produces the outbound transfer this RPC consumes), [[Record Inventory Disposition (post-restock)]] (originates the disposition both transfers share).
 - **Docs / plans:** [docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md](docs/superpowers/plans/2026-07-30-phase-9-damaged-stock-dispositions.md) — Sub-task 9.5.
 - **Migrations:** `20260802000600_rpc_return_from_repair.sql`, `20260802000610_fix_rpc_return_from_repair_items_column.sql` (column-name hotfix), `20260802000660_fix_damaged_rpcs_user_data_lookup.sql` (auth.uid→user_data.id lookup fix), `20260802000700_damaged_transfers_division_id_backfill.sql` (Phase 9.7 — recreates the RPC one more time to stamp `division_id` on the two inbound return transfers, closing the RLS leak from the 9.6 audit).
-- **Notes:** Two intentional departures from the plan doc: (1) plan used `notes` JSON strings to link inbound transfers back to the outbound; this uses the existing `warehouse_transfers.source_return_line_disposition_id` column instead — the 9.2 CHECK permits it for the return kinds, and it's queryable via a normal join instead of text-JSON parsing. (2) Plan assumed a `_add_good_stock_layer` helper; that helper does not exist, so the good-stock addition is inlined using the receival/adjustment pattern (fifo_cost_layers + stock_level bump + stock movement + recalc_average_cost). New `stock_movement_type` enum value `damaged_return_from_repair_as_good` added by this migration.
+- **Notes:** Two intentional departures from the plan doc: (1) plan used `notes` JSON strings to link inbound transfers back to the outbound; this uses the existing `warehouse_transfers.source_return_line_disposition_id` column instead — the 9.2 CHECK permits it for the return kinds, and it's queryable via a normal join instead of text-JSON parsing. (2) Plan assumed a `_add_good_stock_layer` helper; that helper does not exist, so the good-stock addition is inlined using the receival/adjustment pattern (fifo_cost_layers + stock_level bump + stock movement + recalc_average_cost). New `stock_movement_type` enum value `damaged_return_from_repair_as_good` added by this migration. **⚠ Cost-stripped (Phase 2 rework, 2026-08-18, migration `20260923000300`, staging):** `rpc_return_damaged_from_repair` no longer amortizes `p_repair_cost` into returned good units (they come back at their **original** unit cost) and stamps `repair_cost=0` on the transfers — repair is never charged. `p_repair_cost` kept accepted-but-ignored for one release; the Repair Cost field removed from [`ReturnFromRepairDialog`](src/components/warehouse/ReturnFromRepairDialog.tsx).
 
 ### Custody & Consumption (unified custody warehouse model · 2026-08-12)
 
@@ -1232,6 +1232,7 @@ These modules are called out in project plans / seed docs but have no material f
 - **Guards / preconditions:** same-division only (server asserts `unit.division_id = team.division_id`, except NULL→establish); at most one open assignment per unit (partial unique index `uq_tool_unit_open_assignment`). A cross-division move is blocked — use [[Transfer Serialized Tool Unit]] to change the owning division first (that now auto-releases the open team assignment, ISSUE-8).
 - **Related flows:** [[Transfer Serialized Tool Unit]] (owning-division change; releases the open assignment), [[Custody & Consumption (unified custody warehouse model · 2026-08-12)]] (teams = custody sub-containers), [[Tool Unit Custody History & Usage]] (reads the ledger this writes).
 - **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/](docs/plans/2026-08-18-tools-assets-team-tracking/) (design + required-data + issues + phase-1/plan). Migrations `20260920000000`–`20260920000200`.
+- **⚠ Return destination (Phase 2 rework, 2026-08-18, migration `20260923000100`, staging):** `rpc_return_tool_unit` gained `p_to_warehouse_id` (DROP+CREATE — the 2-arg signature was dropped) so a returned tool records **which store warehouse** it went back to (`tool_unit_assignments.returned_to_warehouse_id`, surfaced in the unit timeline). Return picks a store via [`ReturnToolDialog`](src/components/warehouse/tools-assets/ReturnToolDialog.tsx) (`get_return_destinations` = physical warehouses). Assign also advances `lifecycle_type` new→used (migration `20260923000000`). The team detail is now an item-grouped **tree** with an "In repair" section ([`TeamToolsDetail`](src/components/warehouse/tools-assets/TeamToolsDetail.tsx)).
 
 ### Tool Unit Custody History & Usage
 
@@ -1260,6 +1261,7 @@ These modules are called out in project plans / seed docs but have no material f
 - **Guards / preconditions:** manage-gated; a `retired` unit cannot be inspected; verdict ∈ {`good`, `bad`, `under_repair`} (column CHECK + in-RPC guard).
 - **Related flows:** [[Resolve Tool Repair (Repaired / Scrap → P&L)]] (drains the maintenance bucket this fills), [[Assign / Move / Return Tool Unit (team custody)]] (the units being checked), [[Tool Unit Custody History & Usage]].
 - **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/) (design §6). Migrations `20260922000000` (table + RLS), `20260922000100` (RPCs), `20260922000200` (permission repoint → `tools.assets.manage`).
+- **⚠ Reworked (Phase 2 rework, 2026-08-18, staging):** the inline Good/Bad/Repair buttons + `InspectionVerdictButtons` are **removed**. Condition checks now run through the **[[Tool Monthly Check Session]]** page (session-linked) — `rpc_record_tool_inspection` gained `p_session_id` (DROP+CREATE, migration `20260923000400`). Ad-hoc repair-sending moved to [[Send Tool for Repair (team → bucket → vendor)]].
 
 ### Resolve Tool Repair (Repaired / Scrap → P&L)
 
@@ -1274,3 +1276,44 @@ These modules are called out in project plans / seed docs but have no material f
 - **Guards / preconditions:** manage-gated; an already-`retired` unit is rejected. The cost write-off is **savepoint-guarded** — a unit with no receival link / no FIFO layer / short stock (seed units, ISSUE-2 drift) retires at **zero value + a NOTICE**, never failing the scrap (design §8). Uses `approve_stock_adjustment_inventory`, **not** the legacy `apply_adjustment` / `inventory_adjustments` path.
 - **Related flows:** [[Record Tool Inspection (condition check)]] (fills the maintenance bucket), [[Create Stock Adjustment]] (the write-off → approve path reused to book P&L), [[Assign / Move / Return Tool Unit (team custody)]] (custody ledger row closed on scrap).
 - **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/) (design §8, ISSUE-1/2). Migrations `20260922000100` (RPCs), `20260922000200` (permission repoint).
+- **⚠ Reworked (Phase 2 rework, 2026-08-18, staging):** the bucket keeps **Scrap** (this flow — direct scrap for a dead tool, operator decision) but drops **Repaired** — a fixable tool now goes to a vendor via [[Send Tool for Repair (team → bucket → vendor)]] → [[Return Tool from Repair (usable / writeoff)]]. `get_repair_bucket` refined to **awaiting-vendor-only** (maintenance minus an open repair transfer) + `lifecycle_type` (migration `20260923000200`).
+
+### Send Tool for Repair (team → bucket → vendor)
+
+- **Module:** Warehouse (Operations → Tools & Assets)
+- **Status:** Active — Phase 2 rework (2026-08-18), **staging only, pending operator smoke** (not shipped to prod)
+- **Trigger surface(s):** (1) Teams → team detail → per-unit **Repair** ([`SendToRepairDialog`](src/components/warehouse/tools-assets/SendToRepairDialog.tsx) — *"Have you collected this tool?"* confirm) collects the tool into the **Repair bucket** (awaiting vendor). (2) Repair tab → **Awaiting vendor** card → **Send for repair** ([`SendToolForRepairDialog`](src/components/warehouse/tools-assets/SendToolForRepairDialog.tsx) — vendor + expected-return date) dispatches it.
+- **Primary hook(s):** [`useSendToolToRepairBucket`, `useSendToolForRepair`, `useToolsOutForRepair`](src/hooks/useToolRepair.ts).
+- **RPC(s):** `rpc_send_tool_to_repair_bucket(p_unit_id, p_notes)` (assigned → `status='maintenance'`, **assignment stays open**), `rpc_send_tool_for_repair(p_unit_id, p_repair_vendor_id, p_expected_return_date, p_notes)` — both SECURITY DEFINER, gated `tools.assets.manage`.
+- **Ledger writes:** send-for-repair inserts a `warehouse_transfers(transfer_kind='damaged_repair_out', status='in_transit', **tool_unit_id**, repair_vendor_id, from=the open assignment's team + warehouse, to=vendor `virtual_warehouse_id`+`sub_container_id`)` — **no** damaged-stock ledger, **no** `warehouse_transfer_items` row (a tool has no brand-variant qty).
+- **Downstream side-effects:** unit leaves the awaiting-vendor bucket, appears in the Repair tab's **Out for repair** section; invalidates `toolAssignments` + `toolInspections` + `damagedStock.outForRepairAll`.
+- **Dialog / component:** [`SendToRepairDialog`](src/components/warehouse/tools-assets/SendToRepairDialog.tsx), [`SendToolForRepairDialog`](src/components/warehouse/tools-assets/SendToolForRepairDialog.tsx), [`RepairTab`](src/components/warehouse/tools-assets/RepairTab.tsx).
+- **Guards / preconditions:** manage-gated; send-to-bucket requires the tool be **currently held by a team** (open assignment); send-for-repair requires `status='maintenance'` + no existing open repair transfer + an active vendor with a warehouse/sub_container.
+- **Related flows:** [[Return Tool from Repair (usable / writeoff)]] (closes this transfer), [[Repair Vendor CRUD (sub-container of shared Repair warehouse)]], [[Assign / Move / Return Tool Unit (team custody)]].
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/). Migration `20260923000200`.
+
+### Return Tool from Repair (usable / writeoff)
+
+- **Module:** Warehouse (Operations → Tools & Assets)
+- **Status:** Active — Phase 2 rework (2026-08-18), **staging only, pending operator smoke**
+- **Trigger surface(s):** Repair tab → **Out for repair** card → **Return from repair** ([`ReturnToolFromRepairDialog`](src/components/warehouse/tools-assets/ReturnToolFromRepairDialog.tsx)).
+- **Primary hook(s):** [`useReturnToolFromRepair`](src/hooks/useToolRepair.ts).
+- **RPC(s):** `rpc_return_tool_from_repair(p_transfer_id, p_outcome, p_to_warehouse_id, p_notes)` (`p_outcome ∈ {usable, writeoff}`) — SECURITY DEFINER, gated `tools.assets.manage`.
+- **Ledger writes:** **usable** → unit `status='available'`, `condition='Good'`, `lifecycle_type='repaired'`, custody cleared; closes the open team assignment (`release_reason='returned'`, `returned_to_warehouse_id`); transfer `status='received'`. **writeoff** → unit retired + closes assignment `scrapped` + **scrap→P&L** (reuses `approve_stock_adjustment_inventory`, savepoint-guarded — same path as [[Resolve Tool Repair (Repaired / Scrap → P&L)]]); transfer `received`. **Repair cost is never charged.**
+- **Downstream side-effects:** invalidates `toolAssignments` + `toolInspections` + `damagedStock.outForRepairAll`.
+- **Guards / preconditions:** manage-gated; the transfer must be a `damaged_repair_out` `in_transit` with a `tool_unit_id`.
+- **Related flows:** [[Send Tool for Repair (team → bucket → vendor)]] (produces the transfer), [[Create Stock Adjustment]] (write-off path), [[Return Damaged from Repair]] (the sibling bulk flow — now also cost-free).
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/). Migration `20260923000200`.
+
+### Tool Monthly Check Session
+
+- **Module:** Warehouse (Operations → Tools & Assets)
+- **Status:** Active — Phase 2 rework (2026-08-18), **staging only, pending operator smoke**
+- **Trigger surface(s):** Operations → Tools & Assets → **Monthly Check** tab ([`ToolCheckPage`](src/components/warehouse/tools-assets/checks/ToolCheckPage.tsx), one division in the top-bar view) → **Initiate check** → team cards + progress → open a team ([`ToolCheckTeamPanel`](src/components/warehouse/tools-assets/checks/ToolCheckTeamPanel.tsx)) → **Good/Bad** each tool → **Finish** → report ([`ToolCheckReport`](src/components/warehouse/tools-assets/checks/ToolCheckReport.tsx)) → Excel/PDF export.
+- **Primary hook(s):** [`useInitiateCheckSession`, `useRecordCheck`, `useFinalizeCheckSession`, `useOpenCheckSession`, `useCheckProgress`, `useCheckReport`](src/hooks/useToolChecks.ts).
+- **RPC(s):** `rpc_initiate_tool_check_session(p_division_id)` (one open session per division), `rpc_record_tool_inspection(…, p_session_id)`, `rpc_finalize_tool_check_session(p_session_id)`; reads `get_open_tool_check_session`, `get_tool_check_session_progress` (checked/total), `get_tool_check_session_report`. All gated `tools.assets.manage` (reads DEFINER/authenticated).
+- **Ledger writes:** `tool_check_sessions` (RLS: `tcs_select` read, `tcs_write` manage) + `tool_unit_inspections.session_id` links each check to the session; Good→`condition='Good'`, Bad→`condition='Fair'`.
+- **Downstream side-effects:** the report exports server-side via `/api/reports/excel` + `/api/reports/pdf` (columns Item · Serial · Type · Condition · Inspected).
+- **Guards / preconditions:** manage-gated; a single division must be in the top-bar view; a second initiate for a division with an open session is rejected.
+- **Related flows:** [[Record Tool Inspection (condition check)]] (the underlying inspection RPC, now session-aware), [[Assign / Move / Return Tool Unit (team custody)]] (the units checked).
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/). Migration `20260923000400`.
