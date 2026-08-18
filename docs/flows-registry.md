@@ -1223,7 +1223,7 @@ These modules are called out in project plans / seed docs but have no material f
 
 - **Module:** Warehouse (Operations → Tools & Assets)
 - **Status:** Active — Phase 1 (2026-08-18), staging only (not shipped to prod)
-- **Trigger surface(s):** Operations → **Tools & Assets** (`/warehouse/tools-assets`) → Teams tab → team card → team detail: **Assign tool** ([`AssignToolUnitDialog`](src/components/warehouse/tools-assets/AssignToolUnitDialog.tsx)), per-row **Move** ([`MoveToolUnitDialog`](src/components/warehouse/tools-assets/MoveToolUnitDialog.tsx)) and **Return**.
+- **Trigger surface(s):** Operations → **Tools & Assets** (`/warehouse/tools-assets`) → Teams tab (cards grouped by division, collapsible) → team card → team detail: **Assign tool** ([`AssignToolUnitDialog`](src/components/warehouse/tools-assets/AssignToolUnitDialog.tsx) — a fixed-size **category → item → unit** tree picker with search), per-row **Move** ([`MoveToolUnitDialog`](src/components/warehouse/tools-assets/MoveToolUnitDialog.tsx)) and **Return**.
 - **Primary hook(s):** [`useAssignToolUnit`, `useMoveToolUnit`, `useReturnToolUnit`](src/hooks/useToolAssignments.ts)
 - **RPC(s):** `rpc_assign_tool_unit_to_team(p_unit_id, p_team_id, p_notes)`, `rpc_move_tool_unit_to_team(p_unit_id, p_to_team_id, p_notes)`, `rpc_return_tool_unit(p_unit_id, p_notes)` — all SECURITY DEFINER, gated on `inventory.catalog.manage`, revoke public + grant authenticated/service_role.
 - **Ledger writes:** `tool_unit_assignments` (the custody ledger — open row = current holder; closed with `release_reason` moved/returned) + denormalized `tool_asset_units.current_custody_location_id` pointer + `status` (assigned/available). Assign ESTABLISHES `tool_asset_units.division_id` from the team when it is NULL (ISSUE-9); it never changes an already-set division.
@@ -1239,10 +1239,10 @@ These modules are called out in project plans / seed docs but have no material f
 - **Status:** Active — Phase 1 (2026-08-18), staging only
 - **Trigger surface(s):** Operations → Tools & Assets → **History & Usage** tab: search by serial number / item name → open a unit → its custody timeline. Also the Teams tab reads teams+counts and a team's units.
 - **Primary hook(s):** [`useSearchToolUnits`, `useToolUnitTimeline`](src/hooks/useToolUnitHistory.ts); [`useTeamsWithToolCounts`, `useTeamToolUnits`, `useAssignableToolUnits`](src/hooks/useToolAssignments.ts)
-- **RPC(s):** `search_tool_units(p_query)`, `get_tool_unit_timeline(p_unit_id)`, `get_teams_with_tool_counts(p_division_ids)`, `get_team_tool_units(p_team_id)`, `get_assignable_tool_units(p_division_id, p_search)` — all STABLE SECURITY DEFINER, granted authenticated/service_role (read-only).
+- **RPC(s):** `search_tool_units(p_query)`, `get_tool_unit_timeline(p_unit_id)`, `get_teams_with_tool_counts(p_division_ids)`, `get_team_tool_units(p_team_id)`, `get_assignable_tool_units(p_division_id, p_search)` — all STABLE SECURITY DEFINER, granted authenticated/service_role (read-only). `get_assignable_tool_units` also returns `item_id` + `category_id`/`category_name` (migration `20260921000000`) so the Assign dialog renders a **category → item → unit** tree.
 - **Ledger writes:** none (read-only over `tool_unit_assignments` + `tool_asset_units`).
 - **Downstream side-effects:** none.
 - **Dialog / component:** [`HistoryUsageTab`](src/components/warehouse/tools-assets/HistoryUsageTab.tsx) → [`ToolUnitTimeline`](src/components/warehouse/tools-assets/ToolUnitTimeline.tsx).
 - **Guards / preconditions:** nav + page visibility gated on `inventory.catalog.view`; reads are authenticated-only. `get_assignable_tool_units` returns division-matched OR not-yet-divisioned units (ISSUE-9), bounded (LIMIT 200) + searchable.
 - **Related flows:** [[Assign / Move / Return Tool Unit (team custody)]] (writes the ledger these read).
-- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/](docs/plans/2026-08-18-tools-assets-team-tracking/). Migration `20260920000300`.
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/](docs/plans/2026-08-18-tools-assets-team-tracking/) (incl. `phase-1/refinements-plan.md`). Migrations `20260920000300`, `20260921000000` (assign-tree columns).
