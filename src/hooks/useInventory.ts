@@ -395,7 +395,6 @@ export type ToolAssetUnit = {
   condition: string
   expiry: string | null
   created_at: string
-  updated_at: string
   is_placeholder: boolean
   receival_item_id: string | null
 }

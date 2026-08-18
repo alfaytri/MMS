@@ -432,6 +432,7 @@ export type Database = {
       cogs_entries: {
         Row: {
           brand_variant_id: string
+          code: string | null
           consumer_customer_id: string | null
           consumer_division_id: string | null
           consumer_sub_container_id: string | null
@@ -455,6 +456,7 @@ export type Database = {
         }
         Insert: {
           brand_variant_id: string
+          code?: string | null
           consumer_customer_id?: string | null
           consumer_division_id?: string | null
           consumer_sub_container_id?: string | null
@@ -478,6 +480,7 @@ export type Database = {
         }
         Update: {
           brand_variant_id?: string
+          code?: string | null
           consumer_customer_id?: string | null
           consumer_division_id?: string | null
           consumer_sub_container_id?: string | null
@@ -842,6 +845,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           ce_number: string
+          code: string | null
           consumer_customer_id: string | null
           consumer_sub_container_id: string | null
           consumer_type: string
@@ -851,6 +855,7 @@ export type Database = {
           discipline_id: string | null
           division_id: string | null
           id: string
+          is_team_item: boolean
           milestone_id: string | null
           notes: string | null
           posted_at: string | null
@@ -864,6 +869,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           ce_number: string
+          code?: string | null
           consumer_customer_id?: string | null
           consumer_sub_container_id?: string | null
           consumer_type: string
@@ -873,6 +879,7 @@ export type Database = {
           discipline_id?: string | null
           division_id?: string | null
           id?: string
+          is_team_item?: boolean
           milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
@@ -886,6 +893,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           ce_number?: string
+          code?: string | null
           consumer_customer_id?: string | null
           consumer_sub_container_id?: string | null
           consumer_type?: string
@@ -895,6 +903,7 @@ export type Database = {
           discipline_id?: string | null
           division_id?: string | null
           id?: string
+          is_team_item?: boolean
           milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
@@ -2135,6 +2144,7 @@ export type Database = {
           default_sub_container_id: string | null
           default_warranty_policy_id: string | null
           id: string
+          is_team_item: boolean
           name_ar: string | null
           name_en: string
           parent_id: string | null
@@ -2150,6 +2160,7 @@ export type Database = {
           default_sub_container_id?: string | null
           default_warranty_policy_id?: string | null
           id?: string
+          is_team_item?: boolean
           name_ar?: string | null
           name_en: string
           parent_id?: string | null
@@ -2165,6 +2176,7 @@ export type Database = {
           default_sub_container_id?: string | null
           default_warranty_policy_id?: string | null
           id?: string
+          is_team_item?: boolean
           name_ar?: string | null
           name_en?: string
           parent_id?: string | null
@@ -2939,6 +2951,7 @@ export type Database = {
           default_warehouse_id: string | null
           id: string
           image_url: string | null
+          is_team_item: boolean | null
           linked_services_count: number | null
           name_ar: string | null
           name_en: string
@@ -2960,6 +2973,7 @@ export type Database = {
           default_warehouse_id?: string | null
           id?: string
           image_url?: string | null
+          is_team_item?: boolean | null
           linked_services_count?: number | null
           name_ar?: string | null
           name_en: string
@@ -2981,6 +2995,7 @@ export type Database = {
           default_warehouse_id?: string | null
           id?: string
           image_url?: string | null
+          is_team_item?: boolean | null
           linked_services_count?: number | null
           name_ar?: string | null
           name_en?: string
@@ -6389,6 +6404,7 @@ export type Database = {
           brand: string | null
           condition: Database["public"]["Enums"]["tool_condition"] | null
           created_at: string | null
+          current_custody_location_id: string | null
           division_id: string | null
           expiry: string | null
           id: string
@@ -6403,6 +6419,7 @@ export type Database = {
           brand?: string | null
           condition?: Database["public"]["Enums"]["tool_condition"] | null
           created_at?: string | null
+          current_custody_location_id?: string | null
           division_id?: string | null
           expiry?: string | null
           id?: string
@@ -6417,6 +6434,7 @@ export type Database = {
           brand?: string | null
           condition?: Database["public"]["Enums"]["tool_condition"] | null
           created_at?: string | null
+          current_custody_location_id?: string | null
           division_id?: string | null
           expiry?: string | null
           id?: string
@@ -6427,6 +6445,20 @@ export type Database = {
           status?: Database["public"]["Enums"]["tool_status"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tool_asset_units_current_custody_location_id_fkey"
+            columns: ["current_custody_location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "tool_asset_units_current_custody_location_id_fkey"
+            columns: ["current_custody_location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tool_asset_units_division_id_fkey"
             columns: ["division_id"]
@@ -6446,6 +6478,64 @@ export type Database = {
             columns: ["receival_item_id"]
             isOneToOne: false
             referencedRelation: "receival_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_unit_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          custody_location_id: string
+          id: string
+          notes: string | null
+          release_reason: string | null
+          released_at: string | null
+          unit_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          custody_location_id: string
+          id?: string
+          notes?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          unit_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          custody_location_id?: string
+          id?: string
+          notes?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_unit_assignments_custody_location_id_fkey"
+            columns: ["custody_location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "tool_unit_assignments_custody_location_id_fkey"
+            columns: ["custody_location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_unit_assignments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_units"
             referencedColumns: ["id"]
           },
         ]
@@ -8513,8 +8603,18 @@ export type Database = {
       generate_order_quotation_id: { Args: never; Returns: string }
       generate_quotation_number: { Args: never; Returns: string }
       generate_transfer_number: { Args: never; Returns: string }
+      get_assignable_tool_units: {
+        Args: { p_division_id: string; p_search?: string }
+        Returns: {
+          brand: string
+          condition: string
+          item_name: string
+          serial_number: string
+          unit_id: string
+        }[]
+      }
       get_category_stock_aggregates: {
-        Args: { p_type: string }
+        Args: { p_division_ids?: string[]; p_type: string }
         Returns: {
           avg_cost: number
           category_id: string
@@ -8583,6 +8683,30 @@ export type Database = {
         Returns: string
       }
       get_invoice_summary: { Args: never; Returns: Json }
+      get_my_responsible_warehouses: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+          warehouse_kind: string
+        }[]
+      }
+      get_my_transfer_sources: {
+        Args: never
+        Returns: {
+          sub_container_id: string
+          sub_container_name: string
+          warehouse_id: string
+          warehouse_name: string
+        }[]
+      }
+      get_often_moved_variants: {
+        Args: { p_from_warehouse_id: string; p_limit?: number }
+        Returns: {
+          brand_variant_id: string
+          move_count: number
+        }[]
+      }
       get_payment_summary: { Args: never; Returns: Json }
       get_stock_value_cogs_summary: {
         Args: { p_brand_variant_ids?: string[] }
@@ -8591,6 +8715,41 @@ export type Database = {
           lc_adjustment_count: number
           lc_adjustments_total: number
           sold_at_sale_total: number
+        }[]
+      }
+      get_team_tool_units: {
+        Args: { p_team_id: string }
+        Returns: {
+          assigned_at: string
+          brand: string
+          condition: string
+          item_name: string
+          serial_number: string
+          status: string
+          unit_id: string
+        }[]
+      }
+      get_teams_with_tool_counts: {
+        Args: { p_division_ids?: string[] }
+        Returns: {
+          division_id: string
+          division_name: string
+          held_count: number
+          responsible_person_name: string
+          team_id: string
+          team_name: string
+        }[]
+      }
+      get_tool_unit_timeline: {
+        Args: { p_unit_id: string }
+        Returns: {
+          assigned_at: string
+          assignment_id: string
+          days: number
+          is_current: boolean
+          released_at: string
+          team_id: string
+          team_name: string
         }[]
       }
       get_warehouse_names: {
@@ -8646,6 +8805,10 @@ export type Database = {
       }
       is_field_rp_of: {
         Args: { p_profile_id: string; p_warehouse_id: string }
+        Returns: boolean
+      }
+      is_sub_container_rp: {
+        Args: { p_profile_id: string; p_sub_container_id: string }
         Returns: boolean
       }
       is_sub_container_visible: {
@@ -8768,6 +8931,10 @@ export type Database = {
       rpc_archive_inventory_category: {
         Args: { p_category_id: string }
         Returns: undefined
+      }
+      rpc_assign_tool_unit_to_team: {
+        Args: { p_notes?: string; p_team_id: string; p_unit_id: string }
+        Returns: string
       }
       rpc_attribute_picker_step: {
         Args: { p_category_id: string; p_picks?: Json }
@@ -9085,6 +9252,10 @@ export type Database = {
           item_id: string
         }[]
       }
+      rpc_move_tool_unit_to_team: {
+        Args: { p_notes?: string; p_to_team_id: string; p_unit_id: string }
+        Returns: string
+      }
       rpc_my_consumption_sources: {
         Args: never
         Returns: {
@@ -9098,6 +9269,7 @@ export type Database = {
       rpc_post_consumption: {
         Args: {
           p_attachments: string[]
+          p_code?: string
           p_consumer_sub_container_id: string
           p_consumer_type: string
           p_discipline_id?: string
@@ -9334,13 +9506,17 @@ export type Database = {
       rpc_report_project_consumption: {
         Args: { p_division_ids?: string[]; p_from: string; p_to: string }
         Returns: {
+          code: string
+          consumed_on: string
           consumer_id: string
           consumer_kind: string
           consumer_name: string
           discipline_name: string
+          item_name: string
           milestone_label: string
           project_number: string
           qty: number
+          sku: string
           total_cost: number
         }[]
       }
@@ -9422,6 +9598,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      rpc_return_tool_unit: {
+        Args: { p_notes?: string; p_unit_id: string }
+        Returns: undefined
+      }
       rpc_sales_aging_report: {
         Args: never
         Returns: {
@@ -9480,6 +9660,7 @@ export type Database = {
         Returns: string
       }
       rpc_sync_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
+      rpc_team_item_variant_ids: { Args: never; Returns: string[] }
       rpc_transfer_tool_unit: {
         Args: { p_notes?: string; p_to_division_id: string; p_unit_id: string }
         Returns: undefined
@@ -9551,6 +9732,17 @@ export type Database = {
           p_query?: string
         }
         Returns: Json
+      }
+      search_tool_units: {
+        Args: { p_query: string }
+        Returns: {
+          current_team_id: string
+          current_team_name: string
+          item_name: string
+          serial_number: string
+          status: string
+          unit_id: string
+        }[]
       }
       service_inventory_bulk_upsert: {
         Args: {
