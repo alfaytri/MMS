@@ -1225,7 +1225,7 @@ These modules are called out in project plans / seed docs but have no material f
 - **Status:** Active — Phase 1 (2026-08-18), staging only (not shipped to prod)
 - **Trigger surface(s):** Operations → **Tools & Assets** (`/warehouse/tools-assets`) → Teams tab (cards grouped by division, collapsible) → team card → team detail: **Assign tool** ([`AssignToolUnitDialog`](src/components/warehouse/tools-assets/AssignToolUnitDialog.tsx) — a fixed-size **category → item → unit** tree picker with search), per-row **Move** ([`MoveToolUnitDialog`](src/components/warehouse/tools-assets/MoveToolUnitDialog.tsx)) and **Return**.
 - **Primary hook(s):** [`useAssignToolUnit`, `useMoveToolUnit`, `useReturnToolUnit`](src/hooks/useToolAssignments.ts)
-- **RPC(s):** `rpc_assign_tool_unit_to_team(p_unit_id, p_team_id, p_notes)`, `rpc_move_tool_unit_to_team(p_unit_id, p_to_team_id, p_notes)`, `rpc_return_tool_unit(p_unit_id, p_notes)` — all SECURITY DEFINER, gated on `inventory.catalog.manage`, revoke public + grant authenticated/service_role.
+- **RPC(s):** `rpc_assign_tool_unit_to_team(p_unit_id, p_team_id, p_notes)`, `rpc_move_tool_unit_to_team(p_unit_id, p_to_team_id, p_notes)`, `rpc_return_tool_unit(p_unit_id, p_notes)` — all SECURITY DEFINER, gated on `tools.assets.manage` (repointed from `inventory.catalog.manage` by Phase-2 migration `20260922000200`; new-prod carries the repoint only when Phase 2 ships), revoke public + grant authenticated/service_role.
 - **Ledger writes:** `tool_unit_assignments` (the custody ledger — open row = current holder; closed with `release_reason` moved/returned) + denormalized `tool_asset_units.current_custody_location_id` pointer + `status` (assigned/available). Assign ESTABLISHES `tool_asset_units.division_id` from the team when it is NULL (ISSUE-9); it never changes an already-set division.
 - **Downstream side-effects:** invalidates `queryKeys.toolAssignments.all` (team cards + counts, a team's units, assignable list, and timelines all refetch).
 - **Dialog / component:** [`TeamsTab`](src/components/warehouse/tools-assets/TeamsTab.tsx) → [`TeamToolsDetail`](src/components/warehouse/tools-assets/TeamToolsDetail.tsx) → the two dialogs above.
@@ -1243,6 +1243,34 @@ These modules are called out in project plans / seed docs but have no material f
 - **Ledger writes:** none (read-only over `tool_unit_assignments` + `tool_asset_units`).
 - **Downstream side-effects:** none.
 - **Dialog / component:** [`HistoryUsageTab`](src/components/warehouse/tools-assets/HistoryUsageTab.tsx) → [`ToolUnitTimeline`](src/components/warehouse/tools-assets/ToolUnitTimeline.tsx).
-- **Guards / preconditions:** nav + page visibility gated on `inventory.catalog.view`; reads are authenticated-only. `get_assignable_tool_units` returns division-matched OR not-yet-divisioned units (ISSUE-9), bounded (LIMIT 200) + searchable.
+- **Guards / preconditions:** nav + page visibility gated on `tools.assets.view` (frontend nav + page guard; repointed from `inventory.catalog.view`); reads are authenticated-only. `get_assignable_tool_units` returns division-matched OR not-yet-divisioned units (ISSUE-9), bounded (LIMIT 200) + searchable.
 - **Related flows:** [[Assign / Move / Return Tool Unit (team custody)]] (writes the ledger these read).
 - **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/](docs/plans/2026-08-18-tools-assets-team-tracking/) (incl. `phase-1/refinements-plan.md`). Migrations `20260920000300`, `20260921000000` (assign-tree columns).
+
+### Record Tool Inspection (condition check)
+
+- **Module:** Warehouse (Operations → Tools & Assets)
+- **Status:** Active — Phase 2 (2026-08-18), staging only (not shipped to prod)
+- **Trigger surface(s):** Operations → Tools & Assets → Teams tab → team detail → per-row **Good / Bad / Repair** buttons ([`InspectionVerdictButtons`](src/components/warehouse/tools-assets/InspectionVerdictButtons.tsx)); the row also shows the last-checked date + a "Due" badge when there is no check in the current calendar month.
+- **Primary hook(s):** [`useRecordInspection`](src/hooks/useToolInspections.ts) (+ [`useTeamToolUnitsV2`](src/hooks/useToolInspections.ts) for the last-checked / due read).
+- **RPC(s):** `rpc_record_tool_inspection(p_unit_id, p_verdict, p_notes)` — SECURITY DEFINER, gated on `tools.assets.manage`, revoke public + grant authenticated/service_role. Read: `get_team_tool_units_v2(p_team_id)` (STABLE DEFINER; the Phase-1 team read + `last_inspected_at` + `inspection_due`).
+- **Ledger writes:** `tool_unit_inspections` (append-only condition-check history; snapshots `custody_location_id` + `inspected_by`). Applies the §6 lifecycle map to `tool_asset_units` with **no new enums**: `good`→`condition='Good'`, `bad`→`condition='Fair'`, `under_repair`→`status='maintenance'` (moves the unit into the Repair bucket).
+- **Downstream side-effects:** invalidates `queryKeys.toolInspections.all` + `queryKeys.toolAssignments.all` (team detail + repair bucket refetch).
+- **Dialog / component:** [`TeamToolsDetail`](src/components/warehouse/tools-assets/TeamToolsDetail.tsx) inline row action (no dialog — buttons + toast).
+- **Guards / preconditions:** manage-gated; a `retired` unit cannot be inspected; verdict ∈ {`good`, `bad`, `under_repair`} (column CHECK + in-RPC guard).
+- **Related flows:** [[Resolve Tool Repair (Repaired / Scrap → P&L)]] (drains the maintenance bucket this fills), [[Assign / Move / Return Tool Unit (team custody)]] (the units being checked), [[Tool Unit Custody History & Usage]].
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/) (design §6). Migrations `20260922000000` (table + RLS), `20260922000100` (RPCs), `20260922000200` (permission repoint → `tools.assets.manage`).
+
+### Resolve Tool Repair (Repaired / Scrap → P&L)
+
+- **Module:** Warehouse (Operations → Tools & Assets)
+- **Status:** Active — Phase 2 (2026-08-18), staging only (not shipped to prod)
+- **Trigger surface(s):** Operations → Tools & Assets → **Repair** tab ([`RepairTab`](src/components/warehouse/tools-assets/RepairTab.tsx) — `status='maintenance'` units grouped by division, scoped by the top-bar division view filter) → per-unit **Repaired** or **Scrap** ([`ScrapToolDialog`](src/components/warehouse/tools-assets/ScrapToolDialog.tsx)).
+- **Primary hook(s):** [`useResolveRepair`](src/hooks/useToolRepair.ts) (+ [`useRepairBucket`](src/hooks/useToolInspections.ts) for the bucket read).
+- **RPC(s):** `rpc_resolve_tool_repair(p_unit_id, p_outcome, p_notes)` (`p_outcome ∈ {repaired, scrap}`) — SECURITY DEFINER, gated on `tools.assets.manage`. Read: `get_repair_bucket(p_division_ids)` (STABLE DEFINER, division-scoped).
+- **Ledger writes:** **repaired** → `tool_asset_units.condition='Good'` + `status` back to `assigned` (still held) / `available`. **scrap** → closes the open `tool_unit_assignments` row (`release_reason='scrapped'`), sets `status='retired'` + clears the custody pointer, then — reusing the existing write-off applier — inserts a qty-1 `write_off` `stock_adjustments` row + `PERFORM approve_stock_adjustment_inventory(id, actor)`, which books an `inventory_stock_movements` row that `rpc_report_pnl` reads into the **"Scrap & Defective" (`v_scrap`)** line. Cost = the unit's receival FIFO layer (via `receival_item_id → receival_items`), FIFO-valued by `deduct_fifo_layers`.
+- **Downstream side-effects:** invalidates `queryKeys.toolInspections.all` + `queryKeys.toolAssignments.all`. Scrap decrements `warehouse_stock_summary` qty −1 + FIFO `remaining_qty` −1 for the resolved `(brand_variant, sub_container)`.
+- **Dialog / component:** [`RepairTab`](src/components/warehouse/tools-assets/RepairTab.tsx) → [`ScrapToolDialog`](src/components/warehouse/tools-assets/ScrapToolDialog.tsx) (confirm + optional notes; full-screen on mobile, one scroll region).
+- **Guards / preconditions:** manage-gated; an already-`retired` unit is rejected. The cost write-off is **savepoint-guarded** — a unit with no receival link / no FIFO layer / short stock (seed units, ISSUE-2 drift) retires at **zero value + a NOTICE**, never failing the scrap (design §8). Uses `approve_stock_adjustment_inventory`, **not** the legacy `apply_adjustment` / `inventory_adjustments` path.
+- **Related flows:** [[Record Tool Inspection (condition check)]] (fills the maintenance bucket), [[Create Stock Adjustment]] (the write-off → approve path reused to book P&L), [[Assign / Move / Return Tool Unit (team custody)]] (custody ledger row closed on scrap).
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2/) (design §8, ISSUE-1/2). Migrations `20260922000100` (RPCs), `20260922000200` (permission repoint).
