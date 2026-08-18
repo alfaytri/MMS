@@ -32,14 +32,10 @@
 **Next action:** default (a); revisit only if it confuses the UI.
 
 ### ISSUE-5 — Exact Operations route group + nav registration 🟡
-**Status:** OPEN — locate.
-**Description:** New hub lives under the Operations menu. Custody (`/warehouse/custody`) is the model; nav/permission tree is `NAV_TREE` (`PermissionTree.tsx`).
-**Next action:** open the Custody route + the Operations nav definition; mirror the router group + nav entry.
+**Status:** RESOLVED 2026-08-18. Route `/warehouse/tools-assets` in the `(dashboard)` app-router group (mirrors Custody). Nav entry added to the **Operations** group in `src/components/layout/nav-config.ts` (icon `Wrench`, resolved via `ICON_MAP` in `src/components/layout/NavDropdown.tsx`). Note: nav labels + permissions live in `nav-config.ts`, NOT `PermissionTree.tsx`.
 
 ### ISSUE-6 — Permission key for the hub 🟡
-**Status:** OPEN — decide.
-**Options:** new `tools.assignments.manage` (clean separation, needs role wiring) vs. reuse `inventory.catalog.manage` (already gates `tool_asset_units` writes, zero setup).
-**Next action:** decide in Phase 1 plan; lean toward reuse for the write RPCs unless the operator wants a separate role.
+**Status:** DECIDED 2026-08-18 — **reuse existing permissions** (no new key → no role wiring needed for immediate use). Nav + page visibility gated on `inventory.catalog.view`; all write RPCs gate on `inventory.catalog.manage` server-side (same expression as `guard_tool_unit_division_write` + existing tool-unit writes). A dedicated `tools.assignments.*` key can be introduced later if finer separation is wanted.
 
 ### ISSUE-7 — Placeholder (unconfirmed-serial) units 🟡
 **Status:** OPEN — decide UI behavior.

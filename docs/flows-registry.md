@@ -1218,3 +1218,31 @@ These modules are called out in project plans / seed docs but have no material f
 - **Related flows:** [[Post Consumption with Milestone tag]], [[Add/Close Project Milestone]]
 - **Docs / plans:** [docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md](docs/plans/2026-08-15-vwh-projects-and-transfers/plan.md)
 - **Notes:** Renamed to **Consumption** + split into Teams (day-cards) / Projects (grouped table) 2026-08-17; nav/title/breadcrumb say "Consumption" (route + `reports.project_consumption.view` key unchanged). The RPC now also returns a **code** column (migration `20260917000000`) so the Projects table reads project → discipline → milestone → **code** → item → date. Per-section PDF/Excel export; Day (calendar) / Team / Project drill-in filters. ReportGroupedTable is single-level; hierarchy carried by RPC sort + columns.
+
+### Assign / Move / Return Tool Unit (team custody)
+
+- **Module:** Warehouse (Operations → Tools & Assets)
+- **Status:** Active — Phase 1 (2026-08-18), staging only (not shipped to prod)
+- **Trigger surface(s):** Operations → **Tools & Assets** (`/warehouse/tools-assets`) → Teams tab → team card → team detail: **Assign tool** ([`AssignToolUnitDialog`](src/components/warehouse/tools-assets/AssignToolUnitDialog.tsx)), per-row **Move** ([`MoveToolUnitDialog`](src/components/warehouse/tools-assets/MoveToolUnitDialog.tsx)) and **Return**.
+- **Primary hook(s):** [`useAssignToolUnit`, `useMoveToolUnit`, `useReturnToolUnit`](src/hooks/useToolAssignments.ts)
+- **RPC(s):** `rpc_assign_tool_unit_to_team(p_unit_id, p_team_id, p_notes)`, `rpc_move_tool_unit_to_team(p_unit_id, p_to_team_id, p_notes)`, `rpc_return_tool_unit(p_unit_id, p_notes)` — all SECURITY DEFINER, gated on `inventory.catalog.manage`, revoke public + grant authenticated/service_role.
+- **Ledger writes:** `tool_unit_assignments` (the custody ledger — open row = current holder; closed with `release_reason` moved/returned) + denormalized `tool_asset_units.current_custody_location_id` pointer + `status` (assigned/available). Assign ESTABLISHES `tool_asset_units.division_id` from the team when it is NULL (ISSUE-9); it never changes an already-set division.
+- **Downstream side-effects:** invalidates `queryKeys.toolAssignments.all` (team cards + counts, a team's units, assignable list, and timelines all refetch).
+- **Dialog / component:** [`TeamsTab`](src/components/warehouse/tools-assets/TeamsTab.tsx) → [`TeamToolsDetail`](src/components/warehouse/tools-assets/TeamToolsDetail.tsx) → the two dialogs above.
+- **Guards / preconditions:** same-division only (server asserts `unit.division_id = team.division_id`, except NULL→establish); at most one open assignment per unit (partial unique index `uq_tool_unit_open_assignment`). A cross-division move is blocked — use [[Transfer Serialized Tool Unit]] to change the owning division first (that now auto-releases the open team assignment, ISSUE-8).
+- **Related flows:** [[Transfer Serialized Tool Unit]] (owning-division change; releases the open assignment), [[Custody & Consumption (unified custody warehouse model · 2026-08-12)]] (teams = custody sub-containers), [[Tool Unit Custody History & Usage]] (reads the ledger this writes).
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/](docs/plans/2026-08-18-tools-assets-team-tracking/) (design + required-data + issues + phase-1/plan). Migrations `20260920000000`–`20260920000200`.
+
+### Tool Unit Custody History & Usage
+
+- **Module:** Warehouse (Operations → Tools & Assets)
+- **Status:** Active — Phase 1 (2026-08-18), staging only
+- **Trigger surface(s):** Operations → Tools & Assets → **History & Usage** tab: search by serial number / item name → open a unit → its custody timeline. Also the Teams tab reads teams+counts and a team's units.
+- **Primary hook(s):** [`useSearchToolUnits`, `useToolUnitTimeline`](src/hooks/useToolUnitHistory.ts); [`useTeamsWithToolCounts`, `useTeamToolUnits`, `useAssignableToolUnits`](src/hooks/useToolAssignments.ts)
+- **RPC(s):** `search_tool_units(p_query)`, `get_tool_unit_timeline(p_unit_id)`, `get_teams_with_tool_counts(p_division_ids)`, `get_team_tool_units(p_team_id)`, `get_assignable_tool_units(p_division_id, p_search)` — all STABLE SECURITY DEFINER, granted authenticated/service_role (read-only).
+- **Ledger writes:** none (read-only over `tool_unit_assignments` + `tool_asset_units`).
+- **Downstream side-effects:** none.
+- **Dialog / component:** [`HistoryUsageTab`](src/components/warehouse/tools-assets/HistoryUsageTab.tsx) → [`ToolUnitTimeline`](src/components/warehouse/tools-assets/ToolUnitTimeline.tsx).
+- **Guards / preconditions:** nav + page visibility gated on `inventory.catalog.view`; reads are authenticated-only. `get_assignable_tool_units` returns division-matched OR not-yet-divisioned units (ISSUE-9), bounded (LIMIT 200) + searchable.
+- **Related flows:** [[Assign / Move / Return Tool Unit (team custody)]] (writes the ledger these read).
+- **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/](docs/plans/2026-08-18-tools-assets-team-tracking/). Migration `20260920000300`.
