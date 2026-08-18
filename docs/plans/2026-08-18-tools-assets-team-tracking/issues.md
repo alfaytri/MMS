@@ -8,17 +8,19 @@
 ---
 
 ### ISSUE-1 — Serialized-tool stock plumbing for the scrap write-off 🔴
-**Status:** OPEN — **Phase 2 blocker.**
+**Status:** RESOLVED-IN-PRINCIPLE 2026-08-18 (live-DB investigation) — the plumbing **EXISTS**; scrap reuses the existing write-off → movement → P&L path. One operator decision remains (valuation of no-cost units). See resolution below + `phase-2/required-data.md` ISSUE-1 section.
 **Discovered:** 2026-08-18 (design).
 **Description:** Scrap must post a qty-1 write-off through `stock_adjustments → inventory_stock_movements` so it hits P&L `v_scrap` (design §8). That path operates on **brand-variant + sub-container stock rows**. It is not yet confirmed that serialized `type='tools'` items carry those rows (they have FIFO layers via receival, but may not have `warehouse_stock_summary` / brand-variant stock the adjustment path expects).
 **Impact:** If the plumbing isn't there, the scrap→P&L posting can't reuse the existing path as-is; we'd need an alternate posting (direct movement against the unit's FIFO layer) or a small new disposal ledger.
 **Next action (before Phase 2 planning):** live-DB check — for a real serialized tool item, confirm presence/shape of `inventory_item_brand_variants`, `warehouse_stock_summary`, and the FIFO layer from `receival_item_id`. Decide the posting mechanism from what exists.
+**RESOLUTION (2026-08-18, staging live DB):** serialized tools carry the standard qty-stock plumbing **in parallel** to the unit records — 138 tool brand-variants, 140 `warehouse_stock_summary` rows (qty 1,124, `item_type='tools'`), 160 FIFO layers. Unit → position maps cleanly: `tool_asset_units.receival_item_id → receival_items(brand_variant_id, sub_container_id)`; FIFO layer via `(brand_variant_id, receival_id)` → `total_unit_cost`. **Mechanism:** scrap RPC closes the ledger row (`release_reason='scrapped'`) + retires the unit + posts a qty-1 `write_off` through the existing `create_stock_adjustment_v2` + applier (`apply_adjustment`/`force_approve_stock_adjustment`) at `(brand_variant_id, sub_container_id)` → movement → `v_scrap` (no new P&L code). **⚠️ Coverage caveat:** only **26 / 1,326** staging units have a receival link (cost); **1,300** are seed data with no FIFO layer → per design §8 they scrap at **zero value + note** (don't fail). new-prod has 0 units, so all future received tools value correctly. **OPEN FORK for operator:** zero-value (design §8) vs brand-variant `average_cost` fallback for no-layer units.
 
 ### ISSUE-2 — FIFO layer qty vs. serialized unit count must stay in sync on scrap 🟠
-**Status:** OPEN.
+**Status:** ADDRESSED 2026-08-18 by reusing the write-off path (the applier + `deduct_fifo_layers` already sync stock qty + FIFO remaining; the scrap RPC additionally retires 1 unit). See resolution below.
 **Discovered:** 2026-08-18 (design).
 **Description:** Receiving a tool creates a FIFO layer of qty N and spawns N units. Scrapping one unit should deduct 1 from the layer (for value) AND retire 1 unit, keeping count == remaining layer qty.
 **Next action:** trace `create_tool_units_on_receival_layer` + `deduct_fifo_layers`; make the scrap RPC deduct both atomically; add a rolled-back probe.
+**RESOLUTION (2026-08-18):** `create_tool_units_on_receival_layer()` fires AFTER INSERT ON `fifo_cost_layers` and spawns `qty` units, so a layer of N ↔ N units at receival. Phase-1 custody (assign/move/return) and qty stock are **decoupled** (custody never touches `warehouse_stock_summary`); they reconcile **only on scrap**. Scrap reuses the write-off path (which already decrements qty + FIFO remaining via `deduct_fifo_layers`) and additionally retires 1 unit + closes its ledger row → net −1 unit / −1 qty / −1 FIFO / +cost to `v_scrap`. FIFO deduction is oldest-layer for the `(brand_variant, sub_container)` (matches every other write-off). **Build guard:** if qty stock at the receival sub-container is already 0/short (manual drift), scrap must NOT hard-fail — retire the unit + warn; add a rolled-back probe.
 
 ### ISSUE-3 — Division alignment on assign/move vs. `guard_tool_unit_division_write` 🟡
 **Status:** DECIDED (2026-08-18) — **assign/move no longer changes `division_id`.**
@@ -38,7 +40,7 @@
 **Status:** DECIDED 2026-08-18 — **reuse existing permissions** (no new key → no role wiring needed for immediate use). Nav + page visibility gated on `inventory.catalog.view`; all write RPCs gate on `inventory.catalog.manage` server-side (same expression as `guard_tool_unit_division_write` + existing tool-unit writes). A dedicated `tools.assignments.*` key can be introduced later if finer separation is wanted.
 
 ### ISSUE-7 — Placeholder (unconfirmed-serial) units 🟡
-**Status:** OPEN — decide UI behavior.
+**Status:** DECIDED 2026-08-18 — allow inspection + scrap on placeholders (they are valid, and costed when received via a real FIFO layer); show an "unconfirmed serial" badge. 16 placeholders on staging. No special DB handling. See resolution below.
 **Description:** Received tools spawn as `is_placeholder=true` with auto serial `<sku>-NNN` until confirmed via `rpc_confirm_tool_serial`. This is normal, valid data (not junk).
 **Next action:** decide whether the hub can assign a placeholder unit to a team, or requires a confirmed serial first. Recommend allowing assignment but surfacing an "unconfirmed serial" badge.
 
