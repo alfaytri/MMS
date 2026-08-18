@@ -140,12 +140,13 @@ export function useMoveToolUnit() {
 
 export function useReturnToolUnit() {
   const invalidate = useInvalidateAssignments()
-  return useMutation<void, Error, { unitId: string; notes?: string }>({
+  return useMutation<void, Error, { unitId: string; toLocationId?: string | null; notes?: string }>({
     mutationFn: async (v) => {
       const supabase = createClient()
       const { error } = await supabase.rpc('rpc_return_tool_unit', {
         p_unit_id: v.unitId,
         ...(v.notes ? { p_notes: v.notes } : {}),
+        ...(v.toLocationId ? { p_to_warehouse_id: v.toLocationId } : {}),
       })
       if (error) throw toDbError(error, 'Return tool')
     },

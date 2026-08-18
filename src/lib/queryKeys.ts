@@ -601,6 +601,19 @@ export const queryKeys = {
     teamUnitsV2: (teamId: Nullable) => ['tool-inspections', 'team-units-v2', teamId ?? null] as const,
   },
 
+  /* ── Tool monthly check sessions (Phase 2 rework) ──────── */
+  toolChecks: {
+    all: ['tool-checks'] as const,
+    openSession: (divisionId: Nullable) => ['tool-checks', 'open-session', divisionId ?? null] as const,
+    progress: (sessionId: Nullable) => ['tool-checks', 'progress', sessionId ?? null] as const,
+    report: (sessionId: Nullable) => ['tool-checks', 'report', sessionId ?? null] as const,
+  },
+
+  /* ── Tool return destinations (stores) ─────────────────── */
+  toolReturnDestinations: {
+    all: ['tool-return-destinations'] as const,
+  },
+
   /* ── Virtual Warehouse Projects (Phase 1) ─────────────── */
   disciplines: {
     all: ['disciplines'] as const,

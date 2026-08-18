@@ -6410,6 +6410,7 @@ export type Database = {
           id: string
           is_placeholder: boolean
           item_id: string | null
+          lifecycle_type: Database["public"]["Enums"]["tool_lifecycle_type"]
           receival_item_id: string | null
           serial_number: string | null
           status: Database["public"]["Enums"]["tool_status"] | null
@@ -6425,6 +6426,7 @@ export type Database = {
           id?: string
           is_placeholder?: boolean
           item_id?: string | null
+          lifecycle_type?: Database["public"]["Enums"]["tool_lifecycle_type"]
           receival_item_id?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["tool_status"] | null
@@ -6440,6 +6442,7 @@ export type Database = {
           id?: string
           is_placeholder?: boolean
           item_id?: string | null
+          lifecycle_type?: Database["public"]["Enums"]["tool_lifecycle_type"]
           receival_item_id?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["tool_status"] | null
@@ -6482,6 +6485,47 @@ export type Database = {
           },
         ]
       }
+      tool_check_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          division_id: string
+          id: string
+          initiated_at: string
+          initiated_by: string | null
+          notes: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          division_id: string
+          id?: string
+          initiated_at?: string
+          initiated_by?: string | null
+          notes?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          division_id?: string
+          id?: string
+          initiated_at?: string
+          initiated_by?: string | null
+          notes?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_check_sessions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tool_unit_assignments: {
         Row: {
           assigned_at: string
@@ -6492,6 +6536,7 @@ export type Database = {
           notes: string | null
           release_reason: string | null
           released_at: string | null
+          returned_to_warehouse_id: string | null
           unit_id: string
         }
         Insert: {
@@ -6503,6 +6548,7 @@ export type Database = {
           notes?: string | null
           release_reason?: string | null
           released_at?: string | null
+          returned_to_warehouse_id?: string | null
           unit_id: string
         }
         Update: {
@@ -6514,6 +6560,7 @@ export type Database = {
           notes?: string | null
           release_reason?: string | null
           released_at?: string | null
+          returned_to_warehouse_id?: string | null
           unit_id?: string
         }
         Relationships: [
@@ -6529,6 +6576,13 @@ export type Database = {
             columns: ["custody_location_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_unit_assignments_returned_to_warehouse_id_fkey"
+            columns: ["returned_to_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
           {
@@ -6548,6 +6602,7 @@ export type Database = {
           inspected_at: string
           inspected_by: string | null
           notes: string | null
+          session_id: string | null
           unit_id: string
           verdict: string
         }
@@ -6558,6 +6613,7 @@ export type Database = {
           inspected_at?: string
           inspected_by?: string | null
           notes?: string | null
+          session_id?: string | null
           unit_id: string
           verdict: string
         }
@@ -6568,6 +6624,7 @@ export type Database = {
           inspected_at?: string
           inspected_by?: string | null
           notes?: string | null
+          session_id?: string | null
           unit_id?: string
           verdict?: string
         }
@@ -6584,6 +6641,13 @@ export type Database = {
             columns: ["custody_location_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_unit_inspections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tool_check_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -7255,6 +7319,7 @@ export type Database = {
           status: Database["public"]["Enums"]["transfer_status"] | null
           to_sub_container_id: string
           to_warehouse_id: string
+          tool_unit_id: string | null
           transfer_kind: string
           transfer_number: string
           updated_at: string | null
@@ -7288,6 +7353,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_sub_container_id: string
           to_warehouse_id: string
+          tool_unit_id?: string | null
           transfer_kind?: string
           transfer_number: string
           updated_at?: string | null
@@ -7321,6 +7387,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["transfer_status"] | null
           to_sub_container_id?: string
           to_warehouse_id?: string
+          tool_unit_id?: string | null
           transfer_kind?: string
           transfer_number?: string
           updated_at?: string | null
@@ -7415,6 +7482,13 @@ export type Database = {
             columns: ["to_warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_transfers_tool_unit_id_fkey"
+            columns: ["tool_unit_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_units"
             referencedColumns: ["id"]
           },
         ]
@@ -8667,6 +8741,7 @@ export type Database = {
           condition: string
           item_id: string
           item_name: string
+          lifecycle_type: string
           serial_number: string
           unit_id: string
         }[]
@@ -8765,6 +8840,14 @@ export type Database = {
           move_count: number
         }[]
       }
+      get_open_tool_check_session: {
+        Args: { p_division_id: string }
+        Returns: {
+          id: string
+          initiated_at: string
+          initiated_by_name: string
+        }[]
+      }
       get_payment_summary: { Args: never; Returns: Json }
       get_repair_bucket: {
         Args: { p_division_ids?: string[] }
@@ -8777,8 +8860,16 @@ export type Database = {
           division_name: string
           item_name: string
           last_inspected_at: string
+          lifecycle_type: string
           serial_number: string
           unit_id: string
+        }[]
+      }
+      get_return_destinations: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
         }[]
       }
       get_stock_value_cogs_summary: {
@@ -8811,6 +8902,7 @@ export type Database = {
           inspection_due: boolean
           item_name: string
           last_inspected_at: string
+          lifecycle_type: string
           serial_number: string
           status: string
           unit_id: string
@@ -8827,6 +8919,25 @@ export type Database = {
           team_name: string
         }[]
       }
+      get_tool_check_session_progress: {
+        Args: { p_session_id: string }
+        Returns: {
+          checked: number
+          total: number
+        }[]
+      }
+      get_tool_check_session_report: {
+        Args: { p_session_id: string }
+        Returns: {
+          condition: string
+          division_name: string
+          inspected_at: string
+          item_name: string
+          lifecycle_type: string
+          serial_number: string
+          session_initiated_at: string
+        }[]
+      }
       get_tool_unit_timeline: {
         Args: { p_unit_id: string }
         Returns: {
@@ -8835,6 +8946,7 @@ export type Database = {
           days: number
           is_current: boolean
           released_at: string
+          returned_to_name: string
           team_id: string
           team_name: string
         }[]
@@ -9330,7 +9442,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      rpc_finalize_tool_check_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       rpc_financial_dashboard: { Args: never; Returns: Json }
+      rpc_initiate_tool_check_session: {
+        Args: { p_division_id: string }
+        Returns: string
+      }
       rpc_item_divisions_by_stock: {
         Args: { p_type: string }
         Returns: {
@@ -9424,7 +9544,12 @@ export type Database = {
         Returns: undefined
       }
       rpc_record_tool_inspection: {
-        Args: { p_notes?: string; p_unit_id: string; p_verdict: string }
+        Args: {
+          p_notes?: string
+          p_session_id?: string
+          p_unit_id: string
+          p_verdict: string
+        }
         Returns: string
       }
       rpc_redeem_credit_note: {
@@ -9693,8 +9818,21 @@ export type Database = {
         }
         Returns: undefined
       }
+      rpc_return_tool_from_repair: {
+        Args: {
+          p_notes?: string
+          p_outcome: string
+          p_to_warehouse_id?: string
+          p_transfer_id: string
+        }
+        Returns: undefined
+      }
       rpc_return_tool_unit: {
-        Args: { p_notes?: string; p_unit_id: string }
+        Args: {
+          p_notes?: string
+          p_to_warehouse_id?: string
+          p_unit_id: string
+        }
         Returns: undefined
       }
       rpc_sales_aging_report: {
@@ -9737,6 +9875,19 @@ export type Database = {
           p_warehouse_id: string
         }
         Returns: string
+      }
+      rpc_send_tool_for_repair: {
+        Args: {
+          p_expected_return_date?: string
+          p_notes?: string
+          p_repair_vendor_id: string
+          p_unit_id: string
+        }
+        Returns: string
+      }
+      rpc_send_tool_to_repair_bucket: {
+        Args: { p_notes?: string; p_unit_id: string }
+        Returns: undefined
       }
       rpc_set_item_divisions: {
         Args: { p_division_ids: string[]; p_item_id: string }
@@ -10151,6 +10302,7 @@ export type Database = {
         | "follow-up"
         | "qc"
       tool_condition: "New" | "Good" | "Fair" | "Maintenance"
+      tool_lifecycle_type: "new" | "used" | "repaired"
       tool_status: "available" | "assigned" | "maintenance" | "retired"
       tool_tracking_mode: "serialized" | "bulk"
       transfer_status:
@@ -10514,6 +10666,7 @@ export const Constants = {
         "qc",
       ],
       tool_condition: ["New", "Good", "Fair", "Maintenance"],
+      tool_lifecycle_type: ["new", "used", "repaired"],
       tool_status: ["available", "assigned", "maintenance", "retired"],
       tool_tracking_mode: ["serialized", "bulk"],
       transfer_status: [
