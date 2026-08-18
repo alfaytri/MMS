@@ -482,6 +482,15 @@ export const NAV_TREE: TreeNode[] = [
         ],
       },
       {
+        id: 'ops-tools-assets',
+        label: 'Tools & Assets',
+        icon: Wrench,
+        permissions: [
+          { key: 'tools.assets.view',   label: 'View Tools & Assets',   description: 'Open Operations → Tools & Assets: teams and the tools they hold, the Repair bucket, and usage history.' },
+          { key: 'tools.assets.manage', label: 'Manage Tools & Assets', description: 'Assign / move / return tools, record condition checks (Good / Bad / Under-repair), and resolve repairs — Repaired, or Scrap (posts the unit cost to the P&L "Scrap & Defective" line).' },
+        ],
+      },
+      {
         id: 'ops-consumption',
         label: 'Consumption',
         icon: Flame,

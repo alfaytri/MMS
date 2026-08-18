@@ -95,7 +95,13 @@ export function useAssignableToolUnits(divisionId: string | null, search?: strin
 
 function useInvalidateAssignments() {
   const qc = useQueryClient()
-  return () => qc.invalidateQueries({ queryKey: queryKeys.toolAssignments.all })
+  return () => {
+    // Refresh both namespaces: the team detail now reads via toolInspections
+    // (get_team_tool_units_v2) + the repair bucket, so assign/move/return must
+    // invalidate it too — otherwise the list is stale until a manual reload.
+    qc.invalidateQueries({ queryKey: queryKeys.toolAssignments.all })
+    qc.invalidateQueries({ queryKey: queryKeys.toolInspections.all })
+  }
 }
 
 export function useAssignToolUnit() {
