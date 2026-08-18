@@ -40,7 +40,7 @@ export function MoveToolUnitDialog({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="w-full h-full sm:h-auto sm:max-w-md rounded-none sm:rounded-lg flex flex-col gap-0">
+      <DialogContent className="w-full h-full sm:h-auto sm:max-w-md rounded-none sm:rounded-lg flex flex-col gap-0 overflow-hidden">
         <DialogHeader>
           <DialogTitle className="truncate">Move {unit.label}</DialogTitle>
           <DialogDescription>
@@ -48,7 +48,7 @@ export function MoveToolUnitDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-4 space-y-2">
+        <div className="flex-1 min-h-0 overflow-y-auto py-4 space-y-2">
           <label className="text-sm font-medium">Destination team</label>
           <Select value={toTeam} onValueChange={(v) => setToTeam(v ?? '')} disabled={options.length <= 1}>
             <SelectTrigger className="h-10 w-full">
@@ -65,7 +65,7 @@ export function MoveToolUnitDialog({
           )}
         </div>
 
-        <DialogFooter className="sticky bottom-0 bg-background pt-2">
+        <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={handleMove} disabled={!toTeam || move.isPending}>
             {move.isPending ? 'Moving…' : 'Move'}

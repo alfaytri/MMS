@@ -39,7 +39,10 @@ export type TeamToolUnit = {
 }
 export type AssignableToolUnit = {
   unit_id: string
+  item_id: string | null
   item_name: string | null
+  category_id: string | null
+  category_name: string | null
   serial_number: string | null
   brand: string | null
   condition: string
