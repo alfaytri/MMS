@@ -581,6 +581,18 @@ export const queryKeys = {
     pendingAll: ['custody-pending'] as const,
   },
 
+  /* ── Tools & Assets — team assignment + custody history ── */
+  toolAssignments: {
+    all: ['tool-assignments'] as const,
+    teams: (divisionIds?: readonly string[] | null) =>
+      ['tool-assignments', 'teams', divisionIds && divisionIds.length ? [...divisionIds].sort() : null] as const,
+    teamUnits: (teamId: Nullable) => ['tool-assignments', 'team-units', teamId ?? null] as const,
+    assignable: (divisionId: Nullable, search?: string) =>
+      ['tool-assignments', 'assignable', divisionId ?? null, search ?? ''] as const,
+    timeline: (unitId: Nullable) => ['tool-assignments', 'timeline', unitId ?? null] as const,
+    search: (q: string) => ['tool-assignments', 'search', q] as const,
+  },
+
   /* ── Virtual Warehouse Projects (Phase 1) ─────────────── */
   disciplines: {
     all: ['disciplines'] as const,
