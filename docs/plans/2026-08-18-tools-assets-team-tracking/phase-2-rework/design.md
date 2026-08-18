@@ -66,6 +66,8 @@ The shipped `rpc_send_damaged_for_repair` / `rpc_return_damaged_from_repair` are
 
 The Damaged-Stock overview read is extended to **union in** tool repair transfers (`tool_unit_id IS NOT NULL`), displaying the tool's item + **serial** (bulk rows have no serial).
 
+**Scrap direct from the bucket** (operator decision, 2026-08-18): an obviously-dead unit can be **scrapped straight from the Repair bucket** without a vendor round-trip — reuses the Phase-2 `rpc_resolve_tool_repair(unit,'scrap')` → P&L write-off path. So the bucket offers **Send for repair** *and* **Scrap**. The Phase-2 *Repaired*-from-bucket action is dropped (superseded by vendor return-usable).
+
 ### Cost strip (touches the shipped sales-return path)
 
 - `rpc_return_damaged_from_repair` — **modified**: stop amortizing `p_repair_cost` into the returned good units' FIFO cost, and stop stamping `warehouse_transfers.repair_cost`. Good units return at their **original** unit cost. This applies to **all** callers (sales-return damaged items too), per decision #2.
