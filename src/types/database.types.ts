@@ -6540,6 +6540,61 @@ export type Database = {
           },
         ]
       }
+      tool_unit_inspections: {
+        Row: {
+          created_at: string
+          custody_location_id: string | null
+          id: string
+          inspected_at: string
+          inspected_by: string | null
+          notes: string | null
+          unit_id: string
+          verdict: string
+        }
+        Insert: {
+          created_at?: string
+          custody_location_id?: string | null
+          id?: string
+          inspected_at?: string
+          inspected_by?: string | null
+          notes?: string | null
+          unit_id: string
+          verdict: string
+        }
+        Update: {
+          created_at?: string
+          custody_location_id?: string | null
+          id?: string
+          inspected_at?: string
+          inspected_by?: string | null
+          notes?: string | null
+          unit_id?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_unit_inspections_custody_location_id_fkey"
+            columns: ["custody_location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_container_totals"
+            referencedColumns: ["sub_container_id"]
+          },
+          {
+            foreignKeyName: "tool_unit_inspections_custody_location_id_fkey"
+            columns: ["custody_location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_unit_inspections_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_company_divisions: {
         Row: {
           created_at: string
@@ -8607,7 +8662,10 @@ export type Database = {
         Args: { p_division_id: string; p_search?: string }
         Returns: {
           brand: string
+          category_id: string
+          category_name: string
           condition: string
+          item_id: string
           item_name: string
           serial_number: string
           unit_id: string
@@ -8708,6 +8766,21 @@ export type Database = {
         }[]
       }
       get_payment_summary: { Args: never; Returns: Json }
+      get_repair_bucket: {
+        Args: { p_division_ids?: string[] }
+        Returns: {
+          brand: string
+          condition: string
+          current_team_id: string
+          current_team_name: string
+          division_id: string
+          division_name: string
+          item_name: string
+          last_inspected_at: string
+          serial_number: string
+          unit_id: string
+        }[]
+      }
       get_stock_value_cogs_summary: {
         Args: { p_brand_variant_ids?: string[] }
         Returns: {
@@ -8724,6 +8797,20 @@ export type Database = {
           brand: string
           condition: string
           item_name: string
+          serial_number: string
+          status: string
+          unit_id: string
+        }[]
+      }
+      get_team_tool_units_v2: {
+        Args: { p_team_id: string }
+        Returns: {
+          assigned_at: string
+          brand: string
+          condition: string
+          inspection_due: boolean
+          item_name: string
+          last_inspected_at: string
           serial_number: string
           status: string
           unit_id: string
@@ -9336,6 +9423,10 @@ export type Database = {
         Args: { p_lines: Json; p_return_id: string }
         Returns: undefined
       }
+      rpc_record_tool_inspection: {
+        Args: { p_notes?: string; p_unit_id: string; p_verdict: string }
+        Returns: string
+      }
       rpc_redeem_credit_note: {
         Args: {
           p_amount: number
@@ -9585,6 +9676,10 @@ export type Database = {
       }
       rpc_resolve_item_request: {
         Args: { p_note?: string; p_request_id: string; p_status: string }
+        Returns: undefined
+      }
+      rpc_resolve_tool_repair: {
+        Args: { p_notes?: string; p_outcome: string; p_unit_id: string }
         Returns: undefined
       }
       rpc_return_damaged_from_repair: {

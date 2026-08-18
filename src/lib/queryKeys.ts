@@ -593,6 +593,14 @@ export const queryKeys = {
     search: (q: string) => ['tool-assignments', 'search', q] as const,
   },
 
+  /* ── Tool inspections + repair/scrap (Phase 2) ─────────── */
+  toolInspections: {
+    all: ['tool-inspections'] as const,
+    repairBucket: (divisionIds?: readonly string[] | null) =>
+      ['tool-inspections', 'repair-bucket', divisionIds && divisionIds.length ? [...divisionIds].sort() : null] as const,
+    teamUnitsV2: (teamId: Nullable) => ['tool-inspections', 'team-units-v2', teamId ?? null] as const,
+  },
+
   /* ── Virtual Warehouse Projects (Phase 1) ─────────────── */
   disciplines: {
     all: ['disciplines'] as const,
