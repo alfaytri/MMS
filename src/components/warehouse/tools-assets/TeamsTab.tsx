@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { UserRound, Users2, Wrench } from 'lucide-react'
+import { ChevronDown, ChevronRight, UserRound, Users2, Wrench } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
@@ -17,11 +17,28 @@ export function TeamsTab() {
   const divisionIds = useMemo(() => Array.from(viewDivisionIds), [viewDivisionIds])
   const { data: teams = [], isLoading, error } = useTeamsWithToolCounts(divisionIds.length ? divisionIds : undefined)
   const [selected, setSelected] = useState<TeamToolCount | null>(null)
+  // Division sections default expanded; a name in this set is collapsed.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
-  const sorted = useMemo(
-    () => [...teams].sort((a, b) => COLLATOR.compare(a.team_name, b.team_name)),
-    [teams],
-  )
+  // Group teams by division (sorted by division name); teams numeric-sorted within each.
+  const grouped = useMemo(() => {
+    const map = new Map<string, TeamToolCount[]>()
+    for (const t of teams) {
+      const key = t.division_name ?? 'Unassigned'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(t)
+    }
+    for (const list of map.values()) list.sort((a, b) => COLLATOR.compare(a.team_name, b.team_name))
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [teams])
+
+  function toggle(name: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
 
   if (selected) {
     return (
@@ -47,7 +64,7 @@ export function TeamsTab() {
     )
   }
 
-  if (sorted.length === 0) {
+  if (grouped.length === 0) {
     return (
       <EmptyState
         icon={<Users2 className="h-6 w-6 text-muted-foreground" />}
@@ -58,32 +75,57 @@ export function TeamsTab() {
   }
 
   return (
-    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-      {sorted.map((t) => (
-        <button
-          key={t.team_id}
-          type="button"
-          onClick={() => setSelected(t)}
-          className="text-left rounded-lg border bg-card shadow-sm p-4 min-h-[7rem] min-w-0 flex flex-col gap-1 hover:bg-accent transition-colors"
-        >
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Users2 className="h-4 w-4 text-primary shrink-0" />
-            <span className="font-semibold text-sm truncate">{t.team_name}</span>
+    <div className="space-y-6">
+      {grouped.map(([divisionName, group]) => {
+        const open = !collapsed.has(divisionName)
+        return (
+          <div key={divisionName} className="space-y-2">
+            <button
+              type="button"
+              onClick={() => toggle(divisionName)}
+              className="w-full flex items-center gap-1.5 min-h-11 sm:min-h-0 sm:py-1 text-left"
+            >
+              {open
+                ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide truncate">{divisionName}</h3>
+              <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                {group.length} team{group.length === 1 ? '' : 's'}
+              </span>
+            </button>
+
+            {open && (
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                {group.map((t) => (
+                  <button
+                    key={t.team_id}
+                    type="button"
+                    onClick={() => setSelected(t)}
+                    className="text-left rounded-lg border bg-card shadow-sm p-4 min-h-[7rem] min-w-0 flex flex-col gap-1 hover:bg-accent transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Users2 className="h-4 w-4 text-primary shrink-0" />
+                      <span className="font-semibold text-sm truncate">{t.team_name}</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground truncate">{t.division_name ?? 'Unassigned'}</span>
+                    <div className="mt-1 flex items-center gap-1 text-sm">
+                      <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="tabular-nums">{t.held_count}</span>
+                      <span className="text-muted-foreground">tool{t.held_count === 1 ? '' : 's'}</span>
+                    </div>
+                    {t.responsible_person_name && (
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground min-w-0">
+                        <UserRound className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{t.responsible_person_name}</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <span className="text-[11px] text-muted-foreground truncate">{t.division_name ?? 'Unassigned'}</span>
-          <div className="mt-1 flex items-center gap-1 text-sm">
-            <Wrench className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="tabular-nums">{t.held_count}</span>
-            <span className="text-muted-foreground">tool{t.held_count === 1 ? '' : 's'}</span>
-          </div>
-          {t.responsible_person_name && (
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground min-w-0">
-              <UserRound className="h-3 w-3 shrink-0" />
-              <span className="truncate">{t.responsible_person_name}</span>
-            </div>
-          )}
-        </button>
-      ))}
+        )
+      })}
     </div>
   )
 }
