@@ -78,7 +78,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Bills',           href: '/purchase/bills',        icon: 'Receipt',       permission: 'purchase.bills.view' },
           { label: 'Returns',         href: '/purchase/returns',      icon: 'RotateCcw',     permission: 'purchase.returns.view' },
           { label: 'Debit Notes',     href: '/purchase/debit-notes',  icon: 'FileX2',        permission: 'purchase.debit_notes.view' },
-          { label: 'Aging Report',    href: '/purchase/aging-report', icon: 'Clock',         permission: 'purchase.bills.view' },
+          { label: 'Aging Report',    href: '/purchase/aging-report', icon: 'Clock',         permission: ['purchase.bills.view', 'purchase.aging.view'] },
         ],
       },
       {
@@ -90,8 +90,8 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Returns',      href: '/sales/returns',       icon: 'RotateCcw',    permission: 'sales.returns.view' },
           { label: 'Deliveries',   href: '/sales/deliveries',    icon: 'PackageCheck', permission: 'sales.deliveries.view' },
           { label: 'Credit Notes',        href: '/sales/credit-notes',        icon: 'FileX',       permission: 'sales.credit_notes.view' },
-          { label: 'Customer Statement', href: '/sales/customer-statement', icon: 'ScrollText', permission: 'sales.invoices.view' },
-          { label: 'Aging Report',       href: '/sales/aging-report',       icon: 'Clock',       permission: 'sales.invoices.view' },
+          { label: 'Customer Statement', href: '/sales/customer-statement', icon: 'ScrollText', permission: ['sales.invoices.view', 'sales.customer_statement.view'] },
+          { label: 'Aging Report',       href: '/sales/aging-report',       icon: 'Clock',       permission: ['sales.invoices.view', 'sales.aging.view'] },
         ],
       },
       {
