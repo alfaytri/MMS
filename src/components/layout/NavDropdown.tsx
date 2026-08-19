@@ -186,8 +186,6 @@ interface NavDropdownProps {
 export function NavDropdown({ entry }: NavDropdownProps) {
   const pathname = usePathname()
   const { data: permData } = usePermissions()
-  const userPerms = permData?.permissions ?? []
-  const isSystemAdmin = permData?.isSystemAdmin ?? false
   const Icon = ICON_MAP[entry.icon]
   const ctx = useContext(NavDropdownContext)
   const id = entry.label
@@ -218,10 +216,11 @@ export function NavDropdown({ entry }: NavDropdownProps) {
       .filter((group) => group.items.length > 0)
   }, [entry.groups, permData?.permissions, permData?.isSystemAdmin])
 
-  if (!entry.comingSoon) {
-    if (!canAccess(entry.permission, userPerms, isSystemAdmin)) return null
-    if (filteredGroups.length === 0) return null
-  }
+  // Relaxed nav gating (2026-08-19): a dropdown shows whenever the user can
+  // reach ANY page inside it — holding a child page permission is enough; the
+  // dropdown's own `*.access` key is no longer required. Kills the "granted the
+  // page but the whole menu stays hidden" trap (same rule in MobileNavDrawer).
+  if (!entry.comingSoon && filteredGroups.length === 0) return null
 
   const allHrefs = filteredGroups.flatMap((g) => g.items.map((i: NavItem) => i.href))
 

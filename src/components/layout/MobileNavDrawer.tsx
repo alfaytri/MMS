@@ -42,9 +42,10 @@ export function MobileNavDrawer() {
       .filter((g) => g.items.length > 0)
     return { ...entry, filteredGroups }
   }).filter(
-    (e) =>
-      e.comingSoon ||
-      (canAccess(e.permission, userPerms, isSystemAdmin) && e.filteredGroups.length > 0),
+    // Relaxed nav gating (2026-08-19): show a dropdown whenever the user can
+    // reach ANY page inside it — a child page permission is enough; the
+    // dropdown's own `*.access` key is no longer required (matches NavDropdown).
+    (e) => e.comingSoon || e.filteredGroups.length > 0,
   )
 
   const toggle = (label: string) => setExpanded((prev) => (prev === label ? null : label))
