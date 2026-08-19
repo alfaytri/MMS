@@ -66,7 +66,10 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [isTeamItem, setIsTeamItem] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
-  const { data: categoryHasStockOrUnits } = useCategoryHasStockOrUnits(isEdit ? (category?.id ?? null) : null)
+  // Gated on `open`: this dialog is mounted once per CategoryRow (outside the
+  // {expanded} guard), so without the gate every visible category fires this
+  // multi-table probe on page load while the dialog is closed.
+  const { data: categoryHasStockOrUnits } = useCategoryHasStockOrUnits(open && isEdit ? (category?.id ?? null) : null)
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const parentId = selectedParentId

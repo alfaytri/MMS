@@ -331,7 +331,9 @@ export default function CreateSOPage() {
                     <CommandList>
                       <CommandEmpty>No customers found.</CommandEmpty>
                       <CommandGroup>
-                        {(customers ?? []).map((c) => (
+                        {/* Cap the render — the list is server-filtered while typing,
+                            but an empty-search first open returns the full customer set. */}
+                        {(customers ?? []).slice(0, 100).map((c) => (
                           <CommandItem key={c.id} value={c.name} onSelect={() => handleSelectCustomer(c)}>
                             <Check className={`mr-2 h-4 w-4 ${customerId === c.id ? 'opacity-100' : 'opacity-0'}`} />
                             <div className="flex-1">
@@ -342,6 +344,11 @@ export default function CreateSOPage() {
                             </div>
                           </CommandItem>
                         ))}
+                        {(customers ?? []).length > 100 && (
+                          <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                            Showing first 100 — keep typing to narrow.
+                          </div>
+                        )}
                       </CommandGroup>
                     </CommandList>
                   </Command>

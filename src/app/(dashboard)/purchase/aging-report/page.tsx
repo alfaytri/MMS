@@ -53,11 +53,20 @@ type DrillDownState = {
 export default function PurchaseAgingReportPage() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
   const [comboOpen, setComboOpen] = useState(false)
+  const [supplierSearch, setSupplierSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('total')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [drillDown, setDrillDown] = useState<DrillDownState>(null)
 
   const { data: rows = [], isLoading } = usePurchaseAgingReport()
+
+  // Own-filter + cap for the supplier picker — cmdk's built-in filter mounts and
+  // re-scores every supplier row per keystroke; here we render at most 100.
+  const visibleSuppliers = useMemo(() => {
+    const q = supplierSearch.trim().toLowerCase()
+    const matched = q ? rows.filter((r) => (r.supplier_name ?? '').toLowerCase().includes(q)) : rows
+    return { list: matched.slice(0, 100), total: matched.length }
+  }, [rows, supplierSearch])
 
   const selectedSupplierName = useMemo(
     () => rows.find((r) => r.supplier_id === selectedSupplierId)?.supplier_name ?? null,
@@ -161,7 +170,7 @@ export default function PurchaseAgingReportPage() {
       {/* Supplier filter */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="flex items-center gap-2">
-          <Popover open={comboOpen} onOpenChange={setComboOpen}>
+          <Popover open={comboOpen} onOpenChange={(o) => { setComboOpen(o); if (!o) setSupplierSearch('') }}>
             <PopoverTrigger
               className={cn(
                 'flex h-10 w-full sm:w-72 items-center justify-between rounded-lg border bg-background px-3 text-sm',
@@ -179,8 +188,8 @@ export default function PurchaseAgingReportPage() {
               <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
             </PopoverTrigger>
             <PopoverContent className="w-(--anchor-width) p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search supplier..." />
+              <Command shouldFilter={false}>
+                <CommandInput placeholder="Search supplier..." value={supplierSearch} onValueChange={setSupplierSearch} />
                 <CommandList>
                   <CommandEmpty>No supplier found.</CommandEmpty>
                   <CommandGroup>
@@ -191,7 +200,7 @@ export default function PurchaseAgingReportPage() {
                     >
                       <span className="text-muted-foreground">All Suppliers</span>
                     </CommandItem>
-                    {rows.map((r) => (
+                    {visibleSuppliers.list.map((r) => (
                       <CommandItem
                         key={r.supplier_id}
                         value={r.supplier_name ?? ''}
@@ -201,6 +210,11 @@ export default function PurchaseAgingReportPage() {
                         {r.supplier_name}
                       </CommandItem>
                     ))}
+                    {visibleSuppliers.total > 100 && (
+                      <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                        Showing first 100 of {visibleSuppliers.total} — keep typing to narrow.
+                      </div>
+                    )}
                   </CommandGroup>
                 </CommandList>
               </Command>

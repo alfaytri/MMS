@@ -55,7 +55,7 @@ export function usePendingNotificationCount() {
   })
 }
 
-export function usePendingNotifications() {
+export function usePendingNotifications(enabled: boolean = true) {
   return useQuery({
     queryKey: queryKeys.notifications.pending,
     queryFn: async () => {
@@ -72,12 +72,15 @@ export function usePendingNotifications() {
       if (error) throw error
       return data as NotificationRow[]
     },
+    // Gated: this list is only shown inside the (usually-closed) bell popover.
+    // The always-on count query above drives the badge; the list fetches on open.
+    enabled,
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
   })
 }
 
-export function useCompletedNotifications() {
+export function useCompletedNotifications(enabled: boolean = true) {
   return useQuery({
     queryKey: queryKeys.notifications.completed,
     queryFn: async () => {
@@ -94,6 +97,8 @@ export function useCompletedNotifications() {
       if (error) throw error
       return data as NotificationRow[]
     },
+    // Gated: only fetched when the popover is open on the Completed tab.
+    enabled,
     staleTime: 60 * 1000,
   })
 }

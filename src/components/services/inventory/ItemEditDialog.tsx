@@ -62,13 +62,17 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   const [assignOpen, setAssignOpen] = useState(true)
 
   const { data: divisions = [] } = useDivisions()
-  const { data: assignedFromDb } = useItemDivisions(item?.id ?? null)
+  // These per-item reads are gated on `open` — this dialog is mounted once per
+  // ItemRow, so without the gate every row fires them while closed (a big N+1 on
+  // the Inventory list). The seed effects below already key on `open` + data
+  // arrival, so deferring the fetch to open changes nothing the operator sees.
+  const { data: assignedFromDb } = useItemDivisions(open ? (item?.id ?? null) : null)
   const setItemDivisions = useSetItemDivisions()
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
-  const { data: effectiveWarranty } = useEffectiveWarranty(item?.id ?? null)
+  const { data: effectiveWarranty } = useEffectiveWarranty(open ? (item?.id ?? null) : null)
   // Category default + item override for the team-item flag (fetched by id — the
   // list query that feeds `item` doesn't carry is_team_item).
-  const { data: teamCtx } = useItemTeamItemContext(categoryId, item?.id ?? null)
+  const { data: teamCtx } = useItemTeamItemContext(open ? categoryId : null, open ? (item?.id ?? null) : null)
 
   useEffect(() => {
     if (open) {

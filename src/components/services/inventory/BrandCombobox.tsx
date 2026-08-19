@@ -108,12 +108,19 @@ export function BrandCombobox({
                   <span className="text-muted-foreground">— None —</span>
                 </CommandItem>
               )}
-              {filteredBrands.map((b) => (
+              {/* Cap rendered rows — cmdk keeps every item in the DOM; ~299 brands
+                  mounted on open blocks paint. Typing narrows the full list. */}
+              {filteredBrands.slice(0, 100).map((b) => (
                 <CommandItem key={b.id} value={b.name} onSelect={() => selectBrand({ id: b.id, name: b.name })}>
                   <Check className={cn('mr-2 h-4 w-4', value === b.id ? 'opacity-100' : 'opacity-0')} />
                   <span className="truncate">{b.name}</span>
                 </CommandItem>
               ))}
+              {filteredBrands.length > 100 && (
+                <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                  Showing first 100 of {filteredBrands.length} — keep typing to narrow.
+                </div>
+              )}
               {allowCreate && !exactMatch && (
                 <CommandItem
                   value="__add_new_brand__"

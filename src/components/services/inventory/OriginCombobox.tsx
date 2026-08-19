@@ -93,7 +93,9 @@ export function OriginCombobox({
                   <span className="text-muted-foreground">— None —</span>
                 </CommandItem>
               )}
-              {filteredCountries.map((c) => (
+              {/* Cap rendered rows — cmdk keeps every item in the DOM and re-scores
+                  on each keystroke; typing narrows the full list. */}
+              {filteredCountries.slice(0, 100).map((c) => (
                 <CommandItem
                   key={c.id}
                   value={`${c.name} ${c.iso} ${c.code}`}
@@ -103,6 +105,11 @@ export function OriginCombobox({
                   <span className="truncate">{c.name}</span>
                 </CommandItem>
               ))}
+              {filteredCountries.length > 100 && (
+                <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                  Showing first 100 of {filteredCountries.length} — keep typing to narrow.
+                </div>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>

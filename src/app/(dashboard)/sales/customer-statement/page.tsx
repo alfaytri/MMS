@@ -46,6 +46,7 @@ export default function CustomerStatementPage() {
   const [showAll, setShowAll] = useState(false)
   const [pdfBusy, setPdfBusy] = useState<'view' | 'download' | null>(null)
   const [comboOpen, setComboOpen] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
 
   const { data: customers = [], isLoading: loadingCustomers } = useCustomerList()
   const { data: statement, isLoading: loadingStatement } = useCustomerStatement(customerId)
@@ -54,6 +55,15 @@ export default function CustomerStatementPage() {
     () => customers.find((c) => c.id === customerId),
     [customers, customerId],
   )
+
+  // Own-filter + cap: cmdk mounts every item and re-scores all of them on each
+  // keystroke, so a ~500-customer list janks on open and per key. With
+  // shouldFilter={false} we filter here and render at most 100 rows.
+  const visibleCustomers = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase()
+    const matched = q ? customers.filter((c) => c.name.toLowerCase().includes(q)) : customers
+    return { list: matched.slice(0, 100), total: matched.length }
+  }, [customers, customerSearch])
 
   const filteredOrders = useMemo<StatementOrder[]>(() => {
     if (!statement) return []
@@ -132,7 +142,7 @@ export default function CustomerStatementPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             {/* Left: Customer combobox */}
             <div className="flex-1 max-w-sm">
-              <Popover open={comboOpen} onOpenChange={setComboOpen}>
+              <Popover open={comboOpen} onOpenChange={(o) => { setComboOpen(o); if (!o) setCustomerSearch('') }}>
                 <PopoverTrigger
                   className={cn(
                     'flex h-10 w-full items-center justify-between rounded-lg border bg-background px-3 text-sm',
@@ -150,12 +160,12 @@ export default function CustomerStatementPage() {
                   <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </PopoverTrigger>
                 <PopoverContent className="w-(--anchor-width) p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Type to search..." />
+                  <Command shouldFilter={false}>
+                    <CommandInput placeholder="Type to search..." value={customerSearch} onValueChange={setCustomerSearch} />
                     <CommandList>
                       <CommandEmpty>No customer found.</CommandEmpty>
                       <CommandGroup>
-                        {customers.map((c) => (
+                        {visibleCustomers.list.map((c) => (
                           <CommandItem
                             key={c.id}
                             value={c.name}
@@ -170,6 +180,11 @@ export default function CustomerStatementPage() {
                             </div>
                           </CommandItem>
                         ))}
+                        {visibleCustomers.total > 100 && (
+                          <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                            Showing first 100 of {visibleCustomers.total} — keep typing to narrow.
+                          </div>
+                        )}
                       </CommandGroup>
                     </CommandList>
                   </Command>

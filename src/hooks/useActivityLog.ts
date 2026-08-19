@@ -66,8 +66,12 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
       if (error) throw error
       return data as ActivityLog[]
     },
-    enabled: true,
+    // No refetchInterval: the audit log is human-paced, and each fetch pulls up
+    // to 500 rows *including the wide old_data/new_data JSONB blobs*. Polling that
+    // every 60s was pure egress. It now refetches only on remount / filter change
+    // / invalidation (window-focus refetch is globally off in QueryProvider).
+    // (Follow-up: narrow the list select to display columns + lazy-load the JSONB
+    // on row-expand — tracked in docs/performance/2026-08-19-perf-audit.md #2.1.)
     staleTime: 30 * 1000,
-    refetchInterval: 60_000,
   })
 }

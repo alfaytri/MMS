@@ -133,8 +133,10 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<'pending' | 'completed'>('pending')
   const { data: pendingCount = 0 } = usePendingNotificationCount()
-  const { data: pending = [] } = usePendingNotifications()
-  const { data: completed = [] } = useCompletedNotifications()
+  // Only fetch the lists while the popover is open — the count above drives the
+  // badge, so the lists don't need to load on every page.
+  const { data: pending = [] } = usePendingNotifications(open)
+  const { data: completed = [] } = useCompletedNotifications(open && tab === 'completed')
   const markRead = useMarkNotificationRead()
   const hasPlayedSound = useRef(false)
   const [showPing, setShowPing] = useState(false)
