@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronRight, ChevronDown, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table'
@@ -10,6 +10,7 @@ import { ItemEditDialog } from './ItemEditDialog'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
 import { useInventoryBrandVariants, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
 import { useVariantStockByDivision } from '@/hooks/useVariantStockByDivision'
+import { useBulkToolStockContext } from '@/components/shared/BulkToolStockContext'
 import { groupVariants, type VariantLite } from '@/lib/inventory/groupVariants'
 
 // Runtime shape returned by useInventoryBrandVariants — it embeds
@@ -21,6 +22,10 @@ type VariantWithRelations = BrandVariant & {
   brands: { name: string } | null
   country_codes: { name: string; flag: string; iso: string } | null
 }
+
+// Stable empty ref so a provider-supplied item with no variants (or one still
+// loading) doesn't churn the memo below.
+const EMPTY_VARIANTS: BrandVariant[] = []
 
 type Props = {
   item: InventoryItem
@@ -49,27 +54,36 @@ export function BulkToolItemRow({ item, depth, showArchived }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [addVariantOpen, setAddVariantOpen] = useState(false)
-  const { data: variants = [] } = useInventoryBrandVariants(item.id, showArchived)
-  const { data: stockByVariant } = useVariantStockByDivision(item.id)
+  // Prefer the batched provider (one variants + one stock query per expanded
+  // category — see ToolCategoryRow). A caller with no provider falls back to its
+  // own per-item queries; when the provider is present NEITHER fires — the N+1 fix.
+  const stockBatch = useBulkToolStockContext()
+  const hasBatch = stockBatch !== null
+  const { data: fallbackVariants = EMPTY_VARIANTS } = useInventoryBrandVariants(hasBatch ? null : item.id, showArchived)
+  const { data: fallbackStock } = useVariantStockByDivision(hasBatch ? null : item.id)
+  const variants = hasBatch ? (stockBatch!.variantsByItem.get(item.id) ?? EMPTY_VARIANTS) : fallbackVariants
 
   const variantCount = variants.length
   const totalOnHand = variants.reduce((sum, v) => {
-    const pools = stockByVariant?.get(v.id) ?? []
-    const poolTotal = pools.reduce((s, p) => s + Math.max(0, p.qty - p.reserved), 0)
-    return sum + poolTotal
+    if (hasBatch) return sum + (stockBatch!.availableByVariant.get(v.id) ?? 0)
+    const pools = fallbackStock?.get(v.id) ?? []
+    return sum + pools.reduce((s, p) => s + Math.max(0, p.qty - p.reserved), 0)
   }, 0)
 
   // Flatten the embedded brands/country_codes relations into VariantLite,
   // then group by brand → sorted origins (see groupVariants.ts and
   // ItemRow.tsx for the grouping/sort rules — Unbranded and null-origin
   // always sort last).
-  const groups = groupVariants(
-    (variants as unknown as VariantWithRelations[]).map((v): VariantLite => ({
-      ...v,
-      brand_name: v.brands?.name ?? null,
-      country_name: v.country_codes?.name ?? null,
-      country_flag: v.country_codes?.flag ?? null,
-    })),
+  const groups = useMemo(
+    () => groupVariants(
+      (variants as unknown as VariantWithRelations[]).map((v): VariantLite => ({
+        ...v,
+        brand_name: v.brands?.name ?? null,
+        country_name: v.country_codes?.name ?? null,
+        country_flag: v.country_codes?.flag ?? null,
+      })),
+    ),
+    [variants],
   )
 
   const indent = 12 + (depth + 1) * 20

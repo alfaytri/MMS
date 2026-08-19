@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,8 @@ import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEdi
 import { ToolUnitTransferDialog } from './ToolUnitTransferDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
 import { BulkToolItemRow } from './BulkToolItemRow'
+import { BulkToolStockProvider, type BulkToolStockBatch } from '@/components/shared/BulkToolStockContext'
+import { useBulkToolStockBatch } from '@/hooks/useBulkToolStockBatch'
 import {
   useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders,
   useAutoGenerateToolSerials,
@@ -203,6 +205,20 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   // A tools category can hold both direct tool items AND sub-categories.
   const { data: toolItems = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
 
+  // Batched variants + on-hand for bulk-tool rows — one variants query + one
+  // stock query per expanded bulk category, replacing BulkToolItemRow's per-row
+  // N+1. Distributed via BulkToolStockProvider (only the bulk branch below).
+  const isBulk = node.tool_tracking_mode === 'bulk'
+  const bulkItemIds = useMemo(() => (isBulk ? toolItems.map((i) => i.id) : []), [isBulk, toolItems])
+  const { data: bulkStock } = useBulkToolStockBatch(expanded ? bulkItemIds : [], showArchived)
+  const bulkStockValue = useMemo<BulkToolStockBatch>(
+    () => ({
+      variantsByItem: bulkStock?.variantsByItem ?? new Map(),
+      availableByVariant: bulkStock?.availableByVariant ?? new Map(),
+    }),
+    [bulkStock],
+  )
+
   const indent = 12 + depth * 20
 
   function handleChildCategoryMove(idx: number, direction: 'up' | 'down') {
@@ -300,8 +316,12 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
       ))}
 
       {expanded && (
-        node.tool_tracking_mode === 'bulk'
-          ? toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)
+        isBulk
+          ? (
+            <BulkToolStockProvider value={bulkStockValue}>
+              {toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
+            </BulkToolStockProvider>
+          )
           : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)
       )}
 

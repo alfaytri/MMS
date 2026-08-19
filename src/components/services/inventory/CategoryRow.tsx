@@ -17,6 +17,9 @@ import {
   useEffectiveAttributes,
 } from '@/hooks/useAttributes'
 import { ItemAttributesProvider, type ItemAttributesBatch } from '@/components/shared/ItemAttributesContext'
+import { ItemVariantsProvider, type ItemVariantsBatch } from '@/components/shared/ItemVariantsContext'
+import { useItemVariantsBatch } from '@/hooks/useItemVariantsBatch'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useInventoryItemsByCategories } from '@/hooks/useInventory'
 import {
   AttributeFilterBar,
@@ -124,6 +127,28 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     if (!attrFilterActive) return base
     return base.filter((it) => itemPassesAttributeFilter(itemAttrsByItem?.get(it.id), effectiveAttrFilter))
   }, [itemsRaw, filterItemIds, attrFilterActive, itemAttrsByItem, effectiveAttrFilter])
+
+  // Batched brand-variants (+ division-scoped stock) for the rendered items — one
+  // variants query + one stock query per expanded category, replacing the per-
+  // ItemRow N+1. Distributed to rows via ItemVariantsProvider; a row falls back
+  // to its own per-item fetch only when no provider is present (non-list callers).
+  const { viewDivisionIds } = useActiveDivision()
+  const variantsDivisionIds = useMemo(() => Array.from(viewDivisionIds), [viewDivisionIds])
+  const variantsItemIds = useMemo(() => items.map((i) => i.id), [items])
+  const { data: variantsBatch } = useItemVariantsBatch(
+    expanded ? variantsItemIds : [],
+    showArchived,
+    variantsDivisionIds,
+  )
+  const variantsBatchValue = useMemo<ItemVariantsBatch>(
+    () => ({
+      variantsByItem: variantsBatch?.variantsByItem ?? new Map(),
+      // null while loading or when no division is selected → rows use global stock,
+      // matching the per-item hook's loading behaviour.
+      scopedStockByVariant: variantsBatch?.scopedStockByVariant ?? null,
+    }),
+    [variantsBatch],
+  )
 
   // Descendant subtree visibility — only computed when this row has picks of
   // its own (own picks introduce constraints beyond what an ancestor already
@@ -343,18 +368,20 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           ItemAttributesProvider emits no DOM, so it's safe between table rows. */}
       {expanded && items.length > 0 && (
         <ItemAttributesProvider value={attrBatchValue}>
-          {items.map((item, idx) => (
-            <ItemRow
-              key={item.id}
-              item={item}
-              categoryType={categoryType}
-              showArchived={showArchived}
-              canMoveUp={idx > 0}
-              canMoveDown={idx < items.length - 1}
-              onMoveUp={() => handleItemMove(idx, 'up')}
-              onMoveDown={() => handleItemMove(idx, 'down')}
-            />
-          ))}
+          <ItemVariantsProvider value={variantsBatchValue}>
+            {items.map((item, idx) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                categoryType={categoryType}
+                showArchived={showArchived}
+                canMoveUp={idx > 0}
+                canMoveDown={idx < items.length - 1}
+                onMoveUp={() => handleItemMove(idx, 'up')}
+                onMoveDown={() => handleItemMove(idx, 'down')}
+              />
+            ))}
+          </ItemVariantsProvider>
         </ItemAttributesProvider>
       )}
 

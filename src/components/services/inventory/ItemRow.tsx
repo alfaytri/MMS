@@ -16,6 +16,7 @@ import { BrandVariantEditDialog } from './BrandVariantEditDialog'
 import { useInventoryBrandVariants, useArchiveInventoryItem, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemVariantDivisionStock } from '@/hooks/useItemVariantDivisionStock'
+import { useItemVariantsContext } from '@/components/shared/ItemVariantsContext'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { groupVariants, type VariantLite } from '@/lib/inventory/groupVariants'
@@ -28,6 +29,10 @@ type VariantWithRelations = BrandVariant & {
   brands: { name: string } | null
   country_codes: { name: string; flag: string; iso: string } | null
 }
+
+// Stable empty ref so a provider-supplied item with no variants (or one still
+// loading) doesn't churn the memos below.
+const EMPTY_VARIANTS: BrandVariant[] = []
 
 type Props = {
   item: InventoryItem
@@ -56,7 +61,6 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const [addVariantOpen, setAddVariantOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archive = useArchiveInventoryItem()
-  const { data: variants = [] } = useInventoryBrandVariants(item.id, showArchived)
   const canSeePricing = useHasPermission('inventory.pricing.view')
 
   // Division-scoped view: when the top bar has a division selected, override
@@ -66,7 +70,17 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const { viewDivisionIds } = useActiveDivision()
   const divisionScoped = viewDivisionIds.size > 0
   const divisionIds = useMemo(() => Array.from(viewDivisionIds), [viewDivisionIds])
-  const { data: scopedStock } = useItemVariantDivisionStock(divisionScoped ? item.id : null, divisionIds)
+
+  // Prefer the batched provider (one variants + one stock query per expanded
+  // category — see CategoryRow). A non-list caller with no provider falls back to
+  // its own per-item queries; when the provider is present NEITHER fires — that
+  // is the Inventory-list N+1 fix.
+  const variantsBatch = useItemVariantsContext()
+  const hasBatch = variantsBatch !== null
+  const { data: fallbackVariants = EMPTY_VARIANTS } = useInventoryBrandVariants(hasBatch ? null : item.id, showArchived)
+  const { data: fallbackScoped } = useItemVariantDivisionStock(hasBatch || !divisionScoped ? null : item.id, divisionIds)
+  const variants = hasBatch ? (variantsBatch!.variantsByItem.get(item.id) ?? EMPTY_VARIANTS) : fallbackVariants
+  const scopedStock = hasBatch ? variantsBatch!.scopedStockByVariant : fallbackScoped
 
   const effectiveVariants = useMemo(() => {
     if (!divisionScoped || !scopedStock) return variants
@@ -84,13 +98,16 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   // Flatten the embedded brands/country_codes relations into VariantLite,
   // then group by brand → sorted origins (see groupVariants.ts for the
   // grouping/sort rules — Unbranded and null-origin always sort last).
-  const groups = groupVariants(
-    (effectiveVariants as unknown as VariantWithRelations[]).map((v): VariantLite => ({
-      ...v,
-      brand_name: v.brands?.name ?? null,
-      country_name: v.country_codes?.name ?? null,
-      country_flag: v.country_codes?.flag ?? null,
-    })),
+  const groups = useMemo(
+    () => groupVariants(
+      (effectiveVariants as unknown as VariantWithRelations[]).map((v): VariantLite => ({
+        ...v,
+        brand_name: v.brands?.name ?? null,
+        country_name: v.country_codes?.name ?? null,
+        country_flag: v.country_codes?.flag ?? null,
+      })),
+    ),
+    [effectiveVariants],
   )
 
   const totalAtp = effectiveVariants.reduce((sum, v) => sum + (v.stock_level ?? 0) - (v.reserved_qty ?? 0), 0)
