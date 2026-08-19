@@ -578,7 +578,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
               {allExpanded ? 'Collapse all' : 'Expand all'}
             </Button>
           )}
-          <WarehouseReportButton reportType="stock-overview" warehouseId={selectedWarehouseId} label="Report" />
+          {/* Report sheet carries stock values — hidden from cost-gated users. */}
+          {canSeeCost && <WarehouseReportButton reportType="stock-overview" warehouseId={selectedWarehouseId} label="Report" />}
         </div>
       </div>
 

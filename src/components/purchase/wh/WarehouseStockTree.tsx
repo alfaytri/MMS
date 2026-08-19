@@ -184,9 +184,14 @@ interface Props {
   warehouseId: string
   warehouses: Warehouse[]
   subContainerId?: string | null
+  /** When false, the Value (QR) column is dropped entirely (cost-gated). */
+  canSeeCost?: boolean
 }
 
-export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: Props) {
+export function WarehouseStockTree({ warehouseId, warehouses, subContainerId, canSeeCost = true }: Props) {
+  // Collapse the grid to two columns when the value column is hidden, so the
+  // Stock column keeps its right edge instead of leaving a blank gap.
+  const gridCols = canSeeCost ? 'grid-cols-[1fr_auto_auto]' : 'grid-cols-[1fr_auto]'
   const { data: stock = [], isLoading } = useWarehouseStock(warehouseId, subContainerId ?? null)
 
   const { data: fullStock = [] } = useWarehouseStock()
@@ -257,7 +262,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
     return brands.map((b) => (
       <div
         key={b.brand_variant_id}
-        className={`grid grid-cols-[1fr_auto_auto] gap-2 ${indent} pr-3 py-1 bg-muted/5 border-b items-center`}
+        className={`grid ${gridCols} gap-2 ${indent} pr-3 py-1 bg-muted/5 border-b items-center`}
       >
         <div className="flex items-center gap-2 text-muted-foreground">
           <span>{brandOriginText(b.brand, b.country_name) ?? '—'}</span>
@@ -292,7 +297,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
             </PopoverContent>
           </Popover>
         </div>
-        <div className="text-right w-20 text-muted-foreground">{fmtVal(b.totalValue)}</div>
+        {canSeeCost && <div className="text-right w-20 text-muted-foreground">{fmtVal(b.totalValue)}</div>}
       </div>
     ))
   }
@@ -307,7 +312,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
       return (
         <React.Fragment key={itemKey}>
           <div
-            className={`grid grid-cols-[1fr_auto_auto] gap-2 ${indentPl} pr-3 py-1.5 hover:bg-muted/20 border-b items-center ${hasMultipleBrands ? 'cursor-pointer' : ''}`}
+            className={`grid ${gridCols} gap-2 ${indentPl} pr-3 py-1.5 hover:bg-muted/20 border-b items-center ${hasMultipleBrands ? 'cursor-pointer' : ''}`}
             onClick={hasMultipleBrands ? () => toggle(itemKey) : undefined}
           >
             <div className="flex items-center gap-1.5 font-medium">
@@ -336,7 +341,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
                   : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </div>
-            <div className="text-right w-20">{fmtVal(item.totalValue)}</div>
+            {canSeeCost && <div className="text-right w-20">{fmtVal(item.totalValue)}</div>}
           </div>
           {hasMultipleBrands && itemExpanded && renderBrandRows(item.brands, brandIndentPl)}
         </React.Fragment>
@@ -355,7 +360,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
       return (
         <React.Fragment key={catKey}>
           <div
-            className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-1.5 bg-muted/20 hover:bg-muted/40 cursor-pointer border-b items-center"
+            className={`grid ${gridCols} gap-2 px-3 py-1.5 bg-muted/20 hover:bg-muted/40 cursor-pointer border-b items-center`}
             onClick={() => toggle(catKey)}
           >
             <div className="flex items-center gap-1.5 font-semibold">
@@ -372,7 +377,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
             <div className="text-right w-12 font-semibold">
               <StockTooltip qty={cat.totalQty} title="Stock Breakdown" rows={tooltipRows} />
             </div>
-            <div className="text-right w-20 font-semibold">{fmtVal(cat.totalValue)}</div>
+            {canSeeCost && <div className="text-right w-20 font-semibold">{fmtVal(cat.totalValue)}</div>}
           </div>
 
           {catExpanded && (
@@ -383,7 +388,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
                 return (
                   <React.Fragment key={scKey}>
                     <div
-                      className="grid grid-cols-[1fr_auto_auto] gap-2 pl-6 pr-3 py-1.5 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 cursor-pointer border-b items-center"
+                      className={`grid ${gridCols} gap-2 pl-6 pr-3 py-1.5 bg-blue-50/40 dark:bg-blue-950/20 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 cursor-pointer border-b items-center`}
                       onClick={() => toggle(scKey)}
                     >
                       <div className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
@@ -400,7 +405,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
                           rows={sc.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
                         />
                       </div>
-                      <div className="text-right w-20 font-semibold">{fmtVal(sc.totalValue)}</div>
+                      {canSeeCost && <div className="text-right w-20 font-semibold">{fmtVal(sc.totalValue)}</div>}
                     </div>
                     {scExpanded && renderItemRows(sc.items, scKey, 'pl-10', 'pl-14')}
                   </React.Fragment>
@@ -418,10 +423,10 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
     <TooltipProvider delayDuration={150}>
       <div className="border rounded-md overflow-hidden text-xs">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-1.5 bg-muted/30 border-b text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className={`grid ${gridCols} gap-2 px-3 py-1.5 bg-muted/30 border-b text-[10px] font-semibold uppercase tracking-wide text-muted-foreground`}>
           <span>Item</span>
           <span className="text-right w-12">Stock</span>
-          <span className="text-right w-20">Value (QR)</span>
+          {canSeeCost && <span className="text-right w-20">Value (QR)</span>}
         </div>
 
         {showSubGroups
@@ -431,7 +436,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
               return (
                 <React.Fragment key={g.subId}>
                   <div
-                    className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 cursor-pointer border-b items-center"
+                    className={`grid ${gridCols} gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 cursor-pointer border-b items-center`}
                     onClick={() => toggle(groupKey)}
                   >
                     <div className="flex items-center gap-1.5 font-semibold text-primary">
@@ -442,7 +447,7 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId }: 
                       <span className="text-[9px] font-normal text-muted-foreground italic">{g.tree.length} categor{g.tree.length === 1 ? 'y' : 'ies'}</span>
                     </div>
                     <div className="text-right w-12 font-semibold text-primary tabular-nums">{g.totalQty}</div>
-                    <div className="text-right w-20 font-semibold text-primary tabular-nums">{fmtVal(g.totalValue)}</div>
+                    {canSeeCost && <div className="text-right w-20 font-semibold text-primary tabular-nums">{fmtVal(g.totalValue)}</div>}
                   </div>
                   {groupExpanded && renderTree(g.tree, groupKey)}
                 </React.Fragment>

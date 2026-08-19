@@ -9,6 +9,7 @@ import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDo
 import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 import { WarehouseStockExportButton } from '@/components/purchase/wh/WarehouseStockExportButton'
+import { useHasPermission } from '@/hooks/usePermissions'
 
 interface Props {
   warehouses: Warehouse[]
@@ -24,6 +25,8 @@ const SEGMENT_COLORS = [
 ]
 
 export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses, onViewStock }: Props) {
+  // Stock value is cost-gated — an inventory user shouldn't see item values.
+  const canSeeCost = useHasPermission('warehouse.cost.view')
   const { mainWarehouses, virtualWarehouses } = useMemo(() => {
     const main: Warehouse[] = []
     const virt: Warehouse[] = []
@@ -142,10 +145,12 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               <Package className="h-3.5 w-3.5 text-primary" />
               {displayItemCount.toLocaleString('en-QA')} items
             </div>
-            <div className="flex items-center gap-1 text-xs">
-              <DollarSign className="h-3.5 w-3.5 text-success" />
-              QR {displayValue.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
+            {canSeeCost && (
+              <div className="flex items-center gap-1 text-xs">
+                <DollarSign className="h-3.5 w-3.5 text-success" />
+                QR {displayValue.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            )}
           </div>
 
           {/* Sub-container breakdown — shown only when "All" is picked AND there's more than one sub */}
@@ -156,7 +161,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                   <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
                   <span className="flex items-center gap-2 text-muted-foreground tabular-nums flex-shrink-0">
                     <span>{sc.item_count.toLocaleString('en-QA')} items</span>
-                    <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    {canSeeCost && <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
                   </span>
                 </div>
               ))}
@@ -179,14 +184,15 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               </Button>
               {isExpanded && (
                 <div className="mt-2 max-h-[320px] overflow-y-auto rounded-md">
-                  <WarehouseStockTree warehouseId={wh.id} warehouses={warehouses} subContainerId={selectedSubId} />
+                  <WarehouseStockTree warehouseId={wh.id} warehouses={warehouses} subContainerId={selectedSubId} canSeeCost={canSeeCost} />
                 </div>
               )}
             </div>
           )}
 
           <div className="flex items-center justify-between gap-2">
-            {displayItemCount > 0 ? (
+            {/* The export sheet carries stock values — hide it from cost-gated users. */}
+            {canSeeCost && displayItemCount > 0 ? (
               <WarehouseStockExportButton
                 warehouseId={wh.id}
                 warehouseName={wh.name}
@@ -224,8 +230,8 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
         </div>
       )}
 
-      {/* ── Value comparison bar (main warehouses only) ── */}
-      {mainWarehouses.length > 1 && totalValue > 0 && (
+      {/* ── Value comparison bar (main warehouses only) — cost-gated ── */}
+      {canSeeCost && mainWarehouses.length > 1 && totalValue > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Stock Value by Warehouse</p>
           <TooltipProvider delayDuration={200}>

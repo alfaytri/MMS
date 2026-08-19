@@ -265,7 +265,8 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
             ))}
           </SelectContent>
         </Select>
-        <WarehouseReportButton reportType="movements" warehouseId={warehouseFilter === 'all' ? undefined : warehouseFilter} label="Report" />
+        {/* Report sheet carries unit cost / value — hidden from cost-gated users. */}
+        {canSeeCost && <WarehouseReportButton reportType="movements" warehouseId={warehouseFilter === 'all' ? undefined : warehouseFilter} label="Report" />}
       </div>
 
       {/* ── Mobile card list (< md) ─────────────────────────────────── */}
