@@ -98,6 +98,7 @@ export const NAV_TREE: TreeNode[] = [
             icon: Layers,
             permissions: [
               { key: 'warehouse.stock.view', label: 'View Stock Overview', description: 'See stock levels per warehouse and item' },
+              { key: 'warehouse.cost.view',  label: 'View Warehouse Costs', description: 'See avg cost + stock value on Stock Overview and cost on Movements. Without it the user sees quantities but not money (the Stock Value tab keeps its own permission).' },
             ],
           },
           {
@@ -154,6 +155,14 @@ export const NAV_TREE: TreeNode[] = [
             icon: Truck,
             permissions: [
               { key: 'warehouse.receivals.view', label: 'View Receivals & Deliveries', description: 'See the receivals and deliveries summary' },
+            ],
+          },
+          {
+            id: 'md-wh-item-requests',
+            label: 'Requested Items',
+            icon: ClipboardList,
+            permissions: [
+              { key: 'warehouse.item_requests.view', label: 'View Requested Items', description: 'See the Requested Items tab (warehouse item requests). Already enforced on the tab; this makes it grantable in the role editor.' },
             ],
           },
         ],
@@ -325,7 +334,9 @@ export const NAV_TREE: TreeNode[] = [
             label: 'Supplier Payments',
             icon: Receipt,
             permissions: [
-              { key: 'purchase.payments.view',   label: 'View Supplier Payments',   description: 'Access supplier payment records' },
+              // Supplier-payment view is not a separate gate — records show inside the
+              // PO / Bill detail dialogs (behind those pages' view). Record + Edit/Delete
+              // are the real gates; the inert `purchase.payments.view` key was dropped.
               { key: 'purchase.payments.record', label: 'Record Supplier Payments', description: 'Record (create) supplier payments against bills / POs. Separate from Edit / Delete.' },
               { key: 'purchase.payments.manage', label: 'Edit / Delete Supplier Payments', description: 'Edit amount, method, date, reference on recorded supplier payments, and soft-delete mistaken entries. Gate behind Accounting only.' },
             ],
@@ -346,6 +357,14 @@ export const NAV_TREE: TreeNode[] = [
             icon: FileX2,
             permissions: [
               { key: 'purchase.debit_notes.view', label: 'View Debit Notes', description: 'Access the purchase debit notes page' },
+            ],
+          },
+          {
+            id: 'ps-purchase-aging',
+            label: 'Aging Report',
+            icon: Calculator,
+            permissions: [
+              { key: 'purchase.aging.view', label: 'View Purchase Aging Report', description: 'The supplier (AP) aging report. Also viewable with View Bills; grant this to allow it independently.' },
             ],
           },
         ],
@@ -390,7 +409,9 @@ export const NAV_TREE: TreeNode[] = [
             label: 'Customer Payments',
             icon: Receipt,
             permissions: [
-              { key: 'sales.payments.view',   label: 'View Customer Payments',   description: 'Access customer payment records' },
+              // Customer-payment view is not a separate gate — records show inside the
+              // SO / Invoice detail dialogs (behind those pages' view). Record + Edit/Delete
+              // are the real gates; the inert `sales.payments.view` key was dropped.
               { key: 'sales.payments.record', label: 'Record Customer Payments', description: 'Record (create) customer payments against invoices / sale orders. Separate from Edit / Delete.' },
               { key: 'sales.payments.manage', label: 'Edit / Delete Customer Payments', description: 'Edit amount, method, date, reference on recorded customer payments, and soft-delete mistaken entries. Gate behind Accounting only. Store-credit redemptions cannot be edited here.' },
             ],
@@ -423,6 +444,22 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'sales.credit_notes.view',   label: 'View Credit Notes',   description: 'Access credit and debit note records' },
               { key: 'sales.credit_notes.create', label: 'Create Credit Notes', description: 'Draft new credit and debit notes' },
               { key: 'sales.credit_notes.manage', label: 'Edit Credit Notes',   description: 'Edit and process existing credit and debit notes (legacy .manage — alias of .edit)' },
+            ],
+          },
+          {
+            id: 'ps-customer-statement',
+            label: 'Customer Statement',
+            icon: ScrollText,
+            permissions: [
+              { key: 'sales.customer_statement.view', label: 'View Customer Statement', description: 'The per-customer statement of orders / paid / outstanding. Also viewable with View Sales Invoices; grant this to allow it independently.' },
+            ],
+          },
+          {
+            id: 'ps-sales-aging',
+            label: 'Aging Report',
+            icon: Calculator,
+            permissions: [
+              { key: 'sales.aging.view', label: 'View Sales Aging Report', description: 'The customer (AR) aging report. Also viewable with View Sales Invoices; grant this to allow it independently.' },
             ],
           },
         ],
@@ -479,6 +516,7 @@ export const NAV_TREE: TreeNode[] = [
         icon: HandCoins,
         permissions: [
           { key: 'custody.view', label: 'Access Custody Page', description: 'Open the Custody page + nav. Per-warehouse visibility is granted in the "Custody Warehouse Access" section below.' },
+          { key: 'custody.cost.view', label: 'View Custody Costs', description: 'See the QAR value totals and per-item values on custody cards. Without it the user sees teams, items, and quantities but no money.' },
         ],
       },
       {
@@ -488,6 +526,7 @@ export const NAV_TREE: TreeNode[] = [
         permissions: [
           { key: 'tools.assets.view',   label: 'View Tools & Assets',   description: 'Open Operations → Tools & Assets: teams and the tools they hold, the Repair bucket, and usage history.' },
           { key: 'tools.assets.manage', label: 'Manage Tools & Assets', description: 'Assign / move / return tools, record condition checks (Good / Bad / Under-repair), and resolve repairs — Repaired, or Scrap (posts the unit cost to the P&L "Scrap & Defective" line).' },
+          { key: 'tools.assets.cost.view', label: 'View Tools Costs', description: 'See any cost / scrap value on Tools & Assets. Without it the user sees tools, serials, and conditions but no money.' },
         ],
       },
       {
@@ -513,6 +552,7 @@ export const NAV_TREE: TreeNode[] = [
           { key: 'damaged_stock.on_hand.edit',        label: 'Edit On-hand Damaged', description: 'Send-for-repair / write-off from the On-hand tab (rows are created by receival/return flows — no .create key)' },
           { key: 'damaged_stock.out_for_repair.view', label: 'View Out for Repair',  description: 'See the Out for Repair tab on the Damaged Stock page' },
           { key: 'damaged_stock.out_for_repair.edit', label: 'Edit Out for Repair',  description: 'Assign vendor / return from repair on the Out for Repair tab (no .create key)' },
+          { key: 'damaged_stock.cost.view',           label: 'View Damaged Stock Costs', description: 'See the weighted unit cost / value on the Damaged Stock page. Without it the user sees quantities and dispositions but no money.' },
         ],
       },
     ],
