@@ -229,6 +229,8 @@ export const queryKeys = {
       ['brand-variants-price-summary', idsKey] as const,
     brandVariantAncestry: (variantId: Nullable) =>
       ['brand-variant-ancestry', variantId] as const,
+    variantCategoryPaths: (idsKey: string) =>
+      ['variant-category-paths', idsKey] as const,
     inventoryBrandVariants: ['inventory-brand-variants'] as const,
     allBrandNames: ['all-brand-names'] as const,
     fifoLayers: ['fifo-layers'] as const,

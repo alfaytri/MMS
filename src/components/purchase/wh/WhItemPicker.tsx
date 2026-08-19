@@ -19,6 +19,10 @@ export interface PickerItem {
   countryName?: string | null
   sku: string | null
   category: string | null
+  /** Full category breadcrumb ("Root > … > Leaf") for the item's leaf category.
+   *  When present the header shows the whole classification tree instead of the
+   *  flattened leaf `category`. Resolved via useVariantCategoryPaths. */
+  categoryPath?: string | null
   /** inventory item_type (products | spare-parts | consumables | tools) — drives
    *  the type-grouped category column so the picker mirrors the inventory tree. */
   type?: string | null
@@ -286,16 +290,22 @@ export function WhItemPicker({
                 // (it lives on inventory_items). Grab it from the first
                 // variant that has one.
                 const itemImageUrl = variants.find((v) => v.imageUrl)?.imageUrl ?? null
+                // Whole classification tree for the header. Prefer the full
+                // breadcrumb ("Root > … > Leaf", resolved via categoryPath — all
+                // variants of an item share it); fall back to the flat leaf
+                // category when a path hasn't been supplied. Wraps (never
+                // truncates) and stays tiny so the whole tree fits.
+                const headerPath = variants.find((v) => v.categoryPath)?.categoryPath ?? (cat || null)
                 return (
                   <div key={`${cat}||${name}`} className="px-3 py-2 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        {showCatLabel && cat && (
-                          <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
-                            {cat}
+                        {showCatLabel && headerPath && (
+                          <span className="block text-[9px] leading-snug text-muted-foreground tracking-wide break-words">
+                            {headerPath}
                           </span>
                         )}
-                        <p className="text-[11px] font-medium truncate">{name}</p>
+                        <p className="text-[11px] font-medium break-words">{name}</p>
                       </div>
                       <ItemPhoto url={itemImageUrl} name={name} size={48} />
                     </div>

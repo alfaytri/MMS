@@ -25,6 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 import {
@@ -321,6 +322,12 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     return map
   }, [sourceStock])
 
+  // Full category breadcrumbs for the picker header ("Root > … > Leaf"). One
+  // bounded, cached read over the sub's stock variants — resolved client-side so
+  // it works regardless of which columns warehouse_stock_summary carries.
+  const stockVariantIds = useMemo(() => sourceStock.map((s) => s.brand_variant_id), [sourceStock])
+  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+
   // Dedupe by brand_variant_id — the picker is gated on a chosen sub (so stock is
   // normally single-sub), but stay defensive against a variant appearing in more
   // than one sub row, which would collide on its React key. availableQtyMap sums
@@ -339,15 +346,17 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         id:            s.brand_variant_id,
         name:          s.item_name ?? '(No name)',
         brand:         s.brand ?? null,
+        countryName:   s.country_name ?? null,
         sku:           s.sku ?? null,
         category:      s.category_name ?? null,
+        categoryPath:  categoryPaths.get(s.brand_variant_id) ?? null,
         qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
         reorderPoint:  0,
         imageUrl:      s.image_url ?? null,
       })
     }
     return out
-  }, [sourceStock, availableQtyMap, mode, teamVariantIds])
+  }, [sourceStock, availableQtyMap, mode, teamVariantIds, categoryPaths])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
