@@ -14,6 +14,7 @@ import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
 import { useWarehouseSubContainers, shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { cn } from '@/lib/utils'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -228,6 +229,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const [activeType, setActiveType] = useState<ItemTypeValue>('__all__')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
+  // Cost gate — hide avg cost + value everywhere on this tab unless granted.
+  const canSeeCost = useHasPermission('warehouse.cost.view')
 
   const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(
     initialSubContainerId ?? null,
@@ -405,8 +408,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
             rows={warehouseBreakdown.get(b.brand_variant_id) ?? []}
           />
         </TableCell>
-        <TableCell className="text-xs text-right py-1.5 hidden md:table-cell">{fmtVal(b.avgCost)}</TableCell>
-        <TableCell className="text-xs text-right py-1.5">{fmtVal(b.totalValue)}</TableCell>
+        {canSeeCost && <TableCell className="text-xs text-right py-1.5 hidden md:table-cell">{fmtVal(b.avgCost)}</TableCell>}
+        {canSeeCost && <TableCell className="text-xs text-right py-1.5">{fmtVal(b.totalValue)}</TableCell>}
       </TableRow>
     ))
   }
@@ -449,12 +452,16 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                   : (warehouseBreakdown.get(item.brands[0]?.brand_variant_id) ?? [])}
               />
             </TableCell>
-            <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">
-              {item.brands.length === 1 ? fmtVal(item.brands[0].avgCost) : '—'}
-            </TableCell>
-            <TableCell className="text-xs text-right py-2 font-medium">
-              {fmtVal(item.totalValue)}
-            </TableCell>
+            {canSeeCost && (
+              <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">
+                {item.brands.length === 1 ? fmtVal(item.brands[0].avgCost) : '—'}
+              </TableCell>
+            )}
+            {canSeeCost && (
+              <TableCell className="text-xs text-right py-2 font-medium">
+                {fmtVal(item.totalValue)}
+              </TableCell>
+            )}
           </TableRow>
           {hasMultipleBrands && itemExpanded && renderBrandRows(item.brands, brandIndentClass)}
         </React.Fragment>
@@ -465,11 +472,11 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Summary mini-cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className={cn('grid grid-cols-1 gap-3', canSeeCost ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
         {[
           { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItemCount.toLocaleString('en-QA') },
           { icon: <Package  className="h-4 w-4 text-primary" />, label: 'Total Qty',   value: totalQty.toLocaleString('en-QA')   },
-          { icon: <DollarSign className="h-4 w-4 text-success" />, label: 'Total Value', value: `QR ${fmtVal(totalValue)}` },
+          ...(canSeeCost ? [{ icon: <DollarSign className="h-4 w-4 text-success" />, label: 'Total Value', value: `QR ${fmtVal(totalValue)}` }] : []),
         ].map((card) => (
           <div key={card.label} className="p-3 rounded-md border flex items-center gap-2">
             {card.icon}
@@ -601,7 +608,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 )}
                 <div className="flex items-center gap-3 shrink-0 ml-1">
                   <span className="text-xs font-bold tabular-nums">{cat.totalQty}</span>
-                  <span className="text-xs font-semibold tabular-nums text-muted-foreground">{fmtVal(cat.totalValue)}</span>
+                  {canSeeCost && <span className="text-xs font-semibold tabular-nums text-muted-foreground">{fmtVal(cat.totalValue)}</span>}
                 </div>
               </button>
 
@@ -623,7 +630,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                           <span className="text-xs font-semibold text-blue-700 dark:text-blue-400 truncate flex-1 text-left">{sc.subcategoryName}</span>
                           <div className="flex items-center gap-3 shrink-0 ml-1">
                             <span className="text-xs font-semibold tabular-nums">{sc.totalQty}</span>
-                            <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(sc.totalValue)}</span>
+                            {canSeeCost && <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(sc.totalValue)}</span>}
                           </div>
                         </button>
                         {scExpanded && sc.items.map((item) => {
@@ -644,14 +651,14 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                                 <span className="text-xs font-medium flex-1 min-w-0 break-words text-left">{item.itemName}</span>
                                 <div className="flex items-center gap-3 shrink-0 ml-1">
                                   <span className="text-xs font-semibold tabular-nums">{item.totalQty}</span>
-                                  <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>
+                                  {canSeeCost && <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>}
                                 </div>
                               </button>
                               {multi && itemExpanded && item.brands.map((b) => (
                                 <div key={b.brand_variant_id} className="flex items-center gap-2 pl-16 pr-3 py-1.5 bg-muted/5 border-t border-dashed">
                                   <span className="text-[11px] text-muted-foreground truncate flex-1">{brandOriginText(b.brand, b.country_name) ?? '—'}</span>
                                   <span className="text-[11px] font-medium tabular-nums shrink-0">{b.qty}</span>
-                                  <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>
+                                  {canSeeCost && <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>}
                                 </div>
                               ))}
                             </div>
@@ -679,14 +686,14 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                           <span className="text-xs font-medium flex-1 min-w-0 break-words text-left">{item.itemName}</span>
                           <div className="flex items-center gap-3 shrink-0 ml-1">
                             <span className="text-xs font-semibold tabular-nums">{item.totalQty}</span>
-                            <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>
+                            {canSeeCost && <span className="text-xs tabular-nums text-muted-foreground">{fmtVal(item.totalValue)}</span>}
                           </div>
                         </button>
                         {multi && itemExpanded && item.brands.map((b) => (
                           <div key={b.brand_variant_id} className="flex items-center gap-2 pl-12 pr-3 py-1.5 bg-muted/5 border-t border-dashed">
                             <span className="text-[11px] text-muted-foreground truncate flex-1">{brandOriginText(b.brand, b.country_name) ?? '—'}</span>
                             <span className="text-[11px] font-medium tabular-nums shrink-0">{b.qty}</span>
-                            <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>
+                            {canSeeCost && <span className="text-[11px] tabular-nums text-muted-foreground shrink-0">{fmtVal(b.totalValue)}</span>}
                           </div>
                         ))}
                       </div>
@@ -709,14 +716,14 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                 <TableHead className="text-xs hidden sm:table-cell">Brand</TableHead>
                 <TableHead className="text-xs hidden sm:table-cell">SKU</TableHead>
                 <TableHead className="text-xs text-right">Stock</TableHead>
-                <TableHead className="text-xs text-right hidden md:table-cell">Avg Cost</TableHead>
-                <TableHead className="text-xs text-right">Value (QR)</TableHead>
+                {canSeeCost && <TableHead className="text-xs text-right hidden md:table-cell">Avg Cost</TableHead>}
+                {canSeeCost && <TableHead className="text-xs text-right">Value (QR)</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {tree.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-8">
+                  <TableCell colSpan={canSeeCost ? 6 : 4} className="text-center text-xs text-muted-foreground py-8">
                     {selectedWarehouse ? `No stock in ${selectedWarehouse.name}` : 'No stock data'}
                   </TableCell>
                 </TableRow>
@@ -757,10 +764,12 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                         <TableCell className="text-xs text-right font-bold py-2.5">
                           <StockTooltip qty={cat.totalQty} title="Stock Breakdown" rows={tooltipRows} />
                         </TableCell>
-                        <TableCell className="py-2.5 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>
-                        <TableCell className="text-xs text-right font-bold py-2.5">
-                          {fmtVal(cat.totalValue)}
-                        </TableCell>
+                        {canSeeCost && <TableCell className="py-2.5 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>}
+                        {canSeeCost && (
+                          <TableCell className="text-xs text-right font-bold py-2.5">
+                            {fmtVal(cat.totalValue)}
+                          </TableCell>
+                        )}
                       </TableRow>
 
                       {catExpanded && (
@@ -796,10 +805,12 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
                                       rows={sc.items.map((i) => ({ label: i.itemName, qty: i.totalQty }))}
                                     />
                                   </TableCell>
-                                  <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>
-                                  <TableCell className="text-xs text-right font-semibold py-2">
-                                    {fmtVal(sc.totalValue)}
-                                  </TableCell>
+                                  {canSeeCost && <TableCell className="py-2 text-xs text-right text-muted-foreground hidden md:table-cell">—</TableCell>}
+                                  {canSeeCost && (
+                                    <TableCell className="text-xs text-right font-semibold py-2">
+                                      {fmtVal(sc.totalValue)}
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                                 {scExpanded && renderItemRows(sc.items, scKey, 'pl-12', 'pl-16')}
                               </React.Fragment>
@@ -850,9 +861,11 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
               </div>
             )}
 
-            <span className="font-semibold text-foreground">
-              Total: QR {fmtVal(totalValue)}
-            </span>
+            {canSeeCost && (
+              <span className="font-semibold text-foreground">
+                Total: QR {fmtVal(totalValue)}
+              </span>
+            )}
           </div>
         )}
       </TooltipProvider>

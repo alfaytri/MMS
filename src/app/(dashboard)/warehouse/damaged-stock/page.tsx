@@ -49,6 +49,7 @@ export default function DamagedStockPage() {
   const canSeeOutRepair = useHasPermission('damaged_stock.out_for_repair.view')
   const canEditOnHand    = useHasEditPermission('damaged_stock.on_hand')
   const canEditOutRepair = useHasEditPermission('damaged_stock.out_for_repair')
+  const canSeeCost       = useHasPermission('damaged_stock.cost.view')
   const defaultTab = canSeeOnHand ? 'on-hand' : canSeeOutRepair ? 'out-for-repair' : 'on-hand'
 
   return (
@@ -78,6 +79,7 @@ export default function DamagedStockPage() {
             <OnHandTab
               query={onHand}
               canEdit={canEditOnHand}
+              canSeeCost={canSeeCost}
               onSendForRepair={(row) => setSendFromOnHand(row)}
               onWriteOff={(row) => setWriteOffFromOnHand(row)}
             />
@@ -253,12 +255,13 @@ function PendingRepairAssignmentSection({
 
 // ─── On-hand tab ────────────────────────────────────────────────────────
 function OnHandTab({
-  query, onSendForRepair, onWriteOff, canEdit,
+  query, onSendForRepair, onWriteOff, canEdit, canSeeCost,
 }: {
   query:            ReturnType<typeof useDamagedOnHand>
   onSendForRepair:  (row: DamagedOnHandRow) => void
   onWriteOff:       (row: DamagedOnHandRow) => void
   canEdit:          boolean
+  canSeeCost:       boolean
 }) {
   const { data = [], isLoading, error } = query
 
@@ -297,7 +300,7 @@ function OnHandTab({
                 <th className="px-3 py-2 text-left font-medium">Item</th>
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">SKU</th>
                 <th className="px-3 py-2 text-right font-medium">Qty</th>
-                <th className="px-3 py-2 text-right font-medium">Weighted Unit Cost</th>
+                {canSeeCost && <th className="px-3 py-2 text-right font-medium">Weighted Unit Cost</th>}
                 <th className="hidden md:table-cell px-3 py-2 text-left font-medium">Last Updated</th>
                 {canEdit && <th className="px-3 py-2 text-right font-medium">Actions</th>}
               </tr>
@@ -313,7 +316,7 @@ function OnHandTab({
                   </td>
                   <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.sku || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{nfCost.format(r.weighted_unit_cost)}</td>
+                  {canSeeCost && <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{nfCost.format(r.weighted_unit_cost)}</td>}
                   <td className="hidden md:table-cell px-3 py-2 text-xs text-muted-foreground">{formatDate(r.updated_at)}</td>
                   {canEdit && (
                     <td className="px-3 py-2 text-right">
@@ -360,7 +363,7 @@ function OnHandTab({
               <CardLine label="SKU" value={r.sku || '—'} />
               <CardLine label="Warehouse" value={r.warehouse_name} />
               <CardLine label="Source" value={r.source_sub_container_name ?? '—'} />
-              <CardLine label="Weighted Cost" value={nfCost.format(r.weighted_unit_cost)} />
+              {canSeeCost && <CardLine label="Weighted Cost" value={nfCost.format(r.weighted_unit_cost)} />}
               <CardLine label="Updated" value={formatDate(r.updated_at)} />
               {canEdit && (
                 <div className="flex items-center gap-2">

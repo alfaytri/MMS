@@ -15,6 +15,7 @@ import { WarehouseReportButton } from './WarehouseReportButton'
 import { useStockMovements, useWarehouseStock, StockMovement } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers, shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { format } from 'date-fns'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -119,6 +120,8 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
   // Movements tab is the single unified movement view now (Damaged Stock
   // page's Movements tab was dropped).
   const [streamFilter, setStreamFilter] = useState<'all' | 'good' | 'damaged'>('all')
+  // Cost gate — hide unit cost / line total / stock value unless granted.
+  const canSeeCost = useHasPermission('warehouse.cost.view')
 
   // Sub-containers for the picked warehouse (for the optional filter dropdown)
   const subWhId = warehouseFilter !== 'all' ? warehouseFilter : null
@@ -330,10 +333,10 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
               <TableHead className="text-xs w-[22%]">Item</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs text-right">Qty</TableHead>
-              <TableHead className="text-xs text-right">Unit Cost</TableHead>
-              <TableHead className="text-xs text-right">Total</TableHead>
+              {canSeeCost && <TableHead className="text-xs text-right">Unit Cost</TableHead>}
+              {canSeeCost && <TableHead className="text-xs text-right">Total</TableHead>}
               <TableHead className="text-xs text-right">Stock</TableHead>
-              <TableHead className="text-xs text-right hidden lg:table-cell">Stock Value</TableHead>
+              {canSeeCost && <TableHead className="text-xs text-right hidden lg:table-cell">Stock Value</TableHead>}
               <TableHead className="text-xs hidden lg:table-cell">Warehouse</TableHead>
               <TableHead className="text-xs hidden xl:table-cell">Sub-container</TableHead>
               <TableHead className="text-xs">Ref</TableHead>
@@ -342,7 +345,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="p-0">
+                <TableCell colSpan={canSeeCost ? 11 : 8} className="p-0">
                   <EmptyState title="No movements found" />
                 </TableCell>
               </TableRow>
@@ -383,10 +386,12 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-right tabular-nums">{m.qty}</TableCell>
-                    <TableCell className="text-xs text-right tabular-nums">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>
-                    <TableCell className="text-xs text-right tabular-nums">
-                      {m.unit_cost != null && m.qty != null ? fmtVal(m.unit_cost * m.qty) : '—'}
-                    </TableCell>
+                    {canSeeCost && <TableCell className="text-xs text-right tabular-nums">{m.unit_cost != null ? fmtVal(m.unit_cost) : '—'}</TableCell>}
+                    {canSeeCost && (
+                      <TableCell className="text-xs text-right tabular-nums">
+                        {m.unit_cost != null && m.qty != null ? fmtVal(m.unit_cost * m.qty) : '—'}
+                      </TableCell>
+                    )}
                     <TableCell className="text-xs text-right tabular-nums">
                       {stockInfo ? (
                         <span
@@ -409,28 +414,30 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                         <span>—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-right tabular-nums hidden lg:table-cell">
-                      {stockInfo ? (
-                        <span
-                          className="cursor-pointer underline decoration-dashed underline-offset-2 hover:text-primary"
-                          onClick={() => setStockDialog({
-                            brandVariantId: m.brand_variant_id,
-                            itemName: meta?.itemName ?? m.item_name,
-                            category: meta?.categoryName ?? null,
-                            subcategory: meta?.subcategoryName ?? null,
-                            itemType: meta?.itemType ?? null,
-                            brand: meta?.brand ?? null,
-                            origin: meta?.origin ?? m.country_name ?? null,
-                            sku: m.sku,
-                            breakdown: stockInfo,
-                          })}
-                        >
-                          {fmtVal(stockInfo.totalValue)}
-                        </span>
-                      ) : (
-                        <span>—</span>
-                      )}
-                    </TableCell>
+                    {canSeeCost && (
+                      <TableCell className="text-xs text-right tabular-nums hidden lg:table-cell">
+                        {stockInfo ? (
+                          <span
+                            className="cursor-pointer underline decoration-dashed underline-offset-2 hover:text-primary"
+                            onClick={() => setStockDialog({
+                              brandVariantId: m.brand_variant_id,
+                              itemName: meta?.itemName ?? m.item_name,
+                              category: meta?.categoryName ?? null,
+                              subcategory: meta?.subcategoryName ?? null,
+                              itemType: meta?.itemType ?? null,
+                              brand: meta?.brand ?? null,
+                              origin: meta?.origin ?? m.country_name ?? null,
+                              sku: m.sku,
+                              breakdown: stockInfo,
+                            })}
+                          >
+                            {fmtVal(stockInfo.totalValue)}
+                          </span>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-xs hidden lg:table-cell">{warehouseMap.get(m.warehouse_id) ?? '—'}</TableCell>
                     <TableCell className="text-xs hidden xl:table-cell">
                       {m.sub_container_name

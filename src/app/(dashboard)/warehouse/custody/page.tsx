@@ -22,7 +22,7 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCustodyLocations, type CustodyLocationRow } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
-import { usePermissions, useCanCreateConsumptionFor } from '@/hooks/usePermissions'
+import { usePermissions, useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
 import {
   usePendingCustodyAssigns,
   useDispatchCustodyAssign,
@@ -298,6 +298,7 @@ function CustodyCard({
 
   const { data: profile } = useCurrentUserProfile()
   const { data: perms }   = usePermissions()
+  const canSeeCost        = useHasPermission('custody.cost.view')
   const dispatch          = useDispatchCustodyAssign()
   const [acceptRow, setAcceptRow] = useState<PendingCustodyAssign | null>(null)
 
@@ -361,7 +362,9 @@ function CustodyCard({
             </div>
           </div>
           <div className="text-right shrink-0">
-            <div className="text-sm font-semibold tabular-nums">{QAR.format(totalValue)}</div>
+            {canSeeCost && (
+              <div className="text-sm font-semibold tabular-nums">{QAR.format(totalValue)}</div>
+            )}
             <div className="text-[10px] text-muted-foreground">
               {stockRows.length} item{stockRows.length === 1 ? '' : 's'} · {totalQty} units
             </div>
@@ -472,7 +475,9 @@ function CustodyCard({
                   </div>
                   <div className="flex items-baseline gap-1.5 tabular-nums text-[11px] shrink-0 sm:flex-col sm:items-end sm:gap-0 sm:text-right">
                     <span className="text-foreground">{r.qty} {r.unit}</span>
-                    <span className="text-[10px] text-muted-foreground">{QAR.format(r.total_value ?? 0)}</span>
+                    {canSeeCost && (
+                      <span className="text-[10px] text-muted-foreground">{QAR.format(r.total_value ?? 0)}</span>
+                    )}
                   </div>
                 </div>
               ))}
