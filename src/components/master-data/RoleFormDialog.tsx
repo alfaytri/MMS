@@ -386,10 +386,11 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
             {custodyWhs.length > 0 && (
               <div className="space-y-2">
                 <div className="px-1">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Custody Warehouse Access</span>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Which custody warehouses this role can see (View) and manage — assign / return / consume (Edit).
-                    Requires the Access Custody Page permission above to reach the page.
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Whole-Warehouse Custody Access — Supervisors</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                    For people who oversee a <strong className="font-medium text-foreground">whole custody pool</strong> — a storekeeper, project coordinator, or fleet lead. Ticking a warehouse lets this role see <strong className="font-medium text-foreground">every</strong> team / project / van in it (View), or manage them all — assign, return, consume (Edit).
+                    <br />
+                    Leave it unticked for field staff: someone set as the <strong className="font-medium text-foreground">Responsible Person</strong> on their own location already sees only theirs — they don&apos;t need this. Requires the &ldquo;Access Custody Page&rdquo; permission above.
                   </p>
                 </div>
                 <div className="border rounded-md divide-y divide-border overflow-hidden">
@@ -413,7 +414,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                                 else handleDeselect([viewKey, editKey])
                               }}
                             />
-                            View
+                            View all
                           </label>
                           <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                             <Checkbox
@@ -423,7 +424,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                                 else handleDeselect([editKey])
                               }}
                             />
-                            Edit
+                            Edit all
                           </label>
                         </div>
                       </div>
