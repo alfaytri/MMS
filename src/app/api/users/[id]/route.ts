@@ -46,7 +46,23 @@ export async function PATCH(
 
   const admin = createAdminClient()
 
-  if (changes.email) {
+  // Fetch the profile once — its id drives the updates below, and its current
+  // email lets us skip the (slow) auth-service round-trip when nothing changed.
+  const { data: existingProfile, error: selErr } = await admin
+    .from('user_data')
+    .select('id, email')
+    .eq('auth_user_id', targetAuthUserId)
+    .maybeSingle()
+  if (selErr || !existingProfile) {
+    return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+  }
+  const profileId = existingProfile.id as string
+
+  // Only touch the auth service when the login email ACTUALLY changes. The Edit
+  // User dialog always sends the derived email, and getUserById + updateUserById
+  // are slow remote GoTrue calls — firing them on every save was the "Saving…"
+  // hang. Compare against the stored email first and no-op when unchanged.
+  if (changes.email && changes.email !== existingProfile.email) {
     const { data: existing } = await admin.auth.admin.getUserById(targetAuthUserId)
     const mergedMeta = { ...(existing.user?.user_metadata ?? {}) }
     const { error: emailErr } = await admin.auth.admin.updateUserById(targetAuthUserId, {
@@ -70,33 +86,20 @@ export async function PATCH(
       : null
   }
 
-  let profileId: string | null = null
-  if (Object.keys(profileUpdates).length > 0 || changes.role_ids !== undefined || changes.role_assignments !== undefined) {
-    const { data: existingProfile, error: selErr } = await admin
+  if (Object.keys(profileUpdates).length > 0) {
+    const { error: updErr } = await admin
       .from('user_data')
-      .select('id')
+      .update(profileUpdates as Database['public']['Tables']['user_data']['Update'])
       .eq('auth_user_id', targetAuthUserId)
-      .maybeSingle()
-    if (selErr || !existingProfile) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
-    }
-    profileId = existingProfile.id as string
-
-    if (Object.keys(profileUpdates).length > 0) {
-      const { error: updErr } = await admin
-        .from('user_data')
-        .update(profileUpdates as Database['public']['Tables']['user_data']['Update'])
-        .eq('auth_user_id', targetAuthUserId)
-      if (updErr) {
-        if (/duplicate|unique/i.test(updErr.message) && /threecx|extension/i.test(updErr.message)) {
-          return NextResponse.json({ error: 'That extension is already assigned to another user' }, { status: 409 })
-        }
-        return NextResponse.json({ error: `Profile update failed: ${updErr.message}` }, { status: 500 })
+    if (updErr) {
+      if (/duplicate|unique/i.test(updErr.message) && /threecx|extension/i.test(updErr.message)) {
+        return NextResponse.json({ error: 'That extension is already assigned to another user' }, { status: 409 })
       }
+      return NextResponse.json({ error: `Profile update failed: ${updErr.message}` }, { status: 500 })
     }
   }
 
-  if ((changes.role_assignments !== undefined || changes.role_ids !== undefined) && profileId) {
+  if (changes.role_assignments !== undefined || changes.role_ids !== undefined) {
     const assignments =
       changes.role_assignments ??
       (changes.role_ids ?? []).map((role_id) => ({ role_id, approval_scopes: null }))
