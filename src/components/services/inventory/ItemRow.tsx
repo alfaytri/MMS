@@ -17,6 +17,7 @@ import { useInventoryBrandVariants, useArchiveInventoryItem, type InventoryItem,
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemVariantDivisionStock } from '@/hooks/useItemVariantDivisionStock'
 import { formatCurrency } from '@/lib/utils/formatters'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { groupVariants, type VariantLite } from '@/lib/inventory/groupVariants'
 
 // Runtime shape returned by useInventoryBrandVariants — it embeds
@@ -56,6 +57,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archive = useArchiveInventoryItem()
   const { data: variants = [] } = useInventoryBrandVariants(item.id, showArchived)
+  const canSeePricing = useHasPermission('inventory.pricing.view')
 
   // Division-scoped view: when the top bar has a division selected, override
   // each variant's good-stock / reserved / avg-cost with that division's pool
@@ -105,7 +107,9 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
     const val = effectiveVariants.reduce((s, v) => s + (v.average_cost ?? 0) * (v.stock_level ?? 0), 0)
     return qty > 0 ? val / qty : 0
   }, [divisionScoped, effectiveVariants])
-  const displayAvg = divisionScoped ? scopedItemAvg : (item.cost_price ?? null)
+  // Cost gate — null out the item avg cost entirely when pricing isn't granted,
+  // which hides both the phone meta line and the Avg Cost column cell.
+  const displayAvg = !canSeePricing ? null : (divisionScoped ? scopedItemAvg : (item.cost_price ?? null))
 
   return (
     <>

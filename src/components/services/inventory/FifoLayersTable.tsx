@@ -8,16 +8,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useFifoLayers } from '@/hooks/useInventory'
 import { useReceival } from '@/hooks/useReceivals'
 import { ReceivalDetailDialog } from '@/components/purchase/ReceivalDetailDialog'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 
 // Show the FIFO intake six layers at a time; "See more" reveals the next six.
 const PAGE_SIZE = 6
 
 export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) {
-  const { data: layers = [], isLoading } = useFifoLayers(brandVariantId, true)
+  // Cost gate — the FIFO layer breakdown is entirely cost data. Skip the fetch
+  // and show a note when the user can't see inventory pricing.
+  const canSeePricing = useHasPermission('inventory.pricing.view')
+  const { data: layers = [], isLoading } = useFifoLayers(brandVariantId, canSeePricing)
   const [viewingReceivalId, setViewingReceivalId] = useState<string | null>(null)
   const { data: receivalDetail } = useReceival(viewingReceivalId)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+
+  if (!canSeePricing) {
+    return (
+      <div className="rounded border border-border bg-muted px-3 py-2 text-[11px] text-muted-foreground">
+        You don&apos;t have permission to view cost layers.
+      </div>
+    )
+  }
 
   const visibleLayers = layers.slice(0, visibleCount)
   const shownCount = Math.min(visibleCount, layers.length)

@@ -13,6 +13,7 @@ import { useArchiveInventoryBrandVariant, useVariantWarehouseStock, type BrandVa
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCanCreateInventoryReceivals } from '@/hooks/useInventoryReceivals'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { formatCurrency } from '@/lib/utils/formatters'
 
 type Props = {
@@ -117,6 +118,7 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
   const [invReceivalOpen, setInvReceivalOpen] = useState(false)
   const archive = useArchiveInventoryBrandVariant()
   const { data: canCreateInvRcv = false } = useCanCreateInventoryReceivals()
+  const canSeePricing = useHasPermission('inventory.pricing.view')
 
   const stockLevel = variant.stock_level ?? 0
   const reservedQty = variant.reserved_qty ?? 0
@@ -146,10 +148,10 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
         </TableCell>
         <TableCell className="font-mono text-[11px] hidden sm:table-cell">{variant.code ?? '—'}</TableCell>
         <TableCell className="text-right hidden md:table-cell">
-          {variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—'}
+          {canSeePricing ? (variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—') : '—'}
         </TableCell>
         <TableCell className="text-right hidden md:table-cell">
-          {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}
+          {canSeePricing ? (variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—') : '—'}
         </TableCell>
         <TableCell className="text-right">
           {reservedQty > 0 ? (
