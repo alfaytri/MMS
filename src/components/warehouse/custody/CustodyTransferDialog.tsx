@@ -19,6 +19,7 @@ import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPi
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useCreateCustodyTransfer } from '@/hooks/useCustodyMoves'
 
 interface Props {
@@ -45,6 +46,7 @@ export function CustodyTransferDialog({
   const { data: profile }        = useCurrentUserProfile()
   const transfer                 = useCreateCustodyTransfer()
   const { data: allLocations = [] } = useCustodyLocations()
+  const { isSuperViewer, userDivisionIds } = useUserDivisionScope()
 
   const [destWhId, setDestWhId]         = useState('')
   const [destSubId, setDestSubId]       = useState('')
@@ -54,12 +56,15 @@ export function CustodyTransferDialog({
   const guardRef                        = useRef<GuardedFormDialogHandle>(null)
 
   // Eligible destinations: active custody locations with a responsible person
-  // (needed so someone can accept), excluding this source location.
+  // (needed so someone can accept), excluding this source location, and limited
+  // to the divisions the caller is assigned to (owner / accountant see all).
+  // The server re-checks the same division rule in rpc_create_custody_transfer.
   const destLocations = useMemo(
     () => allLocations.filter(
-      (l) => l.is_active && l.id !== sourceSubId && !!l.responsible_person_profile_id,
+      (l) => l.is_active && l.id !== sourceSubId && !!l.responsible_person_profile_id
+        && (isSuperViewer || (l.division_id != null && userDivisionIds.includes(l.division_id))),
     ),
-    [allLocations, sourceSubId],
+    [allLocations, sourceSubId, isSuperViewer, userDivisionIds],
   )
   // Side-by-side hierarchical pickers: destination warehouse -> location.
   const destWarehouses = useMemo(() => {
