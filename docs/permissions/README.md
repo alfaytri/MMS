@@ -5,8 +5,11 @@ in-page tabs, with the permission **tiers** each node should carry. It exists so
 the operator can decide, per node, **who can see it, who can change it, and who
 can see the money on it**.
 
-**Status:** Draft for operator review — 2026-08-19. Layout first; wiring follows
-(see [Implementation plan](#implementation-plan)).
+**Status:** IMPLEMENTED 2026-08-19 — all five phases wired (see
+[Implementation plan](#implementation-plan)). `tsc`/`eslint` clean; committed in
+logical chunks; **held for operator smoke, not pushed.** Hide-by-default: grant
+the new `*.cost.view` / `inventory.pricing.view` keys to the roles that should
+see money.
 
 ---
 
