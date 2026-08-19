@@ -122,6 +122,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState('')
   const [condition, setCondition] = useState('Good')
+  const [lifecycle, setLifecycle] = useState('new')
   const [expiry, setExpiry] = useState('')
   const [status, setStatus] = useState('available')
   const [assignedTo, setAssignedTo] = useState<string>('')
@@ -144,6 +145,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       setSeededSerial(seeded)
       setBrand(unit?.brand ?? '')
       setCondition(unit?.condition ?? 'Good')
+      setLifecycle(unit?.lifecycle_type ?? 'new')
       setExpiry(unit?.expiry ?? '')
       setStatus(unit?.status ?? 'available')
       setAssignedTo(unit?.assigned_to ?? '')
@@ -161,6 +163,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
     serial !== seededSerial ||
     brand !== (unit?.brand ?? '') ||
     condition !== (unit?.condition ?? 'Good') ||
+    lifecycle !== (unit?.lifecycle_type ?? 'new') ||
     expiry !== (unit?.expiry ?? '') ||
     status !== (unit?.status ?? 'available') ||
     assignedTo !== (unit?.assigned_to ?? '') ||
@@ -175,6 +178,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       serial_number: serial.trim(),
       brand: brand.trim(),
       condition,
+      lifecycle_type: lifecycle,
       expiry: expiry || null,
       status,
       assigned_to: status === 'assigned' ? assignedTo : null,
@@ -213,6 +217,17 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
                 <Select value={condition} onValueChange={(v) => { if (v !== null) setCondition(v) }}>
                   <SelectTrigger id="tool-condition" className="h-10 w-full min-w-0"><SelectValue /></SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tool-lifecycle">Type</Label>
+                <Select value={lifecycle} onValueChange={(v) => { if (v !== null) setLifecycle(v) }}>
+                  <SelectTrigger id="tool-lifecycle" className="h-10 w-full min-w-0"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="used">Used</SelectItem>
+                    <SelectItem value="repaired">Repaired</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">

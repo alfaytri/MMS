@@ -40,7 +40,7 @@ interface ReturnFromRepairDialogProps {
  */
 export function ReturnFromRepairDialog({
   open, onOpenChange, transferId, transferNumber,
-  itemName, sku, qty, unitCost, warehouseName, vendorName, onComplete,
+  itemName, sku, qty, warehouseName, vendorName, onComplete,
 }: ReturnFromRepairDialogProps) {
   const returnMut = useReturnFromRepair()
   const guardRef = useRef<GuardedFormDialogHandle>(null)
@@ -48,7 +48,6 @@ export function ReturnFromRepairDialog({
   const [outcome, setOutcome]         = useState<Outcome | ''>('')
   const [qtyGoodStr, setQtyGoodStr]   = useState('')
   const [qtyWoStr, setQtyWoStr]       = useState('')
-  const [repairCost, setRepairCost]   = useState('')
   const [notes, setNotes]             = useState('')
 
   // Reset on close
@@ -57,7 +56,6 @@ export function ReturnFromRepairDialog({
       setOutcome('')
       setQtyGoodStr('')
       setQtyWoStr('')
-      setRepairCost('')
       setNotes('')
     }
   }, [open])
@@ -78,13 +76,11 @@ export function ReturnFromRepairDialog({
 
   const qtyGoodNum = Number(qtyGoodStr || 0)
   const qtyWoNum   = Number(qtyWoStr   || 0)
-  const repairCostNum = Number(repairCost || 0)
 
   const sumMatches = qtyGoodNum + qtyWoNum === qty
   const validNumbers =
     Number.isFinite(qtyGoodNum) && qtyGoodNum >= 0 &&
-    Number.isFinite(qtyWoNum)   && qtyWoNum   >= 0 &&
-    Number.isFinite(repairCostNum) && repairCostNum >= 0
+    Number.isFinite(qtyWoNum)   && qtyWoNum   >= 0
 
   const canSubmit = !!outcome && sumMatches && validNumbers && !returnMut.isPending
 
@@ -93,7 +89,6 @@ export function ReturnFromRepairDialog({
   // repairCost is sufficient — outcome !== '' implies the operator picked one.
   const isDirty =
     outcome !== '' ||
-    repairCost !== '' ||
     notes.trim().length > 0
 
   const successCopy = useMemo(() => {
@@ -110,7 +105,6 @@ export function ReturnFromRepairDialog({
         outcome,
         qtyGood: qtyGoodNum,
         qtyWriteoff: qtyWoNum,
-        repairCost: repairCostNum,
         notes: notes.trim() || null,
       },
       {
@@ -213,38 +207,6 @@ export function ReturnFromRepairDialog({
               Must sum to {qty}
             </p>
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="rfr-cost">
-              Repair Cost
-              {unitCost != null && unitCost > 0 && (
-                <span className="ml-1 text-[11px] text-muted-foreground font-normal">
-                  (original unit cost {new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(unitCost)})
-                </span>
-              )}
-            </Label>
-            <Input
-              id="rfr-cost"
-              type="number"
-              min={0}
-              step="0.01"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={repairCost}
-              onChange={(e) => setRepairCost(e.target.value)}
-              className="w-full h-10"
-            />
-            {repairCostNum > 0 && qtyGoodNum > 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                Amortized across good units: +{new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(repairCostNum / qtyGoodNum)} per unit
-              </p>
-            )}
-            {repairCostNum > 0 && qtyGoodNum === 0 && (
-              <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                No good units — repair cost will be recorded as sunk expense.
-              </p>
-            )}
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="rfr-notes">Notes</Label>

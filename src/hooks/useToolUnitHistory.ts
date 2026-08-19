@@ -53,3 +53,20 @@ export function useSearchToolUnits(query: string) {
     },
   })
 }
+
+/**
+ * Currently-assigned tool units for the History & Usage default view, scoped to
+ * the top-bar division view (empty set = all divisions). Capped at 200 server-side.
+ */
+export function useAssignedToolUnits(divisionIds?: string[]) {
+  const ids = divisionIds && divisionIds.length ? divisionIds : undefined
+  return useQuery({
+    queryKey: queryKeys.toolAssignments.assigned(ids),
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('list_assigned_tool_units', { p_division_ids: ids })
+      if (error) throw toDbError(error, 'List assigned tools')
+      return (data ?? []) as ToolUnitSearchRow[]
+    },
+  })
+}

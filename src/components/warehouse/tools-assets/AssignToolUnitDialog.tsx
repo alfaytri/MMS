@@ -104,7 +104,7 @@ export function AssignToolUnitDialog({
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
       <DialogContent className="w-full h-full sm:h-[80vh] sm:max-w-2xl rounded-none sm:rounded-lg flex flex-col gap-0 overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="truncate">Assign a tool to {teamName}</DialogTitle>
+          <DialogTitle>Assign a tool to {teamName}</DialogTitle>
           <DialogDescription>
             Pick an available tool. Tools not yet tied to a division will join this team’s division.
           </DialogDescription>

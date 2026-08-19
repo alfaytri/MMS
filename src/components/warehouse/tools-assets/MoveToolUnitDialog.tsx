@@ -42,7 +42,7 @@ export function MoveToolUnitDialog({
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="w-full h-full sm:h-auto sm:max-w-md rounded-none sm:rounded-lg flex flex-col gap-0 overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="truncate">Move {unit.label}</DialogTitle>
+          <DialogTitle>Move {unit.label}</DialogTitle>
           <DialogDescription>
             Move to another team in the same division. The tool’s owning division does not change.
           </DialogDescription>

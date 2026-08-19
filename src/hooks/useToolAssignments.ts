@@ -153,3 +153,21 @@ export function useReturnToolUnit() {
     onSuccess: invalidate,
   })
 }
+
+export type ToolLifecycle = 'new' | 'used' | 'repaired'
+
+/** Manual New/Used/Repaired override from the team tool row (rpc_set_tool_lifecycle_type). */
+export function useSetToolLifecycle() {
+  const invalidate = useInvalidateAssignments()
+  return useMutation<void, Error, { unitId: string; lifecycleType: ToolLifecycle }>({
+    mutationFn: async (v) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('rpc_set_tool_lifecycle_type', {
+        p_unit_id: v.unitId,
+        p_lifecycle_type: v.lifecycleType,
+      })
+      if (error) throw toDbError(error, 'Set tool type')
+    },
+    onSuccess: invalidate,
+  })
+}

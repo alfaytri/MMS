@@ -591,6 +591,8 @@ export const queryKeys = {
       ['tool-assignments', 'assignable', divisionId ?? null, search ?? ''] as const,
     timeline: (unitId: Nullable) => ['tool-assignments', 'timeline', unitId ?? null] as const,
     search: (q: string) => ['tool-assignments', 'search', q] as const,
+    assigned: (divisionIds?: readonly string[] | null) =>
+      ['tool-assignments', 'assigned', divisionIds && divisionIds.length ? [...divisionIds].sort() : null] as const,
   },
 
   /* ── Tool inspections + repair/scrap (Phase 2) ─────────── */
@@ -599,6 +601,7 @@ export const queryKeys = {
     repairBucket: (divisionIds?: readonly string[] | null) =>
       ['tool-inspections', 'repair-bucket', divisionIds && divisionIds.length ? [...divisionIds].sort() : null] as const,
     teamUnitsV2: (teamId: Nullable) => ['tool-inspections', 'team-units-v2', teamId ?? null] as const,
+    outForRepair: ['tool-inspections', 'out-for-repair'] as const,
   },
 
   /* ── Tool monthly check sessions (Phase 2 rework) ──────── */

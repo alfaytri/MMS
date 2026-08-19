@@ -1,16 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { toDbError } from './useToolAssignments'
 
 /**
- * Tool condition checks + repair bucket (Operations → Tools & Assets, Phase 2).
- * record-inspection applies the §6 lifecycle mapping server-side; reads back the
- * repair bucket (status='maintenance') and a team's units with last-checked/due.
- * All go through the SECURITY DEFINER RPCs in migration 20260922000100.
+ * Tool reads shared by the team view + repair bucket (Operations → Tools & Assets).
+ * get_repair_bucket = awaiting-vendor units (maintenance, no open repair transfer);
+ * get_team_tool_units_v2 = a team's units with last-checked/due + lifecycle_type.
+ * Condition checks now flow through the monthly check page (useToolChecks);
+ * repair actions through useToolRepair.
  */
-
-export type InspectionVerdict = 'good' | 'bad' | 'under_repair'
 
 export type RepairUnit = {
   unit_id: string
@@ -23,6 +22,7 @@ export type RepairUnit = {
   current_team_id: string | null
   current_team_name: string | null
   last_inspected_at: string | null
+  lifecycle_type: string
 }
 
 export type TeamToolUnitV2 = {
@@ -35,15 +35,7 @@ export type TeamToolUnitV2 = {
   assigned_at: string | null
   last_inspected_at: string | null
   inspection_due: boolean
-}
-
-function useInvalidateTools() {
-  const qc = useQueryClient()
-  return () => {
-    // Inspections + scrap change a team's units/counts AND the repair bucket.
-    qc.invalidateQueries({ queryKey: queryKeys.toolAssignments.all })
-    qc.invalidateQueries({ queryKey: queryKeys.toolInspections.all })
-  }
+  lifecycle_type: string
 }
 
 export function useRepairBucket(divisionIds?: string[]) {
@@ -72,22 +64,5 @@ export function useTeamToolUnitsV2(teamId: string | null) {
       if (error) throw toDbError(error, 'Load team tool units')
       return (data ?? []) as TeamToolUnitV2[]
     },
-  })
-}
-
-export function useRecordInspection() {
-  const invalidate = useInvalidateTools()
-  return useMutation<string, Error, { unitId: string; verdict: InspectionVerdict; notes?: string }>({
-    mutationFn: async (v) => {
-      const supabase = createClient()
-      const { data, error } = await supabase.rpc('rpc_record_tool_inspection', {
-        p_unit_id: v.unitId,
-        p_verdict: v.verdict,
-        ...(v.notes ? { p_notes: v.notes } : {}),
-      })
-      if (error) throw toDbError(error, 'Record inspection')
-      return data as string
-    },
-    onSuccess: invalidate,
   })
 }

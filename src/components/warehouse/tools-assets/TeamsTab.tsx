@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, UserRound, Users2, Wrench } from 'lucide-react'
+import { ChevronDown, ChevronRight, ClipboardCheck, UserRound, Users2, Wrench } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useTeamsWithToolCounts, type TeamToolCount } from '@/hooks/useToolAssignments'
 import { TeamToolsDetail } from './TeamToolsDetail'
@@ -11,7 +12,7 @@ import { TeamToolsDetail } from './TeamToolsDetail'
 // Natural/numeric collation so "Team 2" sorts before "Team 10".
 const COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-export function TeamsTab() {
+export function TeamsTab({ onStartCheck }: { onStartCheck?: (divisionId: string) => void }) {
   // Top-bar division view filter — empty set = "All divisions".
   const { viewDivisionIds } = useActiveDivision()
   const divisionIds = useMemo(() => Array.from(viewDivisionIds), [viewDivisionIds])
@@ -78,21 +79,34 @@ export function TeamsTab() {
     <div className="space-y-6">
       {grouped.map(([divisionName, group]) => {
         const open = !collapsed.has(divisionName)
+        const divisionId = group[0]?.division_id ?? null
         return (
           <div key={divisionName} className="space-y-2">
-            <button
-              type="button"
-              onClick={() => toggle(divisionName)}
-              className="w-full flex items-center gap-1.5 min-h-11 sm:min-h-0 sm:py-1 text-left"
-            >
-              {open
-                ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide truncate">{divisionName}</h3>
-              <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-                {group.length} team{group.length === 1 ? '' : 's'}
-              </span>
-            </button>
+            <div className="flex items-center gap-2 min-h-11 sm:min-h-0 sm:py-1">
+              <button
+                type="button"
+                onClick={() => toggle(divisionName)}
+                className="flex flex-1 min-w-0 items-center gap-1.5 text-left"
+              >
+                {open
+                  ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                <h3 className="min-w-0 text-sm font-semibold text-muted-foreground uppercase tracking-wide break-words">{divisionName}</h3>
+                <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                  {group.length} team{group.length === 1 ? '' : 's'}
+                </span>
+              </button>
+              {onStartCheck && divisionId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-11 sm:h-8 gap-1.5 shrink-0"
+                  onClick={() => onStartCheck(divisionId)}
+                >
+                  <ClipboardCheck className="h-3.5 w-3.5" /> Monthly check
+                </Button>
+              )}
+            </div>
 
             {open && (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
