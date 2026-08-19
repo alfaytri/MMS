@@ -11,11 +11,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useFinancialDashboard, type MonthlyTrend } from '@/hooks/useFinancialDashboard'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import {
   ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowRight,
-  TrendingUp, TrendingDown, Wallet, CircleDollarSign, Clock,
+  TrendingUp, TrendingDown, Wallet, CircleDollarSign, Clock, Lock,
 } from 'lucide-react'
 
 // ─── Utils ────────────────────────────────────────────────────────────────
@@ -186,7 +187,20 @@ function LoadingSkeleton() {
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function FinancialDashboardPage() {
+  const canView = useHasPermission(['reports.view', 'reports.dashboard.view'])
   const { data, isLoading } = useFinancialDashboard()
+
+  if (!canView) {
+    return (
+      <PageWrapper>
+        <PageHeader title="Financial Dashboard" description="Receivables, payables and cash movement" />
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <Lock className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">You don&apos;t have permission to view this report.</p>
+        </div>
+      </PageWrapper>
+    )
+  }
 
   if (isLoading || !data) {
     return (

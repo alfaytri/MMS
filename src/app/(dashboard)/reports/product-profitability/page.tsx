@@ -16,8 +16,9 @@ import { ProductProfitabilityChart } from '@/components/reports/ProductProfitabi
 import { ProductProfitabilityTable } from '@/components/reports/ProductProfitabilityTable'
 import { useProductProfitability, useProfitabilityDrilldown } from '@/hooks/useProductProfitability'
 import { ProfitabilityDrilldownDialog, type DrilldownMode } from '@/components/reports/ProfitabilityDrilldownDialog'
+import { useHasPermission } from '@/hooks/usePermissions'
 import {
-  TrendingUp, TrendingDown, DollarSign, ShoppingCart, Wallet, Percent,
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, Wallet, Percent, Lock,
 } from 'lucide-react'
 
 function pctDelta(curr: number, prev: number): number | null {
@@ -90,10 +91,23 @@ function LoadingSkeleton() {
 }
 
 export default function ProductProfitabilityPage() {
+  const canView = useHasPermission(['reports.view', 'reports.product_profitability.view'])
   const [range, setRange] = useState<DateRange>(() => presetRange('this-month'))
   const { data, isLoading, error } = useProductProfitability(range.start, range.end)
   const [drilldownMode, setDrilldownMode] = useState<DrilldownMode | null>(null)
   const drilldown = useProfitabilityDrilldown(range.start, range.end, drilldownMode !== null)
+
+  if (!canView) {
+    return (
+      <PageWrapper>
+        <PageHeader title="Product Profitability" description="Revenue, COGS and gross profit per product, based on delivered sales" />
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <Lock className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">You don&apos;t have permission to view this report.</p>
+        </div>
+      </PageWrapper>
+    )
+  }
 
   return (
     <PageWrapper>
