@@ -204,6 +204,21 @@ Field rules:
 - **Migrations:** `20260820000100`–`20260820000400` (kind + Places→Projects rename, consumer_type + column merge, custody RPC rewrites, permission-grant remap).
 - **Notes:** Repair uses the SAME warehouse+sub-container backbone (vendors = sub-containers of the one shared Repair warehouse), so no repair mechanics changed. Retired: `useTeamSubContainers`, `usePlaceSubContainers`, `TeamPlaceFormDialog`, `get_teams/places_master_list`, `rpc_upsert_team_or_place`, `/master-data/admin/{teams,places}`.
 
+### Custody → Custody Transfer (hand-out · 2026-08-19)
+
+- **Module:** Warehouse (Custody)
+- **Status:** Active — staging 2026-08-19 (pending operator smoke → new-prod).
+- **Trigger surface(s):** Custody page (`/warehouse/custody`) → a location card's **Transfer** action — shown only where the card's custody warehouse is flagged `can_transfer_custody`, the caller is the location RP (or holds `custody.<wh>.edit/manage`), and the card has stock. The source flag is toggled on the warehouse in Master Data → Warehouses ("Can hand out stock to other custody locations", custody type only).
+- **Primary hook(s):** `useCreateCustodyTransfer` ([useCustodyMoves.ts](src/hooks/useCustodyMoves.ts)); the accept side reuses `useAcceptCustodyAssign` + [`AcceptCustodyDialog`](src/components/warehouse/custody/AcceptCustodyDialog.tsx); the pending banner reuses `usePendingCustodyAssigns` (now also carries `from_warehouse_kind`).
+- **RPC(s):** `rpc_create_custody_transfer(p_source_sub_container_id, p_dest_sub_container_id, p_items, p_notes, p_created_by_profile_id, p_created_by_name)` — SECURITY DEFINER, `revoke … from public` + `grant execute … to authenticated, service_role`. Accept reuses `rpc_accept_custody_assign` **unchanged** (it is source-agnostic — restocks `to_sub`, reconciles shortfall against `from_sub`).
+- **Ledger writes:** creates a `warehouse_transfers` row (`transfer_kind='custody_assign'`, `status='in_transit'`, dispatch stamps set) + items; deducts source FIFO now and books `transfer_out` movements (identical to `rpc_dispatch_custody_assign`). On accept: dest FIFO layer + `transfer_in`; shortfall → `transfer_shrinkage` (writeoff) or a re-created source layer (restock).
+- **Data model:** `warehouses.can_transfer_custody boolean not null default false` — per-custody-warehouse capability. A custody→custody move stays distinguishable from a warehouse→team assign because BOTH `from_sub_container_id` and `to_sub_container_id` sit under custody warehouses.
+- **Guards / preconditions:** source = active custody sub whose warehouse has `can_transfer_custody=true`; dest = a DIFFERENT active custody sub WITH a responsible person; caller = source-sub RP or `_has_custody_admin_role`. Table CHECK `check_different_location` allows same-warehouse moves (Team 1 → Team 2) as long as the sub differs.
+- **Dialog / component:** [`CustodyTransferDialog`](src/components/warehouse/custody/CustodyTransferDialog.tsx) — source fixed to the card; side-by-side destination warehouse→location selects; item picker from source-sub stock. The destination card surfaces it in the pending banner as In transit → **Accept**.
+- **Related flows:** [[Custody & Consumption (unified custody warehouse model · 2026-08-12)]] (assign/return siblings + the reused accept path), [[Create Warehouse Transfer]] (the generic engine — deliberately NOT used here so the move stays on the Custody card).
+- **Migrations:** `20260925000000_warehouse_can_transfer_custody.sql`, `20260925000100_rpc_create_custody_transfer.sql`.
+- **Notes:** 2-step by design (send → accept). The source RP is also the dispatcher, so there is no separate dispatch stage — the transfer is created directly at `in_transit`. Teams warehouses stay `can_transfer_custody=false`, so teams can RECEIVE but never initiate a hand-out.
+
 ### Warehouse Sub-Container Auto-Provision (planned)
 
 - **Module:** Warehouse / Inventory

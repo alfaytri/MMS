@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
-  ChevronDown, ChevronRight, HandCoins, Inbox, Package, PackageCheck,
+  ArrowRightLeft, ChevronDown, ChevronRight, HandCoins, Inbox, Package, PackageCheck,
   Send, Truck, Undo2, UserRound, Users2, Wrench,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CustodyAssignDialog } from '@/components/warehouse/custody/CustodyAssignDialog'
 import { CustodyReturnDialog } from '@/components/warehouse/custody/CustodyReturnDialog'
+import { CustodyTransferDialog } from '@/components/warehouse/custody/CustodyTransferDialog'
 import { AcceptCustodyDialog } from '@/components/warehouse/custody/AcceptCustodyDialog'
 import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
@@ -126,6 +127,7 @@ export default function CustodyPage() {
                 warehouseId={w.id}
                 warehouseName={w.name}
                 canEdit={canEdit(w.id)}
+                canTransferCustody={w.can_transfer_custody}
                 realWarehouses={realWarehouses}
                 restrictToOwn={!hasFullView(w.id)}
                 ownProfileId={profile?.id ?? null}
@@ -141,14 +143,15 @@ export default function CustodyPage() {
 // ─── Shared tab body ────────────────────────────────────────────────────
 
 function CustodyTab({
-  warehouseId, warehouseName, canEdit, realWarehouses, restrictToOwn, ownProfileId,
+  warehouseId, warehouseName, canEdit, canTransferCustody, realWarehouses, restrictToOwn, ownProfileId,
 }: {
-  warehouseId:    string
-  warehouseName:  string
-  canEdit:        boolean
-  realWarehouses: Warehouse[]
-  restrictToOwn:  boolean
-  ownProfileId:   string | null
+  warehouseId:        string
+  warehouseName:      string
+  canEdit:            boolean
+  canTransferCustody: boolean
+  realWarehouses:     Warehouse[]
+  restrictToOwn:      boolean
+  ownProfileId:       string | null
 }) {
   const locations = useCustodyLocations(warehouseId)
   // Top-bar division view filter — empty set = "All divisions".
@@ -263,6 +266,7 @@ function CustodyTab({
                 warehouseId={warehouseId}
                 warehouseName={warehouseName}
                 canEdit={canEdit}
+                canTransferCustody={canTransferCustody}
                 realWarehouses={realWarehouses}
                 stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
                 pending={pendingBySub.get(sub.id) ?? []}
@@ -279,13 +283,14 @@ function CustodyTab({
 // ─── Card ───────────────────────────────────────────────────────────────
 
 function CustodyCard({
-  sub, warehouseId, warehouseName, canEdit, realWarehouses, stockRows, pending, toolUnits,
+  sub, warehouseId, warehouseName, canEdit, canTransferCustody, realWarehouses, stockRows, pending, toolUnits,
 }: {
-  sub:            CustodyLocationRow
-  warehouseId:    string
-  warehouseName:  string
-  canEdit:        boolean
-  realWarehouses: Warehouse[]
+  sub:                CustodyLocationRow
+  warehouseId:        string
+  warehouseName:      string
+  canEdit:            boolean
+  canTransferCustody: boolean
+  realWarehouses:     Warehouse[]
   stockRows:      Array<{ brand_variant_id: string; item_name: string; brand: string | null; sku: string | null; qty: number; total_value: number; unit: string }>
   pending:        PendingCustodyAssign[]
   toolUnits:      ToolUnitSearchRow[]
@@ -294,6 +299,7 @@ function CustodyCard({
   const [toolsExpanded, setToolsExpanded] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [returnOpen, setReturnOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
   const [consumeOpen, setConsumeOpen] = useState(false)
 
   const { data: profile } = useCurrentUserProfile()
@@ -318,6 +324,10 @@ function CustodyCard({
   const canRequest = canEdit || isResponsible
   const canReturn  = canEdit || isResponsible
   const canConsume = canCreateConsumption || isResponsible
+  // Custody -> custody hand-out. Only where this custody warehouse is a permitted
+  // source (per-warehouse can_transfer_custody flag) AND the caller can act on
+  // this card. The server re-checks both in rpc_create_custody_transfer.
+  const canTransfer = canTransferCustody && (canEdit || isResponsible)
 
   // For each pending row, resolve whether the current user can DISPATCH it
   // (server-side gate: field RP of source WH OR privileged). We use the
@@ -404,6 +414,11 @@ function CustodyCard({
             const isInTransit  = p.status === 'in_transit'   // needs accept
             const dispatchOk   = isRequest   && canDispatch(p.from_warehouse_id)
             const acceptOk     = isInTransit && canAccept
+            // Custody -> custody transfers come from another custody LOCATION, so
+            // name that location; warehouse -> custody assigns name the warehouse.
+            const sourceLabel  = p.from_warehouse_kind === 'custody' && p.from_sub_container_name
+              ? p.from_sub_container_name
+              : (p.from_warehouse_name ?? 'warehouse')
             return (
               <div key={p.transfer_id} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2 text-[11px]">
                 <div className="min-w-0">
@@ -417,7 +432,7 @@ function CustodyCard({
                     </Badge>
                   </div>
                   <div className="text-[10px] text-muted-foreground break-words">
-                    From {p.from_warehouse_name ?? 'warehouse'} · {p.item_count} item{p.item_count === 1 ? '' : 's'} · {p.total_qty} units
+                    From {sourceLabel} · {p.item_count} item{p.item_count === 1 ? '' : 's'} · {p.total_qty} units
                   </div>
                 </div>
                 {dispatchOk ? (
@@ -525,19 +540,31 @@ function CustodyCard({
         </>
       )}
 
-      {/* Actions — hidden entirely when the caller can't do any of them */}
-      {(canRequest || canReturn || canConsume) && (
-        <div className="mt-auto flex items-center gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
+      {/* Actions — hidden entirely when the caller can't do any of them. Wraps to
+          2-per-row on phones (up to four actions) and sits in one row on sm+. */}
+      {(canRequest || canTransfer || canReturn || canConsume) && (
+        <div className="mt-auto flex flex-wrap items-center gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
           {canRequest && (
-            <Button size="sm" variant="ghost" className="h-11 sm:h-7 flex-1 min-w-0 justify-center text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
+            <Button size="sm" variant="ghost" className="h-11 sm:h-7 flex-1 basis-[calc(50%-0.25rem)] sm:basis-0 min-w-0 justify-center text-[11px] gap-1" onClick={() => setAssignOpen(true)}>
               <Send className="h-3 w-3 shrink-0" /> Request
+            </Button>
+          )}
+          {canTransfer && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-11 sm:h-7 flex-1 basis-[calc(50%-0.25rem)] sm:basis-0 min-w-0 justify-center text-[11px] gap-1"
+              onClick={() => setTransferOpen(true)}
+              disabled={stockRows.length === 0}
+            >
+              <ArrowRightLeft className="h-3 w-3 shrink-0" /> Transfer
             </Button>
           )}
           {canReturn && (
             <Button
               size="sm"
               variant="ghost"
-              className="h-11 sm:h-7 flex-1 min-w-0 justify-center text-[11px] gap-1"
+              className="h-11 sm:h-7 flex-1 basis-[calc(50%-0.25rem)] sm:basis-0 min-w-0 justify-center text-[11px] gap-1"
               onClick={() => setReturnOpen(true)}
               disabled={stockRows.length === 0}
             >
@@ -548,7 +575,7 @@ function CustodyCard({
             <Button
               size="sm"
               variant="ghost"
-              className="h-11 sm:h-7 flex-1 min-w-0 justify-center text-[11px] gap-1"
+              className="h-11 sm:h-7 flex-1 basis-[calc(50%-0.25rem)] sm:basis-0 min-w-0 justify-center text-[11px] gap-1"
               onClick={() => setConsumeOpen(true)}
               disabled={stockRows.length === 0}
             >
@@ -574,6 +601,16 @@ function CustodyCard({
         sourceWhId={warehouseId}
         sourceKindLabel={warehouseName}
       />
+      {canTransfer && (
+        <CustodyTransferDialog
+          open={transferOpen}
+          onOpenChange={setTransferOpen}
+          sourceSubId={sub.id}
+          sourceSubName={sub.name}
+          sourceWhId={warehouseId}
+          sourceKindLabel={warehouseName}
+        />
+      )}
       <NewConsumptionDialog
         open={consumeOpen}
         onOpenChange={setConsumeOpen}

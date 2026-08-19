@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
@@ -57,6 +58,7 @@ const warehouseSchema = z
     warehouse_kind: z.enum(['general', 'custody', 'repair']),
     location: z.string().optional(),
     company_id: z.string().optional(),
+    can_transfer_custody: z.boolean().optional(),
   })
   .refine((v) => v.warehouse_kind !== 'general' || !!v.company_id, {
     message: 'Company is required',
@@ -87,7 +89,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseSchema),
-    defaultValues: { name: '', warehouse_kind: 'general', location: '', company_id: '' },
+    defaultValues: { name: '', warehouse_kind: 'general', location: '', company_id: '', can_transfer_custody: false },
   })
   const kind = form.watch('warehouse_kind')
   const isVirtual = kind !== 'general'
@@ -100,6 +102,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         warehouse_kind: (warehouse.warehouse_kind as 'general' | 'custody' | 'repair') ?? 'general',
         location: warehouse.location ?? '',
         company_id: warehouse.company_id ?? '',
+        can_transfer_custody: warehouse.can_transfer_custody ?? false,
       })
     } else {
       const defaultCompany = companies.length === 1 ? companies[0].id : ''
@@ -108,6 +111,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         warehouse_kind: 'general',
         location: '',
         company_id: defaultCompany,
+        can_transfer_custody: false,
       })
     }
     setSelectedRPIds([])
@@ -138,6 +142,8 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       const virtual = values.warehouse_kind !== 'general'
       const companyId = virtual ? null : (values.company_id || null)
       const location  = virtual ? null : (values.location || null)
+      // Only meaningful on custody warehouses; forced false everywhere else.
+      const canTransferCustody = values.warehouse_kind === 'custody' ? !!values.can_transfer_custody : false
       let whId: string
       if (isEditing && warehouse) {
         // warehouse_kind is fixed at creation — an edit must never reclassify a
@@ -147,6 +153,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           name: values.name,
           location,
           company_id: companyId,
+          can_transfer_custody: canTransferCustody,
         })
         whId = warehouse.id
       } else {
@@ -156,6 +163,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           is_virtual: virtual,
           location,
           company_id: companyId,
+          can_transfer_custody: canTransferCustody,
         })
         whId = created.id
       }
@@ -224,6 +232,29 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                   </FormItem>
                 )}
               />
+              {kind === 'custody' && (
+                <FormField
+                  control={form.control}
+                  name="can_transfer_custody"
+                  render={({ field }) => (
+                    <FormItem className="rounded-md border p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm">Can hand out stock to other custody locations</FormLabel>
+                          <p className="text-[10px] text-muted-foreground">
+                            When on, every location in this warehouse gets a Transfer button on the Custody
+                            page to send stock to another custody location. Leave off for team warehouses
+                            that should only receive.
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              )}
               {!isVirtual ? (
               <>
               <FormField

@@ -7495,6 +7495,7 @@ export type Database = {
       }
       warehouses: {
         Row: {
+          can_transfer_custody: boolean
           company_id: string | null
           created_at: string | null
           id: string
@@ -7509,6 +7510,7 @@ export type Database = {
           warehouse_kind: string
         }
         Insert: {
+          can_transfer_custody?: boolean
           company_id?: string | null
           created_at?: string | null
           id?: string
@@ -7523,6 +7525,7 @@ export type Database = {
           warehouse_kind?: string
         }
         Update: {
+          can_transfer_custody?: boolean
           company_id?: string | null
           created_at?: string | null
           id?: string

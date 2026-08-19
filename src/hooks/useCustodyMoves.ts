@@ -29,6 +29,7 @@ export type PendingCustodyAssign = {
   status:                 CustodyAssignStage
   from_warehouse_id:      string
   from_warehouse_name:    string | null
+  from_warehouse_kind:    string | null
   from_sub_container_id:  string | null
   from_sub_container_name: string | null
   to_sub_container_id:    string
@@ -56,7 +57,7 @@ export function usePendingCustodyAssigns() {
           id, transfer_number, status,
           from_warehouse_id, to_sub_container_id, from_sub_container_id,
           dispatched_at, created_by_name,
-          from_warehouse:from_warehouse_id(name),
+          from_warehouse:from_warehouse_id(name, warehouse_kind),
           from_sub:from_sub_container_id(name),
           warehouse_transfer_items(id, requested_qty)
         `)
@@ -69,7 +70,7 @@ export function usePendingCustodyAssigns() {
 
       return (data ?? []).map((row) => {
         const items = (row as unknown as { warehouse_transfer_items: Array<{ requested_qty: number | null }> }).warehouse_transfer_items ?? []
-        const fromWh = (row as unknown as { from_warehouse: { name: string | null } | null }).from_warehouse
+        const fromWh = (row as unknown as { from_warehouse: { name: string | null; warehouse_kind: string | null } | null }).from_warehouse
         const fromSub = (row as unknown as { from_sub: { name: string | null } | null }).from_sub
         return {
           transfer_id:             row.id as string,
@@ -77,6 +78,7 @@ export function usePendingCustodyAssigns() {
           status:                  (row.status as CustodyAssignStage),
           from_warehouse_id:       row.from_warehouse_id as string,
           from_warehouse_name:     fromWh?.name ?? null,
+          from_warehouse_kind:     fromWh?.warehouse_kind ?? null,
           from_sub_container_id:   row.from_sub_container_id as string | null,
           from_sub_container_name: fromSub?.name ?? null,
           to_sub_container_id:     row.to_sub_container_id as string,
@@ -217,6 +219,50 @@ export function useCreateCustodyReturn() {
       return data as unknown as string
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
+      qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+    },
+  })
+}
+
+// ─── 5b. Mutation — custody sub → custody sub transfer (hand-out) ─────
+// A "push": the source location's RP initiates, stock leaves the source
+// immediately (FIFO deducted, transfer_out booked) and the transfer lands at
+// status='in_transit'. The destination location's RP accepts it with the
+// SAME rpc_accept_custody_assign path (useAcceptCustodyAssign). Only offered
+// where the source's custody warehouse is flagged can_transfer_custody.
+export function useCreateCustodyTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      source_sub_container_id: string
+      dest_sub_container_id:   string
+      items:                   CustodyLine[]
+      notes?:                  string | null
+      created_by_profile_id?:  string | null
+      created_by_name?:        string | null
+    }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_create_custody_transfer' as never, {
+        p_source_sub_container_id: payload.source_sub_container_id,
+        p_dest_sub_container_id:   payload.dest_sub_container_id,
+        p_items:                   payload.items,
+        p_notes:                   payload.notes ?? undefined,
+        p_created_by_profile_id:   payload.created_by_profile_id ?? undefined,
+        p_created_by_name:         payload.created_by_name ?? undefined,
+      } as never)
+      if (error) {
+        throw new Error(
+          [error.code, error.message, error.details, error.hint].filter(Boolean).join(' — ')
+            || 'Failed to create the custody transfer',
+        )
+      }
+      return data as unknown as string
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.custody.pendingAll })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
