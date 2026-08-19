@@ -93,8 +93,29 @@ export function DivisionSwitcherChip({ className }: { className?: string }) {
   const groups = useGroupedDivisions()
   const [open, setOpen] = useState(false)
 
-  // A regular user with a single accessible division has nothing to switch.
-  if (!isSuperViewer && availableDivisions.length <= 1) return null
+  // No accessible divisions at all (e.g. a field RP with none assigned) — nothing to show.
+  if (!isSuperViewer && availableDivisions.length === 0) return null
+
+  // A regular user with exactly one division has nothing to switch, but should
+  // still SEE which division they're operating in — render a read-only chip
+  // (no popover, not clickable) with the division name instead of hiding it.
+  if (!isSuperViewer && availableDivisions.length === 1) {
+    const only = availableDivisions[0]!
+    return (
+      <div
+        className={cn(
+          'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border bg-background',
+          'text-xs font-medium max-w-[200px] text-muted-foreground',
+          className,
+        )}
+        title={only.name}
+        aria-label={`Division: ${only.name}`}
+      >
+        <Building2 className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{only.name}</span>
+      </div>
+    )
+  }
 
   const count = viewDivisionIds.size
   const label =
