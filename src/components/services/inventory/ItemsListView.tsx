@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { Plus, Upload, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,12 +10,19 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
-import { InventoryImportDialog } from './InventoryImportDialog'
 import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { filterTree } from '@/lib/inventory/filterTree'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemDivisionsByStock } from '@/hooks/useItemDivisionsByStock'
+
+// Lazy-loaded: the importer pulls in xlsx + exceljs (~1.4MB). next/dynamic keeps
+// those out of the Inventory route's initial bundle — they load in a separate
+// chunk instead of blocking first paint / hydration.
+const InventoryImportDialog = dynamic(
+  () => import('./InventoryImportDialog').then((m) => m.InventoryImportDialog),
+  { ssr: false },
+)
 
 type InventorySubType = 'products' | 'spare-parts' | 'consumables'
 

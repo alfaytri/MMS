@@ -1,4 +1,7 @@
-import * as XLSX from 'xlsx'
+// Type-only import — erased at build, so `xlsx` (~450KB) never lands in the
+// bundle of a module that imports this file. The runtime library is loaded with
+// a dynamic import() inside the export functions, only when someone exports.
+import type * as XLSX from 'xlsx'
 
 export type ExcelColumn<T> = {
   header: string
@@ -15,7 +18,7 @@ const NUM_FMT: Record<NonNullable<ExcelColumn<unknown>['format']>, string> = {
   text:     '@',
 }
 
-function buildWorksheet<T>(columns: ExcelColumn<T>[], rows: T[]): XLSX.WorkSheet {
+function buildWorksheet<T>(XLSXrt: typeof import('xlsx'), columns: ExcelColumn<T>[], rows: T[]): XLSX.WorkSheet {
   const aoa: (string | number | null)[][] = [
     columns.map((c) => c.header),
     ...rows.map((r) =>
@@ -26,11 +29,11 @@ function buildWorksheet<T>(columns: ExcelColumn<T>[], rows: T[]): XLSX.WorkSheet
       }),
     ),
   ]
-  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  const ws = XLSXrt.utils.aoa_to_sheet(aoa)
   columns.forEach((col, colIdx) => {
     if (!col.format) return
     for (let r = 1; r <= rows.length; r++) {
-      const cellRef = XLSX.utils.encode_cell({ r, c: colIdx })
+      const cellRef = XLSXrt.utils.encode_cell({ r, c: colIdx })
       const cell = ws[cellRef]
       if (cell) cell.z = NUM_FMT[col.format!]
     }
@@ -60,17 +63,20 @@ function stampName(filename: string): string {
 
 /**
  * Client-side export of an array of rows to a single-sheet .xlsx file.
- * Triggers a browser download; no server round-trip.
+ * Triggers a browser download; no server round-trip. `xlsx` is dynamically
+ * imported so its ~450KB footprint loads only when someone actually exports —
+ * hence this is async; callers should await it.
  */
-export function exportToExcel<T>(opts: {
+export async function exportToExcel<T>(opts: {
   filename: string
   sheetName: string
   columns: ExcelColumn<T>[]
   rows: T[]
-}) {
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, buildWorksheet(opts.columns, opts.rows), safeSheetName(opts.sheetName, new Set()))
-  XLSX.writeFile(wb, stampName(opts.filename))
+}): Promise<void> {
+  const XLSXrt = await import('xlsx')
+  const wb = XLSXrt.utils.book_new()
+  XLSXrt.utils.book_append_sheet(wb, buildWorksheet(XLSXrt, opts.columns, opts.rows), safeSheetName(opts.sheetName, new Set()))
+  XLSXrt.writeFile(wb, stampName(opts.filename))
 }
 
 // ─── Styled workbook (ExcelJS) ────────────────────────────────────────────────

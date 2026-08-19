@@ -24,7 +24,6 @@ const nextConfig: NextConfig = {
       '@tanstack/react-query',
       '@tanstack/react-table',
       'date-fns',
-      'recharts',
     ],
   },
 

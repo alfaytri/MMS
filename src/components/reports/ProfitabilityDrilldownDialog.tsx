@@ -155,7 +155,7 @@ export function ProfitabilityDrilldownDialog({
     })
   }
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const flat: FlatRow[] = sorted.flatMap((so) =>
       so.lines.map((l) => ({
         so_number: so.so_number, customer_name: so.customer_name, order_date: so.order_date,
@@ -180,7 +180,7 @@ export function ProfitabilityDrilldownDialog({
           { header: 'COGS',    accessor: (r: FlatRow) => r.cogs,    format: 'currency' as const },
           { header: 'Profit',  accessor: (r: FlatRow) => r.profit,  format: 'currency' as const },
         ]
-    exportToExcel<FlatRow>({
+    await exportToExcel<FlatRow>({
       filename: `${mode}-breakdown-${rangeLabel}`,
       sheetName: cfg.title,
       columns: [...baseCols, ...metricCols],

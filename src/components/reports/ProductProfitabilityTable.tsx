@@ -78,8 +78,8 @@ export function ProductProfitabilityTable({ rows, rangeLabel }: Props) {
     }
   }
 
-  const handleExport = () => {
-    exportToExcel<ProductProfitabilityRow>({
+  const handleExport = async () => {
+    await exportToExcel<ProductProfitabilityRow>({
       filename: `product-profitability-${rangeLabel.replace(/\s+/g, '_')}`,
       sheetName: 'Profitability',
       columns: [
