@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
 import { ConsumptionDetailDialog } from '@/components/consumption/ConsumptionDetailDialog'
 import {
@@ -59,23 +58,37 @@ function ConsumerIcon({ type }: { type: ConsumerType }) {
   return <Package className="h-3 w-3 text-muted-foreground" />
 }
 
+// Service vs Team-item entry — replaces the old page-level tabs so the split is
+// still visible per row now that both kinds share one list.
+function TypeBadge({ isTeam }: { isTeam: boolean }) {
+  return isTeam ? (
+    <Badge className="text-[10px] h-4 px-1.5 border-0 bg-primary/10 text-primary hover:bg-primary/10 gap-1">
+      <Users2 className="h-2.5 w-2.5" /> Team
+    </Badge>
+  ) : (
+    <Badge variant="outline" className="text-[10px] h-4 px-1.5 gap-1 text-muted-foreground">
+      <Package className="h-2.5 w-2.5" /> Service
+    </Badge>
+  )
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────
 
 export default function ConsumptionPage() {
-  // Primary split: Service items vs Team-held items (is_team_item). Orthogonal to
-  // the consumer-type filter (custody / internal), which stays a secondary filter.
-  const [tab, setTab] = useState<'service' | 'team'>('service')
   const [status,       setStatus]       = useState<ConsumptionStatus | 'all'>('all')
   const [consumerType, setConsumerType] = useState<ConsumerType      | 'all'>('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate,   setToDate]   = useState('')
 
+  // Service + Team-item entries are listed together — the page-level tabs were
+  // removed now that the Service/Team switch lives inside the New Consumption
+  // dialog. `teamItems` omitted → the query returns both; each row carries a
+  // Type badge so the two stay distinguishable.
   const { data: rows = [], isLoading } = useConsumptionList({
     status,
     consumerType,
     fromDate: fromDate || null,
     toDate:   toDate   || null,
-    teamItems: tab === 'team',
   })
 
   const [newOpen, setNewOpen] = useState(false)
@@ -110,6 +123,11 @@ export default function ConsumptionPage() {
       cell: ({ row }) => (
         <span className="font-medium text-xs tabular-nums">{row.original.ce_number}</span>
       ),
+    },
+    {
+      id: 'type',
+      header: 'Type',
+      cell: ({ row }) => <TypeBadge isTeam={row.original.is_team_item} />,
     },
     {
       accessorKey: 'date',
@@ -198,18 +216,6 @@ export default function ConsumptionPage() {
         }
       />
 
-      {/* Service vs Team-item consumption — same posting engine, split by is_team_item */}
-      <Tabs value={tab} onValueChange={(v) => setTab((v as 'service' | 'team') ?? 'service')}>
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="service" className="flex-1 sm:flex-none gap-1.5">
-            <Package className="h-3.5 w-3.5" /> Service items
-          </TabsTrigger>
-          <TabsTrigger value="team" className="flex-1 sm:flex-none gap-1.5">
-            <Users2 className="h-3.5 w-3.5" /> Team items
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       {/* Stat strip */}
       <div className={cn('grid gap-2', canSeeCost ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
         <div className="rounded-lg border bg-card px-3 py-2">
@@ -266,10 +272,8 @@ export default function ConsumptionPage() {
         onRowClick={(row) => setDetailId(row.id)}
         emptyState={{
           icon: <HandCoins className="h-6 w-6 text-muted-foreground" />,
-          title: tab === 'team' ? 'No team-item consumption yet' : 'No service consumption yet',
-          description: tab === 'team'
-            ? 'Team-held items (refrigerant, plastic rolls) consumed from custody appear here.'
-            : 'Items consumed from a warehouse for a job appear here.',
+          title: 'No consumption yet',
+          description: "Items consumed from a warehouse or a team's custody appear here.",
           action: canCreate ? (
             <Button size="sm" onClick={() => setNewOpen(true)} className="gap-1.5">
               <Plus className="h-3.5 w-3.5" /> New Consumption
@@ -281,7 +285,10 @@ export default function ConsumptionPage() {
           return (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-sm tabular-nums">{row.ce_number}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-semibold text-sm tabular-nums">{row.ce_number}</span>
+                  <TypeBadge isTeam={row.is_team_item} />
+                </div>
                 <Badge className={cn('text-[10px] h-4 px-1.5 border-0', cfg.className)}>{cfg.label}</Badge>
               </div>
               <div className="flex items-center gap-1.5 min-w-0">
@@ -301,7 +308,8 @@ export default function ConsumptionPage() {
         }}
       />
 
-      <NewConsumptionDialog open={newOpen} onOpenChange={setNewOpen} mode={tab} />
+      {/* The Service/Team switch lives INSIDE the dialog (defaults to Service). */}
+      <NewConsumptionDialog open={newOpen} onOpenChange={setNewOpen} />
       <ConsumptionDetailDialog
         open={!!detailId}
         onOpenChange={(o) => { if (!o) setDetailId(null) }}

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { searchRank } from '@/lib/inventory/searchRank'
+import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,9 @@ interface Props {
   onSelect: (id: string) => void
   showQty?: boolean
   showDestBadge?: boolean
+  /** Fill the parent (`h-full w-full`) instead of the intrinsic 720×480 popover
+   *  size — used when the picker is hosted in a full-screen mobile sheet. */
+  fill?: boolean
 }
 
 // ─── Dest Stock Badge ───────────────────────────────────────────────────────────
@@ -67,10 +71,18 @@ export function WhItemPicker({
   onSelect,
   showQty = true,
   showDestBadge = false,
+  fill = false,
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('__all')
   const [typeFilter, setTypeFilter] = useState<string>('__all')
+
+  // Desktop autofocuses the search on open; touch devices wait for a tap so the
+  // on-screen keyboard doesn't pop up and cover the picker (on phones the picker
+  // is a full-screen sheet). Evaluated once — the picker mounts fresh on open.
+  const [autoFocusSearch] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches,
+  )
 
   // Item-type quick filter (All / Products / Spare Parts / …) — narrows the whole
   // picker to one type before grouping + search. Only types actually present are
@@ -176,16 +188,23 @@ export function WhItemPicker({
   const totalItems = typedItems.length
 
   return (
-    <div className="flex flex-col h-[min(480px,var(--available-height,85vh))] w-[720px] max-w-[92vw]">
+    <div
+      className={cn(
+        'flex flex-col bg-popover',
+        fill
+          ? 'h-full w-full'
+          : 'h-[min(480px,var(--available-height,85vh))] w-[720px] max-w-[92vw]',
+      )}
+    >
       {/* Search bar + item-type quick filter */}
-      <div className="px-3 py-2 border-b bg-background space-y-2">
+      <div className="px-3 py-2 border-b bg-popover space-y-2">
         <Input
           type="text"
           placeholder="Search by name, brand, SKU, or category…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-8 text-xs"
-          autoFocus
+          autoFocus={autoFocusSearch}
         />
         {availableTypes.length > 1 && (
           <div className="flex flex-wrap items-center gap-1">
@@ -213,7 +232,7 @@ export function WhItemPicker({
       <div className="flex-1 flex min-h-0">
         {/* Category column */}
         {!searching && (
-          <div className="w-[150px] sm:w-[180px] border-r overflow-y-auto shrink-0 bg-muted/10">
+          <div className="w-[150px] sm:w-[180px] border-r overflow-y-auto shrink-0">
             <button
               type="button"
               onClick={() => setSelectedCategory('__all')}
@@ -260,7 +279,7 @@ export function WhItemPicker({
               </p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-border">
               {Array.from(visibleItemGroups.values()).map(({ cat, name, variants }) => {
                 const showCatLabel = searching || selectedCategory === '__all'
                 // Every variant of the same item shares the same photo
@@ -338,7 +357,7 @@ export function WhItemPicker({
       </div>
 
       {/* Footer / legend */}
-      <div className="px-3 py-1.5 border-t bg-muted/20 text-[9px] text-muted-foreground flex items-center justify-between">
+      <div className="px-3 py-1.5 border-t bg-popover text-[9px] text-muted-foreground flex items-center justify-between">
         <span>{searching ? `${visibleItemGroups.size} match${visibleItemGroups.size === 1 ? '' : 'es'}` : `${totalItems} items`}</span>
         {showQty && (
           <span className="flex items-center gap-2.5">

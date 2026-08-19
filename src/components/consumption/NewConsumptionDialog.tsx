@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, ChevronsUpDown, HandCoins, Package, Paperclip,
-  Plus, Trash2, Upload, X,
+  Plus, Trash2, Upload, Users2, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -21,6 +21,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
@@ -38,6 +39,7 @@ import { useProjectMilestones, usePoolDisciplines } from '@/hooks/useProjectMile
 import { useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
+import { useIsSmUp } from '@/hooks/useIsSmUp'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -62,11 +64,13 @@ interface Props {
    */
   restrictConsumerTypes?: ConsumerType[]
   /**
-   * Consumption-tab mode. 'service' HIDES team-items from the item picker;
-   * 'team' shows ONLY team-items and restricts the source to custody holdings.
-   * Omitted (custody card / legacy callers) → no team-item filtering.
+   * Seeds the in-dialog Service/Team toggle when the dialog opens. 'service'
+   * hides team-items from the item picker; 'team' shows ONLY team-items (and,
+   * on the /consumption header where the source is pickable, restricts the
+   * source to custody holdings). The operator flips it inside the dialog — this
+   * is only the starting selection, re-read on every open. Defaults to 'service'.
    */
-  mode?: 'service' | 'team'
+  initialMode?: 'service' | 'team'
 }
 
 type LineRow = { brand_variant_id: string; qty: string }
@@ -95,7 +99,7 @@ const LOC_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 
  * exactly what is about to be consumed and holds a 3-second cooldown on its
  * confirm button before the post can fire.
  */
-export function NewConsumptionDialog({ open, onOpenChange, presetSource, restrictConsumerTypes, mode }: Props) {
+export function NewConsumptionDialog({ open, onOpenChange, presetSource, restrictConsumerTypes, initialMode }: Props) {
   // Compute which consumer types this caller is actually allowed to pick.
   // Intersection of (caller permissions) and (restrictConsumerTypes ?? all).
   const canCreateCustody  = useCanCreateConsumptionFor('custody')
@@ -118,8 +122,16 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // team-items, Team shows only team-items). undefined while loading.
   const { data: teamVariantIds } = useTeamItemVariantIds()
 
+  // Service vs Team split now lives INSIDE the dialog (operator: the switch must
+  // be part of the consume flow, not a page-level tab). `initialMode` only seeds
+  // the starting selection; this toggle owns it from here on.
+  const [mode, setMode] = useState<'service' | 'team'>(initialMode ?? 'service')
+
+  // Phones get a full-screen sheet for the item picker; sm+ keeps the popover.
+  const isSmUp = useIsSmUp()
+
   // In Team mode the source must be a custody holding (a team consumes what it
-  // holds); Service / legacy callers keep all assigned sources.
+  // holds); Service callers keep all assigned sources.
   const modeSources = useMemo(
     () => (mode === 'team' ? sources.filter((s) => s.warehouse_kind === 'custody') : sources),
     [sources, mode],
@@ -273,6 +285,22 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const [rows, setRows] = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
   const [openPickerIdx, setOpenPickerIdx] = useState<number | null>(null)
 
+  // Seed the toggle from the caller each time the dialog (re)opens — the
+  // /consumption tab can change between opens; a custody card seeds the same
+  // value every time.
+  useEffect(() => {
+    if (open) setMode(initialMode ?? 'service')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // A picked line belongs to the current mode's item set. Switching Service⇄Team
+  // clears the lines so a service item can't ride into a team post (the RPC also
+  // guards this, but keep the UI honest) and closes any open picker.
+  useEffect(() => {
+    setRows([{ brand_variant_id: '', qty: '' }])
+    setOpenPickerIdx(null)
+  }, [mode])
+
   const { data: sourceStock = [] } = useWarehouseStock(srcWhId || undefined, srcSubId)
 
   const availableQtyMap = useMemo(() => {
@@ -384,6 +412,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       // Reset back to preset (if any) or empty state.
       setSrcWhId(presetSource?.warehouseId ?? '')
       setSrcSubId(presetSource?.subContainerId ?? null)
+      setMode(initialMode ?? 'service')
       setConsumerType(allowedConsumerTypes[0] ?? 'custody')
       setConsumerSub(presetSource?.kindLabel === 'Custody' ? presetSource.subContainerId : '')
       setCustodyWhId('')
@@ -628,7 +657,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         <DialogHeader className="px-4 pt-4 pb-0 sm:px-5 sm:pt-5">
           <DialogTitle className="text-sm font-semibold flex items-center gap-1.5">
             <HandCoins className="h-4 w-4 text-primary" />
-            New {mode === 'team' ? 'Team-item ' : mode === 'service' ? 'Service ' : ''}Consumption
+            New Consumption
           </DialogTitle>
           {/* Redundant with the amber warning below — hide on phones to save height. */}
           <p className="hidden sm:block text-[11px] text-muted-foreground mt-1">
@@ -643,6 +672,34 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             <div className="text-[11px] text-warning-foreground leading-snug">
               <span className="font-medium">Posting a consumption immediately deducts stock and books COGS.</span>{' '}
               <span className="hidden sm:inline">This is not reversible without a manual cancellation.</span>
+            </div>
+          </div>
+
+          {/* Service vs Team-item consumption — the switch lives here in the
+              consume flow (operator's ask), not as a page tab. It filters the
+              item picker; Team mode also scopes a pickable source to custody. */}
+          <div className="space-y-1.5">
+            <Label className="text-[11px] font-medium">Consumption type</Label>
+            <div className="grid grid-cols-2 gap-1 rounded-md border bg-muted/30 p-1">
+              {([
+                { key: 'service' as const, label: 'Service items', Icon: Package },
+                { key: 'team'    as const, label: 'Team items',    Icon: Users2 },
+              ]).map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setMode(key)}
+                  className={cn(
+                    'flex h-8 items-center justify-center gap-1.5 rounded text-[11px] font-medium transition-colors',
+                    mode === key
+                      ? 'bg-background shadow-sm text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -908,35 +965,78 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                   const remainingAfter = available != null && !isNaN(qtyNum) && qtyNum > 0
                     ? available - qtyNum
                     : null
+                  // Trigger content shared by the desktop popover + mobile sheet.
+                  const triggerContent = (
+                    <>
+                      {selected ? (
+                        <span className="truncate">
+                          <span className="font-medium">{selected.item_name}</span>
+                          {selected.brand && (
+                            <span className="text-muted-foreground"> — {selected.brand}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Search items…</span>
+                      )}
+                      <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
+                    </>
+                  )
+                  const triggerCls =
+                    'flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer'
                   return (
                     <div
                       key={idx}
                       className={`rounded-md border p-2.5 space-y-1.5 ${error ? 'border-destructive/50 bg-destructive/5' : 'bg-card'}`}
                     >
-                      <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
-                        <PopoverTrigger className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer">
-                          {selected ? (
-                            <span className="truncate">
-                              <span className="font-medium">{selected.item_name}</span>
-                              {selected.brand && (
-                                <span className="text-muted-foreground"> — {selected.brand}</span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">Search items…</span>
-                          )}
-                          <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50 ml-1.5" />
-                        </PopoverTrigger>
-                        <PopoverContent className="p-0 w-auto" align="start" side="bottom">
-                          <WhItemPicker
-                            items={pickerItems}
-                            selectedIds={selectedIds}
-                            currentValue={row.brand_variant_id}
-                            onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
-                            showQty
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      {isSmUp ? (
+                        <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
+                          <PopoverTrigger className={triggerCls}>{triggerContent}</PopoverTrigger>
+                          <PopoverContent className="p-0 w-auto" align="start" side="bottom">
+                            <WhItemPicker
+                              items={pickerItems}
+                              selectedIds={selectedIds}
+                              currentValue={row.brand_variant_id}
+                              onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
+                              showQty
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className={triggerCls}
+                            onClick={() => setOpenPickerIdx(idx)}
+                          >
+                            {triggerContent}
+                          </button>
+                          {/* Phone: a full-screen bottom sheet instead of an anchored
+                              popover, so the on-screen keyboard can't crush it. Search
+                              is pinned at the top; results scroll above the keyboard;
+                              the keyboard only opens when the search field is tapped. */}
+                          <Sheet open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
+                            <SheetContent
+                              side="bottom"
+                              style={{ height: '90dvh' }}
+                              className="flex flex-col gap-0 rounded-t-xl p-0"
+                            >
+                              <SheetHeader className="shrink-0 border-b p-3">
+                                <SheetTitle className="text-sm">Select item</SheetTitle>
+                              </SheetHeader>
+                              <div className="min-h-0 flex-1">
+                                <WhItemPicker
+                                  items={pickerItems}
+                                  selectedIds={selectedIds}
+                                  currentValue={row.brand_variant_id}
+                                  onSelect={(id) => { updateRow(idx, 'brand_variant_id', id); setOpenPickerIdx(null) }}
+                                  showQty
+                                  fill
+                                />
+                              </div>
+                            </SheetContent>
+                          </Sheet>
+                        </>
+                      )}
 
                       <div className="flex items-center gap-2 flex-wrap">
                         <Input
