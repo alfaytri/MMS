@@ -29,3 +29,15 @@ export function ToolLifecycleBadge({ type }: { type: string | null | undefined }
   const m = LIFECYCLE_META[type] ?? { label: type, cls: 'border-border text-muted-foreground' }
   return <Badge variant="outline" className={`text-[10px] h-5 px-1.5 font-normal ${m.cls}`}>{m.label}</Badge>
 }
+
+const CONDITION_META: Record<string, { cls: string }> = {
+  Good: { cls: 'border-emerald-500/40 text-emerald-700 bg-emerald-500/10' },
+  Fair: { cls: 'border-amber-500/40 text-amber-700 bg-amber-500/10' },
+}
+
+/** Physical health from the last check: Good (fine) / Fair (flagged — watch it). */
+export function ToolConditionBadge({ condition }: { condition: string | null | undefined }) {
+  if (!condition) return null
+  const m = CONDITION_META[condition] ?? { cls: 'border-border text-muted-foreground' }
+  return <Badge variant="outline" className={`text-[10px] h-5 px-1.5 font-normal ${m.cls}`}>{condition}</Badge>
+}

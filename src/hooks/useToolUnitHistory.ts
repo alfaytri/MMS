@@ -25,6 +25,9 @@ export type ToolUnitSearchRow = {
   current_team_id: string | null
   current_team_name: string | null
   status: string
+  /** Good/Fair health axis. Returned by list_assigned_tool_units (custody card +
+   *  assigned-list default view); absent from search_tool_units, hence optional. */
+  condition?: string | null
 }
 
 export function useToolUnitTimeline(unitId: string | null) {

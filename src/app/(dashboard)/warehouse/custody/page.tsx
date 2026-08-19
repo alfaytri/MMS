@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   ChevronDown, ChevronRight, HandCoins, Inbox, Package, PackageCheck,
-  Send, Truck, Undo2, UserRound, Users2,
+  Send, Truck, Undo2, UserRound, Users2, Wrench,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -28,6 +28,8 @@ import {
   useDispatchCustodyAssign,
   type PendingCustodyAssign,
 } from '@/hooks/useCustodyMoves'
+import { useAssignedToolUnits, type ToolUnitSearchRow } from '@/hooks/useToolUnitHistory'
+import { ToolConditionBadge } from '@/components/warehouse/tools-assets/ToolBadges'
 import type { Warehouse } from '@/hooks/useWarehouses'
 
 const QAR = new Intl.NumberFormat('en-QA', {
@@ -193,6 +195,26 @@ function CustodyTab({
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [rows])
 
+  // Serialized tool units assigned to these teams — one bulk query for the whole
+  // tab (scoped to the divisions actually shown), grouped per team and handed to
+  // each card, mirroring how stockRows is loaded once and distributed. Read-only:
+  // assigning/moving/returning tools lives in Operations → Tools & Assets.
+  const toolDivisionIds = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.division_id).filter((x): x is string => !!x))),
+    [rows],
+  )
+  const { data: assignedTools = [] } = useAssignedToolUnits(toolDivisionIds)
+  const toolsBySub = useMemo(() => {
+    const map = new Map<string, ToolUnitSearchRow[]>()
+    for (const t of assignedTools) {
+      if (!t.current_team_id) continue
+      const arr = map.get(t.current_team_id) ?? []
+      arr.push(t)
+      map.set(t.current_team_id, arr)
+    }
+    return map
+  }, [assignedTools])
+
   const isLoading = locations.isLoading || stockLoading
 
   if (isLoading) {
@@ -244,6 +266,7 @@ function CustodyTab({
                 realWarehouses={realWarehouses}
                 stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
                 pending={pendingBySub.get(sub.id) ?? []}
+                toolUnits={toolsBySub.get(sub.id) ?? []}
               />
             ))}
           </div>
@@ -256,7 +279,7 @@ function CustodyTab({
 // ─── Card ───────────────────────────────────────────────────────────────
 
 function CustodyCard({
-  sub, warehouseId, warehouseName, canEdit, realWarehouses, stockRows, pending,
+  sub, warehouseId, warehouseName, canEdit, realWarehouses, stockRows, pending, toolUnits,
 }: {
   sub:            CustodyLocationRow
   warehouseId:    string
@@ -265,8 +288,10 @@ function CustodyCard({
   realWarehouses: Warehouse[]
   stockRows:      Array<{ brand_variant_id: string; item_name: string; brand: string | null; sku: string | null; qty: number; total_value: number; unit: string }>
   pending:        PendingCustodyAssign[]
+  toolUnits:      ToolUnitSearchRow[]
 }) {
   const [expanded, setExpanded]     = useState(false)
+  const [toolsExpanded, setToolsExpanded] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [returnOpen, setReturnOpen] = useState(false)
   const [consumeOpen, setConsumeOpen] = useState(false)
@@ -464,6 +489,37 @@ function CustodyCard({
         </div>
       )}
 
+      {/* Assigned tools — serialized tool units this team is holding (read-only;
+          assign / move / return / repair live in Operations → Tools & Assets). */}
+      {toolUnits.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setToolsExpanded((e) => !e)}
+            className="flex items-center gap-1 px-4 py-1.5 text-[11px] text-muted-foreground hover:text-foreground border-t border-b border-dashed transition-colors"
+          >
+            {toolsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            <Wrench className="h-3 w-3 shrink-0" />
+            {toolsExpanded ? 'Hide tools' : `Show tools (${toolUnits.length})`}
+          </button>
+          {toolsExpanded && (
+            <div className="px-4 py-2 space-y-2 max-h-48 overflow-y-auto">
+              {toolUnits.map((t) => (
+                <div key={t.unit_id} className="flex items-start justify-between gap-2 text-[11px]">
+                  <div className="min-w-0">
+                    <div className="font-medium break-words">{t.item_name ?? 'Tool'}</div>
+                    {t.serial_number && (
+                      <div className="text-[10px] text-muted-foreground font-mono break-words">SN {t.serial_number}</div>
+                    )}
+                  </div>
+                  <ToolConditionBadge condition={t.condition} />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {/* Actions — hidden entirely when the caller can't do any of them */}
       {(canRequest || canReturn || canConsume) && (
         <div className="mt-auto flex items-center gap-1 px-3 py-2 border-t bg-muted/30 rounded-b-lg">
@@ -523,6 +579,9 @@ function CustodyCard({
           kindLabel:        'Custody',
         }}
         restrictConsumerTypes={['custody']}
+        // Defaults to the everyday flow (Service); the operator flips to Team
+        // items inside the dialog to draw down team-held consumables.
+        initialMode="service"
       />
       <AcceptCustodyDialog
         open={!!acceptRow}
