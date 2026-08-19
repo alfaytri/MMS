@@ -27,6 +27,14 @@ export type TreeNode = {
 
 export const NAV_TREE: TreeNode[] = [
   {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    permissions: [
+      { key: 'dashboard.view', label: 'Land on Dashboard (home)', description: 'Use the Dashboard as this role’s landing page after login. Without it, the user lands on the first page their role can open (e.g. Custody). The dashboard’s financial section is separately gated by "reports.dashboard_finance".' },
+    ],
+  },
+  {
     id: 'master-data',
     label: 'Master Data',
     icon: Database,

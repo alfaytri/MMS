@@ -135,3 +135,28 @@ export const NAV_ITEMS: NavEntry[] = [
     ],
   },
 ]
+
+/**
+ * The first nav destination a user can open, walking NAV_ITEMS in display order
+ * (Master Data → Reports → Purchase & Sales → Operations → Transfer). Used as
+ * the landing page for a user whose role can't open the Dashboard: instead of a
+ * blank dashboard they're sent to the first page their permissions allow (e.g. a
+ * custody-only "teams" user lands on /warehouse/custody).
+ *
+ * `canAccess` mirrors useHasPermission semantics — pass a closure that returns
+ * true for a system admin and for any-of a held permission. An item with no
+ * `permission` is treated as accessible. Returns null when nothing is reachable.
+ */
+export function firstAccessibleHref(
+  canAccess: (permission: string | string[] | undefined) => boolean,
+): string | null {
+  for (const entry of NAV_ITEMS) {
+    for (const group of entry.groups) {
+      for (const item of group.items) {
+        if (item.comingSoon) continue
+        if (canAccess(item.permission)) return item.href
+      }
+    }
+  }
+  return null
+}
