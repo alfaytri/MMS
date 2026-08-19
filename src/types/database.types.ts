@@ -9014,6 +9014,17 @@ export type Database = {
         Args: { p_sub_container_id: string }
         Returns: boolean
       }
+      list_assigned_tool_units: {
+        Args: { p_division_ids?: string[] }
+        Returns: {
+          current_team_id: string
+          current_team_name: string
+          item_name: string
+          serial_number: string
+          status: string
+          unit_id: string
+        }[]
+      }
       mark_overdue_bills: { Args: never; Returns: undefined }
       mark_overdue_invoices: { Args: never; Returns: undefined }
       next_delivery_number: { Args: never; Returns: string }
@@ -9891,6 +9902,10 @@ export type Database = {
       }
       rpc_set_item_divisions: {
         Args: { p_division_ids: string[]; p_item_id: string }
+        Returns: undefined
+      }
+      rpc_set_tool_lifecycle_type: {
+        Args: { p_lifecycle_type: string; p_unit_id: string }
         Returns: undefined
       }
       rpc_settle_installment: {
