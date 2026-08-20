@@ -13,6 +13,7 @@ import {
 import { useSalesAgingReport, type AgingRow } from '@/hooks/useAgingReport'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type SortKey = 'current' | '1_30' | '31_60' | '61_90' | 'over_90' | 'total'
 type SortDir = 'asc' | 'desc'
@@ -136,8 +137,8 @@ export default function SalesAgingReportPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((row) => (
-                <TableRow key={row.customer_id}>
+              {filtered.map((row, i) => (
+                <TableRow key={row.customer_id} className={STAGGER_IN} style={staggerDelay(i)}>
                   <TableCell className="font-medium">{row.customer_name}</TableCell>
                   <TableCell className="text-center hidden sm:table-cell text-muted-foreground">
                     {row.invoice_count}

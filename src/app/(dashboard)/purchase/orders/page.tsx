@@ -25,6 +25,7 @@ import { useBilledPoIds } from '@/hooks/useSupplierBills'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
@@ -446,14 +447,15 @@ export default function PurchaseOrdersPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((po) => {
+                filtered.map((po, i) => {
                   const receivalPct = getReceivalPct(po)
                   const receivalText = getReceivalText(po)
                   const lineCount = (po.po_line_items ?? []).length
                   return (
                     <TableRow
                       key={po.id}
-                      className="cursor-pointer hover:bg-muted/50"
+                      className={cn('cursor-pointer hover:bg-muted/50', STAGGER_IN)}
+                      style={staggerDelay(i)}
                       onClick={() => setDetailPO(po)}
                     >
                       <TableCell>

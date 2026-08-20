@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   ArrowRightLeft, ChevronDown, ChevronRight, HandCoins, Inbox, Package, PackageCheck,
   Send, Truck, Undo2, UserRound, Users2, Wrench,
@@ -259,19 +260,20 @@ function CustodyTab({
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {subs.map((sub) => (
-              <CustodyCard
-                key={sub.id}
-                sub={sub}
-                warehouseId={warehouseId}
-                warehouseName={warehouseName}
-                canEdit={canEdit}
-                canTransferCustody={canTransferCustody}
-                realWarehouses={realWarehouses}
-                stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
-                pending={pendingBySub.get(sub.id) ?? []}
-                toolUnits={toolsBySub.get(sub.id) ?? []}
-              />
+            {subs.map((sub, i) => (
+              <div key={sub.id} className={STAGGER_IN} style={staggerDelay(i)}>
+                <CustodyCard
+                  sub={sub}
+                  warehouseId={warehouseId}
+                  warehouseName={warehouseName}
+                  canEdit={canEdit}
+                  canTransferCustody={canTransferCustody}
+                  realWarehouses={realWarehouses}
+                  stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
+                  pending={pendingBySub.get(sub.id) ?? []}
+                  toolUnits={toolsBySub.get(sub.id) ?? []}
+                />
+              </div>
             ))}
           </div>
         </div>

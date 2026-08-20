@@ -21,6 +21,7 @@ import {
 } from '@/hooks/useDamagedStockOverview'
 import { useHasPermission, useHasEditPermission } from '@/hooks/usePermissions'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 // formatDateTime is used by the Out-for-Repair table row's dispatched-at
 // column. Badge / movementBadgeClass / movementLabel were removed with the
 // Damaged Stock → Movements tab in D.13 — that history now lives at
@@ -204,8 +205,8 @@ function PendingRepairAssignmentSection({
             </tr>
           </thead>
           <tbody className="divide-y">
-            {data.map((r) => (
-              <tr key={r.disposition_id}>
+            {data.map((r, i) => (
+              <tr key={r.disposition_id} className={STAGGER_IN} style={staggerDelay(i)}>
                 <td className="px-3 py-2 font-mono text-xs">{r.return_number}</td>
                 <td className="px-3 py-2">
                   <div className="truncate max-w-xs">{r.item_name}</div>
@@ -306,8 +307,8 @@ function OnHandTab({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {data.map((r) => (
-                <tr key={r.key}>
+              {data.map((r, i) => (
+                <tr key={r.key} className={STAGGER_IN} style={staggerDelay(i)}>
                   <td className="px-3 py-2 font-medium">{r.warehouse_name}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.source_sub_container_name ?? '—'}</td>
                   <td className="px-3 py-2">
@@ -444,8 +445,8 @@ function OutForRepairTab({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {data.map((r) => (
-                <tr key={`${r.transfer_id}:${r.brand_variant_id}`}>
+              {data.map((r, i) => (
+                <tr key={`${r.transfer_id}:${r.brand_variant_id}`} className={STAGGER_IN} style={staggerDelay(i)}>
                   <td className="px-3 py-2 font-mono text-xs">{r.transfer_number}</td>
                   <td className="px-3 py-2">
                     <div className="truncate max-w-xs">{r.item_name}</div>

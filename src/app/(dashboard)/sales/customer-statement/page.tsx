@@ -23,6 +23,7 @@ import { Separator } from '@/components/ui/separator'
 import { useCustomerStatement, useCustomerList, type StatementOrder } from '@/hooks/useCustomerStatement'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
@@ -445,10 +446,10 @@ export default function CustomerStatementPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((o) => {
+                  {filteredOrders.map((o, i) => {
                     const s = STATUS_BADGE[o.status] ?? { label: o.status, cls: 'bg-muted text-muted-foreground' }
                     return (
-                      <TableRow key={o.id} className="group">
+                      <TableRow key={o.id} className={cn('group', STAGGER_IN)} style={staggerDelay(i)}>
                         <TableCell className="pl-4 font-semibold text-primary whitespace-nowrap">{o.so_number}</TableCell>
                         <TableCell className="hidden sm:table-cell whitespace-nowrap text-muted-foreground">{formatDate(o.created_at)}</TableCell>
                         <TableCell>

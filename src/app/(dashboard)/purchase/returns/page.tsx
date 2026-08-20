@@ -35,6 +35,7 @@ import { POReturnDetailDialog } from '@/components/purchase/POReturnDetailDialog
 import { formatDate } from '@/lib/utils/formatters'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   Calendar, Package, ChevronRight, Truck, Building2, RotateCcw, CheckCircle2, Clock, Ban,
   ShoppingCart,
@@ -316,7 +317,7 @@ export default function PurchaseReturnsPage() {
         <div className="rounded-lg border border-dashed"><EmptyState title="No purchase returns found" /></div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((ret) => {
+          {filtered.map((ret, i) => {
             const cfg      = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending
             const next     = STATUS_NEXT[ret.status]
             const canCancel = ret.status === 'pending' || ret.status === 'dispatched'
@@ -326,7 +327,8 @@ export default function PurchaseReturnsPage() {
             return (
               <div
                 key={ret.id}
-                className="group rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-pointer"
+                className={cn('group rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-pointer', STAGGER_IN)}
+                style={staggerDelay(i)}
                 onClick={() => setDetailReturn(ret)}
               >
                 <div className="p-3">

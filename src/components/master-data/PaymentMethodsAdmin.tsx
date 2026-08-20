@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2, Plus, Pencil, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { queryKeys } from '@/lib/queryKeys'
 
 type PaymentMethod = {
@@ -198,13 +199,15 @@ export function PaymentMethodsAdmin() {
       </div>
 
       <div className="rounded-lg border divide-y">
-        {methods.map((m) => (
+        {methods.map((m, i) => (
           <div
             key={m.id}
             className={cn(
               'group/row flex items-center justify-between px-4 py-3 gap-2',
-              !m.is_active && 'opacity-40'
+              !m.is_active && 'opacity-40',
+              STAGGER_IN,
             )}
+            style={staggerDelay(i)}
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {editingId === m.id ? (

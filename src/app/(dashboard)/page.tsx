@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   ShoppingCart, ClipboardCheck, PackageCheck, Truck,
@@ -456,8 +457,8 @@ export default function DashboardPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {finance.top_overdue_customers.map((c) => (
-                              <TableRow key={c.id}>
+                            {finance.top_overdue_customers.map((c, i) => (
+                              <TableRow key={c.id} className={STAGGER_IN} style={staggerDelay(i)}>
                                 <TableCell>
                                   <div className="font-medium">{c.name}</div>
                                   <div className="text-xs text-muted-foreground">
@@ -514,8 +515,8 @@ export default function DashboardPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {finance.top_overdue_suppliers.map((s) => (
-                              <TableRow key={s.id}>
+                            {finance.top_overdue_suppliers.map((s, i) => (
+                              <TableRow key={s.id} className={STAGGER_IN} style={staggerDelay(i)}>
                                 <TableCell>
                                   <div className="font-medium">{s.name}</div>
                                   <div className="text-xs text-muted-foreground">

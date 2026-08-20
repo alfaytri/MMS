@@ -9,6 +9,8 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,8 +78,8 @@ export default function RepairVendorsPage() {
         </p>
       ) : (
         <div className="space-y-2.5">
-          {filtered.map((v) => (
-            <Card key={v.id} className={v.is_active ? undefined : 'opacity-60'}>
+          {filtered.map((v, i) => (
+            <Card key={v.id} className={cn(v.is_active ? undefined : 'opacity-60', STAGGER_IN)} style={staggerDelay(i)}>
               <CardHeader className="py-3">
                 <div className="flex items-start gap-3 min-w-0">
                   <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">

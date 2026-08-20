@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Building2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -152,14 +153,15 @@ export default function CompaniesPage() {
             {/* Division card grid */}
             {companyDivisions.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {companyDivisions.map((div) => (
-                  <DivisionCard
-                    key={div.id}
-                    division={div as Division & { name_ar?: string | null }}
-                    companyName={company.name_en}
-                    onEdit={() => setDivisionDialog({ open: true, division: div, companyId: company.id })}
-                    onDelete={() => setDeleteTarget(div)}
-                  />
+                {companyDivisions.map((div, i) => (
+                  <div key={div.id} className={STAGGER_IN} style={staggerDelay(i)}>
+                    <DivisionCard
+                      division={div as Division & { name_ar?: string | null }}
+                      companyName={company.name_en}
+                      onEdit={() => setDivisionDialog({ open: true, division: div, companyId: company.id })}
+                      onDelete={() => setDeleteTarget(div)}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (

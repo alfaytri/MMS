@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import type { ProjectConsumptionRow } from '@/hooks/reports/useProjectConsumptionReport'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 const NUM = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
@@ -122,8 +123,10 @@ export function ConsumptionTeamCards({
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {team.days.map((day) => (
-              <DayCard key={day.date} day={day} />
+            {team.days.map((day, i) => (
+              <div key={day.date} className={STAGGER_IN} style={staggerDelay(i)}>
+                <DayCard day={day} />
+              </div>
             ))}
           </div>
         </div>

@@ -29,6 +29,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
   useLandedCosts, useCreateLandedCost, useApplyLandedCost,
@@ -264,7 +265,7 @@ function LcDetailDialog({
                   </TableHeader>
                   <TableBody>
                     {(lc.landed_cost_lines ?? []).map((line, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={i} className={STAGGER_IN} style={staggerDelay(i)}>
                         <TableCell className="text-sm">{line.description}</TableCell>
                         <TableCell className="text-right text-sm font-medium">
                           {formatCurrency(line.amount, line.currency)}
@@ -355,8 +356,8 @@ function LcDetailDialog({
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {(detailExpandedItems ?? []).map((item) => (
-                                      <tr key={item.id} className="border-b last:border-0">
+                                    {(detailExpandedItems ?? []).map((item, i) => (
+                                      <tr key={item.id} className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
                                         <td className="py-1 pr-2">{item.item_name}</td>
                                         <td className="text-right py-1">{item.qty_received}</td>
                                         <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
@@ -421,7 +422,7 @@ function LcDetailDialog({
                     </TableHeader>
                     <TableBody>
                       {(lc.landed_cost_item_allocations ?? []).map((alloc, i) => (
-                        <TableRow key={i}>
+                        <TableRow key={i} className={STAGGER_IN} style={staggerDelay(i)}>
                           <TableCell className="text-sm">{alloc.item_name}</TableCell>
                           <TableCell className="text-sm font-mono">{alloc.sku ?? '—'}</TableCell>
                           <TableCell className="text-right text-sm">{alloc.qty_received}</TableCell>
@@ -1130,8 +1131,8 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          {(expandedItems ?? []).map((item) => (
-                                            <tr key={item.id} className="border-b last:border-0">
+                                          {(expandedItems ?? []).map((item, i) => (
+                                            <tr key={item.id} className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
                                               <td className="py-1 pr-2">{item.item_name}</td>
                                               <td className="text-right py-1">{item.qty_received}</td>
                                               <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
@@ -1268,8 +1269,8 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {items.map((it) => (
-                                    <tr key={it.id} className="border-t border-muted-foreground/10">
+                                  {items.map((it, i) => (
+                                    <tr key={it.id} className={cn('border-t border-muted-foreground/10', STAGGER_IN)} style={staggerDelay(i)}>
                                       <td className="py-1 pr-2">
                                         <div className="truncate">{it.item_name}</div>
                                         {it.sku && (

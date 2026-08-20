@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown, MoreHorizontal, Pencil, Power, Users2, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
@@ -186,8 +187,8 @@ export function CustodyLocationsManager() {
 
                     {!isCollapsed && (
                       <div className="space-y-2.5 sm:pl-6">
-                        {items.map((r) => (
-                          <Card key={r.id} className={r.is_active ? undefined : 'opacity-60'}>
+                        {items.map((r, i) => (
+                          <Card key={r.id} className={cn(r.is_active ? undefined : 'opacity-60', STAGGER_IN)} style={staggerDelay(i)}>
                             <CardHeader className="py-3">
                               <div className="flex items-start gap-3 min-w-0">
                                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">

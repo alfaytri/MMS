@@ -31,6 +31,7 @@ import { useSaleOrders } from '@/hooks/useSaleOrders'
 import { SaleReturnDetailDialog } from '@/components/sales/SaleReturnDetailDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   Calendar, Package, ChevronRight, AlertTriangle, RotateCcw, Clock, Truck,
   CheckCircle2, Ban, ShoppingCart, User, Building2,
@@ -360,7 +361,7 @@ export default function SaleReturnsPage() {
         <div className="rounded-lg border border-dashed"><EmptyState title="No sale returns found" /></div>
       ) : (
         <div className="space-y-2">
-          {(returns ?? []).map((ret) => {
+          {(returns ?? []).map((ret, i) => {
             const cfg  = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending ?? { label: ret.status, color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200', Icon: Clock }
             const next = STATUS_NEXT[ret.status]
             const canCancel = ret.status === 'pending' || ret.status === 'received'
@@ -371,7 +372,8 @@ export default function SaleReturnsPage() {
             return (
               <div
                 key={ret.id}
-                className="group rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-pointer"
+                className={cn('group rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-pointer', STAGGER_IN)}
+                style={staggerDelay(i)}
                 onClick={() => setDetailReturn(ret)}
               >
                 <div className="p-3">

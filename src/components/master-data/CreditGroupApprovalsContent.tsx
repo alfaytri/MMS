@@ -22,6 +22,7 @@ import {
 import { EmptyState } from '@/components/shared/EmptyState'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
 import {
   usePendingCreditGroupRequests,
@@ -202,13 +203,13 @@ export function CreditGroupApprovalsContent() {
           </div>
         ) : (
           <div className="space-y-3">
-            {pending.map((r) => {
+            {pending.map((r, i) => {
               const rows = r.rows ?? []
               const pendingActive = rows.filter((s) => s.status === 'pending' && s.is_active)
               const pendingRoles = pendingActive.map((s) => s.step_role)
               const callerCanAct = pendingActive.some((s) => myCreditGroupRoles.has(s.step_role))
               return (
-                <div key={r.id} className="rounded-lg border p-4 space-y-3">
+                <div key={r.id} className={cn('rounded-lg border p-4 space-y-3', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-semibold truncate">{r.customer_name ?? '—'}</span>
@@ -311,11 +312,11 @@ export function CreditGroupApprovalsContent() {
                   <TableRow>
                     <TableCell colSpan={6} className="p-0"><EmptyState title="No completed credit-group changes yet" /></TableCell>
                   </TableRow>
-                ) : completed.map((r) => {
+                ) : completed.map((r, i) => {
                   const rows  = r.rows ?? []
                   const wasForced = rows.some((s) => s.force_approved)
                   return (
-                    <TableRow key={r.id}>
+                    <TableRow key={r.id} className={STAGGER_IN} style={staggerDelay(i)}>
                       <TableCell className="font-medium">{r.customer_name ?? '—'}</TableCell>
                       <TableCell className="text-sm">
                         <span className="text-muted-foreground">{r.previous_group_name ?? (r.previous_group_id ? 'Cash' : 'New')}</span>

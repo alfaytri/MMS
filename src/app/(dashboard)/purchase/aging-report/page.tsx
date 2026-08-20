@@ -21,6 +21,7 @@ import { AgingDrillDownDialog } from '@/components/purchase/AgingDrillDownDialog
 import type { AgingBucket } from '@/hooks/useAgingDrillDown'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type SortKey = 'current' | '1_30' | '31_60' | '61_90' | 'over_90' | 'total'
 type SortDir = 'asc' | 'desc'
@@ -262,8 +263,8 @@ export default function PurchaseAgingReportPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((row) => (
-                <TableRow key={row.supplier_id}>
+              {filtered.map((row, i) => (
+                <TableRow key={row.supplier_id} className={STAGGER_IN} style={staggerDelay(i)}>
                   <TableCell className="font-medium">{row.supplier_name}</TableCell>
                   <TableCell className="text-center hidden sm:table-cell text-muted-foreground">
                     {row.bill_count}

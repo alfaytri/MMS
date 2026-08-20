@@ -43,6 +43,8 @@ import {
   type SalesApprovalSlip,
 } from '@/hooks/useSalesApprovals'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const ROLE_LABELS: Record<string, string> = {
   purchase_manager: 'Purchase Manager',
@@ -108,14 +110,15 @@ export default function SalesApprovalsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {(pending ?? []).map((slip) => {
+            {(pending ?? []).map((slip, i) => {
               const pendingRoles = slip.rows
                 .filter((r) => r.status === 'pending' && r.is_active)
                 .map((r) => roleLabel(r.step_role))
               return (
                 <div
                   key={`${slip.source_id}|${slip.approval_type}|${slip.iteration}`}
-                  className="rounded-lg border p-4 space-y-3"
+                  className={cn('rounded-lg border p-4 space-y-3', STAGGER_IN)}
+                  style={staggerDelay(i)}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -230,10 +233,10 @@ export default function SalesApprovalsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  (completed ?? []).map((slip) => {
+                  (completed ?? []).map((slip, i) => {
                     const anyRejected = slip.rows.some((r) => r.status === 'rejected')
                     return (
-                      <TableRow key={`${slip.source_id}|${slip.approval_type}|${slip.iteration}`}>
+                      <TableRow key={`${slip.source_id}|${slip.approval_type}|${slip.iteration}`} className={STAGGER_IN} style={staggerDelay(i)}>
                         <TableCell className="font-mono text-sm font-medium">
                           {slip.so.so_number}
                         </TableCell>

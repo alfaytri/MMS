@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { queryKeys } from '@/lib/queryKeys'
 
 type CountryCodeRow = {
@@ -158,13 +159,15 @@ export function CountryCodesAdmin() {
       </div>
 
       <div className="rounded-lg border divide-y">
-        {rows.map((r) => (
+        {rows.map((r, i) => (
           <div
             key={r.id}
             className={cn(
               'flex items-center justify-between px-4 py-3',
               !r.is_active && 'opacity-40',
+              STAGGER_IN,
             )}
+            style={staggerDelay(i)}
           >
             <div className="flex items-center gap-3 min-w-0">
               <span className="text-lg leading-none shrink-0">{r.flag}</span>

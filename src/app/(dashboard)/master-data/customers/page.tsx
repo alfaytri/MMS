@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { CustomerDialog } from '@/components/master-data/CustomerDialog'
 import { CreditGroupPendingDialog } from '@/components/master-data/CreditGroupPendingDialog'
@@ -118,8 +120,8 @@ export default function CustomersPage() {
                     </TableCell>
                   </TableRow>
                 )
-              : customers.map((c) => (
-                  <TableRow key={c.id} className={c.is_active === false ? 'opacity-50' : ''}>
+              : customers.map((c, i) => (
+                  <TableRow key={c.id} className={cn(c.is_active === false ? 'opacity-50' : '', STAGGER_IN)} style={staggerDelay(i)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="min-w-0">

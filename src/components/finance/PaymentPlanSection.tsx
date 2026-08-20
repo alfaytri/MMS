@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { CalendarClock, AlertCircle, CheckCircle2, Circle, CircleDashed } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -58,23 +59,25 @@ export function PaymentPlanSection({ plans, currency, canSettle = true, soId }: 
 
   return (
     <div className="space-y-4">
-      {activePlans.map((plan) => (
-        <PlanCard
-          key={plan.id}
-          plan={plan}
-          currency={currency}
-          canSettle={canSettle}
-          onSettle={setSettleTarget}
-        />
+      {activePlans.map((plan, i) => (
+        <div key={plan.id} className={STAGGER_IN} style={staggerDelay(i)}>
+          <PlanCard
+            plan={plan}
+            currency={currency}
+            canSettle={canSettle}
+            onSettle={setSettleTarget}
+          />
+        </div>
       ))}
-      {plans.filter((p) => p.status !== 'active').map((plan) => (
-        <PlanCard
-          key={plan.id}
-          plan={plan}
-          currency={currency}
-          canSettle={false}
-          onSettle={setSettleTarget}
-        />
+      {plans.filter((p) => p.status !== 'active').map((plan, i) => (
+        <div key={plan.id} className={STAGGER_IN} style={staggerDelay(activePlans.length + i)}>
+          <PlanCard
+            plan={plan}
+            currency={currency}
+            canSettle={false}
+            onSettle={setSettleTarget}
+          />
+        </div>
       ))}
 
       <SettleInstallmentDialog

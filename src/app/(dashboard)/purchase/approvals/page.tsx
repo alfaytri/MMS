@@ -29,6 +29,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 interface ApprovalDialogState {
   po: PurchaseOrder
@@ -133,14 +135,14 @@ export default function ApprovalsPage() {
           <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No pending approvals requiring your action</div>
         ) : (
           <div className="space-y-3">
-            {(pending ?? []).map((po) => {
+            {(pending ?? []).map((po, i) => {
               const allSteps = po.po_approvals ?? []
               const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
               const currentSteps = allSteps.filter((s) => (s.iteration ?? 1) === maxIteration)
               const pendingSteps = currentSteps.filter((s) => s.status === 'pending' && s.is_active)
               const showPrev = showPrevIterations[po.id]
               return (
-                <div key={po.id} className="rounded-lg border p-4 space-y-3">
+                <div key={po.id} className={cn('rounded-lg border p-4 space-y-3', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-semibold">{po.po_number}</span>
@@ -244,11 +246,11 @@ export default function ApprovalsPage() {
                 {(completed ?? []).length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="p-0"><EmptyState title="No completed approvals" /></TableCell></TableRow>
                 ) : (
-                  (completed ?? []).map((po) => {
+                  (completed ?? []).map((po, i) => {
                     const allSteps = po.po_approvals ?? []
                     const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
                     return (
-                      <TableRow key={po.id}>
+                      <TableRow key={po.id} className={STAGGER_IN} style={staggerDelay(i)}>
                         <TableCell className="font-mono text-sm font-medium">{po.po_number}</TableCell>
                         <TableCell>{po.supplier_name}</TableCell>
                         <TableCell><PoStatusBadge status={po.status} /></TableCell>
@@ -335,8 +337,8 @@ export default function ApprovalsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(dialogState.po.po_line_items ?? []).map((li) => (
-                          <TableRow key={li.id}>
+                        {(dialogState.po.po_line_items ?? []).map((li, i) => (
+                          <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(i)}>
                             <TableCell className="text-sm">{li.item_name}</TableCell>
                             <TableCell className="text-right text-sm">{li.qty}</TableCell>
                             <TableCell className="text-right text-sm font-medium">
@@ -472,8 +474,8 @@ export default function ApprovalsPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(viewPO.po_line_items ?? []).map((li) => (
-                            <TableRow key={li.id}>
+                          {(viewPO.po_line_items ?? []).map((li, i) => (
+                            <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(i)}>
                               <TableCell className="text-sm">{li.item_name}</TableCell>
                               <TableCell className="text-right text-sm">{li.qty}</TableCell>
                               <TableCell className="text-right text-sm font-medium">

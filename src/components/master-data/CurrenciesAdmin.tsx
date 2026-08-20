@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { useCurrencies, useToggleCurrency, useAddCurrency } from '@/hooks/useCurrencies'
 
 export function CurrenciesAdmin() {
@@ -81,13 +82,15 @@ export function CurrenciesAdmin() {
       </div>
 
       <div className="rounded-lg border divide-y">
-        {currencies.map((c) => (
+        {currencies.map((c, i) => (
           <div
             key={c.id}
             className={cn(
               'flex items-center justify-between px-4 py-3',
               !c.is_active && 'opacity-40',
+              STAGGER_IN,
             )}
+            style={staggerDelay(i)}
           >
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="text-[10px] font-mono">

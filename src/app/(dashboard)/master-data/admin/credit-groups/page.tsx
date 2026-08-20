@@ -13,6 +13,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   useCreditGroups,
   useDeleteCreditGroup,
@@ -88,8 +89,8 @@ export default function CreditGroupsPage() {
                     <TableCell />
                   </TableRow>
                 ))
-              : groups.map((g) => (
-                  <TableRow key={g.id}>
+              : groups.map((g, i) => (
+                  <TableRow key={g.id} className={STAGGER_IN} style={staggerDelay(i)}>
                     <TableCell className="font-medium">{g.name}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatCurrency(g.credit_limit, 'QAR')}</TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">

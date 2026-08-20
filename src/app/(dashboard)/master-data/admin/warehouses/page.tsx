@@ -10,6 +10,8 @@ import { WarehouseFormDialog } from '@/components/master-data/WarehouseFormDialo
 import { WarehouseSubContainersSection } from '@/components/master-data/WarehouseSubContainersSection'
 import { useWarehouses, useDeleteWarehouse, type Warehouse } from '@/hooks/useWarehouses'
 import { formatNumber } from '@/lib/utils/formatters'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -103,10 +105,10 @@ export default function WarehousesPage() {
         </p>
       ) : (
         <div className="space-y-3">
-          {filtered.map((wh) => {
+          {filtered.map((wh, i) => {
             const isOpen = expanded.has(wh.id)
             return (
-              <Card key={wh.id} className="overflow-hidden">
+              <Card key={wh.id} className={cn('overflow-hidden', STAGGER_IN)} style={staggerDelay(i)}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-2 min-w-0">
                     <Button

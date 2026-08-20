@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { type ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontal, Shield, UserPlus, AlertCircle, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -341,13 +342,14 @@ export default function UsersRolesPage() {
               <p className="text-sm text-muted-foreground text-center py-12">No roles found.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredRoles.map((role) => (
-                  <RoleCard
-                    key={role.id}
-                    role={role}
-                    onEdit={() => setRoleDialog({ open: true, role })}
-                    onDelete={() => setDeleteRoleTarget(role)}
-                  />
+                {filteredRoles.map((role, i) => (
+                  <div key={role.id} className={STAGGER_IN} style={staggerDelay(i)}>
+                    <RoleCard
+                      role={role}
+                      onEdit={() => setRoleDialog({ open: true, role })}
+                      onDelete={() => setDeleteRoleTarget(role)}
+                    />
+                  </div>
                 ))}
               </div>
             )}

@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   useConsumption,
   useConsumerLabel,
@@ -177,8 +178,8 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {data.lines.map((l) => (
-                          <tr key={l.id}>
+                        {data.lines.map((l, i) => (
+                          <tr key={l.id} className={STAGGER_IN} style={staggerDelay(i)}>
                             <td className="px-2.5 py-1.5">
                               <div className="font-medium truncate max-w-[280px]">{l.item_name}</div>
                               {l.sku && <div className="text-[10px] text-muted-foreground">{l.sku}</div>}
