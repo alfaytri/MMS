@@ -5,6 +5,7 @@ import {
   ChevronRight, ChevronDown, Download, Search, ArrowUpDown, ArrowUp, ArrowDown, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -310,9 +311,9 @@ export function ProfitabilityDrilldownDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sorted.map((so) => (
+                {sorted.map((so, i) => (
                   <SORow key={so.sale_order_id} so={so} isOpen={expanded.has(so.sale_order_id)}
-                    onToggle={() => toggleExpand(so.sale_order_id)} mode={mode} />
+                    onToggle={() => toggleExpand(so.sale_order_id)} mode={mode} index={i} />
                 ))}
                 {/* Totals row */}
                 <TableRow className="bg-muted/50 font-semibold border-t-2">
@@ -353,13 +354,13 @@ export function ProfitabilityDrilldownDialog({
   )
 }
 
-function SORow({ so, isOpen, onToggle, mode }: {
-  so: DrilldownSO; isOpen: boolean; onToggle: () => void; mode: DrilldownMode
+function SORow({ so, isOpen, onToggle, mode, index = 0 }: {
+  so: DrilldownSO; isOpen: boolean; onToggle: () => void; mode: DrilldownMode; index?: number
 }) {
   const showAll = mode === 'profit'
   return (
     <>
-      <TableRow className="cursor-pointer hover:bg-muted/40 transition-colors" onClick={onToggle}>
+      <TableRow className={cn('cursor-pointer hover:bg-muted/40 transition-colors', STAGGER_IN)} style={staggerDelay(index)} onClick={onToggle}>
         <TableCell className="px-2">
           {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
         </TableCell>
@@ -396,16 +397,16 @@ function SORow({ so, isOpen, onToggle, mode }: {
         )}
       </TableRow>
       {isOpen && so.lines.map((line, i) => (
-        <LineRow key={`${so.sale_order_id}-${line.brand_variant_id}-${i}`} line={line} mode={mode} />
+        <LineRow key={`${so.sale_order_id}-${line.brand_variant_id}-${i}`} line={line} mode={mode} index={i} />
       ))}
     </>
   )
 }
 
-function LineRow({ line, mode }: { line: DrilldownLine; mode: DrilldownMode }) {
+function LineRow({ line, mode, index = 0 }: { line: DrilldownLine; mode: DrilldownMode; index?: number }) {
   const showAll = mode === 'profit'
   return (
-    <TableRow className="bg-muted/20 text-xs">
+    <TableRow className={cn('bg-muted/20 text-xs', STAGGER_IN)} style={staggerDelay(index)}>
       <TableCell />
       <TableCell className="text-muted-foreground pl-6 whitespace-nowrap">{line.sku ?? '—'}</TableCell>
       <TableCell>

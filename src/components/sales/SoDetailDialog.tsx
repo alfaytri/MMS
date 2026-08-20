@@ -183,7 +183,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[95vh] flex flex-col">
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
             <div className="flex flex-wrap items-center gap-3">
               <DialogTitle>{current?.so_number}</DialogTitle>

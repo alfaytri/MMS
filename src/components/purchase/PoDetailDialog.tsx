@@ -155,7 +155,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   if (open && !current && isLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[95vh] flex flex-col">
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg h-[85vh] overflow-hidden flex flex-col">
           <div className="p-6 space-y-3">
             <Skeleton className="h-6 w-48" />
             <Skeleton className="h-4 w-32" />
@@ -176,7 +176,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg max-h-[95vh] flex flex-col">
+        <DialogContent className="w-full max-w-full rounded-none sm:max-w-4xl sm:rounded-lg h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0 pb-3 border-b">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
