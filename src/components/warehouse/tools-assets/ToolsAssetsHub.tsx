@@ -76,16 +76,16 @@ export function ToolsAssetsHub() {
             <History className="h-3.5 w-3.5" /> History &amp; Usage
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="teams" className="mt-0">
+        <TabsContent value="teams" className="mt-0 animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint">
           <TeamsTab onStartCheck={handleStartCheck} />
         </TabsContent>
-        <TabsContent value="repair" className="mt-0">
+        <TabsContent value="repair" className="mt-0 animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint">
           <RepairTab />
         </TabsContent>
-        <TabsContent value="checks" className="mt-0">
+        <TabsContent value="checks" className="mt-0 animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint">
           <ToolCheckPage />
         </TabsContent>
-        <TabsContent value="history" className="mt-0">
+        <TabsContent value="history" className="mt-0 animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint">
           <HistoryUsageTab />
         </TabsContent>
       </Tabs>

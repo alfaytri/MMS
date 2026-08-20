@@ -17,6 +17,8 @@ import { MoveToolUnitDialog } from './MoveToolUnitDialog'
 import { AssignToolUnitDialog } from './AssignToolUnitDialog'
 import { SendToRepairDialog } from './SendToRepairDialog'
 import { ReturnToolDialog } from './ReturnToolDialog'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type TeamRef = { id: string; name: string; divisionId: string; divisionName: string | null }
 type UnitRef = { id: string; label: string }
@@ -115,8 +117,8 @@ export function TeamToolsDetail({ team, onBack }: { team: TeamRef; onBack: () =>
 
                     {!isCollapsed && (
                       <ul className="divide-y border-t bg-muted/20">
-                        {list.map((u) => (
-                          <li key={u.unit_id} className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+                        {list.map((u, i) => (
+                          <li key={u.unit_id} className={cn('flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3', STAGGER_IN)} style={staggerDelay(i)}>
                             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="font-mono text-xs shrink-0">{u.serial_number ?? '—'}</span>
                               <ToolLifecycleBadge type={u.lifecycle_type} />

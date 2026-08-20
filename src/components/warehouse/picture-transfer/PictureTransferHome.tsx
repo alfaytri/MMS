@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { PackagePlus, PackageCheck } from 'lucide-react'
 import { useWarehouseTransfers } from '@/hooks/useWarehouseOperations'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 /**
  * Home screen — the whole app is two big buttons. SEND (blue) + RECEIVE
@@ -28,7 +29,8 @@ export function PictureTransferHome({
       <button
         type="button"
         onClick={onSend}
-        className="flex flex-1 flex-col justify-between rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 p-7 text-left text-white shadow-lg"
+        className={`flex flex-1 flex-col justify-between rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 p-7 text-left text-white shadow-lg ${STAGGER_IN}`}
+        style={staggerDelay(0)}
       >
         <PackagePlus className="h-14 w-14" />
         <div>
@@ -39,7 +41,8 @@ export function PictureTransferHome({
       <button
         type="button"
         onClick={onReceive}
-        className="relative flex flex-1 flex-col justify-between rounded-3xl bg-gradient-to-br from-green-600 to-green-700 p-7 text-left text-white shadow-lg"
+        className={`relative flex flex-1 flex-col justify-between rounded-3xl bg-gradient-to-br from-green-600 to-green-700 p-7 text-left text-white shadow-lg ${STAGGER_IN}`}
+        style={staggerDelay(1)}
       >
         {receiveCount > 0 && (
           <span className="absolute right-5 top-5 grid h-10 w-10 place-items-center rounded-full bg-white text-lg font-extrabold text-red-600 shadow">

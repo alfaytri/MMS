@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useTeamsWithToolCounts, type TeamToolCount } from '@/hooks/useToolAssignments'
 import { TeamToolsDetail } from './TeamToolsDetail'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 // Natural/numeric collation so "Team 2" sorts before "Team 10".
 const COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
@@ -110,12 +112,13 @@ export function TeamsTab({ onStartCheck }: { onStartCheck?: (divisionId: string)
 
             {open && (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                {group.map((t) => (
+                {group.map((t, i) => (
                   <button
                     key={t.team_id}
                     type="button"
                     onClick={() => setSelected(t)}
-                    className="text-left rounded-lg border bg-card shadow-sm p-4 min-h-[7rem] min-w-0 flex flex-col gap-1 hover:bg-accent transition-colors"
+                    className={cn('text-left rounded-lg border bg-card shadow-sm p-4 min-h-[7rem] min-w-0 flex flex-col gap-1 hover:bg-accent transition-colors', STAGGER_IN)}
+                    style={staggerDelay(i)}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Users2 className="h-4 w-4 text-primary shrink-0" />

@@ -8,6 +8,8 @@ import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useVariantImages } from '@/hooks/useVariantImages'
 import { PicturePhoto } from './PicturePhoto'
 import { QtyStepper } from './QtyStepper'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 /**
  * Receive screen — in-transit transfers headed to the worker's warehouse(s).
@@ -79,11 +81,11 @@ export function PictureReceive({
           <div className="grid place-items-center py-20 text-center text-base text-muted-foreground">Nothing waiting to receive.</div>
         ) : (
           <div className="flex flex-col gap-4">
-            {mine.map((t) => {
+            {mine.map((t, idx) => {
               const items = t.transfer_items ?? []
               const showFewer = !!fewer[t.id]
               return (
-                <div key={t.id} className="flex flex-col gap-3 rounded-3xl border bg-card p-4">
+                <div key={t.id} className={cn('flex flex-col gap-3 rounded-3xl border bg-card p-4', STAGGER_IN)} style={staggerDelay(idx)}>
                   <div className="text-sm font-semibold text-muted-foreground">
                     from {t.from_warehouse?.name ?? 'another warehouse'}
                     {t.from_sub_container_name ? ` · ${t.from_sub_container_name}` : ''}

@@ -7,6 +7,7 @@ import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useTeamsWithToolCounts } from '@/hooks/useToolAssignments'
 import { useSearchToolUnits, useAssignedToolUnits, type ToolUnitSearchRow } from '@/hooks/useToolUnitHistory'
 import { ToolUnitTimeline } from './ToolUnitTimeline'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
@@ -102,7 +103,11 @@ export function HistoryUsageTab() {
             {!search.isFetching && searchRows.length === 0 && (
               <p className="p-3 text-sm text-muted-foreground">No tools match “{trimmed}”.</p>
             )}
-            {searchRows.map((r) => <ToolRow key={r.unit_id} row={r} onOpen={openRow} />)}
+            {searchRows.map((r, i) => (
+              <div key={r.unit_id} className={STAGGER_IN} style={staggerDelay(i)}>
+                <ToolRow row={r} onOpen={openRow} />
+              </div>
+            ))}
           </div>
         </div>
       ) : (
@@ -138,7 +143,11 @@ export function HistoryUsageTab() {
                 </span>
               </div>
               <div className="rounded-lg border divide-y">
-                {rows.map((r) => <ToolRow key={r.unit_id} row={r} onOpen={openRow} />)}
+                {rows.map((r, i) => (
+                  <div key={r.unit_id} className={STAGGER_IN} style={staggerDelay(i)}>
+                    <ToolRow row={r} onOpen={openRow} />
+                  </div>
+                ))}
               </div>
             </div>
           ))}

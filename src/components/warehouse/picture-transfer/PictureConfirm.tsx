@@ -3,6 +3,8 @@
 import { Check } from 'lucide-react'
 import { PicturePhoto } from './PicturePhoto'
 import type { CartLine } from './PictureItemFind'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, REVEAL_IN, staggerDelay } from '@/lib/motion'
 
 /**
  * "Confirm & send" step — one card per line: big photo · name · "→ dest" ·
@@ -20,13 +22,13 @@ export function PictureConfirm({
   onSend: () => void
 }) {
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className={cn('flex flex-col gap-4 p-4', REVEAL_IN)}>
       <p className="text-base font-semibold">
         Sending to <span className="text-primary">{destLabel}</span>
       </p>
       <div className="flex flex-col gap-3">
-        {lines.map(({ item, qty }) => (
-          <div key={item.brand_variant_id} className="flex items-center gap-4 rounded-2xl border bg-card p-3">
+        {lines.map(({ item, qty }, i) => (
+          <div key={item.brand_variant_id} className={cn('flex items-center gap-4 rounded-2xl border bg-card p-3', STAGGER_IN)} style={staggerDelay(i)}>
             <PicturePhoto url={item.image_url} name={item.item_name} size={72} />
             <div className="min-w-0 flex-1">
               <div className="break-words text-base font-bold leading-tight">{item.item_name}</div>

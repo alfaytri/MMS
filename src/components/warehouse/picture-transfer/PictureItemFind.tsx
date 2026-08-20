@@ -6,6 +6,8 @@ import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouse
 import { useOftenMovedVariants } from '@/hooks/useOftenMovedVariants'
 import { PicturePhoto } from './PicturePhoto'
 import { QtyStepper } from './QtyStepper'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, REVEAL_IN, staggerDelay } from '@/lib/motion'
 
 export type CartLine = { qty: number; item: WarehouseStockItem }
 export type Cart = Map<string, CartLine>
@@ -86,7 +88,7 @@ export function PictureItemFind({
       : null
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className={cn('flex flex-col gap-4 p-4', REVEAL_IN)}>
       {/* Search bar */}
       <div className="flex items-center gap-2 rounded-2xl border bg-card px-3 py-2.5">
         <Search className="h-5 w-5 shrink-0 opacity-50" />
@@ -128,8 +130,10 @@ export function PictureItemFind({
             <div className="grid place-items-center py-16 text-sm text-muted-foreground">Nothing here.</div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {gridItems.map((s) => (
-                <ItemCard key={s.brand_variant_id} s={s} line={cart.get(s.brand_variant_id)} onToggle={toggle} onQty={setQty} />
+              {gridItems.map((s, i) => (
+                <div key={s.brand_variant_id} className={STAGGER_IN} style={staggerDelay(i)}>
+                  <ItemCard s={s} line={cart.get(s.brand_variant_id)} onToggle={toggle} onQty={setQty} />
+                </div>
               ))}
             </div>
           )}
@@ -140,14 +144,15 @@ export function PictureItemFind({
             <section className="flex flex-col gap-2">
               <h2 className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">⭐ Often moved</h2>
               <div className="flex gap-3 overflow-x-auto pb-1">
-                {oftenItems.map((s) => {
+                {oftenItems.map((s, i) => {
                   const selected = cart.has(s.brand_variant_id)
                   return (
                     <button
                       key={s.brand_variant_id}
                       type="button"
                       onClick={() => toggle(s)}
-                      className={`flex w-24 shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-2 text-center ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-transparent'}`}
+                      className={`${STAGGER_IN} flex w-24 shrink-0 flex-col items-center gap-1.5 rounded-2xl border p-2 text-center ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-transparent'}`}
+                      style={staggerDelay(i)}
                     >
                       <PicturePhoto url={s.image_url} name={s.item_name} size={64} />
                       <span className="w-full min-h-[2.5em] break-words text-xs font-semibold leading-tight">{s.item_name}</span>
@@ -164,12 +169,13 @@ export function PictureItemFind({
               <div className="grid place-items-center py-16 text-sm text-muted-foreground">No stock in your warehouse.</div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {groups.map((g) => (
+                {groups.map((g, i) => (
                   <button
                     key={g.name}
                     type="button"
                     onClick={() => setGroup(g.name)}
-                    className="flex items-center gap-3 rounded-2xl border bg-card p-3 text-left"
+                    className={cn('flex items-center gap-3 rounded-2xl border bg-card p-3 text-left', STAGGER_IN)}
+                    style={staggerDelay(i)}
                   >
                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-2xl">📦</span>
                     <span className="min-w-0">

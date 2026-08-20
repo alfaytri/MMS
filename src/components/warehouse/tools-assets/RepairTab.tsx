@@ -13,6 +13,8 @@ import { ToolLifecycleBadge } from './ToolBadges'
 import { ScrapToolDialog } from './ScrapToolDialog'
 import { SendToolForRepairDialog } from './SendToolForRepairDialog'
 import { ReturnToolFromRepairDialog } from './ReturnToolFromRepairDialog'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const GRID = 'grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
@@ -76,10 +78,10 @@ export function RepairTab() {
         <section className="space-y-2">
           <SectionHeader icon={Wrench} title="Awaiting vendor" count={bucketSorted.length} />
           <div className={GRID}>
-            {bucketSorted.map((u) => {
+            {bucketSorted.map((u, i) => {
               const label = `${u.item_name ?? 'Tool'}${u.serial_number ? ` (${u.serial_number})` : ''}`
               return (
-                <div key={u.unit_id} className="rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1">
+                <div key={u.unit_id} className={cn('rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Wrench className="h-4 w-4 text-amber-600 shrink-0" />
                     <span className="font-semibold text-sm truncate" title={u.item_name ?? undefined}>{u.item_name ?? 'Tool'}</span>
@@ -113,10 +115,10 @@ export function RepairTab() {
         <section className="space-y-2">
           <SectionHeader icon={Truck} title="Out for repair" count={outSorted.length} />
           <div className={GRID}>
-            {outSorted.map((t) => {
+            {outSorted.map((t, i) => {
               const label = `${t.item_name ?? 'Tool'}${t.serial_number ? ` (${t.serial_number})` : ''}`
               return (
-                <div key={t.transfer_id} className="rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1">
+                <div key={t.transfer_id} className={cn('rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Truck className="h-4 w-4 text-sky-600 shrink-0" />
                     <span className="font-semibold text-sm truncate" title={t.item_name ?? undefined}>{t.item_name ?? 'Tool'}</span>

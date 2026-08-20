@@ -16,6 +16,7 @@ import { useHasPermission } from '@/hooks/usePermissions'
 import { useReportFilters } from '@/hooks/useReportFilters'
 import { useDivisions } from '@/hooks/useDivisions'
 import { cn } from '@/lib/utils'
+import { REVEAL_IN } from '@/lib/motion'
 
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 const STREAM_ORDER = ['Products', 'Spare Parts', 'Consumables', 'Tools', 'LC Variation']
@@ -244,7 +245,7 @@ export default function ProfitLossReportPage() {
 
       <ReportFilterBar value={filters} onChange={setFilters} showDate showWarehouse />
 
-      <div className="rounded-lg border bg-card overflow-hidden max-w-2xl 2xl:max-w-4xl text-sm 2xl:text-base">
+      <div className={cn('rounded-lg border bg-card overflow-hidden max-w-2xl 2xl:max-w-4xl text-sm 2xl:text-base', REVEAL_IN)}>
         {isLoading ? (
           <div className="divide-y">
             {Array.from({ length: 6 }).map((_, i) => (

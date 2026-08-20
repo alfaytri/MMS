@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useCustodyLocations } from '@/hooks/useCustodyLocations'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, REVEAL_IN, staggerDelay } from '@/lib/motion'
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 const NODIV = '__nodiv__'
@@ -75,11 +77,11 @@ export function PictureWhere({
   const whName = types.find((t) => t.id === whId)?.name ?? ''
 
   return (
-    <div className="flex flex-col gap-5 p-4">
+    <div className={cn('flex flex-col gap-5 p-4', REVEAL_IN)}>
       <section className="flex flex-col gap-2">
         <h2 className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">1 · Choose a place</h2>
         <div className="flex flex-wrap gap-3">
-          {types.map((t) => {
+          {types.map((t, i) => {
             const on = t.id === whId
             return (
               <button
@@ -90,7 +92,8 @@ export function PictureWhere({
                   setDivId('')
                   onChange(null)
                 }}
-                className={`flex min-w-24 flex-1 flex-col items-center gap-2 rounded-2xl border-2 p-4 ${on ? 'border-primary ring-4 ring-primary/15' : 'border-border'}`}
+                className={`${STAGGER_IN} flex min-w-24 flex-1 flex-col items-center gap-2 rounded-2xl border-2 p-4 ${on ? 'border-primary ring-4 ring-primary/15' : 'border-border'}`}
+                style={staggerDelay(i)}
               >
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-3xl">{typeIcon(t.name)}</span>
                 <span className="text-sm font-bold">{t.name}</span>
@@ -104,7 +107,7 @@ export function PictureWhere({
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">2 · Which division</h2>
           <div className="flex flex-wrap gap-3">
-            {divisions.map((d) => {
+            {divisions.map((d, i) => {
               const on = d.id === divId
               return (
                 <button
@@ -114,7 +117,8 @@ export function PictureWhere({
                     setDivId(d.id)
                     onChange(null)
                   }}
-                  className={`rounded-2xl border-2 px-5 py-3 text-sm font-bold ${on ? 'border-primary ring-4 ring-primary/15' : 'border-border'}`}
+                  className={`${STAGGER_IN} rounded-2xl border-2 px-5 py-3 text-sm font-bold ${on ? 'border-primary ring-4 ring-primary/15' : 'border-border'}`}
+                  style={staggerDelay(i)}
                 >
                   {d.name}
                 </button>
@@ -131,14 +135,15 @@ export function PictureWhere({
             <div className="grid place-items-center py-10 text-sm text-muted-foreground">Nothing here.</div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {locs.map((l) => {
+              {locs.map((l, i) => {
                 const on = value?.toSubContainerId === l.id
                 return (
                   <button
                     key={l.id}
                     type="button"
                     onClick={() => onChange({ toWarehouseId: l.warehouse_id, toSubContainerId: l.id, label: l.name })}
-                    className={`flex items-center gap-3 rounded-2xl border-2 p-3 text-left ${on ? 'border-primary ring-4 ring-primary/15' : 'border-border'}`}
+                    className={`${STAGGER_IN} flex items-center gap-3 rounded-2xl border-2 p-3 text-left ${on ? 'border-primary ring-4 ring-primary/15' : 'border-border'}`}
+                    style={staggerDelay(i)}
                   >
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-xl">{typeIcon(whName)}</span>
                     <span className="min-w-0">
