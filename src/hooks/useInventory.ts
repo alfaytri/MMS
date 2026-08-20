@@ -1033,7 +1033,15 @@ export function useUpdateSortOrders(table: 'inventory_categories' | 'inventory_i
       if (error) throw error
     },
     onSuccess: () => {
-      if (table === 'inventory_categories') qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      if (table === 'inventory_categories') {
+        qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+        // The Inventory/Tools trees read `categoriesTreeByType`
+        // (['inventory-categories-tree', …]) — a DIFFERENT prefix from
+        // `categories` (['inventory-categories']), so it isn't caught by the
+        // line above. Without this the reorder RPC succeeds but the tree never
+        // refetches and the row appears not to move.
+        qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
+      }
       if (table === 'inventory_items') qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
       if (table === 'inventory_item_brand_variants') qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
     },
