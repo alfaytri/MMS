@@ -707,7 +707,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
 
               {/* ── Activity ─────────────────────────────────────── */}
               <TabsContent value="activity" className="flex-1 overflow-y-auto">
-                <ActivityTimeline logs={activityLogs ?? []} />
+                <ActivityTimeline logs={activityLogs?.rows ?? []} />
               </TabsContent>
 
               {/* ── Returns ──────────────────────────────────────── */}

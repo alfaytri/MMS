@@ -551,7 +551,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
               {/* ── Activity ─────────────────────────────────────── */}
               <TabsContent value="activity" className="flex-1 overflow-y-auto">
-                <ActivityTimeline logs={activityLogs ?? []} />
+                <ActivityTimeline logs={activityLogs?.rows ?? []} />
               </TabsContent>
 
               {/* ── Invoice ──────────────────────────────────────── */}

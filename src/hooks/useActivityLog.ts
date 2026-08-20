@@ -14,7 +14,7 @@ export const AUDIT_MODULES = [
   'purchase_orders', 'po_approvals', 'receivals', 'bills',
   'purchase_returns', 'debit_notes',
   'sale_orders', 'sale_approvals', 'invoices', 'sale_returns',
-  'deliveries', 'credit_notes',
+  'deliveries', 'credit_notes', 'sales',
 ] as const
 
 export const AUDIT_SEVERITIES = ['info', 'warning', 'error', 'critical'] as const satisfies readonly AuditSeverity[]
@@ -27,18 +27,24 @@ interface ActivityLogFilters {
   dateFrom?: string
   dateTo?: string
   allowedModules?: string[]
+  page?: number
+  pageSize?: number
 }
 
 export function useActivityLog(filters: ActivityLogFilters = {}) {
+  const page = Math.max(1, filters.page ?? 1)
+  const pageSize = filters.pageSize ?? 50
   return useQuery({
     queryKey: queryKeys.activityLog.list(filters),
     queryFn: async () => {
       const supabase = createClient()
+      // `count: 'exact'` gives the filtered total for pagination; `.range()`
+      // pulls just the current page (was a flat `.limit(500)` — heavy, since
+      // each row carries the wide old_data/new_data JSONB blobs).
       let query = supabase
         .from('activity_log')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(500)
 
       if (filters.module) {
         query = query.eq('module', filters.module)
@@ -62,9 +68,12 @@ export function useActivityLog(filters: ActivityLogFilters = {}) {
         query = query.or(`action.ilike.%${safe}%,details.ilike.%${safe}%,performer_name.ilike.%${safe}%`)
       }
 
-      const { data, error } = await query
+      const from = (page - 1) * pageSize
+      query = query.range(from, from + pageSize - 1)
+
+      const { data, error, count } = await query
       if (error) throw error
-      return data as ActivityLog[]
+      return { rows: (data ?? []) as ActivityLog[], count: count ?? 0, page, pageSize }
     },
     // No refetchInterval: the audit log is human-paced, and each fetch pulls up
     // to 500 rows *including the wide old_data/new_data JSONB blobs*. Polling that
