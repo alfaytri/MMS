@@ -13,6 +13,7 @@ import { CategoryEditDialog } from './CategoryEditDialog'
 import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { filterTree } from '@/lib/inventory/filterTree'
+import { reorderSiblings } from '@/lib/inventory/reorder'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemDivisionsByStock } from '@/hooks/useItemDivisionsByStock'
 
@@ -103,13 +104,8 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
   const pageOffset = (page - 1) * PAGE_SIZE
 
   function handleCategoryMove(idx: number, direction: 'up' | 'down') {
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    const a = filtered[idx]
-    const b = filtered[targetIdx]
-    updateCategoryOrder.mutate([
-      { id: a.id, sort_order: b.sort_order ?? targetIdx },
-      { id: b.id, sort_order: a.sort_order ?? idx },
-    ])
+    const updates = reorderSiblings(filtered, idx, direction)
+    if (updates.length) updateCategoryOrder.mutate(updates)
   }
 
   return (

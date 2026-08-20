@@ -11,6 +11,7 @@ import { ItemEditDialog } from './ItemEditDialog'
 import { CategoryAttributesDialog } from '@/components/master-data/attributes/CategoryAttributesDialog'
 import { useHasViewPermission } from '@/hooks/usePermissions'
 import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
+import { reorderSiblings } from '@/lib/inventory/reorder'
 import {
   useItemAttributesByCategory,
   useItemAttributesByCategories,
@@ -231,23 +232,13 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   }
 
   function handleItemMove(idx: number, direction: 'up' | 'down') {
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    const a = items[idx]
-    const b = items[targetIdx]
-    updateItemOrder.mutate([
-      { id: a.id, sort_order: b.sort_order ?? targetIdx },
-      { id: b.id, sort_order: a.sort_order ?? idx },
-    ])
+    const updates = reorderSiblings(items, idx, direction)
+    if (updates.length) updateItemOrder.mutate(updates)
   }
 
   function handleChildCategoryMove(idx: number, direction: 'up' | 'down') {
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    const a = node.children[idx]
-    const b = node.children[targetIdx]
-    updateChildCategoryOrder.mutate([
-      { id: a.id, sort_order: b.sort_order ?? targetIdx },
-      { id: b.id, sort_order: a.sort_order ?? idx },
-    ])
+    const updates = reorderSiblings(node.children, idx, direction)
+    if (updates.length) updateChildCategoryOrder.mutate(updates)
   }
 
   return (

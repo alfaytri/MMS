@@ -21,6 +21,7 @@ import {
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { formatDate } from '@/lib/utils/formatters'
 import { categoryDepthStyle } from '@/lib/inventory/categoryDepth'
+import { reorderSiblings } from '@/lib/inventory/reorder'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
@@ -235,13 +236,8 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   const depthStyle = categoryDepthStyle(depth)
 
   function handleChildCategoryMove(idx: number, direction: 'up' | 'down') {
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    const a = node.children[idx]
-    const b = node.children[targetIdx]
-    updateChildCategoryOrder.mutate([
-      { id: a.id, sort_order: b.sort_order ?? targetIdx },
-      { id: b.id, sort_order: a.sort_order ?? idx },
-    ])
+    const updates = reorderSiblings(node.children, idx, direction)
+    if (updates.length) updateChildCategoryOrder.mutate(updates)
   }
 
   return (
