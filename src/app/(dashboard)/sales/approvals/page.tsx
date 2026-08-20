@@ -324,7 +324,7 @@ export default function SalesApprovalsPage() {
                   </div>
 
                   {(viewSlip.approval_type === 'credit' ? (payload.available != null || payload.overage != null) : Array.isArray(payload.lines) && payload.lines.length > 0) && (
-                    <div className="rounded-md border-l-4 border-amber-500 bg-amber-500/5 p-3 text-xs space-y-1">
+                    <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-1">
                       {viewSlip.approval_type === 'credit' ? (
                         <>
                           <div>Available credit: {Number(payload.available ?? 0).toLocaleString('en-QA')}</div>

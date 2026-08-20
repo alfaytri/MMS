@@ -143,7 +143,7 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
           </div>
 
           {/* Reason */}
-          <div className="rounded-lg border-l-2 border-purple-400 bg-purple-50/50 px-4 py-3">
+          <div className="rounded-lg border border-purple-200 bg-purple-50/50 px-4 py-3">
             <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider mb-0.5">Reason</p>
             <p className="text-sm font-medium">{ret.reason}</p>
           </div>
@@ -222,7 +222,7 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
 
           {/* Notes */}
           {ret.notes && (
-            <div className="rounded-lg border-l-2 border-primary bg-muted/20 px-4 py-3">
+            <div className="rounded-lg border border-primary/20 bg-muted/20 px-4 py-3">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Notes</p>
               <p className="text-sm">{ret.notes}</p>
             </div>

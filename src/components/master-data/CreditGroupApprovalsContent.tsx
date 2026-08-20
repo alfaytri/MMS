@@ -459,7 +459,7 @@ export function CreditGroupApprovalsContent() {
                 )}
 
                 {/* Trigger banner */}
-                <div className="rounded-md border-l-4 border-amber-500 bg-amber-500/5 p-3 text-xs space-y-1">
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs space-y-1">
                   <div className="font-medium">Why this needs approval</div>
                   <div className="text-amber-700">
                     Moving <span className="font-medium">{dialogState.request.customer_name}</span> to
