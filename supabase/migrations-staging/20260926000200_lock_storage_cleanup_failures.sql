@@ -1,0 +1,11 @@
+-- Lock storage_cleanup_failures to internal-only (DB audit 2026-08-20 follow-up).
+--
+-- The table is written only by storage_delete_object (SECURITY DEFINER, runs as
+-- the owner) and is never queried by the app. RLS is on with no policy, so the
+-- Data API already denies all access — but the table still carried Supabase's
+-- default anon/authenticated table grants (a single layer). Revoke them so it is
+-- locked two independent ways (no grant AND RLS deny), matching
+-- consumption_number_counters. service_role (backend admin) is left untouched.
+-- Idempotent: revoking absent privileges is a no-op, so it applies cleanly to
+-- staging + new-prod regardless of their current grant state.
+revoke all on table public.storage_cleanup_failures from anon, authenticated;
