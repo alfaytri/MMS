@@ -210,7 +210,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
           <td colSpan={6} className="py-0 pl-8 pr-4 pb-3">
             <div className="rounded border border-border overflow-x-auto mt-2">
               <Table>
-                <TableHeader>
+                <TableHeader className="hidden md:table-header-group">
                   <TableRow className="bg-muted/50">
                     <TableHead className="text-[10px] h-7 font-semibold">ORIGIN</TableHead>
                     <TableHead className="text-[10px] h-7 font-semibold hidden sm:table-cell">CODE</TableHead>

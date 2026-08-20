@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Plus, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { OriginVariantRow, type OriginVariant } from './OriginVariantRow'
+import { OriginVariantRow, VARIANT_COLUMN_COUNT, type OriginVariant } from './OriginVariantRow'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
 import type { BrandGroup } from '@/lib/inventory/groupVariants'
 
@@ -34,7 +34,7 @@ export function BrandGroupRow({ group, itemId, itemName }: Props) {
         per column — collapsing identically to the data rows below it — is
         what keeps the button pinned to ACTIONS at every breakpoint.
       */}
-      <TableRow className="min-h-11 bg-muted/40 hover:bg-muted/40 border-t border-border">
+      <TableRow className="hidden md:table-row min-h-11 bg-muted/40 hover:bg-muted/40 border-t border-border">
         <TableCell className="py-1.5 pl-2">
           <div className="flex items-center gap-1.5">
             <Tag className="h-3 w-3 text-muted-foreground flex-shrink-0" />
@@ -57,6 +57,28 @@ export function BrandGroupRow({ group, itemId, itemName }: Props) {
           >
             <Plus className="h-3 w-3 mr-1" /> Add origin
           </Button>
+        </TableCell>
+      </TableRow>
+
+      {/* Mobile: full-width brand header — the 8-cell desktop version leaves the
+          brand name marooned across empty columns on a phone. */}
+      <TableRow className="md:hidden bg-muted/40 hover:bg-muted/40 border-t border-border">
+        <TableCell colSpan={VARIANT_COLUMN_COUNT} className="py-1.5 px-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span className="text-xs font-medium truncate">{group.brandLabel}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 px-2 text-[11px] text-blue-600 hover:text-blue-700 shrink-0"
+              onClick={() => setAddOriginOpen(true)}
+              aria-label={`Add origin for ${group.brandLabel}`}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Add origin
+            </Button>
+          </div>
         </TableCell>
       </TableRow>
 

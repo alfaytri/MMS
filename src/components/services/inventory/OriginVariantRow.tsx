@@ -153,8 +153,9 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
 
   return (
     <>
+      {/* Desktop / tablet (md+): the dense 8-column row. */}
       <TableRow
-        className="min-h-11 text-xs cursor-pointer hover:bg-muted/30"
+        className="hidden md:table-row min-h-11 text-xs cursor-pointer hover:bg-muted/30"
         onClick={() => setFifoOpen((v) => !v)}
       >
         <TableCell className="pl-6">
@@ -241,6 +242,66 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
             >
               <Archive className="h-3 w-3" />
             </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      {/* Mobile (< md): the same variant as a stacked card — the 8-column row
+          can't fit a phone. Tap the card body to toggle the FIFO layers; the
+          edit / receival / archive actions stay reachable on the right. */}
+      <TableRow className="md:hidden hover:bg-muted/30">
+        <TableCell colSpan={VARIANT_COLUMN_COUNT} className="py-2.5 pl-4 pr-2">
+          <div className="flex items-start justify-between gap-2">
+            <button
+              type="button"
+              className="min-w-0 flex-1 text-left"
+              onClick={() => setFifoOpen((v) => !v)}
+              aria-expanded={fifoOpen}
+            >
+              <div className="flex items-center gap-1.5">
+                {fifoOpen
+                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                <span className="text-sm font-medium text-blue-600 break-words">{originLabel}</span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <WarehouseStockTooltip variantId={variant.id} disabled={stockLevel <= 0}>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">Avail</span>
+                    <AtpBadge stockLevel={stockLevel} reservedQty={reservedQty} reorderPoint={reorderPoint} />
+                  </span>
+                </WarehouseStockTooltip>
+                {reservedQty > 0 && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-orange-100 text-orange-700">
+                    {reservedQty} reserved
+                  </span>
+                )}
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${damagedQty > 0 ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'}`}>
+                  {damagedQty} dmg
+                </span>
+                {incoming > 0 && (
+                  <span className="text-[11px] font-medium text-blue-600">+{incoming} incoming</span>
+                )}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                <span>Sell: {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}</span>
+                <span>Avg: {variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—'}</span>
+                {variant.code && <span>Code: {variant.code}</span>}
+              </div>
+            </button>
+            <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+              {canCreateInvRcv && (
+                <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => setInvReceivalOpen(true)} aria-label="Create Inventory Receival">
+                  <PackagePlus className="h-4 w-4" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => setEditOpen(true)} aria-label="Edit variant">
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)} aria-label="Archive variant">
+                <Archive className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </TableCell>
       </TableRow>
