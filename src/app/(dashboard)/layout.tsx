@@ -8,6 +8,7 @@ import { DashboardMain } from '@/components/layout/DashboardMain'
 import { TopNavV2Offset } from '@/components/layout/TopNavV2Offset'
 import { RoutePermissionGuard } from '@/components/auth/RoutePermissionGuard'
 import { DivisionProvider } from '@/components/providers/DivisionProvider'
+import { SentryUser } from '@/components/shared/SentryUser'
 
 export default async function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default async function DashboardLayout({
       <DivisionProvider>
         <div className="h-screen bg-muted/30 flex flex-col overflow-hidden text-sm 2xl:text-base">
           <InactivityGuard />
+          <SentryUser />
           <TopNavV2Offset>
             <Suspense fallback={<TopNavSkeleton />}>
               <TopNav />
