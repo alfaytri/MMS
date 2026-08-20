@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const CHROMIUM_FILES = ['./node_modules/@sparticuz/chromium/**/*']
 
@@ -29,4 +30,14 @@ const nextConfig: NextConfig = {
 
 };
 
-export default nextConfig;
+// Wrap with Sentry. Source-map upload only runs when SENTRY_ORG / SENTRY_PROJECT
+// / SENTRY_AUTH_TOKEN are set (as Vercel env vars) — otherwise it's skipped and
+// the build still passes. `silent` keeps the build log clean; no tunnelRoute, so
+// there's no interaction with the auth middleware.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  disableLogger: true,
+});
