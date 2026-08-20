@@ -127,6 +127,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
   const [status, setStatus] = useState('available')
   const [assignedTo, setAssignedTo] = useState<string>('')
   const [divisionId, setDivisionId] = useState<string>('')
+  const [unitCost, setUnitCost] = useState('')
   const [seededSerial, setSeededSerial] = useState('')
   const [seededDivisionId, setSeededDivisionId] = useState('')
   const guardRef = useRef<GuardedFormDialogHandle>(null)
@@ -149,6 +150,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       setExpiry(unit?.expiry ?? '')
       setStatus(unit?.status ?? 'available')
       setAssignedTo(unit?.assigned_to ?? '')
+      setUnitCost(unit?.unit_cost != null ? String(unit.unit_cost) : '')
       // Division owns the unit; person (assigned_to, above) holds it — independent fields.
       // Pre-select when exactly one division exists (nothing else to pick); otherwise
       // fall back to the unit's own division_id, or unassigned for new/unset units.
@@ -167,13 +169,18 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
     expiry !== (unit?.expiry ?? '') ||
     status !== (unit?.status ?? 'available') ||
     assignedTo !== (unit?.assigned_to ?? '') ||
-    divisionId !== seededDivisionId
+    divisionId !== seededDivisionId ||
+    unitCost !== (unit?.unit_cost != null ? String(unit.unit_cost) : '')
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!serial.trim()) { toast.error('Serial number is required'); return }
     if (!brand.trim()) { toast.error('Brand is required'); return }
     if (status === 'assigned' && !assignedTo) { toast.error('Select a staff member to assign to'); return }
+    const trimmedCost = unitCost.trim()
+    if (trimmedCost !== '' && (!Number.isFinite(Number(trimmedCost)) || Number(trimmedCost) < 0)) {
+      toast.error('Unit cost must be a number ≥ 0'); return
+    }
     const payload = {
       serial_number: serial.trim(),
       brand: brand.trim(),
@@ -183,6 +190,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
       status,
       assigned_to: status === 'assigned' ? assignedTo : null,
       division_id: divisionId || null,
+      unit_cost: trimmedCost === '' ? null : Number(trimmedCost),
     }
     if (isEdit && unit) {
       update.mutate({ id: unit.id, item_id: itemId, ...payload }, {
@@ -210,6 +218,23 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
             <div className="space-y-1">
               <Label htmlFor="tool-brand">Brand *</Label>
               <Input id="tool-brand" value={brand} onChange={(e) => setBrand(e.target.value)} className="h-10" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="tool-unit-cost">Unit Cost (QAR)</Label>
+              <Input
+                id="tool-unit-cost"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+                placeholder="e.g. 1200.00"
+                className="h-10"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Auto-filled from the receival cost for PO-received tools; set it here for manually-added units.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">

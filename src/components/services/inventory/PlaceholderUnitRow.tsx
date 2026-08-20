@@ -16,9 +16,12 @@ type Props = {
    *  column, Task 2b.4) and the PO-receiving serials step (which doesn't). Opt in
    *  so the two host tables' column counts stay independently correct. */
   showDivisionColumn?: boolean
+  /** The serialized-tools table also shows a UNIT COST column; the PO-receiving
+   *  serials step does not. Opt in so the two host tables' column counts match. */
+  showCostColumn?: boolean
 }
 
-export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisionColumn }: Props) {
+export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisionColumn, showCostColumn }: Props) {
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState(unit.brand ?? '')
   const [expiry, setExpiry] = useState(unit.expiry ?? '')
@@ -85,6 +88,13 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisi
           className="h-7 text-xs w-full min-w-0"
         />
       </td>
+      {showCostColumn && (
+        <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">
+          {unit.unit_cost != null
+            ? unit.unit_cost.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : '—'}
+        </td>
+      )}
       <td className="py-1.5 px-2 text-right">
         <Button
           size="sm"

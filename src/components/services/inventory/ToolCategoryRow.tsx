@@ -96,16 +96,17 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">STATUS</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">DIVISION</th>
                   <th className="text-left text-[10px] font-semibold py-1.5 px-2">EXPIRY</th>
+                  <th className="text-right text-[10px] font-semibold py-1.5 px-2">UNIT COST</th>
                   <th className="text-right text-[10px] font-semibold py-1.5 px-2" />
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <tr><td colSpan={7} className="h-8"><div className="h-4 w-full bg-muted animate-pulse rounded m-2" /></td></tr>}
+                {isLoading && <tr><td colSpan={8} className="h-8"><div className="h-4 w-full bg-muted animate-pulse rounded m-2" /></td></tr>}
                 {!isLoading && units.length === 0 && (
-                  <tr><td colSpan={7} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
+                  <tr><td colSpan={8} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
                 )}
                 {pendingUnits.map((unit) => (
-                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} showDivisionColumn />
+                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} showDivisionColumn showCostColumn />
                 ))}
                 {confirmedUnits.map((unit) => (
                   <tr key={unit.id} className="border-t border-border">
@@ -121,6 +122,11 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                       {divisionDisplayName(unit.division_id)}
                     </td>
                     <td className="py-1.5 px-2">{unit.expiry ? formatDate(unit.expiry) : '—'}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">
+                      {unit.unit_cost != null
+                        ? unit.unit_cost.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '—'}
+                    </td>
                     <td className="py-1.5 px-2 text-right">
                       <div className="flex items-center justify-end gap-0.5">
                         <Button variant="ghost" size="icon" aria-label="Transfer unit" title="Transfer to another division" className="h-5 w-5 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setTransferUnit(unit)}>

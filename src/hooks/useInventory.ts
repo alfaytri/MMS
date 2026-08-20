@@ -400,6 +400,7 @@ export type ToolAssetUnit = {
   created_at: string
   is_placeholder: boolean
   receival_item_id: string | null
+  unit_cost: number | null
 }
 
 // ─── Category hooks (new) ─────────────────────────────────────────────────────
@@ -782,7 +783,9 @@ export function useToolAssetUnits(itemId: string | null) {
         .order('created_at', { ascending: true })
         .limit(500)
       if (error) throw error
-      return (data ?? []) as ToolAssetUnit[]
+      // Cast via unknown: generated DB types lag the unit_cost column (added in
+      // migration 20260929000000); the '*' select returns it at runtime.
+      return (data ?? []) as unknown as ToolAssetUnit[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -790,7 +793,7 @@ export function useToolAssetUnits(itemId: string | null) {
 
 export function useCreateToolAssetUnit() {
   const qc = useQueryClient()
-  return useMutation<ToolAssetUnit, Error, { item_id: string; serial_number: string; brand: string; condition?: string; lifecycle_type?: string; expiry?: string | null; status?: string; assigned_to?: string | null; division_id?: string | null }>({
+  return useMutation<ToolAssetUnit, Error, { item_id: string; serial_number: string; brand: string; condition?: string; lifecycle_type?: string; expiry?: string | null; status?: string; assigned_to?: string | null; division_id?: string | null; unit_cost?: number | null }>({
     mutationFn: async (payload) => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -806,7 +809,7 @@ export function useCreateToolAssetUnit() {
         entity_type: 'tool_unit',
         new_data:    data as unknown as Record<string, unknown>,
       })
-      return data as ToolAssetUnit
+      return data as unknown as ToolAssetUnit
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
@@ -816,7 +819,7 @@ export function useCreateToolAssetUnit() {
 
 export function useUpdateToolAssetUnit() {
   const qc = useQueryClient()
-  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string | null; brand?: string; condition?: string; lifecycle_type?: string; status?: string; expiry?: string | null; assigned_to?: string | null; is_placeholder?: boolean; division_id?: string | null }>({
+  return useMutation<ToolAssetUnit, Error, { id: string; item_id: string; serial_number?: string | null; brand?: string; condition?: string; lifecycle_type?: string; status?: string; expiry?: string | null; assigned_to?: string | null; is_placeholder?: boolean; division_id?: string | null; unit_cost?: number | null }>({
     mutationFn: async ({ id, item_id: _item_id, ...payload }) => {
       const supabase = createClient()
       const { data: old } = await supabase
@@ -836,7 +839,7 @@ export function useUpdateToolAssetUnit() {
         old_data:    old as unknown as Record<string, unknown> | null,
         new_data:    data as unknown as Record<string, unknown>,
       })
-      return data as ToolAssetUnit
+      return data as unknown as ToolAssetUnit
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
