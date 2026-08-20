@@ -32,12 +32,19 @@ const nextConfig: NextConfig = {
 
 // Wrap with Sentry. Source-map upload only runs when SENTRY_ORG / SENTRY_PROJECT
 // / SENTRY_AUTH_TOKEN are set (as Vercel env vars) — otherwise it's skipped and
-// the build still passes. `silent` keeps the build log clean; no tunnelRoute, so
-// there's no interaction with the auth middleware.
+// the build still passes. `silent` keeps the build log clean.
+//
+// tunnelRoute routes browser error envelopes through this same-origin path
+// instead of sentry.io, so ad blockers (which block Sentry's ingest domains by
+// default) can't silently drop them — without it, an error hitting an
+// ad-blocker user never reaches Sentry. The path is a fixed string (not `true`,
+// which would randomize per build) so it can be allow-listed in middleware.ts,
+// where the tunnel POSTs skip the Supabase auth refresh.
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
   disableLogger: true,
+  tunnelRoute: '/monitoring',
 });

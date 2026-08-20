@@ -16,6 +16,16 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  // Sentry tunnel (see next.config.ts `tunnelRoute`): the browser POSTs error
+  // envelopes here and the Sentry route handler forwards them to Sentry
+  // server-side, so ad blockers can't drop them. Short-circuit before the
+  // Supabase auth refresh — it's not an app route, it fires even from error
+  // boundaries that may have no session, and skipping the refresh avoids a
+  // Supabase auth round-trip on every reported error.
+  if (path === '/monitoring') {
+    return response
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
