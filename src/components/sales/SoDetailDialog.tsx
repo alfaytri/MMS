@@ -128,7 +128,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: paymentPlans } = usePaymentPlans(soInvoice?.id ?? null)
   const [paymentPlanOpen, setPaymentPlanOpen] = useState(false)
   const { data: activityLogs } = useActivityLog(
-    open && so?.id ? { module: 'sale_orders', entity_id: so.id } : {}
+    open && so?.id ? { module: 'sale_orders', entity_id: so.id, pageSize: 500 } : {}
   )
   const { data: soReturns = [] } = useReturnsBySO(open ? (so?.id ?? null) : null)
   const { data: warehouses = [] } = useWarehouses()

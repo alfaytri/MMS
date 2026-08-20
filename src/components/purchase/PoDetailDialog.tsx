@@ -107,7 +107,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const { data: receivals } = usePOReceivalsByPO(open ? resolvedId : null)
   const { data: versions = [] } = usePoVersions(open ? resolvedId : null)
   const { data: activityLogs } = useActivityLog(
-    open && resolvedId ? { module: 'purchase_orders', entity_id: resolvedId } : {}
+    open && resolvedId ? { module: 'purchase_orders', entity_id: resolvedId, pageSize: 500 } : {}
   )
   const { data: existingBills = [] } = useBillsByPO(open ? resolvedId : null)
   const { data: poReturns = [] } = usePurchaseReturnsByPO(open ? resolvedId : null)
