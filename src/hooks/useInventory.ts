@@ -43,6 +43,7 @@ export function useInventoryCategories() {
         .from('inventory_categories')
         .select('*')
         .order('name_en')
+        .limit(5000) // safety cap (Supabase budget rule) — ~460 categories today
       if (error) throw error
       return data as InventoryCategory[]
     },
@@ -60,6 +61,7 @@ export function useInventoryItems(categoryType?: string) {
         .select('id, category_id, name_en, name_ar, sku, unit, cost_price, po_specification_default, sort_order, status, total_stock, linked_services_count, inventory_categories!inner(type, name_en)')
         .eq('status', 'active')
         .order('name_en')
+        .limit(10000) // safety cap (Supabase budget rule) — ~950 active items today
 
       if (categoryType) {
         query = query.eq('inventory_categories.type', categoryType as 'products' | 'spare-parts' | 'consumables' | 'tools')

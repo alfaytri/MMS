@@ -12,23 +12,19 @@ export async function TopNav() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: profile } = user
-    ? await supabase
-        .from('user_data')
-        .select('full_name, avatar_url')
-        .eq('auth_user_id', user.id)
-        .single()
-    : { data: null }
-
-  // Brand string + logo come from the primary companies row (alphabetically
-  // first) so renaming/re-logoing the company in Master Data → Companies
-  // updates everywhere.
-  const { data: primaryCompany } = await supabase
-    .from('companies')
-    .select('name_en, logo_url')
-    .order('name_en')
-    .limit(1)
-    .maybeSingle()
+  // The profile (needs the user) and the primary company (independent) have no
+  // data dependency on each other — run them together so it's one round-trip
+  // instead of two serialized on every dashboard page. Brand string + logo come
+  // from the primary companies row (alphabetically first) so renaming/re-logoing
+  // the company in Master Data → Companies updates everywhere.
+  const [profileRes, companyRes] = await Promise.all([
+    user
+      ? supabase.from('user_data').select('full_name, avatar_url').eq('auth_user_id', user.id).single()
+      : Promise.resolve({ data: null }),
+    supabase.from('companies').select('name_en, logo_url').order('name_en').limit(1).maybeSingle(),
+  ])
+  const profile = profileRes.data
+  const primaryCompany = companyRes.data
   const brandName = primaryCompany?.name_en ?? ''
   const brandLogo = primaryCompany?.logo_url ?? null
 
