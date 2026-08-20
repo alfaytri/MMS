@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Search, ChevronLeft, ChevronRight as ChevronRightIcon, Gift } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -351,13 +352,13 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
                 </TableCell>
               </TableRow>
             ) : (
-              paged.map((m: StockMovement) => {
+              paged.map((m: StockMovement, i: number) => {
                 const meta = variantMeta.get(m.brand_variant_id)
                 const stockInfo = variantStockBreakdown.get(m.brand_variant_id)
                 const refCfg = REF_CONFIG[m.reference_type ?? '']
 
                 return (
-                  <TableRow key={m.id}>
+                  <TableRow key={m.id} className={STAGGER_IN} style={staggerDelay(i)}>
                     <TableCell className="text-xs whitespace-nowrap">
                       {m.created_at ? format(new Date(m.created_at), 'dd MMM yy') : '—'}
                     </TableCell>

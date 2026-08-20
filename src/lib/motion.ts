@@ -27,6 +27,28 @@
  * resolved side; these presets own only fade, zoom, easing and duration.
  */
 
+import type { CSSProperties } from 'react'
+
+// ── List / card / panel entrances ────────────────────────────────────────────
+// Shared entrance classes for content that mounts (list rows, cards, tab
+// panels). Pair STAGGER_IN with `staggerDelay(i)` for a one-by-one cascade;
+// REVEAL_IN is the un-staggered "content appeared" slide (tab switch, expand).
+
+/** Soft rise + fade — for a staggered list/grid/card cascade. */
+export const STAGGER_IN = 'animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-out-quint'
+
+/** Small top slide + fade — content revealed on tab switch / expand. */
+export const REVEAL_IN = 'animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint'
+
+/**
+ * Per-item entrance delay for a staggered list/grid. `fill-mode: backwards`
+ * holds each item hidden until its turn; the cap stops a long list from
+ * crawling in for over ~half a second. Pair with STAGGER_IN.
+ */
+export function staggerDelay(index: number, step = 40, cap = 12): CSSProperties {
+  return { animationDelay: `${Math.min(index, cap) * step}ms`, animationFillMode: 'backwards' }
+}
+
 // ── Base UI (data-open / data-closed) ───────────────────────────────────────
 
 /** Backdrop/overlay fade — Dialog & Sheet overlays. */

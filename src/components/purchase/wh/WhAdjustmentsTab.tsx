@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -246,7 +247,7 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
                   />
                 </TableCell>
               </TableRow>
-            ) : paged.map((adj) => {
+            ) : paged.map((adj, i) => {
               const item     = adj.inventory_item_brand_variants?.inventory_items
               const itemName = item?.name_en ?? '—'
               const brand    = adj.inventory_item_brand_variants?.brand ?? null
@@ -270,7 +271,8 @@ export const WhAdjustmentsTab = React.memo(function WhAdjustmentsTab({ warehouse
               return (
                 <TableRow
                   key={adj.id}
-                  className="cursor-pointer hover:bg-muted/40"
+                  className={`cursor-pointer hover:bg-muted/40 ${STAGGER_IN}`}
+                  style={staggerDelay(i)}
                   onClick={() => setDetailId(adj.id)}
                 >
                   <TableCell className="text-xs py-2.5">

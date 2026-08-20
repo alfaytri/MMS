@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban, ChevronLef
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -338,7 +339,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             <WarehouseReportButton reportType="transfers" label="Report" />
           </div>
         </div>
-        {paged.map((t) => {
+        {paged.map((t, i) => {
           const showDispatch = canDispatch(t)
           const showReceive  = canReceive(t)
           const showCancel   = canCancel(t)
@@ -348,7 +349,8 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           return (
             <div
               key={t.id}
-              className={`rounded-lg border p-4 ${
+              style={staggerDelay(i)}
+              className={`${STAGGER_IN} rounded-lg border p-4 ${
                 t.status === 'pending' ? 'border-muted-foreground/20' :
                 t.status === 'in_transit' ? 'border-primary/30 bg-primary/5' :
                 ''

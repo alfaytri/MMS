@@ -228,7 +228,9 @@ function WarehousesPageInner() {
           )}
         </TabsList>
 
-        <div className="flex-1 overflow-auto">
+        {/* key={activeTab} remounts on every tab switch so the entrance
+            animation replays (Base UI already unmounts inactive panels). */}
+        <div key={activeTab} className="flex-1 overflow-auto animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint">
           {visibleTabs.has('warehouses') && (
             <TabsContent value="warehouses" className="mt-0 p-4 md:p-6">
               <WhWarehousesTab warehouses={warehousesAll} onViewStock={handleViewStock} />

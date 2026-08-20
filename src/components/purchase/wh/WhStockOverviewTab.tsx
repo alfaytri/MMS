@@ -16,6 +16,7 @@ import { useWarehouseSubContainers, shortenSubContainerName, useDivisionScopedVi
 import { Warehouse } from '@/hooks/useWarehouses'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -477,8 +478,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
           { icon: <Layers   className="h-4 w-4 text-primary" />, label: 'Total Items', value: totalItemCount.toLocaleString('en-QA') },
           { icon: <Package  className="h-4 w-4 text-primary" />, label: 'Total Qty',   value: totalQty.toLocaleString('en-QA')   },
           ...(canSeeCost ? [{ icon: <DollarSign className="h-4 w-4 text-success" />, label: 'Total Value', value: `QR ${fmtVal(totalValue)}` }] : []),
-        ].map((card) => (
-          <div key={card.label} className="p-3 rounded-md border flex items-center gap-2">
+        ].map((card, i) => (
+          <div key={card.label} className={cn('p-3 rounded-md border flex items-center gap-2', STAGGER_IN)} style={staggerDelay(i)}>
             {card.icon}
             <div>
               <p className="text-[10px] text-muted-foreground">{card.label}</p>

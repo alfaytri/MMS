@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { ClipboardCheck, Users, CheckCircle2, Clock, XCircle, Eye, ChevronLeft, ChevronRight, Ban } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { useInventoryChecks } from '@/hooks/useWarehouseOperations'
 import { shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import type { Warehouse } from '@/hooks/useWarehouses'
@@ -84,13 +85,14 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
         </div>
       ) : (
         <div className="space-y-1.5">
-          {paged.map((c) => {
+          {paged.map((c, i) => {
             const cfg = STATUS_CONFIG[c.status] ?? STATUS_CONFIG.draft
             const isActive = c.status === 'in_progress' || c.status === 'pending_approval'
             return (
               <div
                 key={c.id}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer hover:bg-muted/30 transition-colors ${isActive ? 'border-primary/20 bg-primary/5' : ''}`}
+                style={staggerDelay(i)}
+                className={`${STAGGER_IN} flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer hover:bg-muted/30 transition-colors ${isActive ? 'border-primary/20 bg-primary/5' : ''}`}
                 onClick={() => setSelectedCheck(c)}
               >
                 {/* Status icon */}

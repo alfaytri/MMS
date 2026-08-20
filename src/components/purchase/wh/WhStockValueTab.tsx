@@ -16,6 +16,7 @@ import { CogsDetailDialog } from './CogsDetailDialog'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { searchRank } from '@/lib/inventory/searchRank'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import { createClient } from '@/lib/supabase/client'
@@ -559,8 +560,8 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
               { label: 'Unique Items', value: sorted.length.toLocaleString('en-QA') },
               { label: 'Total Qty', value: totalQty.toLocaleString('en-QA') },
               { label: 'Total Value (QR)', value: formatCurrency(totalValue) },
-            ].map((card) => (
-              <div key={card.label} className="p-3 rounded-md border flex items-center gap-2">
+            ].map((card, i) => (
+              <div key={card.label} className={`p-3 rounded-md border flex items-center gap-2 ${STAGGER_IN}`} style={staggerDelay(i)}>
                 <TrendingUp className="h-4 w-4 text-primary shrink-0" />
                 <div>
                   <p className="text-[10px] text-muted-foreground">{card.label}</p>
@@ -822,12 +823,13 @@ export const WhStockValueTab = React.memo(function WhStockValueTab({ warehouses 
                   </TableCell>
                 </TableRow>
               ) : (
-                paged.map((row) => {
+                paged.map((row, i) => {
                   const isExpanded = expandedRows.has(row.brand_variant_id)
                   return (
                     <React.Fragment key={row.brand_variant_id}>
                       <TableRow
-                        className="cursor-pointer hover:bg-muted/30"
+                        className={`cursor-pointer hover:bg-muted/30 ${STAGGER_IN}`}
+                        style={staggerDelay(i)}
                         onClick={() => toggleRow(row.brand_variant_id)}
                       >
                         {/* Expand chevron */}

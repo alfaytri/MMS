@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { Search, Package, Truck, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -174,10 +175,11 @@ export const ReceivalsDeliveriesTab = React.memo(function ReceivalsDeliveriesTab
                 </TableCell>
               </TableRow>
             ) : (
-              paged.map((item) => (
+              paged.map((item, i) => (
                 <TableRow
                   key={`${item.direction}-${item.id}`}
-                  className="cursor-pointer hover:bg-muted/30"
+                  className={`cursor-pointer hover:bg-muted/30 ${STAGGER_IN}`}
+                  style={staggerDelay(i)}
                   onClick={() => setSelected(item)}
                 >
                   <TableCell>

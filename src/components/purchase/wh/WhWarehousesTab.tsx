@@ -10,6 +10,7 @@ import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 import { WarehouseStockExportButton } from '@/components/purchase/wh/WarehouseStockExportButton'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 interface Props {
   warehouses: Warehouse[]
@@ -74,7 +75,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
     )
   }
 
-  function renderCard(wh: Warehouse) {
+  function renderCard(wh: Warehouse, index = 0) {
     const isExpanded = expandedWh.has(wh.id)
     const isVirtual = wh.is_virtual
     const breakdown = wh.sub_container_breakdown ?? []
@@ -85,7 +86,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
     const displayValue     = selectedSub ? selectedSub.total_value : (wh.total_value ?? 0)
     const hasBreakdown = breakdown.length > 0
     return (
-      <Card key={wh.id} className="hover:shadow-md transition-shadow">
+      <Card key={wh.id} className={`hover:shadow-md transition-shadow ${STAGGER_IN}`} style={staggerDelay(index)}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             {isVirtual
@@ -225,7 +226,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
             <span className="text-xs text-muted-foreground">({mainWarehouses.length})</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mainWarehouses.map(renderCard)}
+            {mainWarehouses.map((wh, i) => renderCard(wh, i))}
           </div>
         </div>
       )}
@@ -303,7 +304,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
           )}
           {virtualOpen && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {virtualWarehouses.map(renderCard)}
+              {virtualWarehouses.map((wh, i) => renderCard(wh, i))}
             </div>
           )}
         </div>
