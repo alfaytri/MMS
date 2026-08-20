@@ -29,6 +29,8 @@ export const MODULE_GROUPS = {
   'Purchase & Sales': ['suppliers', 'customers', 'purchase_orders', 'po_approvals',
     'receivals', 'bills', 'purchase_returns', 'debit_notes', 'sale_orders',
     'sale_approvals', 'invoices', 'sale_returns', 'deliveries', 'credit_notes'],
+  'Operations': ['consumption', 'transfers', 'adjustments', 'damaged_stock',
+    'inventory_checks', 'tools_assets', 'projects'],
 } as const
 
 export function getAllowedModules(permissions: string[], isSystemAdmin: boolean): string[] {
@@ -72,6 +74,13 @@ export function humanizeModule(module: string): string {
     deliveries: 'Deliveries',
     credit_notes: 'Credit Notes',
     sales: 'Sales',
+    consumption: 'Consumption',
+    transfers: 'Transfers',
+    adjustments: 'Stock Adjustments',
+    damaged_stock: 'Damaged Stock',
+    inventory_checks: 'Inventory Checks',
+    tools_assets: 'Tools & Assets',
+    projects: 'Projects',
     services: 'Services',
     contracts: 'Contracts',
     payments: 'Payments',

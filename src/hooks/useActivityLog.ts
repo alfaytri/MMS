@@ -15,6 +15,11 @@ export const AUDIT_MODULES = [
   'purchase_returns', 'debit_notes',
   'sale_orders', 'sale_approvals', 'invoices', 'sale_returns',
   'deliveries', 'credit_notes', 'sales',
+  // Operational flows — now audited via DB triggers (migration 20260928000000):
+  // consumption, warehouse transfers/custody moves, stock adjustments, tools &
+  // assets, inventory checks, damaged stock, projects.
+  'consumption', 'transfers', 'adjustments', 'damaged_stock',
+  'inventory_checks', 'tools_assets', 'projects',
 ] as const
 
 export const AUDIT_SEVERITIES = ['info', 'warning', 'error', 'critical'] as const satisfies readonly AuditSeverity[]
