@@ -7,6 +7,10 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // Shared motion class presets live here (src/lib/motion.ts). Without this
+    // glob Tailwind wouldn't scan them and the animation utilities they
+    // reference would be purged from the build.
+    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -57,6 +61,16 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      // Shared easing curves — natural deceleration, no bounce/elastic.
+      // tailwindcss-animate spreads transitionTimingFunction into
+      // animationTimingFunction too, so `ease-out-quint` (etc.) drive both CSS
+      // transitions AND the `animate-in`/`animate-out` keyframes. Single source
+      // of truth referenced by the motion presets in src/lib/motion.ts.
+      transitionTimingFunction: {
+        "out-quart": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "out-quint": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

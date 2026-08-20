@@ -147,6 +147,51 @@ input[type="number"] {
   to   { opacity: 1; }
 }
 
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   Global guard: honor the OS "reduce motion" setting everywhere at once —
+   near-instant transitions/animations across the whole app (dialogs, popovers,
+   sheets, the skeleton shimmer, the route crossfade above). One block instead
+   of a motion-reduce: variant repeated on every component. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* A frozen loading spinner reads as broken. A small bounded rotation isn't
+     the kind of motion the setting targets (large slides, parallax, autoplay),
+     so keep continuous loaders spinning. */
+  .animate-spin {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* ── Skeleton shimmer ───────────────────────────────────────────────────────
+   A soft highlight sweeping across a muted block — used by the <Skeleton>
+   primitive so a loading placeholder reads as "content is coming", not a dead
+   grey box. GPU-cheap (animates background-position only). Freezes to a static
+   block under the reduced-motion guard above. */
+@layer utilities {
+  .animate-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.12) 37%,
+      hsl(var(--muted)) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+@keyframes shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
 @media print {
   @page {
     size: A4 portrait;
