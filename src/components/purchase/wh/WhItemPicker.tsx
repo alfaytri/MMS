@@ -285,7 +285,6 @@ export function WhItemPicker({
           ) : (
             <div className="divide-y divide-border">
               {Array.from(visibleItemGroups.values()).map(({ cat, name, variants }) => {
-                const showCatLabel = searching || selectedCategory === '__all'
                 // Every variant of the same item shares the same photo
                 // (it lives on inventory_items). Grab it from the first
                 // variant that has one.
@@ -295,7 +294,13 @@ export function WhItemPicker({
                 // variants of an item share it); fall back to the flat leaf
                 // category when a path hasn't been supplied. Wraps (never
                 // truncates) and stays tiny so the whole tree fits.
-                const headerPath = variants.find((v) => v.categoryPath)?.categoryPath ?? (cat || null)
+                const fullPath = variants.find((v) => v.categoryPath)?.categoryPath ?? null
+                const headerPath = fullPath ?? (cat || null)
+                // Show the full tree whenever we actually have the breadcrumb —
+                // including inside a specific category (the ancestry is still
+                // useful there). The flat leaf-name fallback stays hidden while
+                // you're already in that category (it would just repeat the sidebar).
+                const showCatLabel = !!fullPath || searching || selectedCategory === '__all'
                 return (
                   <div key={`${cat}||${name}`} className="px-3 py-2 space-y-1.5">
                     <div className="flex items-start gap-2">
