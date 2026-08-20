@@ -555,11 +555,8 @@ export const NAV_TREE: TreeNode[] = [
         label: 'Custody',
         icon: HandCoins,
         permissions: [
-          { key: 'custody.view', label: 'Access Custody Page', description: 'Open the Custody page + nav. Card visibility comes from the "Custody Warehouse Access" (per-warehouse) + "Custody by Division" sections in the role editor, the per-type keys below, or being a location’s Responsible Person.' },
+          { key: 'custody.view', label: 'Access Custody Page', description: 'Open the Custody page + nav. Per-warehouse visibility is granted in the "Custody Warehouse Access" section below.' },
           { key: 'custody.cost.view', label: 'View Custody Costs', description: 'See the QAR value totals and per-item values on custody cards. Without it the user sees teams, items, and quantities but no money.' },
-          { key: 'custody.type.team.view',    label: 'View Team Custody',    description: 'See custody cards for TEAM locations (any warehouse, within your division view). Additive with the per-warehouse / per-division custody grants and RP access.' },
-          { key: 'custody.type.van.view',     label: 'View Van Custody',     description: 'See custody cards for VAN / vehicle locations.' },
-          { key: 'custody.type.project.view', label: 'View Project Custody', description: 'See custody cards for PROJECT locations.' },
         ],
       },
       {

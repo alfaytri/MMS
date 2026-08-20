@@ -84,45 +84,10 @@ export default function CustodyPage() {
       return ['view', 'edit', 'manage'].some((v) => perms.permissions.includes(`custody.${whId}.${v}`))
     }
   }, [perms])
-  // Per-type (custody.type.<team|van|project>.view) and per-division
-  // (custody.division.<id>.view) grants let a role see custody cards of a kind
-  // or a division across warehouses, without a whole-warehouse grant.
-  const grantedCustodyTypes = useMemo(() => {
-    const s = new Set<string>()
-    if (!perms) return s
-    for (const t of ['team', 'van', 'project']) {
-      if (perms.isSystemAdmin || perms.permissions.includes(`custody.type.${t}.view`)) s.add(t)
-    }
-    return s
-  }, [perms])
-  const grantedCustodyDivisionIds = useMemo(() => {
-    const s = new Set<string>()
-    for (const p of perms?.permissions ?? []) {
-      const m = /^custody\.division\.(.+)\.view$/.exec(p)
-      if (m) s.add(m[1])
-    }
-    return s
-  }, [perms])
-  // Warehouses lit up purely by a per-type / per-division grant (they hold at
-  // least one active location of a granted type or division).
-  const grantWarehouseIds = useMemo(() => {
-    const s = new Set<string>()
-    if (grantedCustodyTypes.size === 0 && grantedCustodyDivisionIds.size === 0) return s
-    for (const r of allLocations.data ?? []) {
-      if (!r.is_active) continue
-      if ((r.location_type != null && grantedCustodyTypes.has(r.location_type)) ||
-          (r.division_id != null && grantedCustodyDivisionIds.has(r.division_id))) {
-        s.add(r.warehouse_id)
-      }
-    }
-    return s
-  }, [allLocations.data, grantedCustodyTypes, grantedCustodyDivisionIds])
-  // A warehouse tab shows when the user has full view, is an RP inside it, or
-  // holds a per-type / per-division grant matching a location in it.
+  // A warehouse tab shows when the user has full view OR is an RP inside it.
   const canView = useMemo(() => {
-    return (whId: string): boolean =>
-      hasFullView(whId) || rpWarehouseIds.has(whId) || grantWarehouseIds.has(whId)
-  }, [hasFullView, rpWarehouseIds, grantWarehouseIds])
+    return (whId: string): boolean => hasFullView(whId) || rpWarehouseIds.has(whId)
+  }, [hasFullView, rpWarehouseIds])
   const canEdit = useMemo(() => {
     return (whId: string): boolean => {
       if (!perms) return false
@@ -165,9 +130,7 @@ export default function CustodyPage() {
                 canEdit={canEdit(w.id)}
                 canTransferCustody={w.can_transfer_custody}
                 realWarehouses={realWarehouses}
-                hasFullView={hasFullView(w.id)}
-                grantedTypes={grantedCustodyTypes}
-                grantedDivisionIds={grantedCustodyDivisionIds}
+                restrictToOwn={!hasFullView(w.id)}
                 ownProfileId={profile?.id ?? null}
               />
             </TabsContent>
@@ -181,16 +144,14 @@ export default function CustodyPage() {
 // ─── Shared tab body ────────────────────────────────────────────────────
 
 function CustodyTab({
-  warehouseId, warehouseName, canEdit, canTransferCustody, realWarehouses, hasFullView, grantedTypes, grantedDivisionIds, ownProfileId,
+  warehouseId, warehouseName, canEdit, canTransferCustody, realWarehouses, restrictToOwn, ownProfileId,
 }: {
   warehouseId:        string
   warehouseName:      string
   canEdit:            boolean
   canTransferCustody: boolean
   realWarehouses:     Warehouse[]
-  hasFullView:        boolean
-  grantedTypes:       Set<string>
-  grantedDivisionIds: Set<string>
+  restrictToOwn:      boolean
   ownProfileId:       string | null
 }) {
   const locations = useCustodyLocations(warehouseId)
@@ -207,20 +168,12 @@ function CustodyTab({
       .filter(
         (r) =>
           r.is_active &&
-          (hasFullView
-            || r.responsible_person_profile_id === ownProfileId
-            || (r.location_type != null && grantedTypes.has(r.location_type))
-            || (r.division_id != null && grantedDivisionIds.has(r.division_id))) &&
+          (!restrictToOwn || r.responsible_person_profile_id === ownProfileId) &&
           (viewDivisionIds.size === 0 || (r.division_id != null && viewDivisionIds.has(r.division_id))),
       )
       .sort((a, b) => LOCATION_COLLATOR.compare(a.name, b.name)),
-    [locations.data, hasFullView, grantedTypes, grantedDivisionIds, ownProfileId, viewDivisionIds],
+    [locations.data, restrictToOwn, ownProfileId, viewDivisionIds],
   )
-
-  // "Purely RP" — reached this tab only as a Responsible Person (no full-view
-  // grant and no per-type / per-division grant), so only own card(s) show.
-  // Drives the empty-state copy ("No custody assigned to you").
-  const restrictToOwn = !hasFullView && grantedTypes.size === 0 && grantedDivisionIds.size === 0
 
   const { data: stock = [], isLoading: stockLoading } = useWarehouseStock(warehouseId, null)
   const { data: pending = [] }                        = usePendingCustodyAssigns()
