@@ -23,6 +23,7 @@ import {
 } from '@/components/shared/GuardedFormDialog'
 import { useCreateRole, useUpdateRole, type CustomRole } from '@/hooks/useRoles'
 import { useCustodyWarehouses } from '@/hooks/useCustodyLocations'
+import { useDivisions } from '@/hooks/useDivisions'
 import { NAV_TREE, countPerms, collectPermKeys, validatePermissionSet, NOTIFICATION_AUTO_FEATURE, type TreeNode } from './PermissionTree'
 
 const ALL_TREE_KEYS = collectPermKeys(NAV_TREE)
@@ -222,6 +223,13 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
     () => custodyWhs.flatMap((w) => [`custody.${w.id}.view`, `custody.${w.id}.edit`]),
     [custodyWhs],
   )
+  // Per-division custody grants (custody.division.<id>.view) — see custody cards
+  // of a whole division across warehouses. Generated from the live division list.
+  const { data: custodyDivisions = [] } = useDivisions()
+  const custodyDivisionKeys = useMemo(
+    () => custodyDivisions.map((d) => `custody.division.${d.id}.view`),
+    [custodyDivisions],
+  )
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema) as never,
@@ -271,7 +279,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
     form.setValue('permissions', current.filter(k => !removeSet.has(k)), { shouldDirty: true })
   }, [form])
 
-  function selectAll() { form.setValue('permissions', Array.from(new Set([...ALL_TREE_KEYS, ...custodyWhKeys])), { shouldDirty: true }) }
+  function selectAll() { form.setValue('permissions', Array.from(new Set([...ALL_TREE_KEYS, ...custodyWhKeys, ...custodyDivisionKeys])), { shouldDirty: true }) }
   function clearAll()  { form.setValue('permissions', [], { shouldDirty: true }) }
 
   function onSubmit(values: RoleFormValues) {
@@ -358,7 +366,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
             {/* Permissions header */}
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                PERMISSIONS ({selectedPermissions.length} / {ALL_TREE_KEYS.length + custodyWhKeys.length})
+                PERMISSIONS ({selectedPermissions.length} / {ALL_TREE_KEYS.length + custodyWhKeys.length + custodyDivisionKeys.length})
               </span>
               <div className="flex gap-3">
                 <button type="button" onClick={selectAll} className="text-xs text-primary hover:underline">Select All</button>
@@ -427,6 +435,38 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
                             Edit all
                           </label>
                         </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Custody by Division — dynamic per-division grants (custody.division.<id>.view) */}
+            {custodyDivisions.length > 0 && (
+              <div className="space-y-2">
+                <div className="px-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Custody by Division</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                    See custody cards for a <strong className="font-medium text-foreground">whole division</strong> (e.g. MEP) across every custody warehouse. Additive with the per-warehouse access above and the per-type keys (Team / Van / Project) in the tree. Requires &ldquo;Access Custody Page&rdquo;.
+                  </p>
+                </div>
+                <div className="border rounded-md divide-y divide-border overflow-hidden">
+                  {custodyDivisions.map((d) => {
+                    const viewKey = `custody.division.${d.id}.view`
+                    return (
+                      <div key={d.id} className="flex items-center justify-between gap-3 py-2.5 px-3 hover:bg-accent/50">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Users2 className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-sm font-medium truncate">{d.name}</span>
+                        </div>
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer shrink-0">
+                          <Checkbox
+                            checked={selectedSet.has(viewKey)}
+                            onCheckedChange={(c) => { if (c) handleSelect([viewKey]); else handleDeselect([viewKey]) }}
+                          />
+                          View
+                        </label>
                       </div>
                     )
                   })}

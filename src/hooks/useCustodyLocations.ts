@@ -28,6 +28,7 @@ export type CustodyLocationRow = {
   responsible_person_profile_id:   string | null
   responsible_person_name:         string | null
   responsible_person_phone:        string | null
+  location_type:                   string | null
   created_at:                      string | null
   updated_at:                      string | null
 }
@@ -89,6 +90,7 @@ export function useCustodyLocations(warehouseId?: string | null) {
         responsible_person_profile_id:   r.responsible_person_profile_id,
         responsible_person_name:         r.responsible_person_name,
         responsible_person_phone:        r.responsible_person_phone,
+        location_type:                   (r as { location_type?: string | null }).location_type ?? null,
         created_at:                      r.created_at,
         updated_at:                      r.updated_at,
       }))
