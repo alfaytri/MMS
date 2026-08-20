@@ -45,6 +45,7 @@ import {
   useReceivalsForLcSelector, useReceivalItemsWithFifo, useReceivalItemsBatch,
 } from '@/hooks/useReceivals'
 import { useCurrencies } from '@/hooks/useCurrencies'
+import { useHasPermission } from '@/hooks/usePermissions'
 import type { ColumnDef } from '@tanstack/react-table'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -1323,6 +1324,12 @@ export default function LandedCostsPage() {
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [selected, setSelected] = useState<LandedCost | null>(null)
+  // Viewing LC is gated by the route (purchase.landed_costs.view); creating is a
+  // separate permission and the create RPC already enforces it — hide the button
+  // for view-only users so they don't hit a permission error on submit.
+  const canCreateLcKey = useHasPermission('purchase.landed_costs.create')
+  const canManageLc = useHasPermission('purchase.landed_costs.manage')
+  const canCreateLc = canCreateLcKey || canManageLc
 
   const { data: landedCosts, isLoading } = useLandedCosts({ search })
 
@@ -1480,7 +1487,7 @@ export default function LandedCostsPage() {
             </div>
           </InfoPopover>
         }
-        action={{ label: 'Create Landed Cost', onClick: () => setCreateOpen(true) }}
+        action={canCreateLc ? { label: 'Create Landed Cost', onClick: () => setCreateOpen(true) } : undefined}
       />
 
       <SearchInput value={search} onChange={setSearch} placeholder="Search LC number or description…" />

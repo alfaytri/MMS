@@ -9,7 +9,7 @@ import { ItemRow } from './ItemRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ItemEditDialog } from './ItemEditDialog'
 import { CategoryAttributesDialog } from '@/components/master-data/attributes/CategoryAttributesDialog'
-import { useHasViewPermission } from '@/hooks/usePermissions'
+import { useHasViewPermission, useHasPermission } from '@/hooks/usePermissions'
 import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
 import { reorderSiblings } from '@/lib/inventory/reorder'
 import {
@@ -79,6 +79,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   }
   const [ownAttrFilter, setOwnAttrFilter] = useState<AttributeFilterState>({})
   const canViewAttributes = useHasViewPermission('master_data.inventory.attributes')
+  // Category-row avg cost is money — gate it like the item/variant rows do.
+  const canSeePricing = useHasPermission('inventory.pricing.view')
   const archiveCategory = useArchiveInventoryCategory()
   const updateItemOrder = useUpdateSortOrders('inventory_items')
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
@@ -293,7 +295,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
                 {agg.variant_count} variant{Number(agg.variant_count) !== 1 ? 's' : ''}
               </td>
               <td className="py-2.5 px-2 text-[11px] text-muted-foreground hidden md:table-cell">
-                {formatCurrency(Number(agg.avg_cost), 'QAR')}
+                {canSeePricing ? formatCurrency(Number(agg.avg_cost), 'QAR') : '—'}
               </td>
               <td className="py-2.5 px-2 text-[11px]">
                 <span className={available > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>

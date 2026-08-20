@@ -115,20 +115,11 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Consumption',    href: '/consumption',              icon: 'Flame',         permission: 'consumption.view' },
           { label: 'Damaged Stock',  href: '/warehouse/damaged-stock',  icon: 'AlertTriangle', permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },
           { label: 'Tools & Assets', href: '/warehouse/tools-assets',   icon: 'Wrench',        permission: 'tools.assets.view' },
-        ],
-      },
-    ],
-  },
-  {
-    // Picture Transfer (v2) — a dedicated, permission-gated top-level entry for
-    // low-literacy warehouse staff. A user whose role holds ONLY
-    // warehouse.transfer.simple sees just this one entry.
-    label: 'Transfer',
-    icon: 'ArrowRightLeft',
-    permission: 'warehouse.transfer.simple',
-    groups: [
-      {
-        items: [
+          // Picture Transfer (v2) — picture-first Send/Receive for low-literacy
+          // warehouse staff. Lives under Operations; a user whose role holds ONLY
+          // warehouse.transfer.simple still sees it because the Operations
+          // dropdown shows whenever any child page is accessible (NavDropdown
+          // filters items by their own permission, not the dropdown's).
           { label: 'Picture Transfer', href: '/warehouse/picture-transfer', icon: 'ArrowRightLeft', permission: 'warehouse.transfer.simple' },
         ],
       },
