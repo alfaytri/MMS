@@ -18,7 +18,7 @@ import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemVariantDivisionStock } from '@/hooks/useItemVariantDivisionStock'
 import { useItemVariantsContext } from '@/components/shared/ItemVariantsContext'
 import { formatCurrency } from '@/lib/utils/formatters'
-import { useHasPermission } from '@/hooks/usePermissions'
+import { useHasPermission, useInventoryCatalogPerms } from '@/hooks/usePermissions'
 import { groupVariants, type VariantLite } from '@/lib/inventory/groupVariants'
 
 // Runtime shape returned by useInventoryBrandVariants — it embeds
@@ -69,6 +69,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   }
   const archive = useArchiveInventoryItem()
   const canSeePricing = useHasPermission('inventory.pricing.view')
+  const { canCreate, canEdit } = useInventoryCatalogPerms()
 
   // Division-scoped view: when the top bar has a division selected, override
   // each variant's good-stock / reserved / avg-cost with that division's pool
@@ -202,12 +203,16 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
             <Button variant="ghost" size="icon" aria-label="Move item down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => flashMove(onMoveDown)}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Edit item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3 w-3" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Archive item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
-              <Archive className="h-3 w-3" />
-            </Button>
+            {canEdit && (
+              <Button variant="ghost" size="icon" aria-label="Edit item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="ghost" size="icon" aria-label="Archive item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+                <Archive className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         </td>
       </tr>
@@ -249,12 +254,14 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
                 </TableBody>
               </Table>
             </div>
-            <button
-              className="mt-2 min-h-11 md:min-h-0 text-xs text-blue-600 hover:underline flex items-center gap-1"
-              onClick={() => setAddVariantOpen(true)}
-            >
-              <Plus className="h-3 w-3" /> Add brand
-            </button>
+            {canCreate && (
+              <button
+                className="mt-2 min-h-11 md:min-h-0 text-xs text-blue-600 hover:underline flex items-center gap-1"
+                onClick={() => setAddVariantOpen(true)}
+              >
+                <Plus className="h-3 w-3" /> Add brand
+              </button>
+            )}
           </td>
         </tr>
       )}

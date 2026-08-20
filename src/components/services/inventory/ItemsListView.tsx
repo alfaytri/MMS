@@ -16,6 +16,7 @@ import { filterTree } from '@/lib/inventory/filterTree'
 import { reorderSiblings } from '@/lib/inventory/reorder'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemDivisionsByStock } from '@/hooks/useItemDivisionsByStock'
+import { useInventoryCatalogPerms } from '@/hooks/usePermissions'
 
 // Lazy-loaded: the importer pulls in xlsx + exceljs (~1.4MB). next/dynamic keeps
 // those out of the Inventory route's initial bundle — they load in a separate
@@ -45,6 +46,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
   const [importOpen, setImportOpen] = useState(false)
 
   const { viewDivisionIds } = useActiveDivision()
+  const { canCreate } = useInventoryCatalogPerms()
   const { tree, flat, isLoading } = useInventoryTree(type, showArchived)
   // Division-scoped category aggregates when a division is selected (empty = global).
   const { data: stockAggregates } = useCategoryStockAggregates(type, Array.from(viewDivisionIds))
@@ -128,12 +130,16 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
           </span>
         )}
         <div className="flex items-center gap-2 ml-auto">
-          <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setImportOpen(true)}>
-            <Upload className="h-3 w-3 mr-1" /> Import
-          </Button>
-          <Button size="sm" className="h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setCreateCategoryOpen(true)}>
-            <Plus className="h-3 w-3 mr-1" /> New Category
-          </Button>
+          {canCreate && (
+            <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3 w-3 mr-1" /> Import
+            </Button>
+          )}
+          {canCreate && (
+            <Button size="sm" className="h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setCreateCategoryOpen(true)}>
+              <Plus className="h-3 w-3 mr-1" /> New Category
+            </Button>
+          )}
         </div>
       </div>
 

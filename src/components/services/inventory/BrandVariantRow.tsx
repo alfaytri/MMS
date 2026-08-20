@@ -13,7 +13,7 @@ import { useArchiveInventoryBrandVariant, useVariantWarehouseStock, type BrandVa
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCanCreateInventoryReceivals } from '@/hooks/useInventoryReceivals'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
-import { useHasPermission } from '@/hooks/usePermissions'
+import { useHasPermission, useInventoryCatalogPerms } from '@/hooks/usePermissions'
 import { formatCurrency } from '@/lib/utils/formatters'
 
 type Props = {
@@ -119,6 +119,7 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
   const archive = useArchiveInventoryBrandVariant()
   const { data: canCreateInvRcv = false } = useCanCreateInventoryReceivals()
   const canSeePricing = useHasPermission('inventory.pricing.view')
+  const { canEdit } = useInventoryCatalogPerms()
 
   const stockLevel = variant.stock_level ?? 0
   const reservedQty = variant.reserved_qty ?? 0
@@ -204,12 +205,16 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
             <Button variant="ghost" size="icon" aria-label="Move variant down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Edit variant" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3 w-3" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Archive variant" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
-              <Archive className="h-3 w-3" />
-            </Button>
+            {canEdit && (
+              <>
+                <Button variant="ghost" size="icon" aria-label="Edit variant" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" aria-label="Archive variant" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+                  <Archive className="h-3 w-3" />
+                </Button>
+              </>
+            )}
           </div>
         </TableCell>
       </TableRow>

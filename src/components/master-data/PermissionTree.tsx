@@ -48,7 +48,9 @@ export const NAV_TREE: TreeNode[] = [
         icon: Package,
         permissions: [
           { key: 'inventory.catalog.view',   label: 'View Inventory',   description: 'Open the Inventory page; view categories, items, brands, and origins' },
-          { key: 'inventory.catalog.manage', label: 'Manage Inventory', description: 'Create, edit, archive, and delete categories, sub-levels, items, brands, and origins' },
+          { key: 'inventory.catalog.create', label: 'Create Inventory', description: 'Create categories, sub-levels, items, brands, and origins. Does NOT allow editing or archiving.' },
+          { key: 'inventory.catalog.edit',   label: 'Edit Inventory',   description: 'Edit, reorder, archive, and delete categories, sub-levels, items, brands, and origins. Does NOT allow creating.' },
+          { key: 'inventory.catalog.manage', label: 'Manage Inventory (Create + Edit)', description: 'Umbrella — grants both Create and Edit. Existing roles keep this; grant the narrower Create / Edit keys instead to restrict to one.' },
         ],
         children: [
           {

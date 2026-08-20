@@ -81,6 +81,20 @@ export function useHasCreatePermission(area: string): boolean {
   return data.permissions.includes(`${area}.create`)
 }
 
+/**
+ * Inventory-catalog create/edit gating. Mirrors the RLS split
+ * (migration 20260930000000): create = inventory.catalog.create OR .manage;
+ * edit = inventory.catalog.edit OR .manage. `.manage` is the legacy umbrella
+ * so existing roles keep both. Call the underlying hooks unconditionally, then
+ * combine (never short-circuit a hook — rules-of-hooks).
+ */
+export function useInventoryCatalogPerms(): { canCreate: boolean; canEdit: boolean } {
+  const hasCreate = useHasCreatePermission('inventory.catalog')
+  const hasManage = useHasManagePermission('inventory.catalog')
+  const canEdit = useHasEditPermission('inventory.catalog')
+  return { canCreate: hasCreate || hasManage, canEdit }
+}
+
 export function useHasViewPermission(area: string): boolean {
   const { data } = usePermissions()
   if (!data) return false

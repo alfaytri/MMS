@@ -9,7 +9,7 @@ import { ItemRow } from './ItemRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ItemEditDialog } from './ItemEditDialog'
 import { CategoryAttributesDialog } from '@/components/master-data/attributes/CategoryAttributesDialog'
-import { useHasViewPermission, useHasPermission } from '@/hooks/usePermissions'
+import { useHasViewPermission, useHasPermission, useInventoryCatalogPerms } from '@/hooks/usePermissions'
 import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
 import { reorderSiblings } from '@/lib/inventory/reorder'
 import {
@@ -81,6 +81,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   const canViewAttributes = useHasViewPermission('master_data.inventory.attributes')
   // Category-row avg cost is money — gate it like the item/variant rows do.
   const canSeePricing = useHasPermission('inventory.pricing.view')
+  const { canCreate, canEdit } = useInventoryCatalogPerms()
   const archiveCategory = useArchiveInventoryCategory()
   const updateItemOrder = useUpdateSortOrders('inventory_items')
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
@@ -316,26 +317,34 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
             <Button variant="ghost" size="icon" aria-label="Move category down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => flashMove(onMoveDown)}>
               <ArrowDown className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Add subcategory" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
-              <FolderPlus className="h-3 w-3" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Add item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
-              <Plus className="h-3 w-3" />
-            </Button>
+            {canCreate && (
+              <>
+                <Button variant="ghost" size="icon" aria-label="Add subcategory" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
+                  <FolderPlus className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" aria-label="Add item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </>
+            )}
             <Button variant="ghost" size="icon" aria-label="View category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="View" onClick={() => { setDialogReadOnly(true); setEditOpen(true) }}>
               <Eye className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Edit" onClick={() => { setDialogReadOnly(false); setEditOpen(true) }}>
-              <Pencil className="h-3 w-3" />
-            </Button>
+            {canEdit && (
+              <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Edit" onClick={() => { setDialogReadOnly(false); setEditOpen(true) }}>
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
             {canViewAttributes && (
               <Button variant="ghost" size="icon" aria-label="Manage attributes" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Manage Attributes" onClick={() => setAttributesOpen(true)}>
                 <Tags className="h-3 w-3" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" aria-label="Archive category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
-              <Archive className="h-3 w-3" />
-            </Button>
+            {canEdit && (
+              <Button variant="ghost" size="icon" aria-label="Archive category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
+                <Archive className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         </td>
       </tr>
