@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo } from 'react'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   type ReportColumn, formatReportValue, sumColumn, columnAlign,
 } from '@/lib/reports/reportColumns'
@@ -43,9 +44,9 @@ export function ReportGroupedTable<T>({
   }
 
   /** One data <tr>. Extracted so flat, grouped and nested paths render identically. */
-  function dataRow(row: T, key: string) {
+  function dataRow(row: T, key: string, index = 0) {
     return (
-      <tr key={key} className="hover:bg-accent/40 transition-colors">
+      <tr key={key} className={cn('hover:bg-accent/40 transition-colors', STAGGER_IN)} style={staggerDelay(index)}>
         {columns.map((col) => (
           <td
             key={col.header}
@@ -139,12 +140,12 @@ export function ReportGroupedTable<T>({
                     {g.label} <span className="font-normal normal-case opacity-60">· {g.rows.length}</span>
                   </td>
                 </tr>
-                {g.rows.map((row, ri) => dataRow(row, `${g.label}-${ri}`))}
+                {g.rows.map((row, ri) => dataRow(row, `${g.label}-${ri}`, ri))}
                 {totalCols.size > 0 && <TotalsRow label={`Subtotal — ${g.label}`} groupRows={g.rows} variant="subtotal" />}
               </Fragment>
             ))
           ) : (
-            rows.map((row, ri) => dataRow(row, String(ri)))
+            rows.map((row, ri) => dataRow(row, String(ri), ri))
           )}
         </tbody>
         {!isLoading && rows.length > 0 && totalCols.size > 0 && (

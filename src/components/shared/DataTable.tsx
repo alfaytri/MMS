@@ -24,6 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { DataTablePagination } from './DataTablePagination'
 import { EmptyState } from './EmptyState'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 export interface ManualPaginationProps {
   pageIndex: number
@@ -152,9 +153,10 @@ export function DataTable<TData, TValue>({
           />
         ) : mobileCardRender ? (
           <div className="space-y-2">
-            {rows.map((row) => {
+            {rows.map((row, i) => {
               const cls = cn(
                 'w-full text-left bg-card border rounded-md p-3 min-h-11',
+                STAGGER_IN,
                 onRowClick && 'hover:bg-accent active:bg-accent transition-colors',
                 !onRowClick && 'cursor-default',
                 rowClassName?.(row.original),
@@ -165,11 +167,12 @@ export function DataTable<TData, TValue>({
                   type="button"
                   onClick={() => onRowClick(row.original)}
                   className={cls}
+                  style={staggerDelay(i)}
                 >
                   {mobileCardRender(row.original)}
                 </button>
               ) : (
-                <div key={row.id} className={cls}>
+                <div key={row.id} className={cls} style={staggerDelay(i)}>
                   {mobileCardRender(row.original)}
                 </div>
               )
@@ -195,11 +198,12 @@ export function DataTable<TData, TValue>({
                 ))}
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
+                {rows.map((row, i) => (
                   <TableRow
                     key={row.id}
                     onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                    className={cn(onRowClick ? 'cursor-pointer' : '', rowClassName?.(row.original))}
+                    className={cn(onRowClick ? 'cursor-pointer' : '', STAGGER_IN, rowClassName?.(row.original))}
+                    style={staggerDelay(i)}
                   >
                     {row.getVisibleCells().map((cell, i) => (
                       <TableCell
@@ -250,11 +254,12 @@ export function DataTable<TData, TValue>({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
+              rows.map((row, i) => (
                 <TableRow
                   key={row.id}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                  className={cn(onRowClick ? 'cursor-pointer' : '', rowClassName?.(row.original))}
+                  className={cn(onRowClick ? 'cursor-pointer' : '', STAGGER_IN, rowClassName?.(row.original))}
+                  style={staggerDelay(i)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
