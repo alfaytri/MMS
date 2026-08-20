@@ -107,8 +107,8 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
     const a = filtered[idx]
     const b = filtered[targetIdx]
     updateCategoryOrder.mutate([
-      { id: a.id, sort_order: a.sort_order ?? idx },
-      { id: b.id, sort_order: b.sort_order ?? targetIdx },
+      { id: a.id, sort_order: b.sort_order ?? targetIdx },
+      { id: b.id, sort_order: a.sort_order ?? idx },
     ])
   }
 
@@ -186,6 +186,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
                     onMoveDown={() => handleCategoryMove(globalIdx, 'down')}
                     stockAggregates={stockAggregates}
                     filterItemIds={filterItemIds}
+                    animationIndex={localIdx}
                   />
                 )
               })}

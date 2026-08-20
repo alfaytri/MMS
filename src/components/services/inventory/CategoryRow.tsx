@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus, Tags } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -28,6 +28,7 @@ import {
   type AttributeFilterState,
 } from '@/components/shared/AttributeFilterBar'
 import { formatCurrency } from '@/lib/utils/formatters'
+import { categoryDepthStyle } from '@/lib/inventory/categoryDepth'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 type Props = {
@@ -51,16 +52,30 @@ type Props = {
    *  whose own id is missing from this set self-skips rendering. Undefined =
    *  no attribute-driven visibility restriction. */
   attributeVisibleCategoryIds?: Set<string>
+  /** Set by ItemsListView on the top-level rows only — drives a one-time
+   *  staggered slide-in when the list (or a tab) first mounts. Left undefined
+   *  on nested child rows so expanding a category doesn't re-animate them. */
+  animationIndex?: number
 }
 
-export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds, inheritedAttributeFilter, attributeVisibleCategoryIds }: Props) {
+export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds, inheritedAttributeFilter, attributeVisibleCategoryIds, animationIndex }: Props) {
 
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [dialogReadOnly, setDialogReadOnly] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [attributesOpen, setAttributesOpen] = useState(false)
+  // Brief highlight when this row is reordered, so the eye follows it as it
+  // jumps. Transition-based (inline bg) rather than a keyframe animation, so it
+  // never collides with the row's entrance `animate-in`.
+  const [flashing, setFlashing] = useState(false)
+  function flashMove(fn: () => void) {
+    fn()
+    setFlashing(true)
+    window.setTimeout(() => setFlashing(false), 650)
+  }
   const [ownAttrFilter, setOwnAttrFilter] = useState<AttributeFilterState>({})
   const canViewAttributes = useHasViewPermission('master_data.inventory.attributes')
   const archiveCategory = useArchiveInventoryCategory()
@@ -206,6 +221,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   }, [visibleDescendantIds, attributeVisibleCategoryIds])
 
   const indent = 12 + depth * 20
+  const depthStyle = categoryDepthStyle(depth)
 
   // Ancestor's attribute filter pruned this branch — nothing to show at
   // this row or below. Skip render entirely (parent stays visible). Placed
@@ -219,8 +235,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     const a = items[idx]
     const b = items[targetIdx]
     updateItemOrder.mutate([
-      { id: a.id, sort_order: a.sort_order ?? idx },
-      { id: b.id, sort_order: b.sort_order ?? targetIdx },
+      { id: a.id, sort_order: b.sort_order ?? targetIdx },
+      { id: b.id, sort_order: a.sort_order ?? idx },
     ])
   }
 
@@ -229,8 +245,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     const a = node.children[idx]
     const b = node.children[targetIdx]
     updateChildCategoryOrder.mutate([
-      { id: a.id, sort_order: a.sort_order ?? idx },
-      { id: b.id, sort_order: b.sort_order ?? targetIdx },
+      { id: a.id, sort_order: b.sort_order ?? targetIdx },
+      { id: b.id, sort_order: a.sort_order ?? idx },
     ])
   }
 
@@ -238,12 +254,15 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
     <>
       {/* Category row */}
       <tr
-        className={`border-b border-border cursor-pointer ${
-          depth === 0 ? 'bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700'
-          : depth === 1 ? 'bg-blue-50 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-900/40'
-          : depth === 2 ? 'bg-violet-50 hover:bg-violet-100/80 dark:bg-violet-950/40 dark:hover:bg-violet-900/40'
-          : 'bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/40 dark:hover:bg-amber-900/40'
-        }`}
+        className={`border-b border-border cursor-pointer transition-colors ${depthStyle.row} ${animationIndex !== undefined ? 'animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-out-quint' : 'animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint'}`}
+        // Staggered entrance: each top-level row starts hidden (fill-mode
+        // backwards) and slides in a beat after the previous one. Delay is
+        // capped so a long list doesn't crawl in for over a second. The flash
+        // bg (inline, highest specificity) briefly tints the row on reorder.
+        style={{
+          ...(animationIndex !== undefined ? { animationDelay: `${Math.min(animationIndex, 15) * 40}ms`, animationFillMode: 'backwards' as const } : {}),
+          ...(flashing ? { backgroundColor: 'hsl(var(--primary) / 0.15)' } : {}),
+        }}
         onClick={() => setExpanded((v) => !v)}
       >
         <td className="py-2.5 pr-2 w-1/2" style={{ paddingLeft: indent }}>
@@ -252,11 +271,11 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
               ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             }
-            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Package className={`h-4 w-4 flex-shrink-0 ${depthStyle.icon}`} />
             <div>
               <button
                 className="text-sm font-semibold text-blue-600 hover:underline text-left"
-                onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
+                onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
               >
                 {node.name_en}
               </button>
@@ -298,10 +317,10 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         })()}
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" aria-label="Move category up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" aria-label="Move category up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => flashMove(onMoveUp)}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Move category down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" aria-label="Move category down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => flashMove(onMoveDown)}>
               <ArrowDown className="h-3 w-3" />
             </Button>
             <Button variant="ghost" size="icon" aria-label="Add subcategory" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
@@ -310,7 +329,10 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
             <Button variant="ghost" size="icon" aria-label="Add item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Item" onClick={() => setAddItemOpen(true)}>
               <Plus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="View category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="View" onClick={() => { setDialogReadOnly(true); setEditOpen(true) }}>
+              <Eye className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Edit" onClick={() => { setDialogReadOnly(false); setEditOpen(true) }}>
               <Pencil className="h-3 w-3" />
             </Button>
             {canViewAttributes && (
@@ -393,7 +415,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
         </tr>
       )}
 
-      <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType={categoryType} category={node} />
+      <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType={categoryType} category={node} readOnly={dialogReadOnly} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType={categoryType} parentId={node.id} />
       <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType={categoryType} />
       {canViewAttributes && (

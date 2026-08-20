@@ -38,8 +38,8 @@ export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
     const a = filtered[idx]
     const b = filtered[targetIdx]
     updateCategoryOrder.mutate([
-      { id: a.id, sort_order: a.sort_order ?? idx },
-      { id: b.id, sort_order: b.sort_order ?? targetIdx },
+      { id: a.id, sort_order: b.sort_order ?? targetIdx },
+      { id: b.id, sort_order: a.sort_order ?? idx },
     ])
   }
 
@@ -95,6 +95,7 @@ export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
                     canMoveDown={globalIdx < filtered.length - 1}
                     onMoveUp={() => handleCategoryMove(globalIdx, 'up')}
                     onMoveDown={() => handleCategoryMove(globalIdx, 'down')}
+                    animationIndex={localIdx}
                   />
                 )
               })}

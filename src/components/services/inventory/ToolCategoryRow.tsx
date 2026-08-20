@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -20,6 +20,7 @@ import {
 } from '@/hooks/useInventory'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { formatDate } from '@/lib/utils/formatters'
+import { categoryDepthStyle } from '@/lib/inventory/categoryDepth'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
@@ -158,7 +159,7 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
 
   return (
     <>
-      <tr className="border-b border-border hover:bg-muted/20 cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+      <tr className="border-b border-border hover:bg-muted/20 cursor-pointer animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint" onClick={() => setExpanded((v) => !v)}>
         <td className="py-2.5 pr-2" style={{ paddingLeft: indent }}>
           <div className="flex items-center gap-2 min-w-0">
             {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
@@ -189,12 +190,23 @@ type Props = {
   onMoveUp: () => void
   onMoveDown: () => void
   depth?: number
+  /** Set by ToolsAssetsView on the top-level rows only — one-time staggered
+   *  slide-in on first mount. Undefined on nested child rows. */
+  animationIndex?: number
 }
 
-export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0 }: Props) {
+export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, animationIndex }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [dialogReadOnly, setDialogReadOnly] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
+  // Brief highlight on reorder (transition-based, see CategoryRow).
+  const [flashing, setFlashing] = useState(false)
+  function flashMove(fn: () => void) {
+    fn()
+    setFlashing(true)
+    window.setTimeout(() => setFlashing(false), 650)
+  }
   const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const archiveCategory = useArchiveInventoryCategory()
@@ -220,26 +232,27 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   )
 
   const indent = 12 + depth * 20
+  const depthStyle = categoryDepthStyle(depth)
 
   function handleChildCategoryMove(idx: number, direction: 'up' | 'down') {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1
     const a = node.children[idx]
     const b = node.children[targetIdx]
     updateChildCategoryOrder.mutate([
-      { id: a.id, sort_order: a.sort_order ?? idx },
-      { id: b.id, sort_order: b.sort_order ?? targetIdx },
+      { id: a.id, sort_order: b.sort_order ?? targetIdx },
+      { id: b.id, sort_order: a.sort_order ?? idx },
     ])
   }
 
   return (
     <>
       <tr
-        className={`border-b border-border cursor-pointer ${
-          depth === 0 ? 'bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700'
-          : depth === 1 ? 'bg-blue-50 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-900/40'
-          : depth === 2 ? 'bg-violet-50 hover:bg-violet-100/80 dark:bg-violet-950/40 dark:hover:bg-violet-900/40'
-          : 'bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/40 dark:hover:bg-amber-900/40'
-        }`}
+        className={`border-b border-border cursor-pointer transition-colors ${depthStyle.row} ${animationIndex !== undefined ? 'animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-out-quint' : 'animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint'}`}
+        // Staggered entrance for top-level rows (see CategoryRow); inline flash bg on reorder.
+        style={{
+          ...(animationIndex !== undefined ? { animationDelay: `${Math.min(animationIndex, 15) * 40}ms`, animationFillMode: 'backwards' as const } : {}),
+          ...(flashing ? { backgroundColor: 'hsl(var(--primary) / 0.15)' } : {}),
+        }}
         onClick={() => setExpanded((v) => !v)}
       >
         <td className="py-2.5 pr-2 w-1/2" style={{ paddingLeft: indent }}>
@@ -248,11 +261,11 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
               ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             }
-            <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Package className={`h-4 w-4 flex-shrink-0 ${depthStyle.icon}`} />
             <div className="min-w-0">
               <button
                 className="text-sm font-semibold text-blue-600 hover:underline text-left truncate block max-w-full"
-                onClick={(e) => { e.stopPropagation(); setEditOpen(true) }}
+                onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
               >
                 {node.name_en}
               </button>
@@ -280,10 +293,10 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         </td>
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" aria-label="Move category up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" aria-label="Move category up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => flashMove(onMoveUp)}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Move category down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" aria-label="Move category down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => flashMove(onMoveDown)}>
               <ArrowDown className="h-3 w-3" />
             </Button>
             <Button variant="ghost" size="icon" aria-label="Add subcategory" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
@@ -292,7 +305,10 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
             <Button variant="ghost" size="icon" aria-label="Add tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Tool/Asset" onClick={() => setAddItemOpen(true)}>
               <Plus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label="View category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="View" onClick={() => { setDialogReadOnly(true); setEditOpen(true) }}>
+              <Eye className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Edit category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Edit" onClick={() => { setDialogReadOnly(false); setEditOpen(true) }}>
               <Pencil className="h-3 w-3" />
             </Button>
             <Button variant="ghost" size="icon" aria-label="Archive category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
@@ -333,7 +349,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         </tr>
       )}
 
-      <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType="tools" category={node} />
+      <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType="tools" category={node} readOnly={dialogReadOnly} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType="tools" parentId={node.id} />
       {node.tool_tracking_mode === 'bulk'
         ? <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType="tools" />

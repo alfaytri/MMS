@@ -36,6 +36,9 @@ type Props = {
   categoryType: string
   category?: InventoryCategory | null
   parentId?: string | null
+  /** Read-only "view" mode — every field is disabled and the save button is
+   *  replaced by Close. Opened by the eye button on a category row. */
+  readOnly?: boolean
 }
 
 type Snapshot = {
@@ -49,7 +52,7 @@ type Snapshot = {
   isTeamItem: boolean
 }
 
-export function CategoryEditDialog({ open, onOpenChange, categoryType, category, parentId: defaultParentId }: Props) {
+export function CategoryEditDialog({ open, onOpenChange, categoryType, category, parentId: defaultParentId, readOnly = false }: Props) {
   const isEdit = !!category
   const create = useCreateInventoryCategory()
   const update = useUpdateInventoryCategory()
@@ -176,6 +179,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (readOnly) return
     if (!nameEn.trim()) { toast.error('Name (EN) is required'); return }
 
     const payload = {
@@ -221,7 +225,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg flex flex-col max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogTitle>{readOnly ? 'View Category' : dialogTitle}</DialogTitle>
             {isEdit && (
               <Badge variant={category?.status === 'archived' ? 'destructive' : 'secondary'} className="text-[10px]">
                 {category?.status === 'archived' ? 'Archived' : 'Active'}
@@ -231,6 +235,11 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          {/* fieldset disabled cascades to every native control inside (inputs,
+              and the Base UI selects/switch which render real <button>s), so
+              read-only mode needs no per-field wiring. `contents` keeps the
+              flex/scroll layout intact. */}
+          <fieldset disabled={readOnly} className="contents">
           <div className="flex-1 overflow-y-auto space-y-5 pr-1">
             {/* Parent Category — cascading selects */}
             <div className="space-y-1.5">
@@ -431,12 +440,19 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
             </div>
 
           </div>
+          </fieldset>
 
           <DialogFooter className="pt-4 mt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Category'}
-            </Button>
+            {readOnly ? (
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Category'}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

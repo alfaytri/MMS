@@ -60,6 +60,13 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const [editOpen, setEditOpen] = useState(false)
   const [addVariantOpen, setAddVariantOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  // Brief highlight on reorder (transition-based, see CategoryRow).
+  const [flashing, setFlashing] = useState(false)
+  function flashMove(fn: () => void) {
+    fn()
+    setFlashing(true)
+    window.setTimeout(() => setFlashing(false), 650)
+  }
   const archive = useArchiveInventoryItem()
   const canSeePricing = useHasPermission('inventory.pricing.view')
 
@@ -132,7 +139,8 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
     <>
       {/* Item row */}
       <tr
-        className="border-b border-border hover:bg-muted/20 cursor-pointer"
+        className="border-b border-border hover:bg-muted/20 cursor-pointer transition-colors animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint"
+        style={flashing ? { backgroundColor: 'hsl(var(--primary) / 0.15)' } : undefined}
         onClick={() => setExpanded((v) => !v)}
       >
         <td className="py-2 pl-8 pr-2 w-1/2">
@@ -188,10 +196,10 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
         </td>
         <td className="py-2 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" aria-label="Move item up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => onMoveUp()}>
+            <Button variant="ghost" size="icon" aria-label="Move item up" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveUp} onClick={() => flashMove(onMoveUp)}>
               <ArrowUp className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Move item down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => onMoveDown()}>
+            <Button variant="ghost" size="icon" aria-label="Move item down" className="h-6 w-6 hidden sm:inline-flex" disabled={!canMoveDown} onClick={() => flashMove(onMoveDown)}>
               <ArrowDown className="h-3 w-3" />
             </Button>
             <Button variant="ghost" size="icon" aria-label="Edit item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
@@ -208,7 +216,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
       {expanded && (
         <tr className="bg-muted/10">
           <td colSpan={6} className="py-0 pl-8 pr-4 pb-3">
-            <div className="rounded border border-border overflow-x-auto mt-2">
+            <div className="rounded border border-border overflow-x-auto mt-2 animate-in fade-in-0 slide-in-from-top-1 duration-200 ease-out-quint">
               <Table>
                 <TableHeader className="hidden md:table-header-group">
                   <TableRow className="bg-muted/50">
