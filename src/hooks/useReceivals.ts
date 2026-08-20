@@ -211,6 +211,17 @@ export function useCreateReceival() {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      // Received stock must appear without a manual browser refresh. The Custody
+      // page reads warehouse_stock; the Inventory list reads the batched
+      // per-variant stock + category aggregates + the per-warehouse tooltip +
+      // the division-scoped fallbacks. brand-variants-v2 above only covers the
+      // (disabled-on-list) per-row fallback, so these were the real gap.
+      queryClient.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      queryClient.invalidateQueries({ queryKey: ['item-variants-batch'] })
+      queryClient.invalidateQueries({ queryKey: ['category-stock-aggregates'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.variantWarehouseStock })
+      queryClient.invalidateQueries({ queryKey: ['item-variant-division-stock'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers-for-variant'] })
     },
   })
 }
@@ -422,6 +433,14 @@ export function useCreateReplacementReceival() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
+      // Same stock-visibility invalidations as useCreateReceival (custody +
+      // inventory list read these; without them received stock needs a refresh).
+      queryClient.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      queryClient.invalidateQueries({ queryKey: ['item-variants-batch'] })
+      queryClient.invalidateQueries({ queryKey: ['category-stock-aggregates'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.variantWarehouseStock })
+      queryClient.invalidateQueries({ queryKey: ['item-variant-division-stock'] })
+      queryClient.invalidateQueries({ queryKey: ['fifo-layers-for-variant'] })
     },
   })
 }

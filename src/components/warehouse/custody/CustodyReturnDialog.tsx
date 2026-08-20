@@ -22,6 +22,7 @@ import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useCreateCustodyReturn } from '@/hooks/useCustodyMoves'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 
 interface Props {
   open:           boolean
@@ -82,6 +83,12 @@ export function CustodyReturnDialog({
     return map
   }, [sourceStock])
 
+  // Full category breadcrumbs for the picker header ("Root > … > Leaf"). One
+  // bounded, cached read over the sub's stock variants — resolved client-side so
+  // it works regardless of which columns warehouse_stock_summary carries.
+  const stockVariantIds = useMemo(() => sourceStock.map((s) => s.brand_variant_id), [sourceStock])
+  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+
   const pickerItems: PickerItem[] = useMemo(
     () => sourceStock.map((s) => ({
       id:       s.brand_variant_id,
@@ -89,10 +96,11 @@ export function CustodyReturnDialog({
       brand:    s.brand ?? null,
       sku:      s.sku ?? null,
       category: s.category_name ?? null,
+      categoryPath: categoryPaths.get(s.brand_variant_id) ?? null,
       imageUrl: s.image_url ?? null,
       qty:      availableQtyMap.get(s.brand_variant_id) ?? 0,
     })),
-    [sourceStock, availableQtyMap],
+    [sourceStock, availableQtyMap, categoryPaths],
   )
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])

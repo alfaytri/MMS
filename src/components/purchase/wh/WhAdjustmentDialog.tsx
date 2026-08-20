@@ -19,6 +19,7 @@ import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { useCreateStockAdjustmentV2, useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -67,6 +68,12 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   // Clear the picked item whenever the container scope changes.
   useEffect(() => { setSelectedVariantId(null) }, [warehouseId, subContainerId])
 
+  // Full category breadcrumbs for the picker header ("Root > … > Leaf"). One
+  // bounded, cached read over the sub's stock variants — resolved client-side so
+  // it works regardless of which columns warehouse_stock_summary carries.
+  const stockVariantIds = useMemo(() => containerStock.map((s) => s.brand_variant_id), [containerStock])
+  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+
   const pickerItems: PickerItem[] = useMemo(() => {
     if (!warehouseId) return []
     // One entry per variant (a variant can span sub-containers when none is
@@ -80,11 +87,12 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       countryName: s.country_name ?? null,
       sku:         s.sku ?? null,
       category:    s.category_name ?? null,
+      categoryPath: categoryPaths.get(s.brand_variant_id) ?? null,
       type:        s.item_type ?? null,
       qty:         s.qty,
       imageUrl:    s.image_url ?? null,
     }))
-  }, [containerStock, warehouseId])
+  }, [containerStock, warehouseId, categoryPaths])
 
   const selectedItem = selectedVariantId ? pickerItems.find((p) => p.id === selectedVariantId) ?? null : null
   const selVarLabel = selectedItem

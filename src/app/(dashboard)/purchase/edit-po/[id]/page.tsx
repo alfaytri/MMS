@@ -9,6 +9,7 @@ import {
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -488,11 +489,11 @@ export default function EditPOPage() {
         {!isViewingOldVersion && (
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => requestSave('draft')} disabled={isPending}>
-              <Save className="h-3.5 w-3.5" />
+              {savePoAsDraft.isPending ? <Spinner size="sm" /> : <Save className="h-3.5 w-3.5" />}
               {savePoAsDraft.isPending ? 'Saving…' : 'Save as Draft'}
             </Button>
             <Button size="sm" className="gap-1.5" onClick={() => requestSave('submit')} disabled={isPending}>
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              {submitPoVersion.isPending ? <Spinner size="sm" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               {submitPoVersion.isPending ? 'Submitting…' : 'Submit for Approval'}
             </Button>
           </div>

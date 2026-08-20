@@ -21,6 +21,7 @@ import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useCreateCustodyTransfer } from '@/hooks/useCustodyMoves'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 
 interface Props {
   open:            boolean
@@ -101,6 +102,12 @@ export function CustodyTransferDialog({
     return map
   }, [sourceStock])
 
+  // Full category breadcrumbs for the picker header ("Root > … > Leaf"). One
+  // bounded, cached read over the sub's stock variants — resolved client-side so
+  // it works regardless of which columns warehouse_stock_summary carries.
+  const stockVariantIds = useMemo(() => sourceStock.map((s) => s.brand_variant_id), [sourceStock])
+  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+
   const pickerItems: PickerItem[] = useMemo(() => {
     const seen = new Set<string>()
     const out: PickerItem[] = []
@@ -113,13 +120,14 @@ export function CustodyTransferDialog({
         brand:        s.brand ?? null,
         sku:          s.sku ?? null,
         category:     s.category_name ?? null,
+        categoryPath: categoryPaths.get(s.brand_variant_id) ?? null,
         qty:          availableQtyMap.get(s.brand_variant_id) ?? 0,
         reorderPoint: 0,
         imageUrl:     s.image_url ?? null,
       })
     }
     return out
-  }, [sourceStock, availableQtyMap])
+  }, [sourceStock, availableQtyMap, categoryPaths])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 

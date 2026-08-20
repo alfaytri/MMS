@@ -38,6 +38,7 @@ import {
   useReorderPoints,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 import { createClient } from '@/lib/supabase/client'
 import { recipientsForNotification } from '@/lib/notify'
 import { toast } from 'sonner'
@@ -154,6 +155,12 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
+  // Full category breadcrumbs for the picker header ("Root > … > Leaf"). One
+  // bounded, cached read over the sub's stock variants — resolved client-side so
+  // it works regardless of which columns warehouse_stock_summary carries.
+  const stockVariantIds = useMemo(() => itemsByPriority.map((s) => s.brand_variant_id), [itemsByPriority])
+  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+
   const pickerItems: PickerItem[] = useMemo(
     () => itemsByPriority.map((s) => ({
       id:            s.brand_variant_id,
@@ -162,13 +169,14 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       countryName:   s.country_name ?? null,
       sku:           s.sku ?? null,
       category:      s.category_name ?? null,
+      categoryPath:  categoryPaths.get(s.brand_variant_id) ?? null,
       type:          s.item_type ?? null,
       qty:           fromSubContainerId ? (availableQtyMap.get(s.brand_variant_id) ?? 0) : s.available_qty,
       destQty:       destStockMap.get(s.brand_variant_id)?.qty,
       reorderPoint:  reorderMap.get(s.brand_variant_id) ?? 0,
       imageUrl:      s.image_url ?? null,
     })),
-    [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId],
+    [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId, categoryPaths],
   )
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
