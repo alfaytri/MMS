@@ -9,6 +9,7 @@ import {
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -143,7 +144,7 @@ export default function CreatePOPage() {
     }
   }
 
-  function validate() {
+  function validate({ requirePayment = false }: { requirePayment?: boolean } = {}) {
     if (isMultiDivision && !divisionId) { toast.error('Select a default division before creating the order.'); return false }
     if (!supplierId) { toast.error('Please select a supplier'); return false }
     if (lineItems.length === 0) { toast.error('Add at least one line item'); return false }
@@ -166,6 +167,14 @@ export default function CreatePOPage() {
     if (lineItems.some((li) => !(li.qty > 0)))        { toast.error('Every line needs a quantity greater than zero'); return false }
     if (lineItems.some((li) => !(li.unit_price > 0))) { toast.error('Every line needs a unit price greater than zero'); return false }
     if (discountAmount > subtotal) { toast.error('Discount cannot exceed subtotal'); return false }
+    if (requirePayment) {
+      if (!terms.payment_terms) { toast.error('Select a payment term before submitting for approval.'); return false }
+      const milestoneSum = terms.payment_milestones.reduce((s, m) => s + (m.percent || 0), 0)
+      if (terms.payment_milestones.length > 0 && milestoneSum !== 100) {
+        toast.error(`Payment milestones total ${milestoneSum}% — they must add up to 100%.`)
+        return false
+      }
+    }
     return true
   }
 
@@ -182,7 +191,7 @@ export default function CreatePOPage() {
   }
 
   function submitApproval() {
-    if (!validate()) return
+    if (!validate({ requirePayment: true })) return
     createPO.mutate(buildPayload(), {
       onSuccess: (po) => {
         submitForApproval.mutate(
@@ -222,7 +231,7 @@ export default function CreatePOPage() {
             disabled={isPending || isPriceLoading || !exchangeRateValid}
             title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
           >
-            <Save className="h-3.5 w-3.5" />
+            {isPending ? <Spinner size="sm" /> : <Save className="h-3.5 w-3.5" />}
             Save as RFQ
           </Button>
           <Button
@@ -233,7 +242,7 @@ export default function CreatePOPage() {
             disabled={isPending || isPriceLoading || !exchangeRateValid}
             title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
           >
-            <Save className="h-3.5 w-3.5" />
+            {isPending ? <Spinner size="sm" /> : <Save className="h-3.5 w-3.5" />}
             {isPending ? 'Please wait…' : 'Save as Draft'}
           </Button>
           <Button
@@ -243,7 +252,7 @@ export default function CreatePOPage() {
             disabled={isPending || isPriceLoading || !exchangeRateValid}
             title={!exchangeRateValid ? 'Enter an exchange rate before submitting.' : undefined}
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
+            {isPending || isPriceLoading ? <Spinner size="sm" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
             {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
           </Button>
         </div>
