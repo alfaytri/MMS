@@ -23,6 +23,7 @@ import type { ReportColumn } from '@/lib/reports/reportColumns'
 import { useProfitLossCogsDetail, type CogsDetailRow } from '@/hooks/reports/useProfitLossCogsDetail'
 import type { ReportFilters } from '@/components/reports/ReportFilterBar'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 const PAGE_SIZE = 10
@@ -273,10 +274,10 @@ export function CogsSourceDetailDialog({
                   </td>
                 </tr>
               ) : (
-                pageRows.map((r) => {
+                pageRows.map((r, i) => {
                   const meta = TYPE_META[r.source_type]
                   return (
-                    <tr key={r.cogs_id} className="border-t hover:bg-muted/30">
+                    <tr key={r.cogs_id} className={cn('border-t hover:bg-muted/30', STAGGER_IN)} style={staggerDelay(i)}>
                       <td className="px-3 py-2 whitespace-nowrap tabular-nums">{r.date}</td>
                       <td className="px-3 py-2">
                         <Badge variant="outline" className={cn('text-[10px] font-normal whitespace-nowrap', meta.cls)}>

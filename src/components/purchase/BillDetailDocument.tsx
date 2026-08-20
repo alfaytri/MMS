@@ -14,6 +14,7 @@ import {
 import { BillDetailSection } from './BillDetailSection'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { BillViewModel } from '@/hooks/useSupplierBills'
 import { usePrimaryCompanyName } from '@/hooks/useCompanies'
 
@@ -164,7 +165,7 @@ export function BillDetailDocument({
           </TableHeader>
           <TableBody>
             {(bill.bill_line_items ?? []).map((li, i) => (
-              <TableRow key={li.id}>
+              <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(i)}>
                 <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                 <TableCell className="font-medium">{li.description}</TableCell>
                 <TableCell className="text-right">{li.qty ?? '—'}</TableCell>
@@ -211,8 +212,8 @@ export function BillDetailDocument({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((p) => (
-                <TableRow key={p.id}>
+              {payments.map((p, i) => (
+                <TableRow key={p.id} className={STAGGER_IN} style={staggerDelay(i)}>
                   <TableCell>{formatDate(p.date)}</TableCell>
                   <TableCell className="capitalize">{p.method.replace(/_/g, ' ')}</TableCell>
                   <TableCell className="text-right font-medium">
@@ -313,8 +314,8 @@ export function BillDetailDocument({
             <TableBody>
               {receival.receival_items
                 .filter((ri) => !ri.is_free)
-                .map((ri) => (
-                  <TableRow key={ri.id}>
+                .map((ri, i) => (
+                  <TableRow key={ri.id} className={STAGGER_IN} style={staggerDelay(i)}>
                     <TableCell>
                       <p className="font-medium">{ri.item_name}</p>
                       {ri.sku && <p className="text-xs text-muted-foreground">{ri.sku}</p>}
@@ -345,7 +346,7 @@ export function BillDetailDocument({
             </TableHeader>
             <TableBody>
               {(paymentPlan.payment_installments ?? []).map((inst, i) => (
-                <TableRow key={inst.id}>
+                <TableRow key={inst.id} className={STAGGER_IN} style={staggerDelay(i)}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>{formatDate(inst.due_date)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(inst.amount, currency)}</TableCell>

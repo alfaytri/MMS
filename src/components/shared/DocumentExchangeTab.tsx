@@ -8,6 +8,8 @@ import {
   useExchangeRateChangeLog,
   type DocumentType,
 } from '@/hooks/useExchangeRateChangeLog'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 function fmt(n: number, code?: string) {
   const prefix = code ? `${code} ` : ''
@@ -111,8 +113,8 @@ export function DocumentExchangeTab({
                   </td>
                 </tr>
               )}
-              {summary.payments.map((p) => (
-                <tr key={p.id} className="border-t">
+              {summary.payments.map((p, i) => (
+                <tr key={p.id} className={cn('border-t', STAGGER_IN)} style={staggerDelay(i)}>
                   <td className="px-3 py-2 tabular-nums">
                     {new Date(p.date).toLocaleDateString('en-QA')}
                   </td>

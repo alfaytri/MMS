@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { SaleReturn } from '@/hooks/useSaleReturns'
 import { useReturnProgress } from '@/hooks/useSaleReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
@@ -246,7 +247,7 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
                       const sdlid = (item as { sale_delivery_line_id?: string | null }).sale_delivery_line_id ?? null
                       const info = sdlid ? sourceMaps?.delivery.get(sdlid) : undefined
                       return (
-                        <tr key={idx} className="hover:bg-muted/20">
+                        <tr key={idx} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(idx)}>
                           <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
                           <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                           <td className="px-3 py-2.5"><ReturnLineSourceBadges info={info} /></td>

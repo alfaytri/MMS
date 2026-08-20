@@ -42,6 +42,7 @@ import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
 import { useReturnsBySO, useUnresolvedReturns, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useActivityLog } from '@/hooks/useActivityLog'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import {
@@ -261,7 +262,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                         const summaryById = new Map(
                           (fullSO?.sale_order_lines_summary ?? []).map((s) => [s.sale_order_line_id, s])
                         )
-                        return (fullSO?.sale_order_lines ?? []).map((li) => {
+                        return (fullSO?.sale_order_lines ?? []).map((li, ri) => {
                         const bv = li.inventory_item_brand_variants
                         const cat = bv?.inventory_items?.inventory_categories
                         const chain = cat?.ancestor_chain ?? []
@@ -271,7 +272,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                         const summary = summaryById.get(li.id)
                         const netDelivered = summary?.net_delivered_qty ?? li.delivered_qty
                         return (
-                        <TableRow key={li.id}>
+                        <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(ri)}>
                           <TableCell className="py-2.5">
                             <div className="space-y-0.5">
                               {chain.length > 0 && (
@@ -424,7 +425,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                                 const info = item.brand_variant_id ? bvInfoMap.get(item.brand_variant_id) : null
                                 const typeBadge = info?.type ? inventoryTypeBadge[info.type] : null
                                 return (
-                                  <TableRow key={idx}>
+                                  <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                                     <TableCell className="text-xs py-2">
                                       <div className="space-y-0.5">
                                         {info && info.chain.length > 0 && (

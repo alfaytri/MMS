@@ -23,6 +23,7 @@ import type { ReportColumn } from '@/lib/reports/reportColumns'
 import { useProfitLossFxDetail, type FxDetailRow } from '@/hooks/reports/useProfitLossFxDetail'
 import type { ReportFilters } from '@/components/reports/ReportFilterBar'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const QAR = new Intl.NumberFormat('en-QA', { style: 'currency', currency: 'QAR', maximumFractionDigits: 2 })
 const PAGE_SIZE = 10
@@ -282,11 +283,11 @@ export function FxDetailDialog({
                   </td>
                 </tr>
               ) : (
-                pageRows.map((r) => {
+                pageRows.map((r, i) => {
                   const href = docHref(r)
                   const label = r.doc_number ?? r.doc_type
                   return (
-                    <tr key={fxKey(r)} className="border-t hover:bg-muted/30">
+                    <tr key={fxKey(r)} className={cn('border-t hover:bg-muted/30', STAGGER_IN)} style={staggerDelay(i)}>
                       <td className="px-3 py-2 whitespace-nowrap tabular-nums">{r.payment_date}</td>
                       <td className="px-3 py-2">
                         {href ? (

@@ -24,6 +24,7 @@ import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import type { NoteDebitLineItem } from '@/hooks/useCreditNotes'
 import type { DebitNote, DebitNoteLine } from '@/types/invoice'
 import { formatCurrency } from '@/lib/utils/formatters'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type DraftItem = {
   item_name: string
@@ -235,7 +236,7 @@ export function ReplacementReceivalDialog({ open, onOpenChange, debitNote, onSuc
               </TableHeader>
               <TableBody>
                 {items.map((item, idx) => (
-                  <TableRow key={idx}>
+                  <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                     <TableCell className="text-sm">{item.item_name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{item.sku ?? '—'}</TableCell>
                     <TableCell className="text-right">

@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { ChevronDown, ChevronUp, Trophy } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   useRfqQuotes,
   useSaveQuote,
@@ -242,8 +243,8 @@ export function RfqQuotesTab({ poId, poNumber, currency, lineItems }: Props) {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {lineItems.map((li) => (
-                          <TableRow key={li.id}>
+                        {lineItems.map((li, i) => (
+                          <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(i)}>
                             <TableCell className="font-medium text-sm">
                               {li.item_name}
                             </TableCell>
@@ -345,8 +346,8 @@ export function RfqQuotesTab({ poId, poNumber, currency, lineItems }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lineItems.map((li) => (
-                  <TableRow key={li.id}>
+                {lineItems.map((li, ri) => (
+                  <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(ri)}>
                     <TableCell className="font-medium text-sm">
                       {li.item_name}
                     </TableCell>

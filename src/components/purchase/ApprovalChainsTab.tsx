@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   useApprovalChains, useUpsertApprovalChain,
   useUpsertApprovalChainTier, useDeleteApprovalChainTier,
@@ -315,7 +316,7 @@ export function ApprovalChainsTab() {
 
                     if (isEditing) {
                       return (
-                        <TableRow key={tier.id} className="bg-muted/30">
+                        <TableRow key={tier.id} className={cn('bg-muted/30', STAGGER_IN)} style={staggerDelay(idx)}>
                           <TableCell className="font-mono text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell>
                             <Input
@@ -361,7 +362,7 @@ export function ApprovalChainsTab() {
                     }
 
                     return (
-                      <TableRow key={tier.id}>
+                      <TableRow key={tier.id} className={STAGGER_IN} style={staggerDelay(idx)}>
                         <TableCell className="font-mono text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="tabular-nums">
                           QAR {Number(tier.min_amount).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

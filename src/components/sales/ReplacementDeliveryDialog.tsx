@@ -25,6 +25,7 @@ import type { ReturnDispositionType, ReturnLineDisposition } from '@/hooks/useSa
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import type { InventoryLookupResult } from '@/hooks/usePurchaseOrders'
 import { formatCurrency } from '@/lib/utils/formatters'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 export type GiftItem = {
   item_name: string
@@ -393,7 +394,7 @@ export function ReplacementDeliveryDialog({
                       </TableCell>
                     </TableRow>
                   )}
-                  {rows.map((r) => {
+                  {rows.map((r, ri) => {
                     const entries      = r.brand_variant_id ? (whStockMap.get(r.brand_variant_id) ?? []) : []
                     const selectedStock = entries.find((e) => e.warehouse_id === warehouseId)?.qty ?? 0
                     const currentQty    = qtyByLineId[r.return_line_id] ?? 0
@@ -409,7 +410,7 @@ export function ReplacementDeliveryDialog({
                     const showBothDimensions = isDamaged && (custRemaining !== invRemaining)
 
                     return (
-                      <TableRow key={r.return_line_id}>
+                      <TableRow key={r.return_line_id} className={STAGGER_IN} style={staggerDelay(ri)}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="min-w-0">
@@ -604,7 +605,7 @@ export function ReplacementDeliveryDialog({
                 </TableHeader>
                 <TableBody>
                   {giftItems.map((gift, i) => (
-                    <TableRow key={i}>
+                    <TableRow key={i} className={STAGGER_IN} style={staggerDelay(i)}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="min-w-0">

@@ -20,6 +20,7 @@ import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { useReasonLists } from '@/hooks/useReasonLists'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type CreditMode = 'full' | 'partial' | 'line'
 
@@ -362,7 +363,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
                               {lines.map((line, idx) => {
                                 const lineTotal = line.checked ? line.credit_qty * line.original_unit_price : 0
                                 return (
-                                  <tr key={line.invoice_line_id} className={cn('border-t', !line.checked && 'opacity-50')}>
+                                  <tr key={line.invoice_line_id} className={cn('border-t', !line.checked && 'opacity-50', STAGGER_IN)} style={staggerDelay(idx)}>
                                     <td className="py-2 pl-2">
                                       <Checkbox
                                         checked={line.checked}

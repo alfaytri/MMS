@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { SaleDelivery } from '@/hooks/useSaleDeliveries'
 
 /** Reads the return + its originating standard delivery so a replacement
@@ -232,7 +233,7 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
                   </thead>
                   <tbody className="divide-y">
                     {items.map((item, i) => (
-                      <tr key={i} className="hover:bg-muted/20">
+                      <tr key={i} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(i)}>
                         <td className="px-3 py-2.5 font-medium">
                           <div className="flex items-center gap-1.5">
                             <span>{item.item_name}</span>

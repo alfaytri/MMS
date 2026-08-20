@@ -16,6 +16,7 @@ import { useReturnReasons } from '@/hooks/useReturnReasons'
 import { PackageIcon } from 'lucide-react'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
 import { formatDate } from '@/lib/utils/formatters'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 function ReplacementChips({ returnId }: { returnId: string }) {
   const { data: deliveries = [] } = useDeliveriesByReturnId(returnId)
@@ -249,7 +250,7 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                   </TableHeader>
                   <TableBody>
                     {(ret.return_lines ?? []).map((item, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={i} className={STAGGER_IN} style={staggerDelay(i)}>
                         <TableCell className="text-xs">{item.item_name}</TableCell>
                         <TableCell className="text-xs text-right">{item.qty}</TableCell>
                         <TableCell className="text-xs">

@@ -20,6 +20,7 @@ import { CustomerPaymentEditDialog, type EditableCustomerPayment } from './Custo
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { type ArInvoice } from '@/types/invoice'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type Props = {
   open: boolean
@@ -102,8 +103,8 @@ export function InvoiceDetail({ open, onOpenChange, invoice }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {(invoice.invoice_line_items ?? []).map((li) => (
-                    <tr key={li.id}>
+                  {(invoice.invoice_line_items ?? []).map((li, i) => (
+                    <tr key={li.id} className={STAGGER_IN} style={staggerDelay(i)}>
                       <td className="py-2 pr-2">{li.description}</td>
                       <td className="text-right py-2 px-2 text-muted-foreground">{li.qty ?? '—'}</td>
                       <td className="text-right py-2 px-2 hidden sm:table-cell">{formatCurrency(li.unit_price ?? 0, invoice.currency ?? 'QAR')}</td>

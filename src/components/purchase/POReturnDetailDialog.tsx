@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { POReturn } from '@/hooks/usePurchaseReturns'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouses } from '@/hooks/useWarehouses'
@@ -169,7 +170,7 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                       const cond = CONDITION_CONFIG[item.condition] ?? CONDITION_CONFIG.other
                       const sourceInfo = item.receival_item_id ? sources?.receival.get(item.receival_item_id) ?? null : null
                       return (
-                        <tr key={idx} className="hover:bg-muted/20">
+                        <tr key={idx} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(idx)}>
                           <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
                           <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">{item.qty}</td>

@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { Receival } from '@/hooks/useReceivals'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -181,8 +182,8 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {items.map((item) => (
-                      <tr key={item.id} className="hover:bg-muted/20">
+                    {items.map((item, i) => (
+                      <tr key={item.id} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(i)}>
                         <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
                         <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{item.qty_received}</td>

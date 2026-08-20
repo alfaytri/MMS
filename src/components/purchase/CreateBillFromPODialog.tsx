@@ -19,6 +19,7 @@ import { useCreateBill, persistBillAttachments } from '@/hooks/useSupplierBills'
 import { usePurchaseOrder, usePOReceivalsByPO } from '@/hooks/usePurchaseOrders'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { BillAttachmentPicker, type BillAttachmentPickerHandle, type BillAttachmentUpload } from './BillAttachmentPicker'
 
 type BillLine = {
@@ -318,7 +319,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
                         const lineTotal = line.bill_qty * line.unit_price
                         const approvedReceived = receivedMap.get(line.po_line_item_id) ?? line.received_qty
                         return (
-                          <TableRow key={line.po_line_item_id}>
+                          <TableRow key={line.po_line_item_id} className={STAGGER_IN} style={staggerDelay(idx)}>
                             <TableCell>
                               <p className="text-sm font-medium">{line.item_name}</p>
                               {line.sku && <p className="text-xs text-muted-foreground">{line.sku}</p>}

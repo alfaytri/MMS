@@ -19,6 +19,7 @@ import {
 import { useCompleteReturnInspection, type InspectionSplit, type SaleReturn } from '@/hooks/useSaleReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type Split = {
   return_line_id: string
@@ -153,7 +154,7 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
                   const mismatch = total !== s.original_qty
                   const sourceInfo = s.sale_delivery_line_id ? sourceMaps?.delivery.get(s.sale_delivery_line_id) : undefined
                   return (
-                    <TableRow key={s.return_line_id}>
+                    <TableRow key={s.return_line_id} className={STAGGER_IN} style={staggerDelay(i)}>
                       <TableCell className="text-xs font-medium align-top">
                         <div>{s.item_name}</div>
                         <div className="mt-1"><ReturnLineSourceBadges info={sourceInfo} /></div>

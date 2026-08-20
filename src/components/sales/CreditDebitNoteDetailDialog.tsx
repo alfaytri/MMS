@@ -14,6 +14,7 @@ import { CreditDebitNoteDownloadButton } from './CreditDebitNoteDownloadButton'
 import { ApplyDebitNoteDialog } from '@/components/purchase/ApplyDebitNoteDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { CreditNote, CreditNoteStatus, NoteLineItem, NoteDebitLineItem, ResolutionLineInput } from '@/hooks/useCreditNotes'
 import {
   useResolveCreditNoteRefund, useResolveCreditNoteStoreCredit,
@@ -265,7 +266,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                 </TableHeader>
                 <TableBody>
                   {pdfData.original_lines.map((line: NoteLineItem, idx: number) => (
-                    <TableRow key={idx}>
+                    <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                       <TableCell className="text-sm">{line.item_name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
@@ -303,7 +304,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                 </TableHeader>
                 <TableBody>
                   {pdfData.returned_lines.map((line: NoteDebitLineItem, idx: number) => (
-                    <TableRow key={idx}>
+                    <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                       <TableCell className="text-sm">{line.item_name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
@@ -666,13 +667,13 @@ function ResolutionForm({
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((r) => {
+              {rows.map((r, i) => {
                 const qty = qtyByLine[r.return_line_id] ?? 0
                 const price = priceByLine[r.return_line_id] ?? 0
                 const disabled = r.customer_remaining_qty <= 0
                 const isDamaged = r.condition === 'damaged'
                 return (
-                  <TableRow key={r.return_line_id}>
+                  <TableRow key={r.return_line_id} className={STAGGER_IN} style={staggerDelay(i)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="min-w-0">

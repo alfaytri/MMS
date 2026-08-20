@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { CascadeInventorySelector } from '@/components/purchase/CascadeInventorySelector'
 import type { LineType } from '@/components/purchase/PoLineItemsEditor'
 import { format } from 'date-fns'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type DraftLine = {
   po_line_item_id: string | null
@@ -675,14 +676,15 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
               </div>
               <div className="space-y-2">
                 {lines.map((line, idx) => (
-                  <ItemCard
-                    key={idx}
-                    line={line}
-                    idx={idx}
-                    onChange={(i, patch) => setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)))}
-                    currency={currency}
-                    exchangeRate={selectedPO?.exchange_rate ?? null}
-                  />
+                  <div key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
+                    <ItemCard
+                      line={line}
+                      idx={idx}
+                      onChange={(i, patch) => setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)))}
+                      currency={currency}
+                      exchangeRate={selectedPO?.exchange_rate ?? null}
+                    />
+                  </div>
                 ))}
               </div>
             </div>

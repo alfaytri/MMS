@@ -15,6 +15,7 @@ import {
 import { useCreateSaleReturn, useSaleDeliveryLinesForSo, type ReturnLineCondition, type SaleReturn, type DeliveryLineForReturn } from '@/hooks/useSaleReturns'
 import { useReturnReasons, useAddReturnReason } from '@/hooks/useReturnReasons'
 import type { SaleOrder } from '@/hooks/useSaleOrders'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type Mode = 'direct' | 'inspection'
 
@@ -313,7 +314,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
                     const totalReturning = perLineReturnQty(line)
                     const overCapacity = totalReturning > line.returnable_qty
                     return (
-                      <TableRow key={line.sale_delivery_line_id}>
+                      <TableRow key={line.sale_delivery_line_id} className={STAGGER_IN} style={staggerDelay(i)}>
                         <TableCell className="text-xs align-top">
                           <div className="font-medium">{line.item_name}</div>
                           <div className="mt-1 flex flex-wrap items-center gap-1">

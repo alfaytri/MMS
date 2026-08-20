@@ -23,6 +23,7 @@ import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadg
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const PO_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   pending:            { label: 'Pending',            className: 'border-warning text-warning' },
@@ -277,7 +278,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                         const rlid = (item as { receival_item_id?: string | null }).receival_item_id ?? null
                         const info = rlid ? sourceMaps?.receival.get(rlid) : undefined
                         return (
-                          <TableRow key={idx}>
+                          <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                             <TableCell className="text-xs">{item.item_name}{item.sku ? ` · ${item.sku}` : ''}</TableCell>
                             <TableCell><ReturnLineSourceBadges info={info} /></TableCell>
                             <TableCell className="text-xs text-right">{item.qty}</TableCell>

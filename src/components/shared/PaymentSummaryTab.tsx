@@ -4,6 +4,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 export interface PaymentRow {
   id: string
@@ -67,10 +69,10 @@ export function PaymentSummaryTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((p) => {
+                {payments.map((p, i) => {
                   const isStoreCredit = p.method === 'store_credit'
                   return (
-                  <TableRow key={p.id} className={isStoreCredit ? 'bg-emerald-50/40 dark:bg-emerald-950/10' : undefined}>
+                  <TableRow key={p.id} className={cn(isStoreCredit ? 'bg-emerald-50/40 dark:bg-emerald-950/10' : undefined, STAGGER_IN)} style={staggerDelay(i)}>
                     <TableCell className="text-sm">{formatDate(p.date)}</TableCell>
                     <TableCell className="font-medium">
                       <span>{formatCurrency(p.amount, currency)}</span>

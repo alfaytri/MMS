@@ -24,6 +24,8 @@ import { CascadeInventorySelector } from '@/components/purchase/CascadeInventory
 import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import type { LineType } from '@/components/purchase/PoLineItemsEditor'
 import type { PurchaseOrder, InventoryLookupResult } from '@/hooks/usePurchaseOrders'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type ReceiveRow = {
   po_line_item_id: string
@@ -346,14 +348,14 @@ export function PoReceiveTab({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => {
+            {rows.map((row, i) => {
               const remaining = row.ordered - row.alreadyReceived
               const done = remaining <= 0
               // In a multi-division PO, a receival pass lands in one division's
               // sub-container; lines of other divisions are received separately.
               const otherDivision = isMultiDivPO && !!selectedSubDivision && !!row.division_id && row.division_id !== selectedSubDivision
               return (
-                <TableRow key={row.po_line_item_id} className={`${done ? 'bg-muted/30' : ''} ${otherDivision ? 'opacity-50' : ''}`}>
+                <TableRow key={row.po_line_item_id} className={`${done ? 'bg-muted/30' : ''} ${otherDivision ? 'opacity-50' : ''} ${STAGGER_IN}`} style={staggerDelay(i)}>
                   <TableCell>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-medium text-sm">{row.system_name ?? row.item_name}</p>
@@ -427,8 +429,8 @@ export function PoReceiveTab({
             })}
 
             {/* Extra non-PO free items */}
-            {extraFreeItems.map((fi) => (
-              <TableRow key={fi._id} className="bg-success/10/50">
+            {extraFreeItems.map((fi, i) => (
+              <TableRow key={fi._id} className={cn('bg-success/10/50', STAGGER_IN)} style={staggerDelay(i)}>
                 <TableCell>
                   <p className="font-medium text-sm text-green-700">{fi.item_name}</p>
                   {fi.sku && <p className="text-xs text-muted-foreground">{fi.sku}</p>}

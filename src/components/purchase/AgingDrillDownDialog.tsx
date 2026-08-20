@@ -13,6 +13,7 @@ import { useAgingDrillDown, type AgingBucket } from '@/hooks/useAgingDrillDown'
 import { PoDetailDialog } from './PoDetailDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { FileText, ExternalLink } from 'lucide-react'
 
 const BUCKET_LABELS: Record<AgingBucket, string> = {
@@ -94,8 +95,8 @@ export function AgingDrillDownDialog({ open, onOpenChange, supplierId, supplierN
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bills.map((bill) => (
-                      <TableRow key={bill.id} className="group">
+                    {bills.map((bill, i) => (
+                      <TableRow key={bill.id} className={cn('group', STAGGER_IN)} style={staggerDelay(i)}>
                         <TableCell className="font-medium text-sm">{bill.bill_number}</TableCell>
                         <TableCell className="hidden sm:table-cell">
                           {bill.po_number ? (

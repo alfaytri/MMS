@@ -18,6 +18,8 @@ import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { useSaleOrders } from '@/hooks/useSaleOrders'
+import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type Props = {
   open: boolean
@@ -184,7 +186,7 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
                 </thead>
                 <tbody>
                   {lines.map((line, idx) => (
-                    <tr key={idx} className="border-b">
+                    <tr key={idx} className={cn('border-b', STAGGER_IN)} style={staggerDelay(idx)}>
                       <td className="py-2 pr-2 font-medium">{line.item_name}</td>
                       <td className="text-right py-2 px-2 text-muted-foreground">{line.so_qty}</td>
                       <td className="py-2 pl-2">

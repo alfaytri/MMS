@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { MatchStatus } from '@/types/invoice'
 
 export type MatchLine = {
@@ -85,7 +86,7 @@ export function ThreeWayMatchTable({ lines, onChange, readOnly = false }: Props)
               line.match_status === 'unmatched'
             return (
               <>
-                <tr key={line.id} className="align-middle">
+                <tr key={line.id} className={cn('align-middle', STAGGER_IN)} style={staggerDelay(idx)}>
                   <td className="py-2 pr-2 font-medium">{line.description}</td>
                   <td className="text-right py-2 px-2 text-muted-foreground">{line.ordered_qty}</td>
                   <td className="text-right py-2 px-2 text-muted-foreground">{line.ordered_unit_price.toFixed(2)}</td>

@@ -53,6 +53,7 @@ import { RfqQuotesTab } from './RfqQuotesTab'
 import { ReceivalCheckButton } from './ReceivalCheckButton'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
+import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Badge } from '@/components/ui/badge'
 import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import {
@@ -414,7 +415,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                         </TableHeader>
                         <TableBody>
                           {(snapshotVersion.po_version_lines ?? []).map((li, idx) => (
-                            <TableRow key={idx}>
+                            <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                               <TableCell className="font-medium">{li.item_name}</TableCell>
                               <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku || '—'}</TableCell>
                               <TableCell className="text-right">{li.qty}</TableCell>
@@ -453,7 +454,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(fullPO?.po_line_items ?? []).map((li) => {
+                          {(fullPO?.po_line_items ?? []).map((li, ri) => {
                             const bv = li.inventory_item_brand_variants
                             const cat = bv?.inventory_items?.inventory_categories
                             const chain = cat?.ancestor_chain ?? []
@@ -470,7 +471,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                               ? null
                               : vlabel.origin ? `${vlabel.primary} · ${vlabel.origin}` : vlabel.primary
                             return (
-                            <TableRow key={li.id}>
+                            <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(ri)}>
                               <TableCell className="py-2.5">
                                 <div className="space-y-0.5">
                                   {chain.length > 0 && (
@@ -575,8 +576,8 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {r.receival_items.map((ri) => (
-                                <TableRow key={ri.id}>
+                              {r.receival_items.map((ri, i) => (
+                                <TableRow key={ri.id} className={STAGGER_IN} style={staggerDelay(i)}>
                                   <TableCell className="text-xs">{ri.item_name}{ri.is_free && <span className="ml-1 text-[10px] px-1 py-0.5 rounded border">Free</span>}</TableCell>
                                   <TableCell className="text-xs text-right">{ri.qty_received}</TableCell>
                                   <TableCell className="text-xs text-right">{formatCurrency(ri.unit_cost, current?.currency ?? 'QAR')}</TableCell>
@@ -655,8 +656,8 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {existingBills.map((bill) => (
-                              <TableRow key={bill.id} className="group">
+                          {existingBills.map((bill, i) => (
+                              <TableRow key={bill.id} className={cn('group', STAGGER_IN)} style={staggerDelay(i)}>
                                 <TableCell>
                                   <button
                                     type="button"
