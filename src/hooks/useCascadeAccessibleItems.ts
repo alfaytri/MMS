@@ -55,9 +55,11 @@ export function useCascadeAccessibleItems(
    *  every item on a fresh catalog. */
   requireStock: boolean = true,
 ): CascadeAccessibleItems {
-  // Tools are no longer blanket-excluded: BULK tool categories are qty (they
-  // flow through this filter). SERIALIZED tool categories are pruned by the
-  // tool_tracking_mode='bulk' filter on the items query below.
+  // Tools are no longer blanket-excluded: BULK tool categories are qty on both
+  // sides. SERIALIZED tool categories flow through on the BUY side (PO) so they
+  // can be purchased and then received as asset units; they stay pruned on the
+  // sell/consume side by the tool_tracking_mode='bulk' filter on the items query
+  // below.
   const isFilterable = true
   const effectiveEnabled = enabled && !!activeDivisionId && isFilterable
 
@@ -71,7 +73,10 @@ export function useCascadeAccessibleItems(
   // ships the overlay must extend its allowed category-type set to include
   // bulk tools; do not re-exclude them.
   const itemsQuery = useQuery({
-    queryKey: ['cascade-accessible', 'items', type],
+    // requireStock is part of the key: for tools the result set differs by side
+    // (buy includes serialized, sell/consume is bulk-only), so buy + sell must
+    // not share a cache entry.
+    queryKey: ['cascade-accessible', 'items', type, requireStock],
     enabled: effectiveEnabled,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -82,9 +87,13 @@ export function useCascadeAccessibleItems(
         .neq('status', 'archived')
         .eq('inventory_categories.type', type as 'products' | 'spare-parts' | 'consumables' | 'tools')
         .limit(5000)
-      // Only bulk tool categories are qty. Serialized tools stay asset-tracked
-      // and must never appear in the cascade (PO/receival/consume) picker.
-      if (type === 'tools') q = q.eq('inventory_categories.tool_tracking_mode', 'bulk')
+      // Sell/consume side (requireStock): only BULK tool categories are qty —
+      // serialized tools are managed as units in Tools & Assets, not sold or
+      // consumed by qty, so they stay excluded there. Buy side (PO,
+      // !requireStock) INCLUDES serialized tools: they're purchased, then
+      // received as asset units (create_tool_units_on_receival_layer stamps the
+      // unit cost from the receival FIFO layer).
+      if (type === 'tools' && requireStock) q = q.eq('inventory_categories.tool_tracking_mode', 'bulk')
       const { data, error } = await q
       if (error) throw error
       return (data ?? []) as unknown as Array<{ id: string; category_id: string }>
