@@ -308,6 +308,21 @@ export const NAV_TREE: TreeNode[] = [
             ],
           },
           {
+            id: 'ps-po-tabs',
+            label: 'Purchase Order — Detail Tabs',
+            icon: Layers,
+            permissions: [
+              // Per-tab view gates for the PO detail dialog. Line Items is the base
+              // content and is always shown to anyone who can open the PO.
+              { key: 'purchase.orders.tab.receivals.view', label: 'PO Tab: Receivals', description: 'Show the Receivals tab inside a purchase order' },
+              { key: 'purchase.orders.tab.payments.view',  label: 'PO Tab: Payments',  description: 'Show the Payments tab inside a purchase order' },
+              { key: 'purchase.orders.tab.bills.view',     label: 'PO Tab: Bills',     description: 'Show the Bills tab inside a purchase order' },
+              { key: 'purchase.orders.tab.returns.view',   label: 'PO Tab: Returns',   description: 'Show the Returns tab inside a purchase order' },
+              { key: 'purchase.orders.tab.activity.view',  label: 'PO Tab: Activity',  description: 'Show the Activity tab inside a purchase order' },
+              { key: 'purchase.orders.tab.exchange.view',  label: 'PO Tab: Exchange',  description: 'Show the Exchange (FX) tab inside a purchase order' },
+            ],
+          },
+          {
             id: 'ps-approvals',
             label: 'Approvals',
             icon: CheckCircle,
@@ -391,6 +406,21 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'sales.orders.view',   label: 'View Sale Orders',   description: 'View all sale orders and quotations' },
               { key: 'sales.orders.create', label: 'Create Sale Orders', description: 'Draft new sale orders' },
               { key: 'sales.orders.manage', label: 'Edit Sale Orders',   description: 'Edit line items, cancel, void existing sale orders (legacy .manage — alias of .edit)' },
+            ],
+          },
+          {
+            id: 'ps-so-tabs',
+            label: 'Sale Order — Detail Tabs',
+            icon: Layers,
+            permissions: [
+              // Per-tab view gates for the SO detail dialog. Items is the base
+              // content and is always shown to anyone who can open the SO.
+              { key: 'sales.orders.tab.deliveries.view', label: 'SO Tab: Deliveries', description: 'Show the Deliveries tab inside a sale order' },
+              { key: 'sales.orders.tab.payments.view',   label: 'SO Tab: Payments',   description: 'Show the Payments tab inside a sale order' },
+              { key: 'sales.orders.tab.returns.view',    label: 'SO Tab: Returns',    description: 'Show the Returns tab inside a sale order' },
+              { key: 'sales.orders.tab.activity.view',   label: 'SO Tab: Activity',   description: 'Show the Activity tab inside a sale order' },
+              { key: 'sales.orders.tab.invoice.view',    label: 'SO Tab: Invoice',    description: 'Show the Invoice tab inside a sale order' },
+              { key: 'sales.orders.tab.exchange.view',   label: 'SO Tab: Exchange',   description: 'Show the Exchange (FX) tab inside a sale order' },
             ],
           },
           {

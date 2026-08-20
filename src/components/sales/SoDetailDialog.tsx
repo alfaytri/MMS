@@ -96,6 +96,16 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const [editPaymentTarget, setEditPaymentTarget] = useState<EditableCustomerPayment | null>(null)
   const [deletePaymentTarget, setDeletePaymentTarget] = useState<{ id: string; amount: number; date: string; currency: string } | null>(null)
   const canManagePayments = useHasPermission('sales.payments.manage')
+  // Per-tab view gates (Items is the base tab, always shown). System admins bypass
+  // via useHasPermission. Rolled out on-by-default to existing SO viewers. Tabs is
+  // controlled but activeTab only ever changes via a visible trigger click (it
+  // starts + resets to 'items'), so a hidden trigger keeps its tab unreachable.
+  const canTabDeliveries = useHasPermission('sales.orders.tab.deliveries.view')
+  const canTabPayments   = useHasPermission('sales.orders.tab.payments.view')
+  const canTabReturns    = useHasPermission('sales.orders.tab.returns.view')
+  const canTabActivity   = useHasPermission('sales.orders.tab.activity.view')
+  const canTabInvoice    = useHasPermission('sales.orders.tab.invoice.view')
+  const canTabExchange   = useHasPermission('sales.orders.tab.exchange.view')
   const deletePaymentMut = useDeleteCustomerPayment()
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
@@ -219,12 +229,12 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col min-h-0">
               <TabsList className="shrink-0 mx-0 max-w-full overflow-x-auto whitespace-nowrap">
                 <TabsTrigger value="items">Items</TabsTrigger>
-                <TabsTrigger value="deliveries">Deliveries</TabsTrigger>
-                <TabsTrigger value="payments">Payments</TabsTrigger>
-                <TabsTrigger value="returns">Returns {soReturns.length > 0 && `(${soReturns.length})`}</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-                <TabsTrigger value="invoice">Invoice</TabsTrigger>
-                {current && current.currency && current.currency !== 'QAR' && (
+                {canTabDeliveries && <TabsTrigger value="deliveries">Deliveries</TabsTrigger>}
+                {canTabPayments && <TabsTrigger value="payments">Payments</TabsTrigger>}
+                {canTabReturns && <TabsTrigger value="returns">Returns {soReturns.length > 0 && `(${soReturns.length})`}</TabsTrigger>}
+                {canTabActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
+                {canTabInvoice && <TabsTrigger value="invoice">Invoice</TabsTrigger>}
+                {current && current.currency && current.currency !== 'QAR' && canTabExchange && (
                   <TabsTrigger value="exchange">Exchange</TabsTrigger>
                 )}
               </TabsList>

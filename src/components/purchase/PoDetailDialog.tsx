@@ -83,6 +83,14 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const [editPaymentTarget, setEditPaymentTarget] = useState<EditablePayment | null>(null)
   const [deletePaymentTarget, setDeletePaymentTarget] = useState<{ id: string; amount: number; date: string; currency: string } | null>(null)
   const canManagePayments = useHasPermission('purchase.payments.manage')
+  // Per-tab view gates (Line Items is the base tab, always shown). System admins
+  // bypass via useHasPermission. Rolled out on-by-default to existing PO viewers.
+  const canTabReceivals = useHasPermission('purchase.orders.tab.receivals.view')
+  const canTabPayments  = useHasPermission('purchase.orders.tab.payments.view')
+  const canTabBills     = useHasPermission('purchase.orders.tab.bills.view')
+  const canTabReturns   = useHasPermission('purchase.orders.tab.returns.view')
+  const canTabActivity  = useHasPermission('purchase.orders.tab.activity.view')
+  const canTabExchange  = useHasPermission('purchase.orders.tab.exchange.view')
   const deletePaymentMut = useDeleteSupplierPayment()
 
   const resolvedId = po?.id ?? poId ?? null
@@ -364,18 +372,18 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
             <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col min-h-0">
               <TabsList className="shrink-0 mx-0 max-w-full overflow-x-auto whitespace-nowrap">
                 <TabsTrigger value="items">Line Items</TabsTrigger>
-                {!isViewingSnapshot && <TabsTrigger value="receivals">Receivals</TabsTrigger>}
+                {!isViewingSnapshot && canTabReceivals && <TabsTrigger value="receivals">Receivals</TabsTrigger>}
                 {!isViewingSnapshot && current && ['approved', 'partially_received'].includes(current.status) && (
                   <TabsTrigger value="receive">Receive</TabsTrigger>
                 )}
-                {!isViewingSnapshot && <TabsTrigger value="payments">Payments</TabsTrigger>}
-                {!isViewingSnapshot && (
+                {!isViewingSnapshot && canTabPayments && <TabsTrigger value="payments">Payments</TabsTrigger>}
+                {!isViewingSnapshot && canTabBills && (
                   <TabsTrigger value="bills">
                     Bills{existingBills.length > 0 ? ` (${existingBills.length})` : ''}
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-                {showReturns && (
+                {canTabActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
+                {showReturns && canTabReturns && (
                   <TabsTrigger value="returns">
                     Returns{poReturns.length > 0 ? ` (${poReturns.length})` : ''}
                   </TabsTrigger>
@@ -383,7 +391,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                 {!isViewingSnapshot && current?.po_type === 'rfq' && (
                   <TabsTrigger value="quotes">Quotes</TabsTrigger>
                 )}
-                {!isViewingSnapshot && current && current.currency && current.currency !== 'QAR' && (
+                {!isViewingSnapshot && current && current.currency && current.currency !== 'QAR' && canTabExchange && (
                   <TabsTrigger value="exchange">Exchange</TabsTrigger>
                 )}
               </TabsList>
