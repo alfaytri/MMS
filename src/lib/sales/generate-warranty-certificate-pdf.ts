@@ -46,6 +46,7 @@ interface WarrantyRow {
   void_conditions_snapshot:  string[] | null
   start_date:                string
   end_date:                  string
+  origin_name_snapshot:      string | null
   sale_delivery_lines:       { sale_delivery_id: string } | null
 }
 
@@ -81,7 +82,7 @@ export async function generateWarrantyCertificatePdf(
       item_name, sku, qty,
       policy_id, policy_name_snapshot, coverage_type_snapshot,
       duration_months_snapshot, terms_en_snapshot, terms_ar_snapshot,
-      void_conditions_snapshot, start_date, end_date,
+      void_conditions_snapshot, start_date, end_date, origin_name_snapshot,
       sale_delivery_lines!inner(sale_delivery_id)
     `)
     .eq('sale_delivery_lines.sale_delivery_id', deliveryId)
@@ -112,6 +113,7 @@ export async function generateWarrantyCertificatePdf(
     durationMonths: r.duration_months_snapshot,
     startDate:      r.start_date,
     endDate:        r.end_date,
+    originName:     r.origin_name_snapshot,
   }))
 
   // One block per distinct policy_id, in first-encountered order

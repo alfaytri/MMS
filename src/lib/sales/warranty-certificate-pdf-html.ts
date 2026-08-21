@@ -19,6 +19,8 @@ export interface WarrantyCertificateItem {
   durationMonths:   number
   startDate:        string
   endDate:          string
+  /** Country-of-origin name snapshotted at issuance; null when not set. */
+  originName?:      string | null
 }
 
 export interface WarrantyPolicyBlock {
@@ -96,6 +98,7 @@ export function buildWarrantyCertificateHtml(input: BuildWarrantyCertificateHtml
           <div class="item-name">${esc(item.itemName)}</div>
           ${item.itemNameAr ? `<div class="item-name-ar">${esc(item.itemNameAr)}</div>` : ''}
           ${item.sku ? `<div class="item-sku">${esc(item.sku)}</div>` : ''}
+          ${item.originName ? `<div class="item-origin">Origin: ${esc(item.originName)}</div>` : ''}
         </td>
         <td class="cell-num">${fmtQty(item.qty)}</td>
         <td class="cell-policy">
@@ -138,6 +141,12 @@ export function buildWarrantyCertificateHtml(input: BuildWarrantyCertificateHtml
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.3px;
+  }
+  table.lines td.cell-item .item-origin {
+    font-family: 'IBMPlexSans', sans-serif;
+    font-size: 8px;
+    color: var(--muted);
+    margin-top: 1px;
   }
   table.lines td.cell-policy {
     font-family: 'IBMPlexSans', sans-serif;
