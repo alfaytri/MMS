@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateWarrantyCertificatePdf } from '@/lib/sales/generate-warranty-certificate-pdf'
+import { requireDocPermission } from '@/lib/api/require-doc-permission'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-async function requireUser(req: NextRequest) {
-  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-  if (!token) return null
-  const authClient = createClient(SUPA_URL, SUPA_KEY)
-  const { data: { user }, error } = await authClient.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
 
 /**
  * Streams the warranty certificate PDF as inline bytes — regenerated
@@ -23,8 +16,8 @@ async function requireUser(req: NextRequest) {
  * records, and skipping Storage avoids the cascade-cleanup work.
  */
 async function handle(req: NextRequest, id: string) {
-  const user = await requireUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireDocPermission(req, 'sales.deliveries.view')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)

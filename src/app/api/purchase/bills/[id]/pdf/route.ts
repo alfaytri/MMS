@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateBillPdf } from '@/lib/purchase/generate-bill-pdf'
+import { requireDocPermission } from '@/lib/api/require-doc-permission'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-async function requireUser(req: NextRequest) {
-  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-  if (!token) return null
-  const authClient = createClient(SUPA_URL, SUPA_KEY)
-  const { data: { user }, error } = await authClient.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
-
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await requireUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireDocPermission(req, 'purchase.bills.view')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)
@@ -38,8 +31,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await requireUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireDocPermission(req, 'purchase.bills.view')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
   const supabase = createClient(SUPA_URL, SUPA_KEY)

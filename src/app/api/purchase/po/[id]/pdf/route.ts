@@ -7,7 +7,7 @@
  *   - Live variant  → 302 redirect to public URL
  *   - Snapshot mode → application/pdf response (inline, for tab preview)
  *
- * Auth: Authorization: Bearer <supabase user JWT>
+ * Auth: Authorization: Bearer <supabase user JWT> + purchase.orders.view permission.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,22 +16,15 @@ import {
   generatePoPdf,
   type PoPdfVariant,
 } from '@/lib/purchase/generate-po-pdf'
+import { requireDocPermission } from '@/lib/api/require-doc-permission'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const VALID_VARIANTS: PoPdfVariant[] = ['rfq', 'draft', 'po', 'confirmed']
-
-async function requireUser(req: NextRequest) {
-  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-  if (!token) return null
-  const authClient = createClient(SUPA_URL, SUPA_KEY)
-  const { data: { user }, error } = await authClient.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
 
 interface ParsedParams {
   variant:         PoPdfVariant
@@ -70,8 +63,8 @@ function parseParams(req: NextRequest): ParsedParams {
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await requireUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireDocPermission(req, 'purchase.orders.view')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const parsed = parseParams(req)
   if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 })
@@ -112,8 +105,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const user = await requireUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireDocPermission(req, 'purchase.orders.view')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const parsed = parseParams(req)
   if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: 400 })

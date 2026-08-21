@@ -2,7 +2,7 @@
  * POST   /api/sales/so/[id]/quotation-pdf   — generate (or return cached) URL
  * GET    /api/sales/so/[id]/quotation-pdf   — convenience: 302 redirect to URL
  *
- * Auth: Authorization: Bearer <supabase user JWT>
+ * Auth: Authorization: Bearer <supabase user JWT> + sales.orders.view permission.
  *
  * Query:
  *   ?force=true  → re-render even if `quotation_pdf_url` is already set
@@ -19,20 +19,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateQuotationPdf } from '@/lib/sales/generate-quotation-pdf'
+import { requireDocPermission } from '@/lib/api/require-doc-permission'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-async function requireUser(req: NextRequest) {
-  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-  if (!token) return null
-  const authClient = createClient(SUPA_URL, SUPA_KEY)
-  const { data: { user }, error } = await authClient.auth.getUser(token)
-  if (error || !user) return null
-  return user
-}
 
 export async function POST(
   req: NextRequest,
@@ -40,10 +33,8 @@ export async function POST(
 ) {
   const { id: soId } = await params
 
-  const user = await requireUser(req)
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await requireDocPermission(req, 'sales.orders.view')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const force = req.nextUrl.searchParams.get('force') === 'true'
   const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
@@ -66,10 +57,8 @@ export async function GET(
 ) {
   const { id: soId } = await params
 
-  const user = await requireUser(req)
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await requireDocPermission(req, 'sales.orders.view')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const force = req.nextUrl.searchParams.get('force') === 'true'
   const divisionId = req.nextUrl.searchParams.get('divisionId') ?? undefined
