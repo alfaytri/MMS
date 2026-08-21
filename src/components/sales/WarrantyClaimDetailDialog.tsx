@@ -88,8 +88,13 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
   const [decision, setDecision] = useState<'covered' | 'rejected' | null>(null)
   const [reasonText, setReasonText] = useState('')
   // Set locally the instant `rpc_start_warranty_claim_resolution` succeeds so the
-  // "Open Returns" success state renders immediately, without waiting on a refetch.
+  // "Open Returns" success message renders immediately, without waiting on a refetch.
   const [justStartedReturnId, setJustStartedReturnId] = useState<string | null>(null)
+  // Optimistic status: set the instant ANY mutation succeeds so the action panel
+  // reflects the new state immediately, instead of briefly re-rendering the
+  // pre-mutation buttons while the invalidated `warranty.claim(id)` query refetches.
+  // Once that refetch lands, claim.status equals this value, so there's no conflict.
+  const [optimisticStatus, setOptimisticStatus] = useState<WarrantyClaimStatus | null>(null)
 
   const assessClaim = useAssessWarrantyClaim()
   const voidClaim = useVoidWarrantyClaim()
@@ -104,6 +109,7 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
     setDecision(null)
     setReasonText('')
     setJustStartedReturnId(null)
+    setOptimisticStatus(null)
     assessClaim.reset()
     voidClaim.reset()
     startResolution.reset()
@@ -112,14 +118,11 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
 
   if (!claimId) return null
 
-  // `useStartWarrantyClaimResolution`'s own onSuccess only invalidates the claims
-  // list + records + sale-returns — not this specific `warranty.claim(id)` cache
-  // entry — so without this, a claim reopened later could still read a stale
-  // `covered` status. `justStartedReturnId` covers the current session instantly;
-  // effectiveStatus keeps every downstream check (badge, action panel, void gate)
-  // in sync with whichever is true first.
+  // Prefer the optimistic status (set by each mutation's onSuccess) so the badge,
+  // action panel, and void gate all reflect the just-applied change instantly;
+  // fall back to the fetched claim status otherwise.
   const effectiveStatus: WarrantyClaimStatus | null =
-    justStartedReturnId ? 'in_progress' : (claim?.status ?? null)
+    optimisticStatus ?? claim?.status ?? null
 
   const showActionPanel =
     effectiveStatus !== null &&
@@ -135,6 +138,7 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
       {
         onSuccess: () => {
           toast.success(decision === 'covered' ? 'Claim marked as covered' : 'Claim rejected')
+          setOptimisticStatus(decision === 'covered' ? 'covered' : 'rejected')
           setMode('none')
           setDecision(null)
           setReasonText('')
@@ -150,6 +154,7 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
       {
         onSuccess: () => {
           toast.success('Claim voided')
+          setOptimisticStatus('void')
           setMode('none')
           setReasonText('')
         },
@@ -165,6 +170,7 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
         onSuccess: (returnId) => {
           toast.success('Return created — resolve it in Returns')
           setJustStartedReturnId(returnId)
+          setOptimisticStatus('in_progress')
           queryClient.invalidateQueries({ queryKey: queryKeys.warranty.claim(claim.id) })
         },
       }
@@ -275,7 +281,10 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
         {/* Footer — status-gated action buttons; normal flow, never sticky */}
         <div className="px-6 py-3 space-y-3">
           {showActionPanel && (
-            <div className="min-h-40">
+            /* min-h sized to the tallest state (the assess/void inline form ≈ 210px
+               incl. mobile 44px touch targets) so switching between the button row
+               and a form never shifts the Close button below — AGENTS.md §5. */
+            <div className="min-h-56">
               {mode === 'assess' ? (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">
