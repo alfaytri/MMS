@@ -6,6 +6,7 @@ import { FilePlus2, AlertCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
@@ -28,6 +29,7 @@ function sourceTypeLabel(value: string): string {
 }
 
 function RecordSummaryCard({ record }: { record: WarrantyRecordRow }) {
+  const exhausted = record.remaining_qty <= 0
   return (
     <div className="rounded-lg border bg-muted/20 px-4 py-3 space-y-1">
       <div className="flex items-center justify-between gap-2">
@@ -36,7 +38,12 @@ function RecordSummaryCard({ record }: { record: WarrantyRecordRow }) {
       </div>
       <p className="text-sm font-medium truncate">{record.item_name}</p>
       <p className="text-xs text-muted-foreground">
-        {record.sku ? `${record.sku} · ` : ''}{record.qty} unit{record.qty !== 1 ? 's' : ''}
+        {record.sku ? `${record.sku} · ` : ''}{record.qty} unit{record.qty !== 1 ? 's' : ''} covered
+      </p>
+      <p className={exhausted ? 'text-xs font-medium text-destructive' : 'text-xs font-medium text-emerald-700 dark:text-emerald-400'}>
+        {exhausted
+          ? 'No coverage left — every unit is already claimed'
+          : `${record.remaining_qty} of ${record.qty} unit${record.qty !== 1 ? 's' : ''} still under warranty`}
       </p>
     </div>
   )
@@ -56,6 +63,7 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
   const [pickerSearch, setPickerSearch] = useState('')
   const [selectedRecord, setSelectedRecord] = useState<WarrantyRecordRow | null>(null)
   const [issue, setIssue] = useState('')
+  const [qty, setQty] = useState(1)
 
   const fileClaim = useFileWarrantyClaim()
 
@@ -73,6 +81,7 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
       setSelectedRecord(null)
       setPickerSearch('')
       setIssue('')
+      setQty(1)
       fileClaim.reset()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -80,12 +89,17 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
 
   const targetRecord = record ?? selectedRecord
   const isPreselected = !!record
+  const remaining = targetRecord?.remaining_qty ?? 0
+  const qtyValid = qty >= 1 && qty <= remaining
+
+  // Reset the qty to 1 whenever the target warranty changes (picker selection).
+  useEffect(() => { setQty(1) }, [targetRecord?.id])
 
   function handleSubmit() {
     const trimmedIssue = issue.trim()
-    if (!targetRecord || trimmedIssue === '') return
+    if (!targetRecord || trimmedIssue === '' || !qtyValid) return
     fileClaim.mutate(
-      { warranty_record_id: targetRecord.id, issue: trimmedIssue },
+      { warranty_record_id: targetRecord.id, issue: trimmedIssue, claim_qty: qty },
       {
         onSuccess: (claimId) => {
           toast.success('Warranty claim filed')
@@ -156,9 +170,16 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
                             <span className="font-mono text-sm font-medium text-primary truncate">{r.warranty_number}</span>
                             <Badge variant="outline" className="text-[10px] shrink-0">{sourceTypeLabel(r.source_type)}</Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {r.item_name}{r.sku ? ` · ${r.sku}` : ''}
-                          </p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs text-muted-foreground truncate">
+                              {r.item_name}{r.sku ? ` · ${r.sku}` : ''}
+                            </p>
+                            <span className={r.remaining_qty > 0
+                              ? 'text-[10px] font-medium text-emerald-700 dark:text-emerald-400 shrink-0 tabular-nums'
+                              : 'text-[10px] font-medium text-destructive shrink-0'}>
+                              {r.remaining_qty > 0 ? `${r.remaining_qty}/${r.qty} left` : 'fully claimed'}
+                            </span>
+                          </div>
                         </button>
                       ))
                     )}
@@ -167,6 +188,32 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
               </div>
             )}
           </div>
+
+          {targetRecord && (
+            <div className="space-y-2">
+              <Label htmlFor="claim-qty" className="text-xs text-muted-foreground">Quantity to claim *</Label>
+              <Input
+                id="claim-qty"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={remaining}
+                step={1}
+                value={qty}
+                disabled={remaining <= 0}
+                onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+                className="w-32"
+              />
+              <p className="text-xs text-muted-foreground">
+                {remaining > 0
+                  ? `Up to ${remaining} unit${remaining !== 1 ? 's' : ''} can be claimed — the warranty stays valid for the rest.`
+                  : 'This warranty has no remaining coverage to claim.'}
+              </p>
+              {remaining > 0 && qty > remaining && (
+                <p className="text-xs text-destructive">Only {remaining} unit{remaining !== 1 ? 's' : ''} remain under this warranty.</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="claim-issue" className="text-xs text-muted-foreground">Issue description *</Label>
@@ -206,7 +253,7 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
             size="sm"
             className="min-h-11 md:min-h-0"
             loading={fileClaim.isPending}
-            disabled={!targetRecord || issue.trim() === '' || fileClaim.isPending}
+            disabled={!targetRecord || issue.trim() === '' || !qtyValid || fileClaim.isPending}
             onClick={handleSubmit}
           >
             {fileClaim.isPending ? 'Filing…' : 'File claim'}

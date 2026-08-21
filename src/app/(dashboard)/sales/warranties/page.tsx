@@ -147,6 +147,7 @@ function WarrantyRecordDetailDialog({
             <MetaCard icon={<Package className="h-4 w-4 text-muted-foreground" />} label="Item" value={record.item_name} />
             <MetaCard icon={<Hash className="h-4 w-4 text-muted-foreground" />} label="SKU" value={record.sku ?? '—'} />
             <MetaCard icon={<Layers className="h-4 w-4 text-muted-foreground" />} label="Qty" value={`${record.qty} unit${record.qty !== 1 ? 's' : ''}`} />
+            <MetaCard icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" />} label="Warranty Left" value={`${record.remaining_qty} of ${record.qty}`} />
             <MetaCard icon={<User className="h-4 w-4 text-muted-foreground" />} label="Customer" value={customerName} />
             <MetaCard icon={<Building2 className="h-4 w-4 text-muted-foreground" />} label="Division" value={divisionName} />
             <MetaCard icon={<FileText className="h-4 w-4 text-muted-foreground" />} label="Policy" value={record.policy_name_snapshot ?? '—'} />
@@ -174,9 +175,15 @@ function WarrantyRecordDetailDialog({
             Sales → Deliveries; revisit if this page grows a dedicated resolver.
           */}
           {canFileClaim && (
-            <Button variant="default" size="sm" className="min-h-11 md:min-h-0 gap-1.5" onClick={onFileClaim}>
+            <Button
+              variant="default"
+              size="sm"
+              className="min-h-11 md:min-h-0 gap-1.5"
+              disabled={record.remaining_qty <= 0}
+              onClick={onFileClaim}
+            >
               <FilePlus2 className="h-4 w-4" />
-              File a claim
+              {record.remaining_qty > 0 ? 'File a claim' : 'Fully claimed'}
             </Button>
           )}
           <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={onClose}>
@@ -254,6 +261,18 @@ export default function WarrantiesPage() {
       ),
     },
     {
+      id: 'remaining',
+      header: () => <span className="text-right w-full block">Left</span>,
+      cell: ({ row }) => (
+        <span className={cn(
+          'text-xs tabular-nums block text-right font-medium',
+          row.original.remaining_qty > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground',
+        )}>
+          {row.original.remaining_qty}/{row.original.qty}
+        </span>
+      ),
+    },
+    {
       id: 'customer',
       header: 'Customer',
       cell: ({ row }) => (
@@ -315,6 +334,13 @@ export default function WarrantiesPage() {
       header: 'Item',
       cell: ({ row }) => (
         <span className="text-sm font-medium truncate max-w-[200px] block">{row.original.item_name}</span>
+      ),
+    },
+    {
+      accessorKey: 'claim_qty',
+      header: () => <span className="text-right w-full block">Qty</span>,
+      cell: ({ row }) => (
+        <span className="text-xs tabular-nums block text-right font-medium">{row.original.claim_qty}</span>
       ),
     },
     {
@@ -426,7 +452,12 @@ export default function WarrantiesPage() {
                   <p className="text-sm font-medium truncate">{r.item_name}</p>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     {r.sku && <span className="font-mono">{r.sku}</span>}
-                    <span className="ml-auto tabular-nums">{r.qty} unit{r.qty !== 1 ? 's' : ''}</span>
+                    <span className={cn(
+                      'ml-auto tabular-nums font-medium',
+                      r.remaining_qty > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground',
+                    )}>
+                      {r.remaining_qty}/{r.qty} left
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span className="truncate">{lookupName(customerNameById, r.customer_id, 'Unknown customer')}</span>
@@ -515,6 +546,7 @@ export default function WarrantiesPage() {
                     <p className="text-sm font-medium truncate">{c.item_name}</p>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="font-mono">{c.warranty_number}</span>
+                      <span className="tabular-nums shrink-0">· {c.claim_qty} unit{c.claim_qty !== 1 ? 's' : ''}</span>
                       <span className="ml-auto truncate">{c.customer_name}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">

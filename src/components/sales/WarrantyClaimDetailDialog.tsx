@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  ShieldAlert, FileText, Package, Hash, User, Building2, Calendar,
-  CheckCircle2, XCircle, Undo2, Clock, RotateCcw, Receipt, Ban,
+  ShieldAlert, ShieldCheck, FileText, Package, Hash, User, Building2, Calendar,
+  CheckCircle2, XCircle, Undo2, Clock, RotateCcw, Receipt, Ban, Layers,
   AlertCircle, RefreshCw, ArrowRight,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -244,6 +244,8 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
                 <MetaCard icon={<FileText className="h-4 w-4 text-muted-foreground" />} label="Warranty #" value={claim.warranty_number} />
                 <MetaCard icon={<Package className="h-4 w-4 text-muted-foreground" />} label="Item" value={claim.item_name} />
                 <MetaCard icon={<Hash className="h-4 w-4 text-muted-foreground" />} label="SKU" value={claim.sku ?? '—'} />
+                <MetaCard icon={<Layers className="h-4 w-4 text-muted-foreground" />} label="Claimed Qty" value={`${claim.claim_qty} unit${claim.claim_qty !== 1 ? 's' : ''}`} />
+                <MetaCard icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" />} label="Warranty Left" value={`${claim.warranty_remaining_qty} of ${claim.warranty_total_qty}`} />
                 <MetaCard icon={<User className="h-4 w-4 text-muted-foreground" />} label="Customer" value={claim.customer_name} />
                 <MetaCard icon={<Building2 className="h-4 w-4 text-muted-foreground" />} label="Division" value={claim.division_name} />
                 <MetaCard icon={<Calendar className="h-4 w-4 text-muted-foreground" />} label="Reported" value={formatDateTime(claim.reported_at)} />

@@ -36,6 +36,7 @@ type WarrantyClaimBaseRow = {
   warranty_type: string
   status: WarrantyClaimStatus
   issue_description: string
+  claim_qty: number
   reported_by: string | null
   reported_at: string
   decision: WarrantyClaimDecision
@@ -65,10 +66,14 @@ export type WarrantyClaimRow = WarrantyClaimBaseRow & {
   sku: string | null
   customer_name: string
   division_name: string
+  /** The parent warranty's total covered qty. */
+  warranty_total_qty: number
+  /** Units still under the parent warranty (after all non-void/rejected claims). */
+  warranty_remaining_qty: number
 }
 
 const CLAIM_COLUMNS =
-  'id, claim_number, warranty_record_id, warranty_type, status, issue_description, reported_by, reported_at, decision, decided_by, decided_at, decision_reason, resolution_type, resolved_at, linked_return_id, linked_credit_note_id, void_reason, voided_by, voided_at, division_id, created_at, updated_at'
+  'id, claim_number, warranty_record_id, warranty_type, status, issue_description, claim_qty, reported_by, reported_at, decision, decided_by, decided_at, decision_reason, resolution_type, resolved_at, linked_return_id, linked_credit_note_id, void_reason, voided_by, voided_at, division_id, created_at, updated_at'
 
 /**
  * Batch-resolves the warranty-record + customer + division display fields
@@ -85,22 +90,26 @@ async function enrichClaims(
 ): Promise<WarrantyClaimRow[]> {
   if (claims.length === 0) return []
 
-  const recordIds = Array.from(new Set(claims.map((c) => c.warranty_record_id)))
-  const { data: records, error: recErr } = await supabase
-    .from('warranty_records')
-    .select('id, warranty_number, item_name, sku, customer_id')
-    .in('id', recordIds)
-    .limit(200)
-  if (recErr) throw new Error(humanizeDbError(recErr, 'load warranty records for claims'))
-
   type RecordRow = {
     id: string
     warranty_number: string
     item_name: string
     sku: string | null
     customer_id: string | null
+    qty: number
+    remaining_qty: number
   }
-  const recordById = new Map<string, RecordRow>((records ?? []).map((r) => [r.id, r as RecordRow]))
+  const recordIds = Array.from(new Set(claims.map((c) => c.warranty_record_id)))
+  // Read from the remaining-coverage view (Stage 4) so each claim can show the
+  // parent warranty's total + remaining units. View is not in generated types.
+  const { data: records, error: recErr } = (await supabase
+    .from('warranty_records_remaining' as never)
+    .select('id, warranty_number, item_name, sku, customer_id, qty, remaining_qty')
+    .in('id', recordIds)
+    .limit(200)) as unknown as { data: RecordRow[] | null; error: PgError | null }
+  if (recErr) throw new Error(humanizeDbError(recErr, 'load warranty records for claims'))
+
+  const recordById = new Map<string, RecordRow>((records ?? []).map((r) => [r.id, r]))
 
   const customerIds = Array.from(
     new Set(
@@ -144,6 +153,8 @@ async function enrichClaims(
       sku: record?.sku ?? null,
       customer_name: customerName,
       division_name: divisionNameById.get(claim.division_id) ?? 'Unknown division',
+      warranty_total_qty: record?.qty ?? 0,
+      warranty_remaining_qty: record?.remaining_qty ?? 0,
     }
   })
 }
@@ -206,11 +217,12 @@ export function useWarrantyClaim(id: string | undefined) {
 export function useFileWarrantyClaim() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { warranty_record_id: string; issue: string }): Promise<string> => {
+    mutationFn: async (payload: { warranty_record_id: string; issue: string; claim_qty: number }): Promise<string> => {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('rpc_file_warranty_claim' as never, {
         p_warranty_record_id: payload.warranty_record_id,
         p_issue: payload.issue,
+        p_claim_qty: payload.claim_qty,
       } as never)
       if (error) throw new Error(humanizeDbError(error, 'file a warranty claim'))
       return data as unknown as string
