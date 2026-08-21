@@ -163,8 +163,9 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
                         <button
                           key={r.id}
                           type="button"
+                          disabled={r.remaining_qty <= 0}
                           onClick={() => setSelectedRecord(r)}
-                          className="w-full text-left px-3 py-2.5 min-h-11 hover:bg-accent transition-colors"
+                          className="w-full text-left px-3 py-2.5 min-h-11 transition-colors enabled:hover:bg-accent disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-mono text-sm font-medium text-primary truncate">{r.warranty_number}</span>
@@ -201,7 +202,7 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
                 step={1}
                 value={qty}
                 disabled={remaining <= 0}
-                onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+                onChange={(e) => setQty(Math.min(remaining, Math.max(1, Math.floor(Number(e.target.value) || 1))))}
                 className="w-32"
               />
               <p className="text-xs text-muted-foreground">
