@@ -10738,7 +10738,7 @@ export const Constants = {
 } as const
 
 // Helper type aliases for cleaner RLS/query type bindings
-export type DBTable<T extends keyof Database['public']['Tables'] = keyof Database['public']['Tables']> = Database['public']['Tables'][T]
+export type DBTable<T extends keyof Database['public']['Tables'] = keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
-export type AllTables = Database['public']['Tables']
+export type AllTables = keyof Database['public']['Tables']
