@@ -7,6 +7,7 @@ import {
   Truck, Calendar, Warehouse, User, Hash, Loader2, Download, ShieldCheck,
 } from 'lucide-react'
 import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDelivery'
+import { openWarrantyCertificate } from '@/lib/sales/warranty-certificate'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -91,27 +92,7 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
     if (warrantyBusy || !delivery) return
     setWarrantyBusy(true)
     try {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Not authenticated')
-
-      const res = await fetch(`/api/sales/deliveries/${delivery.id}/warranty-certificate`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error ?? `Request failed (${res.status})`)
-      }
-      // Stream bytes → blob URL → open in new tab for print
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank', 'noopener,noreferrer')
-      // Best-effort revoke after a short delay (blob URL must stay valid
-      // long enough for the tab to load it).
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to generate certificate')
+      await openWarrantyCertificate(delivery.id)
     } finally {
       setWarrantyBusy(false)
     }

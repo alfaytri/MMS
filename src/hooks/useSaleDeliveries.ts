@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
+import { openWarrantyCertificate, deliveryHasWarrantyRecords } from '@/lib/sales/warranty-certificate'
 
 export type DeliveryStatus = 'pending' | 'in_progress' | 'delivered' | 'cancelled'
 
@@ -158,6 +159,17 @@ export function useCompleteDelivery() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      // Auto-open the warranty certificate when this delivery produced any
+      // warranty records (any covered item). Fire-and-forget + non-fatal: a
+      // failure or a blocked pop-up never affects the completion itself, and
+      // the manual "Print Warranty Certificate" button remains as a fallback.
+      void (async () => {
+        try {
+          if (await deliveryHasWarrantyRecords(variables.deliveryId)) {
+            await openWarrantyCertificate(variables.deliveryId)
+          }
+        } catch { /* non-fatal */ }
+      })()
     },
   })
 }
