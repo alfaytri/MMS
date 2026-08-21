@@ -6414,6 +6414,7 @@ export type Database = {
           receival_item_id: string | null
           serial_number: string | null
           status: Database["public"]["Enums"]["tool_status"] | null
+          unit_cost: number | null
         }
         Insert: {
           assigned_to?: string | null
@@ -6430,6 +6431,7 @@ export type Database = {
           receival_item_id?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["tool_status"] | null
+          unit_cost?: number | null
         }
         Update: {
           assigned_to?: string | null
@@ -6446,6 +6448,7 @@ export type Database = {
           receival_item_id?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["tool_status"] | null
+          unit_cost?: number | null
         }
         Relationships: [
           {
@@ -7646,6 +7649,8 @@ export type Database = {
           end_date: string
           id: string
           item_name: string
+          origin_country_id: number | null
+          origin_name_snapshot: string | null
           policy_id: string
           policy_name_snapshot: string
           qty: number
@@ -7670,6 +7675,8 @@ export type Database = {
           end_date: string
           id?: string
           item_name: string
+          origin_country_id?: number | null
+          origin_name_snapshot?: string | null
           policy_id: string
           policy_name_snapshot: string
           qty: number
@@ -7694,6 +7701,8 @@ export type Database = {
           end_date?: string
           id?: string
           item_name?: string
+          origin_country_id?: number | null
+          origin_name_snapshot?: string | null
           policy_id?: string
           policy_name_snapshot?: string
           qty?: number
@@ -7735,6 +7744,13 @@ export type Database = {
             columns: ["division_id"]
             isOneToOne: false
             referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_origin_country_id_fkey"
+            columns: ["origin_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_codes"
             referencedColumns: ["id"]
           },
           {
@@ -8156,6 +8172,8 @@ export type Database = {
       }
     }
     Functions: {
+      _auth_can_create_catalog: { Args: never; Returns: boolean }
+      _auth_can_write_catalog: { Args: never; Returns: boolean }
       _auth_user_has_permission: {
         Args: { p_permission: string }
         Returns: boolean
@@ -8232,6 +8250,9 @@ export type Database = {
         Args: { p_return_id: string }
         Returns: Database["public"]["Enums"]["return_status"]
       }
+      _user_can_create_catalog: { Args: { p_uid: string }; Returns: boolean }
+      _user_can_edit_catalog: { Args: { p_uid: string }; Returns: boolean }
+      _user_can_write_catalog: { Args: { p_uid: string }; Returns: boolean }
       _user_has_permission: {
         Args: { p_permission: string; p_profile_id: string }
         Returns: boolean
@@ -8464,6 +8485,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      confirm_sale_order: { Args: { p_so_id: string }; Returns: Json }
       create_and_approve_receival: {
         Args: {
           p_date: string
@@ -9020,6 +9042,7 @@ export type Database = {
       list_assigned_tool_units: {
         Args: { p_division_ids?: string[] }
         Returns: {
+          condition: string
           current_team_id: string
           current_team_name: string
           item_name: string
@@ -9215,6 +9238,17 @@ export type Database = {
           p_created_by_profile_id?: string
           p_dest_sub_container_id: string
           p_dest_warehouse_id: string
+          p_items: Json
+          p_notes?: string
+          p_source_sub_container_id: string
+        }
+        Returns: string
+      }
+      rpc_create_custody_transfer: {
+        Args: {
+          p_created_by_name?: string
+          p_created_by_profile_id?: string
+          p_dest_sub_container_id: string
           p_items: Json
           p_notes?: string
           p_source_sub_container_id: string
@@ -10703,7 +10737,8 @@ export const Constants = {
   },
 } as const
 
-export type DBTable<T extends keyof Database['public']['Tables']>  = Database['public']['Tables'][T]['Row']
+// Helper type aliases for cleaner RLS/query type bindings
+export type DBTable<T extends keyof Database['public']['Tables'] = keyof Database['public']['Tables']> = Database['public']['Tables'][T]
 export type DBInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type DBUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
-export type AllTables = keyof Database['public']['Tables']
+export type AllTables = Database['public']['Tables']

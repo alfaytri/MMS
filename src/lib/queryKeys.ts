@@ -548,6 +548,7 @@ export const queryKeys = {
     policyDetail:      (id: Nullable) => ['warranty-policies', 'detail', id] as const,
     effectiveForItem:  (itemId: Nullable) => ['warranty-effective', itemId] as const,
     recordsForDelivery:(deliveryId: Nullable) => ['warranty-records', 'delivery', deliveryId] as const,
+    records:           (filters?: { search?: string; divisionId?: string }) => ['warranty', 'records', filters ?? {}] as const,
   },
 
   /* ── Warehouse Sub-Containers (Phase D.1) ────────────── */
