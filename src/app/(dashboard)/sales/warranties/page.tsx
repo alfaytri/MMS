@@ -5,13 +5,13 @@ import { type ColumnDef } from '@tanstack/react-table'
 import {
   ShieldCheck, AlertCircle, RefreshCw, Wrench, Package, Hash,
   Layers, User, Building2, FileText, Calendar, Globe, Tag, ClipboardList, Clock,
+  FilePlus2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
-import { EmptyState } from '@/components/shared/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -19,10 +19,19 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { useWarrantyRecords, type WarrantyRecordRow } from '@/hooks/useWarrantyRecords'
+import {
+  useWarrantyClaims, type WarrantyClaimRow, type WarrantyClaimStatus, type WarrantyClaimResolutionType,
+} from '@/hooks/useWarrantyClaims'
 import { useCustomerList } from '@/hooks/useCustomerStatement'
 import { useDivisions } from '@/hooks/useDivisions'
 import { COVERAGE_TYPE_LABELS, type CoverageType } from '@/hooks/useWarrantyPolicies'
+import { useHasPermission } from '@/hooks/usePermissions'
+import { FileWarrantyClaimDialog } from '@/components/sales/FileWarrantyClaimDialog'
+import { WarrantyClaimDetailDialog } from '@/components/sales/WarrantyClaimDetailDialog'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
 import { humanizeDbError } from '@/lib/dbErrors'
 import { cn } from '@/lib/utils'
@@ -42,6 +51,36 @@ function sourceTypeLabel(value: string): string {
 function coverageLabel(value: string | null): string {
   if (!value) return '—'
   return COVERAGE_TYPE_LABELS[value as CoverageType] ?? value
+}
+
+// ── Claim label / color helpers ─────────────────────────────────────────
+const RESOLUTION_TYPE_LABELS: Record<string, string> = {
+  replacement: 'Replacement',
+  credit:      'Credit',
+  refund:      'Refund',
+  repair:      'Repair',
+}
+
+function resolutionTypeLabel(value: WarrantyClaimResolutionType): string {
+  if (!value) return '—'
+  return RESOLUTION_TYPE_LABELS[value] ?? value
+}
+
+function decisionLabel(value: string | null): string {
+  if (!value) return '—'
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+/** Mirrors the copy in WarrantyClaimDetailDialog.tsx — kept local to each file
+ * so the table/badge styling and the dialog don't share a cross-file import
+ * for a handful of Tailwind class strings. */
+const CLAIM_STATUS_CONFIG: Record<WarrantyClaimStatus, { label: string; badgeClassName: string }> = {
+  open:        { label: 'Open',        badgeClassName: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300' },
+  covered:     { label: 'Covered',     badgeClassName: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300' },
+  rejected:    { label: 'Rejected',    badgeClassName: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300' },
+  in_progress: { label: 'In Progress', badgeClassName: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300' },
+  resolved:    { label: 'Resolved',    badgeClassName: 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200' },
+  void:        { label: 'Void',        badgeClassName: 'border-border bg-muted text-muted-foreground' },
 }
 
 /** Pure id→name resolver — takes the map explicitly so it stays a stable,
@@ -68,13 +107,17 @@ function MetaCard({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 interface WarrantyDetailProps {
-  record:       WarrantyRecordRow | null
-  customerName: string
-  divisionName: string
-  onClose:      () => void
+  record:        WarrantyRecordRow | null
+  customerName:  string
+  divisionName:  string
+  onClose:       () => void
+  onFileClaim:   () => void
+  canFileClaim:  boolean
 }
 
-function WarrantyRecordDetailDialog({ record, customerName, divisionName, onClose }: WarrantyDetailProps) {
+function WarrantyRecordDetailDialog({
+  record, customerName, divisionName, onClose, onFileClaim, canFileClaim,
+}: WarrantyDetailProps) {
   if (!record) return null
 
   return (
@@ -130,6 +173,12 @@ function WarrantyRecordDetailDialog({ record, customerName, divisionName, onClos
             this page's `sales.warranties.view`. The certificate stays reachable from
             Sales → Deliveries; revisit if this page grows a dedicated resolver.
           */}
+          {canFileClaim && (
+            <Button variant="default" size="sm" className="min-h-11 md:min-h-0 gap-1.5" onClick={onFileClaim}>
+              <FilePlus2 className="h-4 w-4" />
+              File a claim
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={onClose}>
             Close
           </Button>
@@ -145,7 +194,24 @@ export default function WarrantiesPage() {
   const [search, setSearch] = useState('')
   const [detailRecord, setDetailRecord] = useState<WarrantyRecordRow | null>(null)
 
+  const [claimSearch, setClaimSearch] = useState('')
+  const [claimStatusFilter, setClaimStatusFilter] = useState('')
+  const [detailClaimId, setDetailClaimId] = useState<string | null>(null)
+  const [fileClaimDialog, setFileClaimDialog] = useState<{ open: boolean; record: WarrantyRecordRow | null }>({
+    open: false,
+    record: null,
+  })
+
+  const canManageClaims = useHasPermission('sales.warranty_claims.manage')
+
   const { data: records = [], isLoading, isFetching, error, refetch } = useWarrantyRecords({ search })
+  const {
+    data: claims = [],
+    isLoading: claimsLoading,
+    isFetching: claimsFetching,
+    error: claimsError,
+    refetch: refetchClaims,
+  } = useWarrantyClaims({ search: claimSearch, status: claimStatusFilter || undefined })
   const { data: customers = [] } = useCustomerList()
   const { data: divisions = [] } = useDivisions()
 
@@ -229,6 +295,64 @@ export default function WarrantiesPage() {
     },
   ], [customerNameById])
 
+  const claimColumns = useMemo<ColumnDef<WarrantyClaimRow>[]>(() => [
+    {
+      accessorKey: 'claim_number',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Claim #" />,
+      cell: ({ row }) => (
+        <span className="font-mono text-sm font-medium text-primary">{row.original.claim_number}</span>
+      ),
+    },
+    {
+      accessorKey: 'warranty_number',
+      header: 'Warranty #',
+      cell: ({ row }) => (
+        <span className="font-mono text-xs text-muted-foreground">{row.original.warranty_number}</span>
+      ),
+    },
+    {
+      accessorKey: 'item_name',
+      header: 'Item',
+      cell: ({ row }) => (
+        <span className="text-sm font-medium truncate max-w-[200px] block">{row.original.item_name}</span>
+      ),
+    },
+    {
+      accessorKey: 'customer_name',
+      header: 'Customer',
+      cell: ({ row }) => (
+        <span className="text-sm truncate max-w-[160px] block">{row.original.customer_name}</span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const cfg = CLAIM_STATUS_CONFIG[row.original.status]
+        return <Badge className={cn('border text-xs', cfg.badgeClassName)}>{cfg.label}</Badge>
+      },
+    },
+    {
+      accessorKey: 'decision',
+      header: 'Decision',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{decisionLabel(row.original.decision)}</span>
+      ),
+    },
+    {
+      accessorKey: 'resolution_type',
+      header: 'Resolution',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{resolutionTypeLabel(row.original.resolution_type)}</span>
+      ),
+    },
+    {
+      accessorKey: 'reported_at',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Reported" />,
+      cell: ({ row }) => <span className="text-xs tabular-nums">{formatDate(row.original.reported_at)}</span>,
+    },
+  ], [])
+
   return (
     <PageWrapper>
       <PageHeader
@@ -252,8 +376,8 @@ export default function WarrantiesPage() {
             className="gap-2 px-4 py-1.5 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
           >
             Claims
-            <span className="inline-flex h-4 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-muted-foreground">
-              Soon
+            <span className="inline-flex h-4 min-w-5 items-center justify-center rounded-full border border-border bg-white px-1.5 text-[10px] font-semibold text-gray-900 tabular-nums">
+              {claims.length}
             </span>
           </TabsTrigger>
         </TabsList>
@@ -314,15 +438,94 @@ export default function WarrantiesPage() {
           )}
         </TabsContent>
 
-        {/* ── Claims tab — stub; Stage 3 fills this in ── */}
-        <TabsContent value="claims">
-          <div className="rounded-lg border border-dashed">
-            <EmptyState
-              icon={<Wrench className="h-6 w-6 text-muted-foreground" />}
-              title="Claims — coming in the next phase"
-              description="Warranty claim intake, void handling, and the returns-linked claims workflow land in Stage 3."
-            />
+        {/* ── Claims tab ── */}
+        <TabsContent value="claims" className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-1">
+              <SearchInput value={claimSearch} onChange={setClaimSearch} placeholder="Search claim #, issue…" />
+              <Select
+                value={claimStatusFilter || 'all'}
+                onValueChange={(v) => setClaimStatusFilter(!v || v === 'all' ? '' : v)}
+              >
+                <SelectTrigger className="h-9 min-h-11 md:min-h-0 w-full sm:w-[180px]">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="covered">Covered</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="in_progress">In progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="void">Void</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {canManageClaims && (
+              <Button
+                size="sm"
+                className="min-h-11 md:min-h-0 gap-1.5 shrink-0"
+                onClick={() => setFileClaimDialog({ open: true, record: null })}
+              >
+                <FilePlus2 className="h-4 w-4" />
+                File a claim
+              </Button>
+            )}
           </div>
+
+          {claimsError ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-8 flex flex-col items-center justify-center gap-2 text-center min-h-[200px]">
+              <AlertCircle className="h-6 w-6 text-destructive" />
+              <p className="text-sm font-medium text-destructive">Couldn&apos;t load warranty claims</p>
+              <p className="text-xs text-muted-foreground max-w-sm">{humanizeDbError(claimsError, 'load warranty claims')}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 min-h-11 md:min-h-0"
+                disabled={claimsFetching}
+                onClick={() => refetchClaims()}
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', claimsFetching && 'animate-spin')} />
+                {claimsFetching ? 'Retrying…' : 'Retry'}
+              </Button>
+            </div>
+          ) : (
+            <DataTable
+              columns={claimColumns}
+              data={claims}
+              isLoading={claimsLoading}
+              onRowClick={(c) => setDetailClaimId(c.id)}
+              emptyState={{
+                icon: <Wrench className="h-6 w-6 text-muted-foreground" />,
+                title: claimSearch || claimStatusFilter ? 'No warranty claims match your filters' : 'No warranty claims found',
+                description: claimSearch || claimStatusFilter
+                  ? 'Try a different claim #, issue keyword or status.'
+                  : 'File a claim from a warranty record to start the coverage review.',
+              }}
+              mobileCardRender={(c: WarrantyClaimRow) => {
+                const cfg = CLAIM_STATUS_CONFIG[c.status]
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-sm font-semibold truncate">{c.claim_number}</span>
+                      <Badge className={cn('border text-[10px] px-1.5 py-0 shrink-0', cfg.badgeClassName)}>
+                        {cfg.label}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium truncate">{c.item_name}</p>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="font-mono">{c.warranty_number}</span>
+                      <span className="ml-auto truncate">{c.customer_name}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="truncate">{resolutionTypeLabel(c.resolution_type)}</span>
+                      <span className="tabular-nums shrink-0">{formatDate(c.reported_at)}</span>
+                    </div>
+                  </div>
+                )
+              }}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -331,6 +534,28 @@ export default function WarrantiesPage() {
         customerName={lookupName(customerNameById, detailRecord?.customer_id, 'Unknown customer')}
         divisionName={lookupName(divisionNameById, detailRecord?.division_id, 'Unknown division')}
         onClose={() => setDetailRecord(null)}
+        canFileClaim={canManageClaims}
+        onFileClaim={() => {
+          const record = detailRecord
+          setDetailRecord(null)
+          setFileClaimDialog({ open: true, record })
+        }}
+      />
+
+      <FileWarrantyClaimDialog
+        open={fileClaimDialog.open}
+        record={fileClaimDialog.record}
+        onOpenChange={(open) => setFileClaimDialog((prev) => ({ ...prev, open }))}
+        onFiled={(claimId) => {
+          setFileClaimDialog({ open: false, record: null })
+          setActiveTab('claims')
+          setDetailClaimId(claimId)
+        }}
+      />
+
+      <WarrantyClaimDetailDialog
+        claimId={detailClaimId}
+        onClose={() => setDetailClaimId(null)}
       />
     </PageWrapper>
   )
