@@ -467,6 +467,14 @@ export const NAV_TREE: TreeNode[] = [
             ],
           },
           {
+            id: 'ps-warranties',
+            label: 'Warranties',
+            icon: ShieldCheck,
+            permissions: [
+              { key: 'sales.warranties.view', label: 'View Warranties', description: 'Access the warranty records registry' },
+            ],
+          },
+          {
             id: 'ps-deliveries',
             label: 'Deliveries',
             icon: PackageCheck,

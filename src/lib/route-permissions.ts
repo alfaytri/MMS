@@ -77,6 +77,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/sales/deliveries',         permission: 'sales.deliveries.view' },
   { pathPrefix: '/sales/invoices',           permission: 'sales.invoices.view' },
   { pathPrefix: '/sales/returns',            permission: 'sales.returns.view' },
+  { pathPrefix: '/sales/warranties',         permission: 'sales.warranties.view' },
   { pathPrefix: '/sales/customer-statement', permission: ['sales.invoices.view', 'sales.customer_statement.view'] },
   { pathPrefix: '/sales/aging-report',       permission: ['sales.invoices.view', 'sales.aging.view'] },
   { pathPrefix: '/sales/edit-so',            permission: 'sales.orders.manage' },

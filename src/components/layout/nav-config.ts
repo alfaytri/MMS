@@ -88,6 +88,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Approvals',    href: '/sales/approvals',     icon: 'ShieldCheck',  permission: 'sales.approvals.view' },
           { label: 'SO Invoices',  href: '/sales/invoices',      icon: 'FileText',     permission: 'sales.invoices.view' },
           { label: 'Returns',      href: '/sales/returns',       icon: 'RotateCcw',    permission: 'sales.returns.view' },
+          { label: 'Warranties',   href: '/sales/warranties',    icon: 'ShieldCheck',  permission: 'sales.warranties.view' },
           { label: 'Deliveries',   href: '/sales/deliveries',    icon: 'PackageCheck', permission: 'sales.deliveries.view' },
           { label: 'Credit Notes',        href: '/sales/credit-notes',        icon: 'FileX',       permission: 'sales.credit_notes.view' },
           { label: 'Customer Statement', href: '/sales/customer-statement', icon: 'ScrollText', permission: ['sales.invoices.view', 'sales.customer_statement.view'] },
