@@ -472,6 +472,7 @@ export const NAV_TREE: TreeNode[] = [
             icon: ShieldCheck,
             permissions: [
               { key: 'sales.warranties.view', label: 'View Warranties', description: 'Access the warranty records registry' },
+              { key: 'sales.warranty_claims.manage', label: 'Manage Warranty Claims', description: 'File, assess (cover/reject), and void warranty claims' },
             ],
           },
           {
