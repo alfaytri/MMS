@@ -832,20 +832,27 @@ export function useConfirmSO() {
     mutationFn: async ({ id, lineItems }: { id: string; lineItems: SOLineItem[] }) => {
       const supabase = createClient()
 
-      // Confirms only apply to quotation-status SOs (C1 six-domains fix).
-      // create_sale_order already reserved stock at quotation creation, so
-      // this path does NOT call batch_update_reserved_qty — doing so would
-      // double-count reserved_qty. The pending_approval → confirmed
-      // transition is blocked at the DB (trigger 20260807007000) and must
-      // route through approve_sales_request instead.
+      // Confirms route through the SECURITY DEFINER RPC confirm_sale_order so
+      // the credit-limit check can't be bypassed. create_sale_order already
+      // reserved stock at quotation creation, so this path does NOT call
+      // batch_update_reserved_qty (that would double-count reserved_qty).
+      //
+      // The RPC re-runs the same credit check as create_sale_order: an
+      // over-available-limit credit customer is diverted to 'pending_approval'
+      // (+ approval chain) instead of confirming. A direct client write of
+      // status='confirmed' is now refused by guard_so_privileged_status, so the
+      // RPC is the only confirm path. (confirm_sale_order is new — not yet in
+      // generated types, hence the cast.)
+      const { data: confirmRes, error: confirmErr } = await supabase
+        .rpc('confirm_sale_order' as never, { p_so_id: id } as never)
+      if (confirmErr) throw new Error(humanizeDbError(confirmErr, 'confirm sale order'))
+      const confirmedStatus = (confirmRes as unknown as { status?: string } | null)?.status ?? null
 
-      // 1. Update SO status (trigger will reject if this is somehow a
-      //    pending_approval row that slipped past the UI gate).
-      const { error: soErr } = await supabase
-        .from('sale_orders')
-        .update({ status: 'confirmed' })
-        .eq('id', id)
-      if (soErr) throw soErr
+      // Over the credit limit → the SO went to pending_approval and an approval
+      // chain was built. Stop here: no delivery/invoice until it's approved.
+      if (confirmedStatus === 'pending_approval') {
+        return { status: 'pending_approval' as const }
+      }
 
       // 2. Create stub delivery (warehouse_id nullable after migration)
       const { data: seqRow } = await supabase.rpc('next_delivery_number')
@@ -874,6 +881,8 @@ export function useConfirmSO() {
       // 3. Create draft AR invoice via syncInvoiceToSalesOrder
       const { syncInvoiceToSalesOrder } = await import('@/lib/invoiceSync')
       await syncInvoiceToSalesOrder(id)
+
+      return { status: 'confirmed' as const }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })

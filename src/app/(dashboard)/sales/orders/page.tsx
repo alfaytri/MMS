@@ -243,7 +243,12 @@ export default function SaleOrdersPage() {
     confirmSO.mutate(
       { id: so.id, lineItems: so.sale_order_lines ?? [] },
       {
-        onSuccess: () => toast.success(`${so.so_number} confirmed`),
+        onSuccess: (res) =>
+          toast.success(
+            res?.status === 'pending_approval'
+              ? `${so.so_number} is over the credit limit — sent for approval`
+              : `${so.so_number} confirmed`,
+          ),
         onError: (err) => toast.error(err.message),
       }
     )
