@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
-  RotateCcw, Calendar, User, Hash, Loader2, Download, AlertTriangle,
+  RotateCcw, Calendar, User, Hash, Loader2, Download, AlertTriangle, ShieldCheck,
 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,7 @@ import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { SaleReturn } from '@/hooks/useSaleReturns'
 import { useReturnProgress } from '@/hooks/useSaleReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
+import { useWarrantyClaim } from '@/hooks/useWarrantyClaims'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
 import { useMemo } from 'react'
 
@@ -132,6 +133,9 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
     [items]
   )
   const { data: sourceMaps } = useReturnLineSources([], saleDeliveryLineIds, ret?.id ?? null)
+  // When this return was spawned by a warranty claim, surface the claim + whether
+  // the parent warranty still has coverage left.
+  const { data: warrantyClaim } = useWarrantyClaim(ret?.warranty_claim_id ?? undefined)
 
   if (!ret) return null
   const goodItems = items.filter(i => i.condition === 'good')
@@ -216,6 +220,23 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
             <p className="text-[10px] font-semibold text-orange-700 uppercase tracking-wider mb-0.5">Reason</p>
             <p className="text-sm font-medium">{ret.reason}</p>
           </div>
+
+          {/* Warranty-claim origin — shown when this return came from a warranty claim */}
+          {ret.warranty_claim_id && warrantyClaim && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+              <div className="flex items-center gap-2 mb-0.5">
+                <ShieldCheck className="h-4 w-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Warranty claim</p>
+              </div>
+              <p className="text-sm font-medium">
+                <span className="font-mono">{warrantyClaim.claim_number}</span>
+                {' · '}{warrantyClaim.claim_qty} unit{warrantyClaim.claim_qty !== 1 ? 's' : ''} claimed
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Warranty <span className="font-mono">{warrantyClaim.warranty_number}</span> — {warrantyClaim.warranty_remaining_qty} of {warrantyClaim.warranty_total_qty} unit{warrantyClaim.warranty_total_qty !== 1 ? 's' : ''} still under warranty
+              </p>
+            </div>
+          )}
 
           {/* Damaged warning */}
           {damagedItems.length > 0 && (

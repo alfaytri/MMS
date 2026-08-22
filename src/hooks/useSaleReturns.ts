@@ -36,6 +36,7 @@ export type SaleReturn = {
   notes: string | null
   status: SaleReturnStatus
   credit_note_id: string | null
+  warranty_claim_id: string | null  // set when this return was spawned by a warranty claim
   credit_note?: import('@/hooks/useCreditNotes').CreditNote | null  // full object for inline detail view
   created_by_name: string | null
   created_at: string
