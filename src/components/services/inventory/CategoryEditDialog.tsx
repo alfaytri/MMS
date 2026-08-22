@@ -13,7 +13,7 @@ import {
   GuardedDialog,
   type GuardedFormDialogHandle,
 } from '@/components/shared/GuardedFormDialog'
-import { useCreateInventoryCategory, useUpdateInventoryCategory, type InventoryCategory } from '@/hooks/useInventory'
+import { useCreateInventoryCategory, useUpdateInventoryCategory, useCascadeCategoryTrackingMode, type InventoryCategory } from '@/hooks/useInventory'
 import { useInventoryTree, allDescendantIds } from '@/hooks/useInventoryTree'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
@@ -56,6 +56,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const isEdit = !!category
   const create = useCreateInventoryCategory()
   const update = useUpdateInventoryCategory()
+  const cascadeMode = useCascadeCategoryTrackingMode()
   const { flat } = useInventoryTree(categoryType)
 
   const [nameEn, setNameEn] = useState('')
@@ -194,10 +195,32 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     }
 
     if (isEdit && category) {
+      // Tools categories: a Bulk/Serialized change cascades to descendant
+      // sub-categories (items follow their category). The normal update sets
+      // this category's own mode; the cascade RPC then propagates to
+      // descendants without stock and reports which were kept locked.
+      const modeChanged = categoryType === 'tools' && !!snapshot && snapshot.trackingMode !== trackingMode
       update.mutate(
         { id: category.id, ...payload },
         {
-          onSuccess: () => { toast.success('Category updated'); guardRef.current?.closeAfterSubmit() },
+          onSuccess: async () => {
+            if (modeChanged) {
+              try {
+                const res = await cascadeMode.mutateAsync({ categoryId: category.id, mode: trackingMode })
+                const label = trackingMode === 'bulk' ? 'Bulk' : 'Serialized'
+                const parts: string[] = []
+                if (res.changed.length) parts.push(`${res.changed.length} sub-categor${res.changed.length === 1 ? 'y' : 'ies'} set to ${label}`)
+                if (res.locked.length) parts.push(`kept ${res.locked.length} that hold stock: ${res.locked.join(', ')}`)
+                toast.success(parts.length ? `Category updated — ${parts.join('; ')}` : 'Category updated')
+              } catch (err) {
+                // The category's own mode already saved; surface only the cascade failure.
+                toast.error(err instanceof Error ? err.message : 'Sub-category cascade failed')
+              }
+            } else {
+              toast.success('Category updated')
+            }
+            guardRef.current?.closeAfterSubmit()
+          },
           onError: (err) => toast.error(err.message),
         },
       )

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 import { logActivity } from '@/lib/logActivity'
+import { humanizeDbError } from '@/lib/dbErrors'
 
 export type InventoryCategory = DBTable<'inventory_categories'>
 export type InventoryItem = DBTable<'inventory_items'>
@@ -116,6 +117,7 @@ export function useCreateInventoryItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      queryClient.invalidateQueries({ queryKey: ['team-item-variant-ids'] })
     },
   })
 }
@@ -149,6 +151,7 @@ export function useUpdateInventoryItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
+      queryClient.invalidateQueries({ queryKey: ['team-item-variant-ids'] })
     },
   })
 }
@@ -249,6 +252,10 @@ export function useCreateBrandVariant() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.allBrandNames })
+      // The Inventory list renders variants from the batched ItemVariantsContext
+      // (['item-variants-batch', …]) — a different key tree from brandVariantsV2 —
+      // so without this the new variant only shows after a full page refresh.
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.itemVariantsBatch })
     },
   })
 }
@@ -284,6 +291,7 @@ export function useUpdateBrandVariant() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariants })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.itemVariantsBatch })
     },
   })
 }
@@ -449,6 +457,7 @@ export function useCreateInventoryCategory() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesByType(v.type) })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
+      qc.invalidateQueries({ queryKey: ['team-item-variant-ids'] })
     },
   })
 }
@@ -483,6 +492,38 @@ export function useUpdateInventoryCategory() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
+      qc.invalidateQueries({ queryKey: ['team-item-variant-ids'] })
+    },
+  })
+}
+
+export type TrackingModeCascadeResult = { changed: string[]; locked: string[] }
+
+/**
+ * Cascades a Tools & Assets category's tracking-mode change (serialized/bulk)
+ * down to its descendant sub-categories, skipping any that hold stock/units
+ * (those stay locked). Server-side + atomic — see
+ * rpc_cascade_category_tracking_mode. Returns which descendants changed vs were
+ * kept locked so the caller can summarise. The target's OWN mode is set by the
+ * normal category update; this only propagates to descendants.
+ */
+export function useCascadeCategoryTrackingMode() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ categoryId, mode }: { categoryId: string; mode: 'serialized' | 'bulk' }): Promise<TrackingModeCascadeResult> => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('rpc_cascade_category_tracking_mode' as never, {
+        p_category_id: categoryId,
+        p_mode: mode,
+      } as never)
+      if (error) throw new Error(humanizeDbError(error, 'cascade the category tracking mode'))
+      const res = (data ?? { changed: [], locked: [] }) as unknown as TrackingModeCascadeResult
+      return { changed: res.changed ?? [], locked: res.locked ?? [] }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemVariantsBatch })
     },
   })
 }
@@ -617,7 +658,10 @@ export function useArchiveInventoryBrandVariant() {
         new_data: { name: brand, status: 'archived' },
       })
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemVariantsBatch })
+    },
   })
 }
 

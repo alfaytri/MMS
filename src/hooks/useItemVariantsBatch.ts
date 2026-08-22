@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { queryKeys } from '@/lib/queryKeys'
 import type { BrandVariant } from './useInventory'
 import type { ScopedVariantStock } from './useItemVariantDivisionStock'
 
@@ -36,7 +37,7 @@ export function useItemVariantsBatch(
   const idsKey = [...itemIds].sort().join(',')
   const divKey = [...divisionIds].sort().join(',')
   return useQuery({
-    queryKey: ['item-variants-batch', idsKey, showArchived, divKey],
+    queryKey: [...queryKeys.inventory.itemVariantsBatch, idsKey, showArchived, divKey],
     enabled: itemIds.length > 0,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<ItemVariantsBatchData> => {

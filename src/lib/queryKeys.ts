@@ -224,6 +224,10 @@ export const queryKeys = {
     brandVariantsV2ByItem: (itemId: Nullable, showArchived?: boolean) =>
       ['brand-variants-v2', itemId, showArchived] as const,
     brandVariantsGrouped: ['brand-variants-grouped'] as const,
+    // Batched per-category variant read used by the Inventory list (ItemVariantsContext
+    // / useItemVariantsBatch). Its own key literal starts with this, so invalidating
+    // this prefix refetches every expanded category's variants.
+    itemVariantsBatch: ['item-variants-batch'] as const,
     brandVariantsPriceSummary: ['brand-variants-price-summary'] as const,
     brandVariantsPriceSummaryByIds: (idsKey: string) =>
       ['brand-variants-price-summary', idsKey] as const,
