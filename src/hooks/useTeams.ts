@@ -431,7 +431,7 @@ async function resolveActorProfileId(): Promise<string | null> {
   if (!authUserId) { _cachedProfileId = null; return null }
 
   const { data } = await supabase
-    .from('profiles')
+    .from('user_data')
     .select('id')
     .eq('auth_user_id', authUserId)
     .maybeSingle()
