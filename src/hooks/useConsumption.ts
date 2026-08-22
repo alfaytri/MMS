@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { useCustodyLocations } from '@/hooks/useCustodyLocations'
+import { invalidateInventoryStockViews } from '@/lib/queryInvalidation'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -304,6 +305,7 @@ export function useCreateConsumption() {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      invalidateInventoryStockViews(qc)
     },
   })
 }
@@ -326,6 +328,7 @@ export function useCancelConsumption() {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      invalidateInventoryStockViews(qc)
     },
   })
 }
@@ -470,6 +473,7 @@ export function useDecideConsumptionEdit() {
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
+      invalidateInventoryStockViews(qc)
     },
   })
 }

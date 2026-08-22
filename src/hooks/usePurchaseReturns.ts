@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/logActivity'
 import { nextNoteId } from '@/hooks/useCreditNotes'
 import type { DebitNote } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import { invalidateSupplierCreditViews } from '@/lib/queryInvalidation'
 
 export type POReturnStatus = 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled'
 
@@ -493,6 +494,7 @@ export function useUpdatePOReturnStatus() {
       if (variables.status === 'dispatched') {
         queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       }
+      invalidateSupplierCreditViews(queryClient)
       const ACTION_MAP: Record<POReturnStatus, { action: string; severity: 'info' | 'warning' }> = {
         pending:            { action: 'PO Return Marked Pending',     severity: 'info' },
         dispatched:         { action: 'PO Return Dispatched',         severity: 'info' },
@@ -528,6 +530,7 @@ export function useCreateDebitNoteForReturn() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
+      invalidateSupplierCreditViews(queryClient)
     },
   })
 }

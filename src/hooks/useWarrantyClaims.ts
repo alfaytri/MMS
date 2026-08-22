@@ -254,6 +254,7 @@ export function useAssessWarrantyClaim() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.claims() })
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.claim(variables.claim_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.warranty.records() })
     },
   })
 }
@@ -273,6 +274,8 @@ export function useVoidWarrantyClaim() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.claims() })
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.claim(variables.claim_id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.warranty.records() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
     },
   })
 }

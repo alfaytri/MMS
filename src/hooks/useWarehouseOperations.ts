@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { liveInboxQueryOptions } from '@/lib/queryOptions'
 import { sendNotifications, recipientsForNotification } from '@/lib/notify'
+import { invalidateInventoryStockViews } from '@/lib/queryInvalidation'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type StockMovementType =
@@ -621,6 +622,7 @@ export function useDispatchTransfer() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      invalidateInventoryStockViews(qc)
     },
   })
 }
@@ -654,6 +656,7 @@ export function useReceiveTransfer() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      invalidateInventoryStockViews(qc)
     },
   })
 }
@@ -676,6 +679,7 @@ export function useCancelTransfer() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      invalidateInventoryStockViews(qc)
     },
   })
 }
@@ -698,6 +702,7 @@ export function useRejectTransfer() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      invalidateInventoryStockViews(qc)
     },
   })
 }
@@ -844,6 +849,7 @@ export function useActionStockAdjustmentStep() {
         qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
         qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
         qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+        invalidateInventoryStockViews(qc)
       }
 
       const supabase = createClient()
@@ -901,6 +907,7 @@ export function useForceApproveStockAdjustment() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      invalidateInventoryStockViews(qc)
 
       const supabase = createClient()
       const { data: adj } = await supabase
@@ -1503,6 +1510,7 @@ export function useApproveCheckStep() {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      invalidateInventoryStockViews(qc)
 
       if (outcome === 'approved' || outcome === 'rejected') {
         const supabase = createClient()

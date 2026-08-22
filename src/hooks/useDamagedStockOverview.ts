@@ -19,6 +19,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { invalidateInventoryStockViews } from '@/lib/queryInvalidation'
 
 // ─── shared display-name helper ─────────────────────────────────────────
 type BrandVariantJoin = {
@@ -501,6 +502,7 @@ export function useReturnFromRepair() {
       qc.invalidateQueries({ queryKey: queryKeys.damagedStock.outForRepairAll })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseTransfers })
       qc.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      invalidateInventoryStockViews(qc)
     },
   })
 }

@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
 import { humanizeDbError } from '@/lib/dbErrors'
 import type { Database } from '@/types/database.types'
+import { invalidateInventoryStockViews } from '@/lib/queryInvalidation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -726,6 +727,7 @@ export function useCreateSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      invalidateInventoryStockViews(queryClient)
       // Real order total in QAR (mirrors the RPC: subtotal − discount, × rate).
       // Previously logged data.open_total, which is the customer's existing credit
       // usage, not this order's total.
@@ -822,6 +824,7 @@ export function useUpdateSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      invalidateInventoryStockViews(queryClient)
     },
   })
 }
@@ -895,6 +898,7 @@ export function useConfirmSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      invalidateInventoryStockViews(queryClient)
     },
   })
 }
@@ -1016,6 +1020,8 @@ export function useCreateDelivery() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.warehouseOps.warehouseStockAll })
+      invalidateInventoryStockViews(queryClient)
       logActivity({
         action:    'Delivery Created',
         module:    'sale_orders',
@@ -1090,6 +1096,7 @@ export function useCancelSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      invalidateInventoryStockViews(queryClient)
       logActivity({ action: 'Sale Order Cancelled', module: 'sale_orders', entity_id: id, severity: 'warning' })
     },
   })
@@ -1112,6 +1119,7 @@ export function useApproveSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      invalidateInventoryStockViews(queryClient)
       logActivity({ action: 'Sale Order Approved', module: 'sale_orders', entity_id: id, severity: 'info' })
     },
   })

@@ -120,6 +120,8 @@ export function useCreateCustodyLocation() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['custody-locations'] })
+      qc.invalidateQueries({ queryKey: ['sub-containers-by-warehouse'] })
+      qc.invalidateQueries({ queryKey: ['warehouse-sub-containers'] })
     },
   })
 }
@@ -160,6 +162,8 @@ export function useUpdateCustodyLocation() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['custody-locations'] })
+      qc.invalidateQueries({ queryKey: ['sub-containers-by-warehouse'] })
+      qc.invalidateQueries({ queryKey: ['warehouse-sub-containers'] })
     },
   })
 }

@@ -274,6 +274,8 @@ export function useCreateWarehouseSubContainer() {
       })
       qc.invalidateQueries({ queryKey: ['warehouse-sub-containers', 'admin', data.warehouse_id] })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      qc.invalidateQueries({ queryKey: ['sub-containers-by-warehouse'] })
+      qc.invalidateQueries({ queryKey: ['warehouse-sub-containers'] })
     },
   })
 }
@@ -355,6 +357,8 @@ export function useUpdateWarehouseSubContainer() {
       })
       qc.invalidateQueries({ queryKey: ['warehouse-sub-containers', 'admin', data.warehouse_id] })
       qc.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      qc.invalidateQueries({ queryKey: ['sub-containers-by-warehouse'] })
+      qc.invalidateQueries({ queryKey: ['warehouse-sub-containers'] })
     },
   })
 }

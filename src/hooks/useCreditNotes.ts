@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/logActivity'
 import type { DebitNote } from '@/types/invoice'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
+import { invalidateCustomerCreditViews, invalidateSupplierCreditViews } from '@/lib/queryInvalidation'
 
 type ReturnResolution = 'refund' | 'replacement' | 'store_credit'
 
@@ -290,7 +291,10 @@ export function useCreateCreditNote() {
       })
       return cn as CreditNote
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      invalidateCustomerCreditViews(queryClient)
+    },
   })
 }
 
@@ -365,6 +369,7 @@ export function useApplyCreditNote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      invalidateCustomerCreditViews(queryClient)
     },
   })
 }
@@ -419,6 +424,7 @@ export function useResolveCreditNoteRefund() {
       // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
       // all detail entries without needing to know which SO.
       qc.invalidateQueries({ queryKey: ['sale-order'] })
+      invalidateCustomerCreditViews(qc)
     },
   })
 }
@@ -499,6 +505,7 @@ export function useResolveCreditNoteStoreCredit() {
       // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
       // all detail entries without needing to know which SO.
       qc.invalidateQueries({ queryKey: ['sale-order'] })
+      invalidateCustomerCreditViews(qc)
     },
   })
 }
@@ -530,6 +537,7 @@ export function useResolveCreditNoteReplacement() {
       // saleOrders.detail uses ['sale-order', id]; root prefix invalidates
       // all detail entries without needing to know which SO.
       qc.invalidateQueries({ queryKey: ['sale-order'] })
+      invalidateCustomerCreditViews(qc)
     },
   })
 }
@@ -578,6 +586,7 @@ export function useResolveDebitNoteSupplierCredit() {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       qc.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
       qc.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
+      invalidateSupplierCreditViews(qc)
     },
   })
 }
@@ -606,6 +615,7 @@ export function useResolveDebitNoteReplacement() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
+      invalidateSupplierCreditViews(qc)
     },
   })
 }

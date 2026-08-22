@@ -232,9 +232,10 @@ export function useAwardQuote() {
         .neq('id', input.quoteId)
       if (rejectErr) throw rejectErr
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['rfq-quotes'] })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.poId) })
     },
   })
 }

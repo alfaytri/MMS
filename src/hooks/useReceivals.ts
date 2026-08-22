@@ -222,6 +222,7 @@ export function useCreateReceival() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.variantWarehouseStock })
       queryClient.invalidateQueries({ queryKey: ['item-variant-division-stock'] })
       queryClient.invalidateQueries({ queryKey: ['fifo-layers-for-variant'] })
+      queryClient.invalidateQueries({ queryKey: ['variant-stock-by-division'] })
     },
   })
 }
