@@ -1,0 +1,209 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
+import { normaliseEvent } from '@/lib/3cx/normalise-event'
+import { resolveConversation } from '@/lib/3cx/resolve-customer'
+import { resolveAgentByExtension } from '@/lib/3cx/extension-map'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+const SUPA_URL     = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPA_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const WHOOK_SECRET = process.env['3CX_WEBHOOK_SECRET'] ?? ''
+
+function tryParseJson(raw: string): Record<string, unknown> | null {
+  const trimmed = raw.trim()
+
+  // Normal JSON object
+  try { return JSON.parse(trimmed) } catch { /* fall through */ }
+
+  // 3CX CRM templates render {{ }} as [ ] — bracket-wrapped key:value
+  if (trimmed.startsWith('[') && trimmed.endsWith(']') && trimmed.includes('":')) {
+    try { return JSON.parse('{' + trimmed.slice(1, -1) + '}') } catch { /* fall through */ }
+  }
+
+  return null
+}
+
+async function parseBody(req: NextRequest): Promise<Record<string, unknown> | null> {
+  const raw = await req.text()
+  console.log('[3cx/webhook] content-type:', req.headers.get('content-type'))
+  console.log('[3cx/webhook] raw body:', raw.slice(0, 2000))
+
+  const parsed = tryParseJson(raw)
+  if (parsed) return parsed
+
+  // form-urlencoded fallback
+  if (raw.includes('=') && !raw.trim().startsWith('{') && !raw.trim().startsWith('[')) {
+    const params = new URLSearchParams(raw)
+    const obj: Record<string, unknown> = {}
+    params.forEach((v, k) => { obj[k] = v })
+    if (Object.keys(obj).length > 0) return obj
+  }
+
+  return null
+}
+
+export async function POST(req: NextRequest) {
+  const url = new URL(req.url)
+  const secret = url.searchParams.get('secret') ?? ''
+  if (!WHOOK_SECRET || secret !== WHOOK_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = await parseBody(req)
+  if (!body) {
+    console.error('[3cx/webhook] could not parse body')
+    return NextResponse.json({ error: 'Bad body' }, { status: 400 })
+  }
+  console.log('[3cx/webhook] parsed body:', JSON.stringify(body).slice(0, 2000))
+
+  const event = normaliseEvent(body)
+  if (!event) return NextResponse.json({ ok: true, ignored: 'unknown event' })
+
+  const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
+
+  const { conversation_id, phone_id } = await resolveConversation(supabase, event.caller_phone)
+  const agent = await resolveAgentByExtension(supabase, event.extension)
+
+  // 3CX CRM template doesn't expose call_id — synthesize one from caller + extension + minute bucket
+  // (one row per call; minute bucket prevents duplicate inserts if 3CX retries the same event)
+  const callIdSeed = event.call_id1 || event.call_id2
+                  || `${event.caller_phone}_${event.extension}_${Math.floor(Date.now() / 60_000)}`
+  const externalId = `3cx_${callIdSeed}`
+
+  if (event.kind === 'ringing' || event.kind === 'dialing' || event.kind === 'answered') {
+    const text =
+      event.kind === 'ringing'  ? `Inbound call from ${event.caller_phone}` :
+      event.kind === 'dialing'  ? `Outbound call to ${event.caller_phone}` :
+                                  `Call answered by ${agent?.name ?? `ext ${event.extension}`}`
+
+    const { data: existing } = await supabase
+      .from('chat_messages')
+      .select('id')
+      .eq('external_id', externalId)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from('chat_messages').update({
+        text,
+        delivery_status: 'sending',
+        agent_name:      agent?.name ?? null,
+      }).eq('id', existing.id)
+    } else {
+      await supabase.from('chat_messages').insert({
+        conversation_id,
+        from_type:          event.kind === 'dialing' ? 'agent' : 'customer',
+        source:             '3cx_call',
+        message_kind:       'event',
+        text,
+        agent_name:         agent?.name ?? null,
+        sent_by_profile_id: agent?.profile_id ?? null,
+        external_id:        externalId,
+        delivery_status:    'sending',
+        phone_id,
+      })
+    }
+
+    await supabase.from('chat_conversations')
+      .update({ last_message: text, last_message_at: new Date().toISOString() })
+      .eq('id', conversation_id)
+
+    return NextResponse.json({ ok: true, kind: event.kind })
+  }
+
+  // event.kind === 'hangup'
+  // 3CX CRM template can't reliably distinguish missed from short calls — use the
+  // recording presence as the signal: a call with no recording was never answered
+  // (3CX only records connected calls). Inbound + no answer → "Missed call";
+  // outbound + no answer → "No answer" (customer didn't pick up).
+  const isUnanswered = event.finish === 'Missed' || event.recording_urls.length === 0
+  const isMissed     = isUnanswered && event.direction === 'inbound'
+  const isNoAnswer   = isUnanswered && event.direction === 'outbound'
+
+  const text = isMissed   ? `Missed call — ${event.caller_phone}`
+             : isNoAnswer ? `No answer — ${event.caller_phone}`
+             : event.title
+               ? event.title
+               : event.direction === 'inbound'
+                 ? `Received call — ${event.caller_phone}`
+                 : `Connected call — ${event.caller_phone}`
+
+  const { data: existing } = await supabase
+    .from('chat_messages')
+    .select('id, attachments')
+    .eq('external_id', externalId)
+    .maybeSingle()
+
+  let messageId: string
+  if (existing) {
+    messageId = existing.id
+    await supabase.from('chat_messages').update({
+      text,
+      delivery_status: isUnanswered ? 'failed' : 'delivered',
+      agent_name:      agent?.name ?? null,
+    }).eq('id', messageId)
+  } else {
+    const { data: inserted, error } = await supabase.from('chat_messages').insert({
+      conversation_id,
+      from_type:          event.direction === 'inbound' ? 'customer' : 'agent',
+      source:             '3cx_call',
+      message_kind:       'event',
+      text,
+      agent_name:         agent?.name ?? null,
+      sent_by_profile_id: agent?.profile_id ?? null,
+      external_id:        externalId,
+      delivery_status:    isUnanswered ? 'failed' : 'delivered',
+      phone_id,
+    }).select('id').single()
+    if (error || !inserted) {
+      console.error('[3cx/webhook] insert message failed', error)
+      return NextResponse.json({ error: error?.message }, { status: 500 })
+    }
+    messageId = inserted.id
+  }
+
+  await supabase.from('call_records').upsert({
+    message_id:       messageId,
+    call_id:          callIdSeed,
+    agent_extension:  event.extension,
+    agent_name:       agent?.name ?? null,
+    customer_phone:   event.caller_phone,
+    direction:        event.direction,
+    status:           isUnanswered ? 'missed' : 'answered',
+    started_at:       new Date(Date.now() - 30_000).toISOString(),
+    ended_at:         new Date().toISOString(),
+    duration_seconds: null,
+    recording_url:    event.recording_urls[0] ?? null,
+  }, { onConflict: 'call_id' })
+
+  if (event.recording_urls.length > 0) {
+    const attachments = event.recording_urls.map((u, i) => ({
+      url:  u,
+      type: 'audio/mpeg',
+      name: `call-recording-${i + 1}.mp3`,
+    }))
+
+    await supabase.from('chat_messages')
+      .update({ attachments: attachments as unknown as Database['public']['Tables']['chat_messages']['Row']['attachments'] })
+      .eq('id', messageId)
+
+    const jobs = attachments.map((_, i) => ({
+      message_id:       messageId,
+      attachment_index: i,
+    }))
+    const { error: jobErr } = await supabase.from('media_download_jobs').insert(jobs)
+    if (jobErr) console.error('[3cx/webhook] enqueue jobs failed', jobErr)
+  }
+
+  await supabase.from('chat_conversations')
+    .update({ last_message: text, last_message_at: new Date().toISOString() })
+    .eq('id', conversation_id)
+
+  return NextResponse.json({ ok: true, kind: 'hangup', messageId, recordings: event.recording_urls.length })
+}
+
+export async function GET() {
+  return NextResponse.json({ ok: true })
+}
