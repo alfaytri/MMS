@@ -20,7 +20,7 @@ export default async function AdminLayout({
   // Check for admin permission via custom roles
   const { data: profile } = await supabase
     .from('user_data')
-    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system, permissions))')
+    .select('id, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(is_system_admin, permissions))')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
@@ -31,7 +31,7 @@ export default async function AdminLayout({
   const isAdmin = roles.some((r) => {
     const perms = r.custom_roles?.permissions ?? []
     return (
-      r.custom_roles?.is_system === true ||
+      r.custom_roles?.is_system_admin === true ||
       perms.includes('system.admin') ||
       perms.includes('master_data.users.manage')
     )

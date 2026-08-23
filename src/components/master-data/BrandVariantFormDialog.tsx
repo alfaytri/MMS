@@ -92,11 +92,11 @@ export function BrandVariantFormDialog({ open, onOpenChange, variant, itemId }: 
     if (!name) return
     try {
       const newBrand = await createBrand.mutateAsync({ name })
-      form.setValue('brand_id', newBrand.id, { shouldValidate: true })
-      form.setValue('brand', newBrand.name, { shouldValidate: true })
+      form.setValue('brand_id', newBrand.brand.id, { shouldValidate: true })
+      form.setValue('brand', newBrand.brand.name, { shouldValidate: true })
       setBrandPickerOpen(false)
       setBrandSearch('')
-      toast.success(`Brand "${newBrand.name}" added`)
+      toast.success(`Brand "${newBrand.brand.name}" added`)
     } catch (err) {
       toast.error((err as Error).message)
     }

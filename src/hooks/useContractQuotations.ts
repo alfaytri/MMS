@@ -17,7 +17,7 @@ export function useContractQuotations(filters?: QuotationFilters) {
     queryFn: async () => {
       let query = supabase
         .from('contracts')
-        .select('*, profiles!created_by(full_name)')
+        .select('*, user_data!created_by(full_name)')
         .in(
           'status',
           filters?.status?.length
@@ -52,7 +52,7 @@ export function useContractQuotations(filters?: QuotationFilters) {
           customer_name: c.customer_name || '',
           site_name: c.site_name || '',
           phone: c.phone || '',
-          agent_name: c.profiles?.full_name || c.agent_name || '',
+          agent_name: c.user_data?.full_name || c.agent_name || '',
           divisions: c.divisions || [],
           services_summary: c.services_summary || '',
           start_date: c.start_date || '',

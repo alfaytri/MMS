@@ -57,9 +57,6 @@ export default function CustomerPendingDetailPage() {
       ) : (
         <CustomerInvoiceDetailContent
           customer={customer}
-          onLinkCreated={(url) => {
-            window.open(url, '_blank', 'noopener,noreferrer')
-          }}
         />
       )}
     </div>

@@ -380,6 +380,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bills_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "bills_purchase_order_id_fkey"
             columns: ["purchase_order_id"]
             isOneToOne: true
@@ -893,6 +900,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cogs_entries_consumer_division_id_fkey"
+            columns: ["consumer_division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "cogs_entries_consumer_sub_container_id_fkey"
             columns: ["consumer_sub_container_id"]
             isOneToOne: false
@@ -926,6 +940,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "cogs_entries_landed_cost_id_fkey"
@@ -1122,6 +1143,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "company_divisions_calendar_schedule_id_fkey"
+            columns: ["calendar_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "company_divisions_currency_id_fkey"
             columns: ["currency_id"]
@@ -1332,6 +1360,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "consumption_entries_milestone_id_fkey"
@@ -1682,6 +1717,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_visits_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
         ]
       }
@@ -2656,6 +2698,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "customer_subscriptions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages_with_counts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_customer_subscriptions_customer"
             columns: ["customer_id"]
             isOneToOne: false
@@ -2950,6 +2999,13 @@ export type Database = {
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "document_terms_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
         ]
       }
       employee_services: {
@@ -3052,6 +3108,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "employees_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "employees_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -3064,6 +3127,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_employee_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
         ]
       }
@@ -3279,6 +3349,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_requests_requested_team_id_fkey"
+            columns: ["requested_team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
           {
             foreignKeyName: "follow_up_requests_resulting_order_id_fkey"
@@ -3980,6 +4057,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_damaged_movements_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "inventory_damaged_movements_source_return_line_disposition_fkey"
             columns: ["source_return_line_disposition_id"]
             isOneToOne: false
@@ -4099,6 +4183,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_damaged_stock_layers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "inventory_damaged_stock_layers_source_return_line_id_fkey"
@@ -4310,6 +4401,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_divisions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "inventory_item_divisions_item_id_fkey"
@@ -5500,6 +5598,13 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "order_team_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       order_visit_dates: {
@@ -6138,6 +6243,13 @@ export type Database = {
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "approval_chains_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: true
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
         ]
       }
       po_approvals: {
@@ -6333,6 +6445,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_line_items_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "po_line_items_po_id_fkey"
@@ -6769,6 +6888,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "projects_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "projects_responsible_person_profile_id_fkey"
             columns: ["responsible_person_profile_id"]
             isOneToOne: false
@@ -7035,6 +7161,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchase_orders_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "purchase_orders_initial_rate_captured_by_fkey"
             columns: ["initial_rate_captured_by"]
             isOneToOne: false
@@ -7197,6 +7330,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "qc_inspection_results_qc_team_id_fkey"
+            columns: ["qc_team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
+          {
             foreignKeyName: "qc_inspection_results_schedule_entry_id_fkey"
             columns: ["schedule_entry_id"]
             isOneToOne: false
@@ -7209,6 +7349,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_inspection_results_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
         ]
       }
@@ -7264,11 +7411,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "qc_schedule_assigned_qc_team_id_fkey"
+            columns: ["assigned_qc_team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
+          {
             foreignKeyName: "qc_schedule_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_schedule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
         ]
       }
@@ -7319,6 +7480,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_team_scores_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
         ]
       }
@@ -7613,6 +7781,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivals_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "receivals_po_id_fkey"
@@ -8096,6 +8271,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "returns_restock_warehouse_id_fkey"
@@ -8582,6 +8764,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_orders_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "sale_orders_initial_rate_captured_by_fkey"
@@ -9250,6 +9439,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "site_visit_team_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
+          {
             foreignKeyName: "site_visit_team_assignments_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
@@ -9463,6 +9659,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoices_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "invoices_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: true
@@ -9579,6 +9782,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "returns_restock_warehouse_id_fkey"
@@ -9847,6 +10057,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "subscription_package_services_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages_with_counts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "subscription_package_services_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -10028,6 +10245,13 @@ export type Database = {
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "suppliers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
         ]
       }
       sync_state: {
@@ -10134,6 +10358,13 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "team_live_locations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       team_schedule_assignments: {
@@ -10175,6 +10406,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_schedule_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
         ]
       }
@@ -10255,6 +10493,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teams_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "teams_leader_id_fkey"
@@ -10635,6 +10880,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tool_asset_units_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "tool_asset_units_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
@@ -10694,6 +10946,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tool_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
+          {
             foreignKeyName: "tool_assignments_tool_unit_id_fkey"
             columns: ["tool_unit_id"]
             isOneToOne: false
@@ -10740,6 +10999,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_check_sessions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
         ]
       }
@@ -10952,6 +11218,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_divisions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "user_divisions_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -11078,6 +11351,13 @@ export type Database = {
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_data_active_division_id_fkey"
+            columns: ["active_division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
         ]
       }
       vehicles: {
@@ -11121,6 +11401,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_vehicle_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
           },
         ]
       }
@@ -11605,6 +11892,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "warehouse_sub_containers_project_id_fkey"
@@ -12143,6 +12437,13 @@ export type Database = {
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "warranty_number_counters_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
         ]
       }
       warranty_policies: {
@@ -12307,6 +12608,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "warranty_records_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "warranty_records_origin_country_id_fkey"
             columns: ["origin_country_id"]
             isOneToOne: false
@@ -12345,6 +12653,29 @@ export type Database = {
       }
     }
     Views: {
+      calendar_visits: {
+        Row: {
+          created_by_name: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          division: string | null
+          end_time: string | null
+          id: string | null
+          is_qc: boolean | null
+          order_number: string | null
+          service_id: string | null
+          services_summary: string | null
+          source_id: string | null
+          source_type: string | null
+          start_time: string | null
+          status: string | null
+          team_id: string | null
+          visit_date: string | null
+          visit_type: string | null
+        }
+        Relationships: []
+      }
       credit_group_customer_counts: {
         Row: {
           credit_group_id: string | null
@@ -12513,6 +12844,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoices_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+          {
             foreignKeyName: "invoices_sale_order_id_fkey"
             columns: ["sale_order_id"]
             isOneToOne: true
@@ -12542,6 +12880,20 @@ export type Database = {
           status: Database["public"]["Enums"]["credit_note_status"] | null
         }
         Relationships: []
+      }
+      customers_with_multi_phones: {
+        Row: {
+          customer_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_customer_phones_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "service_customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       return_line_progress: {
         Row: {
@@ -12647,6 +12999,195 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_packages_with_counts: {
+        Row: {
+          auto_renew_default: boolean | null
+          created_at: string | null
+          created_by_name: string | null
+          description: string | null
+          discount_percent: number | null
+          duration_months: number | null
+          id: string | null
+          initial_fee: number | null
+          is_active: boolean | null
+          name: string | null
+          name_ar: string | null
+          priority_response: string | null
+          response_hours: number | null
+          service_count: number | null
+          subscriber_count: number | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      supplier_bills: {
+        Row: {
+          agent_name: string | null
+          created_at: string | null
+          customer_id: string | null
+          direction: Database["public"]["Enums"]["invoice_direction"] | null
+          discount_amount: number | null
+          discount_label: string | null
+          division: string | null
+          doc_status: Database["public"]["Enums"]["invoice_doc_status"] | null
+          due_date: string | null
+          id: string | null
+          invoice_id: string | null
+          invoice_type: Database["public"]["Enums"]["invoice_type"] | null
+          issued_date: string | null
+          manually_paid: boolean | null
+          needs_refresh: boolean | null
+          notes: string | null
+          paid_amount: number | null
+          payment_status:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
+          purchase_order_id: string | null
+          qb_synced: boolean | null
+          receival_id: string | null
+          sale_delivery_id: string | null
+          sale_order_id: string | null
+          source: Database["public"]["Enums"]["invoice_source"] | null
+          source_id: string | null
+          source_label: string | null
+          status: Database["public"]["Enums"]["invoice_status"] | null
+          subtotal: number | null
+          supplier_id: string | null
+          tax: number | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
+          discount_amount?: number | null
+          discount_label?: string | null
+          division?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
+          due_date?: string | null
+          id?: string | null
+          invoice_id?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
+          issued_date?: string | null
+          manually_paid?: boolean | null
+          needs_refresh?: boolean | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
+          purchase_order_id?: string | null
+          qb_synced?: boolean | null
+          receival_id?: string | null
+          sale_delivery_id?: string | null
+          sale_order_id?: string | null
+          source?: Database["public"]["Enums"]["invoice_source"] | null
+          source_id?: string | null
+          source_label?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
+          subtotal?: number | null
+          supplier_id?: string | null
+          tax?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          direction?: Database["public"]["Enums"]["invoice_direction"] | null
+          discount_amount?: number | null
+          discount_label?: string | null
+          division?: string | null
+          doc_status?: Database["public"]["Enums"]["invoice_doc_status"] | null
+          due_date?: string | null
+          id?: string | null
+          invoice_id?: string | null
+          invoice_type?: Database["public"]["Enums"]["invoice_type"] | null
+          issued_date?: string | null
+          manually_paid?: boolean | null
+          needs_refresh?: boolean | null
+          notes?: string | null
+          paid_amount?: number | null
+          payment_status?:
+            | Database["public"]["Enums"]["invoice_payment_status"]
+            | null
+          purchase_order_id?: string | null
+          qb_synced?: boolean | null
+          receival_id?: string | null
+          sale_delivery_id?: string | null
+          sale_order_id?: string | null
+          source?: Database["public"]["Enums"]["invoice_source"] | null
+          source_id?: string | null
+          source_label?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"] | null
+          subtotal?: number | null
+          supplier_id?: string | null
+          tax?: number | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_receival_id_fkey"
+            columns: ["receival_id"]
+            isOneToOne: false
+            referencedRelation: "receivals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_delivery_id_fkey"
+            columns: ["sale_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "sale_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_order_paid_summary"
+            referencedColumns: ["sale_order_id"]
+          },
+          {
+            foreignKeyName: "invoices_sale_order_id_fkey"
+            columns: ["sale_order_id"]
+            isOneToOne: false
+            referencedRelation: "sale_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_credit_balances: {
         Row: {
           currency: string | null
@@ -12663,6 +13204,23 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_team_monthly_overtime: {
+        Row: {
+          division_color: string | null
+          division_id: string | null
+          division_name: string | null
+          division_slug: string | null
+          early_minutes: number | null
+          late_minutes: number | null
+          month: string | null
+          overtime_minutes: number | null
+          overtime_visit_count: number | null
+          team_id: string | null
+          team_name: string | null
+          total_visit_count: number | null
+        }
+        Relationships: []
       }
       warehouse_stock_view: {
         Row: {
@@ -12846,6 +13404,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "company_divisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
           },
           {
             foreignKeyName: "warranty_records_origin_country_id_fkey"

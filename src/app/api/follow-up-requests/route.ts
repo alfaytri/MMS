@@ -177,8 +177,8 @@ export async function GET(req: Request) {
       new Set(rows.map((r) => r.parent?.customer_id).filter((id): id is string => !!id))
     )
     const { data: customers } = customerIds.length
-      ? await admin.from('customers').select('id, name, phone').in('id', customerIds)
-      : { data: [] as Array<{ id: string; name: string; phone: string | null }> }
+      ? await admin.from('customers').select('id, name').in('id', customerIds)
+      : { data: [] as Array<{ id: string; name: string }> }
     const custMap = new Map((customers ?? []).map((c) => [c.id, c]))
 
     const flattened = rows.map((r) => {
@@ -187,7 +187,7 @@ export async function GET(req: Request) {
         ...r,
         parent_order_number: r.parent?.order_id ?? null,
         customer_name:       c?.name ?? null,
-        customer_phone:      c?.phone ?? null,
+        customer_phone:      null,
         team_name:           r.team?.name ?? null,
       }
     })

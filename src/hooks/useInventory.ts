@@ -1256,7 +1256,7 @@ export function useAllServiceLinks(enabled = true) {
           quantity,
           group_label,
           is_default,
-          inventory_brand_variants(
+          inventory_brand_variants:inventory_item_brand_variants(
             brand,
             selling_price,
             inventory_items(name_en, sku, unit)
@@ -1381,5 +1381,32 @@ export function useUpdateServiceInventoryLink() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
     },
+  })
+}
+
+// -- Tool asset items (tool types; field-service tool tracking; restored from full-app) --
+export type ToolAssetItem = {
+  id: string
+  category_id: string | null
+  name_en: string
+  name_ar: string | null
+  created_at: string
+}
+export function useToolAssetItems(search = '') {
+  return useQuery({
+    queryKey: queryKeys.inventory.toolAssetItemsBySearch(search),
+    queryFn: async () => {
+      const supabase = createClient()
+      let q = supabase
+        .from('tool_asset_items')
+        .select('*')
+        .order('name_en', { ascending: true })
+        .limit(1000)
+      if (search) q = q.ilike('name_en', `%${search}%`)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as ToolAssetItem[]
+    },
+    staleTime: 5 * 60 * 1000,
   })
 }

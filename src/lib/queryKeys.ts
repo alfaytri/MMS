@@ -251,6 +251,7 @@ export const queryKeys = {
     servicesAllForLinks: ['services-all-for-links'] as const,
     servicesForLinks: ['services-for-links'] as const,
     serviceLinksAll: ['service-links-all'] as const,
+    toolAssetItems: ['tool-asset-items'] as const, toolAssetItemsBySearch: (search: string) => ['tool-asset-items', search] as const,
     serviceInventoryLinks: (brandVariantId: Nullable) =>
       ['service-inventory-links', brandVariantId] as const,
     serviceInventory: (brandVariantId: Nullable) =>
@@ -738,6 +739,7 @@ export const queryKeys = {
 
   /* ── Warehouse Operations ─────────────────────────────── */
   warehouseOps: {
+    warehouseFieldRPs: ['warehouse-field-rps'] as const, warehouseFieldRPsByWarehouse: (warehouseId: Nullable) => ['warehouse-field-rps', warehouseId] as const,
     stockMovements: (warehouseId: Nullable, limit: number) =>
       ['stock_movements', { warehouseId, limit }] as const,
     warehouseStock: (warehouseId: Nullable, subContainerId?: Nullable) =>
