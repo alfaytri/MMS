@@ -571,12 +571,97 @@ export const queryKeys = {
     detail: (id: Nullable) => ['repair-vendors', id] as const,
   },
 
-  /* ── Teams + Places (Field Inventory + Consumption) ───── */
+  /* ── Teams (field-service module) ─────────────────────── */
   teams: {
-    all: ['team-sub-containers'] as const,
+    all: ['teams'] as const,
+    list: (filters: unknown) => ['teams', filters] as const,
+    employees: ['employees'] as const,
+    employeesList: (filters: unknown) => ['employees', filters] as const,
+    vehicles: ['vehicles'] as const,
+    schedules: ['schedules'] as const,
+    scheduleAssignments: ['team-schedule-assignments'] as const,
+    scheduleAssignmentsByTeam: (teamId: Nullable) =>
+      ['team-schedule-assignments', teamId] as const,
+    toolAssignments: (entityType: string, entityId: Nullable) =>
+      ['tool-assignments', entityType, entityId] as const,
+    availableToolUnits: ['available-tool-units'] as const,
+    availableToolUnitsByItem: (itemId: Nullable) =>
+      ['available-tool-units', itemId] as const,
+    toolCountMap: (entityType: string) =>
+      ['tool-count-map', entityType] as const,
+    activityLog: ['team-activity-log'] as const,
+    activityLogByEntity: (entityId: Nullable) =>
+      ['team-activity-log', entityId ?? 'all'] as const,
+    activityLogCount: ['team-activity-log-count'] as const,
+    locations: ['team-locations'] as const,
+    overtimeReport: (year: number) =>
+      ['team-overtime-report', year] as const,
+    skills: (divisionSlug: Nullable) =>
+      ['team-skills', divisionSlug] as const,
   },
   places: {
     all: ['place-sub-containers'] as const,
+  },
+
+  /* ── Calendar (field-service) ─────────────────────────── */
+  calendar: {
+    schedule: ['calendar-schedule'] as const,
+    allDivisionSchedules: ['all-division-schedules'] as const,
+    divisionSchedule: (slug: Nullable) =>
+      ['division-schedule', slug] as const,
+    visits: (date?: Nullable, divisionSlug?: Nullable) =>
+      ['calendar-visits', date, divisionSlug] as const,
+    visitsAll: ['calendar-visits'] as const,
+    dateAvailability: (dates: string[], fromTime?: Nullable, toTime?: Nullable) =>
+      ['date-availability', [...dates].sort(), fromTime, toTime] as const,
+    permissions: ['calendar-permissions'] as const,
+    weekCapacity: (weekStart?: Nullable, divisionSlug?: Nullable, visitTypeKey?: Nullable) =>
+      ['week-capacity', weekStart, divisionSlug, visitTypeKey] as const,
+    weekCapacityAll: ['week-capacity'] as const,
+  },
+
+  /* ── TL Invoices (field-service) ──────────────────────── */
+  tlInvoices: {
+    all: ['tl-invoices'] as const,
+    list: (filters: unknown) => ['tl-invoices', filters] as const,
+    summary: ['tl-invoices', 'summary'] as const,
+  },
+
+  /* ── Subscription Packages ────────────────────────────── */
+  subscriptionPackages: {
+    all: ['subscription_packages'] as const,
+    list: (includeArchived?: boolean) =>
+      ['subscription_packages', { includeArchived }] as const,
+    services: (packageId: Nullable) =>
+      ['subscription_package_services', packageId] as const,
+  },
+
+  /* ── Team Leader (field-service) ──────────────────────── */
+  teamLeader: {
+    identity: ['tl-identity'] as const,
+    allTeamsSelect: (divisionIds?: string[] | null) =>
+      ['tl-all-teams-select', divisionIds ?? 'all'] as const,
+    orders: (teamId: Nullable) => ['tl-orders', teamId] as const,
+    linkableEmployees: ['tl-linkable-employees'] as const,
+    linkableEmployeesEdit: ['tl-linkable-employees-edit'] as const,
+    currentEmployee: (profileId?: Nullable) =>
+      ['tl-current-employee', profileId] as const,
+  },
+
+  /* ── Traccar (GPS) ────────────────────────────────────── */
+  traccar: {
+    devices: ['traccar-devices'] as const,
+    positions: (deviceIds: number[]) =>
+      ['traccar-positions', deviceIds] as const,
+    history: (deviceId: number | null, from: Nullable, to: Nullable) =>
+      ['traccar-history', deviceId, from, to] as const,
+    geofences: ['traccar-geofences'] as const,
+  },
+
+  /* ── Brand Groups ─────────────────────────────────────── */
+  brandGroups: {
+    all: ['brand-groups'] as const,
+    brands: ['brands'] as const,
   },
   consumption: {
     all: ['consumption-entries'] as const,
