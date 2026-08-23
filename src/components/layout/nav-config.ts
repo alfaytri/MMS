@@ -35,6 +35,15 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Admin',        href: '/master-data/admin',      icon: 'Settings',    permission: 'master_data.admin.view' },
         ],
       },
+      {
+        label: 'FIELD SERVICE',
+        items: [
+          { label: 'Service Customers',     href: '/master-data/service-customers', icon: 'Headset',    permission: 'master_data.service_customers.view' },
+          { label: 'Services',              href: '/master-data/services',          icon: 'Wrench',     permission: 'master_data.services.view' },
+          { label: 'Teams & Employees',     href: '/master-data/teams',             icon: 'UsersRound', permission: 'teams.view' },
+          { label: 'Subscription Packages', href: '/master-data/subscriptions',     icon: 'CreditCard', permission: 'master_data.subscriptions.view' },
+        ],
+      },
     ],
   },
   {
@@ -53,6 +62,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Cash & Cash Equivalents', href: '/reports/cash',                icon: 'HandCoins',       permission: 'reports.cash.view' },
           { label: 'Profit & Loss',         href: '/reports/profit-loss',            icon: 'BarChart3',       permission: 'reports.profit_loss.view' },
           { label: 'Consumption',           href: '/reports/project-consumption',    icon: 'Flame',           permission: ['reports.view', 'reports.project_consumption.view', 'consumption.cost.view'] },
+          { label: 'Overtime',              href: '/reports/overtime',               icon: 'Clock',           permission: 'reports.view' },
         ],
       },
     ],
@@ -101,6 +111,67 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'Shipments',         href: '/purchase/shipments',    icon: 'Ship',       permission: 'purchase.shipments.view' },
           { label: 'Landed Costs',      href: '/purchase/landed-costs', icon: 'Calculator', permission: 'purchase.landed_costs.view' },
           { label: 'Dead Stock Report', href: '/purchase/dead-stock',   icon: 'BarChart3',  permission: 'purchase.dead_stock.view' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Orders',
+    icon: 'ShoppingCart',
+    permission: 'orders.access',
+    groups: [
+      {
+        items: [
+          { label: 'View Orders',  href: '/orders',        icon: 'List',       permission: 'orders.view' },
+          { label: 'Create Order', href: '/orders/create', icon: 'PlusCircle', permission: 'orders.manage' },
+        ],
+      },
+      {
+        label: 'Order Quotations',
+        items: [
+          { label: 'View Order Quotations',  href: '/quotations',        icon: 'FileSearch', permission: 'quotations.view' },
+          { label: 'Create Order Quotation', href: '/quotations/create', icon: 'FilePlus',   permission: 'quotations.manage' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Invoices',
+    icon: 'FileText',
+    permission: 'invoices.access',
+    groups: [
+      {
+        items: [
+          { label: 'View Invoices',    href: '/invoices',                  icon: 'FileText', permission: 'invoices.view' },
+          { label: 'Pending Payments', href: '/invoices/pending-payments', icon: 'Clock',    permission: 'payments.view' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Contracts',
+    icon: 'FileText',
+    permission: 'contracts.access',
+    groups: [
+      {
+        items: [
+          { label: 'Draft Quotations', href: '/contracts/quotations',       icon: 'FileSearch', permission: 'contracts.quotations.view' },
+          { label: 'Live Contracts',   href: '/contracts',                  icon: 'FileCheck',  permission: 'contracts.live.view' },
+          { label: 'Create Quotation', href: '/contracts/create-quotation', icon: 'FilePlus',   permission: 'contracts.quotations.manage' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Teams',
+    icon: 'Users',
+    permission: 'teams.access',
+    groups: [
+      {
+        items: [
+          { label: 'Map',         href: '/map',         icon: 'MapPin',   permission: 'teams.map.view' },
+          { label: 'Calendar',    href: '/calendar',    icon: 'Calendar', permission: 'calendar.view' },
+          { label: 'Team Leader', href: '/team-leader', icon: 'Crown',    permission: 'teams.team_leader.view' },
         ],
       },
     ],
