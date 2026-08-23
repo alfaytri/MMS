@@ -552,6 +552,133 @@ export const NAV_TREE: TreeNode[] = [
     ],
   },
   {
+    id: 'orders',
+    label: 'Orders',
+    icon: ShoppingBag,
+    permissions: [
+      { key: 'orders.access', label: 'Access Orders', description: 'Show the Orders dropdown in the top nav' },
+    ],
+    children: [
+      {
+        id: 'orders-orders',
+        label: 'Orders',
+        icon: ClipboardList,
+        permissions: [
+          { key: 'orders.view',   label: 'View Orders',            description: 'Open the Orders list and order details' },
+          { key: 'orders.manage', label: 'Create / Manage Orders', description: 'Create and edit orders, assign teams, and schedule visits' },
+        ],
+      },
+      {
+        id: 'orders-quotations',
+        label: 'Order Quotations',
+        icon: FileText,
+        permissions: [
+          { key: 'quotations.view',   label: 'View Order Quotations',            description: 'Open the order quotations list and details' },
+          { key: 'quotations.manage', label: 'Create / Manage Order Quotations', description: 'Create and edit order quotations' },
+        ],
+      },
+      {
+        id: 'orders-followups',
+        label: 'Follow-up Requests',
+        icon: RotateCcw,
+        permissions: [
+          { key: 'follow_ups.request', label: 'Request Follow-up', description: 'Raise a follow-up request from a completed order' },
+          { key: 'follow_ups.confirm', label: 'Confirm Follow-up', description: 'Approve or reject follow-up requests' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'invoices',
+    label: 'Invoices',
+    icon: FileText,
+    permissions: [
+      { key: 'invoices.access', label: 'Access Invoices',        description: 'Show the Invoices dropdown in the top nav' },
+      { key: 'invoices.view',   label: 'View Invoices',          description: 'Open the field-service (TL) invoices list and details' },
+      { key: 'payments.view',   label: 'View Pending Payments',  description: 'Open the pending-payments page and payment records' },
+    ],
+  },
+  {
+    id: 'contracts',
+    label: 'Contracts',
+    icon: FileText,
+    permissions: [
+      { key: 'contracts.access', label: 'Access Contracts', description: 'Show the Contracts dropdown in the top nav' },
+    ],
+    children: [
+      {
+        id: 'contracts-quotations',
+        label: 'Contract Quotations',
+        icon: FileText,
+        permissions: [
+          { key: 'contracts.quotations.view',   label: 'View Contract Quotations',            description: 'Open the draft contract quotations list' },
+          { key: 'contracts.quotations.manage', label: 'Create / Manage Contract Quotations', description: 'Create and edit contract quotations' },
+        ],
+      },
+      {
+        id: 'contracts-live',
+        label: 'Live Contracts',
+        icon: ClipboardCheck,
+        permissions: [
+          { key: 'contracts.live.view', label: 'View Live Contracts', description: 'Open the live contracts list and details' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'teams-field',
+    label: 'Teams & Field',
+    icon: UserCheck,
+    permissions: [
+      { key: 'teams.access',           label: 'Access Teams',           description: 'Show the Teams dropdown in the top nav' },
+      { key: 'teams.view',             label: 'View Teams & Employees', description: 'Open the Teams & Employees master-data page' },
+      { key: 'teams.map.view',         label: 'View Map',               description: 'Open the field team map view' },
+      { key: 'calendar.view',          label: 'View Calendar',          description: 'Open the field-service scheduling calendar' },
+      { key: 'teams.team_leader.view', label: 'Team Leader Mode',       description: 'Open the Team-Leader field app' },
+    ],
+  },
+  {
+    id: 'contact-centre',
+    label: 'Contact Centre',
+    icon: Bell,
+    permissions: [
+      { key: 'contact_centre.view',        label: 'Access Contact Centre', description: 'Open the Contact Centre sidebar (WhatsApp + calls + customer CRM)' },
+      { key: 'contact_centre.admin.purge', label: 'Purge / Admin Tools',   description: 'Access the Contact Centre purge and admin tools' },
+    ],
+  },
+  {
+    id: 'field-service-setup',
+    label: 'Field Service Setup',
+    icon: Wrench,
+    children: [
+      {
+        id: 'fs-service-customers',
+        label: 'Service Customers',
+        icon: UserCheck,
+        permissions: [
+          { key: 'master_data.service_customers.view', label: 'View Service Customers', description: 'Open the Service Customers master-data page' },
+        ],
+      },
+      {
+        id: 'fs-services',
+        label: 'Services',
+        icon: Wrench,
+        permissions: [
+          { key: 'master_data.services.view',    label: 'View Services',           description: 'Open the Services catalog master-data page' },
+          { key: 'master_data.services.approve', label: 'Approve Service Changes', description: 'Approve or reject service change requests' },
+        ],
+      },
+      {
+        id: 'fs-subscriptions',
+        label: 'Subscription Packages',
+        icon: Layers,
+        permissions: [
+          { key: 'master_data.subscriptions.view', label: 'View Subscription Packages', description: 'Open the subscription packages master-data page' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'operations',
     label: 'Operations',
     icon: Flame,
