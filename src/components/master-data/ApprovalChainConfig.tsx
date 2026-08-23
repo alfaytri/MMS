@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  ChevronDown, ChevronRight, Plus, Archive, Star, Zap, Loader2,
+  ChevronDown, ChevronRight, Plus, Star, Zap, Loader2,
   Shield, Pencil, GitBranch, Trash2, Check, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -20,7 +20,7 @@ import {
   useWorkflowSteps,
   useAddWorkflowStepForRole,
   useToggleWorkflowStep,
-  useArchiveWorkflowStep,
+  useDeleteWorkflowStep,
   useUpdateWorkflowStepRole,
   useUpdateWorkflowStepConditions,
   type WorkflowStep,
@@ -296,7 +296,7 @@ interface StepRowProps {
 
 function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProps) {
   const toggle      = useToggleWorkflowStep()
-  const archive     = useArchiveWorkflowStep()
+  const deleteStep  = useDeleteWorkflowStep()
   const updateRole  = useUpdateWorkflowStepRole()
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -315,10 +315,10 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
       .catch((err: Error) => toast.error(err.message))
   }
 
-  function handleArchiveConfirm() {
+  function handleDeleteConfirm() {
     if (!profileId) return
-    archive.mutateAsync({ stepId: step.id, profileId })
-      .then(() => { toast.success('Step archived'); setConfirmOpen(false) })
+    deleteStep.mutateAsync({ stepId: step.id, profileId })
+      .then(() => { toast.success('Step deleted'); setConfirmOpen(false) })
       .catch((err: Error) => { toast.error(err.message); setConfirmOpen(false) })
   }
 
@@ -368,10 +368,10 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
             variant="ghost"
             className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
             onClick={() => setConfirmOpen(true)}
-            disabled={archive.isPending}
-            aria-label="Archive step"
+            disabled={deleteStep.isPending}
+            aria-label="Delete step"
           >
-            <Archive className="h-3.5 w-3.5" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         )}
 
@@ -383,12 +383,12 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Archive step?"
+        title="Delete step?"
         description={`This will remove "${displayName}" from the approval chain. This cannot be undone.`}
-        confirmLabel="Archive"
+        confirmLabel="Delete"
         variant="destructive"
-        isPending={archive.isPending}
-        onConfirm={handleArchiveConfirm}
+        isPending={deleteStep.isPending}
+        onConfirm={handleDeleteConfirm}
       />
     </>
   )
@@ -551,7 +551,7 @@ function GroupSection({ group, steps, allWorkflowSteps, isOwner, profileId, appr
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title="Delete path?"
-        description={`This will remove the "${group.group_label}" path. Steps must be archived first.`}
+        description={`This will remove the "${group.group_label}" path. Steps must be deleted first.`}
         confirmLabel="Delete"
         variant="destructive"
         isPending={deleteGroup.isPending}
@@ -726,7 +726,7 @@ export function ApprovalChainManagement() {
           Conditional steps only apply for matching types.{' '}
           <GitBranch className="inline h-2.5 w-2.5 mr-0.5 -mt-0.5" />
           Paths are OR — any path completing approves the request.
-          {!isOwner && ' Only owners can manage paths and archive steps.'}
+          {!isOwner && ' Only owners can manage paths and delete steps.'}
         </p>
       </div>
     </div>

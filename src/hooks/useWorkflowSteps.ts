@@ -162,12 +162,17 @@ export function useMoveStepToGroup() {
   })
 }
 
-export function useArchiveWorkflowStep() {
+export function useDeleteWorkflowStep() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ stepId, profileId }: { stepId: string; profileId: string }) => {
       const supabase = createClient()
-      const { error } = await supabase.rpc('archive_workflow_step', {
+      // Hard delete via RPC (mirrors the old archive RPC's Owner + permission gate).
+      // approval_workflow_steps has no inbound FKs, so removal is clean.
+      // Cast: delete_workflow_step ships in migration 20261004000200; the committed
+      // database.types.ts predates it (its dev gen-source is paused). Identical
+      // signature to archive_workflow_step — regenerate types when dev is resumed.
+      const { error } = await supabase.rpc('delete_workflow_step' as 'archive_workflow_step', {
         p_step_id: stepId,
         p_profile_id: profileId,
       })

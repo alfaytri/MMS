@@ -80,4 +80,7 @@ No blocking dependents; soft-delete here is a *choice* (history-keeping), not an
 | **po_approval_chains** | only `CASCADE` to its own tiers, no external refs — safe, but you'd lose the chain's config history |
 | **shipments** | no blocking inbound FKs — `archived` is history-keeping only |
 
-**Net:** the only paths that are *both* safe to convert *and* not already hard are **approval_workflow_steps, po_approval_chains, shipments** — and each keeps its archive flag on purpose (to preserve the history of what governed past records). Everything financial, inventory, or order-related **must stay soft.** Two columns (`custom_roles.deleted_at`, `po_approval_chain_tiers.deleted_at`) are already-hard vestigial and can simply be dropped.
+**Net:** the only paths that are *both* safe to convert *and* not already hard are **approval_workflow_steps, po_approval_chains, shipments**. Everything financial, inventory, or order-related **must stay soft.**
+
+### Executed 2026-08-23 (per operator decision)
+The 3 safe paths were **converted to hard-delete** — migration `20261004000200` (`delete_workflow_step` RPC) + hooks `useDeleteApprovalChain` / `useDeleteShipment` / `useDeleteWorkflowStep` + UI relabelled Archive→Delete (shipments Active/Archived tabs removed). Permission guards preserved. Trade-off accepted: these lose archive-recoverability + history-of-what-governed-past-records. The 2 vestigial `deleted_at` columns (`custom_roles`, `po_approval_chain_tiers`) were **left in place** — dropping them would rewrite ~28 security-critical DB functions (incl. the auth hook) for zero functional gain.

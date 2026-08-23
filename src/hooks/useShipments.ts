@@ -121,14 +121,16 @@ export function useAddShipmentEvent() {
   })
 }
 
-export function useArchiveShipment() {
+export function useDeleteShipment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+      // Hard delete: shipments have no inbound FK dependents (tracking events cascade),
+      // so removal is clean.
       const { error } = await supabase
         .from('shipments')
-        .update({ archived: true })
+        .delete()
         .eq('id', id)
       if (error) throw error
     },
