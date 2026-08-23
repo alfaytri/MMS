@@ -20,13 +20,12 @@ import { ServiceEditDialog } from '@/components/services/ServiceEditDialog'
 import { ServiceChangeHistoryDialog } from '@/components/services/ServiceChangeHistoryDialog'
 import { NotificationsTab } from '@/components/services/NotificationsTab'
 import { InstructionsTab } from '@/components/services/InstructionsTab'
-import { InventoryTab } from '@/components/services/InventoryTab'
 import { PromotionsTab } from '@/components/services/PromotionsTab'
 import { usePendingAddRequests, usePendingServiceChangeCount } from '@/hooks/useServiceChangeRequests'
 import { useHasPermission } from '@/hooks/usePermissions'
 import type { Service } from '@/hooks/useServices'
 
-type TabKey = 'normal' | 'contract' | 'mobile' | 'reminders' | 'instructions' | 'inventory' | 'promotions'
+type TabKey = 'normal' | 'contract' | 'mobile' | 'reminders' | 'instructions' | 'promotions'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'normal', label: 'Normal', icon: ListTree },
@@ -34,7 +33,6 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'mobile', label: 'Mobile', icon: Smartphone },
   { key: 'reminders', label: 'Notifications', icon: Bell },
   { key: 'instructions', label: 'Instructions', icon: FileText },
-  { key: 'inventory', label: 'Inventory', icon: Package },
   { key: 'promotions', label: 'Promotions', icon: Tag },
 ]
 
@@ -54,7 +52,7 @@ const LINKAGE_CHIPS: { key: LinkageKey; label: string; icon: React.ElementType }
   { key: 'parts', label: 'Parts', icon: Wrench },
 ]
 
-const FILTER_BAR_HIDDEN_TABS: TabKey[] = ['reminders', 'instructions', 'inventory', 'promotions']
+const FILTER_BAR_HIDDEN_TABS: TabKey[] = ['reminders', 'instructions', 'promotions']
 
 export default function ServicesPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('normal')
@@ -309,9 +307,6 @@ export default function ServicesPage() {
         )}
         {activeTab === 'instructions' && (
           <InstructionsTab enabled={visitedTabs.has('instructions')} />
-        )}
-        {activeTab === 'inventory' && (
-          <InventoryTab enabled={visitedTabs.has('inventory')} />
         )}
         {activeTab === 'promotions' && (
           <PromotionsTab enabled={visitedTabs.has('promotions')} />
