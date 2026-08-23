@@ -49,3 +49,35 @@ The app **already hard-deletes wherever it's safe** (config tables, unassigned r
 - **Allow hard-delete for zero-dependent drafts** (PO/SO) if you want draft removal to leave no trace — a guarded RPC that hard-deletes only when the draft has no children.
 
 **Blanket soft→hard conversion is not recommended and would break FK integrity + destroy financial/audit history.**
+
+---
+
+## Definitive verdict — would converting to HARD delete break?
+
+### 🔴 WOULD BREAK — keep soft-delete
+Hard delete throws a foreign-key error (`23503`) the moment the record has real data, or destroys financial/audit history.
+
+| Path | Blocking inbound dependents (ON DELETE) |
+|---|---|
+| **inventory_item_brand_variants** | 10× `NO ACTION` (stock_movements, cogs_entries, receival_items, sale_order_lines, sale_delivery_lines, return_lines, warehouse_transfer_items, inventory_check_items, stock_adjustments, landed_cost_item_allocations) + 5× `RESTRICT` (fifo_cost_layers, consumption_lines, inventory_damaged_stock ×3) — breaks the instant a variant has any stock or history |
+| **inventory_items** | cascades into its brand-variants → hits the variant blockers above → breaks |
+| **inventory_categories** | `NO ACTION` (inventory_items) + `RESTRICT` (sub-categories) |
+| **inventory_attribute_options** | `RESTRICT` (inventory_item_attributes) |
+| **purchase_orders** | `NO ACTION` (bills, receivals, debit_notes, shipments) — once received/billed |
+| **sale_orders** | `NO ACTION` (sale_order_lines, sale_deliveries, so_invoices, cogs_entries) + `RESTRICT` (warranty_records) |
+| **payments** | `NO ACTION` (payment_installments) + AR/AP ledger integrity |
+| **so_po_returns** | `NO ACTION` (debit_notes, warranty_claims) |
+| **reason_lists / reason_list_categories** | `NO ACTION` (credit_notes, debit_notes) — breaks once a reason has been used |
+
+### 🟢 WON'T BREAK — safe to hard-delete
+No blocking dependents; soft-delete here is a *choice* (history-keeping), not an FK necessity.
+
+| Path | Why safe |
+|---|---|
+| **po_approval_chain_tiers** | **0 inbound FKs** — and the app **already hard-deletes** these; the `deleted_at` column is vestigial |
+| **custom_roles** | app **already hard-deletes** (`useDeleteRole`); only blocks if the role still backs an `approval_workflow_steps` row (`NO ACTION`) — otherwise clean; today's trigger clears the tier arrays |
+| **approval_workflow_steps** | no inbound FKs — `archived_at` is history-keeping only |
+| **po_approval_chains** | only `CASCADE` to its own tiers, no external refs — safe, but you'd lose the chain's config history |
+| **shipments** | no blocking inbound FKs — `archived` is history-keeping only |
+
+**Net:** the only paths that are *both* safe to convert *and* not already hard are **approval_workflow_steps, po_approval_chains, shipments** — and each keeps its archive flag on purpose (to preserve the history of what governed past records). Everything financial, inventory, or order-related **must stay soft.** Two columns (`custom_roles.deleted_at`, `po_approval_chain_tiers.deleted_at`) are already-hard vestigial and can simply be dropped.
