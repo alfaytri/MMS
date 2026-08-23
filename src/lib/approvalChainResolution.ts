@@ -55,6 +55,12 @@ export function validateRoles(
   assignments: ApprovalRoleAssignmentRow[],
 ): string | null {
   const activeAssignments = assignments.filter((a) => !a.deleted_at)
+  // Fail closed: an applicable band with no required roles would silently skip its
+  // sign-off (e.g. its only role was deleted). Block until an admin configures one.
+  const emptyTier = tiers.find((t) => !t.required_roles || t.required_roles.length === 0)
+  if (emptyTier) {
+    return `An approval band for this amount (from ${emptyTier.min_amount.toLocaleString()}) has no approvers configured. Ask an admin to add a role to it in Approval Settings.`
+  }
   const allRoles = new Set(tiers.flatMap((t) => t.required_roles))
   for (const role of allRoles) {
     if (!activeAssignments.some((a) => a.role === role)) {
