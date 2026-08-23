@@ -51,6 +51,8 @@ function makeVisit(overrides: Partial<CalendarVisit>): CalendarVisit {
     order_number: null,
     customer_phone: null,
     services_summary: null,
+    source_id: null,
+    created_by_name: null,
     ...overrides,
   }
 }

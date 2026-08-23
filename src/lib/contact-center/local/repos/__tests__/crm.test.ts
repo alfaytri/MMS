@@ -60,8 +60,8 @@ describe('products repo', () => {
 describe('orders repo', () => {
   it('listByCustomer returns rows ordered by scheduled_date DESC', async () => {
     await ordersRepo.upsertMany(getDb('test'), [
-      { id: 'o1', order_id: 'N/2026/05/0011', service_customer_id: 'cust-1', status: 'completed', scheduled_date: '2026-05-25T00:00:00Z', type: 'tank_cleaning', total_amount: 500 },
-      { id: 'o2', order_id: 'N/2026/05/0016', service_customer_id: 'cust-1', status: 'completed', scheduled_date: '2026-05-31T00:00:00Z', type: 'tank_cleaning', total_amount: 100 },
+      { id: 'o1', order_id: 'N/2026/05/0011', service_customer_id: 'cust-1', status: 'completed', scheduled_date: '2026-05-25T00:00:00Z', type: 'tank_cleaning', total_amount: 500, service_count: 1, paid_amount: 0 },
+      { id: 'o2', order_id: 'N/2026/05/0016', service_customer_id: 'cust-1', status: 'completed', scheduled_date: '2026-05-31T00:00:00Z', type: 'tank_cleaning', total_amount: 100, service_count: 1, paid_amount: 0 },
     ])
     const rows = await ordersRepo.listByCustomer(getDb('test'), 'cust-1')
     expect(rows.map((r) => r.id)).toEqual(['o2', 'o1'])

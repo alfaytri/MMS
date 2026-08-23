@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TeamGroupedList } from '../TeamGroupedList'
+import type { ChatConversation } from '@/types/contact-center'
 
 const divisions = [
   { id: 'd1', name: 'Kitchen',     short_name: 'KIT', sort_order: 1 },
@@ -13,7 +14,7 @@ const teams = [
 ]
 const conversations = new Map<string, { id: string; last_message: string }>([
   ['+97411111111', { id: 'c1', last_message: 'Hello' }],
-])
+]) as unknown as Map<string, ChatConversation>
 
 describe('TeamGroupedList', () => {
   it('renders one division header per non-empty group', () => {

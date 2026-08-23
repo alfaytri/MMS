@@ -30,7 +30,7 @@ function props() {
     provider: 'wati' as const,
     teamPhones, divisions,
     onOpenTeam: vi.fn(), onMarkResolved: vi.fn(async () => {}),
-  }
+  } as unknown as Parameters<typeof ChatListV2>[0]
 }
 
 describe('ChatListV2 search', () => {

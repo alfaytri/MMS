@@ -85,7 +85,7 @@ describe('POST /api/3cx/call/decline', () => {
   it('502 when dropCall throws and the call is still active', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
     mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
-    const activeWithCall = [
+    const activeWithCall: activeCalls.ActiveCall[] = [
       { callId: 40, customerPhone: '+97472195504', status: 'ringing', participants: [{ extension: '112', participantId: 508 }], startedAt: 'x' },
     ]
     vi.spyOn(activeCalls, 'fetchActiveCalls')
@@ -100,7 +100,7 @@ describe('POST /api/3cx/call/decline', () => {
   it('returns 200 (idempotent) when dropCall throws but the call has already ended', async () => {
     mockSupabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
     mockSupabase.maybeSingle.mockResolvedValue({ data: { threecx_extension: '112' }, error: null })
-    const activeWithCall = [
+    const activeWithCall: activeCalls.ActiveCall[] = [
       { callId: 40, customerPhone: '+97472195504', status: 'ringing', participants: [{ extension: '112', participantId: 508 }], startedAt: 'x' },
     ]
     const activeAfterDrop: typeof activeWithCall = []  // call is gone
