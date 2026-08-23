@@ -396,6 +396,11 @@ export function ApprovalChainsTab() {
                                 </span>
                               )
                             })}
+                            {tier.required_roles.length === 0 && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-amber-700">
+                                <AlertTriangle className="h-3 w-3" /> No approvers — this band skips approval
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                         {isAdmin && (
@@ -502,7 +507,13 @@ function RoleChipGroup({
   if (loading) {
     return <span className="text-xs text-muted-foreground">Loading roles…</span>
   }
-  if (roles.length === 0) {
+  // Names still stored on a tier but no longer a live PO-approval role (e.g. the
+  // role was deleted before the cascade trigger existed). Render them as removable
+  // amber chips so an admin can clear them — they never re-appear once removed.
+  const knownNames = new Set(roles.map((r) => r.name))
+  const orphanSelected = selected.filter((n) => !knownNames.has(n))
+
+  if (roles.length === 0 && orphanSelected.length === 0) {
     return (
       <span className="text-xs text-muted-foreground">
         No active roles in the PO Approvals workflow. Add a step in Users &amp; Roles → Approval Chain Management.
@@ -546,6 +557,23 @@ function RoleChipGroup({
           </button>
         )
       })}
+      {orphanSelected.map((name) => (
+        <button
+          key={`orphan-${name}`}
+          type="button"
+          onClick={() => onToggle(name)}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full border font-medium transition-all duration-150',
+            size === 'sm' ? 'h-6 px-2 text-[11px]' : 'h-7 px-2.5 text-xs',
+            'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100',
+          )}
+          title={`${name} — this role no longer exists. Click to remove it from this tier.`}
+        >
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          <span className="line-through">{name}</span>
+          <X className="h-3 w-3 shrink-0" />
+        </button>
+      ))}
     </div>
   )
 }
