@@ -54,7 +54,7 @@ describe('validateRoles', () => {
 
   it('returns error message naming the missing role', () => {
     const result = validateRoles(tiers, [assign('pm', 'purchase_manager')])
-    expect(result).toContain('Accountant')
+    expect(result).toContain('accountant')
   })
 
   it('allows creator to be an approver', () => {
@@ -64,7 +64,13 @@ describe('validateRoles', () => {
 
   it('excludes soft-deleted assignments', () => {
     const result = validateRoles(tiers, [assign('pm', 'purchase_manager'), { ...assign('ac', 'accountant'), deleted_at: '2026-01-01' }])
-    expect(result).toContain('Accountant')
+    expect(result).toContain('accountant')
+  })
+
+  it('fails closed when an applicable band has no roles', () => {
+    const withEmpty = [tier(1, 0, ['purchase_manager']), tier(2, 5000, [])]
+    const result = validateRoles(withEmpty, [assign('pm', 'purchase_manager')])
+    expect(result).toContain('no approvers configured')
   })
 })
 
