@@ -13006,6 +13006,16 @@ export type Database = {
         | {
             Args: {
               p_condition_types?: string[]
+              p_is_conditional?: boolean
+              p_role_desc?: string
+              p_role_name: string
+              p_workflow: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_condition_types?: string[]
               p_group_id?: string
               p_is_conditional?: boolean
               p_role_desc?: string
@@ -13097,12 +13107,17 @@ export type Database = {
         Args: { p_comment: string; p_request_id: string }
         Returns: undefined
       }
+      approve_service_change: { Args: { p_request_id: string }; Returns: Json }
       approve_stock_adjustment_inventory: {
         Args: { p_adjustment_id: string; p_approved_by: string }
         Returns: undefined
       }
       archive_workflow_step: {
         Args: { p_profile_id: string; p_step_id: string }
+        Returns: undefined
+      }
+      assign_team_leader: {
+        Args: { p_employee_id: string; p_team_id: string }
         Returns: undefined
       }
       attach_payment_to_bill: {
@@ -13176,6 +13191,10 @@ export type Database = {
         }
         Returns: string
       }
+      check_is_division_manager: {
+        Args: { p_profile_id: string }
+        Returns: boolean
+      }
       claim_media_jobs: {
         Args: { p_limit: number }
         Returns: {
@@ -13191,28 +13210,46 @@ export type Database = {
         Args: { p_milestone_id: string }
         Returns: undefined
       }
-      complete_delivery_inventory: {
-        Args: {
-          p_delivery_id: string
-          p_so_id: string
-          p_sub_container_id?: string
-        }
-        Returns: undefined
-      }
+      complete_delivery_inventory:
+        | {
+            Args: { p_delivery_id: string; p_so_id: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_delivery_id: string
+              p_so_id: string
+              p_sub_container_id?: string
+            }
+            Returns: undefined
+          }
       confirm_sale_order: { Args: { p_so_id: string }; Returns: Json }
-      create_and_approve_receival: {
-        Args: {
-          p_date: string
-          p_items: Json
-          p_notes: string
-          p_po_id: string
-          p_receival_number: string
-          p_received_by_name: string
-          p_sub_container_id?: string
-          p_warehouse_id: string
-        }
-        Returns: Json
-      }
+      create_and_approve_receival:
+        | {
+            Args: {
+              p_date: string
+              p_items: Json
+              p_notes: string
+              p_po_id: string
+              p_receival_number: string
+              p_received_by_name: string
+              p_warehouse_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_date: string
+              p_items: Json
+              p_notes: string
+              p_po_id: string
+              p_receival_number: string
+              p_received_by_name: string
+              p_sub_container_id?: string
+              p_warehouse_id: string
+            }
+            Returns: Json
+          }
       create_and_confirm_delivery:
         | {
             Args: {
@@ -13245,45 +13282,84 @@ export type Database = {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
       }
-      create_inventory_receival: {
-        Args: {
-          p_brand_variant_id: string
-          p_date: string
-          p_mode: string
-          p_notes: string
-          p_qty: number
-          p_source_layer_id: string
-          p_sub_container_id: string
-          p_unit_cost: number
-          p_warehouse_id: string
-        }
-        Returns: {
-          carved_from_layer_id: string | null
-          check_sheet_pdf_url: string | null
-          created_at: string | null
-          date: string
-          division_id: string | null
-          id: string
-          is_replacement: boolean
-          notes: string | null
-          po_id: string | null
-          receipt_pdf_url: string | null
-          receival_number: string
-          received_by: string | null
-          received_by_name: string | null
-          source_debit_note_id: string | null
-          source_type: Database["public"]["Enums"]["receival_source_type"]
-          status: Database["public"]["Enums"]["receival_status"] | null
-          updated_at: string | null
-          warehouse_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "receivals"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      create_inventory_receival:
+        | {
+            Args: {
+              p_brand_variant_id: string
+              p_date: string
+              p_mode: string
+              p_notes: string
+              p_qty: number
+              p_source_layer_id: string
+              p_unit_cost: number
+              p_warehouse_id: string
+            }
+            Returns: {
+              carved_from_layer_id: string | null
+              check_sheet_pdf_url: string | null
+              created_at: string | null
+              date: string
+              division_id: string | null
+              id: string
+              is_replacement: boolean
+              notes: string | null
+              po_id: string | null
+              receipt_pdf_url: string | null
+              receival_number: string
+              received_by: string | null
+              received_by_name: string | null
+              source_debit_note_id: string | null
+              source_type: Database["public"]["Enums"]["receival_source_type"]
+              status: Database["public"]["Enums"]["receival_status"] | null
+              updated_at: string | null
+              warehouse_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "receivals"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_brand_variant_id: string
+              p_date: string
+              p_mode: string
+              p_notes: string
+              p_qty: number
+              p_source_layer_id: string
+              p_sub_container_id: string
+              p_unit_cost: number
+              p_warehouse_id: string
+            }
+            Returns: {
+              carved_from_layer_id: string | null
+              check_sheet_pdf_url: string | null
+              created_at: string | null
+              date: string
+              division_id: string | null
+              id: string
+              is_replacement: boolean
+              notes: string | null
+              po_id: string | null
+              receipt_pdf_url: string | null
+              receival_number: string
+              received_by: string | null
+              received_by_name: string | null
+              source_debit_note_id: string | null
+              source_type: Database["public"]["Enums"]["receival_source_type"]
+              status: Database["public"]["Enums"]["receival_status"] | null
+              updated_at: string | null
+              warehouse_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "receivals"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       create_landed_cost: {
         Args: {
           p_attached_po_ids: string[]
@@ -13327,28 +13403,52 @@ export type Database = {
         }
         Returns: string
       }
-      create_sale_order: {
-        Args: {
-          p_currency: string
-          p_customer_id: string
-          p_customer_notes: string
-          p_delivery_terms: string
-          p_delivery_terms_notes: string
-          p_discount_amount: number
-          p_discount_label: string
-          p_discount_type: string
-          p_division_id?: string
-          p_exchange_rate: number
-          p_expected_delivery: string
-          p_intent: string
-          p_line_items: Json
-          p_payment_milestones: Json
-          p_payment_terms: string
-          p_payment_terms_notes: string
-          p_validity_days: number
-        }
-        Returns: Json
-      }
+      create_sale_order:
+        | {
+            Args: {
+              p_currency: string
+              p_customer_id: string
+              p_customer_notes: string
+              p_delivery_terms: string
+              p_delivery_terms_notes: string
+              p_discount_amount: number
+              p_discount_label: string
+              p_discount_type: string
+              p_division_id?: string
+              p_exchange_rate: number
+              p_expected_delivery: string
+              p_intent: string
+              p_line_items: Json
+              p_payment_milestones: Json
+              p_payment_terms: string
+              p_payment_terms_notes: string
+              p_validity_days: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_currency: string
+              p_customer_id: string
+              p_customer_notes: string
+              p_delivery_terms: string
+              p_delivery_terms_notes: string
+              p_discount_amount: number
+              p_discount_label: string
+              p_discount_type: string
+              p_division_id: string
+              p_exchange_rate: number
+              p_intent: string
+              p_line_items: Json
+              p_notes: string
+              p_payment_milestones: Json
+              p_payment_terms: string
+              p_payment_terms_notes: string
+              p_subtotal: number
+              p_validity_days: number
+            }
+            Returns: Json
+          }
       create_service_customer: {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
@@ -13370,39 +13470,67 @@ export type Database = {
         }
         Returns: string
       }
-      create_stock_adjustment_v2: {
-        Args: {
-          p_adjustment_type: string
-          p_brand_variant_id: string
-          p_notes: string
-          p_photo_urls: string[]
-          p_qty: number
-          p_reason: string
-          p_requested_by: string
-          p_requested_by_name: string
-          p_sub_container_id?: string
-          p_warehouse_id: string
-        }
-        Returns: string
-      }
+      create_stock_adjustment_v2:
+        | {
+            Args: {
+              p_adjustment_type: string
+              p_brand_variant_id: string
+              p_notes: string
+              p_photo_urls: string[]
+              p_qty: number
+              p_reason: string
+              p_requested_by: string
+              p_requested_by_name: string
+              p_warehouse_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_adjustment_type: string
+              p_brand_variant_id: string
+              p_notes: string
+              p_photo_urls: string[]
+              p_qty: number
+              p_reason: string
+              p_requested_by: string
+              p_requested_by_name: string
+              p_sub_container_id?: string
+              p_warehouse_id: string
+            }
+            Returns: string
+          }
       create_tool_item_with_default_variant: {
         Args: { p_category_id: string; p_name_ar: string; p_name_en: string }
         Returns: string
       }
-      create_transfer_v2: {
-        Args: {
-          p_created_by_name?: string
-          p_created_by_profile_id?: string
-          p_date: string
-          p_from_sub_container_id?: string
-          p_from_warehouse_id: string
-          p_items: Json
-          p_notes?: string
-          p_to_sub_container_id?: string
-          p_to_warehouse_id: string
-        }
-        Returns: string
-      }
+      create_transfer_v2:
+        | {
+            Args: {
+              p_created_by_name?: string
+              p_created_by_profile_id?: string
+              p_date: string
+              p_from_warehouse_id: string
+              p_items: Json
+              p_notes?: string
+              p_to_warehouse_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_created_by_name?: string
+              p_created_by_profile_id?: string
+              p_date: string
+              p_from_sub_container_id?: string
+              p_from_warehouse_id: string
+              p_items: Json
+              p_notes?: string
+              p_to_sub_container_id?: string
+              p_to_warehouse_id: string
+            }
+            Returns: string
+          }
       create_warranty_records_for_delivery: {
         Args: { p_delivery_id: string }
         Returns: number
@@ -13412,24 +13540,37 @@ export type Database = {
         Args: { p_customer_id: string; p_exclude_so_id?: string }
         Returns: number
       }
-      deduct_fifo_layers: {
-        Args: {
-          p_bv_id: string
-          p_is_transfer: boolean
-          p_qty: number
-          p_sub_container_id?: string
-          p_wh_id: string
-        }
-        Returns: {
-          layer_id: string
-          qty_taken: number
-          source_id: string
-          source_type: string
-          sub_container_id: string
-          total_cost: number
-          unit_cost: number
-        }[]
-      }
+      deduct_fifo_layers:
+        | {
+            Args: {
+              p_bv_id: string
+              p_is_transfer?: boolean
+              p_qty: number
+              p_wh_id: string
+            }
+            Returns: {
+              total_cost: number
+              weighted_unit_cost: number
+            }[]
+          }
+        | {
+            Args: {
+              p_bv_id: string
+              p_is_transfer: boolean
+              p_qty: number
+              p_sub_container_id?: string
+              p_wh_id: string
+            }
+            Returns: {
+              layer_id: string
+              qty_taken: number
+              source_id: string
+              source_type: string
+              sub_container_id: string
+              total_cost: number
+              unit_cost: number
+            }[]
+          }
       detach_payment_from_invoice: {
         Args: { p_invoice_id: string; p_payment_id: string }
         Returns: undefined
@@ -13485,18 +13626,31 @@ export type Database = {
           unit_id: string
         }[]
       }
-      get_category_stock_aggregates: {
-        Args: { p_division_ids?: string[]; p_type: string }
-        Returns: {
-          avg_cost: number
-          category_id: string
-          total_damaged: number
-          total_incoming: number
-          total_reserved: number
-          total_stock: number
-          variant_count: number
-        }[]
-      }
+      get_category_stock_aggregates:
+        | {
+            Args: { p_type: string }
+            Returns: {
+              avg_cost: number
+              category_id: string
+              total_damaged: number
+              total_incoming: number
+              total_reserved: number
+              total_stock: number
+              variant_count: number
+            }[]
+          }
+        | {
+            Args: { p_division_ids?: string[]; p_type: string }
+            Returns: {
+              avg_cost: number
+              category_id: string
+              total_damaged: number
+              total_incoming: number
+              total_reserved: number
+              total_stock: number
+              variant_count: number
+            }[]
+          }
       get_cogs_breakdown: {
         Args: { p_brand_variant_id: string }
         Returns: Json
@@ -13519,6 +13673,13 @@ export type Database = {
         }[]
       }
       get_customer_pending_balances: { Args: never; Returns: Json }
+      get_date_team_availability: {
+        Args: { p_dates: string[]; p_from_time: string; p_to_time: string }
+        Returns: {
+          available_teams_count: number
+          visit_date: string
+        }[]
+      }
       get_dead_stock_report: {
         Args: never
         Returns: {
@@ -13618,6 +13779,30 @@ export type Database = {
           lc_adjustment_count: number
           lc_adjustments_total: number
           sold_at_sale_total: number
+        }[]
+      }
+      get_team_leader_visits: {
+        Args: { p_from_date?: string; p_team_id: string }
+        Returns: {
+          address: string
+          customer_name: string
+          customer_phone: string
+          date: string
+          has_invoice: boolean
+          id: string
+          location_phone: string
+          notes: string
+          order_id: string
+          other_teams_names: string[]
+          scheduled_time: string
+          services_json: Json
+          source_id: string
+          source_type: string
+          status: string
+          team_id: string
+          team_ids: string[]
+          type: string
+          waze_link: string
         }[]
       }
       get_team_tool_units: {
@@ -13729,10 +13914,15 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: boolean
       }
+      increment_credit_balance: {
+        Args: { p_amount: number; p_customer_id: string }
+        Returns: undefined
+      }
       is_any_division_visible: {
         Args: { p_division_ids: string[] }
         Returns: boolean
       }
+      is_contract_visible: { Args: { p_contract_id: string }; Returns: boolean }
       is_division_member: {
         Args: { row_division_id: string }
         Returns: boolean
@@ -13831,6 +14021,10 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      reject_service_change: {
+        Args: { p_reason: string; p_request_id: string }
+        Returns: Json
+      }
       reject_transfer_v2: {
         Args: {
           p_rejected_by_name: string
@@ -13849,6 +14043,10 @@ export type Database = {
       }
       replace_user_custom_roles_v2: {
         Args: { p_assignments: Json; p_user_id: string }
+        Returns: undefined
+      }
+      replace_warehouse_field_rps: {
+        Args: { p_profile_ids: string[]; p_warehouse_id: string }
         Returns: undefined
       }
       replace_warehouse_responsible_persons: {
@@ -14740,17 +14938,65 @@ export type Database = {
         Args: { p_customer_id: string; p_phones: Json }
         Returns: undefined
       }
-      save_inventory_check_item_count: {
+      save_employee: {
         Args: {
-          p_assignment_id?: string
-          p_counted_qty: number
-          p_item_id: string
-          p_profile_id?: string
-          p_profile_name?: string
-          p_variance_type: string
+          p_avatar_url: string
+          p_division_id?: string
+          p_employee_id: string
+          p_join_date: string
+          p_name: string
+          p_nationality: string
+          p_phone: string
+          p_service_ids: string[]
+          p_status: string
         }
-        Returns: undefined
+        Returns: {
+          avatar: string | null
+          avatar_url: string | null
+          created_at: string | null
+          deleted_at: string | null
+          division_id: string | null
+          id: string
+          join_date: string
+          name: string
+          name_ar: string | null
+          nationality: string | null
+          phone: string
+          profile_id: string | null
+          site_visit_order: boolean
+          site_visit_quotation: boolean
+          skills: string[] | null
+          status: Database["public"]["Enums"]["employee_status"] | null
+          team_id: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "employees"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
+      save_inventory_check_item_count:
+        | {
+            Args: {
+              p_counted_qty: number
+              p_item_id: string
+              p_variance_type: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_assignment_id?: string
+              p_counted_qty: number
+              p_item_id: string
+              p_profile_id?: string
+              p_profile_name?: string
+              p_variance_type: string
+            }
+            Returns: undefined
+          }
       save_order_quotation: {
         Args: {
           p_discount_type?: string
@@ -14767,6 +15013,8 @@ export type Database = {
         }
         Returns: string
       }
+      schedule_day_end: { Args: { days: Json }; Returns: number }
+      schedule_day_start: { Args: { days: Json }; Returns: number }
       search_customers: {
         Args: {
           p_limit?: number
@@ -14860,9 +15108,22 @@ export type Database = {
         Args: { p_customer_id: string; p_requested_group_id: string }
         Returns: Json
       }
+      submit_service_change: { Args: { p_payload: Json }; Returns: Json }
+      swap_visit_team: {
+        Args: { p_assignment_id: string; p_new_team_id: string }
+        Returns: Json
+      }
+      sync_team_active_schedule: {
+        Args: { p_team_id: string }
+        Returns: undefined
+      }
       toggle_workflow_step: {
         Args: { p_active: boolean; p_step_id: string }
         Returns: undefined
+      }
+      update_pending_service_change: {
+        Args: { p_new_changes: Json; p_request_id: string }
+        Returns: Json
       }
       update_reserved_qty: {
         Args: { p_bv_id: string; p_delta: number }
@@ -14878,6 +15139,10 @@ export type Database = {
       }
       update_workflow_step_role: {
         Args: { p_role_id: string; p_step_id: string }
+        Returns: undefined
+      }
+      upsert_employee_services: {
+        Args: { p_employee_id: string; p_service_ids: string[] }
         Returns: undefined
       }
       upsert_package_with_services: {
@@ -14897,6 +15162,7 @@ export type Database = {
         Returns: boolean
       }
       validate_lc_allocation: { Args: { p_lc_id: string }; Returns: Json }
+      withdraw_service_change: { Args: { p_request_id: string }; Returns: Json }
     }
     Enums: {
       address_type: "blue-plate" | "google-coords"
