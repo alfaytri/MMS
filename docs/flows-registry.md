@@ -1017,6 +1017,12 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useArchiveApprovalChain`](src/hooks/useApprovalChains.ts)
 - **Notes:** Guards against archiving chains that back active approvals.
 
+### Role name → approval-tier sync (DB trigger)
+- **Trigger:** `trg_sync_role_name_to_approval_tiers` on `custom_roles` (AFTER UPDATE OF name, deleted_at OR DELETE) → [`public.sync_role_name_to_approval_tiers()`](../supabase/migrations/20261004000000_cascade_role_name_to_approval_tiers.sql) (SECURITY DEFINER, `search_path=''`).
+- **Writes:** keeps `po_approval_chain_tiers.required_roles` (denormalized role-name array, no FK) in sync — removes the name on delete (hard or soft), replaces it on rename. Migration also does a one-time cleanup of any pre-existing orphans.
+- **Why:** deleting/renaming a role used to leave its name frozen in every tier — it lingered in the PO Approval Bands UI, couldn't be removed via the tier editor, and produced an unfulfillable approval step (`buildApprovalSteps`). App side: `invalidateRoleDependentQueries` ([`useRoles.ts`](../src/hooks/useRoles.ts)) now also invalidates `approvals.chains`; the tier editor ([`ApprovalChainsTab.tsx`](../src/components/purchase/ApprovalChainsTab.tsx)) renders any leftover orphan names as removable chips and warns on empty tiers.
+- **Related:** [[Archive Approval Chain]], [[Submit PO for Approval]]
+
 ---
 
 ## Notifications

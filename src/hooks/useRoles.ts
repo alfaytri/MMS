@@ -41,6 +41,11 @@ function invalidateRoleDependentQueries(queryClient: ReturnType<typeof useQueryC
   // changes (incl. per-warehouse custody grants) don't reflect for the editing
   // admin until the 5-min staleTime expires.
   queryClient.invalidateQueries({ queryKey: queryKeys.permissions.user })
+  // PO Approval Bands render role names snapshotted into po_approval_chain_tiers.
+  // A delete/rename now cascades into those tiers via DB trigger, so refetch the
+  // chains too — otherwise the removed/renamed name lingers until the 60s staleTime.
+  queryClient.invalidateQueries({ queryKey: queryKeys.approvals.chains })
+  queryClient.invalidateQueries({ queryKey: queryKeys.approvals.chainForDivisionAll })
 }
 
 export function useCreateRole() {
