@@ -1044,6 +1044,7 @@ export type Database = {
           address: string | null
           address_ar: string | null
           address_en: string | null
+          calendar_schedule_id: string | null
           color: string
           company_id: string | null
           company_name_ar: string | null
@@ -1070,6 +1071,7 @@ export type Database = {
           address?: string | null
           address_ar?: string | null
           address_en?: string | null
+          calendar_schedule_id?: string | null
           color?: string
           company_id?: string | null
           company_name_ar?: string | null
@@ -1096,6 +1098,7 @@ export type Database = {
           address?: string | null
           address_ar?: string | null
           address_en?: string | null
+          calendar_schedule_id?: string | null
           color?: string
           company_id?: string | null
           company_name_ar?: string | null
@@ -5044,6 +5047,68 @@ export type Database = {
           },
         ]
       }
+      notification_templates: {
+        Row: {
+          body_text: string | null
+          button_type: string | null
+          button_url_suffix_param: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          has_buttons: boolean
+          id: string
+          is_active: boolean
+          media_type: string
+          param_count: number
+          param_names: Json | null
+          slug: string
+          updated_at: string
+          wati_template_name: string
+        }
+        Insert: {
+          body_text?: string | null
+          button_type?: string | null
+          button_url_suffix_param?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          has_buttons?: boolean
+          id?: string
+          is_active?: boolean
+          media_type?: string
+          param_count?: number
+          param_names?: Json | null
+          slug: string
+          updated_at?: string
+          wati_template_name?: string
+        }
+        Update: {
+          body_text?: string | null
+          button_type?: string | null
+          button_url_suffix_param?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          has_buttons?: boolean
+          id?: string
+          is_active?: boolean
+          media_type?: string
+          param_count?: number
+          param_names?: Json | null
+          slug?: string
+          updated_at?: string
+          wati_template_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           actioned_at: string | null
@@ -6761,6 +6826,53 @@ export type Database = {
         }
         Relationships: []
       }
+      promotion_rules: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          description: string | null
+          discount_amount: number | null
+          discount_percent: number | null
+          free_service_id: string | null
+          free_service_name: string | null
+          id: string
+          service_ids: string[] | null
+          type: Database["public"]["Enums"]["promotion_rule_type"]
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          free_service_id?: string | null
+          free_service_name?: string | null
+          id?: string
+          service_ids?: string[] | null
+          type: Database["public"]["Enums"]["promotion_rule_type"]
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          free_service_id?: string | null
+          free_service_name?: string | null
+          id?: string
+          service_ids?: string[] | null
+          type?: Database["public"]["Enums"]["promotion_rule_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_rules_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "promotion_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           approval_level: number | null
@@ -6982,6 +7094,230 @@ export type Database = {
             columns: ["performed_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qc_checklists: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_general: boolean | null
+          label: string
+          max_score: number | null
+          service_id: string | null
+          service_name: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_general?: boolean | null
+          label: string
+          max_score?: number | null
+          service_id?: string | null
+          service_name?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_general?: boolean | null
+          label?: string
+          max_score?: number | null
+          service_id?: string | null
+          service_name?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_checklists_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qc_inspection_results: {
+        Row: {
+          created_at: string | null
+          date: string
+          general_checklist: Json | null
+          id: string
+          images: string[] | null
+          max_possible_score: number | null
+          notes: string | null
+          order_id: string
+          percentage: number | null
+          qc_team_id: string
+          schedule_entry_id: string
+          service_checklist: Json | null
+          team_id: string
+          total_score: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          general_checklist?: Json | null
+          id?: string
+          images?: string[] | null
+          max_possible_score?: number | null
+          notes?: string | null
+          order_id: string
+          percentage?: number | null
+          qc_team_id: string
+          schedule_entry_id: string
+          service_checklist?: Json | null
+          team_id: string
+          total_score?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          general_checklist?: Json | null
+          id?: string
+          images?: string[] | null
+          max_possible_score?: number | null
+          notes?: string | null
+          order_id?: string
+          percentage?: number | null
+          qc_team_id?: string
+          schedule_entry_id?: string
+          service_checklist?: Json | null
+          team_id?: string
+          total_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_inspection_results_qc_team_id_fkey"
+            columns: ["qc_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_inspection_results_schedule_entry_id_fkey"
+            columns: ["schedule_entry_id"]
+            isOneToOne: false
+            referencedRelation: "qc_schedule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_inspection_results_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qc_schedule: {
+        Row: {
+          assigned_qc_team_id: string | null
+          created_at: string | null
+          id: string
+          order_id: string
+          order_type: string | null
+          priority: Database["public"]["Enums"]["qc_priority"] | null
+          reason: string | null
+          scheduled_date: string
+          service_name: string
+          status: Database["public"]["Enums"]["qc_schedule_status"] | null
+          team_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_qc_team_id?: string | null
+          created_at?: string | null
+          id?: string
+          order_id: string
+          order_type?: string | null
+          priority?: Database["public"]["Enums"]["qc_priority"] | null
+          reason?: string | null
+          scheduled_date: string
+          service_name: string
+          status?: Database["public"]["Enums"]["qc_schedule_status"] | null
+          team_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_qc_team_id?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          order_type?: string | null
+          priority?: Database["public"]["Enums"]["qc_priority"] | null
+          reason?: string | null
+          scheduled_date?: string
+          service_name?: string
+          status?: Database["public"]["Enums"]["qc_schedule_status"] | null
+          team_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_schedule_assigned_qc_team_id_fkey"
+            columns: ["assigned_qc_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_schedule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qc_team_scores: {
+        Row: {
+          created_at: string | null
+          current_score: number | null
+          division: Database["public"]["Enums"]["division"]
+          id: string
+          last_inspection: string | null
+          member_change_date: string | null
+          previous_scores: Json | null
+          service_history: string[] | null
+          team_id: string
+          total_inspections: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_score?: number | null
+          division: Database["public"]["Enums"]["division"]
+          id?: string
+          last_inspection?: string | null
+          member_change_date?: string | null
+          previous_scores?: Json | null
+          service_history?: string[] | null
+          team_id: string
+          total_inspections?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_score?: number | null
+          division?: Database["public"]["Enums"]["division"]
+          id?: string
+          last_inspection?: string | null
+          member_change_date?: string | null
+          previous_scores?: Json | null
+          service_history?: string[] | null
+          team_id?: string
+          total_inspections?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_team_scores_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -7308,6 +7644,80 @@ export type Database = {
           },
         ]
       }
+      reminder_categories: {
+        Row: {
+          created_at: string | null
+          icon: string | null
+          id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      reminders: {
+        Row: {
+          category_id: string
+          channel: Database["public"]["Enums"]["reminder_channel"] | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          name_ar: string | null
+          status: Database["public"]["Enums"]["service_status"] | null
+          template: string | null
+          timing: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id: string
+          channel?: Database["public"]["Enums"]["reminder_channel"] | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          name_ar?: string | null
+          status?: Database["public"]["Enums"]["service_status"] | null
+          template?: string | null
+          timing?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string
+          channel?: Database["public"]["Enums"]["reminder_channel"] | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          name_ar?: string | null
+          status?: Database["public"]["Enums"]["service_status"] | null
+          template?: string | null
+          timing?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_vendors: {
         Row: {
           address: string | null
@@ -7590,6 +8000,108 @@ export type Database = {
             columns: ["sale_delivery_line_id"]
             isOneToOne: false
             referencedRelation: "sale_delivery_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      returns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          credit_note_id: string | null
+          date: string
+          deleted_at: string | null
+          dispatched_at: string | null
+          division_id: string | null
+          id: string
+          notes: string | null
+          pdf_url: string | null
+          reason: string
+          restock_warehouse_id: string | null
+          restocked_at: string | null
+          return_number: string
+          source_id: string
+          source_type: Database["public"]["Enums"]["return_source_type"]
+          status: Database["public"]["Enums"]["return_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          credit_note_id?: string | null
+          date?: string
+          deleted_at?: string | null
+          dispatched_at?: string | null
+          division_id?: string | null
+          id?: string
+          notes?: string | null
+          pdf_url?: string | null
+          reason?: string
+          restock_warehouse_id?: string | null
+          restocked_at?: string | null
+          return_number: string
+          source_id: string
+          source_type: Database["public"]["Enums"]["return_source_type"]
+          status?: Database["public"]["Enums"]["return_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          credit_note_id?: string | null
+          date?: string
+          deleted_at?: string | null
+          dispatched_at?: string | null
+          division_id?: string | null
+          id?: string
+          notes?: string | null
+          pdf_url?: string | null
+          reason?: string
+          restock_warehouse_id?: string | null
+          restocked_at?: string | null
+          return_number?: string
+          source_id?: string
+          source_type?: Database["public"]["Enums"]["return_source_type"]
+          status?: Database["public"]["Enums"]["return_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "customer_open_credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_restock_warehouse_id_fkey"
+            columns: ["restock_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -9394,6 +9906,41 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_usage_log: {
+        Row: {
+          created_at: string
+          discount_applied: number
+          id: string
+          order_id: string
+          service_id: string
+          subscription_id: string
+        }
+        Insert: {
+          created_at?: string
+          discount_applied: number
+          id?: string
+          order_id: string
+          service_id: string
+          subscription_id: string
+        }
+        Update: {
+          created_at?: string
+          discount_applied?: number
+          id?: string
+          order_id?: string
+          service_id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_usage_log_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "customer_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -9482,6 +10029,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sync_state: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_3cx_sync_at: string | null
+          last_wati_sync_at: string | null
+          last_whapi_sync_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_3cx_sync_at?: string | null
+          last_wati_sync_at?: string | null
+          last_whapi_sync_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_3cx_sync_at?: string | null
+          last_wati_sync_at?: string | null
+          last_whapi_sync_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       team_activity_log: {
         Row: {
@@ -10546,6 +11120,41 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voucher_redemptions: {
+        Row: {
+          customer_name: string | null
+          discount_applied: number
+          id: string
+          order_id: string
+          redeemed_at: string | null
+          voucher_id: string
+        }
+        Insert: {
+          customer_name?: string | null
+          discount_applied: number
+          id?: string
+          order_id: string
+          redeemed_at?: string | null
+          voucher_id: string
+        }
+        Update: {
+          customer_name?: string | null
+          discount_applied?: number
+          id?: string
+          order_id?: string
+          redeemed_at?: string | null
+          voucher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voucher_redemptions_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "vouchers"
             referencedColumns: ["id"]
           },
         ]

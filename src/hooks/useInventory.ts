@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
+import type { ServiceNode, ServiceInventoryLinkFull, LinkType } from '@/components/services/inventory/serviceInventoryHelpers'
 import { logActivity } from '@/lib/logActivity'
 import { humanizeDbError } from '@/lib/dbErrors'
 
@@ -1212,3 +1213,173 @@ export function useAllBrandNames() {
   })
 }
 
+
+// -- Service <-> inventory links (field-service; restored from full-app) --
+export function useServicesForLinks(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.inventory.servicesForLinks,
+    enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name_en, parent_id, tree_type, warranty')
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as ServiceNode[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * All service_inventory rows with joined variant + item details.
+ * Uses LEFT JOIN (no !inner) so links with a missing/archived variant
+ * appear with a null inventory_brand_variants field rather than silently
+ * disappearing from the view and making the counters lie.
+ */
+export function useAllServiceLinks(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.inventory.serviceLinksAll,
+    enabled,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('service_inventory')
+        .select(`
+          id,
+          service_id,
+          brand_variant_id,
+          link_type,
+          warranty_months,
+          quantity,
+          group_label,
+          is_default,
+          inventory_brand_variants(
+            brand,
+            selling_price,
+            inventory_items(name_en, sku, unit)
+          )
+        `)
+      if (error) throw error
+      return (data ?? []) as ServiceInventoryLinkFull[]
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+/** Insert a single new service↔variant link. */
+export function useAddServiceInventoryLink() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, {
+    service_id: string
+    brand_variant_id: string
+    link_type: LinkType
+    quantity: number
+    warranty_months: number
+    group_label?: string | null
+    is_default?: boolean
+  }>({
+    mutationFn: async (row) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('service_inventory')
+        .insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
+    },
+  })
+}
+
+/** Bulk insert service↔variant links via RPC. */
+export function useAddBulkServiceInventoryLinks() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      serviceIds,
+      brandVariantId,
+      linkType = 'supply' as LinkType,
+      quantity = 1,
+      warrantyMonths = 0,
+    }: {
+      serviceIds: string[]
+      brandVariantId: string
+      linkType?: LinkType
+      quantity?: number
+      warrantyMonths?: number
+    }) => {
+      if (serviceIds.length === 0) return
+      const supabase = createClient()
+      const { error } = await supabase.rpc('service_inventory_bulk_upsert', {
+        p_service_ids: serviceIds,
+        p_brand_variant_id: brandVariantId,
+        p_link_type: linkType,
+        p_quantity: quantity,
+        p_warranty_months: warrantyMonths,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
+    },
+  })
+}
+
+/** Delete a service↔variant link by its primary key id. */
+export function useDeleteServiceInventoryLink() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('service_inventory')
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
+    },
+  })
+}
+
+/**
+ * Patch link_type, warranty_months, or quantity on an existing link.
+ * Uses optimistic updates to avoid table flicker on inline edits — the
+ * cache is updated immediately; rolled back if the server rejects.
+ */
+export function useUpdateServiceInventoryLink() {
+  const qc = useQueryClient()
+  return useMutation<
+    void,
+    Error,
+    { id: string; link_type?: LinkType; warranty_months?: number; quantity?: number; group_label?: string | null; is_default?: boolean },
+    { prev: ServiceInventoryLinkFull[] | undefined }
+  >({
+    mutationFn: async ({ id, ...patch }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('service_inventory')
+        .update(patch)
+        .eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
+      const prev = qc.getQueryData<ServiceInventoryLinkFull[]>(queryKeys.inventory.serviceLinksAll)
+      qc.setQueryData<ServiceInventoryLinkFull[]>(queryKeys.inventory.serviceLinksAll, (old) =>
+        old?.map((l) => l.id === variables.id ? { ...l, ...variables } : l) ?? []
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.inventory.serviceLinksAll, ctx.prev)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
+    },
+  })
+}

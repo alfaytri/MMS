@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import type { DBTable } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
 export type NotificationRow = {
@@ -152,5 +153,107 @@ export function useMarkAllNotificationsActioned() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.notifications.all }),
+  })
+}
+
+// -- Reminders + notification templates (field-service; restored from full-app) --
+type NotificationTemplate = DBTable<'notification_templates'>
+type ReminderCategory = DBTable<'reminder_categories'>
+type Reminder = DBTable<'reminders'>
+type ReminderInsert = {
+  category_id: string
+  name: string
+  channel?: DBTable<'reminders'>['channel']
+  description?: string | null
+  name_ar?: string | null
+  status?: DBTable<'reminders'>['status']
+  template?: string | null
+  timing?: string | null
+}
+type ReminderUpdate = Partial<ReminderInsert>
+
+export type { NotificationTemplate, ReminderCategory, Reminder }
+
+export function useNotificationTemplates() {
+  return useQuery({
+    queryKey: queryKeys.notifications.templates,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('notification_templates')
+        .select('*')
+        .order('slug')
+        .limit(500)
+      if (error) throw error
+      return (data ?? []) as NotificationTemplate[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useReminderCategories() {
+  return useQuery({
+    queryKey: queryKeys.notifications.reminderCategories,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('reminder_categories')
+        .select('*')
+        .order('sort_order')
+      if (error) throw error
+      return (data ?? []) as ReminderCategory[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useReminders() {
+  return useQuery({
+    queryKey: queryKeys.notifications.reminders,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .order('category_id')
+        .order('created_at')
+        .limit(200)
+      if (error) throw error
+      return (data ?? []) as Reminder[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useCreateReminder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: ReminderInsert) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('reminders')
+        .insert(values)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.reminders }),
+  })
+}
+
+export function useUpdateReminder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...values }: ReminderUpdate & { id: string }) => {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('reminders')
+        .update(values)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.reminders }),
   })
 }

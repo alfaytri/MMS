@@ -195,6 +195,7 @@ export const queryKeys = {
   /* ── Divisions ────────────────────────────────────────── */
   divisions: {
     all: ['divisions'] as const,
+    withSchedule: ['divisions', 'with-schedule'] as const, divisionSchedule: ['division-schedule'] as const, divisionScheduleBySlug: (slug: Nullable) => ['division-schedule', slug] as const,
     allList: ['divisions', 'all'] as const,
     byCompany: (companyId: Nullable) =>
       ['divisions', 'company', companyId] as const,
