@@ -1,0 +1,742 @@
+<title>Shipping Build QA Matrix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f4; --surface:#ffffff; --surface-2:#f6f9fb; --surface-3:#eef2f6;
+    --ink:#16202e; --ink-soft:#38465a; --muted:#5c6a7b; --faint:#8593a4;
+    --border:#d9e0e8; --border-strong:#c4ceda;
+    --accent:#0e7c86; --accent-ink:#0a5960; --accent-bg:#dff1f2;
+    --pass:#15803d; --pass-bg:#e6f6ec; --pass-br:#b7e2c4;
+    --fail:#c0332a; --fail-bg:#fbeae8; --fail-br:#f0c4bf;
+    --block:#a9640c; --block-bg:#fbf1dc; --block-br:#eed6a6;
+    --na:#5c6a7b; --na-bg:#e9edf1; --na-br:#d3dae2;
+    --shadow:0 1px 2px rgba(19,30,45,.05), 0 4px 16px rgba(19,30,45,.05);
+    --radius:12px;
+    --font:'Hanken Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0d141e; --surface:#141e2c; --surface-2:#192535; --surface-3:#1f2e41;
+    --ink:#e7edf4; --ink-soft:#c2cddb; --muted:#93a2b4; --faint:#6b7c90;
+    --border:#26344a; --border-strong:#33455f;
+    --accent:#2fd4c4; --accent-ink:#8bece2; --accent-bg:#123037;
+    --pass:#4ade80; --pass-bg:#12281c; --pass-br:#1f4a30;
+    --fail:#f98a7f; --fail-bg:#2c1512; --fail-br:#5a251f;
+    --block:#f0b458; --block-bg:#2a1f0d; --block-br:#513a12;
+    --na:#93a2b4; --na-bg:#1c2836; --na-br:#2c3c52;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0d141e; --surface:#141e2c; --surface-2:#192535; --surface-3:#1f2e41;
+    --ink:#e7edf4; --ink-soft:#c2cddb; --muted:#93a2b4; --faint:#6b7c90;
+    --border:#26344a; --border-strong:#33455f;
+    --accent:#2fd4c4; --accent-ink:#8bece2; --accent-bg:#123037;
+    --pass:#4ade80; --pass-bg:#12281c; --pass-br:#1f4a30;
+    --fail:#f98a7f; --fail-bg:#2c1512; --fail-br:#5a251f;
+    --block:#f0b458; --block-bg:#2a1f0d; --block-br:#513a12;
+    --na:#93a2b4; --na-bg:#1c2836; --na-br:#2c3c52;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.02em}
+  .mono{font-family:var(--mono)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  /* Header */
+  header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--surface) 88%,transparent);
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .head-top{display:flex;align-items:flex-start;gap:16px;justify-content:space-between;padding:16px 0 12px}
+  .title-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .title-line h1{font-size:clamp(1.3rem,2.4vw,1.7rem);font-weight:800}
+  .sub{color:var(--muted);font-size:.82rem;margin-top:3px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:.7rem;font-weight:600;
+    font-family:var(--mono);padding:3px 9px;border-radius:999px;background:var(--accent-bg);
+    color:var(--accent-ink);border:1px solid color-mix(in srgb,var(--accent) 26%,transparent)}
+  .icon-btn{cursor:pointer;background:var(--surface-2);border:1px solid var(--border);color:var(--ink-soft);
+    border-radius:9px;height:36px;min-width:36px;padding:0 10px;font-family:var(--font);font-size:.82rem;
+    font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+  .icon-btn:hover{border-color:var(--border-strong);color:var(--ink)}
+  .icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Progress */
+  .progress-row{display:flex;align-items:center;gap:16px;padding-bottom:12px;flex-wrap:wrap}
+  .bar{flex:1;min-width:220px;height:12px;border-radius:999px;background:var(--surface-3);
+    overflow:hidden;display:flex;border:1px solid var(--border)}
+  .bar span{height:100%;transition:width .35s cubic-bezier(.2,.7,.3,1)}
+  .bar .p-pass{background:var(--pass)} .bar .p-fail{background:var(--fail)}
+  .bar .p-block{background:var(--block)} .bar .p-na{background:var(--na)}
+  .stat{font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--muted);white-space:nowrap}
+  .stat b{color:var(--ink);font-weight:700;font-size:.92rem}
+  .stat-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
+  .chip.pass{color:var(--pass);background:var(--pass-bg);border:1px solid var(--pass-br)}
+  .chip.fail{color:var(--fail);background:var(--fail-bg);border:1px solid var(--fail-br)}
+  .chip.block{color:var(--block);background:var(--block-bg);border:1px solid var(--block-br)}
+  .chip.na{color:var(--na);background:var(--na-bg);border:1px solid var(--na-br)}
+  .chip.left{color:var(--muted);background:var(--surface-3);border:1px solid var(--border)}
+
+  /* Controls */
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-bottom:14px}
+  .search{flex:1;min-width:200px;height:38px;border-radius:9px;border:1px solid var(--border);
+    background:var(--surface);color:var(--ink);padding:0 12px;font-family:var(--font);font-size:.9rem}
+  .search:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .filters{display:flex;gap:4px;background:var(--surface-3);border:1px solid var(--border);
+    border-radius:10px;padding:3px}
+  .filters button{cursor:pointer;border:0;background:transparent;color:var(--muted);font-family:var(--font);
+    font-weight:600;font-size:.78rem;padding:6px 11px;border-radius:7px;transition:.15s}
+  .filters button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .filters button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  main{padding:22px 0 90px}
+
+  /* Module */
+  .module{margin-bottom:16px;border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+  .module>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:12px;
+    padding:15px 18px;user-select:none}
+  .module>summary::-webkit-details-marker{display:none}
+  .module>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .caret{transition:transform .2s;color:var(--faint);flex:none}
+  .module[open]>summary .caret{transform:rotate(90deg)}
+  .m-title{font-size:1.05rem;font-weight:700;flex:1;min-width:0}
+  .m-num{font-family:var(--mono);font-size:.72rem;color:var(--faint);font-weight:600;
+    background:var(--surface-3);border:1px solid var(--border);border-radius:7px;padding:2px 7px;flex:none}
+  .m-bar{width:120px;height:7px;border-radius:999px;background:var(--surface-3);overflow:hidden;
+    display:flex;flex:none;border:1px solid var(--border)}
+  .m-bar span{height:100%}
+  .m-count{font-family:var(--mono);font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums;
+    flex:none;min-width:52px;text-align:right}
+  .m-body{padding:4px 14px 16px}
+
+  /* Page card */
+  .page{border:1px solid var(--border);border-radius:10px;margin:10px 0;background:var(--surface-2);overflow:hidden}
+  .page-head{display:flex;align-items:baseline;gap:10px;padding:11px 14px;flex-wrap:wrap;
+    border-bottom:1px solid var(--border);background:var(--surface)}
+  .page-name{font-weight:700;font-size:.95rem}
+  .route{font-family:var(--mono);font-size:.74rem;color:var(--accent-ink);background:var(--accent-bg);
+    padding:2px 8px;border-radius:6px;border:1px solid color-mix(in srgb,var(--accent) 20%,transparent);
+    word-break:break-all}
+  .perm{font-family:var(--mono);font-size:.7rem;color:var(--muted);word-break:break-all}
+  .page-mini{margin-left:auto;font-family:var(--mono);font-size:.72rem;color:var(--muted);
+    font-variant-numeric:tabular-nums;flex:none}
+
+  /* Test row */
+  .test{display:grid;grid-template-columns:auto 1fr;gap:12px 14px;padding:11px 14px;
+    border-top:1px solid var(--border);align-items:start}
+  .test:first-child{border-top:0}
+  .test.hide{display:none}
+  .seg{display:flex;gap:3px;background:var(--surface-3);border:1px solid var(--border);
+    border-radius:9px;padding:3px;flex:none}
+  .seg button{cursor:pointer;border:0;background:transparent;width:30px;height:28px;border-radius:6px;
+    font-family:var(--font);font-weight:700;font-size:.74rem;color:var(--faint);transition:.12s;
+    display:flex;align-items:center;justify-content:center}
+  .seg button:hover{color:var(--ink)}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .seg button[aria-pressed="true"][data-s="pass"]{background:var(--pass);color:#fff}
+  .seg button[aria-pressed="true"][data-s="fail"]{background:var(--fail);color:#fff}
+  .seg button[aria-pressed="true"][data-s="block"]{background:var(--block);color:#fff}
+  .seg button[aria-pressed="true"][data-s="na"]{background:var(--na);color:#fff}
+  .t-main{min-width:0}
+  .t-label{font-size:.9rem;color:var(--ink-soft);line-height:1.45}
+  .test[data-status="pass"] .t-label{color:var(--muted)}
+  .t-note{margin-top:7px;width:100%;background:var(--surface);border:1px dashed var(--border);
+    border-radius:7px;padding:5px 9px;font-family:var(--font);font-size:.8rem;color:var(--ink);
+    resize:vertical;min-height:0;height:32px;display:none}
+  .t-note:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-style:solid}
+  .test.has-note .t-note,.test[data-status="fail"] .t-note,.test[data-status="block"] .t-note{display:block}
+  .note-toggle{cursor:pointer;font-size:.72rem;color:var(--faint);background:none;border:0;
+    font-family:var(--font);padding:4px 0 0;font-weight:600}
+  .note-toggle:hover{color:var(--accent-ink)}
+
+  .empty{display:none;text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty.show{display:block}
+  footer{border-top:1px solid var(--border);padding:20px 0;color:var(--faint);font-size:.76rem;text-align:center}
+  .flash{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:.85rem;font-weight:600;
+    opacity:0;pointer-events:none;transition:.25s;z-index:100;box-shadow:var(--shadow)}
+  .flash.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (max-width:640px){
+    .test{grid-template-columns:1fr;gap:9px}
+    .page-mini{margin-left:0}
+    .head-top{flex-direction:column;gap:10px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="head-top">
+      <div>
+        <div class="title-line">
+          <h1>Shipping Build — QA Matrix</h1>
+          <span class="badge" id="branchBadge">deploy/warehouse-shipping</span>
+        </div>
+        <div class="sub">Back-office ERP · Inventory · Purchase · Sales · Operations. Mark each case as you test — progress saves in this browser.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex:none">
+        <button class="icon-btn" id="copyBtn" title="Copy a Markdown report of all results">⧉ Copy report</button>
+        <button class="icon-btn" id="resetBtn" title="Clear all marks">↺ Reset</button>
+        <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+      </div>
+    </div>
+    <div class="progress-row">
+      <div class="bar" aria-hidden="true">
+        <span class="p-pass" id="bPass"></span><span class="p-fail" id="bFail"></span>
+        <span class="p-block" id="bBlock"></span><span class="p-na" id="bNa"></span>
+      </div>
+      <div class="stat"><b id="pctDone">0%</b> tested · <b id="nTotal">0</b> cases</div>
+      <div class="stat-chips">
+        <span class="chip pass" id="cPass">0 pass</span>
+        <span class="chip fail" id="cFail">0 fail</span>
+        <span class="chip block" id="cBlock">0 blocked</span>
+        <span class="chip na" id="cNa">0 n/a</span>
+        <span class="chip left" id="cLeft">0 left</span>
+      </div>
+    </div>
+    <div class="controls">
+      <input class="search" id="search" type="search" placeholder="Search test cases, pages, routes…" autocomplete="off">
+      <div class="filters" role="group" aria-label="Filter">
+        <button data-f="all" aria-pressed="true">All</button>
+        <button data-f="untested" aria-pressed="false">Untested</button>
+        <button data-f="pass" aria-pressed="false">Pass</button>
+        <button data-f="fail" aria-pressed="false">Fail</button>
+        <button data-f="block" aria-pressed="false">Blocked</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap" id="root"></div>
+  <div class="wrap"><div class="empty" id="empty">No test cases match your search / filter.</div></div>
+</main>
+
+<footer class="wrap">Legend — <b style="color:var(--pass)">P</b> pass · <b style="color:var(--fail)">F</b> fail · <b style="color:var(--block)">B</b> blocked · <b style="color:var(--na)">N</b> not-applicable · notes auto-show on Fail/Blocked. State is stored locally (localStorage) — private to this browser.</footer>
+<div class="flash" id="flash"></div>
+
+<script>
+/* ─── Test matrix data. Each page: {p:name, route, perm, t:[case,…]} ─── */
+const MATRIX = [
+ {m:'Master Data', pages:[
+   {p:'Inventory', route:'/master-data/inventory', perm:'inventory.catalog.view', t:[
+     'List loads — categories, items, brands, origins render',
+     'Create category + nested sub-category',
+     'Create item with a brand + origin variant',
+     'Edit item details (name, unit, category)',
+     'Edit variant cost / selling price',
+     'Archive item, variant, and category',
+     'Reorder catalog tree (drag) persists after reload',
+     'Category attributes — create / edit / archive definitions & options',
+     'Set attribute values on an item',
+     'Filter inventory by attribute chips',
+     'Assign an item to one or more divisions',
+     'Bulk import (.xlsx) — upload + validation errors surface',
+     'Search finds items / brands / SKUs',
+     'Tools & Assets category tracking mode (Bulk/Serialized) cascade + locked summary',
+   ]},
+   {p:'Warehouses', route:'/master-data/warehouses', perm:'warehouse.access', t:[
+     'Warehouses tab loads',
+     'Create / edit a warehouse',
+     'Assign Warehouse Responsible Person(s)',
+     'Stock Overview — per-warehouse quantities (+ cost if permitted)',
+     'Movements tab loads with correct history',
+     'Projects — create / close, add disciplines & milestones',
+     'Stock Value tab (permission-gated) shows valuation',
+   ]},
+   {p:'Users & Roles', route:'/master-data/users', perm:'master_data.users.view / roles.view', t:[
+     'Users list loads',
+     'Create user — auth + profile + role assignment',
+     'Edit user profile',
+     'Assign / remove a role on a user',
+     'Assign / remove a division on a user',
+     'Roles tab — create a new role',
+     'Edit role permissions in the permission tree (save persists)',
+     'Delete a role',
+     '★ Delete a role used in a PO band → it disappears from the band (cascade fix)',
+     '★ Rename a role → the new name shows in the PO band (cascade fix)',
+     'Non-admin role: displayed label is a name, never a raw UUID',
+   ]},
+   {p:'Audit Trail', route:'/master-data/audit-trail', perm:'master_data.audit.view', t:[
+     'Audit log loads',
+     'Filter by module / user / date range',
+     'Entry shows actor, action, before/after where relevant',
+   ]},
+   {p:'Admin · Approval Settings (PO Bands)', route:'/master-data/admin/approval-settings', perm:'purchase.approvals.chain.manage', t:[
+     'Company Default chain + tiers render',
+     'Add Tier (min/max/roles) saves',
+     'Edit a tier inline (amounts + roles) saves',
+     'Delete a tier',
+     'Create a division-specific chain + toggle active',
+     'Archive a division chain → falls back to Company Default',
+     '★ Empty a band (remove its only role) → amber "no approvers" warning shows',
+     '★ Submit a PO in an empty band → blocked with a clear message (fail-closed)',
+   ]},
+   {p:'Admin · other', route:'/master-data/admin', perm:'master_data.admin.view', t:[
+     'Admin landing + sidebar links gate by permission',
+     'Warehouses / Custody admin pages load & edit',
+     'Repair vendors — create / edit / delete',
+     'Credit-group approvals — approve / reject',
+     'Credit groups — create / edit / delete',
+     'Payment methods — rename cascades to existing records',
+     'Workflow steps / groups — add / update / archive',
+   ]},
+   {p:'Suppliers', route:'/master-data/suppliers', perm:'master_data.suppliers.view', t:[
+     'Suppliers list loads',
+     'Create a supplier (phone uses country-code input)',
+     'Edit a supplier',
+     'Supplier detail — bills / payments / aging tabs',
+   ]},
+   {p:'Customers', route:'/master-data/customers', perm:'master_data.customers.view', t:[
+     'Customers list loads',
+     'Create a customer',
+     'Edit a customer',
+     'Toggle customer active / inactive',
+     'Change customer type',
+     '★ Raise credit group directly → blocked (must go through approval)',
+     'Submit credit-group change → approval flow',
+     'Upload customer credit documents',
+   ]},
+ ]},
+
+ {m:'Reports', pages:[
+   {p:'All financial reports', route:'/reports/*', perm:'reports.* (per-report)', t:[
+     'Financial Dashboard loads (finance section gated)',
+     'Product Profitability loads + drill-down',
+     'Product Cost loads',
+     'Revenue & COGS loads (retro LC + consumption in COGS)',
+     'Accounts Receivable loads',
+     'Accounts Payable loads',
+     'Cash & Cash Equivalents loads',
+     'Profit & Loss loads (Stock-Value badge, currency labels)',
+     'Consumption report loads (cost gated)',
+     'Division filter re-scopes every report',
+     'Date-range picker (calendar) filters',
+     'Excel export (server-side /api/reports/excel) downloads',
+   ]},
+ ]},
+
+ {m:'Purchase', pages:[
+   {p:'Purchase Orders', route:'/purchase/orders', perm:'purchase.orders.view', t:[
+     'PO list loads (respects 50-row cap / server search)',
+     'Create a draft PO',
+     'Create an RFQ (multi-supplier)',
+     'Edit / amend a PO (line items, division)',
+     'Save an RFQ quote',
+     'Award an RFQ quote → PO',
+     'Submit PO for approval → status pending_approval, correct tiers',
+     'Cancel a PO',
+     'Soft-delete a draft PO',
+     'Record a supplier payment against the PO',
+     'Change booked exchange rate',
+     'Request a post-approval edit → review → mark used',
+     'PO PDF opens (authorized) / 403 if not permitted',
+     'Version snapshots (po-v1…) saved on submit/resubmit',
+   ]},
+   {p:'Approvals (Purchase)', route:'/purchase/approvals', perm:'purchase.approvals.view', t:[
+     'Pending approvals list loads',
+     'Approve a step',
+     'Reject a PO (with reason)',
+     'Force-approve a step (Owner)',
+     'Force-approve all steps',
+     'Approved PO flips to approved; rejected returns to draft',
+   ]},
+   {p:'Receivals', route:'/purchase/receivals', perm:'purchase.receivals.view', t:[
+     'Receivals list loads',
+     'Create & approve a receival (books FIFO layers + stock)',
+     'Request a receival edit → approve edit',
+     'Self-serve receival edit',
+     'Create a replacement receival',
+     'Receival check + receival receipt PDFs open',
+     'Retry / double-submit does NOT double-post (idempotency check)',
+   ]},
+   {p:'Bills', route:'/purchase/bills', perm:'purchase.bills.view', t:[
+     'Bills list loads',
+     'Create a supplier bill (recompute is idempotent)',
+     'Attach a payment to a bill',
+     'Edit / delete a supplier payment',
+     'Attach supplier invoice files',
+     'Bill PDF opens',
+   ]},
+   {p:'Returns (Purchase)', route:'/purchase/returns', perm:'purchase.returns.view', t:[
+     'PO returns list loads',
+     'Create a purchase return',
+     'Dispatch a PO return; cancel dispatch',
+     'Issue a debit note',
+     'Resolve debit note as supplier credit',
+     'Resolve debit note as replacement',
+     'Direct status write blocked (guarded)',
+   ]},
+   {p:'Debit Notes', route:'/purchase/debit-notes', perm:'purchase.debit_notes.view', t:[
+     'Debit notes list loads',
+     'Debit note PDF opens',
+   ]},
+   {p:'Aging Report (Purchase)', route:'/purchase/aging-report', perm:'purchase.bills.view / aging.view', t:[
+     'Payables aging loads',
+     'Buckets + totals correct; filter works',
+   ]},
+   {p:'Shipments', route:'/purchase/shipments', perm:'purchase.shipments.view', t:[
+     'Shipments list loads',
+     'Create a shipment',
+     'Update shipment status',
+     'Add a shipment event',
+     'Archive a shipment',
+   ]},
+   {p:'Landed Costs', route:'/purchase/landed-costs', perm:'purchase.landed_costs.view', t:[
+     'Landed costs list loads',
+     'Create a landed cost',
+     'Apply / allocate to receival layers',
+     'Revert an allocation',
+     'Void a landed cost (COGS visibility in P&L)',
+   ]},
+   {p:'Dead Stock Report', route:'/purchase/dead-stock', perm:'purchase.dead_stock.view', t:[
+     'Dead stock report loads + filters',
+   ]},
+ ]},
+
+ {m:'Sales', pages:[
+   {p:'Sale Orders', route:'/sales/orders', perm:'sales.orders.view', t:[
+     'SO list loads',
+     'Create a quotation',
+     'Create a confirmed SO (credit check at creation)',
+     'Edit / amend an SO',
+     '★ Save as quotation → Confirm → re-runs credit gate (over-limit → approval)',
+     'Cancel an SO',
+     'Resubmit an SO after rejection',
+     'SO / quotation PDF opens',
+   ]},
+   {p:'Approvals (Sales)', route:'/sales/approvals', perm:'sales.approvals.view', t:[
+     'Sales approvals list loads (margin / credit)',
+     'Approve / reject / force-approve',
+     'Over-limit order routes here instead of auto-confirming',
+   ]},
+   {p:'SO Invoices', route:'/sales/invoices', perm:'sales.invoices.view', t:[
+     'Invoices list loads (tl_invoices, source=order)',
+     'Generate an invoice from an SO',
+     'Void an invoice',
+     'Issue a credit note against an invoice',
+     'Apply a credit note to an invoice',
+     'Invoice PDF opens (authorized only)',
+     'QuickBooks bulk sync (if used)',
+   ]},
+   {p:'Returns (Sales)', route:'/sales/returns', perm:'sales.returns.view', t:[
+     'Sales returns list loads',
+     'Create a direct sales return',
+     'Complete return inspection',
+     'Restock a return',
+     'Issue a credit note for the return',
+     'Create a partial replacement (customer + inventory atomic)',
+     'Record refund / store credit / disposition',
+   ]},
+   {p:'Warranties', route:'/sales/warranties', perm:'sales.warranties.view', t:[
+     'Warranty records list loads (origin snapshot shown)',
+     'Warranty certificate PDF opens',
+     'File a warranty claim',
+     'Assess — cover / reject a claim',
+     'Start resolution → spawns warranty-flagged return',
+     'Void a claim (releases coverage; cancels pending return)',
+     'Partial claim qty + remaining-coverage tracking',
+   ]},
+   {p:'Deliveries', route:'/sales/deliveries', perm:'sales.deliveries.view', t:[
+     'Deliveries list loads',
+     'Create a delivery from an SO',
+     'Edit a draft delivery',
+     'Complete delivery → books stock + issues warranty records',
+     'Auto-open warranty certificate on completion',
+     'Cancel a delivery (restocks correctly)',
+     'Delivery note PDF opens',
+   ]},
+   {p:'Credit Notes', route:'/sales/credit-notes', perm:'sales.credit_notes.view', t:[
+     'Credit notes list loads',
+     'Credit note PDF opens',
+     'Apply store credit (FIFO across CNs)',
+   ]},
+   {p:'Customer Statement', route:'/sales/customer-statement', perm:'sales.invoices.view / customer_statement.view', t:[
+     'Statement loads for a customer',
+     'Statement PDF opens (authorized only — no cross-customer access)',
+   ]},
+   {p:'Aging Report (Sales)', route:'/sales/aging-report', perm:'sales.invoices.view / aging.view', t:[
+     'Receivables aging loads; buckets + filter correct',
+   ]},
+   {p:'Payments / Pending Payments', route:'/invoices/pending-payments', perm:'payments.view', t:[
+     'Pending payments list loads',
+     'Record a customer payment',
+     'Change booked exchange rate (SO)',
+     'Attach / detach payment from invoice',
+     'Create a payment plan (installments)',
+     'Settle an installment',
+   ]},
+ ]},
+
+ {m:'Operations', pages:[
+   {p:'Custody', route:'/warehouse/custody', perm:'custody.view', t:[
+     'Custody holdings list loads (per responsible person)',
+     'Custody → custody transfer (hand-out)',
+     'Consume from custody',
+     'Cost column hidden without custody.cost.view',
+   ]},
+   {p:'Consumption', route:'/consumption', perm:'consumption.view', t:[
+     'Consumption list loads',
+     'Create consumption (internal)',
+     'Create consumption from custody (Discipline + Milestone required)',
+     'Cancel a consumption',
+     'Cross-division consumption (permission-gated)',
+     'Stock decrements after consume (view refreshes)',
+   ]},
+   {p:'Damaged Stock', route:'/warehouse/damaged-stock', perm:'damaged_stock.*.view', t:[
+     'On-hand + out-for-repair tabs load',
+     'Send damaged stock for repair',
+     'Return damaged from repair',
+     'Disposition / write-off a damaged item',
+   ]},
+   {p:'Tools & Assets', route:'/warehouse/tools-assets', perm:'tools.assets.view', t:[
+     'Hub loads (Teams / Repair / Checks / History)',
+     'Assign a serialized tool to a team',
+     'Move a tool between same-division teams',
+     'Return a tool',
+     'Run a condition check (Good / Bad / Under-repair)',
+     'Resolve repair → Repaired or Scrap (posts unit cost to P&L)',
+     'Cost hidden without tools.assets.cost.view',
+     'Page is division-scoped (empty if user not in the division)',
+   ]},
+   {p:'Picture Transfer', route:'/warehouse/picture-transfer', perm:'warehouse.transfer.simple', t:[
+     'Send — create a pending picture transfer',
+     'Receive — confirm an incoming picture transfer',
+   ]},
+   {p:'Warehouse Transfers (classic)', route:'/master-data/warehouses (Transfers)', perm:'warehouse.transfers.view', t:[
+     'Create a transfer',
+     'Dispatch (issue) — Warehouse RP only',
+     'Receive — Warehouse RP only',
+     'Cancel / reject a transfer',
+   ]},
+   {p:'Stock Adjustments', route:'/master-data/warehouses (Adjustments)', perm:'warehouse.adjustments.view', t:[
+     'Request a stock adjustment',
+     'Approve / reject an adjustment step',
+     'Force-approve (Owner)',
+     'On final approval, stock movement is booked',
+     'Direct status write blocked (guarded)',
+   ]},
+   {p:'Inventory Checks', route:'/master-data/warehouses (Checks)', perm:'warehouse.checks.view', t:[
+     'Start an inventory check',
+     'Save item counts',
+     'Complete an assignment',
+     'Approve / reject a check step',
+     'Cancel a check',
+   ]},
+ ]},
+
+ {m:'Cross-cutting', pages:[
+   {p:'Auth & session', route:'(all)', perm:'—', t:[
+     'Login with valid credentials',
+     'Logout clears session',
+     'Inactivity timeout logs out',
+     'Session guard redirects unauthenticated users',
+   ]},
+   {p:'Navigation & permissions', route:'(all)', perm:'route-permissions.ts', t:[
+     'Nav dropdowns show only permitted items',
+     'Direct URL to an unpermitted page is blocked (RoutePermissionGuard)',
+     'System admin sees everything (bypass)',
+     'A role with only one page lands there after login',
+   ]},
+   {p:'Division & financials', route:'(all)', perm:'custom_access_token_hook', t:[
+     'Division switcher changes scope of lists/reports',
+     'Financials/claims work (JWT carries division claim — hook enabled)',
+   ]},
+   {p:'Responsive & stability', route:'(all)', perm:'—', t:[
+     'Mobile (<640) — hamburger / drawer nav works',
+     'Tables collapse / horizontal-scroll on phone',
+     'Dialogs full-screen on mobile, centered on desktop',
+     'Selecting a dropdown value does not shift surrounding layout',
+     'Dialog titles + column headers wrap (never truncated)',
+   ]},
+   {p:'Notifications', route:'(bell)', perm:'—', t:[
+     'Bell shows unread notifications',
+     'Mark read / actioned / bulk-actioned',
+   ]},
+ ]},
+];
+
+/* ─── State ─── */
+const KEY='qa-shipping-v1';
+const STATES=['pass','fail','block','na'];
+const LABELS={pass:'P',fail:'F',block:'B',na:'N'};
+let store = load();
+let filter='all', query='';
+
+function load(){ try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}} }
+function save(){ try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){} }
+function idOf(mi,pi,ti){return `${mi}.${pi}.${ti}`}
+function rec(id){ return store[id]||{s:'',n:''} }
+
+/* ─── Render ─── */
+const root=document.getElementById('root');
+function build(){
+  root.innerHTML='';
+  MATRIX.forEach((mod,mi)=>{
+    const det=document.createElement('details');
+    det.className='module'; det.open=true; det.dataset.mi=mi;
+    const sum=document.createElement('summary');
+    sum.innerHTML=`<svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="m-title">${mod.m}</span>
+      <span class="m-num">${mod.pages.length} pages</span>
+      <span class="m-bar"><span class="mp-pass" style="background:var(--pass)"></span><span class="mp-fail" style="background:var(--fail)"></span><span class="mp-block" style="background:var(--block)"></span><span class="mp-na" style="background:var(--na)"></span></span>
+      <span class="m-count" data-mcount="${mi}">0/0</span>`;
+    det.appendChild(sum);
+    const body=document.createElement('div'); body.className='m-body';
+    mod.pages.forEach((pg,pi)=>{
+      const card=document.createElement('div'); card.className='page';
+      const head=document.createElement('div'); head.className='page-head';
+      head.innerHTML=`<span class="page-name">${pg.p}</span>
+        <span class="route mono">${pg.route}</span>
+        <span class="perm mono">${pg.perm}</span>
+        <span class="page-mini" data-pcount="${mi}.${pi}"></span>`;
+      card.appendChild(head);
+      pg.t.forEach((label,ti)=>{
+        const id=idOf(mi,pi,ti); const r=rec(id);
+        const row=document.createElement('div'); row.className='test'; row.dataset.id=id;
+        row.dataset.status=r.s||''; if(r.n) row.classList.add('has-note');
+        row.dataset.text=(label+' '+pg.p+' '+pg.route).toLowerCase();
+        const seg=document.createElement('div'); seg.className='seg'; seg.setAttribute('role','group');
+        STATES.forEach(s=>{
+          const b=document.createElement('button'); b.type='button'; b.dataset.s=s; b.textContent=LABELS[s];
+          b.setAttribute('aria-pressed', r.s===s?'true':'false');
+          b.title={pass:'Pass',fail:'Fail',block:'Blocked',na:'Not applicable'}[s];
+          b.addEventListener('click',()=>setStatus(id,s));
+          seg.appendChild(b);
+        });
+        const main=document.createElement('div'); main.className='t-main';
+        const lab=document.createElement('div'); lab.className='t-label'; lab.textContent=label;
+        const nt=document.createElement('button'); nt.className='note-toggle'; nt.type='button';
+        nt.textContent = r.n? '✎ edit note' : '+ note';
+        nt.addEventListener('click',()=>{const ta=main.querySelector('.t-note');row.classList.add('has-note');ta.style.display='block';ta.focus()});
+        const ta=document.createElement('textarea'); ta.className='t-note'; ta.placeholder='Note / defect detail…'; ta.value=r.n||'';
+        ta.addEventListener('input',()=>{const rr=rec(id);rr.n=ta.value;store[id]=rr;save();nt.textContent=ta.value?'✎ edit note':'+ note'});
+        main.appendChild(lab); main.appendChild(nt); main.appendChild(ta);
+        row.appendChild(seg); row.appendChild(main);
+        card.appendChild(row);
+      });
+      body.appendChild(card);
+    });
+    det.appendChild(body); root.appendChild(det);
+  });
+  recount(); applyFilter();
+}
+
+function setStatus(id,s){
+  const r=rec(id); r.s = (r.s===s)?'' : s; store[id]=r; save();
+  const row=root.querySelector(`.test[data-id="${id}"]`);
+  row.dataset.status=r.s;
+  row.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.s===r.s?'true':'false'));
+  recount(); applyFilter();
+}
+
+function counts(){
+  let c={pass:0,fail:0,block:0,na:0,total:0};
+  MATRIX.forEach((mod,mi)=>mod.pages.forEach((pg,pi)=>pg.t.forEach((_,ti)=>{
+    c.total++; const s=rec(idOf(mi,pi,ti)).s; if(s)c[s]++;
+  })));
+  return c;
+}
+function recount(){
+  const c=counts(); const done=c.pass+c.fail+c.block+c.na; const left=c.total-done;
+  const pct=c.total?Math.round(done/c.total*100):0;
+  document.getElementById('pctDone').textContent=pct+'%';
+  document.getElementById('nTotal').textContent=c.total;
+  document.getElementById('cPass').textContent=c.pass+' pass';
+  document.getElementById('cFail').textContent=c.fail+' fail';
+  document.getElementById('cBlock').textContent=c.block+' blocked';
+  document.getElementById('cNa').textContent=c.na+' n/a';
+  document.getElementById('cLeft').textContent=left+' left';
+  const w=x=>c.total?(x/c.total*100):0;
+  document.getElementById('bPass').style.width=w(c.pass)+'%';
+  document.getElementById('bFail').style.width=w(c.fail)+'%';
+  document.getElementById('bBlock').style.width=w(c.block)+'%';
+  document.getElementById('bNa').style.width=w(c.na)+'%';
+  // per-module + per-page counts
+  MATRIX.forEach((mod,mi)=>{
+    let mt=0,md=0,mp={pass:0,fail:0,block:0,na:0};
+    mod.pages.forEach((pg,pi)=>{
+      let pt=0,pd=0;
+      pg.t.forEach((_,ti)=>{const s=rec(idOf(mi,pi,ti)).s;pt++;mt++;if(s){pd++;md++;mp[s]++}});
+      const el=root.querySelector(`[data-pcount="${mi}.${pi}"]`); if(el)el.textContent=`${pd}/${pt}`;
+    });
+    const mc=root.querySelector(`[data-mcount="${mi}"]`); if(mc)mc.textContent=`${md}/${mt}`;
+    const sum=root.querySelector(`.module[data-mi="${mi}"] summary`);
+    if(sum){const f=x=>mt?(x/mt*100):0;
+      sum.querySelector('.mp-pass').style.width=f(mp.pass)+'%';
+      sum.querySelector('.mp-fail').style.width=f(mp.fail)+'%';
+      sum.querySelector('.mp-block').style.width=f(mp.block)+'%';
+      sum.querySelector('.mp-na').style.width=f(mp.na)+'%';
+    }
+  });
+}
+
+function applyFilter(){
+  let shown=0;
+  root.querySelectorAll('.test').forEach(row=>{
+    const s=row.dataset.status||'';
+    let ok=true;
+    if(filter==='untested') ok = !s;
+    else if(filter!=='all') ok = s===filter;
+    if(ok && query) ok = row.dataset.text.includes(query);
+    row.classList.toggle('hide',!ok);
+    if(ok)shown++;
+  });
+  // hide empty modules/pages under filter
+  root.querySelectorAll('.page').forEach(card=>{
+    const any=[...card.querySelectorAll('.test')].some(r=>!r.classList.contains('hide'));
+    card.style.display=any?'':'none';
+  });
+  root.querySelectorAll('.module').forEach(det=>{
+    const any=[...det.querySelectorAll('.test')].some(r=>!r.classList.contains('hide'));
+    det.style.display=any?'':'none';
+  });
+  document.getElementById('empty').classList.toggle('show',shown===0);
+}
+
+/* ─── Controls ─── */
+document.querySelectorAll('.filters button').forEach(b=>b.addEventListener('click',()=>{
+  filter=b.dataset.f;
+  document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));
+  applyFilter();
+}));
+document.getElementById('search').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();applyFilter()});
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  if(confirm('Clear all marks and notes? This cannot be undone.')){store={};save();build();flash('All marks cleared')}
+});
+document.getElementById('copyBtn').addEventListener('click',copyReport);
+const themeBtn=document.getElementById('themeBtn');
+themeBtn.addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const mq=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const next = cur ? (cur==='dark'?'light':'dark') : (mq?'light':'dark');
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem(KEY+'-theme',next)}catch(e){}
+});
+(function(){try{const t=localStorage.getItem(KEY+'-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+
+function flash(msg){const f=document.getElementById('flash');f.textContent=msg;f.classList.add('show');setTimeout(()=>f.classList.remove('show'),1800)}
+
+function copyReport(){
+  const c=counts(); const done=c.pass+c.fail+c.block+c.na;
+  let out=`# Shipping Build — QA Results\n\nBranch: deploy/warehouse-shipping\nTested: ${done}/${c.total} · ✅ ${c.pass} pass · ❌ ${c.fail} fail · ⛔ ${c.block} blocked · ➖ ${c.na} n/a\n`;
+  MATRIX.forEach((mod,mi)=>{
+    out+=`\n## ${mod.m}\n`;
+    mod.pages.forEach((pg,pi)=>{
+      out+=`\n### ${pg.p}  \`${pg.route}\`\n`;
+      pg.t.forEach((label,ti)=>{
+        const r=rec(idOf(mi,pi,ti));
+        const mark={pass:'✅',fail:'❌',block:'⛔',na:'➖'}[r.s]||'⬜';
+        out+=`- ${mark} ${label}${r.n?`  — _${r.n.replace(/\n/g,' ')}_`:''}\n`;
+      });
+    });
+  });
+  navigator.clipboard.writeText(out).then(()=>flash('Report copied to clipboard'),()=>flash('Copy failed — select manually'));
+}
+
+build();
+</script>
