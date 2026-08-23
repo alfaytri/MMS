@@ -364,9 +364,10 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useAddShipmentEvent`](src/hooks/useShipments.ts)
 - **RPC:** `append_shipment_events`
 
-### Archive Shipment
+### Delete Shipment
 - **Trigger:** `PoShipmentDialog`
-- **Hook:** [`useArchiveShipment`](src/hooks/useShipments.ts)
+- **Hook:** [`useDeleteShipment`](src/hooks/useShipments.ts)
+- **Notes:** Hard-deletes the shipment (no inbound FK dependents; tracking events cascade) + deregisters 17track. The Active/Archived tabs were removed. (Was a soft `archived=true` flag until 2026-08-23.)
 
 ---
 
@@ -1006,22 +1007,22 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 
 ## Workflow / Approval configuration
 
-### Add / Update / Archive Workflow Step
-- **Hooks:** [`useAddWorkflowStep`, `useAddWorkflowStepForRole`, `useUpdateWorkflowStepRole`, `useUpdateWorkflowStepConditions`, `useArchiveWorkflowStep`](src/hooks/useWorkflowSteps.ts)
-- **RPCs:** `add_workflow_step`, `toggle_workflow_step`, `add_workflow_step_for_role`, `update_workflow_step_role`, `update_workflow_step_conditions`, `archive_workflow_step`
+### Add / Update / Delete Workflow Step
+- **Hooks:** [`useAddWorkflowStep`, `useAddWorkflowStepForRole`, `useUpdateWorkflowStepRole`, `useUpdateWorkflowStepConditions`, `useDeleteWorkflowStep`](src/hooks/useWorkflowSteps.ts)
+- **RPCs:** `add_workflow_step`, `toggle_workflow_step`, `add_workflow_step_for_role`, `update_workflow_step_role`, `update_workflow_step_conditions`, `delete_workflow_step` (hard delete; migration `20261004000200`. The old `archive_workflow_step` is retained but unused as of 2026-08-23.)
 
 ### Create / Update / Delete Workflow Group
 - **Hooks:** [`useCreateWorkflowGroup`, `useUpdateWorkflowGroup`, `useDeleteWorkflowGroup`](src/hooks/useWorkflowGroups.ts)
 
-### Archive Approval Chain
-- **Hook:** [`useArchiveApprovalChain`](src/hooks/useApprovalChains.ts)
-- **Notes:** Guards against archiving chains that back active approvals.
+### Delete Approval Chain (division override)
+- **Hook:** [`useDeleteApprovalChain`](src/hooks/useApprovalChains.ts)
+- **Notes:** Hard-deletes a division-override chain (cascades its own tiers); the division falls back to the Company Default. The company-default chain isn't deletable in the UI. (Was a soft archive — `is_active=false` + `archived_at` — until 2026-08-23.)
 
 ### Role name → approval-tier sync (DB trigger)
 - **Trigger:** `trg_sync_role_name_to_approval_tiers` on `custom_roles` (AFTER UPDATE OF name, deleted_at OR DELETE) → [`public.sync_role_name_to_approval_tiers()`](../supabase/migrations/20261004000000_cascade_role_name_to_approval_tiers.sql) (SECURITY DEFINER, `search_path=''`).
 - **Writes:** keeps `po_approval_chain_tiers.required_roles` (denormalized role-name array, no FK) in sync — removes the name on delete (hard or soft), replaces it on rename. Migration also does a one-time cleanup of any pre-existing orphans.
 - **Why:** deleting/renaming a role used to leave its name frozen in every tier — it lingered in the PO Approval Bands UI, couldn't be removed via the tier editor, and produced an unfulfillable approval step (`buildApprovalSteps`). App side: `invalidateRoleDependentQueries` ([`useRoles.ts`](../src/hooks/useRoles.ts)) now also invalidates `approvals.chains`; the tier editor ([`ApprovalChainsTab.tsx`](../src/components/purchase/ApprovalChainsTab.tsx)) renders any leftover orphan names as removable chips and warns on empty tiers.
-- **Related:** [[Archive Approval Chain]], [[Submit PO for Approval]]
+- **Related:** [[Delete Approval Chain (division override)]], [[Submit PO for Approval]]
 
 ---
 

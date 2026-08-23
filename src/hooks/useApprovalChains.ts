@@ -143,14 +143,18 @@ export function useToggleChainActive() {
   })
 }
 
-export function useArchiveApprovalChain() {
+export function useDeleteApprovalChain() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
+      // Hard delete: a division override removed falls the division back to the
+      // company-default chain (same net effect the old archive had via is_active=false)
+      // and cascades this chain's own tiers. Nothing external references
+      // po_approval_chains, and the company-default chain is never deletable in the UI.
       const { error } = await supabase
         .from('po_approval_chains')
-        .update({ is_active: false, archived_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
       if (error) throw error
     },

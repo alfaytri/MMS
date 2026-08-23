@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
-  Plus, Trash2, Pencil, Check, X, AlertTriangle, Archive,
+  Plus, Trash2, Pencil, Check, X, AlertTriangle,
   Wallet, Infinity as InfinityIcon, ShieldCheck, Users2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,7 +24,7 @@ import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   useApprovalChains, useUpsertApprovalChain,
   useUpsertApprovalChainTier, useDeleteApprovalChainTier,
-  useToggleChainActive, useArchiveApprovalChain,
+  useToggleChainActive, useDeleteApprovalChain,
 } from '@/hooks/useApprovalChains'
 import { useIsAdmin } from '@/hooks/useProfiles'
 import { useDivisions } from '@/hooks/useDivisions'
@@ -58,7 +58,7 @@ export function ApprovalChainsTab() {
   const upsertTier = useUpsertApprovalChainTier()
   const deleteTier = useDeleteApprovalChainTier()
   const toggleActive = useToggleChainActive()
-  const archiveChain = useArchiveApprovalChain()
+  const deleteChain = useDeleteApprovalChain()
 
   const { data: divisions = [] } = useDivisions()
 
@@ -286,7 +286,7 @@ export function ApprovalChainsTab() {
                     className="text-muted-foreground hover:text-destructive"
                     onClick={() => setArchiveTarget({ id: chain.id, name: chain.name })}
                   >
-                    <Archive className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 )}
               </div>
@@ -471,15 +471,15 @@ export function ApprovalChainsTab() {
 
       <ConfirmDialog
         open={!!archiveTarget}
-        title="Archive approval chain"
-        description={`Archive "${archiveTarget?.name}"? The division will fall back to the Company Default chain. You can recreate it later if needed.`}
-        confirmLabel="Archive"
+        title="Delete approval chain"
+        description={`Delete "${archiveTarget?.name}"? The division will fall back to the Company Default chain.`}
+        confirmLabel="Delete"
         variant="destructive"
-        isPending={archiveChain.isPending}
+        isPending={deleteChain.isPending}
         onConfirm={() => {
           if (archiveTarget) {
-            archiveChain.mutate(archiveTarget.id, {
-              onSuccess: () => { toast.success('Chain archived'); setArchiveTarget(null) },
+            deleteChain.mutate(archiveTarget.id, {
+              onSuccess: () => { toast.success('Chain deleted'); setArchiveTarget(null) },
               onError: (e) => toast.error(e.message),
             })
           }

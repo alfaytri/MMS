@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  Plane, Ship, Truck, PenLine, Eye, Archive, Plus, RefreshCw,
+  Plane, Ship, Truck, PenLine, Eye, Trash2, Plus, RefreshCw,
   Package, MapPin, Clock, CheckCircle2, AlertTriangle, CircleDot,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { formatDate } from '@/lib/utils/formatters'
 import {
-  useShipments, useCreateShipment, useUpdateShipmentStatus, useAddShipmentEvent, useArchiveShipment,
+  useShipments, useCreateShipment, useUpdateShipmentStatus, useAddShipmentEvent, useDeleteShipment,
   type Shipment, type ShipmentMode, type ShipmentStatus, type ShipmentEvent,
 } from '@/hooks/useShipments'
 import { usePurchaseOrders } from '@/hooks/usePurchaseOrders'
@@ -206,7 +206,7 @@ function ShipmentDetailDialog({
 }) {
   const updateStatus = useUpdateShipmentStatus()
   const addEvent = useAddShipmentEvent()
-  const archiveShipment = useArchiveShipment()
+  const deleteShipment = useDeleteShipment()
   const [showEventForm, setShowEventForm] = useState(false)
   const [eventForm, setEventForm] = useState({ date: '', location: '', status: '', notes: '' })
 
@@ -500,31 +500,29 @@ function ShipmentDetailDialog({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          {!shipment.archived && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="min-h-11 md:min-h-0 text-muted-foreground hover:text-destructive"
-              onClick={() => archiveShipment.mutate(
-                shipment.id,
-                {
-                  onSuccess: () => {
-                    toast.success('Archived')
-                    fetch('/api/shipments/deregister-tracking', {
-                      method: 'POST',
-                      keepalive: true,
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ tracking_number: shipment.tracking_number }),
-                    }).catch(err => console.error('[deregister]', err))
-                    onClose()
-                  },
-                  onError: (err) => toast.error(err.message),
-                }
-              )}
-            >
-              <Archive className="h-3.5 w-3.5 mr-1.5" /> Archive
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-11 md:min-h-0 text-muted-foreground hover:text-destructive"
+            onClick={() => deleteShipment.mutate(
+              shipment.id,
+              {
+                onSuccess: () => {
+                  toast.success('Deleted')
+                  fetch('/api/shipments/deregister-tracking', {
+                    method: 'POST',
+                    keepalive: true,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tracking_number: shipment.tracking_number }),
+                  }).catch(err => console.error('[deregister]', err))
+                  onClose()
+                },
+                onError: (err) => toast.error(err.message),
+              }
+            )}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -534,12 +532,11 @@ function ShipmentDetailDialog({
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ShipmentsPage() {
-  const [archived, setArchived] = useState(false)
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [selected, setSelected] = useState<Shipment | null>(null)
 
-  const { data: shipments, isLoading } = useShipments({ archived, search })
+  const { data: shipments, isLoading } = useShipments({ archived: false, search })
 
   const currentShipment = selected
     ? (shipments ?? []).find(s => s.id === selected.id) ?? selected
@@ -617,23 +614,6 @@ export default function ShipmentsPage() {
       />
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex rounded-lg border overflow-hidden">
-          {[false, true].map((isArchived) => (
-            <button
-              key={String(isArchived)}
-              type="button"
-              onClick={() => setArchived(isArchived)}
-              className={cn(
-                'px-4 py-2 text-sm font-medium transition-colors',
-                archived === isArchived
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-muted text-muted-foreground',
-              )}
-            >
-              {isArchived ? 'Archived' : 'Active'}
-            </button>
-          ))}
-        </div>
         <SearchInput value={search} onChange={setSearch} placeholder="Search tracking number…" />
       </div>
 
