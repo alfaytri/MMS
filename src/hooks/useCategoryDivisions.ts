@@ -30,10 +30,16 @@ export function useSetCategoryDivisions() {
       )
       if (error) throw error
     },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ['category-divisions', vars.categoryId] })
+    onSuccess: (_d, _vars) => {
+      // Bare prefix, not scoped to categoryId: rpc_category_divisions computes
+      // `inherited` by walking ancestors, so a descendant category's cached result
+      // also depends on this category's rows.
+      qc.invalidateQueries({ queryKey: ['category-divisions'] })
       qc.invalidateQueries({ queryKey: ['item-divisions-by-stock'] })
       qc.invalidateQueries({ queryKey: ['cascade-accessible', 'assignment'] })
+      // useItemEffectiveDivisions derives `inherited` from inventory_category_divisions,
+      // the table this mutation writes — refetch so an open Item dialog isn't stale.
+      qc.invalidateQueries({ queryKey: ['item-effective-divisions'] })
     },
   })
 }
