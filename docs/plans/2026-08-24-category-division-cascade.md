@@ -30,7 +30,7 @@
 - **All functional DB verifies use `BEGIN … ROLLBACK` and dynamic row selection** — safe to run against any environment, no hardcoded IDs, no data left behind.
 - **SECDEF RPCs:** end every new function with `revoke all on function … from public, anon;` + `grant execute on function … to authenticated;`
 - **After type regen (Task 6):** re-append the 4 helper aliases (CLI wipes them) — exact text in that task.
-- **Per-task ritual (AGENTS.md):** update `PROGRESS.md` (start + completion) and `EOD/EOD-2026-08-24.md` per task; the flows-registry entry ships in the code commit (Task 11). Never push without asking.
+- **Docs cadence:** this plan IS one AGENTS.md feature task (decomposed), so `PROGRESS.md` gets the feature-level **start** entry (done) + a **completion** entry in Task 11 — not one per micro-task. `EOD/EOD-2026-08-24.md` gets one appended line per completed task (controller-managed; EOD is gitignored). The flows-registry entry ships in the Task 11 code commit. Never push without asking.
 - **Frontend gate:** `npx tsc --noEmit` must pass before each frontend commit. UI behaviour is smoke-tested by the operator (do not fabricate component tests).
 
 ---
@@ -482,6 +482,8 @@ Expected: `CREATE FUNCTION` + `REVOKE`/`GRANT`, no error.
 ---
 
 ## Task 6: Regenerate `database.types.ts` + re-append helpers
+
+> **SKIPPED (2026-08-24, environment + design):** `npx supabase gen types` requires Docker (unavailable on this machine — it errors `failed to connect to the docker API`), and `--linked` points at the paused dev project. More importantly it is **unnecessary**: the hooks (Task 8) call the new RPCs with `as never` casts — the same pattern the existing `useSetItemDivisions`/`useItemDivisions` hooks already use for RPCs absent from the generated types — and no frontend file reads the `inventory_category_divisions` table type or the new RPC signatures directly. A full regen would also risk importing staging's schema drift into the types the app builds against (new-prod). Left as-is; the feature type-checks via the established `as never` convention. The four helper aliases remain intact (untouched).
 
 **Files:**
 - Modify: `src/types/database.types.ts`
