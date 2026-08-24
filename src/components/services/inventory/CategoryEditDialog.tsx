@@ -63,7 +63,12 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const cascadeMode = useCascadeCategoryTrackingMode()
   const { flat } = useInventoryTree(categoryType)
   const { data: divisions = [] } = useDivisions()
-  const { data: catDivs } = useCategoryDivisions(category?.id ?? null)
+  // Gated on `open` (+ edit mode): this dialog is mounted once per CategoryRow
+  // (outside the {expanded} guard), so without the gate every visible category
+  // fires this recursive-CTE RPC (rpc_category_divisions) on page load while
+  // the dialog is closed. The seed-once ref below (`ownDivisionsSeededRef`)
+  // keeps the now-async resolution from clobbering in-progress ticks.
+  const { data: catDivs } = useCategoryDivisions(open && isEdit ? (category?.id ?? null) : null)
   const setCategoryDivisions = useSetCategoryDivisions()
   const cascadeUnits = useCascadeCategoryUnitsDivision()
 
@@ -135,14 +140,22 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     }
   }, [open, category, defaultParentId, isEdit, flat])
 
-  // Seed own-divisions once the read query resolves, and re-seed on every
-  // (re)open — `catDivs` stays undefined in create mode (query disabled
-  // without a category id), so without the `open` gate a selection made in
-  // one "New Category" attempt would silently leak into the next.
+  // Seed own-divisions ONCE per open — either when the edit fetch first
+  // resolves, or immediately for a create (no category yet, query disabled
+  // above). A later refetch must not clobber a checkbox the operator toggled
+  // in between. Mirrors ItemEditDialog's `assignedSeededRef` pattern.
+  const ownDivisionsSeededRef = useRef(false)
   useEffect(() => {
-    if (!open) return
-    setOwnDivisionIds(catDivs?.own ?? [])
-  }, [open, catDivs])
+    if (!open) { ownDivisionsSeededRef.current = false; return }
+    if (ownDivisionsSeededRef.current) return
+    if (catDivs !== undefined) {
+      setOwnDivisionIds(catDivs.own)
+      ownDivisionsSeededRef.current = true
+    } else if (!isEdit) {
+      setOwnDivisionIds([])
+      ownDivisionsSeededRef.current = true
+    }
+  }, [open, catDivs, isEdit])
 
   useEffect(() => {
     if (!open) return
