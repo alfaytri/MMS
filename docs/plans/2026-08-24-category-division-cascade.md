@@ -18,35 +18,36 @@
   Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
   ```
 - **Migrations:** create each `.sql` in **BOTH** `supabase/migrations/` AND `supabase/migrations-staging/` (same commit). Timestamps `20261005000000`…`20261005000400` (they sort after the latest applied, `20261004000200`).
-- **DB target:** apply to **staging** (`mwvblpgbgxipvrevkeff`) first. The CLI is currently linked to the **paused dev** project — see Task 0 to re-link. New-prod (`optishfnnctrhffpoywg`, live app) is applied in Task 12 at ship time — **ask before deploy** (each push to `deploy/warehouse-shipping` is a Vercel prod build).
+- **DB target:** build + verify on **staging** (`mwvblpgbgxipvrevkeff`) first. **Do NOT use `npx supabase db push`** — the CLI is linked to the *paused dev* project and staging's migration history is drifted (latest recorded `20261003000000`; the `20261004xxx` trio was applied by raw psql). Apply migrations by **`psql -f`** instead (the project's current deploy-window practice). New-prod (`optishfnnctrhffpoywg`, live app) is applied in Task 12 at ship time — **ask before deploy** (each push to `deploy/warehouse-shipping` is a Vercel prod build). **The auto-stick trigger must NOT reach new-prod until ship**, or the live app auto-assigns divisions before the UI exists.
+- **Staging connection (verified working):** load env then define a helper — reuse in every DB step:
+  ```bash
+  set -a && . supabase/.temp/migrate.env && set +a; export PGCLIENTENCODING=UTF8
+  PSQL="/c/Program Files/PostgreSQL/18/bin/psql.exe"
+  SPG() { PGPASSWORD="$STAGING_DB_PASSWORD" "$PSQL" -h db.mwvblpgbgxipvrevkeff.supabase.co -p 5432 -U postgres -d postgres "$@"; }
+  # apply:  SPG -f supabase/migrations/<file>.sql        verify: SPG -c "<sql>"
+  ```
+  (New-prod in Task 12 uses `"$PSQL" "$NEW_DB_URL" -f <file>`.)
 - **All functional DB verifies use `BEGIN … ROLLBACK` and dynamic row selection** — safe to run against any environment, no hardcoded IDs, no data left behind.
 - **SECDEF RPCs:** end every new function with `revoke all on function … from public, anon;` + `grant execute on function … to authenticated;`
 - **After type regen (Task 6):** re-append the 4 helper aliases (CLI wipes them) — exact text in that task.
 - **Per-task ritual (AGENTS.md):** update `PROGRESS.md` (start + completion) and `EOD/EOD-2026-08-24.md` per task; the flows-registry entry ships in the code commit (Task 11). Never push without asking.
-- **psql:** `"/c/Program Files/PostgreSQL/18/bin/psql.exe"`; env: `set -a && . supabase/.temp/migrate.env && set +a; export PGCLIENTENCODING=UTF8`.
 - **Frontend gate:** `npx tsc --noEmit` must pass before each frontend commit. UI behaviour is smoke-tested by the operator (do not fabricate component tests).
 
 ---
 
-## Task 0: Prerequisite — link CLI to staging & confirm in sync
+## Task 0: Prerequisite — confirm staging connection
 
 **Files:** none (environment setup).
 
-- [ ] **Step 1: Re-link the CLI to staging**
+- [ ] **Step 1: Confirm the staging psql connection works**
 
-Run:
 ```bash
-npx supabase link --project-ref mwvblpgbgxipvrevkeff
+set -a && . supabase/.temp/migrate.env && set +a; export PGCLIENTENCODING=UTF8
+PSQL="/c/Program Files/PostgreSQL/18/bin/psql.exe"
+SPG() { PGPASSWORD="$STAGING_DB_PASSWORD" "$PSQL" -h db.mwvblpgbgxipvrevkeff.supabase.co -p 5432 -U postgres -d postgres "$@"; }
+SPG -t -A -c "select 'STAGING OK', current_database();"
 ```
-Expected: "Finished supabase link." (No password needed when logged in via `npx supabase login`.)
-
-- [ ] **Step 2: Confirm migration history is in sync**
-
-Run:
-```bash
-npx supabase migration list --linked
-```
-Expected: local and remote columns match through `20261004000200`; no error. If drift shows, STOP and reconcile with `npx supabase migration repair` before proceeding (do not blind-push).
+Expected: `STAGING OK|postgres`. (Confirmed working 2026-08-24: staging has 978 items, 3 item_divisions.) Do **not** `npx supabase db push` (see Global Constraints).
 
 ---
 
@@ -63,7 +64,7 @@ Expected: local and remote columns match through `20261004000200`; no error. If 
 
 ```bash
 set -a && . supabase/.temp/migrate.env && set +a
-psql "$DB" -c "select count(*) from public.inventory_category_divisions;"
+SPG -c "select count(*) from public.inventory_category_divisions;"
 ```
 Expected: FAIL — `relation "public.inventory_category_divisions" does not exist`.
 
@@ -95,15 +96,15 @@ grant select on public.inventory_category_divisions to authenticated;
 - [ ] **Step 3: Apply to staging**
 
 ```bash
-npx supabase db push
+SPG -f supabase/migrations/20261005000000_category_divisions_table.sql
 ```
-Expected: applies `20261005000000`; "Finished supabase db push."
+Expected: `CREATE TABLE` / `CREATE INDEX` / `ALTER TABLE` / `CREATE POLICY` / `GRANT` with no error.
 
 - [ ] **Step 4: Run the verify (now passes) + confirm RLS on**
 
 ```bash
-psql "$DB" -c "select count(*) from public.inventory_category_divisions;"
-psql "$DB" -c "select relrowsecurity from pg_class where oid='public.inventory_category_divisions'::regclass;"
+SPG -c "select count(*) from public.inventory_category_divisions;"
+SPG -c "select relrowsecurity from pg_class where oid='public.inventory_category_divisions'::regclass;"
 ```
 Expected: `0`, then `t`.
 
@@ -134,7 +135,7 @@ EOF
 - [ ] **Step 1: Write the failing verify (dynamic, rolled back)**
 
 ```bash
-psql "$DB" -c "$(cat <<'SQL'
+SPG -c "$(cat <<'SQL'
 BEGIN;
 DO $$
 declare v_bv uuid; v_item uuid; v_sc uuid; v_div uuid;
@@ -193,9 +194,9 @@ create trigger trg_autostick_item_division
 - [ ] **Step 3: Apply to staging**
 
 ```bash
-npx supabase db push
+SPG -f supabase/migrations/20261005000100_autostick_item_division.sql
 ```
-Expected: applies `20261005000100`.
+Expected: `CREATE FUNCTION` / `CREATE TRIGGER` with no error.
 
 - [ ] **Step 4: Run the verify (now passes)**
 
@@ -217,7 +218,7 @@ Re-run the Step 1 block. Expected: `NOTICE: AUTOSTICK PASSED …`, then `ROLLBAC
 - [ ] **Step 1: Write the failing verify (dynamic, rolled back)**
 
 ```bash
-psql "$DB" -c "$(cat <<'SQL'
+SPG -c "$(cat <<'SQL'
 BEGIN;
 DO $$
 declare v_cat uuid; v_type text; v_item uuid; v_div uuid; v_ids uuid[];
@@ -280,7 +281,12 @@ language sql stable security definer set search_path to 'public' as $function$
 $function$;
 ```
 
-- [ ] **Step 3: Apply to staging** (`npx supabase db push`). Expected: applies `20261005000200`.
+- [ ] **Step 3: Apply to staging**
+
+```bash
+SPG -f supabase/migrations/20261005000200_item_divisions_by_stock_inherit.sql
+```
+Expected: `CREATE FUNCTION` with no error.
 
 - [ ] **Step 4: Run the verify (now passes)** — re-run Step 1. Expected: `NOTICE: INHERIT PASSED`.
 
@@ -302,7 +308,7 @@ $function$;
 - [ ] **Step 1: Write the failing verify (dynamic, rolled back)**
 
 ```bash
-psql "$DB" -c "$(cat <<'SQL'
+SPG -c "$(cat <<'SQL'
 BEGIN;
 DO $$
 declare v_cat uuid; v_div uuid; j jsonb;
@@ -381,7 +387,12 @@ revoke all on function public.rpc_item_effective_divisions(uuid) from public, an
 grant execute on function public.rpc_item_effective_divisions(uuid) to authenticated;
 ```
 
-- [ ] **Step 3: Apply to staging** (`npx supabase db push`).
+- [ ] **Step 3: Apply to staging**
+
+```bash
+SPG -f supabase/migrations/20261005000300_category_division_rpcs.sql
+```
+Expected: three `CREATE FUNCTION` + `REVOKE`/`GRANT` pairs, no error.
 
 - [ ] **Step 4: Run the verify (now passes)** — re-run Step 1 (`CATRPC PASSED`). Then confirm the unauthorized path raises (optional): the gate is `_user_can_write_catalog`.
 
@@ -400,7 +411,7 @@ grant execute on function public.rpc_item_effective_divisions(uuid) to authentic
 - [ ] **Step 1: Write the failing verify (dynamic, rolled back)**
 
 ```bash
-psql "$DB" -c "$(cat <<'SQL'
+SPG -c "$(cat <<'SQL'
 BEGIN;
 DO $$
 declare v_cat uuid; v_div uuid; j jsonb;
@@ -457,7 +468,12 @@ revoke all on function public.rpc_cascade_category_units_division(uuid, uuid) fr
 grant execute on function public.rpc_cascade_category_units_division(uuid, uuid) to authenticated;
 ```
 
-- [ ] **Step 3: Apply to staging** (`npx supabase db push`).
+- [ ] **Step 3: Apply to staging**
+
+```bash
+SPG -f supabase/migrations/20261005000400_cascade_category_units_division.sql
+```
+Expected: `CREATE FUNCTION` + `REVOKE`/`GRANT`, no error.
 
 - [ ] **Step 4: Run the verify (now passes)** — re-run Step 1 (`UNITS RPC PASSED {"moved":0,...}`).
 
@@ -472,8 +488,11 @@ grant execute on function public.rpc_cascade_category_units_division(uuid, uuid)
 
 - [ ] **Step 1: Regenerate types from staging**
 
+`--linked` points at the paused dev project, so target staging explicitly with a URL-encoded password:
 ```bash
-npx supabase gen types typescript --linked > src/types/database.types.ts
+set -a && . supabase/.temp/migrate.env && set +a
+STAGING_URL="postgresql://postgres:$(python -c "import os,urllib.parse;print(urllib.parse.quote(os.environ['STAGING_DB_PASSWORD'],safe=''))")@db.mwvblpgbgxipvrevkeff.supabase.co:5432/postgres"
+npx supabase gen types typescript --db-url "$STAGING_URL" > src/types/database.types.ts
 ```
 
 - [ ] **Step 2: Re-append the 4 helper aliases (CLI wipes them)**
