@@ -283,6 +283,17 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
 
   const isPending = create.isPending || update.isPending || upsertItemAttributes.isPending
 
+  // Grid rows = explicit ∪ inherited divisions (locked rows are inherited from the
+  // category and rendered checked+disabled). Computed once here and reused by the
+  // grid render, the header badge, and the empty-state check below so all three stay
+  // in sync — a category-inherited-only item is "assigned" for display purposes even
+  // though `assignedDivisionIds` (explicit-only) is empty.
+  const divisionRows = computeDivisionRows(divisions.map((d) => d.id), {
+    editableIds: assignedDivisionIds,
+    lockedIds: effDivs?.inherited ?? [],
+  })
+  const checkedDivisionCount = divisionRows.filter((row) => row.checked).length
+
   return (
     <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg max-h-[100vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
@@ -466,9 +477,9 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                 : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-medium">Assigned divisions</span>
-              {assignedDivisionIds.length > 0 && (
+              {checkedDivisionCount > 0 && (
                 <Badge variant="outline" className="ml-auto text-[10px] h-4 px-1.5">
-                  Assigned to {assignedDivisionIds.length}
+                  Assigned to {checkedDivisionCount}
                 </Badge>
               )}
             </button>
@@ -478,10 +489,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                   Divisions that stock and work with this item. Each division keeps its own quantity pool; to move stock between divisions, use a transfer.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {computeDivisionRows(divisions.map((d) => d.id), {
-                    editableIds: assignedDivisionIds,
-                    lockedIds: effDivs?.inherited ?? [],
-                  }).map((row) => {
+                  {divisionRows.map((row) => {
                     const div = divisions.find((d) => d.id === row.id)
                     if (!div) return null
                     return (
@@ -513,7 +521,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                     )
                   })}
                 </div>
-                {assignedDivisionIds.length === 0 && (
+                {!divisionRows.some((row) => row.checked) && (
                   <p className="text-[10px] text-muted-foreground italic">
                     Not assigned to any division yet — assign at least one so it appears in that division&apos;s pickers.
                   </p>
