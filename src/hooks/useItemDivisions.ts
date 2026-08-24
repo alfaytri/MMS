@@ -46,3 +46,23 @@ export function useSetItemDivisions() {
     },
   })
 }
+
+/** Explicit item-level divisions (editable) + inherited from the item's category
+ *  chain (locked). Seeds the Item dialog's division grid. */
+export function useItemEffectiveDivisions(itemId: string | null) {
+  return useQuery({
+    queryKey: ['item-effective-divisions', itemId],
+    enabled: !!itemId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc(
+        'rpc_item_effective_divisions' as never,
+        { p_item_id: itemId } as never,
+      )
+      if (error) throw error
+      const j = (data ?? {}) as { explicit?: string[]; inherited?: string[] }
+      return { explicit: j.explicit ?? [], inherited: j.inherited ?? [] }
+    },
+  })
+}
