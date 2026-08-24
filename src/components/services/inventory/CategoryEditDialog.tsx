@@ -25,7 +25,7 @@ import { useDivisions } from '@/hooks/useDivisions'
 import { useCategoryDivisions, useSetCategoryDivisions, useCascadeCategoryUnitsDivision } from '@/hooks/useCategoryDivisions'
 import { createClient } from '@/lib/supabase/client'
 import { buildLevels } from '@/lib/inventory/categoryLevels'
-import { computeDivisionRows, editableSelection } from '@/lib/inventory/divisionRows'
+import { computeDivisionRows } from '@/lib/inventory/divisionRows'
 
 const TYPE_LABELS: Record<string, string> = {
   'products': 'Products',
@@ -199,7 +199,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     subContainerId !== snapshot.subContainerId ||
     warrantyPolicyId !== snapshot.warrantyPolicyId ||
     trackingMode !== snapshot.trackingMode ||
-    isTeamItem !== snapshot.isTeamItem
+    isTeamItem !== snapshot.isTeamItem ||
+    JSON.stringify([...ownDivisionIds].sort()) !== JSON.stringify([...(catDivs?.own ?? [])].sort())
   )
 
   function handleSubmit(e: React.FormEvent) {
@@ -218,13 +219,12 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       is_team_item: isTeamItem,
     }
 
-    // The persisted own-set: re-derive through computeDivisionRows/editableSelection
-    // (rather than trusting ownDivisionIds verbatim) so a division that is both
-    // explicitly own AND inherited from a parent — locked in the UI, so the operator
-    // can never uncheck it here — never gets re-written into the "own" ledger.
-    const divisionIdsToSave = editableSelection(
-      computeDivisionRows(divisions.map((d) => d.id), { editableIds: ownDivisionIds, lockedIds: catDivs?.inherited ?? [] }),
-    )
+    // The own-set to persist is ownDivisionIds directly: it is seeded from catDivs.own
+    // (line ~144) and can only gain ACTIVE, non-locked ids (inherited rows render as
+    // disabled checkboxes and cannot be toggled), so it never contains an inherited-only
+    // id — additive-safe — while preserving own-divisions that are inactive or also
+    // inherited (which the active-only computeDivisionRows re-derivation was dropping).
+    const divisionIdsToSave = ownDivisionIds
 
     if (isEdit && category) {
       // Tools categories: a Bulk/Serialized change cascades to descendant
@@ -551,7 +551,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                         select (which appears only once 2+ divisions apply)
                         popping in/out never shifts the footer below it. */}
                     {categoryType === 'tools' && (
-                      <div className="pt-2 border-t border-border space-y-1.5 min-h-16">
+                      <div className="pt-2 border-t border-border space-y-1.5 min-h-24">
                         {effective.length > 0 ? (
                           <>
                             <p className="text-[10px] text-muted-foreground">Physical home for serialized units:</p>
@@ -572,7 +572,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                               type="button"
                               variant="outline"
                               className="min-h-9"
-                              disabled={readOnly || cascadeUnits.isPending || (effective.length > 1 && !unitHomeId)}
+                              disabled={readOnly || cascadeUnits.isPending || (effective.length > 1 && !unitHomeId) || !category}
                               onClick={async () => {
                                 if (!category) return
                                 const home = effective.length === 1 ? effective[0] : unitHomeId
