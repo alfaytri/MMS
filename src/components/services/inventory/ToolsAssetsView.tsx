@@ -10,24 +10,69 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToolCategoryRow } from './ToolCategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { useUpdateSortOrders } from '@/hooks/useInventory'
-import { useInventoryTree } from '@/hooks/useInventoryTree'
+import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { filterTree } from '@/lib/inventory/filterTree'
 import { reorderSiblings } from '@/lib/inventory/reorder'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { useItemDivisionsByStock } from '@/hooks/useItemDivisionsByStock'
 
 export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
 
-  const { tree, isLoading } = useInventoryTree('tools', showArchived)
+  const { viewDivisionIds } = useActiveDivision()
+  const { tree, flat, isLoading } = useInventoryTree('tools', showArchived)
+  const itemDivs = useItemDivisionsByStock('tools')
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
 
-  const filtered = useMemo(() => filterTree(tree, search), [tree, search])
+  const divisionFiltered = viewDivisionIds.size > 0
+
+  // When one or more divisions are picked in the nav bar, keep only tool items
+  // shared with any of them (mirrors ItemsListView for the other inventory tabs
+  // — tools were previously unfiltered). Empty selection ("All") = no filter.
+  const filterItemIds = useMemo<Set<string> | undefined>(() => {
+    if (!divisionFiltered) return undefined
+    const keep = new Set<string>()
+    for (const [itemId, divs] of itemDivs.divisionsByItem) {
+      if (divs.some((d) => viewDivisionIds.has(d))) keep.add(itemId)
+    }
+    return keep
+  }, [divisionFiltered, viewDivisionIds, itemDivs.divisionsByItem])
+
+  // Keep any category holding a matching tool, plus its ancestors, so the branch
+  // renders down to the item.
+  const visibleCategoryIds = useMemo<Set<string> | undefined>(() => {
+    if (!filterItemIds) return undefined
+    const parentMap = new Map<string, string | null>()
+    for (const c of flat) parentMap.set(c.id, c.parent_id ?? null)
+    const keep = new Set<string>()
+    for (const itemId of filterItemIds) {
+      const categoryId = itemDivs.itemCategoryMap.get(itemId)
+      if (!categoryId) continue
+      let cursor: string | null = categoryId
+      while (cursor && !keep.has(cursor)) {
+        keep.add(cursor)
+        cursor = parentMap.get(cursor) ?? null
+      }
+    }
+    return keep
+  }, [filterItemIds, flat, itemDivs.itemCategoryMap])
+
+  const searched = useMemo(() => filterTree(tree, search), [tree, search])
+  const filtered = useMemo(() => {
+    if (!visibleCategoryIds) return searched
+    const prune = (nodes: InventoryTreeNode[]): InventoryTreeNode[] =>
+      nodes
+        .filter((n) => visibleCategoryIds.has(n.id))
+        .map((n) => ({ ...n, children: prune(n.children) }))
+    return prune(searched)
+  }, [searched, visibleCategoryIds])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [search, showArchived])
+  useEffect(() => { setPage(1) }, [search, showArchived, viewDivisionIds])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filtered.slice(start, start + PAGE_SIZE)
@@ -76,7 +121,11 @@ export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={3} className="text-center text-xs text-muted-foreground py-12">
-                    {search ? 'No categories match your search' : 'No tools & assets categories yet'}
+                    {search
+                      ? 'No categories match your search'
+                      : divisionFiltered
+                        ? 'No tools & assets in the selected division(s)'
+                        : 'No tools & assets categories yet'}
                   </td>
                 </tr>
               )}
@@ -87,6 +136,7 @@ export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
                     key={node.id}
                     node={node}
                     showArchived={showArchived}
+                    filterItemIds={filterItemIds}
                     canMoveUp={globalIdx > 0}
                     canMoveDown={globalIdx < filtered.length - 1}
                     onMoveUp={() => handleCategoryMove(globalIdx, 'up')}

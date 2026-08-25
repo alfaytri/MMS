@@ -197,12 +197,15 @@ type Props = {
   onMoveUp: () => void
   onMoveDown: () => void
   depth?: number
+  /** When set (nav-bar division filter active), restrict this category's tool
+   *  items to those shared with the selected division(s). Undefined = show all. */
+  filterItemIds?: Set<string>
   /** Set by ToolsAssetsView on the top-level rows only — one-time staggered
    *  slide-in on first mount. Undefined on nested child rows. */
   animationIndex?: number
 }
 
-export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, animationIndex }: Props) {
+export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, filterItemIds, animationIndex }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [dialogReadOnly, setDialogReadOnly] = useState(false)
@@ -224,11 +227,18 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   // A tools category can hold both direct tool items AND sub-categories.
   const { data: toolItems = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
 
+  // When the nav-bar division filter is active, hide items not shared with the
+  // selected division(s) — mirrors CategoryRow for the other inventory tabs.
+  const visibleItems = useMemo(
+    () => (filterItemIds ? toolItems.filter((it) => filterItemIds.has(it.id)) : toolItems),
+    [toolItems, filterItemIds],
+  )
+
   // Batched variants + on-hand for bulk-tool rows — one variants query + one
   // stock query per expanded bulk category, replacing BulkToolItemRow's per-row
   // N+1. Distributed via BulkToolStockProvider (only the bulk branch below).
   const isBulk = node.tool_tracking_mode === 'bulk'
-  const bulkItemIds = useMemo(() => (isBulk ? toolItems.map((i) => i.id) : []), [isBulk, toolItems])
+  const bulkItemIds = useMemo(() => (isBulk ? visibleItems.map((i) => i.id) : []), [isBulk, visibleItems])
   const { data: bulkStock } = useBulkToolStockBatch(expanded ? bulkItemIds : [], showArchived)
   const bulkStockValue = useMemo<BulkToolStockBatch>(
     () => ({
@@ -288,8 +298,8 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
             >
               {node.tool_tracking_mode === 'bulk' ? 'Bulk' : 'Serialized'}
             </span>
-            {expanded && toolItems.length > 0 && (
-              <span>{toolItems.length} item{toolItems.length !== 1 ? 's' : ''}</span>
+            {expanded && visibleItems.length > 0 && (
+              <span>{visibleItems.length} item{visibleItems.length !== 1 ? 's' : ''}</span>
             )}
           </div>
         </td>
@@ -325,6 +335,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
           key={child.id}
           node={child}
           showArchived={showArchived}
+          filterItemIds={filterItemIds}
           canMoveUp={idx > 0}
           canMoveDown={idx < node.children.length - 1}
           onMoveUp={() => handleChildCategoryMove(idx, 'up')}
@@ -337,13 +348,13 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         isBulk
           ? (
             <BulkToolStockProvider value={bulkStockValue}>
-              {toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
+              {visibleItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
             </BulkToolStockProvider>
           )
-          : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)
+          : visibleItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)
       )}
 
-      {expanded && isLeaf && toolItems.length === 0 && (
+      {expanded && isLeaf && visibleItems.length === 0 && (
         <tr className="border-b border-border">
           <td colSpan={3} className="py-3 text-[11px] text-muted-foreground" style={{ paddingLeft: indent + 24 }}>
             No tools in this category yet.

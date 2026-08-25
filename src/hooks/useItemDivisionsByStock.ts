@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-export type ItemShareType = 'products' | 'spare-parts' | 'consumables'
+export type ItemShareType = 'products' | 'spare-parts' | 'consumables' | 'tools'
 
 export interface ItemDivisionMembership {
   /** item id → its division ids: the UNION of explicit assignment
