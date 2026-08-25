@@ -1,0 +1,1154 @@
+{
+  "must_change_password": true,
+  "keep_email": "admin@alfaytri.com",
+  "users": [
+    {
+      "sno": 2,
+      "username": "adnan",
+      "full_name": "Adnan",
+      "roles": [
+        "Sales Manager"
+      ],
+      "role_ids": [
+        "b46541bc-04a0-494b-a35c-ee7817628f09"
+      ],
+      "divisions": [
+        "Maintenance",
+        "Kitchen"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "8215e9b4-0292-4914-a584-c2b26610378f"
+      ]
+    },
+    {
+      "sno": 3,
+      "username": "moez",
+      "full_name": "Moez",
+      "roles": [
+        "Project Manager",
+        "Sales Manager"
+      ],
+      "role_ids": [
+        "e6c2332f-b9a2-4e0e-b61f-ed83cb80db42",
+        "b46541bc-04a0-494b-a35c-ee7817628f09"
+      ],
+      "divisions": [
+        "MEP"
+      ],
+      "division_ids": [
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e"
+      ]
+    },
+    {
+      "sno": 4,
+      "username": "shenil",
+      "full_name": "Shenil",
+      "roles": [
+        "Purchase Manager",
+        "Sales Manager"
+      ],
+      "role_ids": [
+        "26422db2-3c7a-4d7f-adb7-ede90d606b49",
+        "b46541bc-04a0-494b-a35c-ee7817628f09"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 5,
+      "username": "naeem",
+      "full_name": "Naeem",
+      "roles": [
+        "Sales Manager"
+      ],
+      "role_ids": [
+        "b46541bc-04a0-494b-a35c-ee7817628f09"
+      ],
+      "divisions": [
+        "Pest Control & Cleaning"
+      ],
+      "division_ids": [
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583"
+      ]
+    },
+    {
+      "sno": 6,
+      "username": "nijam",
+      "full_name": "Nijam",
+      "roles": [
+        "Accounting Manager",
+        "Inventory Manager"
+      ],
+      "role_ids": [
+        "e7306b9f-206e-4270-a49a-cfa428d61ce4",
+        "2c9aa8a9-e3a8-4da6-a1ee-3705c138ba57"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 7,
+      "username": "adil",
+      "full_name": "Adil",
+      "roles": [
+        "Accounting Manager",
+        "Inventory Manager"
+      ],
+      "role_ids": [
+        "e7306b9f-206e-4270-a49a-cfa428d61ce4",
+        "2c9aa8a9-e3a8-4da6-a1ee-3705c138ba57"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 8,
+      "username": "abdullah",
+      "full_name": "Abdullah",
+      "roles": [
+        "Accounting user"
+      ],
+      "role_ids": [
+        "015569af-85fa-4e46-bc92-9aa5cce421ee"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 9,
+      "username": "ijas",
+      "full_name": "Ijas",
+      "roles": [
+        "Accounting user"
+      ],
+      "role_ids": [
+        "015569af-85fa-4e46-bc92-9aa5cce421ee"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 10,
+      "username": "rafid",
+      "full_name": "Rafid",
+      "roles": [
+        "Purchase User"
+      ],
+      "role_ids": [
+        "58a2e437-b3fa-4090-a887-7ed2af8b5c8a"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 12,
+      "username": "shoyal",
+      "full_name": "Shoyal",
+      "roles": [
+        "Inventory User"
+      ],
+      "role_ids": [
+        "0e69c128-d52d-4f94-9ef2-67ffc2cb9db8"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 13,
+      "username": "thangarasa",
+      "full_name": "Thangarasa",
+      "roles": [
+        "Special Inv User"
+      ],
+      "role_ids": [
+        "37057bbf-fb1e-48fa-aec2-2d81d06f6670"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 14,
+      "username": "anas",
+      "full_name": "Anas",
+      "roles": [
+        "Purchase User",
+        "Sales User"
+      ],
+      "role_ids": [
+        "58a2e437-b3fa-4090-a887-7ed2af8b5c8a",
+        "1a47b2af-45b6-4c47-8c5d-eb7d0aa03989"
+      ],
+      "divisions": [
+        "Kitchen",
+        "Maintenance",
+        "MEP",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f",
+        "b0dfc0f4-fe96-4582-a517-276aa901d541",
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e",
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583",
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 15,
+      "username": "anoop",
+      "full_name": "Anoop",
+      "roles": [
+        "Sales User"
+      ],
+      "role_ids": [
+        "1a47b2af-45b6-4c47-8c5d-eb7d0aa03989"
+      ],
+      "divisions": [
+        "Trading"
+      ],
+      "division_ids": [
+        "1b821883-c99e-4177-8144-1c5c1204b007"
+      ]
+    },
+    {
+      "sno": 16,
+      "username": "shahid",
+      "full_name": "Shahid",
+      "roles": [
+        "Team manager"
+      ],
+      "role_ids": [
+        "550db259-e82d-4b1f-a390-782ff594380a"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 17,
+      "username": "gufran",
+      "full_name": "Gufran",
+      "roles": [
+        "Team manager"
+      ],
+      "role_ids": [
+        "550db259-e82d-4b1f-a390-782ff594380a"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 18,
+      "username": "shabir",
+      "full_name": "Shabir",
+      "roles": [
+        "Van User"
+      ],
+      "role_ids": [
+        "288d229d-5880-49ee-824d-eabab0342125"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 19,
+      "username": "wasim",
+      "full_name": "Wasim",
+      "roles": [
+        "Project User"
+      ],
+      "role_ids": [
+        "5c405463-ed07-47cd-91a6-5aeb8c4612f4"
+      ],
+      "divisions": [
+        "MEP"
+      ],
+      "division_ids": [
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e"
+      ]
+    },
+    {
+      "sno": 20,
+      "username": "shaif",
+      "full_name": "Shaif",
+      "roles": [
+        "Team manager"
+      ],
+      "role_ids": [
+        "550db259-e82d-4b1f-a390-782ff594380a"
+      ],
+      "divisions": [
+        "Kitchen"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f"
+      ]
+    },
+    {
+      "sno": 21,
+      "username": "maintenance-team-01",
+      "full_name": "Maintenance - Team01",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 22,
+      "username": "maintenance-team-02",
+      "full_name": "Maintenance - Team02",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 23,
+      "username": "maintenance-team-03",
+      "full_name": "Maintenance - Team03",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 24,
+      "username": "maintenance-team-04",
+      "full_name": "Maintenance - Team04",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 25,
+      "username": "maintenance-team-05",
+      "full_name": "Maintenance - Team05",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 26,
+      "username": "maintenance-team-06",
+      "full_name": "Maintenance - Team06",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 27,
+      "username": "maintenance-team-07",
+      "full_name": "Maintenance - Team07",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 28,
+      "username": "maintenance-team-08",
+      "full_name": "Maintenance - Team08",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 29,
+      "username": "maintenance-team-09",
+      "full_name": "Maintenance - Team09",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 30,
+      "username": "maintenance-team-10",
+      "full_name": "Maintenance - Team10",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 31,
+      "username": "maintenance-team-11",
+      "full_name": "Maintenance - Team11",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 32,
+      "username": "maintenance-team-12",
+      "full_name": "Maintenance - Team12",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 33,
+      "username": "maintenance-team-13",
+      "full_name": "Maintenance - Team13",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 34,
+      "username": "maintenance-team-14",
+      "full_name": "Maintenance - Team14",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 35,
+      "username": "maintenance-team-15",
+      "full_name": "Maintenance - Team15",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 36,
+      "username": "maintenance-team-16",
+      "full_name": "Maintenance - Team16",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 37,
+      "username": "maintenance-team-17",
+      "full_name": "Maintenance - Team17",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 38,
+      "username": "maintenance-team-18",
+      "full_name": "Maintenance - Team18",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 39,
+      "username": "maintenance-team-19",
+      "full_name": "Maintenance - Team19",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 40,
+      "username": "maintenance-team-20",
+      "full_name": "Maintenance - Team20",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 41,
+      "username": "maintenance-team-21",
+      "full_name": "Maintenance - Team21",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 42,
+      "username": "maintenance-team-22",
+      "full_name": "Maintenance - Team22",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 43,
+      "username": "maintenance-team-23",
+      "full_name": "Maintenance - Team23",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 44,
+      "username": "maintenance-team-24",
+      "full_name": "Maintenance - Team24",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 45,
+      "username": "maintenance-team-25",
+      "full_name": "Maintenance - Team25",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 46,
+      "username": "maintenance-team-26",
+      "full_name": "Maintenance - Team26",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 47,
+      "username": "maintenance-team-27",
+      "full_name": "Maintenance - Team27",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 48,
+      "username": "maintenance-team-28",
+      "full_name": "Maintenance - Team28",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 49,
+      "username": "maintenance-team-29",
+      "full_name": "Maintenance - Team29",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 50,
+      "username": "maintenance-team-30",
+      "full_name": "Maintenance - Team30",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 51,
+      "username": "maintenance-team-31",
+      "full_name": "Maintenance - Team31",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 52,
+      "username": "maintenance-team-32",
+      "full_name": "Maintenance - Team32",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 53,
+      "username": "maintenance-team-33",
+      "full_name": "Maintenance - Team33",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 54,
+      "username": "maintenance-team-34",
+      "full_name": "Maintenance - Team34",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 55,
+      "username": "maintenance-team-35",
+      "full_name": "Maintenance - Team35",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Maintenance"
+      ],
+      "division_ids": [
+        "b0dfc0f4-fe96-4582-a517-276aa901d541"
+      ]
+    },
+    {
+      "sno": 56,
+      "username": "rsh-team-01",
+      "full_name": "RSH - Team01",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Pest Control & Cleaning"
+      ],
+      "division_ids": [
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583"
+      ]
+    },
+    {
+      "sno": 57,
+      "username": "rsh-team-02",
+      "full_name": "RSH - Team02",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Pest Control & Cleaning"
+      ],
+      "division_ids": [
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583"
+      ]
+    },
+    {
+      "sno": 58,
+      "username": "rsh-team-03",
+      "full_name": "RSH - Team03",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Pest Control & Cleaning"
+      ],
+      "division_ids": [
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583"
+      ]
+    },
+    {
+      "sno": 59,
+      "username": "rsh-team-04",
+      "full_name": "RSH - Team04",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Pest Control & Cleaning"
+      ],
+      "division_ids": [
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583"
+      ]
+    },
+    {
+      "sno": 60,
+      "username": "rsh-team-05",
+      "full_name": "RSH - Team05",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Pest Control & Cleaning"
+      ],
+      "division_ids": [
+        "c6070d16-a7e4-4ee8-a8ad-0dae5ce3d583"
+      ]
+    },
+    {
+      "sno": 61,
+      "username": "kitchen-team-01",
+      "full_name": "Kitchen - Team01",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Kitchen"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f"
+      ]
+    },
+    {
+      "sno": 62,
+      "username": "kitchen-team-02",
+      "full_name": "Kitchen - Team02",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Kitchen"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f"
+      ]
+    },
+    {
+      "sno": 63,
+      "username": "kitchen-team-03",
+      "full_name": "Kitchen - Team03",
+      "roles": [
+        "Team User"
+      ],
+      "role_ids": [
+        "d15c6e15-df70-462b-be5c-22f7c56cde42"
+      ],
+      "divisions": [
+        "Kitchen"
+      ],
+      "division_ids": [
+        "8215e9b4-0292-4914-a584-c2b26610378f"
+      ]
+    },
+    {
+      "sno": 64,
+      "username": "kaleel",
+      "full_name": "Kaleel",
+      "roles": [
+        "Project User"
+      ],
+      "role_ids": [
+        "5c405463-ed07-47cd-91a6-5aeb8c4612f4"
+      ],
+      "divisions": [
+        "MEP"
+      ],
+      "division_ids": [
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e"
+      ]
+    },
+    {
+      "sno": 65,
+      "username": "chahreddine",
+      "full_name": "Chahreddine",
+      "roles": [
+        "Project User"
+      ],
+      "role_ids": [
+        "5c405463-ed07-47cd-91a6-5aeb8c4612f4"
+      ],
+      "divisions": [
+        "MEP"
+      ],
+      "division_ids": [
+        "2e0018bf-fcb3-481f-9aae-820cc77c060e"
+      ]
+    }
+  ],
+  "note": "Password supplied at runtime via --password. must_change_password=true forces reset on first login. keep_email preserved."
+}
