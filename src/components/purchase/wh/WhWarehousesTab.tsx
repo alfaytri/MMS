@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, Boxes, Wrench } from 'lucide-react'
+import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, ChevronRight, Boxes, Wrench } from 'lucide-react'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 import { WarehouseStockExportButton } from '@/components/purchase/wh/WarehouseStockExportButton'
@@ -49,9 +49,16 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
   const [selectedSubByWh, setSelectedSubByWh] = useState<Record<string, string>>({})
   // Virtual section starts collapsed; the operator opens it to peek at repair activity
   const [virtualOpen, setVirtualOpen] = useState(false)
+  // Per-card sub-container breakdown collapse. Missing key = default (long lists
+  // auto-collapse so a 43-team card stays compact); an explicit bool overrides.
+  const [breakdownCollapsed, setBreakdownCollapsed] = useState<Record<string, boolean>>({})
 
   function toggleExpand(id: string) {
     setExpandedWh((prev) => { const n = new Set(prev); if (n.has(id)) { n.delete(id) } else { n.add(id) } return n })
+  }
+
+  function toggleBreakdown(id: string, current: boolean) {
+    setBreakdownCollapsed((prev) => ({ ...prev, [id]: !current }))
   }
 
   function setSubForWh(warehouseId: string, subId: string) {
@@ -85,6 +92,8 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
     const displayItemCount = selectedSub ? selectedSub.item_count : (wh.item_count ?? 0)
     const displayValue     = selectedSub ? selectedSub.total_value : (wh.total_value ?? 0)
     const hasBreakdown = breakdown.length > 0
+    // Long breakdowns (e.g. the 43-team Teams card) auto-collapse; explicit toggle wins.
+    const isBreakdownCollapsed = breakdownCollapsed[wh.id] ?? (breakdown.length > 6)
     return (
       <Card key={wh.id} className={`hover:shadow-md transition-shadow ${STAGGER_IN}`} style={staggerDelay(index)}>
         <CardHeader className="pb-2">
@@ -155,25 +164,39 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
             )}
           </div>
 
-          {/* Sub-container breakdown — shown only when "All" is picked AND there's more than one sub */}
+          {/* Sub-container breakdown — shown when "All" is picked AND there's more than
+              one sub. Collapsible; long lists (e.g. 43 teams) auto-collapse to keep the
+              card compact. */}
           {!selectedSub && breakdown.length > 1 && (
-            <div className="space-y-1 pt-1 pl-1 border-l-2 border-primary/20 ml-0.5">
-              {breakdown.map((sc) => (
-                <div key={sc.sub_container_id} className="flex justify-between items-center gap-2 text-[11px] pl-2">
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
-                    {sc.division_name && (
-                      <span className="flex-shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground/90">
-                        {sc.division_name}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => toggleBreakdown(wh.id, isBreakdownCollapsed)}
+                className="flex w-full items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isBreakdownCollapsed ? <ChevronRight className="h-3 w-3 flex-shrink-0" /> : <ChevronDown className="h-3 w-3 flex-shrink-0" />}
+                <span>{isBreakdownCollapsed ? `Show ${breakdown.length} sub-containers` : 'Hide sub-containers'}</span>
+              </button>
+              {!isBreakdownCollapsed && (
+                <div className="space-y-1 pt-1 pl-1 border-l-2 border-primary/20 ml-0.5">
+                  {breakdown.map((sc) => (
+                    <div key={sc.sub_container_id} className="flex justify-between items-center gap-2 text-[11px] pl-2">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
+                        {sc.division_name && (
+                          <span className="flex-shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground/90">
+                            {sc.division_name}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <span className="flex items-center gap-2 text-muted-foreground tabular-nums flex-shrink-0">
-                    <span>{sc.item_count.toLocaleString('en-QA')} items</span>
-                    {canSeeCost && <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
-                  </span>
+                      <span className="flex items-center gap-2 text-muted-foreground tabular-nums flex-shrink-0">
+                        <span>{sc.item_count.toLocaleString('en-QA')} items</span>
+                        {canSeeCost && <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
 

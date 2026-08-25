@@ -199,6 +199,17 @@ function CustodyTab({
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [rows])
 
+  // Collapsed division sections (default: all expanded). Lets the operator fold
+  // away a long division — e.g. Maintenance's 35 teams — to reach the others.
+  const [collapsedDivisions, setCollapsedDivisions] = useState<Set<string>>(new Set())
+  function toggleDivision(name: string) {
+    setCollapsedDivisions((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
+
   // Serialized tool units assigned to these teams — one bulk query for the whole
   // tab (scoped to the divisions actually shown), grouped per team and handed to
   // each card, mirroring how stockRows is loaded once and distributed. Read-only:
@@ -251,33 +262,45 @@ function CustodyTab({
 
   return (
     <div className="space-y-6">
-      {grouped.map(([divisionName, subs]) => (
-        <div key={divisionName} className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{divisionName}</h3>
-            <span className="text-[11px] text-muted-foreground">
-              {subs.length} location{subs.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {subs.map((sub, i) => (
-              <div key={sub.id} className={STAGGER_IN} style={staggerDelay(i)}>
-                <CustodyCard
-                  sub={sub}
-                  warehouseId={warehouseId}
-                  warehouseName={warehouseName}
-                  canEdit={canEdit}
-                  canTransferCustody={canTransferCustody}
-                  realWarehouses={realWarehouses}
-                  stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
-                  pending={pendingBySub.get(sub.id) ?? []}
-                  toolUnits={toolsBySub.get(sub.id) ?? []}
-                />
+      {grouped.map(([divisionName, subs]) => {
+        const isCollapsed = collapsedDivisions.has(divisionName)
+        return (
+          <div key={divisionName} className="space-y-2">
+            <button
+              type="button"
+              onClick={() => toggleDivision(divisionName)}
+              className="group flex w-full items-baseline justify-between gap-2"
+            >
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground uppercase tracking-wide transition-colors group-hover:text-foreground">
+                {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 self-center" /> : <ChevronDown className="h-3.5 w-3.5 self-center" />}
+                {divisionName}
+              </h3>
+              <span className="text-[11px] text-muted-foreground">
+                {subs.length} location{subs.length === 1 ? '' : 's'}
+              </span>
+            </button>
+            {!isCollapsed && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {subs.map((sub, i) => (
+                  <div key={sub.id} className={STAGGER_IN} style={staggerDelay(i)}>
+                    <CustodyCard
+                      sub={sub}
+                      warehouseId={warehouseId}
+                      warehouseName={warehouseName}
+                      canEdit={canEdit}
+                      canTransferCustody={canTransferCustody}
+                      realWarehouses={realWarehouses}
+                      stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
+                      pending={pendingBySub.get(sub.id) ?? []}
+                      toolUnits={toolsBySub.get(sub.id) ?? []}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
