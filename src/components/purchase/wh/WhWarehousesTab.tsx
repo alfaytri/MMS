@@ -110,6 +110,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                   {breakdown.map((sc) => (
                     <SelectItem key={sc.sub_container_id} value={sc.sub_container_id} className="text-xs">
                       {sc.sub_container_name}
+                      {sc.division_name ? <span className="text-muted-foreground"> · {sc.division_name}</span> : null}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -159,7 +160,14 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
             <div className="space-y-1 pt-1 pl-1 border-l-2 border-primary/20 ml-0.5">
               {breakdown.map((sc) => (
                 <div key={sc.sub_container_id} className="flex justify-between items-center gap-2 text-[11px] pl-2">
-                  <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
+                    {sc.division_name && (
+                      <span className="flex-shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground/90">
+                        {sc.division_name}
+                      </span>
+                    )}
+                  </span>
                   <span className="flex items-center gap-2 text-muted-foreground tabular-nums flex-shrink-0">
                     <span>{sc.item_count.toLocaleString('en-QA')} items</span>
                     {canSeeCost && <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}

@@ -15,6 +15,15 @@ export type WarehouseSubContainerBreakdown = {
   is_active: boolean
   item_count: number
   total_value: number
+  division_id: string | null
+  division_name: string | null
+}
+
+// Natural (numeric-aware) name order so "Team 2" sorts before "Team 10" and
+// zero-padded names ("Team 01") stay correct too — used for every
+// sub-container list/picker so teams read in a-z / 1..N order.
+export function compareSubContainerName(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export type Warehouse = DBTable<'warehouses'> & {
@@ -80,17 +89,28 @@ export function useWarehouses(options?: { includeVirtual?: boolean; excludeKinds
           q,
           supabase
             .from('warehouse_sub_container_totals')
-            .select('warehouse_id, sub_container_id, sub_container_name, sub_container_is_active, item_count, total_value')
-            .order('total_value', { ascending: false }),
+            .select('warehouse_id, sub_container_id, sub_container_name, sub_container_is_active, item_count, total_value, division_id, division_name'),
         ])
       if (error) throw error
-      const breakdownRows = breakdownRes.error ? [] : breakdownRes.data
+      // division_id/division_name were appended to the view (migration
+      // 20261007000000) after the checked-in database.types were generated, so
+      // cast to the current shape rather than trusting the stale Row type.
+      const breakdownRows = (breakdownRes.error ? [] : breakdownRes.data ?? []) as unknown as Array<{
+        warehouse_id: string | null
+        sub_container_id: string | null
+        sub_container_name: string | null
+        sub_container_is_active: boolean | null
+        item_count: number | null
+        total_value: number | null
+        division_id: string | null
+        division_name: string | null
+      }>
       if (breakdownRes.error) {
         console.warn('[useWarehouses] sub-container breakdown fetch failed — cards will show without breakdowns:', breakdownRes.error.message)
       }
 
       const breakdownByWh = new Map<string, WarehouseSubContainerBreakdown[]>()
-      for (const b of breakdownRows ?? []) {
+      for (const b of breakdownRows) {
         if (!b.warehouse_id || !b.sub_container_id) continue
         const arr = breakdownByWh.get(b.warehouse_id) ?? []
         arr.push({
@@ -99,8 +119,15 @@ export function useWarehouses(options?: { includeVirtual?: boolean; excludeKinds
           is_active: b.sub_container_is_active ?? true,
           item_count: Number(b.item_count ?? 0),
           total_value: Number(b.total_value ?? 0),
+          division_id: b.division_id ?? null,
+          division_name: b.division_name ?? null,
         })
         breakdownByWh.set(b.warehouse_id, arr)
+      }
+      // Order every warehouse's sub-containers a-z / 1..N by name (the view is
+      // unordered; teams were landing in insertion order).
+      for (const arr of breakdownByWh.values()) {
+        arr.sort((a, b) => compareSubContainerName(a.sub_container_name, b.sub_container_name))
       }
 
       return (data ?? []).map((row) => {

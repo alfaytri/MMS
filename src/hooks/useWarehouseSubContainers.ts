@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/logActivity'
 import type { DBTable } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { compareSubContainerName } from '@/hooks/useWarehouses'
 
 /**
  * D.1 auto-creates sub-containers with the name "<Warehouse> — <Division>",
@@ -172,14 +173,16 @@ export function useWarehouseSubContainers(warehouseId?: string | null) {
         .from('warehouse_sub_containers')
         .select('*, company_divisions(name)')
         .eq('warehouse_id', warehouseId)
-        .order('created_at')
       if (error) throw error
-      return (data ?? []).map((row) => {
+      const rows = (data ?? []).map((row) => {
         const { company_divisions, ...rest } = row as typeof row & {
           company_divisions: { name: string } | null
         }
         return { ...rest, division_name: company_divisions?.name ?? null }
       }) as WarehouseSubContainer[]
+      // a-z / 1..N by name (was created-at order → teams landed unsorted).
+      rows.sort((a, b) => compareSubContainerName(a.name, b.name))
+      return rows
     },
     enabled: !!warehouseId,
     staleTime: 60 * 1000,
@@ -205,7 +208,7 @@ export function useWarehouseSubContainersAdmin(warehouseId?: string | null) {
         p_warehouse_id: warehouseId,
       })
       if (error) throw error
-      return (data ?? []).map((r): WarehouseSubContainer => ({
+      const rows = (data ?? []).map((r): WarehouseSubContainer => ({
         id:                              r.id,
         warehouse_id:                    r.warehouse_id,
         division_id:                     r.division_id,
@@ -223,6 +226,9 @@ export function useWarehouseSubContainersAdmin(warehouseId?: string | null) {
         project_id:                      null,
         discipline_id:                   null,
       }))
+      // Admin RPC has no ORDER BY → sort a-z / 1..N by name here.
+      rows.sort((a, b) => compareSubContainerName(a.name, b.name))
+      return rows
     },
     enabled: !!warehouseId,
     staleTime: 60 * 1000,
