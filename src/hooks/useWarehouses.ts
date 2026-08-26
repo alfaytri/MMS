@@ -31,6 +31,10 @@ export type Warehouse = DBTable<'warehouses'> & {
   division_name: string | null
   company_name: string | null
   sub_container_breakdown: WarehouseSubContainerBreakdown[]
+  // Added by migration 20261008000000 (Blue Plate / coordinates); not yet in the
+  // generated DBTable type. `select('*')` returns them at runtime.
+  latitude: number | null
+  longitude: number | null
 }
 export type WarehouseInsert = DBInsert<'warehouses'>
 export type WarehouseUpdate = DBUpdate<'warehouses'>

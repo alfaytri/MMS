@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
+import { AddressFinder, EMPTY_ADDRESS, type AddressValue } from '@/components/shared/AddressFinder'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
@@ -76,6 +77,7 @@ export function CustomerDialog({
   const [establishmentIdDoc, setEstablishmentIdDoc] = useState<UploadedDoc | null>(null)
   const [signedFormDoc, setSignedFormDoc]       = useState<UploadedDoc | null>(null)
   const [uploading, setUploading]       = useState<Slot | null>(null)
+  const [addressValue, setAddressValue] = useState<AddressValue>(EMPTY_ADDRESS)
 
   // Track pending/ uploads made in THIS dialog session so we can sweep them
   // on cancel. `submittedRef` distinguishes close-after-submit (paths are
@@ -116,11 +118,19 @@ export function CustomerDialog({
       setCrDoc(crPath ? { path: crPath, name: displayNameFromPath(crPath, 'cr') } : null)
       setEstablishmentIdDoc(esPath ? { path: esPath, name: displayNameFromPath(esPath, 'establishment') } : null)
       setSignedFormDoc(sgPath ? { path: sgPath, name: displayNameFromPath(sgPath, 'signed') } : null)
+      // Blue Plate / coordinates aren't returned by search_customers — load them directly.
+      setAddressValue(EMPTY_ADDRESS)
+      void (async () => {
+        const { data } = await createClient().from('customers').select('*').eq('id', customer.id).maybeSingle()
+        const row = data as unknown as { address?: string | null; latitude?: number | null; longitude?: number | null } | null
+        setAddressValue({ address: row?.address ?? '', latitude: row?.latitude ?? null, longitude: row?.longitude ?? null })
+      })()
     } else if (!isEdit) {
       setName(''); setPhones([newPhoneRow(true)]); setEmail('')
       // New customers default to cash — a credit group must be picked to promote.
       setCustomerType('cash'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
+      setAddressValue(EMPTY_ADDRESS)
     }
     setUploading(null)
     // Form fields are (re)initialised only when the dialog opens or the target
@@ -280,6 +290,9 @@ export function CustomerDialog({
             phones:                 phonesPayload,
             email:                  email.trim() || null,
             entity_type:            entityType,
+            address:                addressValue.address.trim() || null,
+            latitude:               addressValue.latitude,
+            longitude:              addressValue.longitude,
             // customer_type is derived server-side from credit_group_id.
             // routeGroupViaApproval keeps the current group until approval
             // lands; otherwise clear it when saving as cash.
@@ -346,6 +359,9 @@ export function CustomerDialog({
         phones:                 phonesPayload,
         email:                  email.trim() || null,
         entity_type:            entityType,
+        address:                addressValue.address.trim() || null,
+        latitude:               addressValue.latitude,
+        longitude:              addressValue.longitude,
         // customer_type is derived — leave credit_group_id NULL when the
         // group still needs approval OR the user picked cash.
         credit_group_id:        newGroupNeedsApproval
@@ -590,6 +606,11 @@ export function CustomerDialog({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Address (Blue Plate / coordinates)</Label>
+            <AddressFinder value={addressValue} onChange={setAddressValue} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -156,6 +156,11 @@ export type Customer = {
   cr_url?:                  string | null
   establishment_id_url?:    string | null
   signed_credit_form_url?:  string | null
+  // Blue Plate / coordinates (migration 20261008000000). Not returned by
+  // search_customers — CustomerDialog loads these directly on edit.
+  address?:                 string | null
+  latitude?:                number | null
+  longitude?:               number | null
 }
 
 export type SOLineItemDraft = {
@@ -312,10 +317,15 @@ export function useCreateCustomer() {
       email: string | null
       credit_group_id?: string | null
       entity_type?: 'individual' | 'business'
+      address?: string | null
+      latitude?: number | null
+      longitude?: number | null
     }) => {
       const supabase = createClient()
       const { phones, ...customerFields } = payload
-      const row = { ...customerFields }
+      // address/latitude/longitude (migration 20261008000000) aren't in the stale
+      // generated Insert type — cast so they pass the type check; runtime sends them.
+      const row = { ...customerFields } as unknown as Database['public']['Tables']['customers']['Insert']
       const { data, error } = await supabase
         .from('customers')
         .insert(row)
@@ -363,6 +373,9 @@ export function useUpdateCustomer() {
         email?:                  string | null
         entity_type?:            'individual' | 'business'
         credit_group_id?:        string | null
+        address?:                string | null
+        latitude?:               number | null
+        longitude?:              number | null
       }
       // Old values for audit diff; only fields present here are checked
       previous: {
@@ -378,8 +391,10 @@ export function useUpdateCustomer() {
       const supabase = createClient()
 
       // Phones live on customer_phones; strip out of the customers update.
+      // address/latitude/longitude (migration 20261008000000) aren't in the stale
+      // generated Update type — cast so they pass the type check; runtime sends them.
       const { phones: newPhones, ...customerPatch } = args.patch
-      const update: Database['public']['Tables']['customers']['Update'] = { ...customerPatch }
+      const update = { ...customerPatch } as unknown as Database['public']['Tables']['customers']['Update']
 
       const { data, error } = await supabase
         .from('customers')

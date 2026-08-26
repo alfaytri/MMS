@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { AddressFinder, type AddressValue } from '@/components/shared/AddressFinder'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -38,7 +39,7 @@ import {
   GuardedFormDialog,
   type GuardedFormDialogHandle,
 } from '@/components/shared/GuardedFormDialog'
-import { useCreateWarehouse, useUpdateWarehouse, type Warehouse } from '@/hooks/useWarehouses'
+import { useCreateWarehouse, useUpdateWarehouse, type Warehouse, type WarehouseInsert, type WarehouseUpdate } from '@/hooks/useWarehouses'
 import {
   useResponsiblePersonCandidates,
   useWarehouseResponsiblePersons,
@@ -57,6 +58,8 @@ const warehouseSchema = z
     name: z.string().min(1, 'Name is required'),
     warehouse_kind: z.enum(['general', 'custody', 'repair']),
     location: z.string().optional(),
+    latitude: z.number().nullable().optional(),
+    longitude: z.number().nullable().optional(),
     company_id: z.string().optional(),
     can_transfer_custody: z.boolean().optional(),
   })
@@ -89,7 +92,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
 
   const form = useForm<WarehouseFormValues>({
     resolver: zodResolver(warehouseSchema),
-    defaultValues: { name: '', warehouse_kind: 'general', location: '', company_id: '', can_transfer_custody: false },
+    defaultValues: { name: '', warehouse_kind: 'general', location: '', latitude: null, longitude: null, company_id: '', can_transfer_custody: false },
   })
   const kind = form.watch('warehouse_kind')
   const isVirtual = kind !== 'general'
@@ -101,6 +104,8 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         name: warehouse.name,
         warehouse_kind: (warehouse.warehouse_kind as 'general' | 'custody' | 'repair') ?? 'general',
         location: warehouse.location ?? '',
+        latitude: warehouse.latitude ?? null,
+        longitude: warehouse.longitude ?? null,
         company_id: warehouse.company_id ?? '',
         can_transfer_custody: warehouse.can_transfer_custody ?? false,
       })
@@ -110,6 +115,8 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
         name: '',
         warehouse_kind: 'general',
         location: '',
+        latitude: null,
+        longitude: null,
         company_id: defaultCompany,
         can_transfer_custody: false,
       })
@@ -142,6 +149,9 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
       const virtual = values.warehouse_kind !== 'general'
       const companyId = virtual ? null : (values.company_id || null)
       const location  = virtual ? null : (values.location || null)
+      // Virtual warehouses have no physical location → no coordinates either.
+      const latitude  = virtual ? null : (values.latitude ?? null)
+      const longitude = virtual ? null : (values.longitude ?? null)
       // Only meaningful on custody warehouses; forced false everywhere else.
       const canTransferCustody = values.warehouse_kind === 'custody' ? !!values.can_transfer_custody : false
       let whId: string
@@ -152,9 +162,11 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           id: warehouse.id,
           name: values.name,
           location,
+          latitude,
+          longitude,
           company_id: companyId,
           can_transfer_custody: canTransferCustody,
-        })
+        } as WarehouseUpdate & { id: string })
         whId = warehouse.id
       } else {
         const created = await create.mutateAsync({
@@ -162,9 +174,11 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
           warehouse_kind: values.warehouse_kind,
           is_virtual: virtual,
           location,
+          latitude,
+          longitude,
           company_id: companyId,
           can_transfer_custody: canTransferCustody,
-        })
+        } as WarehouseInsert)
         whId = created.id
       }
       await replaceRPs.mutateAsync({ warehouseId: whId, profileIds: virtual ? [] : selectedRPIds })
@@ -288,19 +302,22 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Address or area" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormItem>
+                <FormLabel>Location (Blue Plate / coordinates)</FormLabel>
+                <AddressFinder
+                  key={warehouse?.id ?? 'new'}
+                  value={{
+                    address: form.watch('location') ?? '',
+                    latitude: form.watch('latitude') ?? null,
+                    longitude: form.watch('longitude') ?? null,
+                  }}
+                  onChange={(v: AddressValue) => {
+                    form.setValue('location', v.address, { shouldDirty: true })
+                    form.setValue('latitude', v.latitude, { shouldDirty: true })
+                    form.setValue('longitude', v.longitude, { shouldDirty: true })
+                  }}
+                />
+              </FormItem>
               <div className="space-y-2">
                 <Label className="text-xs font-medium flex items-center gap-1.5">
                   Warehouse RPs
