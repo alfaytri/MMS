@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { useDeliveriesByReturnId } from '@/hooks/useSaleDeliveries'
 import { useReturnProgress } from '@/hooks/useSaleReturns'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 
 function ReplacementChips({ returnId }: { returnId: string }) {
   const { data: deliveries = [] } = useDeliveriesByReturnId(returnId)
@@ -209,14 +210,26 @@ export default function SaleReturnsPage() {
   const createReturn = useCreateSaleReturn()
   const updateStatus = useUpdateReturnStatus()
 
-  // SO lookup for enriching return list rows with SO # + customer
+  // SO lookup for enriching return list rows with SO # + customer + division
   const soById = useMemo(() => {
-    const map = new Map<string, { so_number: string; customer_name: string | null }>()
+    const map = new Map<string, { so_number: string; customer_name: string | null; division_id: string | null }>()
     for (const o of saleOrders ?? []) {
-      map.set(o.id, { so_number: o.so_number, customer_name: o.customer_name ?? null })
+      map.set(o.id, { so_number: o.so_number, customer_name: o.customer_name ?? null, division_id: o.division_id ?? null })
     }
     return map
   }, [saleOrders])
+
+  // Scope the returns list to the active division via the source SO's division
+  // (mirrors purchase/returns). No active division / unknown SO division → show.
+  const { activeDivisionId } = useActiveDivision()
+  const scopedReturns = useMemo(() => {
+    const list = returns ?? []
+    if (!activeDivisionId) return list
+    return list.filter((r) => {
+      const div = soById.get(r.source_id)?.division_id
+      return !div || div === activeDivisionId
+    })
+  }, [returns, activeDivisionId, soById])
 
   const selectedSO = useMemo(
     () => (saleOrders ?? []).find((o) => o.id === soId) ?? null,
@@ -224,7 +237,7 @@ export default function SaleReturnsPage() {
   )
 
   const stats = useMemo(() => {
-    const list = returns ?? []
+    const list = scopedReturns
     let pending = 0, received = 0, restocked = 0
     for (const r of list) {
       if (r.status === 'pending')   pending++
@@ -232,7 +245,7 @@ export default function SaleReturnsPage() {
       if (r.status === 'restocked') restocked++
     }
     return { total: list.length, pending, received, restocked }
-  }, [returns])
+  }, [scopedReturns])
 
   function handleSOSelect(id: string) {
     setSoId(id)
@@ -357,11 +370,11 @@ export default function SaleReturnsPage() {
 
       {isLoading ? (
         <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}</div>
-      ) : (returns ?? []).length === 0 ? (
+      ) : scopedReturns.length === 0 ? (
         <div className="rounded-lg border border-dashed"><EmptyState title="No sale returns found" /></div>
       ) : (
         <div className="space-y-2">
-          {(returns ?? []).map((ret, i) => {
+          {scopedReturns.map((ret, i) => {
             const cfg  = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending ?? { label: ret.status, color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200', Icon: Clock }
             const next = STATUS_NEXT[ret.status]
             const canCancel = ret.status === 'pending' || ret.status === 'received'

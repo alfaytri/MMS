@@ -25,6 +25,7 @@ import {
   type ConsumptionListRow,
   type ConsumptionStatus,
 } from '@/hooks/useConsumption'
+import { useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { cn } from '@/lib/utils'
 
 const QAR = new Intl.NumberFormat('en-QA', {
@@ -84,12 +85,19 @@ export default function ConsumptionPage() {
   // removed now that the Service/Team switch lives inside the New Consumption
   // dialog. `teamItems` omitted → the query returns both; each row carries a
   // Type badge so the two stay distinguishable.
-  const { data: rows = [], isLoading } = useConsumptionList({
+  const { data: rawRows = [], isLoading } = useConsumptionList({
     status,
     consumerType,
     fromDate: fromDate || null,
     toDate:   toDate   || null,
   })
+  // Scope the history to the active-division view (top-bar selector). Each entry
+  // carries its source sub-container, whose division decides visibility.
+  const divVisible = useDivisionScopedVisibility()
+  const rows = useMemo(
+    () => rawRows.filter((r) => divVisible(r.source_sub_container_id)),
+    [rawRows, divVisible],
+  )
 
   const [newOpen, setNewOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)

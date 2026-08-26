@@ -8,6 +8,7 @@ import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { useSaleDeliveries, type SaleDelivery, type DeliveryStatus } from '@/hooks/useSaleDeliveries'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { DeliveryDetailDialog } from '@/components/sales/DeliveryDetailDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
@@ -34,8 +35,17 @@ export default function DeliveriesPage() {
 
   const { data: deliveries, isLoading } = useSaleDeliveries({ status: statusFilter })
 
-  const stats = useMemo(() => {
+  // Scope deliveries to the active division via their sale order's division
+  // (mirrors sales/returns). No active division / unknown division → show.
+  const { activeDivisionId } = useActiveDivision()
+  const scopedDeliveries = useMemo(() => {
     const list = deliveries ?? []
+    if (!activeDivisionId) return list
+    return list.filter((d) => !d.division_id || d.division_id === activeDivisionId)
+  }, [deliveries, activeDivisionId])
+
+  const stats = useMemo(() => {
+    const list = scopedDeliveries
     let totalItems = 0
     let deliveredCount = 0
     let pendingCount = 0
@@ -47,7 +57,7 @@ export default function DeliveriesPage() {
       if (d.status === 'cancelled') cancelledCount++
     }
     return { total: list.length, totalItems, deliveredCount, pendingCount, cancelledCount }
-  }, [deliveries])
+  }, [scopedDeliveries])
 
   const columns = useMemo<ColumnDef<SaleDelivery>[]>(() => [
     {
@@ -177,7 +187,7 @@ export default function DeliveriesPage() {
 
       <DataTable
         columns={columns}
-        data={deliveries ?? []}
+        data={scopedDeliveries}
         isLoading={isLoading}
         onRowClick={(row) => setDetailDelivery(row)}
         mobileCardRender={(del: SaleDelivery) => {

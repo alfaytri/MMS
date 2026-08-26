@@ -17,6 +17,7 @@ export type ReceivalItem = {
   unit_cost: number
   is_free: boolean | null
   brand_variant_id: string | null
+  sub_container_id: string | null
   // UI-computed: ordered qty comes from po_line_items join
   ordered_qty?: number
 }
@@ -90,7 +91,7 @@ export function useReceivals(filters?: {
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
-          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id,sub_container_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,currency),
           warehouses!receivals_warehouse_id_fkey(name)
         `)
@@ -128,7 +129,7 @@ export function useReceival(id: string | null) {
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
-          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id,sub_container_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,currency,po_line_items(id,qty))
         `)
         .eq('id', id!)

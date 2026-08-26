@@ -20,6 +20,8 @@ import {
   type OutForRepairRow, type PendingRepairAssignmentRow,
 } from '@/hooks/useDamagedStockOverview'
 import { useHasPermission, useHasEditPermission } from '@/hooks/usePermissions'
+import { useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 // formatDateTime is used by the Out-for-Repair table row's dispatched-at
@@ -173,7 +175,15 @@ function PendingRepairAssignmentSection({
   onAssign: (r: PendingRepairAssignmentRow) => void
   canEdit: boolean
 }) {
-  const { data = [], isLoading, error } = query
+  const { data: rawData = [], isLoading, error } = query
+  // Scope to the active-division view by the return's division (null = unscoped → show).
+  const { viewDivisionIds } = useActiveDivision()
+  const data = useMemo(
+    () => viewDivisionIds.size === 0
+      ? rawData
+      : rawData.filter((r) => r.division_id == null || viewDivisionIds.has(r.division_id)),
+    [rawData, viewDivisionIds],
+  )
   if (error) return <ErrorLine error={error as Error} />
   if (isLoading) return null           // silent — main table below shows skeleton
   if (data.length === 0) return null   // hide the entire section when empty
@@ -403,7 +413,10 @@ function OutForRepairTab({
   onReturn: (r: OutForRepairRow) => void
   canEdit: boolean
 }) {
-  const { data = [], isLoading, error } = query
+  const { data: rawData = [], isLoading, error } = query
+  // Scope repair transfers to the active-division view via their source sub-container.
+  const divVisible = useDivisionScopedVisibility()
+  const data = useMemo(() => rawData.filter((r) => divVisible(r.from_sub_container_id)), [rawData, divVisible])
 
   const summary = useMemo(() => {
     const transfers = new Set(data.map((r) => r.transfer_id)).size

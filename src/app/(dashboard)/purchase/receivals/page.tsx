@@ -22,6 +22,7 @@ import {
   type ReceivalEditRequest,
   type ReceivalStatus,
 } from '@/hooks/useReceivals'
+import { useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
 import { formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
@@ -306,7 +307,18 @@ export default function ReceivalsPage() {
   const [adminApproveTarget, setAdminApproveTarget] = useState<ReceivalEditRequest | null>(null)
   const [detailReceival, setDetailReceival] = useState<Receival | null>(null)
 
-  const { data: receivals, isLoading } = useReceivals({ status: statusFilter, source_type: sourceFilter })
+  const { data: rawReceivals, isLoading } = useReceivals({ status: statusFilter, source_type: sourceFilter })
+  // Scope to the active-division view: keep a receival if any of its lines landed
+  // in a sub-container of the selected division(s) (a receival with no resolvable
+  // sub-container stays visible — mirrors the warehouse-ops Receivals tab).
+  const divVisible = useDivisionScopedVisibility()
+  const receivals = useMemo(() => {
+    const list = rawReceivals ?? []
+    return list.filter((r) => {
+      const ids = (r.receival_items ?? []).map((i) => i.sub_container_id).filter((x): x is string => !!x)
+      return ids.length === 0 || ids.some((id) => divVisible(id))
+    })
+  }, [rawReceivals, divVisible])
   const { data: lcLockedIds } = useLcLockedReceivalIds()
   const { data: myRoles = [] } = useMyApprovalSlotRoles()
   const canApproveEdit = myRoles.some(

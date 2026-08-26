@@ -32,6 +32,7 @@ export type SaleDelivery = {
   // joined
   so_number?: string
   customer_name?: string
+  division_id?: string | null
 }
 
 export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
@@ -41,7 +42,7 @@ export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
       const supabase = createClient()
       let q = supabase
         .from('sale_deliveries')
-        .select('*, sale_delivery_lines(*), sale_orders(so_number, customers(name))')
+        .select('*, sale_delivery_lines(*), sale_orders(so_number, division_id, customers(name))')
         .order('created_at', { ascending: false })
       if (filters?.status) q = q.eq('status', filters.status)
       const { data, error } = await q.limit(500)
@@ -50,6 +51,7 @@ export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
         ...d,
         so_number: d.sale_orders?.so_number ?? null,
         customer_name: d.sale_orders?.customers?.name ?? null,
+        division_id: d.sale_orders?.division_id ?? null,
       })) as SaleDelivery[]
     },
   })

@@ -32,12 +32,18 @@ export function classifyDeadStock(days: number): DeadStockStatus {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useDeadStockReport() {
+export function useDeadStockReport(divisionIds: string[] = []) {
+  // Division-scope via the top-bar view: pass p_division_ids so the RPC reports
+  // per-division on-hand (from FIFO). Empty = "All" (no arg → RPC default NULL).
+  const divKey = [...divisionIds].sort().join(',')
   return useQuery({
-    queryKey: queryKeys.deadStock.all,
+    queryKey: [...queryKeys.deadStock.all, divKey],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase.rpc('get_dead_stock_report')
+      // p_division_ids isn't in the generated RPC types yet — cast the args.
+      const { data, error } = divisionIds.length
+        ? await supabase.rpc('get_dead_stock_report', { p_division_ids: divisionIds } as never)
+        : await supabase.rpc('get_dead_stock_report')
       if (error) throw error
       return (data ?? []) as DeadStockItem[]
     },
