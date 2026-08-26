@@ -72,7 +72,7 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
       </div>
 
       {/* Check list */}
-      {checks.length === 0 ? (
+      {scopedChecks.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 gap-2">
           <ClipboardCheck className="h-10 w-10 text-muted-foreground/30" />
           <p className="text-xs text-muted-foreground">No inventory checks yet.</p>
@@ -141,9 +141,9 @@ export const WhInventoryChecksTab = React.memo(function WhInventoryChecksTab({ w
         </div>
       )}
 
-      {checks.length > 0 && totalPages > 1 && (
+      {scopedChecks.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-          <span>{checks.length} check{checks.length !== 1 ? 's' : ''}</span>
+          <span>{scopedChecks.length} check{scopedChecks.length !== 1 ? 's' : ''}</span>
           <div className="flex items-center gap-1.5">
             <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
               <ChevronLeft className="h-3.5 w-3.5" />

@@ -514,9 +514,9 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             </div>
           )
         })}
-        {transfers.length > 0 && totalPages > 1 && (
+        {scopedTransfers.length > 0 && totalPages > 1 && (
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-            <span>{transfers.length} transfer{transfers.length !== 1 ? 's' : ''}</span>
+            <span>{scopedTransfers.length} transfer{scopedTransfers.length !== 1 ? 's' : ''}</span>
             <div className="flex items-center gap-1.5">
               <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
                 <ChevronLeft className="h-3.5 w-3.5" />
