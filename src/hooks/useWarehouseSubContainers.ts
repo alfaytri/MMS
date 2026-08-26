@@ -151,6 +151,39 @@ export function useSubContainerDivisionMap() {
 }
 
 /**
+ * Map of warehouse_id → Set(division_id) for every active sub-container, sourced
+ * from the RLS-bypassing `warehouse_sub_container_totals` view so it's COMPLETE
+ * for super-viewers (not narrowed to the active division). Powers "which
+ * warehouses can source stock for the active division" — e.g. the custody
+ * request dialog only offers warehouses that actually hold that division's stock.
+ */
+export function useWarehouseDivisionSets() {
+  return useQuery({
+    queryKey: ['warehouse-sub-containers', 'wh-division-sets'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('warehouse_sub_container_totals')
+        .select('warehouse_id, division_id, sub_container_is_active')
+        .limit(2000)
+      if (error) throw error
+      const map = new Map<string, Set<string>>()
+      for (const r of (data ?? []) as unknown as Array<{
+        warehouse_id: string | null
+        division_id: string | null
+        sub_container_is_active: boolean | null
+      }>) {
+        if (!r.warehouse_id || !r.division_id || r.sub_container_is_active === false) continue
+        if (!map.has(r.warehouse_id)) map.set(r.warehouse_id, new Set())
+        map.get(r.warehouse_id)!.add(r.division_id)
+      }
+      return map
+    },
+  })
+}
+
+/**
  * Returns a predicate `(subContainerId) => visible` for the active-division
  * view. Empty view set = "All" → everything visible. A row with no
  * sub-container, or one whose division is unknown, stays visible (it can't be
