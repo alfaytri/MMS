@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { MapPin, Check, AlertTriangle, Loader2, LocateFixed } from 'lucide-react'
@@ -75,6 +75,12 @@ export function AddressFinder({
   )
   const [placeName, setPlaceName] = useState(!initialPlate ? value.address : '')
 
+  // Auto-verify plumbing: only kick off a QNAS lookup once the operator has
+  // actually edited the plate (never on mount for a stored address, which would
+  // dirty the form), and debounce so we fire one call per completed plate.
+  const interacted = useRef(false)
+  const autoVerifyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Plate fields: reflect what's typed immediately (advisory — a plate can be
   // saved unverified), but drop any stale coordinates until re-verified.
   function updatePlate(next: { zone?: string; street?: string; building?: string }) {
@@ -84,6 +90,7 @@ export function AddressFinder({
     if (next.zone !== undefined) setZone(next.zone)
     if (next.street !== undefined) setStreet(next.street)
     if (next.building !== undefined) setBuilding(next.building)
+    interacted.current = true
     setStatus('idle')
     onChange({ address: z || s || b ? fmtPlate(z, s, b) : '', latitude: null, longitude: null })
   }
@@ -109,6 +116,24 @@ export function AddressFinder({
       onChange({ address: fmtPlate(zone, street, building), latitude: null, longitude: null })
     }
   }
+
+  // Auto-verify: once all three plate fields are filled (and the operator has
+  // edited them), look the plate up automatically after a short debounce so a
+  // correct plate saves its coordinates without a manual "Verify" click. We only
+  // fire while status === 'idle' (set on every edit) so a verified/failed plate
+  // isn't re-queried until it changes again — no loop, one call per plate. The
+  // button stays as an explicit retry (e.g. after QNAS was unreachable).
+  useEffect(() => {
+    if (!interacted.current || disabled) return
+    if (mode !== 'plate' || status !== 'idle') return
+    if (!zone || !street || !building) return
+    if (autoVerifyTimer.current) clearTimeout(autoVerifyTimer.current)
+    autoVerifyTimer.current = setTimeout(() => { void verify() }, 600)
+    return () => { if (autoVerifyTimer.current) clearTimeout(autoVerifyTimer.current) }
+    // verify is recreated each render but closes over the current field values;
+    // the field/status deps below capture every case we need to re-arm on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, zone, street, building, status, disabled])
 
   function updateCoords(rawText: string, name?: string) {
     setCoordsText(rawText)

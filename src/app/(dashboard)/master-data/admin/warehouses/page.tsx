@@ -243,10 +243,9 @@ export default function WarehousesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete warehouse?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{deleteTarget?.name}</strong>. Sub-containers
-              and stock rows are protected by database constraints — if the warehouse has any,
-              deletion will fail. Deactivate sub-containers first if you need to remove the
-              warehouse.
+              This permanently deletes <strong>{deleteTarget?.name}</strong> together with its
+              empty sub-containers. If the warehouse still holds any stock or history, deletion is
+              blocked and you&apos;ll see exactly what&apos;s using it — move or clear that first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

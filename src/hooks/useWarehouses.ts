@@ -229,8 +229,22 @@ export function useDeleteWarehouse() {
         .select('*')
         .eq('id', id)
         .maybeSingle()
-      const { error } = await supabase.from('warehouses').delete().eq('id', id)
-      if (error) throw error
+      // delete_warehouse() removes the warehouse together with its (empty)
+      // sub-containers atomically. A bare warehouses.delete() hit the
+      // sub-container FK (RESTRICT) whenever any sub-container row remained, and
+      // deleting sub-containers client-side is blocked by their RESTRICTIVE
+      // division-scope policy when the active division differs. The RPC bypasses
+      // that policy but raises a friendly error if any stock/history remains.
+      // 'delete_warehouse' isn't in the generated RPC types yet — cast name+args.
+      const { error } = await supabase.rpc(
+        'delete_warehouse' as never,
+        { p_warehouse_id: id } as never,
+      )
+      if (error) {
+        // Surface the RPC's real message (PostgrestError isn't an Error subclass).
+        const msg = [error.message, error.details, error.hint].filter(Boolean).join(' — ')
+        throw new Error(msg || 'Failed to delete warehouse')
+      }
       void logActivity({
         action: 'Warehouse Deleted',
         module: 'warehouses',
@@ -241,7 +255,13 @@ export function useDeleteWarehouse() {
       })
     },
     onSuccess: () => {
+      // The warehouse and its sub-containers are gone — refresh both the
+      // warehouse list and every sub-container-derived view (division map,
+      // totals, custody warehouses).
       queryClient.invalidateQueries({ queryKey: queryKeys.warehouses.all })
+      queryClient.invalidateQueries({ queryKey: ['warehouse-sub-containers'] })
+      queryClient.invalidateQueries({ queryKey: ['sub-containers-by-warehouse'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.custody.warehouses })
     },
   })
 }
