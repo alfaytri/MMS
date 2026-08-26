@@ -147,10 +147,17 @@ revoke execute on function
 from anon, public;
 ```
 
-**M3 — ~140 foreign keys without a covering index.** Postgres does not auto-index FK
-columns. Zero measurable impact today (largest table is 1,044 rows) — but add the hot-path
-ones **before** transaction volume grows, so joins and cascade-delete checks don't fall to
-seq scans:
+**M3 — ~140 foreign keys without a covering index.** ✅ **DONE 2026-08-26** — rather than
+just the hot-path subset, all **133 public-schema** unindexed FKs were indexed in one pass
+(migration `20261012000000_index_foreign_keys.sql`), applied to staging + new-prod
+(uncovered public FKs 133 → 0 on both). Done now deliberately, while the tables are
+near-empty, so `CREATE INDEX` was instant and non-blocking; post-launch it would have
+needed `CONCURRENTLY`. The auth.*/storage.* FKs are left to Supabase. Original note kept
+below for context.
+
+Postgres does not auto-index FK columns. Zero measurable impact today (largest table is
+1,044 rows) — but add the hot-path ones **before** transaction volume grows, so joins and
+cascade-delete checks don't fall to seq scans:
 ```sql
 create index on public.fifo_cost_layers (sub_container_id);
 create index on public.inventory_stock_movements (sub_container_id);   -- (+ warehouse_id)
