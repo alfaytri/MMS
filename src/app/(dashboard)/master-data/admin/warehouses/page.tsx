@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { MoreHorizontal, Pencil, Trash2, ChevronDown, ChevronRight, Package, WarehouseIcon, MapPin, User } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, ChevronDown, ChevronRight, Package, WarehouseIcon, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -9,6 +9,7 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import { WarehouseFormDialog } from '@/components/master-data/WarehouseFormDialog'
 import { WarehouseSubContainersSection } from '@/components/master-data/WarehouseSubContainersSection'
 import { useWarehouses, useDeleteWarehouse, type Warehouse } from '@/hooks/useWarehouses'
+import { AddressMapLink } from '@/components/shared/AddressMapLink'
 import { formatNumber } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
@@ -141,10 +142,12 @@ export default function WarehousesPage() {
                             {wh.company_name}
                           </span>
                         )}
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {wh.location || 'No location'}
-                        </span>
+                        <AddressMapLink
+                          address={wh.location}
+                          latitude={wh.latitude}
+                          longitude={wh.longitude}
+                          emptyLabel="No location"
+                        />
                         <TooltipProvider delayDuration={200}>
                           <Tooltip>
                             <TooltipTrigger asChild>

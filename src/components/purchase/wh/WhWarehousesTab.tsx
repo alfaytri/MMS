@@ -5,7 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, ChevronRight, Boxes, Wrench } from 'lucide-react'
+import { WarehouseIcon, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, ChevronRight, Boxes, Wrench } from 'lucide-react'
+import { AddressMapLink } from '@/components/shared/AddressMapLink'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 import { WarehouseStockExportButton } from '@/components/purchase/wh/WarehouseStockExportButton'
@@ -149,9 +150,8 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               <span className="font-medium text-foreground">{wh.division_name}</span>
             </div>
           ) : null}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3 flex-shrink-0" />
-            {wh.location ?? 'No location set'}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+            <AddressMapLink address={wh.location} latitude={wh.latitude} longitude={wh.longitude} emptyLabel="No location set" />
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <User className="h-3 w-3 flex-shrink-0" />
