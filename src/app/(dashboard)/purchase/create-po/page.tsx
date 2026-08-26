@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -186,7 +187,7 @@ export default function CreatePOPage() {
       : { ...base, po_type: poType }
     createPO.mutate(payload, {
       onSuccess: () => { toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders') },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 
@@ -198,11 +199,11 @@ export default function CreatePOPage() {
           { id: po.id },
           {
             onSuccess: () => { toast.success('Submitted for approval'); router.push('/purchase/orders') },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => toast.error(humanizeDbError(err)),
           }
         )
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { ChevronRight, ChevronDown, Pencil, Archive, PackagePlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -334,7 +335,7 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
         onConfirm={() =>
           archive.mutate(variant.id, {
             onSuccess: () => { toast.success('Variant archived'); setArchiveOpen(false) },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => toast.error(humanizeDbError(err)),
           })
         }
       />

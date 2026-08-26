@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -291,7 +292,7 @@ export default function SaleReturnsPage() {
           toast.success('Return created')
           setCreateOpen(false); resetForm()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -417,7 +418,7 @@ export default function SaleReturnsPage() {
                       {next && (
                         <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px]" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: next },
-                            { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next]?.label ?? next}`), onError: (e) => toast.error(e.message) }
+                            { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next]?.label ?? next}`), onError: (e) => toast.error(humanizeDbError(e)) }
                           )}>
                           {STATUS_LABEL[next]}
                         </Button>
@@ -425,7 +426,7 @@ export default function SaleReturnsPage() {
                       {canCancel && (
                         <Button size="sm" variant="ghost" className="h-7 min-h-11 md:min-h-0 text-[11px] text-destructive hover:text-destructive" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: 'cancelled' },
-                            { onSuccess: () => toast.success('Return cancelled'), onError: (e) => toast.error(e.message) }
+                            { onSuccess: () => toast.success('Return cancelled'), onError: (e) => toast.error(humanizeDbError(e)) }
                           )}>
                           Cancel
                         </Button>

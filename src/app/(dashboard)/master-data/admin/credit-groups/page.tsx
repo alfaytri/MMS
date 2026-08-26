@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -54,7 +55,7 @@ export default function CreditGroupsPage() {
     if (!deleteTarget) return
     remove.mutate(deleteTarget.id, {
       onSuccess: () => { toast.success('Deleted'); setDeleteTarget(null) },
-      onError:   (err) => { toast.error(err.message); setDeleteTarget(null) },
+      onError:   (err) => { toast.error(humanizeDbError(err)); setDeleteTarget(null) },
     })
   }
 

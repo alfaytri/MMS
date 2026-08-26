@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo } from 'react'
 import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -278,7 +279,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
         onConfirm={() =>
           archive.mutate(item.id, {
             onSuccess: () => { toast.success('Item archived'); setArchiveOpen(false) },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => toast.error(humanizeDbError(err)),
           })
         }
       />

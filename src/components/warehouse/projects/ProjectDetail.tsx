@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Layers, Lock, Package, Plus, User } from 'lucide-react'
@@ -150,7 +151,7 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
       toast.success(`${discipline?.name ?? 'Discipline'} added to ${project.project_number}`)
       setPickedDisciplineId('')
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.error(humanizeDbError(e))
     }
   }
 
@@ -160,7 +161,7 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
       await setRp.mutateAsync({ project_id: project.id, profile_id: !v || v === 'none' ? null : v })
       toast.success('Responsible person updated')
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.error(humanizeDbError(e))
     }
   }
 

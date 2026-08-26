@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { Building2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -206,7 +207,7 @@ export default function CompaniesPage() {
           if (!deleteTarget) return
           deleteDivision.mutate(deleteTarget.id, {
             onSuccess: () => { toast.success('Division deleted'); setDeleteTarget(null) },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => toast.error(humanizeDbError(err)),
           })
         }}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -288,7 +289,7 @@ export function RoleFormDialog({ open, onOpenChange, role }: RoleFormDialogProps
       : () => create.mutateAsync(payload)
     mutation()
       .then(() => { toast.success(`Role ${isEditing ? 'updated' : 'created'}`); guardRef.current?.closeAfterSubmit() })
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   return (

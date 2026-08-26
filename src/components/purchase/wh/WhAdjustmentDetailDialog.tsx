@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import React, { useMemo, useState } from 'react'
 import { ShieldAlert } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -135,7 +136,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
       toast.success(verdict === 'approved' ? 'Step approved' : 'Adjustment rejected')
       setReviewNotes('')
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.error(humanizeDbError(e))
     } finally {
       setActioningId(null)
     }
@@ -394,7 +395,7 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
                   setForceConfirmOpen(false)
                   setForceComment('')
                 } catch (e) {
-                  toast.error((e as Error).message)
+                  toast.error(humanizeDbError(e))
                 }
               }}
             >

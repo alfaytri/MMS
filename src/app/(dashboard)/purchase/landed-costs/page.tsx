@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
@@ -561,7 +562,7 @@ function LcDetailDialog({
                         setApplyOpen(false)
                         onClose()
                       },
-                      onError: (err) => toast.error(err.message),
+                      onError: (err) => toast.error(humanizeDbError(err)),
                     })
                   }
                 >
@@ -742,7 +743,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
         sessionUploadsRef.current = sessionUploadsRef.current.filter((p) => p !== oldPath)
       }
     } catch (err: unknown) {
-      toast.error(`Upload failed: ${(err as Error).message}`)
+      toast.error(`Upload failed: ${humanizeDbError(err)}`)
     } finally {
       setUploadingLines((prev) => {
         const s = new Set(prev)
@@ -835,7 +836,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           setConfirmCreateOpen(false)
           handleOpenChange(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

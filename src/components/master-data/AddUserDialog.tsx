@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useRef, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -128,7 +129,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
           else toast.success(`User "${values.username}" created successfully`)
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

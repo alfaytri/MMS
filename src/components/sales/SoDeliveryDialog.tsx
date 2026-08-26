@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
@@ -156,7 +157,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
           guardRef.current?.closeAfterSubmit()
           setQtys({})
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

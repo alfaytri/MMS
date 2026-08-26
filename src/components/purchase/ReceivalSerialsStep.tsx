@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo } from 'react'
 import { toast } from 'sonner'
 import { PackageCheck, Wrench } from 'lucide-react'
@@ -37,7 +38,7 @@ export function ReceivalSerialsStep({ receivalId, receivalNumber, onDone }: Prop
   function handleAutoGenerate(itemId: string) {
     autoGenerate.mutate({ item_id: itemId }, {
       onSuccess: (res) => { toast.success(`Generated ${res.updated_count} serial${res.updated_count === 1 ? '' : 's'}`); void refetch() },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 

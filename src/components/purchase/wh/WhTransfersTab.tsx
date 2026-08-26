@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import React, { useMemo, useState, useCallback, useEffect } from 'react'
 import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { WarehouseReportButton } from './WarehouseReportButton'
@@ -183,7 +184,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             t.id,
           )
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -250,7 +251,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             t.id,
           )
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -272,7 +273,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             )
           }
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -302,7 +303,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           )
         },
         onError: (e) => {
-          toast.error(e.message)
+          toast.error(humanizeDbError(e))
           setCancelTarget(null)
         },
       },

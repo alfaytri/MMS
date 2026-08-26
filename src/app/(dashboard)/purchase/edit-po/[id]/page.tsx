@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -236,7 +237,7 @@ export default function EditPOPage() {
           toast.success('Draft saved')
           router.push('/purchase/orders')
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -284,7 +285,7 @@ export default function EditPOPage() {
           toast.success('Submitted for approval')
           router.push('/purchase/orders')
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -528,7 +529,7 @@ export default function EditPOPage() {
                       setActiveVersionNumber(null)
                       toast.success(`V${activeVersion.version_number} deleted`)
                     },
-                    onError: (err) => toast.error(err.message),
+                    onError: (err) => toast.error(humanizeDbError(err)),
                   }
                 )
               } : undefined}

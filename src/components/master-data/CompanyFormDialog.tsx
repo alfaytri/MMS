@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -204,7 +205,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
             toast.success('Company updated')
             handleOpenChange(false)
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         }
       )
     } else {
@@ -215,7 +216,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: CompanyFormDi
           toast.success('Company created')
           handleOpenChange(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       })
     }
   }

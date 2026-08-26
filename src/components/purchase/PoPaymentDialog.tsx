@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { toast } from 'sonner'
 import { PaymentFormDialog, type PaymentFormValues } from '@/components/shared/PaymentFormDialog'
 import { useCreatePOPayment, usePOPayments, type PurchaseOrder, type PaymentMethod } from '@/hooks/usePurchaseOrders'
@@ -53,7 +54,7 @@ export function PoPaymentDialog({ open, onOpenChange, po }: PoPaymentDialogProps
           toast.success('Payment recorded')
           onOpenChange(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

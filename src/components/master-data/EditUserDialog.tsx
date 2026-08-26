@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -194,7 +195,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
           setDivisionPickValue('')
           toast.success("Division assigned. Changes take effect on the user's next login.")
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -205,7 +206,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       { id, profileId: profile.id },
       {
         onSuccess: () => toast.success('Division removed.'),
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -262,7 +263,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
           toast.success('User updated')
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

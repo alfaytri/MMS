@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { ShieldAlert, Eye } from 'lucide-react'
@@ -95,7 +96,7 @@ export default function ApprovalsPage() {
     const { po, step } = dialogState
     approveStep.mutate(
       { stepId: step.id, poId: po.id, comment },
-      { onSuccess: () => { toast.success('Step approved'); setDialogState(null) }, onError: (e) => toast.error(e.message) }
+      { onSuccess: () => { toast.success('Step approved'); setDialogState(null) }, onError: (e) => toast.error(humanizeDbError(e)) }
     )
   }
 
@@ -107,7 +108,7 @@ export default function ApprovalsPage() {
           const n = data?.approvedCount ?? 0
           toast.success(n > 1 ? `Force-approved ${n} remaining steps` : 'Force-approved')
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -117,7 +118,7 @@ export default function ApprovalsPage() {
     const { po, step } = dialogState
     rejectPO.mutate(
       { poId: po.id, stepId: step.id, comment, mode: rejectMode },
-      { onSuccess: () => { toast.success(rejectMode === 'full_rejection' ? 'PO cancelled' : 'PO sent back to draft'); setDialogState(null) }, onError: (e) => toast.error(e.message) }
+      { onSuccess: () => { toast.success(rejectMode === 'full_rejection' ? 'PO cancelled' : 'PO sent back to draft'); setDialogState(null) }, onError: (e) => toast.error(humanizeDbError(e)) }
     )
   }
 

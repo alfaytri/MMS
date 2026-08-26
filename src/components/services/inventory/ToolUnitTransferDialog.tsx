@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -56,7 +57,7 @@ export function ToolUnitTransferDialog({ open, onOpenChange, itemId, unit }: Pro
       { unit_id: unit.id, item_id: itemId, from_division_id: currentDivisionId, to_division_id: toDivisionId, notes: notes.trim() || null },
       {
         onSuccess: () => { toast.success('Unit transferred'); guardRef.current?.closeAfterSubmit() },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       },
     )
   }

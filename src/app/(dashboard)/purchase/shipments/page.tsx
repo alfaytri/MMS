@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -146,7 +147,7 @@ function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             }),
           }).catch(err => console.error('[auto-register]', err))
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -272,7 +273,7 @@ function ShipmentDetailDialog({
       { id: shipment.id, event: { ...eventForm }, currentEvents: shipment.events ?? [] },
       {
         onSuccess: () => { toast.success('Event added'); setShowEventForm(false); setEventForm({ date: '', location: '', status: '', notes: '' }) },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -488,7 +489,7 @@ function ShipmentDetailDialog({
                         key={s}
                         onClick={() => updateStatus.mutate(
                           { id: shipment.id, status: s },
-                          { onSuccess: () => toast.success('Status updated'), onError: (err) => toast.error(err.message) }
+                          { onSuccess: () => toast.success('Status updated'), onError: (err) => toast.error(humanizeDbError(err)) }
                         )}
                       >
                         <Icon className={cn('h-4 w-4 mr-2', cfg.color)} />
@@ -517,7 +518,7 @@ function ShipmentDetailDialog({
                   }).catch(err => console.error('[deregister]', err))
                   onClose()
                 },
-                onError: (err) => toast.error(err.message),
+                onError: (err) => toast.error(humanizeDbError(err)),
               }
             )}
           >

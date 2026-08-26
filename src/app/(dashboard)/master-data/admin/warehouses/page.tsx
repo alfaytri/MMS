@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo } from 'react'
 import { MoreHorizontal, Pencil, Trash2, ChevronDown, ChevronRight, Package, WarehouseIcon, User } from 'lucide-react'
 import { toast } from 'sonner'
@@ -74,7 +75,7 @@ export default function WarehousesPage() {
         setDeleteTarget(null)
       },
       onError: (err) => {
-        toast.error(err.message)
+        toast.error(humanizeDbError(err))
         setDeleteTarget(null)
       },
     })

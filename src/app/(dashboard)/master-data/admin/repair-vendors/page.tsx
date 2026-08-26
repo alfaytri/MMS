@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useState } from 'react'
 import { MoreHorizontal, Pencil, Power, Wrench, Phone, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
@@ -47,7 +48,7 @@ export default function RepairVendorsPage() {
       { id: v.id, is_active: isActive },
       {
         onSuccess: () => toast.success(isActive ? 'Vendor activated' : 'Vendor deactivated'),
-        onError: (e) => toast.error((e as Error).message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }

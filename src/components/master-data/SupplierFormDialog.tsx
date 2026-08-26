@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -165,7 +166,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
             toast.success('Supplier updated')
             guardRef.current?.closeAfterSubmit()
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         }
       )
     } else {
@@ -174,7 +175,7 @@ export function SupplierFormDialog({ open, onOpenChange, supplier }: SupplierFor
           toast.success('Supplier created')
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       })
     }
   }

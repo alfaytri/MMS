@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ChevronDown, ChevronRight, Users, Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -153,7 +154,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       sessionUploadsRef.current = [{ url: pub.publicUrl, path }]
       setImageUrl(pub.publicUrl)
     } catch (err) {
-      toast.error(`Photo upload failed: ${(err as Error).message}`)
+      toast.error(`Photo upload failed: ${humanizeDbError(err)}`)
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -272,7 +273,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
             }
             guardRef.current?.closeAfterSubmit()
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         },
       )
     } else {
@@ -288,7 +289,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
             }
             guardRef.current?.closeAfterSubmit()
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         },
       )
     }

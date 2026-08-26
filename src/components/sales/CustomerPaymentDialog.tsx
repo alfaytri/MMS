@@ -1,6 +1,7 @@
 // src/components/sales/CustomerPaymentDialog.tsx
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Wallet } from 'lucide-react'
@@ -149,7 +150,7 @@ export function CustomerPaymentDialog({ open, onOpenChange, invoice, alreadyPaid
       setConfirmOpen(false)
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
-      toast.error((err as Error).message)
+      toast.error(humanizeDbError(err))
     } finally {
       setSaving(false)
     }

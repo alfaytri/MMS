@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -242,7 +243,7 @@ export default function PurchaseReturnsPage() {
           toast.success('Return created')
           setCreateOpen(false); resetForm()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -352,7 +353,7 @@ export default function PurchaseReturnsPage() {
                       {next && (
                         <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px]" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: next, sourceId: ret.source_id },
-                            { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next].label}`), onError: (e) => toast.error(e.message) }
+                            { onSuccess: () => toast.success(`Marked as ${STATUS_CONFIG[next].label}`), onError: (e) => toast.error(humanizeDbError(e)) }
                           )}>
                           {STATUS_LABEL[next]}
                         </Button>
@@ -360,7 +361,7 @@ export default function PurchaseReturnsPage() {
                       {canCancel && (
                         <Button size="sm" variant="ghost" className="h-7 min-h-11 md:min-h-0 text-[11px] text-destructive hover:text-destructive" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: 'cancelled', sourceId: ret.source_id },
-                            { onSuccess: () => toast.success('Return cancelled'), onError: (e) => toast.error(e.message) }
+                            { onSuccess: () => toast.success('Return cancelled'), onError: (e) => toast.error(humanizeDbError(e)) }
                           )}>
                           Cancel
                         </Button>

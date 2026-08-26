@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Check } from 'lucide-react'
@@ -78,7 +79,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
         { id: group.id, name: name.trim(), credit_limit, payment_method_ids: selectedMethods, max_days, default_payment_terms },
         {
           onSuccess: () => { toast.success('Credit group updated'); onOpenChange(false) },
-          onError:   (err) => toast.error(err.message),
+          onError:   (err) => toast.error(humanizeDbError(err)),
         }
       )
     } else {
@@ -86,7 +87,7 @@ export function AddCreditGroupDialog({ open, onOpenChange, group }: CreditGroupD
         { name: name.trim(), credit_limit, payment_method_ids: selectedMethods, max_days, default_payment_terms },
         {
           onSuccess: () => { toast.success('Credit group added'); onOpenChange(false) },
-          onError:   (err) => toast.error(err.message),
+          onError:   (err) => toast.error(humanizeDbError(err)),
         }
       )
     }

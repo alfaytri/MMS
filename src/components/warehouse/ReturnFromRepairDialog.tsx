@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { PackageCheck } from 'lucide-react'
@@ -113,7 +114,7 @@ export function ReturnFromRepairDialog({
           guardRef.current?.closeAfterSubmit()
           onComplete?.()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       },
     )
   }

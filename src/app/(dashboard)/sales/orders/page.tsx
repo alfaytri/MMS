@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -249,7 +250,7 @@ export default function SaleOrdersPage() {
               ? `${so.so_number} is over the credit limit — sent for approval`
               : `${so.so_number} confirmed`,
           ),
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -258,7 +259,7 @@ export default function SaleOrdersPage() {
     if (!confirm(`Cancel ${so.so_number}? The SO will remain visible with Cancelled status.`)) return
     cancelSO.mutate(so.id, {
       onSuccess: () => toast.success(`${so.so_number} cancelled`),
-      onError: (e) => toast.error(e.message),
+      onError: (e) => toast.error(humanizeDbError(e)),
     })
   }
 

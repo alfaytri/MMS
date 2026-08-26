@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -144,7 +145,7 @@ export default function ReasonListsPage() {
 
     mutation()
       .then(() => { toast.success(editing ? 'Updated' : 'Created'); setDialogOpen(false); setEditing(null) })
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
@@ -301,7 +302,7 @@ function ManageCategoriesDialog({ open, onOpenChange, categories }: ManageCatego
       setEditingId(null)
       form.reset({ slug: '', label: '', sort_order: 0, active: true })
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
   })
 
   const softDelete = useMutation({
@@ -317,7 +318,7 @@ function ManageCategoriesDialog({ open, onOpenChange, categories }: ManageCatego
       toast.success('Category archived')
       queryClient.invalidateQueries({ queryKey: ['reason_list_categories', 'all'] })
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
   })
 
   return (

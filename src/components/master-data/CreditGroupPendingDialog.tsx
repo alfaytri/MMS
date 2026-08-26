@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Clock, Check, X, User, MessageSquare, AlertTriangle } from 'lucide-react'
@@ -35,7 +36,7 @@ export function CreditGroupPendingDialog({ open, onOpenChange, request, customer
           setConfirming(false); setReason('')
           onOpenChange(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

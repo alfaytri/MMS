@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -48,7 +49,7 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
   function handleAutoGenerate() {
     autoGenerate.mutate({ item_id: itemId }, {
       onSuccess: (res) => toast.success(`Generated ${res.updated_count} serial${res.updated_count === 1 ? '' : 's'}`),
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 
@@ -377,7 +378,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         onConfirm={() =>
           archiveCategory.mutate(node.id, {
             onSuccess: () => { toast.success('Category archived'); setArchiveOpen(false) },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => toast.error(humanizeDbError(err)),
           })
         }
       />

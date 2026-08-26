@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
@@ -513,7 +514,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
       toast.success('Receival recorded and approved')
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
-      toast.error((err as Error).message)
+      toast.error(humanizeDbError(err))
     } finally {
       setSaving(false)
     }

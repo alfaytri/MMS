@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Check, X, Lock, Unlock } from 'lucide-react'
@@ -65,7 +66,7 @@ export function EditRequestBanner({ request, canReview }: Props) {
                       { requestId: request.id, decision: 'approved' },
                       {
                         onSuccess: () => toast.success('Edit request approved'),
-                        onError: (err) => toast.error(err.message),
+                        onError: (err) => toast.error(humanizeDbError(err)),
                       },
                     )
                   }}
@@ -105,7 +106,7 @@ export function EditRequestBanner({ request, canReview }: Props) {
                         setDeclineOpen(false)
                         setDeclineComment('')
                       },
-                      onError: (err) => toast.error(err.message),
+                      onError: (err) => toast.error(humanizeDbError(err)),
                     },
                   )
                 }}

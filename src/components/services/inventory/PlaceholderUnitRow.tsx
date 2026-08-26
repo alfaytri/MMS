@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -46,7 +47,7 @@ export function PlaceholderUnitRow({ unit, siblingUnits, onConfirmed, showDivisi
       },
       {
         onSuccess: () => { toast.success('Serial confirmed'); onConfirmed?.() },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

@@ -11,6 +11,7 @@
  * the landed-costs page.
  */
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import { Paperclip, Upload, X, FileText, Image as ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -91,7 +92,7 @@ export const BillAttachmentPicker = forwardRef<BillAttachmentPickerHandle, Props
             .from('bill-attachments')
             .upload(path, file, { contentType: file.type, cacheControl: '3600' })
           if (error) {
-            toast.error(`${file.name}: ${error.message}`)
+            toast.error(`${file.name}: ${humanizeDbError(error)}`)
             continue
           }
           added.push({

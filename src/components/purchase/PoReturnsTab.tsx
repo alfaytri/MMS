@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -161,7 +162,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
       },
       {
         onSuccess: () => { toast.success('Return created'); setReturnCreateOpen(false) },
-        onError: (err: Error) => toast.error(err.message),
+        onError: (err: Error) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -208,7 +209,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                       disabled={updatePOReturnStatus.isPending}
                       onClick={() => updatePOReturnStatus.mutate(
                         { id: ret.id, status: next as POReturnStatus, sourceId: po.id },
-                        { onSuccess: () => toast.success(PO_STATUS_LABEL[next] ?? next), onError: (e: Error) => toast.error(e.message) }
+                        { onSuccess: () => toast.success(PO_STATUS_LABEL[next] ?? next), onError: (e: Error) => toast.error(humanizeDbError(e)) }
                       )}
                     >
                       {PO_STATUS_LABEL[next]}
@@ -222,7 +223,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                       disabled={updatePOReturnStatus.isPending}
                       onClick={() => updatePOReturnStatus.mutate(
                         { id: ret.id, status: 'cancelled', sourceId: po.id },
-                        { onSuccess: () => toast.success('Return cancelled'), onError: (e: Error) => toast.error(e.message) }
+                        { onSuccess: () => toast.success('Return cancelled'), onError: (e: Error) => toast.error(humanizeDbError(e)) }
                       )}
                     >
                       Cancel
@@ -256,7 +257,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                     disabled={createDebitNote.isPending}
                     onClick={() => createDebitNote.mutate(ret, {
                       onSuccess: () => toast.success('Debit note created'),
-                      onError: (e: Error) => toast.error(e.message),
+                      onError: (e: Error) => toast.error(humanizeDbError(e)),
                     })}
                   >
                     {createDebitNote.isPending ? 'Creating…' : 'Create Debit Note'}

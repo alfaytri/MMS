@@ -1,6 +1,7 @@
 // src/components/sales/CreditNoteFormDialog.tsx
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { AlertTriangle, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -200,7 +201,7 @@ export function CreditNoteFormDialog({ open, onOpenChange }: Props) {
       toast.success('Credit note created')
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
-      toast.error((err as Error).message)
+      toast.error(humanizeDbError(err))
     } finally {
       setSaving(false)
     }

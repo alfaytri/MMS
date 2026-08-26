@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -416,7 +417,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                               amount: note.total_amount,
                             }, {
                               onSuccess: () => { toast.success('Credit added to customer balance') },
-                              onError: (e) => { toast.error(e.message) },
+                              onError: (e) => { toast.error(humanizeDbError(e)) },
                             })
                           }}
                         >
@@ -480,7 +481,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       toast.success('Refund recorded')
                       setShowRefundForm(false)
                     },
-                    onError: (e) => { toast.error(e.message) },
+                    onError: (e) => { toast.error(humanizeDbError(e)) },
                   })
                 }}
               />
@@ -514,7 +515,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       toast.success('Credit added to customer balance')
                       setShowStoreCreditForm(false)
                     },
-                    onError: (e) => { toast.error(e.message) },
+                    onError: (e) => { toast.error(humanizeDbError(e)) },
                   })
                 }}
               />
@@ -540,7 +541,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       toast.success('Marked as replacement')
                       setShowReplacementReceival(true)
                     },
-                    onError: (e) => { toast.error(e.message) },
+                    onError: (e) => { toast.error(humanizeDbError(e)) },
                   })
                 }}
                 disabled={resolveDebitReplacement.isPending}

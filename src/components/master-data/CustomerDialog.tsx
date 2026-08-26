@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Upload, FileCheck2, X, Lock, Plus, Star } from 'lucide-react'
@@ -182,7 +183,7 @@ export function CustomerDialog({
       if (path.startsWith('pending/')) pendingPathsRef.current.push(path)
       return { path, name: file.name }
     } catch (err) {
-      toast.error(`Upload failed: ${(err as Error).message}`)
+      toast.error(`Upload failed: ${humanizeDbError(err)}`)
       return null
     } finally {
       setUploading(null)
@@ -320,7 +321,7 @@ export function CustomerDialog({
             try {
               await saveCreditDocs.mutateAsync({ customer_id: customer.id, docs: buildDocsPayload() })
             } catch (err) {
-              toast.error(`Customer saved, but credit-docs failed: ${(err as Error).message}`)
+              toast.error(`Customer saved, but credit-docs failed: ${humanizeDbError(err)}`)
               handleOpenChange(false)
               return
             }
@@ -341,13 +342,13 @@ export function CustomerDialog({
                   handleOpenChange(false)
                 },
                 onError: (err) => {
-                  toast.error(`Saved, but credit group not sent: ${err.message}`)
+                  toast.error(`Saved, but credit group not sent: ${humanizeDbError(err)}`)
                   handleOpenChange(false)
                 },
               },
             )
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         }
       )
       return
@@ -382,7 +383,7 @@ export function CustomerDialog({
           try {
             await saveCreditDocs.mutateAsync({ customer_id: created.id, docs: buildDocsPayload() })
           } catch (err) {
-            toast.error(`Customer created, but credit-docs failed: ${(err as Error).message}`)
+            toast.error(`Customer created, but credit-docs failed: ${humanizeDbError(err)}`)
             onCreated?.(createdInfo)
             handleOpenChange(false)
             return
@@ -406,14 +407,14 @@ export function CustomerDialog({
                 handleOpenChange(false)
               },
               onError: (err) => {
-                toast.error(`Customer created, but credit group not sent: ${err.message}`)
+                toast.error(`Customer created, but credit group not sent: ${humanizeDbError(err)}`)
                 onCreated?.(createdInfo)
                 handleOpenChange(false)
               },
             },
           )
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -711,7 +712,7 @@ export function CustomerDialog({
                         toast.success(customer.is_active ? 'Customer disabled' : 'Customer enabled')
                         handleOpenChange(false)
                       },
-                      onError: (err) => toast.error(err.message),
+                      onError: (err) => toast.error(humanizeDbError(err)),
                     },
                   )
                 }}

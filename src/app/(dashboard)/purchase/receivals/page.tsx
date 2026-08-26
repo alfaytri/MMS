@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -138,7 +139,7 @@ function RequestEditDialog({
               { receival_id: receival.id, reason },
               {
                 onSuccess: () => { toast.success('Edit request sent to admin'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >
@@ -176,7 +177,7 @@ function AdminEditApprovalDialog({
               { request_id: request.id, action: 'rejected', rejection_note: rejectionNote },
               {
                 onSuccess: () => { toast.success('Edit request rejected'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >Reject</Button>
@@ -186,7 +187,7 @@ function AdminEditApprovalDialog({
               { request_id: request.id, action: 'approved' },
               {
                 onSuccess: () => { toast.success('Edit approved — 48h window open'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >Approve Edit</Button>
@@ -281,7 +282,7 @@ function ReceivalEditDialog({
               { edit_request_id: request.id, items },
               {
                 onSuccess: () => { toast.success('Receival updated'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >

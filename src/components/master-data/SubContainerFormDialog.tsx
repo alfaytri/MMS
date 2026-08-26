@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -130,7 +131,7 @@ export function SubContainerFormDialog({
       }
       guardRef.current?.closeAfterSubmit()
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.error(humanizeDbError(e))
     }
   }
 

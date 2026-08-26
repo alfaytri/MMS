@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -36,18 +37,18 @@ export function UserRoleDialog({ open, onOpenChange, profile }: UserRoleDialogPr
   function handleToggleRole(roleId: string) {
     const existing = userRoles?.find((ur) => ur.role_id === roleId)
     if (existing) {
-      removeRole.mutate({ id: existing.id, profileId: profile!.id }, { onError: (err) => toast.error(err.message) })
+      removeRole.mutate({ id: existing.id, profileId: profile!.id }, { onError: (err) => toast.error(humanizeDbError(err)) })
     } else {
-      assignRole.mutate({ profile_id: profile!.id, role_id: roleId }, { onError: (err) => toast.error(err.message) })
+      assignRole.mutate({ profile_id: profile!.id, role_id: roleId }, { onError: (err) => toast.error(humanizeDbError(err)) })
     }
   }
 
   function handleToggleDivision(divisionId: string) {
     const existing = userDivisions?.find((ud) => ud.division_id === divisionId)
     if (existing) {
-      removeDivision.mutate({ id: existing.id, profileId: profile!.id }, { onError: (err) => toast.error(err.message) })
+      removeDivision.mutate({ id: existing.id, profileId: profile!.id }, { onError: (err) => toast.error(humanizeDbError(err)) })
     } else {
-      assignDivision.mutate({ profile_id: profile!.id, division_id: divisionId }, { onError: (err) => toast.error(err.message) })
+      assignDivision.mutate({ profile_id: profile!.id, division_id: divisionId }, { onError: (err) => toast.error(humanizeDbError(err)) })
     }
   }
 
