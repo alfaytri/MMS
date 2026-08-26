@@ -18,7 +18,8 @@ import {
 } from '@/components/shared/GuardedFormDialog'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { type SaleReturn, useReturnLineProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
 import type { ReturnDispositionType, ReturnLineDisposition } from '@/hooks/useSaleDeliveries'
@@ -106,6 +107,20 @@ export function ReplacementDeliveryDialog({
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const { data: warehouses = [] } = useWarehouses()
+  // "Change source warehouse" alternatives are scoped to the active division
+  // (the auto-derived default from the original delivery is preserved). "All"
+  // shows everything — matches the filterByActiveDivision item selector below.
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: whDivisionSets } = useWarehouseDivisionSets()
+  const visibleWarehouses = useMemo(() => {
+    if (viewDivisionIds.size === 0) return warehouses
+    return warehouses.filter((w) => {
+      const divs = whDivisionSets?.get(w.id)
+      if (!divs) return false
+      for (const d of viewDivisionIds) if (divs.has(d)) return true
+      return false
+    })
+  }, [warehouses, whDivisionSets, viewDivisionIds])
   const { data: lineProgress = [], isLoading: progressLoading } = useReturnLineProgress(
     open ? returnData.id : null,
   )
@@ -214,9 +229,12 @@ export function ReplacementDeliveryDialog({
   const { data: activeSubs = [] } = useWarehouseSubContainers(warehouseId || null)
   const resolvedSubContainerId = useMemo(() => {
     if (!warehouseId) return null
-    const eligible = activeSubs.filter((sc) => sc.is_active)
+    // Scope the source shelf to the active division so a replacement ships from
+    // the right division's stock even in a shared warehouse.
+    const eligible = activeSubs.filter((sc) =>
+      sc.is_active && (viewDivisionIds.size === 0 || (sc.division_id != null && viewDivisionIds.has(sc.division_id))))
     return eligible.length === 1 ? eligible[0].id : null
-  }, [warehouseId, activeSubs])
+  }, [warehouseId, activeSubs, viewDivisionIds])
 
   const { data: whStockMap } = useWarehouseStockByItems(bvIds, resolvedSubContainerId)
 
@@ -701,7 +719,7 @@ export function ReplacementDeliveryDialog({
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.map((w) => (
+                    {visibleWarehouses.map((w) => (
                       <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
                     ))}
                   </SelectContent>

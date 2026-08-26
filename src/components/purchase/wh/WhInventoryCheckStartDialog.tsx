@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { useWarehouseStock, useStartInventoryCheck } from '@/hooks/useWarehouseOperations'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useProfiles } from '@/hooks/useProfiles'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
@@ -50,8 +51,30 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
   const { data: warehouseStock = [] } = useWarehouseStock(warehouseId || undefined)
   const startCheck                 = useStartInventoryCheck()
 
+  // Division scope (top-bar view): only count the active division's shelves, so a
+  // single-division operator can't start a check on another division's stock.
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: whDivisionSets } = useWarehouseDivisionSets()
+  const visibleWarehouses = useMemo(() => {
+    if (viewDivisionIds.size === 0) return warehouses
+    return warehouses.filter((w) => {
+      const divs = whDivisionSets?.get(w.id)
+      if (!divs) return false
+      for (const d of viewDivisionIds) if (divs.has(d)) return true
+      return false
+    })
+  }, [warehouses, whDivisionSets, viewDivisionIds])
+
+  useEffect(() => {
+    if (warehouseId && !visibleWarehouses.some((w) => w.id === warehouseId)) setWarehouseId('')
+  }, [warehouseId, visibleWarehouses])
+
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
-  const eligibleSubs = useMemo(() => allSubs.filter((sc) => sc.is_active), [allSubs])
+  const eligibleSubs = useMemo(
+    () => allSubs.filter((sc) =>
+      sc.is_active && (viewDivisionIds.size === 0 || (sc.division_id != null && viewDivisionIds.has(sc.division_id)))),
+    [allSubs, viewDivisionIds],
+  )
 
   useEffect(() => {
     if (eligibleSubs.length === 1) setSubContainerId(eligibleSubs[0].id)
@@ -193,9 +216,15 @@ export function WhInventoryCheckStartDialog({ warehouses, currentProfile, childr
                       <SelectValue placeholder="Select warehouse…" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 overflow-y-auto">
-                      {warehouses.map((wh) => (
-                        <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                      ))}
+                      {visibleWarehouses.length === 0 ? (
+                        <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                          No warehouse holds this division&apos;s stock.
+                        </div>
+                      ) : (
+                        visibleWarehouses.map((wh) => (
+                          <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   {warehouseId && (

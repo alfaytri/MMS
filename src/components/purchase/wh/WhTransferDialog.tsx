@@ -31,7 +31,8 @@ import { WhItemPicker, type PickerItem } from './WhItemPicker'
 import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { Profile } from '@/hooks/useProfiles'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import {
   useWarehouseStock,
   useCreateTransfer,
@@ -77,10 +78,41 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const toWh = warehouses.find((w) => w.id === toId)
   const fromWh = warehouses.find((w) => w.id === fromId)
 
+  // Division scope (top-bar view): both ends of a transfer stay within the
+  // division you're viewing, so a single-division operator can't move another
+  // division's stock or push it into another division's shelf. "All" = no filter.
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: whDivisionSets } = useWarehouseDivisionSets()
+  const visibleWarehouses = useMemo(() => {
+    if (viewDivisionIds.size === 0) return warehouses
+    return warehouses.filter((w) => {
+      const divs = whDivisionSets?.get(w.id)
+      if (!divs) return false
+      for (const d of viewDivisionIds) if (divs.has(d)) return true
+      return false
+    })
+  }, [warehouses, whDivisionSets, viewDivisionIds])
+
+  // Clear a picked end if a division switch makes it no longer in scope.
+  useEffect(() => {
+    if (fromId && !visibleWarehouses.some((w) => w.id === fromId)) setFromId('')
+    if (toId && !visibleWarehouses.some((w) => w.id === toId)) setToId('')
+  }, [fromId, toId, visibleWarehouses])
+
   const { data: fromSubs = [] } = useWarehouseSubContainers(fromId || null)
   const { data: toSubs = [] } = useWarehouseSubContainers(toId || null)
-  const eligibleFromSubs = useMemo(() => fromSubs.filter((sc) => sc.is_active), [fromSubs])
-  const eligibleToSubs = useMemo(() => toSubs.filter((sc) => sc.is_active), [toSubs])
+  const inViewDivision = (divId: string | null) =>
+    viewDivisionIds.size === 0 || (divId != null && viewDivisionIds.has(divId))
+  const eligibleFromSubs = useMemo(
+    () => fromSubs.filter((sc) => sc.is_active && inViewDivision(sc.division_id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fromSubs, viewDivisionIds],
+  )
+  const eligibleToSubs = useMemo(
+    () => toSubs.filter((sc) => sc.is_active && inViewDivision(sc.division_id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [toSubs, viewDivisionIds],
+  )
 
   useEffect(() => {
     if (eligibleFromSubs.length === 1) setFromSubContainerId(eligibleFromSubs[0].id)
@@ -366,9 +398,15 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                     <SelectValue placeholder="Source warehouse" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                    ))}
+                    {visibleWarehouses.length === 0 ? (
+                      <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                        No warehouse holds this division&apos;s stock.
+                      </div>
+                    ) : (
+                      visibleWarehouses.map((wh) => (
+                        <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -382,9 +420,15 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                     <SelectValue placeholder="Destination warehouse" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                    ))}
+                    {visibleWarehouses.length === 0 ? (
+                      <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                        No warehouse holds this division&apos;s stock.
+                      </div>
+                    ) : (
+                      visibleWarehouses.map((wh) => (
+                        <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

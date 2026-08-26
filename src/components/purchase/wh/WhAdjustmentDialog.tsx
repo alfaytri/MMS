@@ -17,7 +17,8 @@ import { toast } from 'sonner'
 import type { Profile } from '@/hooks/useProfiles'
 import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { useCreateStockAdjustmentV2, useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 
@@ -55,8 +56,31 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   // carry item_type + origin so the picker groups by type and shows origin.
   const { data: containerStock = [] } = useWarehouseStock(warehouseId || undefined, subContainerId)
 
+  // Division scope (top-bar view): only adjust the active division's stock, so a
+  // single-division operator can't decrease/damage/write-off another division's
+  // shelf. "All" = no filter.
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: whDivisionSets } = useWarehouseDivisionSets()
+  const visibleWarehouses = useMemo(() => {
+    if (viewDivisionIds.size === 0) return warehouses
+    return warehouses.filter((w) => {
+      const divs = whDivisionSets?.get(w.id)
+      if (!divs) return false
+      for (const d of viewDivisionIds) if (divs.has(d)) return true
+      return false
+    })
+  }, [warehouses, whDivisionSets, viewDivisionIds])
+
+  useEffect(() => {
+    if (warehouseId && !visibleWarehouses.some((w) => w.id === warehouseId)) setWarehouseId('')
+  }, [warehouseId, visibleWarehouses])
+
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
-  const eligibleSubs = useMemo(() => allSubs.filter((sc) => sc.is_active), [allSubs])
+  const eligibleSubs = useMemo(
+    () => allSubs.filter((sc) =>
+      sc.is_active && (viewDivisionIds.size === 0 || (sc.division_id != null && viewDivisionIds.has(sc.division_id)))),
+    [allSubs, viewDivisionIds],
+  )
 
   useEffect(() => {
     if (eligibleSubs.length === 1) setSubContainerId(eligibleSubs[0].id)
@@ -238,9 +262,15 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                   <SelectValue placeholder="Select warehouse..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
-                  {warehouses.map(wh => (
-                    <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                  ))}
+                  {visibleWarehouses.length === 0 ? (
+                    <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                      No warehouse holds this division&apos;s stock.
+                    </div>
+                  ) : (
+                    visibleWarehouses.map(wh => (
+                      <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               {warehouseId && (
