@@ -302,8 +302,10 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                   </FormItem>
                 )}
               />
-              <FormItem>
-                <FormLabel>Location (Blue Plate / coordinates)</FormLabel>
+              {/* Plain Label (not FormLabel) — AddressFinder isn't a single RHF
+                  field, and FormLabel's useFormField() throws outside a FormField. */}
+              <div className="space-y-2">
+                <Label>Location (Blue Plate / coordinates)</Label>
                 <AddressFinder
                   key={warehouse?.id ?? 'new'}
                   value={{
@@ -317,7 +319,7 @@ export function WarehouseFormDialog({ open, onOpenChange, warehouse }: Warehouse
                     form.setValue('longitude', v.longitude, { shouldDirty: true })
                   }}
                 />
-              </FormItem>
+              </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium flex items-center gap-1.5">
                   Warehouse RPs
