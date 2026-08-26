@@ -32,6 +32,7 @@ import {
   useUpdateUser, useUserDivisions, useAssignDivision, useRemoveDivision, type Profile,
 } from '@/hooks/useProfiles'
 import { useRoles, type CustomRole } from '@/hooks/useRoles'
+import { rolesGrantSuperViewer } from '@/lib/auth/superViewer'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
 
@@ -202,6 +203,17 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
 
   function handleRemoveDivision(id: string) {
     if (!profile?.id) return
+    // Guard: don't strip the last division from an account that needs one —
+    // it would lock the user out of every division-scoped screen. Super-viewers
+    // (approval-slot Owner/Accountant) see all divisions, so they're exempt.
+    if (userDivisions.length <= 1) {
+      const assignedIds = new Set(form.getValues('role_assignments').map((a) => a.role_id))
+      const assignedRoles = (roles ?? []).filter((r) => assignedIds.has(r.id))
+      if (!rolesGrantSuperViewer(assignedRoles)) {
+        toast.error('This account needs at least one division. Assign another division first, or give it the Owner/Accountant role.')
+        return
+      }
+    }
     removeDivision.mutate(
       { id, profileId: profile.id },
       {
@@ -243,6 +255,14 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       return
     }
     setExtensionError(null)
+    // Guard: saving a role set that isn't a super-viewer while the account has
+    // no division would lock the user out. Catches the case where the
+    // Owner/Accountant role is being removed on save from a division-less user.
+    const savedRoles = (roles ?? []).filter((r) => values.role_assignments.some((a) => a.role_id === r.id))
+    if (userDivisions.length === 0 && !rolesGrantSuperViewer(savedRoles)) {
+      toast.error('This account has no division. Assign a division, or keep the Owner/Accountant role, before saving.')
+      return
+    }
     const email = values.username.includes('@') ? values.username : `${values.username}@mms.local`
     updateUser.mutate(
       {

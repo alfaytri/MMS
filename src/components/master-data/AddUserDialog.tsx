@@ -28,6 +28,7 @@ import { passwordSchema } from '@/lib/auth/password-policy'
 import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import { useCreateUser } from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
+import { rolesGrantSuperViewer } from '@/lib/auth/superViewer'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
 import { createClient } from '@/lib/supabase/client'
@@ -114,6 +115,14 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   }
 
   function onSubmit(values: Values) {
+    // Guard: every internal account must have at least one division, otherwise
+    // RLS locks it out of all division-scoped data. The only exception is a
+    // super-viewer (an approval-slot Owner/Accountant), who sees every division.
+    const chosenRoles = (roles ?? []).filter((r) => values.role_ids.includes(r.id))
+    if (selectedDivisionIds.length === 0 && !rolesGrantSuperViewer(chosenRoles)) {
+      toast.error('Assign at least one division. Only Owner/Accountant accounts can be created without one.')
+      return
+    }
     createUser.mutate(
       {
         full_name: values.full_name,
