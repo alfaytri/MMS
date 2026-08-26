@@ -32,11 +32,12 @@ const EXPECTED_MESSAGE_RE =
 const NETWORK_RE = /failed to fetch|networkerror|network error|load failed|the user aborted a request/i
 
 /**
- * True when an error is an unexpected fault worth reporting to Sentry (a real
- * bug), rather than an expected, user-caused condition (permission block,
- * FK/unique/check violation, a business rule raised by our RPCs, or a network
- * blip). Used by the central react-query handler so Sentry fills with genuine
- * bugs instead of routine validation toasts.
+ * True when an error is an unexpected fault (a real bug), rather than an
+ * expected, user-caused condition (permission block, FK/unique/check violation,
+ * a business rule raised by our RPCs, or a network blip). The central
+ * react-query handler reports every error to Sentry but uses this to set the
+ * level — unexpected → 'error', expected → 'warning' — so genuine bugs stand
+ * out from routine validation.
  */
 export function isUnexpectedDbError(error: unknown): boolean {
   const e = asDbError(error)

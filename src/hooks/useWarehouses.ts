@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
-import { humanizeDbError } from '@/lib/dbErrors'
 import type { DBTable, DBInsert, DBUpdate } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -241,11 +240,10 @@ export function useDeleteWarehouse() {
         'delete_warehouse' as never,
         { p_warehouse_id: id } as never,
       )
-      if (error) {
-        // The RPC raises a human-written P0001 message when stock/history blocks
-        // the delete; humanizeDbError passes that through and friendlies the rest.
-        throw new Error(humanizeDbError(error, 'delete this warehouse'))
-      }
+      // Throw the RAW error so Sentry captures full DB detail; the page's
+      // onError humanizes it for the toast (humanizeDbError passes the RPC's
+      // P0001 "still has stock" message through and friendlies the rest).
+      if (error) throw error
       void logActivity({
         action: 'Warehouse Deleted',
         module: 'warehouses',
