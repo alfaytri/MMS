@@ -127,14 +127,23 @@ export function useSubContainerDivisionMap() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
+      // Source from warehouse_sub_container_totals (a SECURITY-DEFINER view that
+      // bypasses the caller's RLS) rather than the base table. The base table's
+      // RESTRICTIVE select policy is gated on is_division_visible(division_id),
+      // which narrows to the ACTIVE division — so a direct read would omit every
+      // OTHER division's sub-containers, leaving them "unknown" in the map and
+      // slipping through useDivisionScopedVisibility's null-safe fallback. The
+      // view returns EVERY active sub-container's division, so the map is complete
+      // and the client-side view filter can actually hide other divisions.
+      // (division_id was added to the view in migration 20261007000000.)
       const { data, error } = await supabase
-        .from('warehouse_sub_containers')
-        .select('id, division_id')
-        .limit(1000)
+        .from('warehouse_sub_container_totals')
+        .select('sub_container_id, division_id')
+        .limit(2000)
       if (error) throw error
       const map = new Map<string, string | null>()
-      for (const r of (data ?? []) as Array<{ id: string; division_id: string | null }>) {
-        map.set(r.id, r.division_id)
+      for (const r of (data ?? []) as unknown as Array<{ sub_container_id: string | null; division_id: string | null }>) {
+        if (r.sub_container_id) map.set(r.sub_container_id, r.division_id ?? null)
       }
       return map
     },
