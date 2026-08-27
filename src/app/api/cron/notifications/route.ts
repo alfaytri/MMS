@@ -149,31 +149,41 @@ async function runSupplierBillDue(supabase: Admin): Promise<number> {
   return targets.length
 }
 
-export async function POST(req: Request) {
-  const secret = req.headers.get('x-cron-secret')
-  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  }
+/**
+ * Accept either header form:
+ *  - Vercel Cron sends GET with `Authorization: Bearer <CRON_SECRET>`
+ *    (auto-added when the CRON_SECRET env var is set).
+ *  - Manual / external schedulers send `x-cron-secret: <CRON_SECRET>`.
+ */
+function authorized(req: Request): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return false
+  return (
+    req.headers.get('x-cron-secret') === secret ||
+    req.headers.get('authorization') === `Bearer ${secret}`
+  )
+}
 
+async function runChecks() {
   const supabase = createAdminClient()
   const results: Record<string, number | string> = {}
-
   // Each check is isolated so one failure never blocks the others.
-  try {
-    results.invoice_overdue = await runInvoiceOverdue(supabase)
-  } catch (e) {
-    results.invoice_overdue = `error: ${(e as Error).message}`
-  }
-  try {
-    results.installment_due = await runInstallmentDue(supabase)
-  } catch (e) {
-    results.installment_due = `error: ${(e as Error).message}`
-  }
-  try {
-    results.supplier_bill_due = await runSupplierBillDue(supabase)
-  } catch (e) {
-    results.supplier_bill_due = `error: ${(e as Error).message}`
-  }
-
-  return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), results })
+  try { results.invoice_overdue = await runInvoiceOverdue(supabase) }
+  catch (e) { results.invoice_overdue = `error: ${(e as Error).message}` }
+  try { results.installment_due = await runInstallmentDue(supabase) }
+  catch (e) { results.installment_due = `error: ${(e as Error).message}` }
+  try { results.supplier_bill_due = await runSupplierBillDue(supabase) }
+  catch (e) { results.supplier_bill_due = `error: ${(e as Error).message}` }
+  return results
 }
+
+async function handle(req: Request) {
+  if (!authorized(req)) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
+  return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), results: await runChecks() })
+}
+
+// GET → Vercel Cron; POST → manual/external schedulers. Both require the secret.
+export async function GET(req: Request) { return handle(req) }
+export async function POST(req: Request) { return handle(req) }
