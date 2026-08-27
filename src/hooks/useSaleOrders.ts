@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
+import { recipientsForNotification, sendNotifications } from '@/lib/notify'
 import { humanizeDbError } from '@/lib/dbErrors'
 import type { Database } from '@/types/database.types'
 import { invalidateInventoryStockViews } from '@/lib/queryInvalidation'
@@ -902,7 +903,7 @@ export function useConfirmSO() {
 
       return { status: 'confirmed' as const }
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
@@ -914,6 +915,24 @@ export function useConfirmSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       invalidateInventoryStockViews(queryClient)
+      // Diverted to approval → notify the sales approvers (best-effort).
+      if (data.status === 'pending_approval') {
+        void (async () => {
+          const supabase = createClient()
+          const { data: so } = await supabase
+            .from('sale_orders').select('so_number').eq('id', variables.id).maybeSingle()
+          const ids = await recipientsForNotification('so_approval_requested')
+          if (ids.length) {
+            await sendNotifications(ids.map((profile_id) => ({
+              profile_id,
+              type: 'so_approval_requested',
+              title: `Sale order ${so?.so_number ?? ''} needs approval`.trim(),
+              related_id: variables.id,
+              related_type: 'sale_order',
+            })))
+          }
+        })()
+      }
     },
   })
 }

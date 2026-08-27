@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import type { ArInvoice } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import { notifyOwnerAndKey } from '@/lib/notify'
 
 export type { ArInvoice }
 
@@ -101,6 +102,19 @@ export function useGenerateInvoice() {
         entity_id: soId,
         details: data ? `${(data as { invoice_id: string }).invoice_id} · ${(data as { invoice_type: string }).invoice_type}` : null,
       })
+      // Notify the SO owner an invoice was generated (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: so } = await supabase
+          .from('sale_orders').select('created_by').eq('id', soId).maybeSingle()
+        await notifyOwnerAndKey(
+          so?.created_by ?? null,
+          'notify.sales.invoice_generated',
+          'invoice_generated',
+          `Invoice ${data?.invoice_id ?? ''} generated`.trim(),
+          { relatedId: soId, relatedType: 'sale_order' },
+        )
+      })()
     },
   })
 }

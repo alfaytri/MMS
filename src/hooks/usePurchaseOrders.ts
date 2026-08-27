@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { findApplicableTiers, validateRoles } from '@/lib/approvalChainResolution'
 import type { ApprovalChainTier, ApprovalRoleAssignmentRow } from '@/lib/approvalChainResolution'
-import { recipientsForNotification } from '@/lib/notify'
+import { recipientsForNotification, notifyOwnerAndKey } from '@/lib/notify'
 import { logPOActivity, resolveMyName } from '@/lib/poActivityLogger'
 import { savePoSnapshot, stageOf, resolveLineItemNames } from '@/lib/poVersionHelper'
 import { queryKeys } from '@/lib/queryKeys'
@@ -731,6 +731,23 @@ export function useCreatePOPayment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.payments(variables.po_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
+      // Notify the PO owner a supplier payment was made (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: po } = await supabase
+          .from('purchase_orders').select('created_by, po_number').eq('id', variables.po_id).maybeSingle()
+        await notifyOwnerAndKey(
+          po?.created_by ?? null,
+          'notify.finance.supplier_payment',
+          'supplier_payment_made',
+          `Supplier payment recorded on PO ${po?.po_number ?? ''}`.trim(),
+          {
+            relatedId: variables.po_id,
+            relatedType: 'purchase_order',
+            body: `${Number(variables.amount).toLocaleString()} ${variables.currency}`,
+          },
+        )
+      })()
     },
   })
 }

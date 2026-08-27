@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Bill, BillLineItem, PaymentPlan } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import { notifyOwnerAndKey } from '@/lib/notify'
 import { logActivity } from '@/lib/logActivity'
 import type { DBTable } from '@/types/database.types'
 
@@ -168,11 +169,24 @@ export function useCreateBill() {
       })
       return bill
     },
-    onSuccess: (_bill, vars) => {
+    onSuccess: (bill, vars) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.byPo(vars.purchase_order_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(vars.purchase_order_id) })
+      // Notify the PO owner a supplier bill was created (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: po } = await supabase
+          .from('purchase_orders').select('created_by').eq('id', vars.purchase_order_id).maybeSingle()
+        await notifyOwnerAndKey(
+          po?.created_by ?? null,
+          'notify.finance.supplier_bill',
+          'supplier_bill_created',
+          `Supplier bill created for PO ${vars.po_number}`,
+          { relatedId: vars.purchase_order_id, relatedType: 'purchase_order', body: bill?.bill_number ? `Bill ${bill.bill_number}` : undefined },
+        )
+      })()
     },
   })
 }

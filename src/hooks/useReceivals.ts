@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logPOActivity } from '@/lib/poActivityLogger'
 import { queryKeys } from '@/lib/queryKeys'
-import { recipientsForNotification } from '@/lib/notify'
+import { recipientsForNotification, notifyOwnerAndKey } from '@/lib/notify'
 
 export type ReceivalStatus = 'pending_approval' | 'approved' | 'rejected'
 
@@ -205,8 +205,34 @@ export function useCreateReceival() {
 
       return result
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      // Notify the PO's owner (the purchaser) that goods arrived (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: po } = await supabase
+          .from('purchase_orders')
+          .select('created_by, po_number, status')
+          .eq('id', variables.po_id)
+          .maybeSingle()
+        await notifyOwnerAndKey(
+          po?.created_by ?? null,
+          'notify.purchase.goods_received',
+          'po_goods_received',
+          `Goods received on PO ${po?.po_number ?? ''}`.trim(),
+          { relatedId: variables.po_id, relatedType: 'purchase_order', body: `Receival ${data.receival_number}` },
+        )
+        // If this receival completed the PO, tell the owner it's fully received.
+        if (po?.status === 'received' || po?.status === 'completed') {
+          await notifyOwnerAndKey(
+            po?.created_by ?? null,
+            'notify.purchase.goods_received',
+            'po_fully_received',
+            `PO ${po?.po_number ?? ''} fully received`.trim(),
+            { relatedId: variables.po_id, relatedType: 'purchase_order' },
+          )
+        }
+      })()
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.receivals(variables.po_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.po_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })

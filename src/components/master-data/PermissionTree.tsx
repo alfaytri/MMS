@@ -678,6 +678,69 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'notify.purchase.receival_edit', label: 'Receival edit requests', description: 'Receive receival edit-request notifications without needing the manage-receivals permission.' },
             ],
           },
+          {
+            id: 'notify-purchase-goods',
+            label: 'Goods received',
+            icon: PackageOpen,
+            permissions: [
+              { key: 'notify.purchase.goods_received', label: 'Goods received / PO fully received', description: 'The purchaser who created the PO is always notified when goods are received against it. Grant this to ALSO notify this role.' },
+            ],
+          },
+          {
+            id: 'notify-purchase-shipment',
+            label: 'Shipment delays',
+            icon: ArrowRightLeft,
+            permissions: [
+              { key: 'notify.purchase.shipment_delayed', label: 'Shipment delayed / customs', description: 'The PO purchaser is always notified when a shipment is delayed or held at customs. Grant this to ALSO notify this role.' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'notify-sales',
+        label: 'Sales',
+        icon: Receipt,
+        children: [
+          {
+            id: 'notify-sales-approval',
+            label: 'SO approvals',
+            icon: ClipboardList,
+            permissions: [
+              { key: 'notify.sales.so_approval', label: 'Sale-order approval requests', description: 'Receive sale-order (margin/credit) approval-request notifications. Anyone with the sales approvals queue already gets these — grant this to send them to someone who does not.' },
+            ],
+          },
+          {
+            id: 'notify-sales-returns',
+            label: 'Sales returns',
+            icon: PackageOpen,
+            permissions: [
+              { key: 'notify.sales.return_created', label: 'Sales return created', description: 'Receive a notification when a customer sales return is created.' },
+            ],
+          },
+          {
+            id: 'notify-sales-warranty',
+            label: 'Warranty claims',
+            icon: ClipboardCheck,
+            permissions: [
+              { key: 'notify.sales.warranty_claim', label: 'Warranty claim filed', description: 'Receive a notification when a warranty claim is filed.' },
+            ],
+          },
+          {
+            id: 'notify-sales-invoice',
+            label: 'Invoices',
+            icon: Receipt,
+            permissions: [
+              { key: 'notify.sales.invoice_generated', label: 'Invoice generated', description: 'The sale-order owner is always notified when an invoice is generated for it. Grant this to ALSO notify this role.' },
+            ],
+          },
+          {
+            id: 'notify-sales-delivery',
+            label: 'Deliveries',
+            icon: PackageOpen,
+            permissions: [
+              { key: 'notify.sales.delivery_completed', label: 'Delivery completed', description: 'The sale-order owner is always notified when a delivery is completed. Grant this to ALSO notify this role.' },
+            ],
+          },
         ],
       },
       {
@@ -722,6 +785,50 @@ export const NAV_TREE: TreeNode[] = [
             icon: HandCoins,
             permissions: [
               { key: 'notify.finance.credit_group', label: 'Credit-group change requests', description: 'Receive credit-group change approval notifications.' },
+            ],
+          },
+          {
+            id: 'notify-finance-overdue',
+            label: 'Overdue invoices',
+            icon: Receipt,
+            permissions: [
+              { key: 'notify.finance.invoice_overdue', label: 'Overdue invoice alert', description: 'Receive a daily alert for customer invoices that are past due and still unpaid.' },
+            ],
+          },
+          {
+            id: 'notify-finance-payments',
+            label: 'Payments',
+            icon: HandCoins,
+            permissions: [
+              { key: 'notify.finance.customer_payment', label: 'Customer payment received', description: 'The sale-order owner is always notified. Grant this to ALSO notify this role.' },
+              { key: 'notify.finance.supplier_payment', label: 'Supplier payment made', description: 'The PO owner is always notified. Grant this to ALSO notify this role.' },
+            ],
+          },
+          {
+            id: 'notify-finance-invoicestatus',
+            label: 'Invoice status',
+            icon: Receipt,
+            permissions: [
+              { key: 'notify.finance.invoice_paid', label: 'Invoice fully paid', description: 'The sale-order owner is always notified when their invoice is fully paid. Grant this to ALSO notify this role.' },
+              { key: 'notify.finance.installment_due', label: 'Installment due (daily)', description: 'Daily alert for payment-plan installments due soon.' },
+            ],
+          },
+          {
+            id: 'notify-finance-notes',
+            label: 'Credit / debit notes',
+            icon: Receipt,
+            permissions: [
+              { key: 'notify.finance.credit_note', label: 'Credit note issued', description: 'The sale-order owner is always notified. Grant this to ALSO notify this role.' },
+              { key: 'notify.finance.debit_note', label: 'Debit note issued', description: 'The PO owner is always notified. Grant this to ALSO notify this role.' },
+            ],
+          },
+          {
+            id: 'notify-finance-bills',
+            label: 'Supplier bills',
+            icon: Receipt,
+            permissions: [
+              { key: 'notify.finance.supplier_bill', label: 'Supplier bill created', description: 'The PO owner is always notified when a bill is created. Grant this to ALSO notify this role.' },
+              { key: 'notify.finance.bill_due', label: 'Supplier bill due (daily)', description: 'Daily alert for supplier bills due soon.' },
             ],
           },
         ],

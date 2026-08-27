@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
 import { openWarrantyCertificate, deliveryHasWarrantyRecords } from '@/lib/sales/warranty-certificate'
+import { notifyOwnerAndKey } from '@/lib/notify'
 
 export type DeliveryStatus = 'pending' | 'in_progress' | 'delivered' | 'cancelled'
 
@@ -155,6 +156,19 @@ export function useCompleteDelivery() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       // saleOrders.detail uses ['sale-order', id] (singular) — .all won't cover it.
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.soId) })
+      // Notify the SO owner their delivery was completed (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: so } = await supabase
+          .from('sale_orders').select('created_by, so_number').eq('id', variables.soId).maybeSingle()
+        await notifyOwnerAndKey(
+          so?.created_by ?? null,
+          'notify.sales.delivery_completed',
+          'delivery_completed',
+          `Delivery completed for SO ${so?.so_number ?? ''}`.trim(),
+          { relatedId: variables.soId, relatedType: 'sale_order' },
+        )
+      })()
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })

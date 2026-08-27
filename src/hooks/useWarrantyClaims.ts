@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { humanizeDbError } from '@/lib/dbErrors'
+import { recipientsForNotification, sendNotifications } from '@/lib/notify'
 
 /**
  * `warranty_claims` was added by a Stage 3 migration after the last
@@ -227,9 +228,22 @@ export function useFileWarrantyClaim() {
       if (error) throw new Error(humanizeDbError(error, 'file a warranty claim'))
       return data as unknown as string
     },
-    onSuccess: () => {
+    onSuccess: (claimId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.claims() })
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.records() })
+      // Notify the warranty managers a claim was filed (best-effort).
+      void (async () => {
+        const ids = await recipientsForNotification('warranty_claim_filed')
+        if (ids.length) {
+          await sendNotifications(ids.map((profile_id) => ({
+            profile_id,
+            type: 'warranty_claim_filed',
+            title: 'A warranty claim was filed',
+            related_id: (claimId as string) ?? null,
+            related_type: 'warranty_claim',
+          })))
+        }
+      })()
     },
   })
 }

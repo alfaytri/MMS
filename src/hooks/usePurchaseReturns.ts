@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/logActivity'
 import { nextNoteId } from '@/hooks/useCreditNotes'
 import type { DebitNote } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import { notifyOwnerAndKey } from '@/lib/notify'
 import { invalidateSupplierCreditViews } from '@/lib/queryInvalidation'
 
 export type POReturnStatus = 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled'
@@ -527,10 +528,23 @@ export function useCreateDebitNoteForReturn() {
         reason:        ret.reason,
       })
     },
-    onSuccess: () => {
+    onSuccess: (_data, ret) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       invalidateSupplierCreditViews(queryClient)
+      // Notify the PO owner a debit note was issued (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: po } = await supabase
+          .from('purchase_orders').select('created_by').eq('id', ret.source_id).maybeSingle()
+        await notifyOwnerAndKey(
+          po?.created_by ?? null,
+          'notify.finance.debit_note',
+          'debit_note_issued',
+          `Debit note issued for return ${ret.return_number}`,
+          { relatedId: ret.source_id, relatedType: 'purchase_order' },
+        )
+      })()
     },
   })
 }
