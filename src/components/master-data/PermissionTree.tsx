@@ -694,6 +694,14 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'notify.purchase.shipment_delayed', label: 'Shipment delayed / customs', description: 'The PO purchaser is always notified when a shipment is delayed or held at customs. Grant this to ALSO notify this role.' },
             ],
           },
+          {
+            id: 'notify-purchase-returnresolved',
+            label: 'Purchase returns',
+            icon: PackageOpen,
+            permissions: [
+              { key: 'notify.purchase.return_resolved', label: 'Purchase return resolved', description: 'The PO owner is always notified when a debit note / purchase return is resolved. Grant this to ALSO notify this role.' },
+            ],
+          },
         ],
       },
       {

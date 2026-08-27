@@ -88,6 +88,9 @@ const NOTIFICATION_ROUTES: Record<string, NotificationMeta> = {
   // Scheduled (daily cron)
   installment_due:           { route: '/sales/invoices',   actionable: true,  icon: 'credit' },
   supplier_bill_due:         { route: '/purchase/bills',   actionable: true,  icon: 'credit' },
+
+  // ── Notifications expansion (2026-08-26) · Phase 3 ───────────
+  po_return_resolved:        { route: '/purchase/debit-notes', actionable: false, icon: 'credit' },
 }
 
 export function getNotificationRoute(type: string, relatedId: string | null): string | null {
