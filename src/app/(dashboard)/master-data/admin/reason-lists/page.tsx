@@ -1,48 +1,71 @@
 'use client'
 
-import { humanizeDbError } from '@/lib/dbErrors'
-import { useState, useMemo, useEffect } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useMemo, useEffect, type CSSProperties } from 'react'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { MoreHorizontal, Pencil, Settings2, Trash2 } from 'lucide-react'
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { GripVertical, Plus, Pencil, Trash2, MoreHorizontal, Check, X, FolderPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { humanizeDbError } from '@/lib/dbErrors'
+import { queryKeys } from '@/lib/queryKeys'
+import { cn } from '@/lib/utils'
 import type { DBTable } from '@/types/database.types'
-import { SearchInput } from '@/components/shared/SearchInput'
 import { PageWrapper } from '@/components/shared/PageWrapper'
-import { DataTable } from '@/components/shared/DataTable'
-import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
-import { StatusBadge } from '@/components/shared/StatusBadge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { queryKeys } from '@/lib/queryKeys'
 
 type ReasonList = DBTable<'reason_lists'>
-type ReasonCategory = {
-  id:         string
-  slug:       string
-  label:      string
+type Category = {
+  id: string
+  slug: string
+  label: string
   sort_order: number
-  active:     boolean
+  active: boolean
   deleted_at: string | null
-  created_at: string
 }
 
-function useReasonLists() {
+const CATEGORIES_KEY = ['reason_list_categories', 'all'] as const
+
+// ─── queries ──────────────────────────────────────────────────────────────────
+function useCategories() {
+  return useQuery({
+    queryKey: CATEGORIES_KEY,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('reason_list_categories')
+        .select('id, slug, label, sort_order, active, deleted_at')
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as Category[]
+    },
+    staleTime: 60_000,
+  })
+}
+
+function useReasons() {
   return useQuery({
     queryKey: queryKeys.reasonLists.all,
     queryFn: async () => {
@@ -52,366 +75,527 @@ function useReasonLists() {
         .select('*')
         .is('deleted_at', null)
         .order('category', { ascending: true })
-        .order('sort_order')
-      if (error) throw error
-      return data as ReasonList[]
-    },
-  })
-}
-
-function useReasonCategories() {
-  return useQuery({
-    queryKey: ['reason_list_categories', 'all'],
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('reason_list_categories')
-        .select('*')
-        .is('deleted_at', null)
         .order('sort_order', { ascending: true })
       if (error) throw error
-      return (data ?? []) as ReasonCategory[]
+      return (data ?? []) as ReasonList[]
     },
-    staleTime: 60_000,
   })
 }
 
-const rlSchema = z.object({
-  category: z.string().min(1, 'Category is required'),
-  label: z.string().min(1, 'Label is required'),
-  sort_order: z.coerce.number().int().default(0),
-  active: z.boolean().default(true),
-})
+/** Invalidate the admin reason list — the `['reason-lists']` prefix also covers
+ *  every consumer's `byCategory` dropdown, so those refresh too. */
+const invalidateReasons = (qc: QueryClient) =>
+  qc.invalidateQueries({ queryKey: queryKeys.reasonLists.all })
+const invalidateCategories = (qc: QueryClient) =>
+  qc.invalidateQueries({ queryKey: CATEGORIES_KEY })
 
-const categorySchema = z.object({
-  slug:       z.string().min(1, 'Slug is required')
-              .regex(/^[a-z][a-z0-9_]*$/, 'Lowercase letters, digits, underscores; must start with a letter'),
-  label:      z.string().min(1, 'Label is required'),
-  sort_order: z.coerce.number().int().default(0),
-  active:     z.boolean().default(true),
-})
-
+// ─── page ─────────────────────────────────────────────────────────────────────
 export default function ReasonListsPage() {
-  const [search, setSearch] = useState('')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<ReasonList | null>(null)
-  const [catDialogOpen, setCatDialogOpen] = useState(false)
-  const { data, isLoading } = useReasonLists()
-  const { data: categories = [] } = useReasonCategories()
-  const queryClient = useQueryClient()
+  const { data: categories = [], isLoading: catLoading } = useCategories()
+  const { data: reasons = [], isLoading: reasonsLoading } = useReasons()
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
+  const [addCatOpen, setAddCatOpen] = useState(false)
 
-  const createMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof rlSchema>) => {
-      const supabase = createClient()
-      const { data, error } = await supabase.from('reason_lists').insert(values).select().single()
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reasonLists.all }),
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, ...values }: z.infer<typeof rlSchema> & { id: string }) => {
-      const supabase = createClient()
-      const { data, error } = await supabase.from('reason_lists').update(values).eq('id', id).select().single()
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.reasonLists.all }),
-  })
-
-  const form = useForm<z.infer<typeof rlSchema>>({
-    resolver: zodResolver(rlSchema) as never,
-    defaultValues: { category: '', label: '', sort_order: 0, active: true },
-  })
-
+  // default to the first category once loaded
   useEffect(() => {
-    if (dialogOpen && editing) {
-      form.reset({
-        category: editing.category,
-        label: editing.label,
-        sort_order: editing.sort_order ?? 0,
-        active: editing.active ?? true,
-      })
-    } else if (dialogOpen) {
-      form.reset({ category: '', label: '', sort_order: 0, active: true })
-    }
-  }, [dialogOpen, editing, form])
+    if (!selectedSlug && categories.length) setSelectedSlug(categories[0].slug)
+  }, [categories, selectedSlug])
 
-  function onSubmit(values: z.infer<typeof rlSchema>) {
-    const mutation = editing
-      ? () => updateMutation.mutateAsync({ id: editing.id, ...values })
-      : () => createMutation.mutateAsync(values)
+  const counts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of reasons) m.set(r.category, (m.get(r.category) ?? 0) + 1)
+    return m
+  }, [reasons])
 
-    mutation()
-      .then(() => { toast.success(editing ? 'Updated' : 'Created'); setDialogOpen(false); setEditing(null) })
-      .catch((err: Error) => toast.error(humanizeDbError(err)))
-  }
-
-  const isPending = createMutation.isPending || updateMutation.isPending
-
-  const columns = useMemo<ColumnDef<ReasonList>[]>(() => [
-    {
-      accessorKey: 'category',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
-      cell: ({ row }) => <Badge variant="outline">{(row.getValue('category') as string).replace(/_/g, ' ')}</Badge>,
-    },
-    {
-      accessorKey: 'label',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Label" />,
-      cell: ({ row }) => <span className="font-medium">{row.getValue('label')}</span>,
-    },
-    {
-      accessorKey: 'sort_order',
-      header: 'Order',
-    },
-    {
-      accessorKey: 'active',
-      header: 'Status',
-      cell: ({ row }) => (
-        <StatusBadge variant={row.getValue('active') ? 'active' : 'inactive'}>
-          {row.getValue('active') ? 'Active' : 'Inactive'}
-        </StatusBadge>
-      ),
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent">
-            <MoreHorizontal className="h-4 w-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => { setEditing(row.original); setDialogOpen(true) }}>
-                <Pencil className="h-4 w-4 mr-2" />Edit
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ], [])
+  const selectedCategory = categories.find((c) => c.slug === selectedSlug) ?? null
+  const reasonsForSelected = useMemo(
+    () => reasons.filter((r) => r.category === selectedSlug),
+    [reasons, selectedSlug],
+  )
+  const nextCatSort = categories.reduce((m, c) => Math.max(m, c.sort_order), 0) + 10
 
   return (
     <PageWrapper>
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
           <h2 className="text-lg font-semibold">Reason Lists</h2>
-          <div className="flex gap-2">
-            <SearchInput value={search} onChange={setSearch} placeholder="Search…" />
-            <Button variant="outline" onClick={() => setCatDialogOpen(true)}>
-              <Settings2 className="h-4 w-4 mr-2" />Manage Categories
-            </Button>
-            <Button onClick={() => { setEditing(null); setDialogOpen(true) }}>Add</Button>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Pick a category on the left to manage its reasons — drag to reorder, use the switch to activate, the menu to rename or delete.
+          </p>
         </div>
-        <DataTable columns={columns} data={data ?? []} isLoading={isLoading} globalFilter={search} />
+
+        <div className="flex flex-col lg:flex-row rounded-lg border bg-card overflow-hidden">
+          <CategoryRail
+            categories={categories}
+            counts={counts}
+            selectedSlug={selectedSlug}
+            onSelect={setSelectedSlug}
+            loading={catLoading}
+            onAdd={() => setAddCatOpen(true)}
+          />
+          <ReasonPanel category={selectedCategory} reasons={reasonsForSelected} loading={reasonsLoading} />
+        </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditing(null) }}>
-        <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit' : 'Add'} Reason</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField control={form.control} name="category" render={({ field }) => (
-                <FormItem><FormLabel>Category *</FormLabel><FormControl>
-                  <select {...field} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                    <option value="">Select category</option>
-                    {categories.map((c) => <option key={c.slug} value={c.slug}>{c.label}</option>)}
-                  </select>
-                </FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="label" render={({ field }) => (
-                <FormItem><FormLabel>Label *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="sort_order" render={({ field }) => (
-                <FormItem><FormLabel>Sort Order</FormLabel><FormControl><Input type="number" min="0" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={isPending}>Cancel</Button>
-                <Button type="submit" disabled={isPending}>{isPending ? 'Saving…' : editing ? 'Update' : 'Create'}</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <ManageCategoriesDialog open={catDialogOpen} onOpenChange={setCatDialogOpen} categories={categories} />
+      <AddCategoryDialog open={addCatOpen} onOpenChange={setAddCatOpen} nextSort={nextCatSort} />
     </PageWrapper>
   )
 }
 
-// ─── Manage Categories dialog ─────────────────────────────────────────────────
-interface ManageCategoriesDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  categories: ReasonCategory[]
+// ─── left rail: categories ──────────────────────────────────────────────────────
+interface CategoryRailProps {
+  categories: Category[]
+  counts: Map<string, number>
+  selectedSlug: string | null
+  onSelect: (slug: string) => void
+  loading: boolean
+  onAdd: () => void
 }
 
-function ManageCategoriesDialog({ open, onOpenChange, categories }: ManageCategoriesDialogProps) {
-  const queryClient = useQueryClient()
+function CategoryRail({ categories, counts, selectedSlug, onSelect, loading, onAdd }: CategoryRailProps) {
+  const qc = useQueryClient()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
 
-  const form = useForm<z.infer<typeof categorySchema>>({
-    resolver: zodResolver(categorySchema) as never,
-    defaultValues: { slug: '', label: '', sort_order: 0, active: true },
+  const rename = useMutation({
+    mutationFn: async ({ id, label }: { id: string; label: string }) => {
+      const { error } = await createClient().from('reason_list_categories').update({ label }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => setEditingId(null),
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateCategories(qc),
   })
 
-  const editing = editingId ? categories.find((c) => c.id === editingId) ?? null : null
-
-  useEffect(() => {
-    if (!open) {
-      setEditingId(null)
-      form.reset({ slug: '', label: '', sort_order: 0, active: true })
-      return
-    }
-    if (editing) {
-      form.reset({
-        slug:       editing.slug,
-        label:      editing.label,
-        sort_order: editing.sort_order,
-        active:     editing.active,
-      })
-    } else {
-      form.reset({ slug: '', label: '', sort_order: 0, active: true })
-    }
-  }, [open, editingId, editing, form])
-
-  const upsert = useMutation({
-    mutationFn: async (values: z.infer<typeof categorySchema>) => {
-      const supabase = createClient()
-      if (editing) {
-        const { error } = await supabase
-          .from('reason_list_categories')
-          .update({ label: values.label, sort_order: values.sort_order, active: values.active })
-          .eq('id', editing.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('reason_list_categories')
-          .insert({ slug: values.slug, label: values.label, sort_order: values.sort_order, active: values.active })
-        if (error) throw error
-      }
-    },
-    onSuccess: () => {
-      toast.success(editing ? 'Category updated' : 'Category created')
-      queryClient.invalidateQueries({ queryKey: ['reason_list_categories', 'all'] })
-      setEditingId(null)
-      form.reset({ slug: '', label: '', sort_order: 0, active: true })
+  const toggle = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await createClient().from('reason_list_categories').update({ active }).eq('id', id)
+      if (error) throw error
     },
     onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateCategories(qc),
   })
 
-  const softDelete = useMutation({
+  const remove = useMutation({
     mutationFn: async (id: string) => {
-      const supabase = createClient()
-      const { error } = await supabase
+      const { error } = await createClient()
         .from('reason_list_categories')
         .update({ deleted_at: new Date().toISOString(), active: false })
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => {
-      toast.success('Category archived')
-      queryClient.invalidateQueries({ queryKey: ['reason_list_categories', 'all'] })
+    onSuccess: () => toast.success('Category deleted'),
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateCategories(qc),
+  })
+
+  function saveRename(c: Category) {
+    const label = draft.trim()
+    if (!label || label === c.label) { setEditingId(null); return }
+    rename.mutate({ id: c.id, label })
+  }
+
+  return (
+    <div className="flex flex-col border-b lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categories</span>
+        <span className="text-xs tabular-nums text-muted-foreground">{categories.length}</span>
+      </div>
+
+      <div className="max-h-64 flex-1 space-y-0.5 overflow-y-auto px-2 lg:max-h-[62vh]">
+        {loading ? (
+          <p className="px-2.5 py-2 text-sm text-muted-foreground">Loading…</p>
+        ) : categories.length === 0 ? (
+          <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">No categories yet.</p>
+        ) : (
+          categories.map((c) => {
+            const isSel = c.slug === selectedSlug
+            const isEditing = editingId === c.id
+            return (
+              <div
+                key={c.id}
+                className={cn(
+                  'group flex items-center gap-1.5 rounded-md py-1.5 pl-2.5 pr-1',
+                  isSel ? 'bg-accent' : 'hover:bg-muted',
+                )}
+              >
+                {isEditing ? (
+                  <div className="flex flex-1 items-center gap-1">
+                    <Input
+                      autoFocus
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveRename(c)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                      className="h-7 text-sm"
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => saveRename(c)}>
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingId(null)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(c.slug)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', c.active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+                      <span className={cn('truncate text-sm', isSel ? 'font-semibold' : 'font-medium', !c.active && 'text-muted-foreground')}>
+                        {c.label}
+                      </span>
+                    </button>
+                    <span className="min-w-[1.25rem] rounded bg-muted px-1.5 py-0.5 text-center text-[11px] tabular-nums text-muted-foreground">
+                      {counts.get(c.slug) ?? 0}
+                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="inline-flex h-6 w-6 items-center justify-center rounded opacity-0 hover:bg-background/60 focus:opacity-100 group-hover:opacity-100">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => { setEditingId(c.id); setDraft(c.label) }}>
+                          <Pencil className="mr-2 h-3.5 w-3.5" />Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toggle.mutate({ id: c.id, active: !c.active })}>
+                          {c.active
+                            ? <><X className="mr-2 h-3.5 w-3.5" />Deactivate</>
+                            : <><Check className="mr-2 h-3.5 w-3.5" />Activate</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => {
+                            if (confirm(`Delete category "${c.label}"? Its existing reasons stay, but you can't add new ones to it.`)) {
+                              remove.mutate(c.id)
+                            }
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <div className="p-2">
+        <Button type="button" variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" onClick={onAdd}>
+          <FolderPlus className="mr-2 h-4 w-4" />Add category
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── right pane: reasons for the selected category ──────────────────────────────
+interface ReasonPanelProps {
+  category: Category | null
+  reasons: ReasonList[]
+  loading: boolean
+}
+
+function ReasonPanel({ category, reasons, loading }: ReasonPanelProps) {
+  const qc = useQueryClient()
+  const [items, setItems] = useState<ReasonList[]>(reasons)
+  const [newLabel, setNewLabel] = useState('')
+
+  // resync from server whenever the (memoized) reasons prop changes
+  useEffect(() => { setItems(reasons) }, [reasons])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const add = useMutation({
+    mutationFn: async (label: string) => {
+      if (!category) throw new Error('Select a category first')
+      const nextSort = items.reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0) + 10
+      const { error } = await createClient()
+        .from('reason_lists')
+        .insert({ category: category.slug, label, sort_order: nextSort, active: true })
+      if (error) throw error
     },
+    onSuccess: () => setNewLabel(''),
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateReasons(qc),
+  })
+
+  const rename = useMutation({
+    mutationFn: async ({ id, label }: { id: string; label: string }) => {
+      const { error } = await createClient().from('reason_lists').update({ label }).eq('id', id)
+      if (error) throw error
+    },
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateReasons(qc),
+  })
+
+  const toggle = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await createClient().from('reason_lists').update({ active }).eq('id', id)
+      if (error) throw error
+    },
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateReasons(qc),
+  })
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await createClient()
+        .from('reason_lists')
+        .update({ deleted_at: new Date().toISOString(), active: false })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateReasons(qc),
+  })
+
+  const reorder = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      const supabase = createClient()
+      await Promise.all(
+        orderedIds.map(async (id, idx) => {
+          const { error } = await supabase.from('reason_lists').update({ sort_order: (idx + 1) * 10 }).eq('id', id)
+          if (error) throw error
+        }),
+      )
+    },
+    onError: (e: Error) => toast.error(humanizeDbError(e)),
+    onSettled: () => invalidateReasons(qc),
+  })
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const oldIndex = items.findIndex((i) => i.id === active.id)
+    const newIndex = items.findIndex((i) => i.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    const next = arrayMove(items, oldIndex, newIndex)
+    setItems(next)                                  // optimistic
+    reorder.mutate(next.map((i) => i.id))
+  }
+
+  // optimistic local edits (server is invalidated → resyncs via the effect above)
+  const onToggle = (r: ReasonList, active: boolean) => {
+    setItems((prev) => prev.map((i) => (i.id === r.id ? { ...i, active } : i)))
+    toggle.mutate({ id: r.id, active })
+  }
+  const onRename = (r: ReasonList, label: string) => {
+    setItems((prev) => prev.map((i) => (i.id === r.id ? { ...i, label } : i)))
+    rename.mutate({ id: r.id, label })
+  }
+  const onDelete = (r: ReasonList) => {
+    setItems((prev) => prev.filter((i) => i.id !== r.id))
+    remove.mutate(r.id)
+  }
+
+  if (!category) {
+    return (
+      <div className="grid flex-1 place-items-center p-10 text-sm text-muted-foreground">
+        Select a category to see its reasons.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-4">
+      <div className="mb-3 min-w-0">
+        <h3 className="truncate text-base font-semibold">{category.label}</h3>
+        <p className="text-xs text-muted-foreground">
+          {items.length} reason{items.length === 1 ? '' : 's'}{!category.active && ' · category inactive'}
+        </p>
+      </div>
+
+      {loading ? (
+        <p className="py-6 text-sm text-muted-foreground">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+          No reasons yet — add the first one below.
+        </p>
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            <div className="divide-y rounded-md border">
+              {items.map((r) => (
+                <SortableReasonRow key={r.id} reason={r} onToggle={onToggle} onRename={onRename} onDelete={onDelete} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); const l = newLabel.trim(); if (l) add.mutate(l) }}
+        className="mt-3 flex items-center gap-2"
+      >
+        <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Add a reason…" className="h-9" />
+        <Button type="submit" disabled={!newLabel.trim() || add.isPending}>
+          <Plus className="mr-1 h-4 w-4" />Add
+        </Button>
+      </form>
+    </div>
+  )
+}
+
+// ─── one draggable reason row ───────────────────────────────────────────────────
+interface SortableReasonRowProps {
+  reason: ReasonList
+  onToggle: (r: ReasonList, active: boolean) => void
+  onRename: (r: ReasonList, label: string) => void
+  onDelete: (r: ReasonList) => void
+}
+
+function SortableReasonRow({ reason, onToggle, onRename, onDelete }: SortableReasonRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: reason.id })
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(reason.label)
+
+  useEffect(() => { if (!editing) setDraft(reason.label) }, [reason.label, editing])
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 1 : undefined,
+  }
+
+  function save() {
+    const label = draft.trim()
+    if (label && label !== reason.label) onRename(reason, label)
+    setEditing(false)
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className={cn('flex items-center gap-2 bg-card px-2 py-2', isDragging && 'rounded-md shadow-lg')}>
+      <button
+        type="button"
+        aria-label="Drag to reorder"
+        className="cursor-grab touch-none p-1 text-muted-foreground/60 hover:text-muted-foreground active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
+      {editing ? (
+        <div className="flex flex-1 items-center gap-1">
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save()
+              if (e.key === 'Escape') { setDraft(reason.label); setEditing(false) }
+            }}
+            className="h-8 text-sm"
+          />
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={save}>
+            <Check className="h-4 w-4" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDraft(reason.label); setEditing(false) }}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <>
+          <span className={cn('flex-1 truncate text-sm', !reason.active && 'text-muted-foreground')}>{reason.label}</span>
+          <Switch
+            checked={!!reason.active}
+            onCheckedChange={(v) => onToggle(reason, v)}
+            aria-label={reason.active ? 'Active' : 'Inactive'}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted">
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setDraft(reason.label); setEditing(true) }}>
+                <Pencil className="mr-2 h-3.5 w-3.5" />Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => { if (confirm(`Delete reason "${reason.label}"?`)) onDelete(reason) }}
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── add-category dialog ────────────────────────────────────────────────────────
+const categorySchema = z.object({
+  slug: z.string().min(1, 'Slug is required')
+    .regex(/^[a-z][a-z0-9_]*$/, 'Lowercase letters, digits, underscores; must start with a letter'),
+  label: z.string().min(1, 'Label is required'),
+})
+
+interface AddCategoryDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  nextSort: number
+}
+
+function AddCategoryDialog({ open, onOpenChange, nextSort }: AddCategoryDialogProps) {
+  const qc = useQueryClient()
+  const form = useForm<z.infer<typeof categorySchema>>({
+    resolver: zodResolver(categorySchema) as never,
+    defaultValues: { slug: '', label: '' },
+  })
+
+  useEffect(() => { if (!open) form.reset({ slug: '', label: '' }) }, [open, form])
+
+  const create = useMutation({
+    mutationFn: async (v: z.infer<typeof categorySchema>) => {
+      const { error } = await createClient()
+        .from('reason_list_categories')
+        .insert({ slug: v.slug, label: v.label, sort_order: nextSort, active: true })
+      if (error) throw error
+    },
+    onSuccess: () => { toast.success('Category created'); invalidateCategories(qc); onOpenChange(false) },
     onError: (e: Error) => toast.error(humanizeDbError(e)),
   })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg">
+      <DialogContent className="w-full max-w-full rounded-none sm:max-w-md sm:rounded-lg">
         <DialogHeader>
-          <DialogTitle>Manage Reason Categories</DialogTitle>
+          <DialogTitle>Add Category</DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
-          {categories.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">No categories yet — create the first one below.</p>
-          ) : (
-            <div className="rounded-md border divide-y">
-              {categories.map((c) => (
-                <div key={c.id} className="flex items-center gap-3 px-3 py-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{c.label}</div>
-                    <div className="text-[10px] text-muted-foreground font-mono">{c.slug} · order {c.sort_order}</div>
-                  </div>
-                  <StatusBadge variant={c.active ? 'active' : 'inactive'}>
-                    {c.active ? 'Active' : 'Inactive'}
-                  </StatusBadge>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingId(c.id)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                    onClick={() => {
-                      if (confirm(`Archive "${c.label}"? Existing reasons under this category stay; new reasons can no longer be added to it.`)) {
-                        softDelete.mutate(c.id)
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="pt-2 border-t">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            {editing ? `Edit "${editing.label}"` : 'Add new category'}
-          </div>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit((v) => upsert.mutate(v))} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormField control={form.control} name="slug" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Slug *</FormLabel>
-                    <FormControl><Input placeholder="e.g. delivery_issue" disabled={!!editing} {...field} /></FormControl>
-                    <p className="text-[10px] text-muted-foreground">Used in code; can&apos;t change after creation.</p>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="label" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Display Label *</FormLabel>
-                    <FormControl><Input placeholder="e.g. Delivery Issue" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="sort_order" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sort Order</FormLabel>
-                    <FormControl><Input type="number" min="0" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="active" render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-md border border-border p-3 bg-card">
-                    <FormLabel className="text-sm">Active</FormLabel>
-                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                  </FormItem>
-                )} />
-              </div>
-              <DialogFooter>
-                {editing && (
-                  <Button type="button" variant="outline" onClick={() => setEditingId(null)} disabled={upsert.isPending}>
-                    Cancel Edit
-                  </Button>
-                )}
-                <Button type="submit" disabled={upsert.isPending}>
-                  {upsert.isPending ? 'Saving…' : editing ? 'Update' : 'Create'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((v) => create.mutate(v))} className="space-y-4">
+            <FormField control={form.control} name="label" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Display Label *</FormLabel>
+                <FormControl><Input placeholder="e.g. Delivery Issue" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="slug" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Slug *</FormLabel>
+                <FormControl><Input placeholder="e.g. delivery_issue" {...field} /></FormControl>
+                <p className="text-[11px] text-muted-foreground">Used in code; can&apos;t change after creation.</p>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={create.isPending}>Cancel</Button>
+              <Button type="submit" disabled={create.isPending}>{create.isPending ? 'Saving…' : 'Create'}</Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )
