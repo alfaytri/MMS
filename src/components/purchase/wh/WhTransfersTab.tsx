@@ -36,6 +36,7 @@ import {
   type WarehouseTransfer,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useReasonLists } from '@/hooks/useReasonLists'
 import { shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
@@ -56,13 +57,6 @@ const STATUS_STYLES: Record<string, string> = {
   pending_approval: 'bg-warning/10 text-warning',
   approved:         'bg-success/10 text-success',
 }
-
-const SHRINKAGE_REASONS = [
-  { value: 'damaged_in_transit', label: 'Damaged in Transit' },
-  { value: 'missing',           label: 'Missing' },
-  { value: 'wrong_item',        label: 'Wrong Item' },
-  { value: 'other',             label: 'Other' },
-] as const
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 
@@ -94,6 +88,12 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   const [expandedReceival, setExpandedReceival] = useState<string | null>(null)
   const [receivalQtys, setReceivalQtys] = useState<Record<string, number>>({})
   const [shrinkageReasons, setShrinkageReasons] = useState<Record<string, string>>({})
+  // Shrinkage reasons are admin-managed via reason_lists ('transfer_shrinkage').
+  const { reasons: shrinkageOptions } = useReasonLists('transfer_shrinkage')
+  const defaultShrinkageLabel =
+    shrinkageOptions.find((r) => /missing/i.test(r.label))?.label
+    ?? shrinkageOptions[0]?.label
+    ?? 'Missing'
 
   // ── Cancel confirmation state ──
   const [cancelTarget, setCancelTarget] = useState<WarehouseTransfer | null>(null)
@@ -210,7 +210,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
         transfer_item_id: item.id,
         received_qty: receivedQty,
         shrinkage_reason: receivedQty < dispatchedQty
-          ? (shrinkageReasons[item.id] ?? 'missing')
+          ? (shrinkageReasons[item.id] ?? defaultShrinkageLabel)
           : undefined,
       }
     })
@@ -500,6 +500,8 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
                   transfer={t}
                   receivalQtys={receivalQtys}
                   shrinkageReasons={shrinkageReasons}
+                  shrinkageOptions={shrinkageOptions}
+                  defaultShrinkageLabel={defaultShrinkageLabel}
                   onQtyChange={(itemId, qty) =>
                     setReceivalQtys(prev => ({ ...prev, [itemId]: qty }))
                   }
@@ -563,6 +565,8 @@ function ReceivalSubForm({
   transfer,
   receivalQtys,
   shrinkageReasons,
+  shrinkageOptions,
+  defaultShrinkageLabel,
   onQtyChange,
   onReasonChange,
   onConfirm,
@@ -573,6 +577,8 @@ function ReceivalSubForm({
   transfer: WarehouseTransfer
   receivalQtys: Record<string, number>
   shrinkageReasons: Record<string, string>
+  shrinkageOptions: { id: string; label: string }[]
+  defaultShrinkageLabel: string
   onQtyChange: (itemId: string, qty: number) => void
   onReasonChange: (itemId: string, reason: string) => void
   onConfirm: () => void
@@ -634,15 +640,15 @@ function ReceivalSubForm({
                       -{dispatchedQty - receivedQty}
                     </Badge>
                     <Select
-                      value={shrinkageReasons[item.id] ?? 'missing'}
+                      value={shrinkageReasons[item.id] ?? defaultShrinkageLabel}
                       onValueChange={(v) => v && onReasonChange(item.id, v)}
                     >
                       <SelectTrigger className="h-7 w-36 text-[10px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="max-h-60 overflow-y-auto">
-                        {SHRINKAGE_REASONS.map((r) => (
-                          <SelectItem key={r.value} value={r.value} className="text-xs">
+                        {shrinkageOptions.map((r) => (
+                          <SelectItem key={r.id} value={r.label} className="text-xs">
                             {r.label}
                           </SelectItem>
                         ))}
