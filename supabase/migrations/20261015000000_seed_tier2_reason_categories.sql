@@ -13,8 +13,12 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 BEGIN;
 
+-- Label "Damaged Write-off" (not just "Write-off") so admins don't confuse this
+-- reason category with the stock-adjustment *type* `write_off` / its workflow
+-- trigger. The slug stays `write_off` (WriteOffDamagedStockDialog reads it); the
+-- label is a display default admins can edit in Master Data › Reason Lists.
 INSERT INTO public.reason_list_categories (slug, label, sort_order, active) VALUES
-  ('write_off', 'Write-off', 120, true)
+  ('write_off', 'Damaged Write-off', 120, true)
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.reason_lists (category, label, sort_order, active)
