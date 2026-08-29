@@ -214,7 +214,30 @@ export function usePurchaseReturns(filters: { search?: string; status?: string }
       }
       const { data, error } = await q.limit(500)
       if (error) throw error
-      return (data ?? []) as unknown as POReturn[]
+      const rows = data ?? []
+      // Attach the linked debit note (FK so_po_returns.debit_note_id → debit_notes.id)
+      // so the standalone detail dialog can show an existing note and hide the
+      // "Create Debit Note" action. Mirrors usePurchaseReturnsByPO — without this
+      // ret.debit_note is always undefined here and the detail always offered
+      // "Create" even for returns that already have a note.
+      const noteIds = rows
+        .map((r) => (r as Record<string, unknown>).debit_note_id as string | null)
+        .filter(Boolean) as string[]
+      const noteMap: Record<string, Record<string, unknown>> = {}
+      if (noteIds.length > 0) {
+        const { data: notes } = await supabase
+          .from('debit_notes')
+          .select('*')
+          .in('id', Array.from(new Set(noteIds)))
+        for (const n of (notes ?? [])) noteMap[(n as { id: string }).id] = n as Record<string, unknown>
+      }
+      return rows.map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          ...r,
+          debit_note: row.debit_note_id ? (noteMap[row.debit_note_id as string] ?? null) : null,
+        }
+      }) as unknown as POReturn[]
     },
     staleTime: 30 * 1000,
   })
