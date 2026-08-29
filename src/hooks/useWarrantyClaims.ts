@@ -162,7 +162,8 @@ async function enrichClaims(
 
 /** List/search query — explicit columns, division + status + search filters, capped at 200. */
 export function useWarrantyClaims(
-  filters: { search?: string; divisionId?: string; status?: string } = {}
+  filters: { search?: string; divisionId?: string; status?: string; warrantyType?: string } = {},
+  options: { refreshOnFocus?: boolean } = {},
 ) {
   return useQuery({
     queryKey: queryKeys.warranty.claims(filters),
@@ -175,6 +176,9 @@ export function useWarrantyClaims(
         .limit(200)
       if (filters.divisionId) q = q.eq('division_id', filters.divisionId)
       if (filters.status) q = q.eq('status', filters.status)
+      // Type filter (e.g. the Consumption Warranties page passes 'consumption' so
+      // it only lists claims against consumption warranties; Sales omits it).
+      if (filters.warrantyType) q = q.eq('warranty_type', filters.warrantyType)
       if (filters.search) {
         const s = `%${filters.search}%`
         // Local-column search only, mirroring useWarrantyRecords — item /
@@ -190,6 +194,8 @@ export function useWarrantyClaims(
       return enrichClaims(supabase, data ?? [])
     },
     staleTime: 60_000,
+    // Opt-in (global default is off to protect quota) — see useWarrantyRecords.
+    refetchOnWindowFocus: options.refreshOnFocus ?? false,
   })
 }
 
