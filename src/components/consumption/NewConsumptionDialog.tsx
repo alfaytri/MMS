@@ -517,6 +517,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // attributed. (Non-project custody / internal have no disciplines → not required.)
   const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
   const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId && code.trim() !== '')
+  // Custody consumption is a sale — the invoice/order/project ref (Notes) is mandatory.
+  const notesSatisfied = consumerType !== 'custody' || notes.trim().length > 0
 
   const canOpenConfirm =
     !!srcWhId &&
@@ -526,6 +528,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     hasValidRows &&
     !hasValidationErrors &&
     projectTagsSatisfied &&
+    notesSatisfied &&
     !uploading &&
     !post.isPending
 
@@ -1120,15 +1123,22 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             )}
           </div>
 
-          {/* Notes */}
+          {/* Notes — required for custody consumption (the sale reference) */}
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Notes</Label>
+            <Label className="text-[11px] text-muted-foreground">
+              Notes{consumerType === 'custody' && <span className="text-destructive"> *</span>}
+            </Label>
             <Textarea
               className="text-[11px] min-h-[48px] resize-none"
-              placeholder="Optional context (job ref, site visit, WO number, etc.)"
+              placeholder={consumerType === 'custody'
+                ? 'Enter invoice / order number / project code'
+                : 'Optional context (job ref, site visit, WO number, etc.)'}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+            {consumerType === 'custody' && notes.trim().length === 0 && (
+              <p className="text-[10px] text-destructive">Required — enter the invoice / order number / project code.</p>
+            )}
           </div>
 
           {/* Attachments */}
