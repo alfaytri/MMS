@@ -1,7 +1,7 @@
 'use client'
 
 import { humanizeDbError } from '@/lib/dbErrors'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -58,11 +58,19 @@ type Props = {
    *  staggered slide-in when the list (or a tab) first mounts. Left undefined
    *  on nested child rows so expanding a category doesn't re-animate them. */
   animationIndex?: number
+  /** When true (a search is active), the category auto-expands so matching
+   *  items show without a manual click. `expandKey` (the search text) re-applies
+   *  the expansion as the query changes. */
+  forceExpanded?: boolean
+  expandKey?: string
 }
 
-export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds, inheritedAttributeFilter, attributeVisibleCategoryIds, animationIndex }: Props) {
+export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds, inheritedAttributeFilter, attributeVisibleCategoryIds, animationIndex, forceExpanded, expandKey }: Props) {
 
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(!!forceExpanded)
+  // Auto-open while searching; re-open when the query changes so new matches
+  // are revealed even if the user had collapsed a branch.
+  useEffect(() => { if (forceExpanded) setExpanded(true) }, [forceExpanded, expandKey])
   const [editOpen, setEditOpen] = useState(false)
   const [dialogReadOnly, setDialogReadOnly] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
@@ -384,6 +392,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           filterItemIds={filterItemIds}
           inheritedAttributeFilter={effectiveAttrFilter}
           attributeVisibleCategoryIds={passDownVisibleIds}
+          forceExpanded={forceExpanded}
+          expandKey={expandKey}
         />
       ))}
 

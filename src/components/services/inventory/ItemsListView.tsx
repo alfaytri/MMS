@@ -10,11 +10,10 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
-import { ItemSearchResults } from './ItemSearchResults'
 import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 import { useInventorySearchIndex } from '@/hooks/useInventorySearchIndex'
-import { filterTree } from '@/lib/inventory/filterTree'
+import { rankInventoryItem } from '@/lib/inventory/itemSearchMatch'
 import { reorderSiblings } from '@/lib/inventory/reorder'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemDivisionsByStock } from '@/hooks/useItemDivisionsByStock'
@@ -81,9 +80,9 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
     return paths
   }, [flat])
 
-  // When one or more divisions are selected in the nav bar, restrict the tree
-  // to items shared with any of them. Empty selection ("All") = no filter.
-  const filterItemIds = useMemo<Set<string> | undefined>(() => {
+  // Division scope from the nav bar: restrict to items shared with any selected
+  // division. Empty selection ("All") = no division filter.
+  const divisionItemIds = useMemo<Set<string> | undefined>(() => {
     if (!divisionFiltered) return undefined
     const keep = new Set<string>()
     for (const [itemId, divs] of itemDivs.divisionsByItem) {
@@ -91,6 +90,41 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
     }
     return keep
   }, [divisionFiltered, viewDivisionIds, itemDivs.divisionsByItem])
+
+  // Items matching the search query across name (EN+AR) / brand / origin / code
+  // / category, via the shared rank. undefined = not searching.
+  const searchItemIds = useMemo<Set<string> | undefined>(() => {
+    if (!searching) return undefined
+    const q = search.trim().toLowerCase()
+    const ids = new Set<string>()
+    for (const it of (searchIndex.data ?? [])) {
+      const path = categoryPathById.get(it.category_id ?? '') ?? ''
+      if (rankInventoryItem(q, it, path) >= 0) ids.add(it.id)
+    }
+    return ids
+  }, [searching, search, searchIndex.data, categoryPathById])
+
+  // Effective item filter = intersection of division + search (whichever are
+  // active); undefined when neither, so the full tree shows.
+  const filterItemIds = useMemo<Set<string> | undefined>(() => {
+    if (searchItemIds && divisionItemIds) {
+      const inter = new Set<string>()
+      for (const id of searchItemIds) if (divisionItemIds.has(id)) inter.add(id)
+      return inter
+    }
+    return searchItemIds ?? divisionItemIds
+  }, [searchItemIds, divisionItemIds])
+
+  // item→category map: the search index covers every active item; the division
+  // hook's map is used when not searching.
+  const itemCategoryMap = useMemo<Map<string, string>>(() => {
+    if (searching) {
+      const m = new Map<string, string>()
+      for (const it of (searchIndex.data ?? [])) if (it.category_id) m.set(it.id, it.category_id)
+      return m
+    }
+    return itemDivs.itemCategoryMap
+  }, [searching, searchIndex.data, itemDivs.itemCategoryMap])
 
   // Categories that should stay in the tree: any category holding a matching
   // item, plus all their ancestors so the branch renders down to the item.
@@ -100,7 +134,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
     for (const c of flat) parentMap.set(c.id, c.parent_id ?? null)
     const keep = new Set<string>()
     for (const itemId of filterItemIds) {
-      const categoryId = itemDivs.itemCategoryMap.get(itemId)
+      const categoryId = itemCategoryMap.get(itemId)
       if (!categoryId) continue
       let cursor: string | null = categoryId
       while (cursor && !keep.has(cursor)) {
@@ -109,17 +143,18 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
       }
     }
     return keep
-  }, [filterItemIds, flat, itemDivs.itemCategoryMap])
+  }, [filterItemIds, flat, itemCategoryMap])
 
-  const searched = useMemo(() => filterTree(tree, search), [tree, search])
+  // Prune the tree to the visible categories (search and/or division). No
+  // filter → the full tree.
   const filtered = useMemo(() => {
-    if (!visibleCategoryIds) return searched
+    if (!visibleCategoryIds) return tree
     const prune = (nodes: InventoryTreeNode[]): InventoryTreeNode[] =>
       nodes
         .filter((n) => visibleCategoryIds.has(n.id))
         .map((n) => ({ ...n, children: prune(n.children) }))
-    return prune(searched)
-  }, [searched, visibleCategoryIds])
+    return prune(tree)
+  }, [tree, visibleCategoryIds])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
@@ -169,18 +204,10 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
         </div>
       </div>
 
-      {/* Flat search results (item / brand / origin / code) OR the category tree */}
+      {/* Category tree — filtered to matching items (and auto-expanded) while
+          searching, so the matches show inside their categories. */}
       <div className="flex-1 overflow-auto">
-        {searching ? (
-          <ItemSearchResults
-            items={searchIndex.data ?? []}
-            search={search}
-            categoryType={type}
-            filterItemIds={filterItemIds}
-            categoryPathById={categoryPathById}
-            isLoading={searchIndex.isLoading}
-          />
-        ) : isLoading ? (
+        {isLoading || (searching && searchIndex.isLoading) ? (
           <div className="p-4 space-y-2">
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full rounded" />)}
           </div>
@@ -201,10 +228,10 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center text-xs text-muted-foreground py-12">
-                    {filterItemIds
-                      ? 'No items in the selected division(s)'
-                      : search
-                        ? 'No categories match your search'
+                    {searching
+                      ? 'No items match your search'
+                      : filterItemIds
+                        ? 'No items in the selected division(s)'
                         : `No ${LABEL_MAP[type].toLowerCase()} categories yet`}
                   </td>
                 </tr>
@@ -217,12 +244,14 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
                     node={node}
                     categoryType={type}
                     showArchived={showArchived}
-                    canMoveUp={globalIdx > 0}
-                    canMoveDown={globalIdx < filtered.length - 1}
+                    canMoveUp={!searching && globalIdx > 0}
+                    canMoveDown={!searching && globalIdx < filtered.length - 1}
                     onMoveUp={() => handleCategoryMove(globalIdx, 'up')}
                     onMoveDown={() => handleCategoryMove(globalIdx, 'down')}
                     stockAggregates={stockAggregates}
                     filterItemIds={filterItemIds}
+                    forceExpanded={searching}
+                    expandKey={search}
                     animationIndex={localIdx}
                   />
                 )
@@ -233,9 +262,9 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
         )}
       </div>
 
-      {!searching && filtered.length > 0 && totalPages > 1 && (
+      {filtered.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground px-4 py-2 border-t border-border">
-          <span>{filtered.length} categor{filtered.length !== 1 ? 'ies' : 'y'}</span>
+          <span>{filtered.length} categor{filtered.length !== 1 ? 'ies' : 'y'}{searching ? ' with matches' : ''}</span>
           <div className="flex items-center gap-1.5">
             <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
               <ChevronLeft className="h-3.5 w-3.5" />
