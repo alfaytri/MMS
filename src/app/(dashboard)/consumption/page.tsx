@@ -171,7 +171,7 @@ export default function ConsumptionPage() {
       id: 'items',
       header: 'Items',
       cell: ({ row }) => {
-        const items = row.original.items
+        const items = row.original.items ?? []
         const head = items.slice(0, 2).map((i) => `${i.item_name} ×${i.qty}`).join(', ')
         const label = items.length > 2 ? `${head} +${items.length - 2} more` : (head || '—')
         return (
@@ -325,8 +325,8 @@ export default function ConsumptionPage() {
                 {row.source_warehouse_name ?? '—'}{row.source_sub_container_name ? ` · ${row.source_sub_container_name}` : ''}
               </div>
               <div className="text-[11px] truncate">
-                {row.items.length
-                  ? (row.items.slice(0, 2).map((i) => `${i.item_name} ×${i.qty}`).join(', ') + (row.items.length > 2 ? ` +${row.items.length - 2} more` : ''))
+                {(row.items ?? []).length
+                  ? ((row.items ?? []).slice(0, 2).map((i) => `${i.item_name} ×${i.qty}`).join(', ') + ((row.items ?? []).length > 2 ? ` +${(row.items ?? []).length - 2} more` : ''))
                   : '—'}
               </div>
               {row.notes && (
