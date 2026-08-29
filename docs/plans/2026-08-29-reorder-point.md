@@ -1,177 +1,157 @@
 # Reorder Point — Design & Implementation Plan
 
-> Status: **PLAN FINALIZED 2026-08-29** (not built). All decisions resolved (§8).
-> Waiting on the operator's current reorder Excel to seed initial rates (§10).
+> Status: **PLAN v2, 2026-08-29** (not built). Rewritten after reviewing the
+> operator's real reorder Excel (`D:\007\Ismail.xlsx`). One decision still open:
+> the final seasonal-selection rule (§4) — deliberately deferred until real
+> per-season data exists.
 
-## 1. Goal
+## 1. Goal + real formula
 
-Automatically tell Purchase & Accounting when an item has run low enough that a
-new order must be placed now to avoid a stock-out, accounting for how long
-resupply takes.
+Tell Purchase & Accounting when an item is low enough to reorder now, given how
+long resupply takes — and give them a **page that mirrors the current Excel plus a
+live "upcoming (on-order) qty" column**.
 
-**Formula** (from the operator's Heater example):
+**Formula (reverse-engineered from the Excel; checks out on Water Heater
+3.68 × 28 × 1.3 ≈ 135):**
 
 ```
-reorder_point = ceil( (lead_time_days / 30) × effective_monthly_usage × (1 + safety_margin%) )
+reorder_point = ceil( lead_time_months × peak_seasonal_rate × (1 + safety_margin) )
 ```
 
-Heater worked example: `(90/30) × 30 × (1 + 0.25) = 3 × 30 × 1.25 = 112.5 → 113`.
-When available qty ≤ 113 → alert.
+- `lead_time_months` = average PO→receival time (the Excel's "average po to
+  receival months").
+- `peak_seasonal_rate` = the **higher of the winter / summer monthly rates**
+  (Excel behaviour; e.g. Rotary-2ton uses summer 17).
+- `safety_margin` = per item (Excel = 0.30).
 
-## 2. Locked decisions (operator, 2026-08-29)
+## 2. The operator's Excel (`Ismail.xlsx`, ~29 key items) → fields
 
-1. **Level = per item.** Lead time, usage, margin, and the reorder point are all
-   item-level (matches the operator's Excel + mental model: "Heater", not
-   "Heater brand-X"). Available qty = the sum of the item's variants.
-2. **Lead time = per item** (each item stores its own shipping days).
-3. **Reorder point = auto-computed & stored**, refreshed daily.
-4. **Trigger quantity = company-wide available** = Σ over the item's variants of
-   `(stock_level − reserved_qty)` (total on hand across all warehouses, minus
-   reserved) — the example's single "Available Qty 138".
-5. **Usage window = last 3 months** of actual outflow.
-6. **"Usage" = deliveries + consumption** (all real outflow), since spare parts
-   leave a maintenance business via consumption, not only sales.
-7. **Seed rate is a FLOOR** (see §4 + §6): `effective_monthly_usage = max(the
-   Excel fixed rate, the computed 3-month rate)`. Starts from the Excel value on
-   day one; rises automatically when real demand exceeds it.
-8. **Re-alert = once per dip** (re-arm only after the item recovers above the
-   point), not a daily nag.
-9. **Rounding = ceil** (112.5 → 113). **Per-warehouse = deferred** (keep the
-   `warehouse_reorder_points` table for a later phase, unused for now).
+| Excel column | Maps to |
+|---|---|
+| Products | matched to a catalog item |
+| Local (Y/N) | `is_local` (imported = long lead / container) |
+| Reorder Safety Margin (0.3) | `safety_margin_pct` seed |
+| Up to date Stock Level | **replaced by live Available** |
+| avg selling rate **winter**/month | `expected_winter_usage` seed |
+| avg selling rate **summer**/month | `expected_summer_usage` seed |
+| Container 20ft minimum QTY | `container_moq` (display now; order-qty later) |
+| Reorder Point | **computed output** |
+| average **po to receival months** | `lead_time_months` seed |
 
-## 3. What already exists (reuse, don't rebuild)
+Only ~29 curated items are managed today; the feature covers those first and can
+extend to more later.
 
-- `inventory_item_brand_variants.reorder_point` (int) + `reserved_qty` +
-  `stock_level` — the pieces behind "available vs. point".
-- **Amber "low stock" badge** already lights when `available ≤ reorder_point`
-  (ItemRow / pickers) — lights up for free once we compute the item point.
-- `warehouse_reorder_points` (+ `last_notified_at`) — a per-warehouse variant
-  prepped for notifications but never wired; parked for a future per-warehouse phase.
-- **Notification infra** — role-routed alerts via `recipients_for_permission(key)`
-  + the daily cron `/api/cron/notifications` (shipped 2026-08-26). We extend this.
+## 3. Locked decisions
 
-## 4. The initial-data problem (why the seed matters)
+1. **Level = per item** (matches the Excel). Available = Σ over the item's variants
+   of `(stock_level − reserved_qty)`, company-wide.
+2. **Reorder point = auto-computed & stored**, refreshed daily.
+3. **Lead time = auto from PO→receival history, Excel value as floor** →
+   `effective_lead = max(seed, actual)`. Self-updating.
+4. **Suggested order qty = deferred** (no order-qty column for now; keep the
+   `container_moq` value for a later phase).
+5. **Rounding = ceil; margin default = 25%** for non-Excel items (Excel items carry
+   their own 0.30).
+6. **Seed = floor everywhere:** `effective = max(Excel seed, live computed)` for
+   each rate and the lead time — works day one on the Excel numbers, rises when
+   real demand/lead time exceeds them.
 
-The app has just been seeded with opening stock and has **almost no sales
-history**, so a rate computed only from history would be ~0 → no useful reorder
-points at launch. Conversely the operator's current **Excel uses a fixed rate per
-item** that can't rise when demand spikes.
+## 4. Seasons — track + validate (final rule OPEN)
 
-**Solution — seed + floor:**
-- Store the Excel's fixed rate as **`expected_monthly_usage`** per item.
-- The effective rate the formula uses is **`max(expected_monthly_usage, computed
-  3-month rate)`**. Day 1: computed = 0 → uses the Excel rate. As real sales
-  accumulate: if actual > the Excel rate, the point rises automatically (fixes the
-  Excel cap); it never drops below the known baseline (safe from stock-out).
-- The operator can lower/clear `expected_monthly_usage` later once they trust the
-  live data, to let it be purely demand-driven.
+The operator's insight: the winter/summer split was a manual estimate; now we can
+**measure it**. So:
+- Classify each outflow by month into **winter (Nov–Mar) / summer (Apr–Oct)**
+  [Qatar]; compute `actual_winter_rate` + `actual_summer_rate` from real
+  deliveries + consumption.
+- Store/display **seed vs. actual** for each season so the operator can see whether
+  the seasonal assumption holds.
+- **Interim reorder rule = peak:** `peak_rate = max(effective_winter,
+  effective_summer)` where `effective_season = max(seed_season, actual_season)`.
+  Safe (never under-stocks) and matches the current Excel.
+- **OPEN:** once a few months of per-season data exist, the operator decides the
+  final rule — keep peak, or switch to the *current/upcoming* season's rate. No
+  code lock-in; it's one line in the compute function.
 
 ## 5. Data model changes
 
-**`inventory_items`** (item-level inputs + computed outputs):
-- `lead_time_days` int NULL — shipping/resupply time. NULL = not configured → item
-  is skipped (no point, no alert) until set.
-- `safety_margin_pct` numeric NULL — per-item override; NULL → global default.
-- `expected_monthly_usage` numeric NULL — the seed floor (from the Excel).
-- `reorder_point` int NULL — **computed output** (what the alert + report + badges
-  read).
-- `effective_monthly_usage` numeric NULL — the rate used (for transparency in the
-  report: shows whether the Excel floor or live demand won).
-- `reorder_computed_at` timestamptz NULL — last recompute.
-- `reorder_last_notified_at` timestamptz NULL — alert throttle (company-wide, so
-  it lives on the item).
+**`inventory_items`** (seeds + computed outputs, item-level):
+- Seeds: `lead_time_months` numeric, `safety_margin_pct` numeric, `is_local` bool,
+  `expected_winter_usage` numeric, `expected_summer_usage` numeric, `container_moq`
+  numeric — all NULL-able (NULL lead time = item skipped until configured).
+- Computed: `reorder_point` int, `effective_winter_usage`, `effective_summer_usage`,
+  `effective_lead_months`, `reorder_computed_at` tstz, `reorder_last_notified_at` tstz.
 
-**`app_settings`** (global defaults):
-- `reorder_default_safety_margin_pct` numeric, default `25`.
-- `reorder_usage_window_months` int, default `3`.
+**`app_settings`:** `reorder_default_safety_margin_pct` (25), season month
+boundaries (winter start/end) for easy tuning.
 
-*(The existing per-variant `reorder_point` field: the amber badges will be
-repointed to read the item-level point in P2; the per-variant field is left in
-place, unused, to avoid churn.)*
+*(Existing per-variant `reorder_point` field + amber badges: repointed to the
+item-level value in P2; the per-variant field left in place, unused.)*
 
-## 6. The daily calculation + alert job
+## 6. Daily calculation + alert job (one SECURITY DEFINER RPC, called by cron)
 
-One daily server job — a SECURITY DEFINER RPC the cron calls (extend
-`/api/cron/notifications` or a sibling on the same schedule), in one pass:
+**A. Recompute** each item with a lead time (seed or computable):
+1. `actual_lead = avg(receival_date − po_date)` in months over that item's
+   received POs; `effective_lead = max(seed_lead, actual_lead)`.
+2. `actual_winter/summer = (Σ outflow in that season's months over last N months)
+   / (season months elapsed)`, outflow = `sale_delivery_lines` + `consumption_lines`
+   for the item's variants; `effective_season = max(seed_season, actual_season)`.
+3. `peak = max(effective_winter, effective_summer)`.
+4. `reorder_point = ceil( effective_lead × peak × (1 + COALESCE(margin, default)) )`.
+5. Store the computed fields.
 
-**A. Recompute** for every item with `lead_time_days` set:
-1. `computed = (Σ outflow qty over last 3 months) / 3`, where outflow =
-   delivered qty (`sale_delivery_lines`) + consumed qty (`consumption_lines`) for
-   the item's variants.
-2. `effective_monthly_usage = max(COALESCE(expected_monthly_usage,0), computed)`.
-3. `reorder_point = ceil( (lead_time_days/30) × effective_monthly_usage ×
-   (1 + COALESCE(safety_margin_pct, global_default)/100) )`.
-4. Store `reorder_point`, `effective_monthly_usage`, `reorder_computed_at`.
+**B. Alert:** items where `reorder_point > 0` AND `available (Σ stock_level −
+reserved_qty) ≤ reorder_point` → notify **Purchase + Accounting** (routing §8),
+once per dip (`reorder_last_notified_at`, cleared on recovery).
 
-**B. Alert** in the same pass:
-- Items where `reorder_point > 0` AND `available (Σ stock_level − reserved_qty) ≤
-  reorder_point`.
-- Notify **Purchase + Accounting** (routing §8-Q3), best-effort, one line each:
-  "Heater — reorder point 113, available 108. Reorder now."
-- **Throttle:** set `reorder_last_notified_at` on alert; clear it when the item
-  recovers above the point → fires once per dip.
+## 7. The Reorder page (Reports menu)
 
-## 7. UI / surfaces
+A table mirroring the Excel, **plus live columns**. Columns:
 
-- **Item edit dialog** — add **Lead time (days)**, **Safety margin %** (blank =
-  default), **Expected monthly usage** inputs; show the **auto reorder point
-  read-only** with the breakdown ("113 = 3 mo × 30/mo × 1.25; rate = max(Excel 30,
-  live 24)").
-- **Admin → settings** — global default safety margin + usage window.
-- **Reorder Report** (Reports menu, or a Dead-Stock tab) — item, available, expected
-  vs. live usage, effective usage, lead time, margin, reorder point, status
-  (OK / **REORDER**), suggested order qty *(P4)*; filter by division + "needs
-  reorder"; Excel export. This is the requested summary.
-- **Amber badges** — repointed to the item-level point (P2).
-- *(Optional, P4)* Dashboard card "Items to reorder: N".
+| Product | Local | Safety margin | **Available** (live) | **Upcoming** (on order) | Winter (seed / actual) | Summer (seed / actual) | Container MOQ | Lead time mo (seed / actual) | **Reorder point** | **Status** |
 
-## 8. Resolved decisions
+- **Available** = live company-wide (Σ stock_level − reserved).
+- **Upcoming** = on-order qty not yet received = Σ over the item's variants of open
+  PO `(ordered − received)` (or `inventory_item_brand_variants.incoming` if it
+  already tracks this — verify at build). ← the column the operator asked for.
+- **Status** = OK / **REORDER** (available ≤ reorder point); filter "needs reorder".
+- **seed / actual** shown together for winter, summer, and lead time so the operator
+  can validate the seasonal + lead-time assumptions against real data.
+- Division filter + Excel export. Amber badges elsewhere reflect the same point.
 
-- **Q1 Window:** 3 months. ✅
-- **Q2 Usage:** deliveries + consumption. ✅
-- **Q3 Alert recipients:** route by permission — Purchase = roles with
-  `purchase.orders.create`; Accounting = roles with a finance permission
-  (confirm the exact key during build, likely `reports.payables.view`); add a
-  `notify.reorder_point` on/off toggle in the role editor. ✅ *(confirm keys at build)*
-- **Q4 Cadence:** once per dip. ✅
-- **Q5 Suggested order qty:** yes, as **P4** — target = bring available up to
-  "reorder point + one lead-time of cover"; not in P1. ✅
-- **Q6 Bulk lead times / rates:** via the operator's Excel (§10). ✅
-- **Q7 Rounding:** ceil. ✅
-- **Q8 Per-warehouse:** deferred. ✅
-- **Initial seed:** Excel fixed rate → `expected_monthly_usage` as a floor. ✅
+## 8. Alert routing
+
+Route by permission + a `notify.reorder_point` on/off toggle in the role editor:
+Purchase = roles with `purchase.orders.create`; Accounting = roles with a finance
+permission (confirm exact key at build, likely `reports.payables.view`).
 
 ## 9. Phasing
 
-- **P1 — Inputs + calculation + seed:** migrations (item fields + global defaults);
-  the compute RPC; item-dialog inputs; **import the operator's Excel** to seed
-  `expected_monthly_usage` + `lead_time_days` (+ margin) per item. *Outcome:*
-  reorder points populate from the Excel floor immediately; amber badges light.
-- **P2 — Report + badges:** the Reorder Report + Excel export; repoint the amber
-  badges to the item-level point.
-- **P3 — Alerts:** the notify step in the daily job + the `notify.reorder_point`
-  role toggle + throttle.
-- **P4 (optional):** suggested order qty, Dashboard card, per-warehouse.
+- **P1 — Data + calc + seed:** migrations (item fields + settings); the compute RPC
+  (lead time from PO history, per-season rates, peak, effective=max(seed,live));
+  **import `Ismail.xlsx`** to seed the ~29 items (after item-name → catalog mapping,
+  §10). Item-dialog inputs for the seeds. *Outcome:* reorder points populate from
+  the Excel floor immediately.
+- **P2 — The page + badges:** the Reorder page (Excel-mirror + Available + Upcoming
+  + Status + seed/actual) + Excel export; repoint amber badges to the item point.
+- **P3 — Alerts:** the notify step + `notify.reorder_point` toggle + throttle.
+- **P4 (later):** suggested order qty (round up to `container_moq`), finalize the
+  seasonal rule from real data, Dashboard card, per-warehouse.
 
-## 10. Initial data (needed from operator)
+## 10. Seeding from `Ismail.xlsx` (needed for P1)
 
-Send the **current reorder Excel**. Expected columns to map per item:
-- item identifier (name / code) → matched to the catalog,
-- fixed/expected monthly sales rate → `expected_monthly_usage`,
-- shipping/lead time (days) → `lead_time_days`,
-- safety margin, if it varies per item → `safety_margin_pct` (else the 25% default).
-
-Loaded via a one-off seed script (match by name/code, same approach as the
-opening-stock seed), dry-run → verify → commit.
+Item-name → catalog mapping is the one manual step: the Excel names
+("Water Cooler (Piston) - 1.5 ton") don't all match catalog items 1:1. I'll:
+1. Fuzzy-match each of the ~29 names to a catalog item; produce a review sheet of
+   matches + any misses for the operator to confirm/correct.
+2. On confirmation, seed `lead_time_months`, `safety_margin_pct`, `is_local`,
+   `expected_winter_usage`, `expected_summer_usage`, `container_moq` per matched
+   item (dry-run → verify → commit, same discipline as the opening-stock seed).
 
 ## 11. Risks / notes
 
-- **Zero-history + no seed = no point.** With the Excel seed this is avoided; items
-  with neither a seed nor history simply don't alert (safe).
-- **Stale lead times** → wrong points; blank lead time is safely skipped.
-- **Floor can overstock** if real demand settles below the Excel guess — the
-  operator lowers `expected_monthly_usage` when they trust the live rate.
-- **No pricing guard** — the job writes reorder/usage fields, not cost/price; runs
-  as a SECURITY DEFINER RPC.
-- **Quota:** one extra daily pass over items; negligible (aligns with the existing
-  daily cron; see `docs/supabase-budget.md`).
+- **Sparse history now** → per-season actuals ≈ 0 at launch; the Excel seeds carry
+  it (peak of seed winter/summer). Correct by design.
+- **Season boundaries** are configurable (app_settings) if Qatar's split differs.
+- **Item mapping** is the main accuracy risk — hence the review-sheet step.
+- **No pricing guard** (writes reorder/usage fields, not price); SECURITY DEFINER RPC.
+- **Quota:** one daily pass over ~items; negligible (see `docs/supabase-budget.md`).
