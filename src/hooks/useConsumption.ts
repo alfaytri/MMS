@@ -59,6 +59,7 @@ export type ConsumptionListRow = {
   attachments:               string[]
   total_value:               number
   line_count:                number
+  items:                     { item_name: string; qty: number }[]
   posted_at:                 string | null
   cancelled_at:              string | null
   posted_by_name:            string | null
@@ -100,7 +101,7 @@ type RawRow = {
   posted_by_user:    { full_name: string | null }           | null
   cancelled_by_user: { full_name: string | null }           | null
   division:          { name: string | null }                | null
-  consumption_lines: Array<{ qty: number | null; unit_cost: number | null }>
+  consumption_lines: Array<{ item_name: string | null; sku: string | null; qty: number | null; unit_cost: number | null }>
 }
 
 function mapRow(row: RawRow): ConsumptionListRow {
@@ -130,6 +131,7 @@ function mapRow(row: RawRow): ConsumptionListRow {
     attachments:               row.attachments ?? [],
     total_value,
     line_count:                lines.length,
+    items:                     lines.map((l) => ({ item_name: l.item_name ?? '(item)', qty: l.qty ?? 0 })),
     posted_at:                 row.posted_at,
     cancelled_at:              row.cancelled_at,
     posted_by_name:            row.posted_by_user?.full_name ?? null,
@@ -149,7 +151,7 @@ const LIST_SELECT = `
   posted_by_user:posted_by(full_name),
   cancelled_by_user:cancelled_by(full_name),
   division:division_id(name),
-  consumption_lines(qty, unit_cost)
+  consumption_lines(item_name, sku, qty, unit_cost)
 `
 
 // ─── 1. List query ──────────────────────────────────────────────────────

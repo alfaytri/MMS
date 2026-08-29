@@ -168,10 +168,27 @@ export default function ConsumptionPage() {
       ),
     },
     {
-      id: 'lines',
-      header: () => <span className="text-right block">Lines</span>,
+      id: 'items',
+      header: 'Items',
+      cell: ({ row }) => {
+        const items = row.original.items
+        const head = items.slice(0, 2).map((i) => `${i.item_name} ×${i.qty}`).join(', ')
+        const label = items.length > 2 ? `${head} +${items.length - 2} more` : (head || '—')
+        return (
+          <span className="text-xs truncate max-w-[240px] block" title={label}>{label}</span>
+        )
+      },
+    },
+    {
+      id: 'notes',
+      header: 'Notes',
       cell: ({ row }) => (
-        <div className="text-right tabular-nums text-xs">{row.original.line_count}</div>
+        <span
+          className="text-xs text-muted-foreground truncate max-w-[180px] block"
+          title={row.original.notes ?? ''}
+        >
+          {row.original.notes || '—'}
+        </span>
       ),
     },
     {
@@ -307,6 +324,14 @@ export default function ConsumptionPage() {
               <div className="text-[11px] text-muted-foreground truncate">
                 {row.source_warehouse_name ?? '—'}{row.source_sub_container_name ? ` · ${row.source_sub_container_name}` : ''}
               </div>
+              <div className="text-[11px] truncate">
+                {row.items.length
+                  ? (row.items.slice(0, 2).map((i) => `${i.item_name} ×${i.qty}`).join(', ') + (row.items.length > 2 ? ` +${row.items.length - 2} more` : ''))
+                  : '—'}
+              </div>
+              {row.notes && (
+                <div className="text-[11px] text-muted-foreground truncate" title={row.notes}>📝 {row.notes}</div>
+              )}
               <div className="flex items-center justify-between text-[11px] pt-0.5">
                 <span className="text-muted-foreground tabular-nums">{row.date} · {row.line_count} line{row.line_count === 1 ? '' : 's'}</span>
                 {canSeeCost && <span className="font-semibold tabular-nums">{QAR.format(row.total_value)}</span>}
