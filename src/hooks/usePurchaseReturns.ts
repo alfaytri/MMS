@@ -529,6 +529,9 @@ export function useCreateDebitNoteForReturn() {
       })
     },
     onSuccess: (_data, ret) => {
+      // .all covers the standalone Returns list (queryKeys.purchaseReturns.list);
+      // .byPo covers the PO detail Returns tab.
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       invalidateSupplierCreditViews(queryClient)
