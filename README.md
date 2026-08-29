@@ -162,7 +162,7 @@ npm run build      # production build
   divisions); permissive `USING(true)` policies alone do not grant access.
 - **FIFO inventory costing** via atomic RPCs — cost is stored as per-batch cost
   layers and consumed oldest-first, with reserved quantities and COGS tracked
-  per layer. See [`docs/inventory-cost-accounting.md`](docs/inventory-cost-accounting.md).
+  per layer. See [`docs/inventory/inventory-cost-accounting.md`](docs/inventory/inventory-cost-accounting.md).
 - **Approval chains** are configurable per division with cumulative tier
   thresholds (PO, SO, stock adjustment, inventory check, credit group, …).
 - Schema changes go through the Supabase CLI; the baseline schema and generated
@@ -185,7 +185,7 @@ Key references live in [`docs/`](docs/):
 | Doc | What it covers |
 |---|---|
 | [`docs/flows-registry.md`](docs/flows-registry.md) | The authoritative catalog of every business flow (module → RPCs → ledger writes) |
-| [`docs/inventory-cost-accounting.md`](docs/inventory-cost-accounting.md) | How inventory cost is stored & protected (FIFO layers, transfers, COGS, landed cost) |
+| [`docs/inventory/inventory-cost-accounting.md`](docs/inventory/inventory-cost-accounting.md) | How inventory cost is stored & protected (FIFO layers, transfers, COGS, landed cost) |
 | [`docs/usage-manual/`](docs/usage-manual/) | Staff usage manual (source Markdown + PDF/Word build pipeline) |
 | [`docs/supabase-budget.md`](docs/supabase-budget.md) | Realtime / polling / query budget rules |
 | [`docs/go-live-readiness-2026-08-21.md`](docs/go-live-readiness-2026-08-21.md) | Pre-launch readiness audit |
