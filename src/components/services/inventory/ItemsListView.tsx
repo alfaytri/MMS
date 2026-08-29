@@ -91,18 +91,23 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
     return keep
   }, [divisionFiltered, viewDivisionIds, itemDivs.divisionsByItem])
 
-  // Items matching the search query across name (EN+AR) / brand / origin / code
-  // / category, via the shared rank. undefined = not searching.
-  const searchItemIds = useMemo<Set<string> | undefined>(() => {
+  // Rank of each matching item across name (EN+AR) / brand / origin / code /
+  // category, via the shared rank — lower = closer. undefined = not searching.
+  const itemRankById = useMemo<Map<string, number> | undefined>(() => {
     if (!searching) return undefined
     const q = search.trim().toLowerCase()
-    const ids = new Set<string>()
+    const m = new Map<string, number>()
     for (const it of (searchIndex.data ?? [])) {
       const path = categoryPathById.get(it.category_id ?? '') ?? ''
-      if (rankInventoryItem(q, it, path) >= 0) ids.add(it.id)
+      const r = rankInventoryItem(q, it, path)
+      if (r >= 0) m.set(it.id, r)
     }
-    return ids
+    return m
   }, [searching, search, searchIndex.data, categoryPathById])
+  const searchItemIds = useMemo<Set<string> | undefined>(
+    () => (itemRankById ? new Set(itemRankById.keys()) : undefined),
+    [itemRankById],
+  )
 
   // Effective item filter = intersection of division + search (whichever are
   // active); undefined when neither, so the full tree shows.
@@ -145,16 +150,46 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
     return keep
   }, [filterItemIds, flat, itemCategoryMap])
 
-  // Prune the tree to the visible categories (search and/or division). No
-  // filter → the full tree.
+  // Best (lowest) item rank per category incl. descendants — used to float the
+  // closest-matching branch to the top while searching.
+  const categoryBestRank = useMemo<Map<string, number> | undefined>(() => {
+    if (!itemRankById) return undefined
+    const parentMap = new Map<string, string | null>()
+    for (const c of flat) parentMap.set(c.id, c.parent_id ?? null)
+    const best = new Map<string, number>()
+    for (const [itemId, rank] of itemRankById) {
+      let cursor: string | null = itemCategoryMap.get(itemId) ?? null
+      let guard = 0
+      while (cursor && guard++ < 20) {
+        const prev = best.get(cursor)
+        if (prev === undefined || rank < prev) best.set(cursor, rank)
+        cursor = parentMap.get(cursor) ?? null
+      }
+    }
+    return best
+  }, [itemRankById, itemCategoryMap, flat])
+
+  // Prune the tree to the visible categories (search and/or division), then —
+  // while searching — sort every level so the closest match is on top. No
+  // filter → the full tree in its natural order.
   const filtered = useMemo(() => {
     if (!visibleCategoryIds) return tree
     const prune = (nodes: InventoryTreeNode[]): InventoryTreeNode[] =>
       nodes
         .filter((n) => visibleCategoryIds.has(n.id))
         .map((n) => ({ ...n, children: prune(n.children) }))
-    return prune(tree)
-  }, [tree, visibleCategoryIds])
+    const pruned = prune(tree)
+    if (!categoryBestRank) return pruned
+    const sortByRank = (nodes: InventoryTreeNode[]): InventoryTreeNode[] =>
+      [...nodes]
+        .sort(
+          (a, b) =>
+            (categoryBestRank.get(a.id) ?? 99) - (categoryBestRank.get(b.id) ?? 99) ||
+            a.name_en.localeCompare(b.name_en),
+        )
+        .map((n) => ({ ...n, children: sortByRank(n.children) }))
+    return sortByRank(pruned)
+  }, [tree, visibleCategoryIds, categoryBestRank])
 
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
@@ -250,6 +285,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
                     onMoveDown={() => handleCategoryMove(globalIdx, 'down')}
                     stockAggregates={stockAggregates}
                     filterItemIds={filterItemIds}
+                    rankByItemId={itemRankById}
                     forceExpanded={searching}
                     expandKey={search}
                     animationIndex={localIdx}

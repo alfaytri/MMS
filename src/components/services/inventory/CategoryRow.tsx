@@ -46,6 +46,9 @@ type Props = {
   /** Phase D.12 Task 2 — when defined, only items whose id is in this set are
    *  rendered inside the expanded category. undefined = no item-level filter. */
   filterItemIds?: Set<string>
+  /** Search relevance rank per item id (lower = closer). When present (a search
+   *  is active), items render best-match-first and reorder is disabled. */
+  rankByItemId?: Map<string, number>
   /** Attribute filter cascaded down from an ancestor. Merged with this
    *  row's own filter (own picks override an ancestor pick on the same
    *  attribute) before applying to items. */
@@ -65,7 +68,7 @@ type Props = {
   expandKey?: string
 }
 
-export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds, inheritedAttributeFilter, attributeVisibleCategoryIds, animationIndex, forceExpanded, expandKey }: Props) {
+export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, stockAggregates, filterItemIds, rankByItemId, inheritedAttributeFilter, attributeVisibleCategoryIds, animationIndex, forceExpanded, expandKey }: Props) {
 
   const [expanded, setExpanded] = useState(!!forceExpanded)
   // Auto-open while searching; re-open when the query changes so new matches
@@ -151,10 +154,20 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   )
 
   const items = useMemo(() => {
-    const base = filterItemIds ? itemsRaw.filter((it) => filterItemIds.has(it.id)) : itemsRaw
-    if (!attrFilterActive) return base
-    return base.filter((it) => itemPassesAttributeFilter(itemAttrsByItem?.get(it.id), effectiveAttrFilter))
-  }, [itemsRaw, filterItemIds, attrFilterActive, itemAttrsByItem, effectiveAttrFilter])
+    let base = filterItemIds ? itemsRaw.filter((it) => filterItemIds.has(it.id)) : itemsRaw
+    if (attrFilterActive) {
+      base = base.filter((it) => itemPassesAttributeFilter(itemAttrsByItem?.get(it.id), effectiveAttrFilter))
+    }
+    // While searching, closest match first (else keep the natural sort_order).
+    if (rankByItemId) {
+      base = [...base].sort(
+        (a, b) =>
+          (rankByItemId.get(a.id) ?? 99) - (rankByItemId.get(b.id) ?? 99) ||
+          a.name_en.localeCompare(b.name_en),
+      )
+    }
+    return base
+  }, [itemsRaw, filterItemIds, rankByItemId, attrFilterActive, itemAttrsByItem, effectiveAttrFilter])
 
   // Batched brand-variants (+ division-scoped stock) for the rendered items — one
   // variants query + one stock query per expanded category, replacing the per-
@@ -390,6 +403,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           depth={depth + 1}
           stockAggregates={stockAggregates}
           filterItemIds={filterItemIds}
+          rankByItemId={rankByItemId}
           inheritedAttributeFilter={effectiveAttrFilter}
           attributeVisibleCategoryIds={passDownVisibleIds}
           forceExpanded={forceExpanded}
@@ -410,8 +424,8 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
                 item={item}
                 categoryType={categoryType}
                 showArchived={showArchived}
-                canMoveUp={idx > 0}
-                canMoveDown={idx < items.length - 1}
+                canMoveUp={!rankByItemId && idx > 0}
+                canMoveDown={!rankByItemId && idx < items.length - 1}
                 onMoveUp={() => handleItemMove(idx, 'up')}
                 onMoveDown={() => handleItemMove(idx, 'down')}
               />
