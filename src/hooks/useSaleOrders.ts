@@ -1005,6 +1005,15 @@ export function useCreateSOPayment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(variables.so_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      // A payment changes the invoice's payment_status (customer_invoices view).
+      // Detail is keyed ['customer-invoice', id] and list ['customer-invoices'] —
+      // different roots and no invoice id here — so refresh every invoice read.
+      queryClient.invalidateQueries({
+        predicate: (q) => {
+          const root = q.queryKey[0]
+          return root === 'customer-invoices' || root === 'customer-invoice' || root === 'invoices-by-so'
+        },
+      })
       logActivity({
         action:    'Payment Recorded',
         module:    'sale_orders',

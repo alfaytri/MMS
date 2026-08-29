@@ -3,12 +3,15 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Printer, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Printer, Loader2, RefreshCw, ShieldCheck, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCustomerInvoice } from '@/hooks/useCustomerInvoices'
 import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDelivery'
+import { useSaleOrder } from '@/hooks/useSaleOrders'
+import { useHasPermission } from '@/hooks/usePermissions'
+import { SoPaymentDialog } from '@/components/sales/SoPaymentDialog'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +34,14 @@ function InvoiceDetailContent() {
   const { data: invoice } = useCustomerInvoice(id)
 
   const paymentStatus = invoice?.payment_status ?? 'unpaid'
+
+  // Record-payment parity with the SO view: load the invoice's sale order and
+  // reuse SoPaymentDialog. Only SO-backed invoices (not contract/quotation) can
+  // record here — the dialog is SO-specific.
+  const canManagePayments = useHasPermission('sales.payments.manage')
+  const { data: saleOrder } = useSaleOrder(invoice?.sale_order_id ?? null)
+  const [paymentOpen, setPaymentOpen] = useState(false)
+  const canRecordPayment = canManagePayments && !!saleOrder && paymentStatus !== 'paid'
 
   // so_invoices doesn't carry sale_delivery_id directly (source is
   // 'sale_order' | 'contract' | 'quotation'), so we resolve via the invoice's
@@ -150,6 +161,12 @@ function InvoiceDetailContent() {
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {canRecordPayment && (
+            <Button size="sm" onClick={() => setPaymentOpen(true)}>
+              <Wallet className="h-3.5 w-3.5 mr-1.5" />
+              Record Payment
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -209,6 +226,10 @@ function InvoiceDetailContent() {
         )}
       </div>
 
+      {/* Record customer payment — reuses the SO view's dialog (S2 parity). */}
+      {saleOrder && (
+        <SoPaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} so={saleOrder} />
+      )}
     </div>
   )
 }
