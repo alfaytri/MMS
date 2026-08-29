@@ -114,6 +114,7 @@ export const NAV_ITEMS: NavEntry[] = [
         items: [
           { label: 'Custody',        href: '/warehouse/custody',        icon: 'HandCoins',     permission: 'custody.view' },
           { label: 'Consumption',    href: '/consumption',              icon: 'Flame',         permission: 'consumption.view' },
+          { label: 'Consumption Warranties', href: '/consumption/warranties', icon: 'ShieldCheck', permission: 'consumption.warranties.view' },
           { label: 'Damaged Stock',  href: '/warehouse/damaged-stock',  icon: 'AlertTriangle', permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },
           { label: 'Tools & Assets', href: '/warehouse/tools-assets',   icon: 'Wrench',        permission: 'tools.assets.view' },
           // Picture Transfer (v2) — picture-first Send/Receive for low-literacy

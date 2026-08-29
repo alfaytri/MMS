@@ -590,6 +590,8 @@ export const NAV_TREE: TreeNode[] = [
           { key: 'consumption.create.internal', label: 'Create Internal Consumption', description: 'Post consumption entries with an Internal (own-use) consumer' },
           { key: 'consumption.cross_division',  label: 'Book Consumption Cross-Division', description: 'Book a consumption to a custody location in ANY division (not just your own). Financial-oversight grant — Owner / Accountant by default. Enforced server-side.' },
           { key: 'consumption.cancel',          label: 'Cancel Consumption',          description: 'Cancel a posted consumption or approve a cancellation request (acts as .edit for this surface)' },
+          { key: 'consumption.warranties.view',        label: 'View Consumption Warranties',        description: 'Access the Consumption Warranties page (records + claims) for warranties auto-issued when items are consumed into a team / project custody' },
+          { key: 'consumption.warranty_claims.manage', label: 'Manage Consumption Warranty Claims', description: 'File, assess, and void warranty claims against consumption-sourced warranties (the consumption equivalent of the sales warranty-claims key)' },
         ],
       },
       {
