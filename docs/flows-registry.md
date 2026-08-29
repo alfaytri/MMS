@@ -540,7 +540,8 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Writes:** reverses the dispatch
 
 ### Issue Debit Note for PO Return
-- **Hook:** [`useCreateDebitNoteForReturn`](src/hooks/usePurchaseReturns.ts)
+- **Trigger:** `PoReturnsTab` (PO detail), and (parity P1) [`POReturnDetailDialog`](src/components/purchase/POReturnDetailDialog.tsx) from the standalone [`/purchase/returns`](src/app/(dashboard)/purchase/returns/page.tsx) — both for `supplier_confirmed`/`closed` returns without a note.
+- **Hook:** [`useCreateDebitNoteForReturn`](src/hooks/usePurchaseReturns.ts) — invalidates `purchaseReturns.all` (standalone list) + `.byPo` (PO tab) + `creditNotes.debitNotes`.
 - **Writes:** `debit_notes` + `debit_note_lines`
 
 ### Resolve Debit Note as Supplier Credit
@@ -716,7 +717,7 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 ## Sales Deliveries
 
 ### Create Delivery (from SO)
-- **Trigger:** `SoDeliveryDialog`
+- **Trigger:** `SoDeliveryDialog` — from the SO detail Deliveries tab, and (parity S1) from the standalone [`/sales/deliveries`](src/app/(dashboard)/sales/deliveries/page.tsx) "New Delivery" SO-picker.
 - **Hook:** [`useCreateDelivery`](src/hooks/useSaleOrders.ts)
 - **RPC:** `create_and_confirm_delivery`, `next_delivery_number`
 - **Writes:** `sale_deliveries` + lines, books stock movements
@@ -727,13 +728,13 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Hook:** [`useUpdateDelivery`](src/hooks/useSaleDeliveries.ts)
 
 ### Complete Delivery (confirm & book stock)
-- **Trigger:** `DeliveryDetailDialog`
+- **Trigger:** `DeliveryDetailDialog` → **Mark Delivered** (opens `DeliveryFormDialog`). Reachable from the SO detail view and (parity S1) the standalone [`/sales/deliveries`](src/app/(dashboard)/sales/deliveries/page.tsx) list.
 - **Hook:** [`useCompleteDelivery`](src/hooks/useSaleDeliveries.ts)
 - **RPC:** `complete_delivery_inventory`
 - **Writes:** deducts FIFO layers, allocates delivery number, status→`completed`
 
 ### Cancel Delivery
-- **Trigger:** `DeliveryDetailDialog`
+- **Trigger:** `DeliveryDetailDialog` → **Cancel Delivery** (inline confirm). Reachable from the SO detail view and (parity S1) the standalone [`/sales/deliveries`](src/app/(dashboard)/sales/deliveries/page.tsx) list.
 - **Hook:** [`useCancelDelivery`](src/hooks/useSaleDeliveries.ts)
 - **RPC:** `cancel_delivery_inventory`
 - **Writes:** restores stock, flips status
@@ -776,6 +777,7 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Trigger:** `CustomerPaymentDialog` / `PaymentFormDialog`
 - **Hook:** [`useCreateCustomerPayment`](src/hooks/useCustomerPayments.ts)
 - **Writes:** CPAY payment, recomputes `so_invoices.payment_status`
+- **SO-scoped path (live):** The SO detail Payments tab and (parity S2) the invoice detail page [`/sales/invoices/[id]`](src/app/(dashboard)/sales/invoices/[id]/page.tsx) record via [`SoPaymentDialog`](src/components/sales/SoPaymentDialog.tsx) → [`useCreateSOPayment`](src/hooks/useSaleOrders.ts) (CPAY insert with an overpayment guard). Its `onSuccess` invalidates the `saleOrders.*` reads **and** every customer-invoice read (roots `customer-invoices` / `customer-invoice` / `invoices-by-so`) so the payment-status badge refreshes on both surfaces. (`CustomerPaymentDialog` above is currently orphaned — see the PO/SO parity audit.)
 - **Notes:** When the source SO is in a foreign currency, `trg_payments_compute_fx`
   populates `payments.exchange_gain`/`exchange_loss` at insert (sign flipped
   vs supplier payments — customer gain = we received more QAR than booked).
