@@ -10,8 +10,10 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CategoryRow } from './CategoryRow'
 import { CategoryEditDialog } from './CategoryEditDialog'
+import { ItemSearchResults } from './ItemSearchResults'
 import { useUpdateSortOrders, useCategoryStockAggregates } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
+import { useInventorySearchIndex } from '@/hooks/useInventorySearchIndex'
 import { filterTree } from '@/lib/inventory/filterTree'
 import { reorderSiblings } from '@/lib/inventory/reorder'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
@@ -54,6 +56,30 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
   const updateCategoryOrder = useUpdateSortOrders('inventory_categories')
 
   const divisionFiltered = viewDivisionIds.size > 0
+
+  // When the search box has text, switch from the category tree to a flat,
+  // ranked results list that matches item name / brand / origin / code. The
+  // index query only runs while searching.
+  const searching = search.trim().length > 0
+  const searchIndex = useInventorySearchIndex(type, searching)
+  const categoryPathById = useMemo(() => {
+    const nameById = new Map(flat.map((c) => [c.id, c.name_en]))
+    const parentById = new Map(flat.map((c) => [c.id, c.parent_id ?? null]))
+    const paths = new Map<string, string>()
+    for (const c of flat) {
+      const chain: string[] = []
+      let cursor: string | null = c.id
+      let guard = 0
+      while (cursor && guard++ < 20) {
+        const nm = nameById.get(cursor)
+        if (!nm) break
+        chain.unshift(nm)
+        cursor = parentById.get(cursor) ?? null
+      }
+      paths.set(c.id, chain.join(' > '))
+    }
+    return paths
+  }, [flat])
 
   // When one or more divisions are selected in the nav bar, restrict the tree
   // to items shared with any of them. Empty selection ("All") = no filter.
@@ -143,9 +169,18 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Flat search results (item / brand / origin / code) OR the category tree */}
       <div className="flex-1 overflow-auto">
-        {isLoading ? (
+        {searching ? (
+          <ItemSearchResults
+            items={searchIndex.data ?? []}
+            search={search}
+            categoryType={type}
+            filterItemIds={filterItemIds}
+            categoryPathById={categoryPathById}
+            isLoading={searchIndex.isLoading}
+          />
+        ) : isLoading ? (
           <div className="p-4 space-y-2">
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full rounded" />)}
           </div>
@@ -198,7 +233,7 @@ export function ItemsListView({ type, enabled: _enabled }: Props) {
         )}
       </div>
 
-      {filtered.length > 0 && totalPages > 1 && (
+      {!searching && filtered.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground px-4 py-2 border-t border-border">
           <span>{filtered.length} categor{filtered.length !== 1 ? 'ies' : 'y'}</span>
           <div className="flex items-center gap-1.5">
