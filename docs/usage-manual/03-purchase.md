@@ -4,6 +4,8 @@ Buying goods follows one path from start to finish:
 
 **Supplier → Purchase Order → Approval → Receival → Bill**, with **Returns / Debit Notes** when something has to go back, and the **Aging Report** to keep track of what you owe.
 
+Alongside this core flow, **Shipments**, **Landed Costs**, and the **Dead Stock Report** help you track goods in transit, get item costs right, and spot stock that isn't moving.
+
 You'll find all of these under the **Purchase & Sales** menu.
 
 ## 3.1 Suppliers
@@ -104,3 +106,29 @@ Debit notes are usually raised from a purchase return and applied against the su
 Shows what you owe suppliers, grouped by how overdue it is (current, 30 / 60 / 90+ days). Use it to decide who to pay next and to spot overdue balances.
 
 ![The Purchase Aging Report.](assets/purchase-10-aging.png)
+
+## 3.9 Shipments
+
+**Purchase & Sales → Shipments**
+
+Track goods in transit from your suppliers. Add a shipment with its carrier tracking number and the system follows its progress automatically, so you can see where an incoming order is without chasing the supplier.
+
+![The Shipments page.](assets/purchase-11-shipments.png)
+
+## 3.10 Landed Costs
+
+**Purchase & Sales → Landed Costs**
+
+Freight, customs, and clearing charges usually arrive *after* the goods. A landed cost spreads those charges across the items on one or more receivals — in proportion to their value — so each item's stock cost reflects what it *really* cost to land, not just the supplier's price.
+
+![The Landed Costs page.](assets/purchase-12-landed-costs.png)
+
+Create a landed cost, attach the receival(s) it applies to, enter the total charge, and apply it. Units still in stock have their cost bumped up; units already sold get the extra cost booked to the P&L automatically.
+
+## 3.11 Dead Stock Report
+
+**Purchase & Sales → Dead Stock Report**
+
+Highlights stock that hasn't moved in a while — slow-moving and non-moving items tying up cash on the shelf. Use it to decide what to discount, return, or stop reordering.
+
+![The Dead Stock Report.](assets/purchase-13-dead-stock.png)
