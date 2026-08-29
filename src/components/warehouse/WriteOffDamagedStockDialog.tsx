@@ -23,6 +23,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useRequestDamagedWriteoff } from '@/hooks/useRequestDamagedWriteoff'
+import { ReasonSelect } from '@/components/shared/ReasonSelect'
 
 interface Props {
   open:            boolean
@@ -219,12 +220,12 @@ export function WriteOffDamagedStockDialog({
 
           <div className="space-y-2">
             <Label htmlFor="wof-reason">Reason *</Label>
-            <Input
+            <ReasonSelect
               id="wof-reason"
+              category="write_off"
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. unrepairable water damage, expired warranty"
-              className="w-full h-10"
+              onChange={setReason}
+              placeholder="Select a reason…"
             />
           </div>
 

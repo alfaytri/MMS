@@ -21,6 +21,7 @@ import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/use
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { ReasonSelect } from '@/components/shared/ReasonSelect'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -374,11 +375,11 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
             {/* Reason */}
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Reason *</Label>
-              <Input
-                className="h-9 text-xs"
-                placeholder="Reason for adjustment..."
+              <ReasonSelect
+                category="adjustment"
                 value={reason}
-                onChange={e => setReason(e.target.value)}
+                onChange={setReason}
+                placeholder="Select a reason…"
               />
             </div>
 
