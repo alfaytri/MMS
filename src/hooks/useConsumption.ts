@@ -184,6 +184,8 @@ export function useConsumptionList(filters: ConsumptionListFilters = {}) {
       return (data as unknown as RawRow[]).map(mapRow)
     },
     staleTime: 30 * 1000,
+    // Pick up changes on tab refocus without a manual refresh (no polling — quota rule).
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -226,6 +228,7 @@ export function useConsumption(id: string | null) {
       }
     },
     staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   })
 }
 
