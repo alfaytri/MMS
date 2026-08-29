@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { BrandCombobox } from './BrandCombobox'
 import { OriginCombobox } from './OriginCombobox'
 import { useCreateBrandVariant, useUpdateBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
+import { useAutoGenerateCodes } from '@/hooks/useAutoGenerateCodes'
 
 type Props = {
   open: boolean
@@ -50,6 +51,10 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant, fi
   const [brandId, setBrandId] = useState<string | null>(null)
   const [countryId, setCountryId] = useState<number | null>(null)
   const [code, setCode] = useState('')
+  // Admin toggle: ON hides the manual code box (system auto-generates every
+  // code); OFF (default) shows it for manual entry — a blank still auto-fills
+  // via the generate_brand_variant_sku trigger.
+  const { data: autoGenerateCodes = false } = useAutoGenerateCodes()
   const [sellingPrice, setSellingPrice] = useState('')
   const [reorderPoint, setReorderPoint] = useState('0')
   const [avgCost, setAvgCost] = useState('')
@@ -191,16 +196,25 @@ export function BrandVariantEditDialog({ open, onOpenChange, itemId, variant, fi
               </div>
             </div>
           )}
-          <div className="space-y-1">
-            <Label htmlFor="bv-sku">Code (optional)</Label>
-            <Input
-              id="bv-sku"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Auto-generated if blank"
-              className="font-mono"
-            />
-          </div>
+          {autoGenerateCodes ? (
+            <div className="space-y-1">
+              <Label>Code</Label>
+              <p className="text-xs text-muted-foreground font-mono">
+                {code ? code : 'Auto-generated on save'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor="bv-sku">Code</Label>
+              <Input
+                id="bv-sku"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Leave blank to auto-generate"
+                className="font-mono"
+              />
+            </div>
+          )}
           <div className="space-y-1">
             <Label htmlFor="bv-selling-price">Selling Price (QAR)</Label>
             <Input

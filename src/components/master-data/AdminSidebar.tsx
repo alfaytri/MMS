@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Users2,
   Wrench,
+  Hash,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -53,6 +54,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
   {
     label: 'Catalog & Pricing',
     items: [
+      { label: 'Item Codes',       href: '/master-data/admin/item-codes',      icon: Hash,       permission: 'master_data.admin.view' },
       { label: 'Credit Groups',    href: '/master-data/admin/credit-groups',   icon: CreditCard, permission: 'master_data.admin.view' },
       { label: 'Credit Group Approvals', href: '/master-data/admin/credit-group-approvals', icon: CheckSquare, permission: 'master_data.customers.view' },
     ],
