@@ -1,0 +1,300 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Alfaytri — Staff User Guide</title><style>
+  :root { --ink:#0F172A; --muted:#64748B; --accent:#F97316; --line:#E2E8F0; --tip:#FFF7ED; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--ink); line-height: 1.55; font-size: 11pt; margin: 0; }
+  section.chapter { page-break-before: always; }
+  h1 { font-size: 24pt; color: var(--accent); margin: 0 0 .4em; line-height: 1.15; }
+  h2 { font-size: 15pt; margin: 1.4em 0 .4em; padding-bottom: .2em; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 12.5pt; margin: 1.1em 0 .3em; color: var(--ink); }
+  p { margin: .5em 0; }
+  ul { margin: .5em 0; padding-left: 1.3em; }
+  li { margin: .25em 0; }
+  code { background: #F1F5F9; padding: .05em .35em; border-radius: 4px; font-family: "Cascadia Code", Consolas, monospace; font-size: .9em; }
+  strong { color: var(--ink); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 1.2em 0; }
+  blockquote { margin: .8em 0; padding: .7em 1em; background: var(--tip); border-radius: 8px; border: 1px solid #FED7AA; color: #7C2D12; }
+  blockquote strong { color: #7C2D12; }
+  figure { margin: 1em 0; break-inside: avoid; page-break-inside: avoid; }
+  img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  figcaption { font-size: 9.5pt; color: var(--muted); font-style: italic; margin-top: .4em; text-align: center; }
+  section.cover h1 { font-size: 30pt; margin-top: 1.2em; }
+  a { color: var(--accent); text-decoration: none; }
+</style></head><body><section class="cover"><h1>Alfaytri — Staff User Guide</h1>
+<p><strong>A practical, screen-by-screen guide to the Alfaytri inventory &amp; operations system.</strong></p>
+<hr/>
+<h2>How to use this guide</h2>
+<p>This guide is written for the people who use the system every day — not for developers. Each section follows the app's own menu, and every task is written as simple steps: <strong>where to go, what to click, what happens.</strong></p>
+<ul><li><strong>Menu paths</strong> are written like this: <strong>Purchase &amp; Sales → Purchase Orders → Create PO</strong>.</li><li><strong>Screenshots</strong> show you exactly what each screen looks like.</li><li><strong>"Who can do this"</strong> notes tell you when an action needs a specific permission. If you don't see a button described here, your role may not have that permission — ask your administrator.</li></ul>
+<h2>A few things that apply everywhere</h2>
+<ul><li><strong>Divisions:</strong> most records belong to a division (e.g. *AFM — Maintenance*). The <strong>All Divisions</strong> filter at the top right of every page lets you narrow what you're looking at to one division. What you can see and do is also limited by the divisions your account is allowed to access.</li><li><strong>Permissions:</strong> the menus and buttons you see depend on your role. Two people can open the same page and see different actions.</li><li><strong>Money:</strong> all amounts are in Qatari Riyal (<strong>QAR</strong>) and shown with thousands separators (e.g. <code>QAR 1,634,795.76</code>).</li><li><strong>Saving:</strong> actions that change data show a confirmation (a small toast message) when they succeed, and a clear red message if something goes wrong.</li></ul></section>
+<section class="chapter"><h1>1. Getting Started</h1>
+<h2>1.1 Logging in</h2>
+<p>Open the app in your browser and sign in with the <strong>Username</strong> and <strong>Password</strong> your administrator gave you. If your login doesn't work, contact your administrator — passwords are managed by them, not self-service.</p>
+<h2>1.2 Finding your way around</h2>
+<p>Every page shares the same top bar:</p>
+<figure><img src="assets/getting-started-01-dashboard.png" alt="The Dashboard — the first screen you see after logging in."/><figcaption>The Dashboard — the first screen you see after logging in.</figcaption></figure>
+<ul><li><strong>Alfaytri (top left)</strong> — click the logo any time to return to the Dashboard.</li><li><strong>The four menus</strong> — <strong>Master Data</strong>, <strong>Reports</strong>, <strong>Purchase &amp; Sales</strong>, and <strong>Operations</strong>. Hover or click a menu to open its list of pages. (You only see the menus and pages your role is allowed to open.)</li><li><strong>All Divisions (top right)</strong> — filter the whole app to a single division, or leave it on *All Divisions* to see everything you have access to.</li><li><strong>The bell</strong> — your notifications. A number badge means you have unread items (approvals waiting for you, deliveries due, etc.).</li><li><strong>Your initial (far right)</strong> — opens your account menu, where you can view your profile and sign out.</li></ul>
+<h2>1.3 The Dashboard</h2>
+<p>The Dashboard is your daily overview. It has three parts:</p>
+<p><strong>Operational cards (top row)</strong> — quick counts with a one-click jump to the full list:</p>
+<ul><li><strong>Open Purchase Orders</strong> — POs not yet fully received, with how many are waiting for approval.</li><li><strong>Open Sale Orders</strong> — active customer orders, with how many are waiting for approval.</li><li><strong>My Pending Approvals</strong> — items waiting for *you* to approve. "Action needed" means you're holding something up.</li><li><strong>Receivals This Week</strong> — incoming goods expected this week.</li><li><strong>Upcoming Deliveries</strong> — customer deliveries coming up.</li></ul>
+<p><strong>Financial Overview</strong> — money at a glance (this section is marked *Restricted*, so it only appears if your role can see financials):</p>
+<ul><li><strong>Money Coming In / Going Out</strong> — receivables and payables, with the overdue amount called out in red.</li><li><strong>Cash In / Cash Out (This Month)</strong> — actual cash movement, compared to last month.</li></ul>
+<p><strong>Monthly Trend</strong> — a 6-month bar chart of sales invoiced vs. purchases billed, plus <strong>Customers Overdue</strong> and <strong>Suppliers Overdue</strong> lists at the bottom so you can act on the most pressing accounts.</p>
+<blockquote><strong>Tip:</strong> the operational cards are the fastest way into your work — click <strong>Open Purchase Orders</strong> to jump straight to the PO list, <strong>My Pending Approvals</strong> to clear your approval queue, and so on.</blockquote>
+<h2>1.4 Your profile</h2>
+<p>Click your initial at the top right to open your account, where you can review your profile details and <strong>sign out</strong>.</p>
+<figure><img src="assets/getting-started-03-profile.png" alt="Your profile page."/><figcaption>Your profile page.</figcaption></figure></section>
+<section class="chapter"><h1>2. Master Data</h1>
+<p>Master Data is the foundation the rest of the system builds on — your item catalogue, warehouses, people, and the settings that control approvals, credit, and warranties. You'll set most of this up once and then maintain it as things change.</p>
+<h2>2.1 Inventory</h2>
+<p><strong>Master Data → Inventory</strong></p>
+<p>Your full product catalogue, organised as a category tree. Expand a category to see its items; expand an item to see its brand/origin variants with stock, cost, and selling price.</p>
+<figure><img src="assets/master-data-01-inventory.png" alt="The Inventory catalogue — categories, items, and brand/origin variants."/><figcaption>The Inventory catalogue — categories, items, and brand/origin variants.</figcaption></figure>
+<ul><li><strong>Browse</strong> by expanding the tree, or <strong>search</strong> to jump to an item.</li><li><strong>Item types</strong> are grouped (products, consumables, spare parts).</li><li>Each variant shows its <strong>origin</strong> (country), on-hand stock per division, average cost, and selling price.</li><li>Open an item to <strong>edit</strong> its details, add <strong>brands/origins</strong>, or start a <strong>receival</strong>.</li></ul>
+<blockquote><strong>Who can do this:</strong> viewing the catalogue needs *Inventory* view; seeing cost/price columns needs the pricing/cost permission (they're hidden otherwise).</blockquote>
+<h2>2.2 Warehouses</h2>
+<p><strong>Master Data → Warehouses</strong></p>
+<p>Your physical and virtual storage locations and their sub-containers (the division-specific pockets stock lives in).</p>
+<figure><img src="assets/master-data-02-warehouses.png" alt="The Warehouses page."/><figcaption>The Warehouses page.</figcaption></figure>
+<p>Use this to see stock value and movement per warehouse, and to manage sub-containers. Repair-vendor virtual warehouses (where items go while out for repair) also appear here.</p>
+<h2>2.3 Users &amp; Roles</h2>
+<p><strong>Master Data → Users &amp; Roles</strong></p>
+<p>Manage the people who use the system and what each of them can do.</p>
+<figure><img src="assets/master-data-03-users.png" alt="Users &amp; Roles."/><figcaption>Users &amp; Roles.</figcaption></figure>
+<ul><li><strong>Users</strong> — add a person, set their divisions, and assign a role.</li><li><strong>Roles</strong> — each role is a checklist of permissions. Tick a permission to grant it; untick to hide that page or action. This is where you'd grant, for example, <strong>Warranties</strong> view or <strong>Warranty Claims</strong> manage to the staff who handle warranties.</li></ul>
+<blockquote><strong>Who can do this:</strong> managing users and roles is an administrator function.</blockquote>
+<h2>2.4 Audit Trail</h2>
+<p><strong>Master Data → Audit Trail</strong></p>
+<p>A searchable history of who changed what and when — orders, approvals, stock movements, consumption, transfers, and more. Filter by module and page through the history to investigate a change.</p>
+<figure><img src="assets/master-data-04-audit-trail.png" alt="The Audit Trail."/><figcaption>The Audit Trail.</figcaption></figure>
+<h2>2.5 Admin</h2>
+<p><strong>Master Data → Admin</strong></p>
+<p>The settings area. A sidebar lists the configuration pages; changes here affect how the whole system behaves, so it's normally limited to administrators.</p>
+<figure><img src="assets/master-data-05-admin.png" alt="The Admin area."/><figcaption>The Admin area.</figcaption></figure>
+<p>The main settings pages:</p>
+<p><strong>Companies</strong> — your legal entities and their divisions (the divisions used everywhere else).</p>
+<figure><img src="assets/master-data-admin-companies.png" alt="Companies &amp; divisions."/><figcaption>Companies &amp; divisions.</figcaption></figure>
+<p><strong>Warranty Policies</strong> — the coverage templates (duration, what's covered) applied to items; this drives the warranties issued at delivery.</p>
+<figure><img src="assets/master-data-admin-warranty-policies.png" alt="Warranty policies."/><figcaption>Warranty policies.</figcaption></figure>
+<p><strong>Credit Groups</strong> — customer credit tiers and limits, and the approval needed to change them.</p>
+<figure><img src="assets/master-data-admin-credit-groups.png" alt="Credit groups."/><figcaption>Credit groups.</figcaption></figure>
+<p><strong>Approval Workflows</strong> — the value thresholds and approver chains for purchase and sale orders.</p>
+<figure><img src="assets/master-data-admin-approval-workflows.png" alt="Approval workflows."/><figcaption>Approval workflows.</figcaption></figure>
+<p>Other settings pages available here (screenshots kept in the asset library for reuse): <strong>Warehouses</strong>, <strong>Custody</strong>, <strong>Repair Vendors</strong>, <strong>Credit-Group Approvals</strong>, <strong>Reason Lists</strong>, <strong>Payment Methods</strong>, <strong>Currencies</strong>, <strong>Country Codes</strong>, and <strong>Approval Settings</strong>.</p></section>
+<section class="chapter"><h1>3. Purchase</h1>
+<p>Buying goods follows one path from start to finish:</p>
+<p><strong>Supplier → Purchase Order → Approval → Receival → Bill</strong>, with <strong>Returns / Debit Notes</strong> when something has to go back, and the <strong>Aging Report</strong> to keep track of what you owe.</p>
+<p>Alongside this core flow, <strong>Shipments</strong>, <strong>Landed Costs</strong>, and the <strong>Dead Stock Report</strong> help you track goods in transit, get item costs right, and spot stock that isn't moving.</p>
+<p>You'll find all of these under the <strong>Purchase &amp; Sales</strong> menu.</p>
+<h2>3.1 Suppliers</h2>
+<p><strong>Purchase &amp; Sales → Suppliers</strong></p>
+<p>Your list of vendors. Add a supplier here before you can raise a purchase order to them.</p>
+<figure><img src="assets/purchase-01-suppliers.png" alt="The Suppliers list."/><figcaption>The Suppliers list.</figcaption></figure>
+<p>To add one, click <strong>Add Supplier</strong>, fill in the name and contact details (phone uses the country-code selector), and save. Existing suppliers can be opened to edit their details or review their history.</p>
+<figure><img src="assets/md-dlg-new-supplier.png" alt="Adding a supplier."/><figcaption>Adding a supplier.</figcaption></figure>
+<h2>3.2 Purchase Orders</h2>
+<p><strong>Purchase &amp; Sales → Purchase Orders</strong></p>
+<p>The heart of buying. The top cards summarise everything: <strong>Total POs</strong>, <strong>Pending Approval</strong>, <strong>In Receival</strong>, and <strong>Total Value</strong>. The tabs (<strong>All / RFQ / Draft / Confirmed</strong>) and the filter row (search, status, supplier, date range, receival, payment) help you find a specific order.</p>
+<figure><img src="assets/purchase-02-orders.png" alt="The Purchase Orders list, with summary cards, status tabs, and filters."/><figcaption>The Purchase Orders list, with summary cards, status tabs, and filters.</figcaption></figure>
+<p>Each row shows the PO number, supplier, division, date, item count, total, <strong>status</strong>, and a <strong>receival progress bar</strong> (e.g. <code>50/155</code> means 50 of 155 units received).</p>
+<p><strong>A purchase order moves through these statuses:</strong></p>
+<ul><li><strong>Draft</strong> — being prepared; not yet sent for anything.</li><li><strong>RFQ</strong> — a request for quotation sent to the supplier.</li><li><strong>Pending approval</strong> — submitted and waiting for an approver (see 3.3).</li><li><strong>Confirmed</strong> — approved and active; ready to receive against.</li><li><strong>Partially received / Received</strong> — goods are coming in (tracked by the progress bar).</li><li><strong>Cancelled</strong> — voided.</li></ul>
+<p>Click any row to open the <strong>PO detail</strong> — line items, receival progress, payments, and the actions available for its status.</p>
+<figure><img src="assets/purchase-dlg-po-detail.png" alt="A purchase order's detail."/><figcaption>A purchase order's detail.</figcaption></figure>
+<p><strong>To create a purchase order:</strong> click <strong>Create PO</strong> (top right), choose the supplier and division, add item lines with quantities and prices, choose a payment term, and either save as <strong>Draft</strong> or <strong>Submit for Approval</strong>. Once approved and confirmed, you receive against it and then bill it.</p>
+<blockquote><strong>Who can do this:</strong> creating and submitting POs needs the *Purchase Orders* permission; the <strong>Create Bill</strong> shortcut on a received PO needs the *Bills* permission.</blockquote>
+<h2>3.3 Approvals</h2>
+<p><strong>Purchase &amp; Sales → Approvals</strong></p>
+<p>POs above a value threshold need sign-off before they become active. This page lists everything waiting on an approver.</p>
+<figure><img src="assets/purchase-05-approvals.png" alt="The Purchase Approvals queue."/><figcaption>The Purchase Approvals queue.</figcaption></figure>
+<p>Open an item to review it, then <strong>Approve</strong> or <strong>Reject</strong> (a rejection asks for a reason). Approved POs become <strong>Confirmed</strong>; rejected ones go back to the buyer.</p>
+<h2>3.4 Receivals</h2>
+<p><strong>Purchase &amp; Sales → Receivals</strong></p>
+<p>Record goods physically arriving against a confirmed PO. This is what moves stock into your warehouse and drives the PO's receival progress bar.</p>
+<figure><img src="assets/purchase-06-receivals.png" alt="The Receivals page."/><figcaption>The Receivals page.</figcaption></figure>
+<p>Create a receival against a PO, enter the quantities actually received (you can receive partially, more than once, until the PO is complete), and confirm. Received stock becomes available in inventory at its landed cost.</p>
+<figure><img src="assets/purchase-dlg-receival-detail.png" alt="A receival's detail."/><figcaption>A receival's detail.</figcaption></figure>
+<h2>3.5 Bills</h2>
+<p><strong>Purchase &amp; Sales → Bills</strong></p>
+<p>The supplier's invoice to you. A bill records what you owe and feeds the <strong>Money Going Out</strong> and <strong>Accounts Payable</strong> figures.</p>
+<figure><img src="assets/purchase-07-bills.png" alt="The Bills list."/><figcaption>The Bills list.</figcaption></figure>
+<p>Create a bill from a received PO (or from the <strong>Create Bill</strong> shortcut on the PO list), match it to the received quantities, and record payments against it over time. Outstanding bills appear in the Aging Report (3.8).</p>
+<h2>3.6 Returns</h2>
+<p><strong>Purchase &amp; Sales → Returns</strong></p>
+<p>When goods have to go back to the supplier, raise a purchase return.</p>
+<figure><img src="assets/purchase-08-returns.png" alt="The Purchase Returns list."/><figcaption>The Purchase Returns list.</figcaption></figure>
+<p>A return records the items and quantities going back and links to the original PO. It pairs with a <strong>Debit Note</strong> (3.7) to adjust what you owe the supplier.</p>
+<h2>3.7 Debit Notes</h2>
+<p><strong>Purchase &amp; Sales → Debit Notes</strong></p>
+<p>The financial side of a supplier return — a debit note reduces what you owe for the returned goods.</p>
+<figure><img src="assets/purchase-09-debit-notes.png" alt="The Debit Notes list."/><figcaption>The Debit Notes list.</figcaption></figure>
+<p>Debit notes are usually raised from a purchase return and applied against the supplier's outstanding bills.</p>
+<h2>3.8 Aging Report</h2>
+<p><strong>Purchase &amp; Sales → Aging Report</strong></p>
+<p>Shows what you owe suppliers, grouped by how overdue it is (current, 30 / 60 / 90+ days). Use it to decide who to pay next and to spot overdue balances.</p>
+<figure><img src="assets/purchase-10-aging.png" alt="The Purchase Aging Report."/><figcaption>The Purchase Aging Report.</figcaption></figure>
+<h2>3.9 Shipments</h2>
+<p><strong>Purchase &amp; Sales → Shipments</strong></p>
+<p>Track goods in transit from your suppliers. Add a shipment with its carrier tracking number and the system follows its progress automatically, so you can see where an incoming order is without chasing the supplier.</p>
+<figure><img src="assets/purchase-11-shipments.png" alt="The Shipments page."/><figcaption>The Shipments page.</figcaption></figure>
+<h2>3.10 Landed Costs</h2>
+<p><strong>Purchase &amp; Sales → Landed Costs</strong></p>
+<p>Freight, customs, and clearing charges usually arrive *after* the goods. A landed cost spreads those charges across the items on one or more receivals — in proportion to their value — so each item's stock cost reflects what it *really* cost to land, not just the supplier's price.</p>
+<figure><img src="assets/purchase-12-landed-costs.png" alt="The Landed Costs page."/><figcaption>The Landed Costs page.</figcaption></figure>
+<p>Create a landed cost, attach the receival(s) it applies to, enter the total charge, and apply it. Units still in stock have their cost bumped up; units already sold get the extra cost booked to the P&amp;L automatically.</p>
+<h2>3.11 Dead Stock Report</h2>
+<p><strong>Purchase &amp; Sales → Dead Stock Report</strong></p>
+<p>Highlights stock that hasn't moved in a while — slow-moving and non-moving items tying up cash on the shelf. Use it to decide what to discount, return, or stop reordering.</p>
+<figure><img src="assets/purchase-13-dead-stock.png" alt="The Dead Stock Report."/><figcaption>The Dead Stock Report.</figcaption></figure></section>
+<section class="chapter"><h1>4. Sales</h1>
+<p>Selling follows one path, mirroring Purchase:</p>
+<p><strong>Customer → Sale Order → Approval → Delivery → Invoice</strong>, with <strong>Returns / Credit Notes</strong> when goods come back, <strong>Warranties</strong> issued automatically on delivery (and <strong>Claims</strong> when a customer reports a fault), and <strong>Customer Statement / Aging</strong> to track what you're owed.</p>
+<p>Everything is under the <strong>Purchase &amp; Sales</strong> menu.</p>
+<h2>4.1 Customers</h2>
+<p><strong>Purchase &amp; Sales → Customers</strong></p>
+<p>Your client list, including their credit group and contact details.</p>
+<figure><img src="assets/sales-01-customers.png" alt="The Customers list."/><figcaption>The Customers list.</figcaption></figure>
+<p>Add a customer before raising a sale order to them. A customer's <strong>credit group</strong> sets their credit limit — orders that would push them over the limit are diverted to approval (see 4.3). Changing a customer's credit group to a higher-limit tier needs its own approval.</p>
+<figure><img src="assets/md-dlg-new-customer.png" alt="Adding a customer."/><figcaption>Adding a customer.</figcaption></figure>
+<h2>4.2 Sale Orders</h2>
+<p><strong>Purchase &amp; Sales → Sale Orders</strong></p>
+<p>Where customer orders live, from quotation through to delivery. Summary cards and filters work just like the Purchase Orders page.</p>
+<figure><img src="assets/sales-02-orders.png" alt="The Sale Orders list."/><figcaption>The Sale Orders list.</figcaption></figure>
+<p><strong>A sale order moves through:</strong> draft/quotation → <strong>pending approval</strong> (if over the customer's credit limit or a value threshold) → <strong>confirmed</strong> → <strong>delivered</strong> → <strong>invoiced</strong>.</p>
+<p>Click any row to open the <strong>SO detail</strong> — line items, delivery progress, payments, invoices, and the status-appropriate actions.</p>
+<figure><img src="assets/sales-dlg-so-detail.png" alt="A sale order's detail."/><figcaption>A sale order's detail.</figcaption></figure>
+<p><strong>To create an order:</strong> click <strong>Create Sale Order</strong>, choose the customer and division, add item lines with quantities and prices, and submit. If the customer is within their credit limit it confirms directly; if not, it's sent for approval automatically. Once confirmed you raise a <strong>delivery</strong>, and invoicing follows.</p>
+<blockquote><strong>Who can do this:</strong> creating and confirming SOs needs the *Sale Orders* permission. Confirming an over-limit order always routes through credit approval — it can't be forced through directly.</blockquote>
+<h2>4.3 Approvals</h2>
+<p><strong>Purchase &amp; Sales → Approvals</strong></p>
+<p>Sale orders waiting for sign-off — typically because they exceed a value threshold or the customer's credit limit.</p>
+<figure><img src="assets/sales-03-approvals.png" alt="The Sales Approvals queue."/><figcaption>The Sales Approvals queue.</figcaption></figure>
+<p>Open an item, review it, and <strong>Approve</strong> or <strong>Reject</strong> (rejection needs a reason).</p>
+<h2>4.4 SO Invoices</h2>
+<p><strong>Purchase &amp; Sales → SO Invoices</strong></p>
+<p>Invoices raised from delivered sale orders. This drives <strong>Money Coming In</strong> and <strong>Accounts Receivable</strong>.</p>
+<figure><img src="assets/sales-04-invoices.png" alt="The Invoices list."/><figcaption>The Invoices list.</figcaption></figure>
+<p>Open an invoice to view it, download the PDF, and record customer payments against it over time. Outstanding invoices appear in the Aging Report (4.10) and the Customer Statement (4.9).</p>
+<h2>4.5 Deliveries</h2>
+<p><strong>Purchase &amp; Sales → Deliveries</strong></p>
+<p>Records goods handed to the customer. Completing a delivery deducts stock and is what triggers <strong>invoicing</strong> and <strong>warranty issuance</strong>.</p>
+<figure><img src="assets/sales-07-deliveries.png" alt="The Deliveries list."/><figcaption>The Deliveries list.</figcaption></figure>
+<p><strong>To deliver:</strong> open a confirmed order's delivery, confirm the quantities delivered, and mark it delivered. If any delivered item carries a warranty policy, its <strong>warranty certificate opens automatically</strong> so you can print/hand it to the customer (there's also a manual <strong>Print Warranty Certificate</strong> button on the delivery).</p>
+<figure><img src="assets/sales-dlg-delivery-detail.png" alt="A delivery's detail, with the warranty-certificate action."/><figcaption>A delivery's detail, with the warranty-certificate action.</figcaption></figure>
+<h2>4.6 Returns</h2>
+<p><strong>Purchase &amp; Sales → Returns</strong></p>
+<p>When a customer sends goods back. A return records the items and quantities, goes through inspection, and resolves as a <strong>refund</strong>, <strong>replacement</strong>, or <strong>store credit</strong> — with damaged units optionally sent for repair or written off.</p>
+<figure><img src="assets/sales-05-returns.png" alt="The Sale Returns list."/><figcaption>The Sale Returns list.</figcaption></figure>
+<p>A return created from a <strong>warranty claim</strong> shows a banner linking back to the claim and the warranty's remaining coverage.</p>
+<h2>4.7 Credit Notes</h2>
+<p><strong>Purchase &amp; Sales → Credit Notes</strong></p>
+<p>The financial side of a customer return or an invoice adjustment — a credit note reduces what the customer owes and can be applied against their invoices.</p>
+<figure><img src="assets/sales-08-credit-notes.png" alt="The Credit Notes list."/><figcaption>The Credit Notes list.</figcaption></figure>
+<p>Open one to see its detail — the amount, its source, and how it's been applied or redeemed.</p>
+<figure><img src="assets/sales-dlg-credit-note-detail.png" alt="A credit note's detail."/><figcaption>A credit note's detail.</figcaption></figure>
+<h2>4.8 Warranties &amp; Claims</h2>
+<p><strong>Purchase &amp; Sales → Warranties</strong></p>
+<p>Every warranty-covered item creates a <strong>warranty record</strong> automatically when its delivery is completed. This page is the register of all issued warranties, plus the <strong>Claims</strong> workflow.</p>
+<figure><img src="assets/sales-06-warranties.png" alt="The Warranties register."/><figcaption>The Warranties register.</figcaption></figure>
+<p><strong>Records tab</strong> — every issued warranty: warranty number, item, coverage, start/end dates, country of <strong>origin</strong>, and <strong>how many units are still covered</strong> (a warranty can be claimed in parts). Open one to see its full detail and to <strong>File a claim</strong>.</p>
+<figure><img src="assets/sales-dlg-warranty-record.png" alt="A warranty record's detail, with the File-a-claim action."/><figcaption>A warranty record's detail, with the File-a-claim action.</figcaption></figure>
+<p><strong>Claims tab</strong> — the full claim lifecycle for sale warranties:</p>
+<p>1. <strong>File a claim</strong> from a warranty record — enter the <strong>quantity</strong> being claimed (up to what's still covered) and describe the issue. 2. <strong>Assess</strong> the claim — <strong>Cover</strong> it or <strong>Reject</strong> it (a rejection needs a reason). Rejecting frees those units back to the warranty. 3. <strong>Start resolution</strong> on a covered claim — this creates a <strong>warranty return</strong> for the claimed quantity, which you then resolve in the Returns page (inspection → refund / replacement / store credit). 4. The claim <strong>auto-resolves</strong> once that return is completed, showing the resolution type and any linked credit note. 5. <strong>Void</strong> — a claim filed in error can be voided (with a reason) at any point before it's resolved; if it already created a return, voiding cancels that return too (as long as it hasn't been processed).</p>
+<figure><img src="assets/sales-dlg-claim-detail.png" alt="A warranty claim's detail — status, claimed qty, remaining coverage, and the status-appropriate actions."/><figcaption>A warranty claim's detail — status, claimed qty, remaining coverage, and the status-appropriate actions.</figcaption></figure>
+<blockquote><strong>Who can do this:</strong> viewing warranties needs *Warranties* view; filing/assessing/resolving/voiding claims needs *Warranty Claims* manage. Sending a unit for repair alone does <strong>not</strong> resolve a claim — a customer outcome (refund/replacement/credit) does.</blockquote>
+<h2>4.9 Customer Statement</h2>
+<p><strong>Purchase &amp; Sales → Customer Statement</strong></p>
+<p>A per-customer ledger of invoices, payments, credit notes, and running balance. Pick a customer to see their statement and download it.</p>
+<figure><img src="assets/sales-09-customer-statement.png" alt="The Customer Statement page."/><figcaption>The Customer Statement page.</figcaption></figure>
+<h2>4.10 Aging Report</h2>
+<p><strong>Purchase &amp; Sales → Aging Report</strong></p>
+<p>What customers owe you, grouped by how overdue it is (current, 30 / 60 / 90+ days). Use it to chase overdue balances.</p>
+<figure><img src="assets/sales-10-aging.png" alt="The Sales Aging Report."/><figcaption>The Sales Aging Report.</figcaption></figure></section>
+<section class="chapter"><h1>5. Operations</h1>
+<p>Operations covers what happens to stock day to day inside the business — items handed to teams, items consumed on jobs, damaged stock, tools and assets, and a simple picture-based transfer tool for warehouse staff.</p>
+<p>All of these are under the <strong>Operations</strong> menu.</p>
+<h2>5.1 Custody</h2>
+<p><strong>Operations → Custody</strong></p>
+<p>Tracks stock handed to a team or person (custody), separate from warehouse stock. Use it to see who is holding what, and to move or return items.</p>
+<figure><img src="assets/operations-01-custody.png" alt="The Custody page."/><figcaption>The Custody page.</figcaption></figure>
+<ul><li><strong>Assign / move</strong> stock into a team's custody.</li><li><strong>Return</strong> stock from custody back to a warehouse.</li><li>Team-item consumption (below) draws from custody holdings.</li></ul>
+<h2>5.2 Consumption</h2>
+<p><strong>Operations → Consumption</strong></p>
+<p>Records stock used up on service jobs — the items leave inventory and their cost posts to the job/P&amp;L. There are two tabs:</p>
+<figure><img src="assets/operations-02-consumption.png" alt="The Consumption page."/><figcaption>The Consumption page.</figcaption></figure>
+<ul><li><strong>Service items</strong> — general consumables used on a service.</li><li><strong>Team items</strong> — items consumed from a specific team's custody.</li></ul>
+<p><strong>To record consumption:</strong> click <strong>New Consumption</strong>, choose the mode, pick the item(s) and quantities and the source, and save. (This is also how service warranty work is currently recorded — as consumption.)</p>
+<figure><img src="assets/ops-dlg-new-consumption.png" alt="Recording a new consumption."/><figcaption>Recording a new consumption.</figcaption></figure>
+<h2>5.3 Damaged Stock</h2>
+<p><strong>Operations → Damaged Stock</strong></p>
+<p>Stock set aside as damaged — either on hand (awaiting a decision) or out for repair with a vendor.</p>
+<figure><img src="assets/operations-03-damaged-stock.png" alt="The Damaged Stock page."/><figcaption>The Damaged Stock page.</figcaption></figure>
+<p>From here damaged units can be written off, restocked, or sent to a repair vendor and later returned (usable) or scrapped.</p>
+<h2>5.4 Tools &amp; Assets</h2>
+<p><strong>Operations → Tools &amp; Assets</strong></p>
+<p>Serial-tracked tools and equipment (as opposed to consumable stock). Each unit has a lifecycle — New / Used / Repaired — and a custody trail.</p>
+<figure><img src="assets/operations-04-tools-assets.png" alt="The Tools &amp; Assets hub."/><figcaption>The Tools &amp; Assets hub.</figcaption></figure>
+<ul><li>Assign a tool to a team and return it later.</li><li>Run <strong>condition checks</strong> (Good / Bad / Repair) and monthly check sessions.</li><li>Send a tool for repair (to a vendor bucket) and bring it back as repaired, or scrap it (which retires it and posts its cost to the P&amp;L "Scrap &amp; Defective" line).</li></ul>
+<h2>5.5 Picture Transfer</h2>
+<p><strong>Operations → Picture Transfer</strong></p>
+<p>A simplified, picture-first Send / Receive tool designed for warehouse staff who need a fast visual way to move stock between locations without navigating the full transfer screens.</p>
+<figure><img src="assets/operations-05-picture-transfer.png" alt="The Picture Transfer page."/><figcaption>The Picture Transfer page.</figcaption></figure></section>
+<section class="chapter"><h1>6. Reports</h1>
+<p>The Reports menu is where the numbers come together — financial health, what each product earns, and where cash sits. Most reports let you filter by division and date range, and export to Excel.</p>
+<blockquote><strong>Who can do this:</strong> each report has its own view permission, and the financial figures are hidden from roles without the relevant cost/financial permission.</blockquote>
+<h2>6.1 Financial Dashboard</h2>
+<p><strong>Reports → Financial Dashboard</strong></p>
+<p>A one-screen financial snapshot — income vs. expense, cash position, and headline figures — for a chosen period.</p>
+<figure><img src="assets/reports-01-dashboard.png" alt="The Financial Dashboard."/><figcaption>The Financial Dashboard.</figcaption></figure>
+<h2>6.2 Product Profitability</h2>
+<p><strong>Reports → Product Profitability</strong></p>
+<p>What each product (or category) actually earns: revenue, cost of goods sold, and margin. Drill in to see the contribution of individual items. Use it to spot your best and worst performers.</p>
+<figure><img src="assets/reports-02-product-profitability.png" alt="Product Profitability."/><figcaption>Product Profitability.</figcaption></figure>
+<h2>6.3 Product Cost</h2>
+<p><strong>Reports → Product Cost</strong></p>
+<p>The current cost picture per item — useful for checking landed cost and pricing decisions.</p>
+<figure><img src="assets/reports-03-product-cost.png" alt="Product Cost."/><figcaption>Product Cost.</figcaption></figure>
+<h2>6.4 Revenue &amp; COGS</h2>
+<p><strong>Reports → Revenue &amp; COGS</strong></p>
+<p>Sales revenue against cost of goods sold over the period — the top of the profit calculation, broken down so you can see what's driving it.</p>
+<figure><img src="assets/reports-04-revenue-cogs.png" alt="Revenue &amp; COGS."/><figcaption>Revenue &amp; COGS.</figcaption></figure>
+<h2>6.5 Accounts Receivable</h2>
+<p><strong>Reports → Accounts Receivable</strong></p>
+<p>Everything customers owe you, aged by how overdue it is. This is the money-in side; pair it with the Sales Aging Report to chase payment.</p>
+<figure><img src="assets/reports-05-receivables.png" alt="Accounts Receivable."/><figcaption>Accounts Receivable.</figcaption></figure>
+<h2>6.6 Accounts Payable</h2>
+<p><strong>Reports → Accounts Payable</strong></p>
+<p>Everything you owe suppliers, aged the same way — the money-out side. Use it to plan payments.</p>
+<figure><img src="assets/reports-06-payables.png" alt="Accounts Payable."/><figcaption>Accounts Payable.</figcaption></figure>
+<h2>6.7 Cash &amp; Cash Equivalents</h2>
+<p><strong>Reports → Cash &amp; Cash Equivalents</strong></p>
+<p>Where your cash actually is and how it has moved — actual receipts and payments, as opposed to invoiced/billed amounts.</p>
+<figure><img src="assets/reports-07-cash.png" alt="Cash &amp; Cash Equivalents."/><figcaption>Cash &amp; Cash Equivalents.</figcaption></figure>
+<h2>6.8 Profit &amp; Loss</h2>
+<p><strong>Reports → Profit &amp; Loss</strong></p>
+<p>The full P&amp;L for the period: revenue, cost of goods sold (including retroactive landed cost and consumption), expenses, and the resulting profit — division-scoped, with drill-downs into each line.</p>
+<figure><img src="assets/reports-08-profit-loss.png" alt="Profit &amp; Loss."/><figcaption>Profit &amp; Loss.</figcaption></figure>
+<h2>6.9 Consumption</h2>
+<p><strong>Reports → Consumption</strong></p>
+<p>What has been consumed on jobs over the period and its cost — the reporting view of the Operations → Consumption activity.</p>
+<figure><img src="assets/reports-09-consumption.png" alt="The Consumption report."/><figcaption>The Consumption report.</figcaption></figure></section>
+<section class="chapter"><h1>7. Common Tasks &amp; Troubleshooting</h1>
+<p>A quick "how do I…" index, then what to do when something is blocked.</p>
+<h2>7.1 How do I…? — quick index</h2>
+<p>Menu paths follow the app's own menus. If a page or button below isn't visible to you, your role probably doesn't have that permission — <strong>ask your administrator</strong>.</p>
+<p><strong>Inventory &amp; stock</strong></p>
+<ul><li><strong>Add a new item, category, or brand</strong> — Master Data → Inventory</li><li><strong>Check how much stock I have (by division)</strong> — Master Data → Inventory (use the <strong>All Divisions</strong> filter at the top right)</li><li><strong>Add or correct stock</strong> (found / lost / damaged / write-off) — Master Data → Warehouses → Adjustments</li><li><strong>Move stock between warehouses</strong> — Master Data → Warehouses → Transfers</li><li><strong>Do a stock count / inventory check</strong> — Master Data → Warehouses → Inventory Check</li><li><strong>See slow-moving / dead stock</strong> — Purchase &amp; Sales → Dead Stock Report</li></ul>
+<p><strong>Purchasing</strong></p>
+<ul><li><strong>Add a supplier</strong> — Purchase &amp; Sales → Suppliers</li><li><strong>Raise a purchase order</strong> — Purchase &amp; Sales → Purchase Orders → New PO</li><li><strong>Approve a PO waiting on me</strong> — Purchase &amp; Sales → Approvals (or the Dashboard's *My Pending Approvals*)</li><li><strong>Receive delivered goods</strong> — Purchase &amp; Sales → Receivals</li><li><strong>Add freight / customs to received goods</strong> — Purchase &amp; Sales → Landed Costs</li><li><strong>Record a supplier bill and pay it</strong> — Purchase &amp; Sales → Bills</li><li><strong>Return goods to a supplier / raise a debit note</strong> — Purchase &amp; Sales → Returns / Debit Notes</li><li><strong>Track an incoming shipment</strong> — Purchase &amp; Sales → Shipments</li><li><strong>See what we owe suppliers</strong> — Purchase &amp; Sales → Aging Report (or Reports → Accounts Payable)</li></ul>
+<p><strong>Sales</strong></p>
+<ul><li><strong>Add a customer</strong> — Purchase &amp; Sales → Customers</li><li><strong>Create a sale order</strong> (with its quotation lines) — Purchase &amp; Sales → Sale Orders → New SO</li><li><strong>Invoice a sale</strong> — Purchase &amp; Sales → SO Invoices</li><li><strong>Deliver goods to a customer</strong> — Purchase &amp; Sales → Deliveries</li><li><strong>Record a customer payment</strong> — Purchase &amp; Sales → SO Invoices (open the invoice → record payment)</li><li><strong>Handle a customer return / credit note</strong> — Purchase &amp; Sales → Returns / Credit Notes</li><li><strong>Print a customer's statement</strong> — Purchase &amp; Sales → Customer Statement</li><li><strong>See what customers owe us</strong> — Purchase &amp; Sales → Aging Report (or Reports → Accounts Receivable)</li></ul>
+<p><strong>Operations</strong></p>
+<ul><li><strong>Hand stock to a team / van / project</strong> — Operations → Custody</li><li><strong>Issue stock for internal use or a project</strong> — Operations → Consumption</li><li><strong>Send damaged stock for repair, or write it off</strong> — Operations → Damaged Stock</li><li><strong>Manage tools &amp; assets</strong> — Operations → Tools &amp; Assets</li></ul>
+<p><strong>People &amp; settings</strong> *(administrator)*</p>
+<ul><li><strong>Add a user, or change a role's permissions</strong> — Master Data → Users &amp; Roles</li><li><strong>Edit the reason pick-lists</strong> (adjustments, write-offs, cancellations) — Master Data → Admin → Reason Lists</li><li><strong>Set up approval chains, credit groups, currencies, etc.</strong> — Master Data → Admin</li><li><strong>See who did what</strong> — Master Data → Audit Trail</li></ul>
+<h2>7.2 When something's blocked</h2>
+<ul><li><strong>A PO or SO is stuck on "Pending Approval."</strong> Its value is above your approval tier, so it's waiting for an approver. Check <strong>Approvals</strong> to see who it's with and ask that person — approvers find it under the Dashboard's *My Pending Approvals*.</li><li><strong>"Credit limit exceeded" when confirming a sale.</strong> The customer is over their credit group's limit. Take a payment to bring the balance down, or request a credit-group change (which itself needs approval).</li><li><strong>An item shows stock on hand but "0 available."</strong> Those units are <strong>reserved by a pending transfer</strong> — spoken for, but not yet moved. Complete or cancel that transfer to free them.</li><li><strong>A menu or button described here isn't there.</strong> Your role doesn't have that permission — ask your administrator to grant it.</li><li><strong>A full-screen "no division" message after login.</strong> Your account isn't assigned to any division yet. Use the <strong>Notify administrator</strong> button on that screen and they'll assign you.</li><li><strong>"Permission denied … pricing" when editing a cost or price.</strong> Changing prices needs a specific permission — ask your administrator for it.</li><li><strong>Your login doesn't work.</strong> Passwords are managed by the administrator, not self-service — ask them to reset it.</li><li><strong>You received fewer units than were dispatched on a transfer.</strong> The difference is shrinkage/loss; record the shortfall with a reason when you receive the transfer.</li><li><strong>A number looks stale right after you saved.</strong> The on-screen figure hadn't refreshed — reload the page; if it's still wrong, tell your administrator.</li></ul>
+<h2>7.3 Who to ask</h2>
+<ul><li><strong>Your administrator</strong> — passwords, new accounts, permissions, roles, division access, and anything that "isn't showing up."</li><li><strong>The approver in the chain</strong> — a PO or SO stuck in approval (the Approvals page shows who it's waiting on).</li><li><strong>Accounts / finance</strong> — credit limits, customer and supplier balances, and payment questions.</li></ul>
+<blockquote><strong>Tip:</strong> the Dashboard is the fastest starting point every morning — its cards jump you straight to open POs, open SOs, and your pending approvals.</blockquote></section></body></html>
