@@ -2,16 +2,21 @@
 
 import { useState, useMemo } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Truck, CheckCircle2, Clock, Package } from 'lucide-react'
+import { Truck, CheckCircle2, Clock, Package, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { useSaleDeliveries, type SaleDelivery, type DeliveryStatus } from '@/hooks/useSaleDeliveries'
+import { useSaleOrders, type SaleOrder } from '@/hooks/useSaleOrders'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { DeliveryDetailDialog } from '@/components/sales/DeliveryDetailDialog'
+import { SoDeliveryDialog } from '@/components/sales/SoDeliveryDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; className: string }> = {
@@ -32,8 +37,13 @@ const STATUSES: { value: DeliveryStatus | ''; label: string }[] = [
 export default function DeliveriesPage() {
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | ''>('')
   const [detailDelivery, setDetailDelivery] = useState<SaleDelivery | null>(null)
+  const [soPickerOpen, setSoPickerOpen] = useState(false)
+  const [pickedSo, setPickedSo] = useState<SaleOrder | null>(null)
 
   const { data: deliveries, isLoading } = useSaleDeliveries({ status: statusFilter })
+  // Sale orders that still have stock left to ship — the source list for a new
+  // delivery (mirrors the returns page's SO picker).
+  const { data: deliverableSOs = [] } = useSaleOrders({ statuses: ['confirmed', 'partial_delivery'] })
 
   // Scope deliveries to the active division via their sale order's division
   // (mirrors sales/returns). No active division / unknown division → show.
@@ -130,7 +140,15 @@ export default function DeliveriesPage() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Deliveries" description="Sale order fulfilment tracking" />
+      <PageHeader
+        title="Deliveries"
+        description="Sale order fulfilment tracking"
+        actions={
+          <Button size="sm" onClick={() => setSoPickerOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" /> New Delivery
+          </Button>
+        }
+      />
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -230,6 +248,50 @@ export default function DeliveriesPage() {
         delivery={detailDelivery}
         onClose={() => setDetailDelivery(null)}
       />
+
+      {/* New delivery — pick a sale order, then reuse the SO view's delivery dialog */}
+      <Dialog open={soPickerOpen} onOpenChange={setSoPickerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New delivery — pick a sale order</DialogTitle>
+          </DialogHeader>
+          {deliverableSOs.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No confirmed sale orders with stock left to deliver.
+            </p>
+          ) : (
+            <Select
+              onValueChange={(id) => {
+                const so = deliverableSOs.find((s) => s.id === id) ?? null
+                if (so) {
+                  setPickedSo(so)
+                  setSoPickerOpen(false)
+                }
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a sale order…" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {deliverableSOs.map((so) => (
+                  <SelectItem key={so.id} value={so.id}>
+                    {so.so_number}
+                    {so.customer_name ? ` — ${so.customer_name}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {pickedSo && (
+        <SoDeliveryDialog
+          open
+          onOpenChange={(o) => { if (!o) setPickedSo(null) }}
+          so={pickedSo}
+        />
+      )}
     </PageWrapper>
   )
 }

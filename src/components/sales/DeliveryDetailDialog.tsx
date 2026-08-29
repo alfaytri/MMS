@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Truck, Calendar, Warehouse, User, Hash, Loader2, Download, ShieldCheck,
+  Truck, Calendar, Warehouse, User, Hash, Loader2, Download, ShieldCheck, PackageCheck,
 } from 'lucide-react'
 import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDelivery'
+import { useCancelDelivery } from '@/hooks/useSaleDeliveries'
+import { DeliveryFormDialog } from '@/components/sales/DeliveryFormDialog'
+import { humanizeDbError } from '@/lib/dbErrors'
 import { openWarrantyCertificate } from '@/lib/sales/warranty-certificate'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -81,8 +84,15 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
   const { data: replacementSource } = useReplacementSource(
     delivery?.type === 'replacement' ? delivery.return_id : null,
   )
+  const [formOpen, setFormOpen] = useState(false)
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
+  const cancelDelivery = useCancelDelivery()
+  // Reset transient action state when the viewed delivery changes.
+  useEffect(() => { setFormOpen(false); setConfirmingCancel(false) }, [delivery?.id])
 
   if (!delivery) return null
+
+  const canAct = delivery.status === 'pending' || delivery.status === 'in_progress'
 
   const items = delivery.sale_delivery_lines ?? []
   const totalQty = items.reduce((sum, i) => sum + i.qty_delivered, 0)
@@ -123,7 +133,19 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
     }
   }
 
+  function handleCancel() {
+    if (!delivery) return
+    cancelDelivery.mutate(
+      { id: delivery.id, soId: delivery.sale_order_id },
+      {
+        onSuccess: () => { toast.success('Delivery cancelled'); onClose() },
+        onError: (err) => toast.error(humanizeDbError(err)),
+      },
+    )
+  }
+
   return (
+    <>
     <Dialog open={!!delivery} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg p-0 gap-0 overflow-hidden">
         {/* Header */}
@@ -249,23 +271,62 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
 
         {/* Footer */}
         <Separator />
-        <div className="px-6 py-3 flex items-center justify-end gap-2">
-          {warrantyRecords.length > 0 && (
-            <Button variant="outline" size="sm" onClick={handlePrintWarranty} disabled={warrantyBusy}>
-              {warrantyBusy
+        <div className="px-6 py-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {canAct && !confirmingCancel && (
+              <>
+                <Button size="sm" onClick={() => setFormOpen(true)}>
+                  <PackageCheck className="h-3.5 w-3.5 mr-1.5" /> Mark Delivered
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmingCancel(true)}
+                >
+                  Cancel Delivery
+                </Button>
+              </>
+            )}
+            {canAct && confirmingCancel && (
+              <>
+                <span className="text-xs text-muted-foreground">Cancel this delivery?</span>
+                <Button variant="destructive" size="sm" disabled={cancelDelivery.isPending} onClick={handleCancel}>
+                  {cancelDelivery.isPending ? 'Cancelling…' : 'Yes, cancel'}
+                </Button>
+                <Button variant="outline" size="sm" disabled={cancelDelivery.isPending} onClick={() => setConfirmingCancel(false)}>
+                  No
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {warrantyRecords.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handlePrintWarranty} disabled={warrantyBusy}>
+                {warrantyBusy
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />}
+                {warrantyBusy ? 'Generating…' : 'Print Warranty Certificate'}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={pdfBusy}>
+              {pdfBusy
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />}
-              {warrantyBusy ? 'Generating…' : 'Print Warranty Certificate'}
+                : <Download className="h-3.5 w-3.5 mr-1.5" />}
+              {pdfBusy ? 'Generating…' : 'Download PDF'}
             </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={pdfBusy}>
-            {pdfBusy
-              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-              : <Download className="h-3.5 w-3.5 mr-1.5" />}
-            {pdfBusy ? 'Generating…' : 'Download PDF'}
-          </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Mark-delivered flow — reuses the SO view's DeliveryFormDialog (ship-from
+        picker + complete). Closing it returns to the refreshed list. */}
+    <DeliveryFormDialog
+      open={formOpen}
+      onOpenChange={(o) => { setFormOpen(o); if (!o) onClose() }}
+      delivery={delivery}
+    />
+    </>
   )
 }
