@@ -546,7 +546,9 @@ export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow
             itemName:  toText(row[idxName]),
             itemNameAr: idxNameAr >= 0 ? toText(row[idxNameAr]) : '',
             unit:      toText(row[idxUnit]),
-            brand:     toText(row[idxBrand]),
+            // Blank brand → "No Brand" (real inventory has brandless items; this
+            // matches the existing "No Brand" brand). Visible in the preview.
+            brand:     toText(row[idxBrand]) || 'No Brand',
             costPrice:    idxCost >= 0 ? toNumberOr0(row[idxCost]) : 0,
             sellingPrice: idxSell >= 0 ? toNumberOr0(row[idxSell]) : 0,
             origin,
@@ -597,9 +599,8 @@ export function validateRows(rows: ImportRow[]): ValidatedRow[] {
       row.unit = normalizeUnit(row.unit)
     }
 
-    if (!row.brand) {
-      errors.push('Brand is required.')
-    }
+    // Brand is never blank — the parser defaults it to "No Brand" (real
+    // inventory has brandless items). No validation needed.
 
     // Cost / Selling are optional (blank → 0 in the parser). Only a negative
     // value is an error. Origin resolves silently to null when unmatched.

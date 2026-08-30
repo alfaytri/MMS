@@ -23,7 +23,6 @@ import {
 import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import {
@@ -231,7 +230,12 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
 
   return (
     <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={!!file || !!preview} ref={guardRef}>
-      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-2xl sm:rounded-xl max-h-[100vh] sm:max-h-[85vh] flex flex-col">
+      <DialogContent className={cn(
+        'w-full h-full rounded-none sm:h-auto sm:rounded-xl max-h-[100vh] sm:max-h-[85vh] flex flex-col',
+        // The preview table is wide (Origin + Quantity columns); give it room on
+        // desktop while keeping the upload step compact.
+        step === 'preview' ? 'sm:max-w-5xl' : 'sm:max-w-2xl',
+      )}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
@@ -353,8 +357,9 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                 )}
               </div>
 
-              {/* Preview table */}
-              <ScrollArea className="max-h-[40vh] rounded-md border">
+              {/* Preview table — native scroll so the wide table (Origin + Qty +
+                  Sub-container columns) scrolls both axes inside the dialog. */}
+              <div className="max-h-[40vh] overflow-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/40">
@@ -428,7 +433,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                     )}
                   </TableBody>
                 </Table>
-              </ScrollArea>
+              </div>
             </>
           )}
         </div>
