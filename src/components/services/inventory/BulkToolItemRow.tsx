@@ -11,6 +11,7 @@ import { BrandVariantEditDialog } from './BrandVariantEditDialog'
 import { useInventoryBrandVariants, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
 import { useVariantStockByDivision } from '@/hooks/useVariantStockByDivision'
 import { useBulkToolStockContext } from '@/components/shared/BulkToolStockContext'
+import { ToolModeDot } from '@/components/warehouse/tools-assets/ToolBadges'
 import { groupVariants, type VariantLite } from '@/lib/inventory/groupVariants'
 
 // Runtime shape returned by useInventoryBrandVariants — it embeds
@@ -100,6 +101,7 @@ export function BulkToolItemRow({ item, depth, showArchived }: Props) {
               ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             }
+            <ToolModeDot mode="bulk" />
             <span className="text-sm font-medium truncate">{item.name_en}</span>
             {item.name_ar && (
               <span className="text-[10px] text-muted-foreground truncate flex-shrink-0" dir="rtl">{item.name_ar}</span>

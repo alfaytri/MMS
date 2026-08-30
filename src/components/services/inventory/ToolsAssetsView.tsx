@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToolCategoryRow } from './ToolCategoryRow'
+import { ToolModeDot } from '@/components/warehouse/tools-assets/ToolBadges'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { useUpdateSortOrders } from '@/hooks/useInventory'
 import { useInventoryTree, type InventoryTreeNode } from '@/hooks/useInventoryTree'
@@ -100,6 +101,21 @@ export function ToolsAssetsView({ enabled: _enabled }: { enabled: boolean }) {
         <Button size="sm" className="ml-auto h-7 min-h-11 md:min-h-0 text-xs" onClick={() => setCreateCategoryOpen(true)}>
           <Plus className="h-3 w-3 mr-1" /> New Category
         </Button>
+      </div>
+
+      {/* Mode legend — the one place the bulk/serialized vocabulary is spelled
+          out, so the chips (category rows) + dots (item rows) in the tree below
+          read at a glance without cluttering each row. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 border-b border-border/60 bg-muted/20 text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground/70">Tracking modes</span>
+        <span className="inline-flex items-center gap-1.5">
+          <ToolModeDot mode="bulk" />
+          <span><span className="font-medium text-teal-700 dark:text-teal-300">Bulk</span> — sellable stock, sold on orders</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <ToolModeDot mode="serialized" />
+          <span><span className="font-medium text-violet-700 dark:text-violet-300">Serialized</span> — per-unit custody, assigned to teams</span>
+        </span>
       </div>
 
       <div className="flex-1 overflow-auto">

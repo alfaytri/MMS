@@ -12,6 +12,7 @@ import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEdi
 import { ToolUnitTransferDialog } from './ToolUnitTransferDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
 import { BulkToolItemRow } from './BulkToolItemRow'
+import { ToolModeBadge, ToolModeDot } from '@/components/warehouse/tools-assets/ToolBadges'
 import { BulkToolStockProvider, type BulkToolStockBatch } from '@/components/shared/BulkToolStockContext'
 import { useBulkToolStockBatch } from '@/hooks/useBulkToolStockBatch'
 import {
@@ -171,6 +172,7 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
         <td className="py-2.5 pr-2" style={{ paddingLeft: indent }}>
           <div className="flex items-center gap-2 min-w-0">
             {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+            <ToolModeDot mode="serialized" />
             <span className="text-sm font-medium truncate">{item.name_en}</span>
             {item.name_ar && <span className="text-[10px] text-muted-foreground truncate flex-shrink-0" dir="rtl">{item.name_ar}</span>}
           </div>
@@ -290,15 +292,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         </td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5 min-h-[18px]">
-            <span
-              className={`inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-medium whitespace-nowrap ${
-                node.tool_tracking_mode === 'bulk'
-                  ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
-                  : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-              }`}
-            >
-              {node.tool_tracking_mode === 'bulk' ? 'Bulk' : 'Serialized'}
-            </span>
+            <ToolModeBadge mode={node.tool_tracking_mode === 'bulk' ? 'bulk' : 'serialized'} />
             {expanded && visibleItems.length > 0 && (
               <span>{visibleItems.length} item{visibleItems.length !== 1 ? 's' : ''}</span>
             )}

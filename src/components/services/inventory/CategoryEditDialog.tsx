@@ -80,7 +80,10 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [warehouseId, setWarehouseId] = useState<string | null>(null)
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [warrantyPolicyId, setWarrantyPolicyId] = useState<string | null>(null)
-  const [trackingMode, setTrackingMode] = useState<'serialized' | 'bulk'>('serialized')
+  // Bulk is the default tracking mode: bulk tools are the sellable/quantity kind
+  // (FIFO like consumables); serialized (per-unit custody) is the deliberate
+  // opt-in. Overridden on open from the category's stored mode when editing.
+  const [trackingMode, setTrackingMode] = useState<'serialized' | 'bulk'>('bulk')
   const [isTeamItem, setIsTeamItem] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   // Own (editable) division assignment for this category — seeded from
@@ -113,7 +116,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       const nextSku = category?.sku ?? ''
       const nextSubContainerId = category?.default_sub_container_id ?? null
       const nextWarrantyPolicyId = category?.default_warranty_policy_id ?? null
-      const nextTrackingMode = category?.tool_tracking_mode ?? 'serialized'
+      // New category → bulk (sellable) by default; edit → the stored mode.
+      const nextTrackingMode = category?.tool_tracking_mode ?? 'bulk'
       const nextIsTeamItem = (category as unknown as { is_team_item?: boolean } | null)?.is_team_item ?? false
       setNameEn(nextNameEn)
       setNameAr(nextNameAr)
