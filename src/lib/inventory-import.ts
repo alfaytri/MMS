@@ -223,6 +223,8 @@ export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<v
     16, // Brand
     12, // Cost Price
     14, // Selling Price
+    18, // Origin
+    10, // Quantity
     40, // Warehouse — Sub-container
   ]
   importSheet.columns = widths.map((w) => ({ width: w }))
@@ -241,9 +243,9 @@ export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<v
   const sampleSub = opts.subContainers[0]
   const sampleLabel = sampleSub ? formatSubContainerLabel(sampleSub) : ''
   const examples: Array<Record<string, string | number>> = [
-    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'ABB',       cost: 15, sell: 25, label: sampleLabel },
-    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'Schneider', cost: 18, sell: 28, label: sampleLabel },
-    { c1: 'Filters',    c2: '',         c3: '',      type: 'spare-parts', name: 'Water Filter Cartridge', nameAr: 'فلتر مياه',      unit: 'Piece', brand: 'Daikin',    cost: 8,  sell: 14, label: sampleLabel },
+    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'ABB',       cost: 15, sell: 25, origin: 'Germany', qty: 10, label: sampleLabel },
+    { c1: 'Electrical', c2: 'Switches', c3: '',      type: 'products',    name: 'Toggle Switch 10A',      nameAr: '',              unit: 'Piece', brand: 'Schneider', cost: 18, sell: 28, origin: 'China',   qty: 0,  label: '' },
+    { c1: 'Filters',    c2: '',         c3: '',      type: 'spare-parts', name: 'Water Filter Cartridge', nameAr: 'فلتر مياه',      unit: 'Piece', brand: 'Daikin',    cost: 8,  sell: 14, origin: '',        qty: 5,  label: sampleLabel },
   ]
   for (const ex of examples) {
     const cats: string[] = []
@@ -260,6 +262,8 @@ export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<v
       ex.brand,
       ex.cost,
       ex.sell,
+      ex.origin,
+      ex.qty,
       ex.label,
     ])
   }
@@ -283,11 +287,18 @@ export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<v
   // Type column — strict enum
   applyListValidation(importSheet, categoryColumns + 1, 2, lastValidationRow, [...VALID_TYPES], 'stop')
 
-  // Unit column — strict enum
+  // Unit column — advisory (the pipeline maps free-text units to canonical, so
+  // don't block: list the canonical set but allow anything).
   const unitColIndex = categoryColumns + 1 + FIXED_HEADERS.indexOf('Unit')
-  applyListValidation(importSheet, unitColIndex + 1, 2, lastValidationRow, [...VALID_UNITS], 'stop')
+  applyListValidation(importSheet, unitColIndex + 1, 2, lastValidationRow, [...VALID_UNITS], 'information')
 
-  // Warehouse — Sub-container column — strict composite
+  // Origin column — advisory dropdown of country names (free text accepted;
+  // unmatched origins simply load as no origin).
+  const originColIndex = categoryColumns + 1 + FIXED_HEADERS.indexOf('Origin')
+  applyListValidation(importSheet, originColIndex + 1, 2, lastValidationRow, opts.countryNames ?? [], 'information')
+
+  // Warehouse — Sub-container column — strict composite (only needed when a row
+  // carries a Quantity, but the dropdown helps regardless).
   const subColIndex = categoryColumns + 1 + FIXED_HEADERS.indexOf('Warehouse — Sub-container')
   const subLabels = opts.subContainers.map(formatSubContainerLabel)
   applyListValidation(importSheet, subColIndex + 1, 2, lastValidationRow, subLabels, 'stop')
