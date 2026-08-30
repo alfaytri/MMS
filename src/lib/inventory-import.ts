@@ -42,6 +42,12 @@ export type ImportRow = {
   brand: string
   costPrice: number
   sellingPrice: number
+  /** Raw Origin cell (may be a comma list); '' when the column is absent/blank. */
+  origin: string
+  /** country_codes.id resolved from `origin` (null when blank/unmatched). */
+  countryId: number | null
+  /** Opening-stock quantity for this row's placement; 0 = catalog-only. */
+  quantity: number
   /** Composite label operator picked; parsed to ids in `subContainer` below. */
   warehouseSubLabel: string
   /** Resolved from `warehouseSubLabel` at parse time (null if unresolved). */
@@ -67,6 +73,8 @@ export type ImportPreview = {
   newCategories: number
   newItems: number
   newVariants: number
+  /** Total opening-stock units across valid rows (Σ quantity). */
+  newUnits: number
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -76,6 +84,55 @@ export type ImportType = (typeof VALID_TYPES)[number]
 
 export const VALID_UNITS = ['Piece', 'Kg', 'Litre', 'Set', 'Box', 'Metre', 'Roll', 'Pair', 'Other'] as const
 export type ImportUnit = (typeof VALID_UNITS)[number]
+
+/**
+ * Lenient unit mapping — real operator sheets use free-text units ("Pcs",
+ * "Unit", "Cylinder", "Cartoon"…). Map the lowercased input to a canonical
+ * VALID_UNIT; anything unrecognised falls back to "Other" (never an error).
+ * Keys must be lowercased.
+ */
+const UNIT_ALIASES: Record<string, ImportUnit> = {
+  'unit': 'Piece', 'units': 'Piece', 'pcs': 'Piece', 'pc': 'Piece', 'piece': 'Piece',
+  'pieces': 'Piece', 'each': 'Piece', 'ea': 'Piece', 'no': 'Piece', 'nos': 'Piece',
+  'none': 'Piece', '': 'Piece',
+  'kg': 'Kg', 'kgs': 'Kg', 'kilogram': 'Kg',
+  'litre': 'Litre', 'liter': 'Litre', 'ltr': 'Litre', 'l': 'Litre',
+  'set': 'Set', 'sets': 'Set',
+  'box': 'Box', 'boxes': 'Box', 'carton': 'Box', 'cartoon': 'Box', 'ctn': 'Box',
+  'metre': 'Metre', 'meter': 'Metre', 'mtr': 'Metre', 'm': 'Metre',
+  'roll': 'Roll', 'rolls': 'Roll',
+  'pair': 'Pair', 'pairs': 'Pair', 'prs': 'Pair',
+}
+
+/** Map a raw unit string to a canonical VALID_UNIT (fallback "Other"). */
+export function normalizeUnit(raw: string): ImportUnit {
+  const key = String(raw ?? '').trim().toLowerCase()
+  const exact = VALID_UNITS.find((u) => u.toLowerCase() === key)
+  if (exact) return exact
+  return UNIT_ALIASES[key] ?? 'Other'
+}
+
+/**
+ * Country-name aliases for the Origin column — the operator sheets abbreviate.
+ * Keys + values lowercased; values must match a `country_codes.name` (lowercased).
+ */
+const ORIGIN_ALIASES: Record<string, string> = {
+  'uae': 'united arab emirates',
+  'uk': 'united kingdom',
+  'scotland': 'united kingdom',
+  'england': 'united kingdom',
+  'usa': 'united states',
+  'us': 'united states',
+}
+
+/** Resolve a raw Origin cell (may be a comma list — first token wins) to a
+ *  country_codes id via the ParseContext map, applying aliases. Null if blank
+ *  or unmatched. */
+export function resolveCountryId(raw: string, countryByName: Map<string, number>): number | null {
+  const first = String(raw ?? '').split(',')[0]?.trim().toLowerCase() ?? ''
+  if (!first) return null
+  return countryByName.get(ORIGIN_ALIASES[first] ?? first) ?? null
+}
 
 /** Default number of category columns the template ships with. Operators can
  *  add more columns manually and name them `Category 4`, `Category 5`, …
@@ -92,6 +149,8 @@ export const FIXED_HEADERS = [
   'Brand',
   'Cost Price',
   'Selling Price',
+  'Origin',
+  'Quantity',
   'Warehouse — Sub-container',
 ] as const
 
@@ -134,6 +193,8 @@ export type GenerateTemplateOptions = {
   subContainers:      SubContainerOption[]
   existingCategories: ExistingCategoryOption[]
   categoryColumns?:   number // default DEFAULT_CATEGORY_COLUMNS
+  /** Country names for the Origin column dropdown (from country_codes). */
+  countryNames?:      string[]
 }
 
 export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<void> {
@@ -342,16 +403,30 @@ function toNumber(value: unknown): number {
   return Number(trimmed)
 }
 
-export type ParseContext = {
-  subContainerLabelToOption: Map<string, SubContainerOption>
+/** Lenient numeric: blank or non-numeric → 0 (used for optional cost/sell/qty). */
+function toNumberOr0(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  const trimmed = String(value ?? '').trim()
+  if (trimmed === '') return 0
+  const n = Number(trimmed)
+  return Number.isFinite(n) ? n : 0
 }
 
-export function buildParseContext(subContainers: SubContainerOption[]): ParseContext {
+export type ParseContext = {
+  subContainerLabelToOption: Map<string, SubContainerOption>
+  /** Lowercased country_codes.name → id, for resolving the Origin column. */
+  countryByName: Map<string, number>
+}
+
+export function buildParseContext(
+  subContainers: SubContainerOption[],
+  countryByName: Map<string, number> = new Map(),
+): ParseContext {
   const map = new Map<string, SubContainerOption>()
   for (const sc of subContainers) {
     map.set(formatSubContainerLabel(sc), sc)
   }
-  return { subContainerLabelToOption: map }
+  return { subContainerLabelToOption: map, countryByName }
 }
 
 /**
@@ -399,13 +474,13 @@ export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow
           if (m) categoryColIndexes.push({ idx: i, depth: Number(m[1]) })
         }
         categoryColIndexes.sort((a, b) => a.depth - b.depth)
-        if (categoryColIndexes.length === 0) {
-          reject(new Error('No "Category N" column found in the header. Use the downloaded template.'))
-          return
-        }
 
         // Find fixed columns by header name.
         const findCol = (label: string): number => headerRow.indexOf(label.toLowerCase())
+        // A single "Category Path" column (A > B > C) is accepted as an
+        // alternative to the structured Category 1..N columns, so operators can
+        // import their own sheets without reshaping.
+        const idxCatPath = findCol('category path')
         const idxType    = findCol('type')
         const idxName    = findCol('item name')
         const idxNameAr  = findCol('item name (ar)')
@@ -413,16 +488,24 @@ export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow
         const idxBrand   = findCol('brand')
         const idxCost    = findCol('cost price')
         const idxSell    = findCol('selling price')
+        const idxOrigin  = findCol('origin')
+        const idxQty     = findCol('quantity')
         const idxSub     = findCol('warehouse — sub-container')
 
+        if (categoryColIndexes.length === 0 && idxCatPath < 0) {
+          reject(new Error('No "Category 1" or "Category Path" column found in the header. Use the downloaded template.'))
+          return
+        }
+
+        // Cost / Selling / Origin / Quantity / Warehouse — Sub-container are
+        // OPTIONAL (blank cost/sell → 0; a location is required only for rows
+        // that carry a Quantity, enforced in validateRows). Only the core
+        // catalog columns are mandatory.
         const missing: string[] = []
         if (idxType   < 0) missing.push('Type')
         if (idxName   < 0) missing.push('Item Name')
         if (idxUnit   < 0) missing.push('Unit')
         if (idxBrand  < 0) missing.push('Brand')
-        if (idxCost   < 0) missing.push('Cost Price')
-        if (idxSell   < 0) missing.push('Selling Price')
-        if (idxSub    < 0) missing.push('Warehouse — Sub-container')
         if (missing.length > 0) {
           reject(new Error(`Missing header column(s): ${missing.join(', ')}. Use the downloaded template.`))
           return
@@ -433,12 +516,17 @@ export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow
           const row = aoa[i]
           if (!row || isRowEmpty(row)) continue
 
-          const categorySegments = categoryColIndexes
-            .map(({ idx }) => toText(row[idx]))
-            .filter((s) => s.length > 0)
+          // Category from the structured Category 1..N columns, else split a
+          // single "Category Path" (A > B > C) column.
+          const categorySegments = categoryColIndexes.length > 0
+            ? categoryColIndexes.map(({ idx }) => toText(row[idx])).filter((s) => s.length > 0)
+            : (idxCatPath >= 0
+                ? toText(row[idxCatPath]).split('>').map((s) => s.trim()).filter((s) => s.length > 0)
+                : [])
 
-          const warehouseSubLabel = toText(row[idxSub])
+          const warehouseSubLabel = idxSub >= 0 ? toText(row[idxSub]) : ''
           const subContainer = ctx.subContainerLabelToOption.get(warehouseSubLabel) ?? null
+          const origin = idxOrigin >= 0 ? toText(row[idxOrigin]) : ''
 
           rows.push({
             rowIndex: i + 1,
@@ -448,8 +536,11 @@ export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow
             itemNameAr: idxNameAr >= 0 ? toText(row[idxNameAr]) : '',
             unit:      toText(row[idxUnit]),
             brand:     toText(row[idxBrand]),
-            costPrice:    toNumber(row[idxCost]),
-            sellingPrice: toNumber(row[idxSell]),
+            costPrice:    idxCost >= 0 ? toNumberOr0(row[idxCost]) : 0,
+            sellingPrice: idxSell >= 0 ? toNumberOr0(row[idxSell]) : 0,
+            origin,
+            countryId: resolveCountryId(origin, ctx.countryByName),
+            quantity: idxQty >= 0 ? toNumberOr0(row[idxQty]) : 0,
             warehouseSubLabel,
             subContainer,
           })
@@ -478,7 +569,7 @@ export function validateRows(rows: ImportRow[]): ValidatedRow[] {
     }
 
     if (row.categorySegments.length === 0) {
-      errors.push('At least Category 1 must be set.')
+      errors.push('A category is required (Category 1 or Category Path).')
     } else if (row.categorySegments.some((s) => s.includes('>') || /^[\s/]|[\s/]$/.test(s))) {
       errors.push('Category names cannot contain ">" or leading/trailing spaces or slashes.')
     }
@@ -487,37 +578,32 @@ export function validateRows(rows: ImportRow[]): ValidatedRow[] {
       errors.push('Item Name is required.')
     }
 
+    // Unit is always resolvable — map free-text units to the canonical set
+    // ("Pcs"/"Unit"/"Cylinder"… → Piece/Other). Never an error.
     if (!row.unit) {
       errors.push('Unit is required.')
     } else {
-      const matched = VALID_UNITS.find((u) => u.toLowerCase() === row.unit.toLowerCase())
-      if (!matched) {
-        errors.push(`Unit must be one of: ${VALID_UNITS.join(', ')}.`)
-      } else {
-        row.unit = matched
-      }
+      row.unit = normalizeUnit(row.unit)
     }
 
     if (!row.brand) {
       errors.push('Brand is required.')
     }
 
-    if (Number.isNaN(row.costPrice)) {
-      errors.push('Cost Price must be a number.')
-    } else if (row.costPrice < 0) {
-      errors.push('Cost Price must be ≥ 0.')
-    }
+    // Cost / Selling are optional (blank → 0 in the parser). Only a negative
+    // value is an error. Origin resolves silently to null when unmatched.
+    if (row.costPrice < 0) errors.push('Cost Price cannot be negative.')
+    if (row.sellingPrice < 0) errors.push('Selling Price cannot be negative.')
+    if (row.quantity < 0) errors.push('Quantity cannot be negative.')
 
-    if (Number.isNaN(row.sellingPrice)) {
-      errors.push('Selling Price must be a number.')
-    } else if (row.sellingPrice < 0) {
-      errors.push('Selling Price must be ≥ 0.')
-    }
-
-    if (!row.warehouseSubLabel) {
-      errors.push('Warehouse — Sub-container is required.')
-    } else if (!row.subContainer) {
-      errors.push(`Unknown "Warehouse — Sub-container" label. Pick from the dropdown.`)
+    // A location is required ONLY for rows that book stock (Quantity > 0).
+    // Catalog-only rows (no quantity) need no Warehouse — Sub-container.
+    if (row.quantity > 0) {
+      if (!row.warehouseSubLabel) {
+        errors.push('Warehouse — Sub-container is required when a Quantity is given.')
+      } else if (!row.subContainer) {
+        errors.push('Unknown "Warehouse — Sub-container" label. Pick from the dropdown.')
+      }
     }
 
     return {
@@ -552,9 +638,19 @@ export function buildItemKey(type: string, segments: string[], itemName: string)
   return `${type.toLowerCase()}::${segments.map((s) => s.trim().toLowerCase()).join(' > ')}|${itemName.trim().toLowerCase()}`
 }
 
-/** Case-insensitive, type-scoped key identifying a brand-variant of an item. */
-export function buildVariantKey(type: string, segments: string[], itemName: string, brand: string): string {
-  return `${buildItemKey(type, segments, itemName)}|${brand.trim().toLowerCase()}`
+/**
+ * Case-insensitive, type-scoped key identifying a brand-variant of an item.
+ * Origin (country_id) is part of the identity — the DB unique index is
+ * (item_id, brand_id, country_id), so two rows with the same item + brand but
+ * different origins are DISTINCT variants. Pass the country_id (or '' when
+ * origin-agnostic; both sides of a diff must use the same convention).
+ */
+export function buildVariantKey(
+  type: string, segments: string[], itemName: string, brand: string,
+  origin: string | number | null = '',
+): string {
+  const o = origin == null ? '' : String(origin).trim().toLowerCase()
+  return `${buildItemKey(type, segments, itemName)}|${brand.trim().toLowerCase()}|${o}`
 }
 
 /**
@@ -590,11 +686,13 @@ export function buildPreview(
       newItemKeys.add(itemKey)
     }
 
-    const variantKey = buildVariantKey(row.type, row.categorySegments, row.itemName, row.brand)
+    const variantKey = buildVariantKey(row.type, row.categorySegments, row.itemName, row.brand, row.countryId)
     if (!existingVariants.has(variantKey)) {
       newVariantKeys.add(variantKey)
     }
   }
+
+  const newUnits = validated.reduce((sum, r) => sum + (r.valid && r.quantity > 0 ? r.quantity : 0), 0)
 
   return {
     rows: validated,
@@ -603,5 +701,6 @@ export function buildPreview(
     newCategories: newCategoryPaths.size,
     newItems:      newItemKeys.size,
     newVariants:   newVariantKeys.size,
+    newUnits,
   }
 }
