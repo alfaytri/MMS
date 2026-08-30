@@ -41,6 +41,8 @@ export type ExistingInventoryLookup = {
   existingCategoryOptions: ExistingCategoryOption[]
   /** Lowercased country_codes.name → id, for the importer's Origin column. */
   countryByName: Map<string, number>
+  /** Proper-cased country names for the template's Origin dropdown. */
+  countryNames: string[]
 }
 
 type CategoryRow = {
@@ -707,11 +709,14 @@ export function useExistingInventoryLookup() {
         .select('id, name')
       if (countryErr) throw countryErr
       const countryByName = new Map<string, number>()
+      const countryNames: string[] = []
       for (const c of (countries ?? []) as { id: number; name: string }[]) {
         countryByName.set(c.name.trim().toLowerCase(), c.id)
+        countryNames.push(c.name)
       }
+      countryNames.sort((a, b) => a.localeCompare(b))
 
-      return { categoryPaths, itemKeys, variantKeys, existingCategoryOptions, countryByName }
+      return { categoryPaths, itemKeys, variantKeys, existingCategoryOptions, countryByName, countryNames }
     },
   })
 }
