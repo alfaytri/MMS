@@ -15,7 +15,11 @@ the desired mode differs from the item's category default — a mode that matche
 the category is left inheriting (NULL), keeping the catalog clean. Every write
 is pre-checked against on-hand stock so an effective-mode flip on a stocked
 (item,division) is reported and skipped rather than hitting the DB guard
-(migration 20260831001800), which is the transactional backstop.
+(migration 20260831001800), which is the transactional backstop. Exception
+(migration 20260831002200): serialized -> bulk with ONLY bulk qty and no serial
+units is the corrective, allowed flip (the counted-qty inventory load left tools
+holding bulk qty under the serialized category default) — it proceeds instead of
+being skipped.
 
 Safety:
   * default is DRY-RUN — computes and reports, writes nothing.
@@ -174,7 +178,12 @@ def plan_write(cat, item_id, division_id, desired):
     eff_change = (desired != eff_now)
     if eff_change:
         u, q = cat["units"].get(key, 0), cat["qty"].get(key, 0)
-        if u > 0 or q > 0:
+        # Mirror the DB guard (migration 20260831002200): serialized -> bulk when
+        # the division holds ONLY bulk qty and NO serial units is the corrective,
+        # allowed flip (the qty is already bulk-shaped). Every other stocked flip
+        # is skipped so it doesn't hit the guard.
+        blocked = (u > 0 or q > 0) and not (desired == "bulk" and u == 0)
+        if blocked:
             return ("skip_stock", target, True, (u, q))
     return (("update" if row_exists else "insert"), target, eff_change, (0, 0))
 
