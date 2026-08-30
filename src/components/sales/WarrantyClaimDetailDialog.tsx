@@ -414,7 +414,7 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
                         variant="outline"
                         size="sm"
                         className="min-h-11 md:min-h-0 gap-1.5"
-                        onClick={() => router.push('/sales/returns')}
+                        onClick={() => router.push(claim?.warranty_type === 'consumption' ? '/consumption/returns' : '/sales/returns')}
                       >
                         Open Returns <ArrowRight className="h-4 w-4" />
                       </Button>

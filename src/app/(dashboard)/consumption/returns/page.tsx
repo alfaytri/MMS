@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   RotateCcw, Calendar, Package, ChevronRight, AlertTriangle, Clock, CheckCircle2, Ban,
-  Boxes, User, Hash, Undo2, PackageX,
+  Boxes, User, Hash, Undo2, PackageX, ClipboardCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils/formatters'
@@ -30,6 +30,7 @@ import {
   useConsumptionReturns, useReturnableConsumptions, useConsumptionReturnableLines,
   useCreateConsumptionReturn, useProcessConsumptionReturnRestock,
   useRecordConsumptionReturnDisposition, useCancelConsumptionReturn,
+  useCompleteConsumptionReturnInspection,
   type ConsumptionReturn, type ConsumptionReturnStatus,
 } from '@/hooks/useConsumptionReturns'
 
@@ -56,6 +57,7 @@ export default function ConsumptionReturnsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [detail, setDetail] = useState<ConsumptionReturn | null>(null)
   const [dispositionFor, setDispositionFor] = useState<ConsumptionReturn | null>(null)
+  const [inspectFor, setInspectFor] = useState<ConsumptionReturn | null>(null)
 
   const { activeDivisionId } = useActiveDivision()
   const { data: returns, isLoading } = useConsumptionReturns({ search, status: statusFilter || undefined })
@@ -139,6 +141,11 @@ export default function ConsumptionReturnsPage() {
             const totalQty = lines.reduce((s, l) => s + l.qty, 0)
             const goodQty = lines.filter((l) => l.condition === 'good').reduce((s, l) => s + l.qty, 0)
             const damagedQty = lines.filter((l) => l.condition === 'damaged').reduce((s, l) => s + l.qty, 0)
+            const inspectionQty = lines.filter((l) => l.condition === 'inspection').reduce((s, l) => s + l.qty, 0)
+            // A consumption return can arrive as pending_inspection with a single
+            // inspection line (covered warranty claim resolution, Phase 4). It must
+            // be split into good / damaged before Restock / Disposition apply.
+            const canInspect = ret.status === 'pending_inspection' && inspectionQty > 0
             const canRestock = goodQty > 0 && !ret.restocked_at && ret.status !== 'cancelled' && ret.status !== 'closed'
             const canDisposition = damagedQty > 0 && ret.status !== 'cancelled' && ret.status !== 'closed'
             const canCancel = ret.status === 'pending' || ret.status === 'received'
@@ -168,6 +175,12 @@ export default function ConsumptionReturnsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {canInspect && (
+                        <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px] gap-1"
+                          onClick={() => setInspectFor(ret)}>
+                          <ClipboardCheck className="h-3 w-3" /> Inspect
+                        </Button>
+                      )}
                       {canRestock && (
                         <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px] gap-1"
                           disabled={restock.isPending}
@@ -213,6 +226,7 @@ export default function ConsumptionReturnsPage() {
       {createOpen && <CreateConsumptionReturnDialog onClose={() => setCreateOpen(false)} />}
       {detail && <ConsumptionReturnDetailDialog ret={detail} onClose={() => setDetail(null)} />}
       {dispositionFor && <DispositionDialog ret={dispositionFor} onClose={() => setDispositionFor(null)} />}
+      {inspectFor && <CompleteInspectionDialog ret={inspectFor} onClose={() => setInspectFor(null)} />}
     </PageWrapper>
   )
 }
@@ -434,7 +448,10 @@ function ConsumptionReturnDetailDialog({ ret, onClose }: { ret: ConsumptionRetur
                     <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{l.sku ?? '—'}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{l.qty}</td>
                     <td className="px-3 py-2.5 text-center">
-                      <Badge variant="outline" className={cn('text-xs', l.condition === 'damaged' ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700')}>{l.condition}</Badge>
+                      <Badge variant="outline" className={cn('text-xs',
+                        l.condition === 'damaged' ? 'border-red-200 bg-red-50 text-red-700'
+                        : l.condition === 'inspection' ? 'border-purple-200 bg-purple-50 text-purple-700'
+                        : 'border-green-200 bg-green-50 text-green-700')}>{l.condition}</Badge>
                     </td>
                   </tr>
                 ))}
@@ -542,6 +559,114 @@ function DispositionDialog({ ret, onClose }: { ret: ConsumptionReturn; onClose: 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={record.isPending}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={record.isPending}>{record.isPending ? 'Recording…' : 'Record dispositions'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Complete inspection dialog (split an inspection line into good / damaged) ─
+// Only reached for a return that arrived as pending_inspection — today that means
+// a covered consumption warranty claim resolved into a consumption return
+// (rpc_start_warranty_claim_resolution, Phase 4). Splitting moves it to
+// 'received' so the existing Restock / Disposition actions apply.
+function CompleteInspectionDialog({ ret, onClose }: { ret: ConsumptionReturn; onClose: () => void }) {
+  const inspectionLines = useMemo(
+    () => (ret.return_lines ?? []).filter((l) => l.condition === 'inspection' && l.qty > 0),
+    [ret],
+  )
+  const { data: warehouses = [] } = useWarehouses()
+  const realWarehouses = useMemo(() => warehouses.filter((w) => !w.is_virtual), [warehouses])
+  const [warehouseId, setWarehouseId] = useState(ret.restock_warehouse_id ?? '')
+  const [rows, setRows] = useState<Record<string, { good: number; damaged: number; notes: string }>>(
+    () => Object.fromEntries(inspectionLines.map((l) => [l.id, { good: 0, damaged: 0, notes: '' }])),
+  )
+  const complete = useCompleteConsumptionReturnInspection()
+
+  const anyGood = useMemo(() => Object.values(rows).some((r) => r.good > 0), [rows])
+  const anyMismatch = useMemo(
+    () => inspectionLines.some((l) => (rows[l.id]?.good ?? 0) + (rows[l.id]?.damaged ?? 0) !== l.qty),
+    [inspectionLines, rows],
+  )
+  const canSubmit = inspectionLines.length > 0 && !anyMismatch && (!anyGood || !!warehouseId) && !complete.isPending
+
+  function handleSubmit() {
+    if (anyMismatch) { toast.error('Each line’s good + damaged must equal its inspected qty'); return }
+    if (anyGood && !warehouseId) { toast.error('Pick the warehouse the good stock returns to'); return }
+    const splits = inspectionLines.map((l) => ({
+      return_line_id: l.id,
+      good_qty: rows[l.id]?.good ?? 0,
+      damaged_qty: rows[l.id]?.damaged ?? 0,
+      condition_notes: (rows[l.id]?.notes ?? '').trim() || null,
+    }))
+    complete.mutate(
+      { returnId: ret.id, splits, restockWarehouseId: anyGood ? warehouseId : null },
+      {
+        onSuccess: () => { toast.success(`${ret.return_number} inspection complete — ready to restock`); onClose() },
+        onError: (e) => toast.error(humanizeDbError(e)),
+      },
+    )
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-lg sm:rounded-lg flex flex-col max-h-[90vh]">
+        <DialogHeader><DialogTitle className="text-sm">Complete inspection — {ret.return_number}</DialogTitle></DialogHeader>
+        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+          <p className="text-[11px] text-muted-foreground">
+            Enter the good / damaged split for each inspected item — the two must add up to the inspected qty.
+            Good stock goes back to the chosen warehouse (cost reversed); damaged stock is written off or restocked
+            as damaged afterwards on the Disposition step.
+          </p>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Restock warehouse for good stock {anyGood ? '*' : ''}</Label>
+            <Select value={warehouseId} onValueChange={(v) => setWarehouseId(v ?? '')}>
+              <SelectTrigger className="h-9 text-xs w-full"><SelectValue placeholder="Warehouse the good stock returns to…" /></SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                {realWarehouses.map((w) => (<SelectItem key={w.id} value={w.id} className="text-xs">{w.name}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          {inspectionLines.map((l) => {
+            const r = rows[l.id] ?? { good: 0, damaged: 0, notes: '' }
+            const mismatch = r.good + r.damaged !== l.qty
+            return (
+              <div key={l.id} className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[12px] font-semibold truncate">{l.item_name}</p>
+                  {l.sku && <span className="text-[10px] text-muted-foreground">· {l.sku}</span>}
+                  <span className="ml-auto text-[10px] text-muted-foreground">inspected: {l.qty}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Good</Label>
+                    <Input type="number" min="0" max={l.qty} value={r.good}
+                      onChange={(e) => { const q = Math.min(l.qty, Math.max(0, Number(e.target.value) || 0)); setRows((p) => ({ ...p, [l.id]: { ...r, good: q } })) }}
+                      className="h-8 text-right tabular-nums text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Damaged</Label>
+                    <Input type="number" min="0" max={l.qty} value={r.damaged}
+                      onChange={(e) => { const q = Math.min(l.qty, Math.max(0, Number(e.target.value) || 0)); setRows((p) => ({ ...p, [l.id]: { ...r, damaged: q } })) }}
+                      className="h-8 text-right tabular-nums text-xs" />
+                  </div>
+                </div>
+                {r.damaged > 0 && (
+                  <Input type="text" placeholder="Damage notes (e.g. dented, missing part)"
+                    value={r.notes}
+                    onChange={(e) => setRows((p) => ({ ...p, [l.id]: { ...r, notes: e.target.value } }))}
+                    className="h-8 text-xs" />
+                )}
+                {mismatch && (
+                  <p className="text-[10px] text-destructive">Good + Damaged must equal {l.qty} (inspected qty).</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={complete.isPending}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit}>{complete.isPending ? 'Saving…' : 'Complete inspection'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -287,6 +287,34 @@ export function useCreateConsumptionReturn() {
   })
 }
 
+// ─── Complete inspection (split good / damaged) ───────────────────────────────
+// A consumption return can arrive as pending_inspection with a single
+// condition='inspection' line — this is how a covered consumption warranty claim
+// resolves (rpc_start_warranty_claim_resolution, Phase 4). The operator splits
+// it into good / damaged and picks the warehouse the good stock returns to; the
+// source-agnostic rpc_complete_return_inspection carries consumption_line_id onto
+// the split lines and moves the return to 'received' so Restock / Disposition can
+// take over.
+export function useCompleteConsumptionReturnInspection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: {
+      returnId: string
+      splits: { return_line_id: string; good_qty: number; damaged_qty: number; condition_notes?: string | null }[]
+      restockWarehouseId: string | null
+    }) => {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('rpc_complete_return_inspection', {
+        p_return_id: v.returnId,
+        p_splits: v.splits as unknown as import('@/types/database.types').Json,
+        p_restock_warehouse_id: v.restockWarehouseId ?? undefined,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.all }),
+  })
+}
+
 // ─── Restock good lines ──────────────────────────────────────────────────────
 export function useProcessConsumptionReturnRestock() {
   const qc = useQueryClient()
