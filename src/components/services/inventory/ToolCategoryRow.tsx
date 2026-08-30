@@ -13,6 +13,7 @@ import { ToolUnitTransferDialog } from './ToolUnitTransferDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
 import { BulkToolItemRow } from './BulkToolItemRow'
 import { ToolModeBadge, ToolModeDot } from '@/components/warehouse/tools-assets/ToolBadges'
+import { useToolPerDivisionModes, type ToolDivisionMode } from '@/hooks/useToolPerDivisionModes'
 import { BulkToolStockProvider, type BulkToolStockBatch } from '@/components/shared/BulkToolStockContext'
 import { useBulkToolStockBatch } from '@/hooks/useBulkToolStockBatch'
 import {
@@ -192,6 +193,97 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
   )
 }
 
+// One tool item that has per-(item,division) mode overrides — rendered ONCE
+// (no duplicate catalog record), with each division's effective mode + stock
+// inline. Bulk divisions show a quantity; serialized divisions show a serial-
+// unit count. Tools Per-Division Mode, Phase 2.
+function PerDivisionToolItemRow({ item, depth, divisions }: { item: InventoryItem; depth: number; divisions: ToolDivisionMode[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const indent = 12 + (depth + 1) * 20
+  const stockLabel = (d: ToolDivisionMode) =>
+    d.effective_mode === 'bulk'
+      ? `${d.bulk_qty.toLocaleString()} qty`
+      : `${d.unit_count} unit${d.unit_count === 1 ? '' : 's'}`
+  // Custody side (Phase 4): if any division tracks this item serialized, the
+  // expanded row surfaces the actual serial units (view / add / auto-generate /
+  // edit / transfer) via the shared ToolUnitRows — the same UI a serialized-
+  // category item gets. The units carry their own division_id (shown in the
+  // DIVISION column), so all of the item's units belong to its serialized
+  // divisions; bulk divisions hold qty, never units.
+  const serializedDivs = divisions.filter((d) => d.effective_mode === 'serialized')
+  const hasSerialized = serializedDivs.length > 0
+  return (
+    <>
+      <tr className="border-b border-border hover:bg-muted/20 cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+        <td className="py-2.5 pr-2" style={{ paddingLeft: indent }}>
+          <div className="flex items-center gap-2 min-w-0">
+            {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+            <span className="text-sm font-medium truncate">{item.name_en}</span>
+          </div>
+        </td>
+        <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {divisions.map((d) => (
+              <span key={d.division_id} className="inline-flex items-center gap-1 whitespace-nowrap">
+                <ToolModeBadge mode={d.effective_mode} />
+                <span>{d.division_name} · {stockLabel(d)}</span>
+              </span>
+            ))}
+          </div>
+        </td>
+        <td className="py-2.5 px-2 text-right">
+          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="icon" aria-label="Edit tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </div>
+        </td>
+      </tr>
+      {expanded && (
+        <>
+          <tr className="bg-muted/10">
+            <td colSpan={3} className="py-2 pl-12 pr-4">
+              <div className="rounded border border-border overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="text-left text-[10px] font-semibold py-1.5 px-2">DIVISION</th>
+                      <th className="text-left text-[10px] font-semibold py-1.5 px-2">MODE</th>
+                      <th className="text-left text-[10px] font-semibold py-1.5 px-2">STOCK</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {divisions.map((d) => (
+                      <tr key={d.division_id} className="border-t border-border">
+                        <td className="py-1.5 px-2">{d.division_name}</td>
+                        <td className="py-1.5 px-2"><ToolModeBadge mode={d.effective_mode} /></td>
+                        <td className="py-1.5 px-2">
+                          {d.effective_mode === 'bulk'
+                            ? `${d.bulk_qty.toLocaleString()} on hand (quantity, sellable)`
+                            : `${d.unit_count} serial unit${d.unit_count === 1 ? '' : 's'} (custody)`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {hasSerialized && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Serial units for the custody division{serializedDivs.length === 1 ? '' : 's'}
+                  {' '}({serializedDivs.map((d) => d.division_name).join(', ')}) — add, auto-generate, edit, or transfer below.
+                </p>
+              )}
+            </td>
+          </tr>
+          {hasSerialized && <ToolUnitRows itemId={item.id} itemSku={item.sku} />}
+        </>
+      )}
+      <ItemEditDialog open={editOpen} onOpenChange={setEditOpen} categoryId={item.category_id} categoryType="tools" item={item} />
+    </>
+  )
+}
+
 type Props = {
   node: InventoryTreeNode
   showArchived: boolean
@@ -250,6 +342,11 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
     }),
     [bulkStock],
   )
+
+  // Per-(item,division) mode overrides for this category's items (Phase 2).
+  // Items present here have a per-division mode split and render ONCE via
+  // PerDivisionToolItemRow; all others use the normal category-mode path below.
+  const { data: perDivModes } = useToolPerDivisionModes(expanded ? node.id : null)
 
   const indent = 12 + depth * 20
   const depthStyle = categoryDepthStyle(depth)
@@ -339,15 +436,27 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         />
       ))}
 
-      {expanded && (
-        isBulk
-          ? (
-            <BulkToolStockProvider value={bulkStockValue}>
-              {visibleItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
-            </BulkToolStockProvider>
-          )
-          : visibleItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)
-      )}
+      {expanded && (() => {
+        // Items with a per-(item,division) mode override render once via
+        // PerDivisionToolItemRow (no duplicate record); the rest use the normal
+        // category-mode path (bulk qty rows or serialized unit rows).
+        const perDivItems = perDivModes ? visibleItems.filter((it) => perDivModes.has(it.id)) : []
+        const regularItems = perDivModes ? visibleItems.filter((it) => !perDivModes.has(it.id)) : visibleItems
+        return (
+          <>
+            {perDivItems.map((item) => (
+              <PerDivisionToolItemRow key={item.id} item={item} depth={depth} divisions={perDivModes!.get(item.id)!} />
+            ))}
+            {isBulk
+              ? (
+                <BulkToolStockProvider value={bulkStockValue}>
+                  {regularItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
+                </BulkToolStockProvider>
+              )
+              : regularItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)}
+          </>
+        )
+      })()}
 
       {expanded && isLeaf && visibleItems.length === 0 && (
         <tr className="border-b border-border">
