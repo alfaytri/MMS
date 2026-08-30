@@ -81,7 +81,7 @@ export function useCascadeAccessibleItems(
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      let q = supabase
+      const q = supabase
         .from('inventory_items')
         .select('id, category_id, inventory_categories!inner(type, tool_tracking_mode)')
         .neq('status', 'archived')
