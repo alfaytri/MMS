@@ -96,7 +96,13 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   // Gated on `open`: this dialog is mounted once per CategoryRow (outside the
   // {expanded} guard), so without the gate every visible category fires this
   // multi-table probe on page load while the dialog is closed.
-  const { data: categoryHasStockOrUnits } = useCategoryHasStockOrUnits(open && isEdit ? (category?.id ?? null) : null)
+  const { data: categoryStock } = useCategoryHasStockOrUnits(open && isEdit ? (category?.id ?? null) : null)
+  // Serial units block ANY mode switch. Bulk-only qty (no units) still allows the
+  // corrective serialized -> bulk flip (mirrors guard_tool_tracking_mode_switch,
+  // migration 20260831002300); -> serialized while qty exists is left to the DB
+  // guard to reject with a clear message.
+  const catHasUnits = !!categoryStock?.hasUnits
+  const catHasQty = !!categoryStock?.hasQty
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const parentId = selectedParentId
@@ -505,7 +511,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                   <Select
                     value={trackingMode}
                     onValueChange={(v) => setTrackingMode(v as 'serialized' | 'bulk')}
-                    disabled={isEdit && !!categoryHasStockOrUnits}
+                    disabled={isEdit && catHasUnits}
                   >
                     <SelectTrigger id="cat-tracking-mode" className="h-10 w-full min-w-0">
                       <span className="truncate">
@@ -513,14 +519,19 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="serialized">Serialized (per-unit)</SelectItem>
+                      {/* Can't move TO serialized while bulk qty exists (qty can't
+                          become per-unit stock) — but leave it pickable when
+                          nothing blocks it. */}
+                      <SelectItem value="serialized" disabled={isEdit && catHasQty}>Serialized (per-unit)</SelectItem>
                       <SelectItem value="bulk">Bulk (qty tracking)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-muted-foreground break-words leading-snug">
-                    {isEdit && categoryHasStockOrUnits
-                      ? 'Locked — category holds stock/units. Empty it first to switch.'
-                      : 'Serialized = per-unit asset tracking. Bulk = qty/FIFO like consumables.'}
+                    {isEdit && catHasUnits
+                      ? 'Locked — category holds serial units. Empty it first to switch.'
+                      : isEdit && catHasQty
+                        ? 'Holds bulk qty — you can switch to Bulk. Switching to Serialized needs the qty cleared first.'
+                        : 'Serialized = per-unit asset tracking. Bulk = qty/FIFO like consumables.'}
                   </p>
                 </div>
               )}
