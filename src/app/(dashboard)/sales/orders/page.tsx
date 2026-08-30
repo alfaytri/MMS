@@ -2,6 +2,10 @@
 
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -180,6 +184,7 @@ export default function SaleOrdersPage() {
   const [dateTo, setDateTo] = useState('')
   const [deliveryFilter, setDeliveryFilter] = useState('')
   const [detailSO, setDetailSO] = useState<SaleOrder | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<SaleOrder | null>(null)
 
   const { data: customers } = useCustomers()
 
@@ -256,11 +261,17 @@ export default function SaleOrdersPage() {
   }
 
   function handleCancel(so: SaleOrder) {
-    if (!confirm(`Cancel ${so.so_number}? The SO will remain visible with Cancelled status.`)) return
+    // Unify with the SO detail view's styled confirm (Tier 4 — was window.confirm).
+    setCancelTarget(so)
+  }
+  function confirmCancel() {
+    const so = cancelTarget
+    if (!so) return
     cancelSO.mutate(so.id, {
       onSuccess: () => toast.success(`${so.so_number} cancelled`),
       onError: (e) => toast.error(humanizeDbError(e)),
     })
+    setCancelTarget(null)
   }
 
   const columns = useMemo<ColumnDef<SaleOrder>[]>(() => [
@@ -650,6 +661,24 @@ export default function SaleOrdersPage() {
         onEdit={(so) => router.push(`/sales/edit-so/${so.id}`)}
         onConfirm={handleConfirm}
       />
+
+      {/* Tier 4 — styled cancel confirm (replaces native window.confirm). */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) setCancelTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel {cancelTarget?.so_number}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The sale order will remain visible with a <span className="font-semibold text-foreground">Cancelled</span> status. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep order</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel} disabled={cancelSO.isPending}>
+              {cancelSO.isPending ? 'Cancelling…' : 'Cancel order'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageWrapper>
   )
 }

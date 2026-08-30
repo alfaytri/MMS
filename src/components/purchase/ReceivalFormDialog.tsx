@@ -726,6 +726,9 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
             <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
               <PackageCheck className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
               <p className="text-xs">Select a PO to load expected line items</p>
+              <p className="mt-1 text-[11px] text-muted-foreground/80">
+                Received something not on the PO? Once a PO is picked you can add <span className="text-success font-medium">free items</span> to the same receival.
+              </p>
             </div>
           )}
         </div>
