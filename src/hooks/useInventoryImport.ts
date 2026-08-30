@@ -27,6 +27,8 @@ export type ImportResult = {
   itemsCreated: number
   variantsCreated: number
   skipped: number
+  /** Opening-stock units booked via rpc_import_inventory_stock. */
+  unitsSeeded: number
   errors: { row: number; message: string }[]
 }
 
@@ -37,6 +39,8 @@ export type ExistingInventoryLookup = {
   /** Phase D.14 — powers the "advisory" dropdowns in the template's Category
    *  columns. Each entry is a distinct (depth, type, name, full_path) tuple. */
   existingCategoryOptions: ExistingCategoryOption[]
+  /** Lowercased country_codes.name → id, for the importer's Origin column. */
+  countryByName: Map<string, number>
 }
 
 type CategoryRow = {
@@ -489,17 +493,26 @@ export function useInventoryImport() {
       }
 
       // ─── Step 4: Create brand variants (batched) ────────────────────────
+      // Variant identity = (item_id, brand_id, country_id) — the DB unique index
+      // uq_iibv_item_brand_origin — so origin-distinct rows are DISTINCT variants.
+      // Track EVERY variant's id (existing + created) so Step 5 can book stock.
       const { data: existingVariants, error: variantFetchErr } = await supabase
         .from('inventory_item_brand_variants')
-        .select('id, item_id, brand')
+        .select('id, item_id, brand, country_id')
       if (variantFetchErr) throw variantFetchErr
 
+      const variantKeyOf = (itemId: string, brand: string, countryId: number | null): string =>
+        `${itemId}||${brand.trim().toLowerCase()}||${countryId ?? ''}`
+
+      const variantIdByKey = new Map<string, string>()
       const variantSet = new Set<string>()
-      for (const v of (existingVariants ?? []) as { id: string; item_id: string; brand: string }[]) {
-        variantSet.add(`${v.item_id}||${v.brand.trim().toLowerCase()}`)
+      for (const v of (existingVariants ?? []) as { id: string; item_id: string; brand: string; country_id: number | null }[]) {
+        const k = variantKeyOf(v.item_id, v.brand, v.country_id)
+        variantSet.add(k)
+        variantIdByKey.set(k, v.id)
       }
 
-      type PendingVariant = { row: ValidatedRow; itemId: string }
+      type PendingVariant = { row: ValidatedRow; itemId: string; key: string }
       const pendingVariants: PendingVariant[] = []
 
       for (const row of validRows) {
@@ -509,59 +522,49 @@ export function useInventoryImport() {
           skipped++
           continue
         }
-
-        const variantMapKey = `${itemId}||${row.brand.trim().toLowerCase()}`
-        if (variantSet.has(variantMapKey)) {
-          skipped++
-          continue
-        }
-
-        variantSet.add(variantMapKey)
-        pendingVariants.push({ row, itemId })
+        const k = variantKeyOf(itemId, row.brand, row.countryId)
+        if (variantSet.has(k)) continue // already exists (or an earlier row this import) — its id is tracked for stock
+        variantSet.add(k)
+        pendingVariants.push({ row, itemId, key: k })
       }
+
+      const variantPayload = (p: PendingVariant) => ({
+        item_id: p.itemId,
+        brand: p.row.brand,
+        brand_id: brandIdByLower.get(p.row.brand.trim().toLowerCase()) ?? null,
+        country_id: p.row.countryId,
+        cost_price: p.row.costPrice,
+        selling_price: p.row.sellingPrice,
+        average_cost: p.row.costPrice,
+        stock_level: 0,
+        status: 'active' as const,
+        sort_order: 0,
+      })
 
       // Batch insert variants — on unique violation, fall back to row-by-row
       for (let i = 0; i < pendingVariants.length; i += BATCH_SIZE) {
         const batch = pendingVariants.slice(i, i + BATCH_SIZE)
-        const payloads = batch.map((p) => ({
-          item_id: p.itemId,
-          brand: p.row.brand,
-          brand_id: brandIdByLower.get(p.row.brand.trim().toLowerCase()) ?? null,
-          cost_price: p.row.costPrice,
-          selling_price: p.row.sellingPrice,
-          average_cost: p.row.costPrice,
-          stock_level: 0,
-          status: 'active' as const,
-          sort_order: 0,
-        }))
 
         const { data: inserted, error: batchErr } = await supabase
           .from('inventory_item_brand_variants')
-          .insert(payloads)
-          .select('id')
+          .insert(batch.map(variantPayload))
+          .select('id, item_id, brand, country_id')
 
         if (batchErr) {
           if (isUniqueViolation(batchErr)) {
             for (const p of batch) {
-              const { error: singleErr } = await supabase
+              const { data: single, error: singleErr } = await supabase
                 .from('inventory_item_brand_variants')
-                .insert({
-                  item_id: p.itemId,
-                  brand: p.row.brand,
-                  brand_id: brandIdByLower.get(p.row.brand.trim().toLowerCase()) ?? null,
-                  cost_price: p.row.costPrice,
-                  selling_price: p.row.sellingPrice,
-                  average_cost: p.row.costPrice,
-                  stock_level: 0,
-                  status: 'active',
-                  sort_order: 0,
-                })
+                .insert(variantPayload(p))
+                .select('id')
+                .single()
 
               if (singleErr && isUniqueViolation(singleErr)) {
-                skipped++
+                skipped++ // exists (race/case-collision); id may already be tracked from the initial fetch
               } else if (singleErr) {
                 errors.push({ row: p.row.rowIndex, message: `Failed to create variant "${p.row.brand}": ${singleErr.message}` })
-              } else {
+              } else if (single) {
+                variantIdByKey.set(p.key, (single as { id: string }).id)
                 variantsCreated++
               }
             }
@@ -573,10 +576,45 @@ export function useInventoryImport() {
           continue
         }
 
+        for (const r of (inserted ?? []) as { id: string; item_id: string; brand: string; country_id: number | null }[]) {
+          variantIdByKey.set(variantKeyOf(r.item_id, r.brand, r.country_id), r.id)
+        }
         variantsCreated += (inserted ?? []).length
       }
 
-      return { categoriesCreated, itemsCreated, variantsCreated, skipped, errors }
+      // ─── Step 5: Book opening stock (rows with Quantity > 0) via RPC ─────
+      // The client cannot insert fifo_cost_layers across divisions (RESTRICTIVE
+      // is_sub_container_visible policy), so stock is booked server-side by the
+      // SECURITY DEFINER rpc_import_inventory_stock.
+      let unitsSeeded = 0
+      const placements: { brand_variant_id: string; sub_container_id: string; qty: number; unit_cost: number }[] = []
+      for (const row of validRows) {
+        if (!(row.quantity > 0) || !row.subContainer) continue
+        const itemId = resolvedItemId.get(buildItemKey(row.type, row.categorySegments, row.itemName))
+        if (!itemId) continue
+        const vid = variantIdByKey.get(variantKeyOf(itemId, row.brand, row.countryId))
+        if (!vid) continue
+        placements.push({
+          brand_variant_id: vid,
+          sub_container_id: row.subContainer.sub_container_id,
+          qty: Math.floor(row.quantity),
+          unit_cost: row.costPrice,
+        })
+      }
+      for (let i = 0; i < placements.length; i += 500) {
+        const chunk = placements.slice(i, i + 500)
+        const { data: stockRes, error: stockErr } = await supabase.rpc(
+          'rpc_import_inventory_stock' as never,
+          { p_rows: chunk } as never,
+        )
+        if (stockErr) {
+          errors.push({ row: 0, message: `Failed to book opening stock: ${(stockErr as { message?: string }).message ?? 'unknown error'}` })
+        } else {
+          unitsSeeded += Number((stockRes as unknown as { units?: number } | null)?.units ?? 0)
+        }
+      }
+
+      return { categoriesCreated, itemsCreated, variantsCreated, skipped, unitsSeeded, errors }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.categories })
@@ -591,6 +629,10 @@ export function useInventoryImport() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsGrouped })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.allBrandNames })
+      // Opening stock was booked via rpc_import_inventory_stock — refresh the
+      // warehouse stock views + variant stock badges.
+      queryClient.invalidateQueries({ queryKey: ['warehouse_stock'] })
+      queryClient.invalidateQueries({ queryKey: ['variant_warehouse_stock'] })
     },
   })
 }
@@ -647,17 +689,29 @@ export function useExistingInventoryLookup() {
 
       const { data: variants, error: variantErr } = await supabase
         .from('inventory_item_brand_variants')
-        .select('id, item_id, brand')
+        .select('id, item_id, brand, country_id')
       if (variantErr) throw variantErr
 
       const variantKeys = new Set<string>()
-      for (const v of (variants ?? []) as { id: string; item_id: string; brand: string }[]) {
+      for (const v of (variants ?? []) as { id: string; item_id: string; brand: string; country_id: number | null }[]) {
         const info = itemInfoById.get(v.item_id)
         if (!info) continue
-        variantKeys.add(buildVariantKey(info.type, info.segments, info.name_en, v.brand))
+        // Include origin so the preview counts origin-distinct variants correctly
+        // (matches the parser's buildVariantKey(..., row.countryId)).
+        variantKeys.add(buildVariantKey(info.type, info.segments, info.name_en, v.brand, v.country_id))
       }
 
-      return { categoryPaths, itemKeys, variantKeys, existingCategoryOptions }
+      // Country map for the importer's Origin column (lowercased name → id).
+      const { data: countries, error: countryErr } = await supabase
+        .from('country_codes')
+        .select('id, name')
+      if (countryErr) throw countryErr
+      const countryByName = new Map<string, number>()
+      for (const c of (countries ?? []) as { id: number; name: string }[]) {
+        countryByName.set(c.name.trim().toLowerCase(), c.id)
+      }
+
+      return { categoryPaths, itemKeys, variantKeys, existingCategoryOptions, countryByName }
     },
   })
 }
