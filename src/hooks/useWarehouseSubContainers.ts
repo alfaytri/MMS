@@ -127,19 +127,16 @@ export function useSubContainerDivisionMap() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      // Source from warehouse_sub_container_totals (a SECURITY-DEFINER view that
-      // bypasses the caller's RLS) rather than the base table. The base table's
-      // RESTRICTIVE select policy is gated on is_division_visible(division_id),
-      // which narrows to the ACTIVE division — so a direct read would omit every
-      // OTHER division's sub-containers, leaving them "unknown" in the map and
-      // slipping through useDivisionScopedVisibility's null-safe fallback. The
-      // view returns EVERY active sub-container's division, so the map is complete
-      // and the client-side view filter can actually hide other divisions.
-      // (division_id was added to the view in migration 20261007000000.)
-      const { data, error } = await supabase
-        .from('warehouse_sub_container_totals')
-        .select('sub_container_id, division_id')
-        .limit(2000)
+      // Complete sub-container -> division map via the SECURITY DEFINER RPC
+      // get_sub_container_division_map(). We CANNOT read warehouse_sub_container_totals
+      // here: the 2026-08-26 anon-exposure fix (C1) made that view
+      // security_invoker=true, so it is now RLS-scoped and — under a division filter —
+      // returns only the ACTIVE division's sub-containers. That left the map INCOMPLETE
+      // and other-division stock slipped through useDivisionScopedVisibility's null-safe
+      // fallback (rendering as "Unassigned" in the warehouse stock tree). The RPC returns
+      // EVERY sub-container's division (metadata only, authenticated-only), so the client
+      // filter can actually hide other divisions again.
+      const { data, error } = await supabase.rpc('get_sub_container_division_map' as never)
       if (error) throw error
       const map = new Map<string, string | null>()
       for (const r of (data ?? []) as unknown as Array<{ sub_container_id: string | null; division_id: string | null }>) {
@@ -163,18 +160,18 @@ export function useWarehouseDivisionSets() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('warehouse_sub_container_totals')
-        .select('warehouse_id, division_id, sub_container_is_active')
-        .limit(2000)
+      // Complete map via the SECURITY DEFINER RPC (see useSubContainerDivisionMap for
+      // why the security_invoker warehouse_sub_container_totals view can't be used —
+      // it would be RLS-scoped and miss other divisions).
+      const { data, error } = await supabase.rpc('get_sub_container_division_map' as never)
       if (error) throw error
       const map = new Map<string, Set<string>>()
       for (const r of (data ?? []) as unknown as Array<{
         warehouse_id: string | null
         division_id: string | null
-        sub_container_is_active: boolean | null
+        is_active: boolean | null
       }>) {
-        if (!r.warehouse_id || !r.division_id || r.sub_container_is_active === false) continue
+        if (!r.warehouse_id || !r.division_id || r.is_active === false) continue
         if (!map.has(r.warehouse_id)) map.set(r.warehouse_id, new Set())
         map.get(r.warehouse_id)!.add(r.division_id)
       }
