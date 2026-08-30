@@ -23,13 +23,17 @@ import {
   useSaleReturns,
   useCreateSaleReturn,
   useUpdateReturnStatus,
+  useCreateCreditNoteForReturn,
   useSaleDeliveryLinesForSo,
   type SaleReturn,
   type DeliveryLineForReturn,
 } from '@/hooks/useSaleReturns'
+import { useCreateReplacementDelivery, useRecordInventoryDisposition } from '@/hooks/useSaleDeliveries'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import { useSaleOrders } from '@/hooks/useSaleOrders'
 import { SaleReturnDetailDialog } from '@/components/sales/SaleReturnDetailDialog'
+import { CompleteInspectionDialog } from '@/components/sales/CompleteInspectionDialog'
+import { ReplacementDeliveryDialog } from '@/components/sales/ReplacementDeliveryDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
@@ -152,6 +156,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_FILTERS: { value: '' | SaleReturn['status']; label: string }[] = [
   { value: '',          label: 'All' },
   { value: 'pending',   label: 'Pending' },
+  { value: 'pending_inspection', label: 'Inspection' },
   { value: 'received',  label: 'Received' },
   { value: 'restocked', label: 'Restocked' },
   { value: 'closed',    label: 'Closed' },
@@ -163,6 +168,8 @@ export default function SaleReturnsPage() {
   const [statusFilter, setStatusFilter] = useState<SaleReturn['status'] | ''>('')
   const [createOpen, setCreateOpen] = useState(false)
   const [detailReturn, setDetailReturn] = useState<SaleReturn | null>(null)
+  const [inspectReturn, setInspectReturn] = useState<SaleReturn | null>(null)
+  const [replacementReturn, setReplacementReturn] = useState<SaleReturn | null>(null)
   const [soId, setSoId] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [reasonSelect, setReasonSelect] = useState('')
@@ -210,6 +217,9 @@ export default function SaleReturnsPage() {
 
   const createReturn = useCreateSaleReturn()
   const updateStatus = useUpdateReturnStatus()
+  const createCreditNote = useCreateCreditNoteForReturn()
+  const createReplacement = useCreateReplacementDelivery()
+  const recordDisposition = useRecordInventoryDisposition()
 
   // SO lookup for enriching return list rows with SO # + customer + division
   const soById = useMemo(() => {
@@ -379,6 +389,10 @@ export default function SaleReturnsPage() {
             const cfg  = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending ?? { label: ret.status, color: 'text-slate-700', bg: 'bg-slate-50 border-slate-200', Icon: Clock }
             const next = STATUS_NEXT[ret.status]
             const canCancel = ret.status === 'pending' || ret.status === 'received'
+            const needsInspection = ret.status === 'pending_inspection'
+            const needsCreditNote = !ret.credit_note_id && (ret.status === 'restocked' || ret.status === 'closed')
+            const canResolve = ret.status === 'restocked'
+            const cnPending = createCreditNote.isPending && createCreditNote.variables?.id === ret.id
             const damaged   = (ret.return_lines ?? []).filter((i) => i.condition === 'damaged').reduce((s, i) => s + i.qty, 0)
             const totalQty  = (ret.return_lines ?? []).reduce((s, i) => s + i.qty, 0)
             const soRef     = soById.get(ret.source_id)
@@ -414,7 +428,27 @@ export default function SaleReturnsPage() {
                       <ReplacementChips returnId={ret.id} />
                       <CompensationMissingChip returnId={ret.id} />
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
+                      {needsInspection && (
+                        <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px]"
+                          onClick={() => setInspectReturn(ret)}>
+                          Complete Inspection
+                        </Button>
+                      )}
+                      {canResolve && (
+                        <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px]"
+                          onClick={() => setReplacementReturn(ret)}>
+                          Resolve / Replace
+                        </Button>
+                      )}
+                      {needsCreditNote && (
+                        <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px]" disabled={createCreditNote.isPending}
+                          onClick={() => createCreditNote.mutate(ret,
+                            { onSuccess: () => toast.success(`Credit note created for ${ret.return_number}`), onError: (e) => toast.error(humanizeDbError(e)) }
+                          )}>
+                          {cnPending ? 'Creating…' : 'Create Credit Note'}
+                        </Button>
+                      )}
                       {next && (
                         <Button size="sm" variant="outline" className="h-7 min-h-11 md:min-h-0 text-[11px]" disabled={updateStatus.isPending}
                           onClick={() => updateStatus.mutate({ id: ret.id, status: next },
@@ -448,6 +482,52 @@ export default function SaleReturnsPage() {
       )}
 
       <SaleReturnDetailDialog ret={detailReturn} onClose={() => setDetailReturn(null)} />
+
+      {/* S4 — Complete Inspection for a pending_inspection return (moves it to received). */}
+      {inspectReturn && (
+        <CompleteInspectionDialog
+          open
+          onOpenChange={(o) => { if (!o) setInspectReturn(null) }}
+          ret={inspectReturn}
+        />
+      )}
+
+      {/* S5/S6 — Resolve remaining: replacement lines + damaged dispositions in one atomic call. */}
+      {replacementReturn && (
+        <ReplacementDeliveryDialog
+          open
+          onOpenChange={(o) => { if (!o) setReplacementReturn(null) }}
+          returnData={replacementReturn}
+          soId={replacementReturn.source_id}
+          currency="QAR"
+          isPending={createReplacement.isPending || recordDisposition.isPending}
+          onConfirm={async ({ warehouseId, lines, dispositions, giftItems }) => {
+            try {
+              if (lines.length > 0) {
+                await createReplacement.mutateAsync({
+                  soId:       replacementReturn.source_id,
+                  returnId:   replacementReturn.id,
+                  warehouseId,
+                  lines,
+                  dispositions,
+                  giftItems: giftItems.map((g) => ({
+                    item_name: g.item_name, sku: g.sku, qty: g.qty, brand_variant_id: g.brand_variant_id,
+                  })),
+                })
+              } else if (dispositions.length > 0) {
+                await recordDisposition.mutateAsync({ returnId: replacementReturn.id, warehouseId, dispositions })
+              }
+              const dispQty = dispositions.reduce((s, d) => s + d.qty, 0)
+              if (lines.length > 0 && dispQty > 0) toast.success('Replacement delivery created; damaged units dispositioned')
+              else if (lines.length > 0) toast.success('Replacement delivery created')
+              else if (dispQty > 0) toast.success(`Damaged units dispositioned (${dispQty})`)
+              setReplacementReturn(null)
+            } catch (e) {
+              toast.error(humanizeDbError(e))
+            }
+          }}
+        />
+      )}
 
       {/* ── Create Sale Return Dialog ── */}
       <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); resetForm() } else setCreateOpen(true) }}>

@@ -82,7 +82,7 @@ Field rules:
 
 - **Module:** Sales / Finance
 - **Status:** Active
-- **Trigger surface(s):** Return row in `SoReturnsTab` (any status) with no CN yet → **Create Credit Note** button.
+- **Trigger surface(s):** Return row in `SoReturnsTab` (any status) with no CN yet → **Create Credit Note** button. Also on the standalone `/sales/returns` list (restocked/closed, no CN) — Tier 2 parity 2026-08-30.
 - **Primary hook(s):** [`useCreateCreditNoteForReturn`](src/hooks/useCreditNotes.ts)
 - **RPC(s):** `rpc_create_credit_note_for_return`
 - **Ledger writes:** `credit_notes` + `credit_note_lines` (original + returned lines both). No return-line ledger rows.
@@ -93,7 +93,7 @@ Field rules:
 
 - **Module:** Sales
 - **Status:** Active — Phase 7.2 rewrite
-- **Trigger surface(s):** `SoDetailDialog` → Returns tab → **Resolve Remaining** / **Book Dispositions** button on any restocked return.
+- **Trigger surface(s):** `SoDetailDialog` → Returns tab → **Resolve Remaining** / **Book Dispositions** button on any restocked return. Also on the standalone `/sales/returns` list via **Resolve / Replace** on restocked returns — Tier 2 parity 2026-08-30.
 - **Primary hook(s):** [`useCreateReplacementDelivery`](src/hooks/useSaleDeliveries.ts)
 - **RPC(s):** `rpc_create_partial_replacement(p_return_id, p_warehouse_id, p_lines, p_gift_items, p_dispositions)`
 - **Ledger writes:** `sale_deliveries` (`type='replacement'`) + `sale_delivery_lines` + `return_line_customer_resolutions` (type=replacement) + optional `return_line_inventory_dispositions` (from `p_dispositions`) + `inventory_stock_movements` (`sale_return_damaged` for write-offs). All atomic — a disposition failure rolls back the delivery.
@@ -128,7 +128,7 @@ Field rules:
 
 - **Module:** Sales / Inventory
 - **Status:** Active — Phase 7.2 new action; extended Phase 9.3 (`restock_as_damaged`)
-- **Trigger surface(s):** `ReplacementDeliveryDialog` (dispositions-only submit — no replacement lines).
+- **Trigger surface(s):** `ReplacementDeliveryDialog` (dispositions-only submit — no replacement lines), opened from `SoDetailDialog` Returns tab and (Tier 2 parity 2026-08-30) the standalone `/sales/returns` list.
 - **Primary hook(s):** [`useRecordInventoryDisposition`](src/hooks/useSaleDeliveries.ts)
 - **RPC(s):** `rpc_record_inventory_disposition(p_return_id, p_warehouse_id, p_dispositions)`; disposition dispatch also lives inline in `rpc_create_partial_replacement(p_return_id, p_warehouse_id, p_lines, p_gift_items, p_dispositions)`.
 - **Ledger writes:** For `{return_line_id, type='write_off', qty}`: `inventory_stock_movements(movement_type='sale_return_damaged')` + `return_line_inventory_dispositions` via `_record_inventory_disposition`. For `{return_line_id, type='restock_as_damaged', qty, notes?}` (Phase 9.3, migration `20260802000400_rpc_restock_as_damaged.sql`): `return_line_inventory_dispositions` (both FKs null) + `inventory_damaged_stock_layers` (FIFO layer, cost via `_return_line_fifo_unit_cost`) + `inventory_damaged_stock` (weighted-avg upsert) + `inventory_damaged_movements(movement_type='restock_as_damaged_in')`, all booked inside `_record_inventory_disposition` itself (not the caller) once it validates the condition/qty guards. For `{return_line_id, type='send_for_repair', qty, notes?}` (Phase 9.4, migration `20260802000500_rpc_send_for_repair.sql`): `return_line_inventory_dispositions` ONLY (both FKs null initially — `warehouse_transfer_id` is populated later by the [[Send Damaged for Repair]] follow-up RPC once the operator picks a vendor). No damaged-stock side-effects at disposition time; the physical restock + transfer both happen inside `rpc_send_damaged_for_repair`.
@@ -826,7 +826,7 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **RPC:** `detach_payment_from_invoice`
 
 ### Create Payment Plan (installments)
-- **Trigger:** `PaymentPlanDialog` (finance + purchase)
+- **Trigger:** `PaymentPlanDialog` (finance + purchase) — from `SoDetailDialog` Payments tab and (Tier 2 parity 2026-08-30) the standalone `/sales/invoices/[id]` page (credit invoices ≥ threshold; view/settle via `PaymentPlanSection`).
 - **Hook:** [`useCreatePaymentPlan`](src/hooks/usePaymentPlans.ts)
 - **Writes:** `payment_plans` + `payment_installments`
 

@@ -12,6 +12,13 @@ import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDeli
 import { useSaleOrder } from '@/hooks/useSaleOrders'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { SoPaymentDialog } from '@/components/sales/SoPaymentDialog'
+import { useCustomerPayments } from '@/hooks/useCustomerPayments'
+import { usePaymentPlans } from '@/hooks/usePaymentPlans'
+import { PaymentPlanSection } from '@/components/finance/PaymentPlanSection'
+import { PaymentPlanDialog, AR_LABELS } from '@/components/finance/PaymentPlanDialog'
+import { PAYMENT_PLAN_THRESHOLD } from '@/types/invoice'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { CalendarClock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +49,20 @@ function InvoiceDetailContent() {
   const { data: saleOrder } = useSaleOrder(invoice?.sale_order_id ?? null)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const canRecordPayment = canManagePayments && !!saleOrder && paymentStatus !== 'paid'
+
+  // S3 parity — payment plans (set up + settle) on the standalone invoice page,
+  // mirroring the SO view's Payments tab. Outstanding = invoice total − payments.
+  const { data: invoicePayments } = useCustomerPayments(id)
+  const { data: paymentPlans } = usePaymentPlans(id)
+  const [paymentPlanOpen, setPaymentPlanOpen] = useState(false)
+  const [planViewOpen, setPlanViewOpen] = useState(false)
+  const invoiceOutstanding = (invoice?.total_amount ?? 0) - (invoicePayments ?? []).reduce((s, p) => s + p.amount, 0)
+  const hasActivePlan = (paymentPlans ?? []).some((p) => p.status === 'active')
+  const hasAnyPlan = (paymentPlans ?? []).length > 0
+  const canOfferPaymentPlan =
+    canManagePayments && !!saleOrder && invoice?.invoice_type === 'credit' &&
+    invoiceOutstanding >= PAYMENT_PLAN_THRESHOLD && !hasActivePlan &&
+    !(saleOrder?.payment_milestones && saleOrder.payment_milestones.length > 0)
 
   // so_invoices doesn't carry sale_delivery_id directly (source is
   // 'sale_order' | 'contract' | 'quotation'), so we resolve via the invoice's
@@ -167,6 +188,18 @@ function InvoiceDetailContent() {
               Record Payment
             </Button>
           )}
+          {canOfferPaymentPlan && (
+            <Button size="sm" variant="outline" onClick={() => setPaymentPlanOpen(true)}>
+              <CalendarClock className="h-3.5 w-3.5 mr-1.5" />
+              Set Up Payment Plan
+            </Button>
+          )}
+          {hasAnyPlan && (
+            <Button size="sm" variant="outline" onClick={() => setPlanViewOpen(true)}>
+              <CalendarClock className="h-3.5 w-3.5 mr-1.5" />
+              Payment Plan
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -229,6 +262,37 @@ function InvoiceDetailContent() {
       {/* Record customer payment — reuses the SO view's dialog (S2 parity). */}
       {saleOrder && (
         <SoPaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} so={saleOrder} />
+      )}
+
+      {/* S3 parity — set up a payment plan (credit invoices ≥ threshold). */}
+      {saleOrder && (
+        <PaymentPlanDialog
+          open={paymentPlanOpen}
+          onOpenChange={setPaymentPlanOpen}
+          invoiceId={id}
+          outstanding={invoiceOutstanding}
+          currency={invoice?.currency ?? saleOrder.currency ?? 'QAR'}
+          labels={AR_LABELS}
+        />
+      )}
+
+      {/* S3 parity — view / settle installments of an existing plan. */}
+      {hasAnyPlan && (
+        <Dialog open={planViewOpen} onOpenChange={setPlanViewOpen}>
+          <DialogContent className="w-full max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Payment Plan — {invoice?.invoice_id ?? ''}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto">
+              <PaymentPlanSection
+                plans={paymentPlans ?? []}
+                currency={invoice?.currency ?? 'QAR'}
+                canSettle={!!canRecordPayment}
+                soId={invoice?.sale_order_id ?? null}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

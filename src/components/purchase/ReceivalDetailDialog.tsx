@@ -14,6 +14,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { Receival } from '@/hooks/useReceivals'
+import { ReceivalCheckButton } from '@/components/purchase/ReceivalCheckButton'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   approved:         { label: 'Approved',         color: 'text-green-700',  bg: 'bg-green-50 border-green-200' },
@@ -241,7 +242,14 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
 
         {/* Footer */}
         <Separator />
-        <div className="px-6 py-3 flex items-center justify-end">
+        <div className="px-6 py-3 flex items-center justify-end gap-2 flex-wrap">
+          {/* P2 parity — receival check-sheet (blank + per-receival), PO-sourced only. */}
+          {receival.source_type !== 'inventory' && receival.po_id && (
+            <>
+              <ReceivalCheckButton poId={receival.po_id} poNumber={receival.po_number ?? ''} mode="blank" />
+              <ReceivalCheckButton poId={receival.po_id} poNumber={receival.po_number ?? ''} mode="per_receival" receivalId={receival.id} />
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={pdfBusy}>
             {pdfBusy
               ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
