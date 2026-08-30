@@ -88,6 +88,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // Most-specific first: /consumption/warranties must precede the generic
   // /consumption prefix so it resolves to the warranty-view key, not consumption.view.
   { pathPrefix: '/consumption/warranties',   permission: 'consumption.warranties.view' },
+  { pathPrefix: '/consumption/returns',      permission: 'consumption.returns.view' },
   { pathPrefix: '/consumption',              permission: 'consumption.view' },
   { pathPrefix: '/warehouse/custody',        permission: 'custody.view' },
   { pathPrefix: '/warehouse/damaged-stock',  permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },

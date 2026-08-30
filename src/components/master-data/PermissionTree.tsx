@@ -592,6 +592,9 @@ export const NAV_TREE: TreeNode[] = [
           { key: 'consumption.cancel',          label: 'Cancel Consumption',          description: 'Cancel a posted consumption or approve a cancellation request (acts as .edit for this surface)' },
           { key: 'consumption.warranties.view',        label: 'View Consumption Warranties',        description: 'Access the Consumption Warranties page (records + claims) for warranties auto-issued when items are consumed into a team / project custody' },
           { key: 'consumption.warranty_claims.manage', label: 'Manage Consumption Warranty Claims', description: 'File, assess, and void warranty claims against consumption-sourced warranties (the consumption equivalent of the sales warranty-claims key)' },
+          { key: 'consumption.returns.view',   label: 'View Consumption Returns',   description: 'Access the Consumption Returns page — returns of posted consumptions that reverse the consumption cost and put good stock back' },
+          { key: 'consumption.returns.create', label: 'Create Consumption Returns', description: 'Create a consumption return and restock its good stock (reverses the consumption COGS)' },
+          { key: 'consumption.returns.manage', label: 'Manage Consumption Returns', description: 'Restock, disposition damaged stock, and cancel consumption returns' },
         ],
       },
       {
