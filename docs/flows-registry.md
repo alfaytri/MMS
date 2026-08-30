@@ -519,6 +519,18 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Notes:** Carve-out / no-PO new stock. `source_type='inventory_import'` seed data uses this same path. **Origin-aware (brands+origin feature, 2026-08-08):** the dialog takes `brandVariantId` as a prop = the exact `(item, brand, origin)` leaf clicked in the tree; the hook forwards it as `p_brand_variant_id` and FIFO layers key off `brand_variant_id`, so new stock + cost layers land only on that origin leaf — sibling-origin leaves of the same brand are untouched. There is **no in-dialog item/brand/origin picker by design** — the row you click IS the target (cleaner than a picker; can't select the wrong leaf). Verified 2026-08-08 (received into brand `LD`→India; the `LD`→Nepal leaf stayed 0 with no cost layers).
 - **Related flows:** [[Create / Edit Brand-Origin Variant]]
 
+### Inventory Excel Import (catalog + opening stock)
+- **Module:** Inventory / Catalog
+- **Status:** Active
+- **Trigger surface(s):** [`InventoryImportDialog`](src/components/services/inventory/InventoryImportDialog.tsx) — "Import" on the Inventory catalog page (download template → upload filled `.xlsx` → preview → import).
+- **Primary hook(s):** [`useInventoryImport`](src/hooks/useInventoryImport.ts) (creates catalog client-side), [`useExistingInventoryLookup`](src/hooks/useInventoryImport.ts) (dedup diff + country map). Pure parse/validate/template/preview: [`src/lib/inventory-import.ts`](src/lib/inventory-import.ts).
+- **RPC(s):** [`rpc_import_inventory_stock(p_rows jsonb)`](supabase/migrations/20260831000600_rpc_import_inventory_stock.sql) — SECURITY DEFINER, books opening stock server-side (the client can't cross-division insert `fifo_cost_layers` — RESTRICTIVE `is_sub_container_visible`). Catalog rows are inserted directly by the client.
+- **Ledger writes:** catalog tables (client: `inventory_categories`/`inventory_items`/`inventory_item_divisions`/`brands`/`inventory_item_brand_variants` with `country_id`) + `fifo_cost_layers` (`source_type='inventory_import'`, via the RPC) → `warehouse_stock_summary` trigger-built + divisions auto-stuck; the RPC also sets `variant.stock_level`/`average_cost` + `item.total_stock`.
+- **Downstream side-effects:** invalidates the inventory + `warehouse_stock` query keys. Tools load as **bulk qty** (`create_tool_units_on_receival_layer` only fires on `source_type='receival'`).
+- **Guards/preconditions:** catalog writes gated by RLS on `inventory.catalog.manage`; the stock RPC checks the same permission. Parser accepts a single `Category Path` column OR `Category 1..N`; Origin → `country_id` (UAE/UK/USA/Scotland aliases); units map leniently to the canonical set; Cost/Selling optional (blank→0); Warehouse — Sub-container required only when Quantity > 0. Variant identity = (item, brand, country) matching `uq_iibv_item_brand_origin`. Backwards-compatible: a file without the new columns imports exactly as before (catalog-only, zero stock).
+- **Related flows:** [[Create Standalone Inventory Receival]]
+- **Docs/plans:** [docs/plans/2026-08-30-inventory-importer-full-rebuild.md](plans/2026-08-30-inventory-importer-full-rebuild.md)
+
 ---
 
 ## Purchase Returns
