@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name },
+    user_metadata: { full_name, must_change_password: true },
   })
   if (createErr || !created.user) {
     return NextResponse.json({ error: `Auth user creation failed: ${createErr?.message ?? 'unknown'}` }, { status: 400 })
@@ -80,6 +80,7 @@ export async function POST(request: Request) {
       full_name,
       user_type: 'internal',
       is_active: true,
+      must_change_password: true,   // force a reset on first login
       created_by: gate.authUserId,
       is_division_manager,
       has_contact_centre_access,

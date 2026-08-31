@@ -9,6 +9,7 @@ import { TopNavV2Offset } from '@/components/layout/TopNavV2Offset'
 import { RoutePermissionGuard } from '@/components/auth/RoutePermissionGuard'
 import { DivisionProvider } from '@/components/providers/DivisionProvider'
 import { NoDivisionGate } from '@/components/auth/NoDivisionGate'
+import { PasswordResetGate } from '@/components/auth/PasswordResetGate'
 import { SentryUser } from '@/components/shared/SentryUser'
 
 export default async function DashboardLayout({
@@ -18,8 +19,9 @@ export default async function DashboardLayout({
 }) {
   return (
     <SessionGuard>
-      <DivisionProvider>
-        <NoDivisionGate>
+      <PasswordResetGate>
+        <DivisionProvider>
+          <NoDivisionGate>
           <div className="h-screen bg-muted/30 flex flex-col overflow-hidden text-sm 2xl:text-base">
             <InactivityGuard />
             <SentryUser />
@@ -32,8 +34,9 @@ export default async function DashboardLayout({
               <RoutePermissionGuard>{children}</RoutePermissionGuard>
             </DashboardMain>
           </div>
-        </NoDivisionGate>
-      </DivisionProvider>
+          </NoDivisionGate>
+        </DivisionProvider>
+      </PasswordResetGate>
     </SessionGuard>
   )
 }
