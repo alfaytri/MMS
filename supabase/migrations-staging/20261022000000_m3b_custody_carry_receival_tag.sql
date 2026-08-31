@@ -1,265 +1,96 @@
 -- 20261022000000_m3b_custody_carry_receival_tag.sql  (M3, part b — custody path)
 --
 -- Make the receival_id tag travel through a CUSTODY move so landed cost (M3a)
--- can find moved stock. No schema change: the transfer_out movement's unused
--- source_id column carries the drained source layer's id from dispatch to accept.
+-- finds moved stock. No schema change: the transfer_out movement's unused
+-- source_id column relays the drained source layer id from dispatch to accept.
 --
---   * rpc_dispatch_custody_assign: stamp source_id = the drained source fifo
---     layer's id (v_layer.layer_id, already returned by deduct_fifo_layers) onto
---     each transfer_out movement.
---   * rpc_accept_custody_assign: when materialising each destination layer, set
---     its receival_id from the source layer (looked up via the movement's
---     source_id). NULL for non-receival stock (imports/returns) — correct.
---     Multi-hop works: an already-tagged source layer passes its tag along.
+--   * rpc_dispatch_custody_assign: stamp source_id = drained layer id
+--     (v_layer.layer_id) onto each transfer_out movement.
+--   * rpc_accept_custody_assign: each destination layer inherits receival_id from
+--     the source layer (looked up via the movement's source_id). NULL for
+--     non-receival stock (imports/returns) — correct. Multi-hop passes the tag on.
 --
--- Bodies reproduced verbatim from the live definitions (dispatch:
--- 20260815001100, accept: 20260819270000 — both verified latest, no later
--- redefinition, reference current schema). ONLY the transfer_out insert's
--- source_id (dispatch) and the destination layer's receival_id (accept) change;
--- everything else — permission gates, status flips, recalc — is identical.
+-- DRIFT-PROOF: applied as an in-place transform on the LIVE function bodies
+-- (pg_get_functiondef + EXECUTE, the repo's own idiom), NOT reproduced from a
+-- migration file — an earlier attempt was built on a stale copy of accept (the
+-- live one, 20260820000800, added p_receipts/shortfall handling). This edits
+-- whatever is actually deployed. Every edit is asserted BALANCED (column-adds ==
+-- value-adds); on any mismatch the whole migration aborts with no change, so it
+-- can never leave a function with a broken column/value count. Idempotent.
 
--- ── dispatch: record which source layer each transfer_out drained ─────────────
-CREATE OR REPLACE FUNCTION public.rpc_dispatch_custody_assign(
-  p_transfer_id                uuid,
-  p_dispatched_by_profile_id   uuid   DEFAULT NULL,
-  p_dispatched_by_name         text   DEFAULT NULL
-) RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $function$
+DO $do$
 DECLARE
-  v_transfer     RECORD;
-  v_uid          uuid := public._current_user_data_id();
-  v_dispatcher   uuid := COALESCE(p_dispatched_by_profile_id, v_uid);
-  v_item         RECORD;
-  v_layer        RECORD;
-  v_qty_taken    int;
-  v_weighted     numeric;
-  v_line_total   numeric;
+  v_def text;
+  v_new text;
+  v_col int;
+  v_val int;
+  v_sel int;
+  v_n   int;
 BEGIN
-  IF v_dispatcher IS NULL THEN
-    RAISE EXCEPTION 'You need to be signed in to dispatch a custody request.';
-  END IF;
+  -- ===================== dispatch: stamp source_id on transfer_out =====================
+  SELECT pg_get_functiondef(p.oid) INTO v_def
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'rpc_dispatch_custody_assign';
+  IF v_def IS NULL THEN RAISE EXCEPTION 'M3b: rpc_dispatch_custody_assign not found'; END IF;
 
-  SELECT id, transfer_kind, status,
-         from_warehouse_id, from_sub_container_id,
-         to_warehouse_id, to_sub_container_id
-    INTO v_transfer
-    FROM public.warehouse_transfers
-    WHERE id = p_transfer_id
-    FOR UPDATE;
+  IF v_def ~ 'p_transfer_id, v_layer\.layer_id' THEN
+    RAISE NOTICE 'M3b: dispatch already stamps source_id — skipping';
+  ELSE
+    -- value: append v_layer.layer_id to the transfer_out VALUES
+    v_new := regexp_replace(v_def,
+      '(''transfer_out'',\s*-v_layer\.qty_taken,\s*v_layer\.unit_cost,\s*''transfer'',\s*p_transfer_id)',
+      '\1, v_layer.layer_id', 'g');
+    -- column: add source_id to that same insert's column list
+    v_new := regexp_replace(v_new,
+      '(reference_type, reference_id)(\s*\)\s*values\s*\([^;]*?''transfer_out'',\s*-v_layer\.qty_taken)',
+      '\1, source_id\2', 'gi');
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'This custody request no longer exists.';
-  END IF;
-  IF v_transfer.transfer_kind <> 'custody_assign' THEN
-    RAISE EXCEPTION 'This transfer is not a custody request and cannot be dispatched here.';
-  END IF;
-  IF v_transfer.status <> 'pending' THEN
-    RAISE EXCEPTION 'This custody request is already % — it can no longer be dispatched.', v_transfer.status;
-  END IF;
-
-  -- Permission: source WH field RP OR admin/inventory_manager.
-  IF NOT public.is_field_rp_of(v_dispatcher, v_transfer.from_warehouse_id)
-     AND NOT public._has_custody_admin_role(v_dispatcher) THEN
-    RAISE EXCEPTION 'Only a responsible person of the source warehouse (or an admin) can dispatch this request.';
-  END IF;
-
-  -- Deduct source FIFO per line, emit transfer_out movements.
-  FOR v_item IN
-    SELECT id, brand_variant_id, item_name, sku, requested_qty
-    FROM   public.warehouse_transfer_items
-    WHERE  transfer_id = p_transfer_id
-    ORDER  BY brand_variant_id
-  LOOP
-    IF COALESCE(v_item.requested_qty, 0) <= 0 THEN
-      CONTINUE;
+    v_col := (SELECT count(*) FROM regexp_matches(v_new, 'reference_type, reference_id, source_id', 'g'));
+    v_val := (SELECT count(*) FROM regexp_matches(v_new, 'p_transfer_id, v_layer\.layer_id', 'g'));
+    IF v_col <> 1 OR v_val <> 1 THEN
+      RAISE EXCEPTION 'M3b dispatch: unbalanced edit (source_id cols=%, layer_id vals=%) — aborting, no change', v_col, v_val;
     END IF;
+    EXECUTE v_new;
+    RAISE NOTICE 'M3b: dispatch now stamps source_id on transfer_out';
+  END IF;
 
-    v_qty_taken := 0;
-    v_line_total := 0;
+  -- ===================== accept: inherit receival_id onto moved layers =====================
+  SELECT pg_get_functiondef(p.oid) INTO v_def
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'rpc_accept_custody_assign';
+  IF v_def IS NULL THEN RAISE EXCEPTION 'M3b: rpc_accept_custody_assign not found'; END IF;
 
-    FOR v_layer IN
-      SELECT layer_id, source_type, source_id, qty_taken, unit_cost, total_cost
-      FROM   public.deduct_fifo_layers(
-        v_item.brand_variant_id,
-        v_transfer.from_warehouse_id,
-        v_item.requested_qty,
-        true,                                  -- p_is_transfer
-        v_transfer.from_sub_container_id
-      )
-    LOOP
-      v_qty_taken  := v_qty_taken  + v_layer.qty_taken;
-      v_line_total := v_line_total + v_layer.total_cost;
+  IF v_def ~ 'v_move\.source_id' THEN
+    RAISE NOTICE 'M3b: accept already inherits receival_id — skipping';
+  ELSE
+    -- how many custody destination inserts (custody_assign received + custody_return restock)
+    v_n := (SELECT count(*) FROM regexp_matches(v_def,
+      'source_type, source_id\s*\)\s*values\s*\([^;]*?''custody_(assign|return)'',\s*p_transfer_id', 'gi'));
+    IF v_n < 1 THEN RAISE EXCEPTION 'M3b accept: no custody destination insert found — aborting'; END IF;
 
-      INSERT INTO public.inventory_stock_movements (
-        warehouse_id, sub_container_id, brand_variant_id,
-        item_name, sku, movement_type, qty, unit_cost,
-        reference_type, reference_id, source_id
-      ) VALUES (
-        v_transfer.from_warehouse_id, v_transfer.from_sub_container_id,
-        v_item.brand_variant_id,
-        COALESCE(v_item.item_name, ''), v_item.sku,
-        'transfer_out', -v_layer.qty_taken, v_layer.unit_cost,
-        'transfer', p_transfer_id, v_layer.layer_id
-      );
-    END LOOP;
+    -- (1) the transfer_out movement read gains source_id
+    v_new := regexp_replace(v_def,
+      '(select\s+qty,\s*unit_cost)(\s+from\s+public\.inventory_stock_movements)',
+      '\1, source_id\2', 'gi');
+    -- (2) each custody-layer insert gains a receival_id column
+    v_new := regexp_replace(v_new,
+      '(source_type, source_id)(\s*\)\s*values\s*\([^;]*?''custody_(assign|return)'',\s*p_transfer_id)',
+      '\1, receival_id\2', 'gi');
+    -- (3) ...and the matching value: the source layer's receival_id
+    v_new := regexp_replace(v_new,
+      '((''custody_assign''|''custody_return''),\s*p_transfer_id)',
+      '\1, (select fcl.receival_id from public.fifo_cost_layers fcl where fcl.id = v_move.source_id)', 'g');
 
-    IF v_qty_taken < v_item.requested_qty THEN
-      RAISE EXCEPTION 'Not enough stock of "%" at the source to dispatch % — only % available.',
-        COALESCE(v_item.item_name, v_item.brand_variant_id::text),
-        v_item.requested_qty, v_qty_taken;
+    v_sel := (SELECT count(*) FROM regexp_matches(v_new, 'select\s+qty,\s*unit_cost, source_id', 'gi'));
+    v_col := (SELECT count(*) FROM regexp_matches(v_new, 'source_type, source_id, receival_id', 'g'));
+    v_val := (SELECT count(*) FROM regexp_matches(v_new, 'select fcl\.receival_id from public\.fifo_cost_layers fcl where fcl\.id = v_move\.source_id', 'g'));
+    IF v_sel <> 1 OR v_col <> v_n OR v_val <> v_n THEN
+      RAISE EXCEPTION 'M3b accept: unbalanced edit (move-select=%, receival_id cols=%, vals=%, expected inserts=%) — aborting, no change', v_sel, v_col, v_val, v_n;
     END IF;
-
-    v_weighted := v_line_total / NULLIF(v_qty_taken, 0);
-
-    UPDATE public.warehouse_transfer_items
-       SET dispatched_qty = v_item.requested_qty,
-           unit_cost      = COALESCE(v_weighted, 0)
-     WHERE id = v_item.id;
-  END LOOP;
-
-  UPDATE public.warehouse_transfers
-     SET status                     = 'in_transit',
-         dispatched_by_profile_id   = v_dispatcher,
-         dispatched_by_name         = p_dispatched_by_name,
-         dispatched_at              = now()
-   WHERE id = p_transfer_id;
-END;
-$function$;
-
-REVOKE EXECUTE ON FUNCTION public.rpc_dispatch_custody_assign(uuid, uuid, text) FROM public;
-GRANT  EXECUTE ON FUNCTION public.rpc_dispatch_custody_assign(uuid, uuid, text) TO authenticated, service_role;
-
--- ── accept: inherit the source layer's receival_id onto the destination layer ─
-CREATE OR REPLACE FUNCTION public.rpc_accept_custody_assign(
-  p_transfer_id             uuid,
-  p_accepted_by_profile_id  uuid   DEFAULT NULL,
-  p_accepted_by_name        text   DEFAULT NULL
-) RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_transfer              RECORD;
-  v_dest_responsible      uuid;
-  v_dest_responsible_name text;
-  v_uid                   uuid := public._current_user_data_id();
-  v_accepter              uuid := COALESCE(p_accepted_by_profile_id, v_uid);
-  v_item                  RECORD;
-  v_move                  RECORD;
-  v_touched_variants      uuid[] := '{}';
-  v_variant               uuid;
-BEGIN
-  IF v_accepter IS NULL THEN
-    RAISE EXCEPTION 'You need to be signed in to accept a custody assignment.';
+    EXECUTE v_new;
+    RAISE NOTICE 'M3b: accept now inherits receival_id onto % moved custody layer(s)', v_n;
   END IF;
-
-  SELECT id, transfer_kind, status, to_warehouse_id, to_sub_container_id,
-         from_warehouse_id, from_sub_container_id
-    INTO v_transfer
-    FROM public.warehouse_transfers
-    WHERE id = p_transfer_id
-    FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'This custody assignment no longer exists.';
-  END IF;
-  IF v_transfer.transfer_kind <> 'custody_assign' THEN
-    RAISE EXCEPTION 'This transfer is not a custody assignment and cannot be accepted here.';
-  END IF;
-  IF v_transfer.status <> 'in_transit' THEN
-    RAISE EXCEPTION 'This custody assignment is already % — it can no longer be accepted.', v_transfer.status;
-  END IF;
-
-  -- Permission: destination sub's responsible person, inventory_manager,
-  -- or a system admin (Owner / Admin roles).
-  SELECT sc.responsible_person_profile_id, u.full_name
-    INTO v_dest_responsible, v_dest_responsible_name
-    FROM public.warehouse_sub_containers sc
-    LEFT JOIN public.user_data u ON u.id = sc.responsible_person_profile_id
-    WHERE sc.id = v_transfer.to_sub_container_id;
-
-  IF v_dest_responsible IS DISTINCT FROM v_accepter
-     AND NOT public._has_custody_admin_role(v_accepter) THEN
-    IF v_dest_responsible IS NULL THEN
-      RAISE EXCEPTION 'This custody sub-container has no responsible person set. Ask an inventory manager or an admin to accept it, or assign one in Master Data.';
-    ELSE
-      RAISE EXCEPTION 'Only % can accept this custody assignment.', v_dest_responsible_name;
-    END IF;
-  END IF;
-
-  -- Materialize destination FIFO PER LAYER. rpc_dispatch_custody_assign wrote
-  -- one transfer_out movement per drained source layer (qty + that layer's
-  -- unit_cost); recreate one destination fifo_cost_layer + transfer_in per
-  -- movement so the per-receival cost topology survives into the custody sub
-  -- and later consumption writes per-layer COGS. Mirrors receive_transfer.
-  FOR v_item IN
-    SELECT id, brand_variant_id, item_name, sku, requested_qty
-    FROM   public.warehouse_transfer_items
-    WHERE  transfer_id = p_transfer_id
-    ORDER  BY brand_variant_id
-  LOOP
-    IF COALESCE(v_item.requested_qty, 0) <= 0 THEN
-      CONTINUE;
-    END IF;
-
-    FOR v_move IN
-      SELECT qty, unit_cost, source_id
-      FROM   public.inventory_stock_movements
-      WHERE  reference_type   = 'transfer'
-        AND  reference_id     = p_transfer_id
-        AND  brand_variant_id = v_item.brand_variant_id
-        AND  movement_type    = 'transfer_out'
-      ORDER  BY created_at ASC, id ASC
-    LOOP
-      -- transfer_out.qty is negative; the layer qty is ABS(qty). The destination
-      -- layer inherits the source layer's receival_id (via the movement's
-      -- source_id) so landed cost still finds these units after the move.
-      INSERT INTO public.fifo_cost_layers (
-        brand_variant_id, warehouse_id, sub_container_id, date,
-        qty, unit_cost, landed_cost_per_unit, total_unit_cost, remaining_qty,
-        source_type, source_id, receival_id
-      ) VALUES (
-        v_item.brand_variant_id, v_transfer.to_warehouse_id, v_transfer.to_sub_container_id, current_date,
-        ABS(v_move.qty), v_move.unit_cost, 0, v_move.unit_cost, ABS(v_move.qty),
-        'custody_assign', p_transfer_id,
-        (SELECT fcl.receival_id FROM public.fifo_cost_layers fcl WHERE fcl.id = v_move.source_id)
-      );
-
-      INSERT INTO public.inventory_stock_movements (
-        warehouse_id, sub_container_id, brand_variant_id,
-        item_name, sku, movement_type, qty, unit_cost,
-        reference_type, reference_id
-      ) VALUES (
-        v_transfer.to_warehouse_id, v_transfer.to_sub_container_id, v_item.brand_variant_id,
-        COALESCE(v_item.item_name, ''), v_item.sku,
-        'transfer_in', ABS(v_move.qty), v_move.unit_cost,
-        'transfer', p_transfer_id
-      );
-    END LOOP;
-
-    UPDATE public.warehouse_transfer_items
-       SET received_qty = v_item.requested_qty
-     WHERE id = v_item.id;
-
-    v_touched_variants := v_touched_variants || v_item.brand_variant_id;
-  END LOOP;
-
-  UPDATE public.warehouse_transfers
-     SET status                 = 'received',
-         received_by_profile_id = v_accepter,
-         received_by_name       = p_accepted_by_name,
-         received_at            = now()
-   WHERE id = p_transfer_id;
-
-  SELECT ARRAY(SELECT DISTINCT unnest(v_touched_variants)) INTO v_touched_variants;
-  FOREACH v_variant IN ARRAY v_touched_variants LOOP
-    PERFORM public.recalc_average_cost(v_variant);
-  END LOOP;
-END;
-$function$;
+END
+$do$;
 
 NOTIFY pgrst, 'reload schema';
