@@ -246,17 +246,19 @@ export function CascadeInventorySelector({
   divisionId,
   divisionFilterRequiresStock = true,
 }: CascadeInventorySelectorProps) {
-  // Three category levels — the deepest non-null wins as the effective category.
-  const [selectedL1, setSelectedL1] = useState<InventoryTreeNode | null>(null)
-  const [selectedL2, setSelectedL2] = useState<InventoryTreeNode | null>(null)
-  const [selectedL3, setSelectedL3] = useState<InventoryTreeNode | null>(null)
+  // Category selection is an arbitrary-depth chain: path[0] is the root category,
+  // each later entry a child of the previous one, and the deepest entry is the
+  // effective category. Rendering one selector per level (plus one trailing slot
+  // whenever the deepest pick still has children) lets the picker follow the full
+  // category tree depth instead of the old fixed three levels.
+  const [path, setPath] = useState<InventoryTreeNode[]>([])
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
 
-  const selectedCategory: InventoryTreeNode | null = selectedL3 ?? selectedL2 ?? selectedL1
+  const selectedCategory: InventoryTreeNode | null = path.length > 0 ? path[path.length - 1] : null
 
-  const [l1Open, setL1Open] = useState(false)
-  const [l2Open, setL2Open] = useState(false)
-  const [l3Open, setL3Open] = useState(false)
+  // Which level's category popover is open, and which level is in inline "create" mode.
+  const [openIdx, setOpenIdx] = useState<number | null>(null)
+  const [creatingIdx, setCreatingIdx] = useState<number | null>(null)
   const [itemOpen, setItemOpen] = useState(false)
   const [varOpen,  setVarOpen]  = useState(false)
   const [isPriceLoading, setIsPriceLoading] = useState(false)
@@ -270,9 +272,6 @@ export function CascadeInventorySelector({
   const [originOpen, setOriginOpen] = useState(false)
   const [selectedBrandKey, setSelectedBrandKey] = useState<string | null>(null)
 
-  const [l1Creating, setL1Creating] = useState(false)
-  const [l2Creating, setL2Creating] = useState(false)
-  const [l3Creating, setL3Creating] = useState(false)
   const [isItemCreating, setIsItemCreating] = useState(false)
   const [isVarCreating,  setIsVarCreating]  = useState(false)
 
@@ -351,19 +350,21 @@ export function CascadeInventorySelector({
     value && !selectedCategory ? value.brand_variant_id : null
   )
 
-  // Look children up in the pruned tree so the filter propagates down levels.
-  // Falling back to the captured node's children keeps parity with the
-  // previous behaviour when no filter is active.
-  const l1InTree = useMemo(
-    () => (selectedL1 ? tree.find((n) => n.id === selectedL1.id) : null),
-    [tree, selectedL1],
-  )
-  const l2InTree = useMemo(
-    () => (selectedL2 && l1InTree ? l1InTree.children.find((n) => n.id === selectedL2.id) : null),
-    [l1InTree, selectedL2],
-  )
-  const l2Options = l1InTree?.children ?? selectedL1?.children ?? []
-  const l3Options = l2InTree?.children ?? selectedL2?.children ?? []
+  // Options for the category selector at a given level, resolved against the
+  // *pruned* tree so the division filter keeps propagating down every level.
+  // Level 0 is the root categories; level i (>0) is the children of the pick at
+  // level i-1. Falls back to the captured node's children if a path node is no
+  // longer present in the current (pruned) tree.
+  const optionsAt = (level: number): InventoryTreeNode[] => {
+    if (level === 0) return tree
+    let nodes = tree
+    for (let k = 0; k < level; k++) {
+      const found = nodes.find((n) => n.id === path[k].id)
+      if (!found) return path[level - 1]?.children ?? []
+      nodes = found.children
+    }
+    return nodes
+  }
 
   // Purchase path: an item with exactly one variant resolves immediately (the
   // "only one option -> don't make them pick it" rule). Guarded by `value` so it
@@ -376,31 +377,18 @@ export function CascadeInventorySelector({
   }, [variants, value, varsLoading, selectedItem, selectedCategory, brandOriginCascade])
 
   // ── Selection handlers ──────────────────────────────────────────────────────
-  function handleL1Select(node: InventoryTreeNode) {
-    setSelectedL1(node)
-    setSelectedL2(null)
-    setSelectedL3(null)
+  function handleLevelSelect(level: number, node: InventoryTreeNode) {
+    // Picking at a level replaces that level and drops any deeper picks — they
+    // belonged to the branch we just left.
+    setPath([...path.slice(0, level), node])
     setSelectedItem(null)
+    setSelectedBrandKey(null)
+    setBrandOpen(false)
+    setOriginOpen(false)
     onChange(null)
-    setL1Open(false)
-    // Auto-open L2 if there are children
-    if (node.children.length > 0) setTimeout(() => setL2Open(true), 0)
-  }
-
-  function handleL2Select(node: InventoryTreeNode) {
-    setSelectedL2(node)
-    setSelectedL3(null)
-    setSelectedItem(null)
-    onChange(null)
-    setL2Open(false)
-    if (node.children.length > 0) setTimeout(() => setL3Open(true), 0)
-  }
-
-  function handleL3Select(node: InventoryTreeNode) {
-    setSelectedL3(node)
-    setSelectedItem(null)
-    onChange(null)
-    setL3Open(false)
+    setOpenIdx(null)
+    // Auto-open the next level while this category still has children to choose.
+    if (node.children.length > 0) setTimeout(() => setOpenIdx(level + 1), 0)
   }
 
   async function handleVariantSelect(variant: BrandVariantWithJoins) {
@@ -472,9 +460,7 @@ export function CascadeInventorySelector({
 
   function handleClear() {
     onChange(null)
-    setSelectedL1(null)
-    setSelectedL2(null)
-    setSelectedL3(null)
+    setPath([])
     setSelectedItem(null)
     setSelectedVariantCode(null)
     setSelectedVariantBrand(null)
@@ -486,20 +472,10 @@ export function CascadeInventorySelector({
   }
 
   // After creating a new category at a given level, slot it into that level.
-  function handleL1Created(cat: InventoryCategory) {
-    setL1Creating(false)
-    setL1Open(false)
-    handleL1Select({ ...cat, children: [] })
-  }
-  function handleL2Created(cat: InventoryCategory) {
-    setL2Creating(false)
-    setL2Open(false)
-    handleL2Select({ ...cat, children: [] })
-  }
-  function handleL3Created(cat: InventoryCategory) {
-    setL3Creating(false)
-    setL3Open(false)
-    handleL3Select({ ...cat, children: [] })
+  function handleLevelCreated(level: number, cat: InventoryCategory) {
+    setCreatingIdx(null)
+    setOpenIdx(null)
+    handleLevelSelect(level, { ...cat, children: [] })
   }
 
   function handleItemCreated(item: InventoryItem) {
@@ -585,78 +561,43 @@ export function CascadeInventorySelector({
   }
 
   // ── CASCADE ────────────────────────────────────────────────────────────────
-  // Row 1: cascading category selects. Subcategory and Type slots only appear
-  // when the previous level actually has children — so picking a leaf category
-  // like "Water Heater" with no subtree gives you a single full-width select
-  // instead of two empty greyed-out boxes.
+  // Row 1: one category selector per level of the chosen chain, plus a trailing
+  // "next level" selector whenever the deepest pick still has children — so the
+  // picker follows the full category-tree depth (no fixed three-level cap) and
+  // never shows an empty slot for a leaf category with no subtree.
   // Row 2: item + variant.
-  const showL2 = (selectedL1?.children.length ?? 0) > 0
-  const showL3 = showL2 && (selectedL2?.children.length ?? 0) > 0
+  const levelPlaceholder = (i: number) => ['Category…', 'Subcategory…', 'Type…'][i] ?? 'Sub-type…'
+  // Slots 0..lastSlot. With a selection, extend by one slot when the deepest pick
+  // still has (accessible) children so the operator can keep drilling down.
+  const lastSlot =
+    path.length === 0 ? 0 : path.length - 1 + (optionsAt(path.length).length > 0 ? 1 : 0)
+  const slots = Array.from({ length: lastSlot + 1 }, (_, i) => i)
 
   return (
     <div className="space-y-2">
-      {/* Row 1 — Category cascade (flex so visible columns share the width) */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="flex-1 min-w-0">
-          <CategoryLevelSelect
-            placeholder="Category…"
-            options={tree}
-            selected={selectedL1}
-            disabled={false}
-            loading={catsLoading}
-            open={l1Open}
-            onOpenChange={setL1Open}
-            onSelect={handleL1Select}
-            lineType={lineType}
-            parentId={null}
-            isCreating={l1Creating}
-            onStartCreate={() => setL1Creating(true)}
-            onCancelCreate={() => setL1Creating(false)}
-            onCreated={handleL1Created}
-          />
-        </div>
-        {showL2 && (
-          <div className="flex-1 min-w-0">
+      {/* Row 1 — Category cascade (wraps so deep chains don't overflow the row) */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+        {slots.map((i) => (
+          <div key={i} className="flex-1 min-w-[150px]">
             <CategoryLevelSelect
-              placeholder="Subcategory…"
-              options={l2Options}
-              selected={selectedL2}
+              placeholder={levelPlaceholder(i)}
+              options={optionsAt(i)}
+              selected={path[i] ?? null}
               disabled={false}
-              loading={false}
-              open={l2Open}
-              onOpenChange={setL2Open}
-              onSelect={handleL2Select}
+              loading={i === 0 ? catsLoading : false}
+              open={openIdx === i}
+              onOpenChange={(o) => setOpenIdx((cur) => (o ? i : cur === i ? null : cur))}
+              onSelect={(node) => handleLevelSelect(i, node)}
               lineType={lineType}
-              parentId={selectedL1?.id ?? null}
-              isCreating={l2Creating}
-              onStartCreate={() => setL2Creating(true)}
-              onCancelCreate={() => setL2Creating(false)}
-              onCreated={handleL2Created}
-              emptyHint="No subcategories."
+              parentId={i === 0 ? null : path[i - 1].id}
+              isCreating={creatingIdx === i}
+              onStartCreate={() => setCreatingIdx(i)}
+              onCancelCreate={() => setCreatingIdx(null)}
+              onCreated={(cat) => handleLevelCreated(i, cat)}
+              emptyHint={i === 0 ? undefined : 'No subcategories.'}
             />
           </div>
-        )}
-        {showL3 && (
-          <div className="flex-1 min-w-0">
-            <CategoryLevelSelect
-              placeholder="Type…"
-              options={l3Options}
-              selected={selectedL3}
-              disabled={false}
-              loading={false}
-              open={l3Open}
-              onOpenChange={setL3Open}
-              onSelect={handleL3Select}
-              lineType={lineType}
-              parentId={selectedL2?.id ?? null}
-              isCreating={l3Creating}
-              onStartCreate={() => setL3Creating(true)}
-              onCancelCreate={() => setL3Creating(false)}
-              onCreated={handleL3Created}
-              emptyHint="No types."
-            />
-          </div>
-        )}
+        ))}
       </div>
 
       {/* Row 2 — Item + Brand/Origin. Buying pickers (brandOriginCascade) use a

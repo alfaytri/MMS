@@ -231,7 +231,6 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nameEn.trim()) { toast.error('Name (EN) is required'); return }
-    if (!sku.trim()) { toast.error('SKU is required'); return }
 
     const payload = {
       name_en: nameEn.trim(),
@@ -359,8 +358,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="item-sku">SKU *</Label>
-              <Input id="item-sku" value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" placeholder="PRD-HT-001" />
+              <Label htmlFor="item-sku">SKU</Label>
+              <Input id="item-sku" value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" placeholder="Optional — e.g. PRD-HT-001" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="item-unit">Unit</Label>
