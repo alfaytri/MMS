@@ -54,7 +54,13 @@ export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
-  disableLogger: true,
+  // Strip Sentry's debug logging from the client bundle. `disableLogger` was
+  // deprecated in @sentry/nextjs v10 in favour of the webpack tree-shake option.
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
   tunnelRoute: '/monitoring',
   // Sentry generates source maps so IT can show readable stack traces, uploads
   // them privately, then deletes them from the build so they are NEVER served
