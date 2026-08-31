@@ -38,6 +38,10 @@ export interface PoLineItem {
   show_specification?: boolean
   /** Resolved item specification text — present only when it should print. */
   specification?:    string | null
+  /** Full category breadcrumb (root › … › leaf), printed above the item name. */
+  category_path?:    string | null
+  /** Catalog item name — shown when item_name (the vendor name) is left blank. */
+  catalog_name?:     string | null
 }
 
 export interface PoPayment {
@@ -136,6 +140,15 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
   // ── Line-item rows ──────────────────────────────────────────────────
   // For RFQs, unit price + total cells render blank so the supplier fills them.
   const lineRows = lines.map((li) => {
+    // Vendor name (item_name) wins; fall back to the catalog name so a line
+    // is never printed nameless when the "Vendor Item Name" field is blank.
+    const displayName = li.item_name && li.item_name.trim()
+      ? li.item_name
+      : (li.catalog_name && li.catalog_name.trim() ? li.catalog_name : li.item_name)
+
+    const catHtml = li.category_path && li.category_path.trim()
+      ? `<div class="item-cat">${escapeHtml(li.category_path)}</div>`
+      : ''
     const nameArHtml = li.item_name_ar
       ? `<div class="item-name-ar">${escapeHtml(li.item_name_ar)}</div>`
       : ''
@@ -152,7 +165,8 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
     return `
       <tr>
         <td class="cell-item">
-          <div class="item-name">${escapeHtml(li.item_name)}</div>
+          ${catHtml}
+          <div class="item-name">${escapeHtml(displayName)}</div>
           ${nameArHtml}
           ${skuHtml}
           ${specHtml}
@@ -289,6 +303,13 @@ export function buildPurchaseOrderHtml(input: BuildPoHtmlInput): string {
 <style>
   ${fontFacesCss(fonts)}
   ${BASE_CSS}
+
+  /* ─── PO-specific: category breadcrumb above the item name ─── */
+  table.lines td.cell-item .item-cat {
+    font-family: 'IBMPlexSans', sans-serif; font-size: 6.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 1.5px;
+    line-height: 1.25;
+  }
 
   /* ─── PO-specific: item specification (Inventory + Purchasing only) ─── */
   table.lines td.cell-item .item-spec {

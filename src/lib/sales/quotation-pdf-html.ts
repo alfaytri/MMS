@@ -26,6 +26,8 @@ export interface QuotationLineItem {
   item_name_ar:      string | null
   brand_variant_id?: string | null
   origin?:           string | null
+  /** Full category breadcrumb (root › … › leaf), printed above the item name. */
+  category_path?:    string | null
   sku:               string | null
   qty:               number
   unit:              string
@@ -97,6 +99,7 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
   const lineRows = input.lines.map((li) => `
     <tr>
       <td class="cell-item">
+        ${li.category_path ? `<div class="item-cat">${escapeHtml(li.category_path)}</div>` : ''}
         <div class="item-name">${escapeHtml(li.item_name)}</div>
         ${li.item_name_ar ? `<div class="item-name-ar">${escapeHtml(li.item_name_ar)}</div>` : ''}
         ${li.origin ? `<div class="item-origin">Origin: ${escapeHtml(li.origin)}</div>` : ''}
@@ -138,6 +141,7 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
   ${fontFacesCss(input.fonts)}
   ${BASE_CSS}
   .summary-divider { height: 0.7px; background: var(--text); }
+  table.lines td.cell-item .item-cat { font-family: 'IBMPlexSans', sans-serif; font-size: 6.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 1.5px; line-height: 1.25; }
   table.lines td.cell-item .item-origin { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); margin-top: 1px; }
 </style>
 </head>

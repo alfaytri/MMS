@@ -22,6 +22,8 @@ export interface InvoiceLineItem {
   description_ar?: string | null
   brand_variant_id?: string | null
   origin?:        string | null
+  /** Full category breadcrumb (root › … › leaf), printed above the item name. */
+  category_path?: string | null
   qty:            number | null
   unit_price:     number | null
   total:          number | null
@@ -98,6 +100,7 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
   const lineRows = input.lines.map((li) => `
     <tr>
       <td class="cell-item">
+        ${li.category_path ? `<div class="item-cat">${escapeHtml(li.category_path)}</div>` : ''}
         <div class="item-name">${escapeHtml(li.description)}</div>
         ${li.description_ar ? `<div class="item-name-ar">${escapeHtml(li.description_ar)}</div>` : ''}
         ${li.origin ? `<div class="item-origin">Origin: ${escapeHtml(li.origin)}</div>` : ''}
@@ -253,6 +256,7 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
   /* LTR line-items table for invoices */
   table.lines { direction: ltr; }
   table.lines td.cell-item { text-align: left; }
+  table.lines td.cell-item .item-cat { font-family: 'IBMPlexSans', sans-serif; font-size: 6.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 1.5px; line-height: 1.25; }
   table.lines td.cell-item .item-origin { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); margin-top: 1px; }
   table.lines th { text-align: center; }
 </style>

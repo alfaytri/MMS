@@ -25,6 +25,7 @@ import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { fetchArabicNamesByBrandVariant, fetchOriginsByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchCategoryInfoByBrandVariant } from '@/lib/pdf/category-paths'
 
 // SO numbers like "SO-00088" don't contain slashes, but normalise anyway.
 function storageKeyFor(soNumber: string): string {
@@ -58,14 +59,16 @@ async function hydrateLines<T extends { item_name_ar: string | null; brand_varia
   lines:  T[],
 ): Promise<T[]> {
   if (lines.length === 0) return lines
-  const [arMap, originMap] = await Promise.all([
+  const [arMap, originMap, catMap] = await Promise.all([
     fetchArabicNamesByBrandVariant(client, lines.map((l) => l.brand_variant_id)),
     fetchOriginsByBrandVariant(client, lines.map((l) => l.brand_variant_id)),
+    fetchCategoryInfoByBrandVariant(client, lines.map((l) => l.brand_variant_id)),
   ])
   return lines.map((l) => ({
     ...l,
-    item_name_ar: l.item_name_ar ?? (l.brand_variant_id ? arMap.get(l.brand_variant_id) ?? null : null),
-    origin:       l.brand_variant_id ? originMap.get(l.brand_variant_id) ?? null : null,
+    item_name_ar:  l.item_name_ar ?? (l.brand_variant_id ? arMap.get(l.brand_variant_id) ?? null : null),
+    origin:        l.brand_variant_id ? originMap.get(l.brand_variant_id) ?? null : null,
+    category_path: l.brand_variant_id ? catMap.get(l.brand_variant_id)?.category_path ?? null : null,
   }))
 }
 
