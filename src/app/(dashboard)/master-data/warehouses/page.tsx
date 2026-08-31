@@ -1,30 +1,40 @@
 'use client'
 
 import { useState, useMemo, useEffect, Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import {
   ClipboardList, ClipboardCheck, ArrowRightLeft,
-  WarehouseIcon, Layers, Activity, Truck, TrendingUp, PackageSearch, FolderKanban,
+  WarehouseIcon, Layers, Activity, Truck, TrendingUp, PackageSearch, FolderKanban, Loader2,
 } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseTransfers, useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions } from '@/hooks/usePermissions'
 import { ResponsivePageHeader } from '@/components/shared/ResponsivePageHeader'
+// Only the default tab (Warehouses) loads up-front; every other tab + the two
+// action dialogs are code-split via next/dynamic, so their JS downloads on
+// first use instead of inflating this route's first load.
 import { WhWarehousesTab } from '@/components/purchase/wh/WhWarehousesTab'
-import { WhStockOverviewTab } from '@/components/purchase/wh/WhStockOverviewTab'
-import { WhTransfersTab } from '@/components/purchase/wh/WhTransfersTab'
-import { WhAdjustmentsTab } from '@/components/purchase/wh/WhAdjustmentsTab'
-import { WhInventoryChecksTab } from '@/components/purchase/wh/WhInventoryChecksTab'
-import { WhMovementsTab } from '@/components/purchase/wh/WhMovementsTab'
-import { WhStockValueTab } from '@/components/purchase/wh/WhStockValueTab'
-import { ReceivalsDeliveriesTab } from '@/components/purchase/wh/ReceivalsDeliveriesTab'
-import { WhItemRequestsTab } from '@/components/purchase/wh/WhItemRequestsTab'
-import { ProjectsTab } from '@/components/warehouse/projects/ProjectsTab'
-import { WhAdjustmentDialog } from '@/components/purchase/wh/WhAdjustmentDialog'
-import { WhTransferDialog } from '@/components/purchase/wh/WhTransferDialog'
+
+const tabFallback = () => (
+  <div className="flex items-center justify-center py-16 text-muted-foreground">
+    <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading" />
+  </div>
+)
+const WhStockOverviewTab = dynamic(() => import('@/components/purchase/wh/WhStockOverviewTab').then((m) => ({ default: m.WhStockOverviewTab })), { loading: tabFallback })
+const WhTransfersTab = dynamic(() => import('@/components/purchase/wh/WhTransfersTab').then((m) => ({ default: m.WhTransfersTab })), { loading: tabFallback })
+const WhAdjustmentsTab = dynamic(() => import('@/components/purchase/wh/WhAdjustmentsTab').then((m) => ({ default: m.WhAdjustmentsTab })), { loading: tabFallback })
+const WhInventoryChecksTab = dynamic(() => import('@/components/purchase/wh/WhInventoryChecksTab').then((m) => ({ default: m.WhInventoryChecksTab })), { loading: tabFallback })
+const WhMovementsTab = dynamic(() => import('@/components/purchase/wh/WhMovementsTab').then((m) => ({ default: m.WhMovementsTab })), { loading: tabFallback })
+const WhStockValueTab = dynamic(() => import('@/components/purchase/wh/WhStockValueTab').then((m) => ({ default: m.WhStockValueTab })), { loading: tabFallback })
+const ReceivalsDeliveriesTab = dynamic(() => import('@/components/purchase/wh/ReceivalsDeliveriesTab').then((m) => ({ default: m.ReceivalsDeliveriesTab })), { loading: tabFallback })
+const WhItemRequestsTab = dynamic(() => import('@/components/purchase/wh/WhItemRequestsTab').then((m) => ({ default: m.WhItemRequestsTab })), { loading: tabFallback })
+const ProjectsTab = dynamic(() => import('@/components/warehouse/projects/ProjectsTab').then((m) => ({ default: m.ProjectsTab })), { loading: tabFallback })
+const WhAdjustmentDialog = dynamic(() => import('@/components/purchase/wh/WhAdjustmentDialog').then((m) => ({ default: m.WhAdjustmentDialog })))
+const WhTransferDialog = dynamic(() => import('@/components/purchase/wh/WhTransferDialog').then((m) => ({ default: m.WhTransferDialog })))
 
 // Per-tab permission keys. ANY-of semantics: if the user holds any one of
 // the listed perms, the tab is shown. No system-admin bypass — every role

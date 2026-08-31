@@ -47,4 +47,11 @@ export default withSentryConfig(nextConfig, {
   silent: true,
   disableLogger: true,
   tunnelRoute: '/monitoring',
+  // Sentry generates source maps so IT can show readable stack traces, uploads
+  // them privately, then deletes them from the build so they are NEVER served
+  // to the public (no one can download and read our original source). Explicit
+  // here so the intent survives a future SDK default change.
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
 });

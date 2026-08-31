@@ -10,8 +10,16 @@ const inter = Inter({ subsets: ['latin'] })
 // Company name hardcoded here by request: metadata renders pre-auth, where
 // companies.name_en isn't readable (RLS is authenticated-only).
 export const metadata: Metadata = {
-  title: 'Alfaytri',
+  // `default` is the tab title when a page sets none; any page that exports its
+  // own `title` gets "<that title> · Alfaytri".
+  title: {
+    default: 'Alfaytri',
+    template: '%s · Alfaytri',
+  },
   description: 'Inventory & warehouse management',
+  // Private, login-gated ERP: reinforce "do not index" at the page-meta level
+  // too (belt-and-braces with robots.ts), so no page is ever indexed.
+  robots: { index: false, follow: false },
 }
 
 export default function RootLayout({

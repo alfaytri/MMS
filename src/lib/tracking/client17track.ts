@@ -89,11 +89,6 @@ export async function getTrackInfo(
     return null
   }
   const info = json.data?.accepted?.[0] as Track17TrackInfo | undefined
-  if (info) {
-    const events = extractEvents(info)
-    const status = extractStatus(info)
-    console.log(`[17track/gettrackinfo] status=${status}, carrier=${info.carrier}, events=${events.length}`)
-  }
   return info ?? null
 }
 
