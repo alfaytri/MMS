@@ -27,8 +27,11 @@
 //      reads, keeps the reader-side bundle warm, and avoids the exceljs
 //      streaming reader's quirks with heterogeneous cell types.
 
-import * as XLSX from 'xlsx'
-import ExcelJS from 'exceljs'
+// exceljs (~910 kB) + xlsx (~400 kB) are heavy. Import them TYPE-ONLY (erased at
+// build) and load the runtime with a dynamic import() inside the functions that
+// use them — so the ~1.3 MB only downloads when the operator actually generates
+// a template or parses a file, never on page/dialog load.
+import type ExcelJS from 'exceljs'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -198,7 +201,8 @@ export type GenerateTemplateOptions = {
 }
 
 export async function downloadTemplate(opts: GenerateTemplateOptions): Promise<void> {
-  const wb = new ExcelJS.Workbook()
+  const ExcelJSrt = (await import('exceljs')).default
+  const wb = new ExcelJSrt.Workbook()
   wb.creator = 'MMS'
   wb.created = new Date(0) // deterministic — avoids "modified" churn on identical downloads
 
@@ -445,7 +449,8 @@ export function buildParseContext(
  * dynamically, and maps every non-empty data row to an ImportRow. Composite
  * sub-container labels are resolved to ids via the ParseContext.
  */
-export function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow[]> {
+export async function parseExcelFile(file: File, ctx: ParseContext): Promise<ImportRow[]> {
+  const XLSX = await import('xlsx')
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
 

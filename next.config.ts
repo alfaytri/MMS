@@ -1,5 +1,14 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+// Bundle analyzer — inert unless `ANALYZE=true` is set for the build, so normal
+// dev/prod builds are unaffected. Run: `ANALYZE=true npm run build`.
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+  openAnalyzer: false,
+  analyzerMode: "json",
+});
 
 const CHROMIUM_FILES = ['./node_modules/@sparticuz/chromium/**/*']
 
@@ -40,7 +49,7 @@ const nextConfig: NextConfig = {
 // ad-blocker user never reaches Sentry. The path is a fixed string (not `true`,
 // which would randomize per build) so it can be allow-listed in middleware.ts,
 // where the tunnel POSTs skip the Supabase auth refresh.
-export default withSentryConfig(nextConfig, {
+export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -54,4 +63,4 @@ export default withSentryConfig(nextConfig, {
   sourcemaps: {
     deleteSourcemapsAfterUpload: true,
   },
-});
+}));
