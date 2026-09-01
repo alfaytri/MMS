@@ -1,7 +1,7 @@
 'use client'
 
 import { humanizeDbError } from '@/lib/dbErrors'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
 import Link from 'next/link'
@@ -9,6 +9,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { LcCogsPostedPanel } from '@/components/landed-costs/LcCogsPostedPanel'
 import { toast } from 'sonner'
 import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { LandedCostAllocationBreakdown } from '@/components/purchase/LandedCostAllocationBreakdown'
 import { createClient } from '@/lib/supabase/client'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -139,6 +140,7 @@ function LcDetailDialog({
   const { data: attachedPOs } = useAttachedPOs(lc?.attached_po_ids ?? [])
 
   const [detailExpandedReceivalId, setDetailExpandedReceivalId] = useState<string | null>(null)
+  const [expandedAllocId, setExpandedAllocId] = useState<string | null>(null)
   const { data: detailExpandedItems, isLoading: loadingDetailItems } = useReceivalItemsWithFifo(
     detailExpandedReceivalId,
   )
@@ -435,21 +437,49 @@ function LcDetailDialog({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(lc.landed_cost_item_allocations ?? []).map((alloc, i) => (
-                        <TableRow key={i} className={STAGGER_IN} style={staggerDelay(i)}>
-                          <TableCell className="text-sm">{alloc.item_name}</TableCell>
-                          <TableCell className="text-sm font-mono">{alloc.sku ?? '—'}</TableCell>
-                          <TableCell className="text-right text-sm">{alloc.qty_received}</TableCell>
-                          <TableCell className="text-right text-sm hidden sm:table-cell">
-                            {alloc.qty_remaining_at_lc ?? '—'}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">{formatCurrency(alloc.original_unit_cost, lc.currency)}</TableCell>
-                          <TableCell className="text-right text-sm text-blue-600">
-                            +{formatCurrency(alloc.lc_per_unit ?? 0, lc.currency)}
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-medium">{formatCurrency(alloc.updated_unit_cost, lc.currency)}</TableCell>
-                        </TableRow>
-                      ))}
+                      {(lc.landed_cost_item_allocations ?? []).map((alloc, i) => {
+                        const isOpen = expandedAllocId === alloc.id
+                        return (
+                          <Fragment key={alloc.id}>
+                            <TableRow
+                              className={cn(STAGGER_IN, 'cursor-pointer hover:bg-muted/40')}
+                              style={staggerDelay(i)}
+                              onClick={() => setExpandedAllocId(isOpen ? null : alloc.id)}
+                              title="Show how this cost was split"
+                            >
+                              <TableCell className="text-sm">
+                                <span className="inline-flex items-center gap-1">
+                                  {isOpen
+                                    ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                                  {alloc.item_name}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-sm font-mono">{alloc.sku ?? '—'}</TableCell>
+                              <TableCell className="text-right text-sm">{alloc.qty_received}</TableCell>
+                              <TableCell className="text-right text-sm hidden sm:table-cell">
+                                {alloc.qty_remaining_at_lc ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">{formatCurrency(alloc.original_unit_cost, lc.currency)}</TableCell>
+                              <TableCell className="text-right text-sm text-blue-600">
+                                +{formatCurrency(alloc.lc_per_unit ?? 0, lc.currency)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-medium">{formatCurrency(alloc.updated_unit_cost, lc.currency)}</TableCell>
+                            </TableRow>
+                            {isOpen && (
+                              <TableRow>
+                                <TableCell colSpan={7} className="p-2">
+                                  <LandedCostAllocationBreakdown
+                                    alloc={alloc}
+                                    currency={lc.currency}
+                                    receivalIds={lc.attached_receival_ids}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -1045,8 +1075,10 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
                   return (
                     <div key={group.po_id} className="bg-card">
-                      {/* PO header */}
-                      <div className="flex items-center gap-2 px-2 py-2 bg-muted/40 sticky top-0 z-10">
+                      {/* PO header — opaque bg: it's sticky, so a translucent
+                          background would let the receival rows scroll through it
+                          and the text would visually overlap/ghost. */}
+                      <div className="flex items-center gap-2 px-2 py-2 bg-muted sticky top-0 z-10">
                         <input
                           type="checkbox"
                           checked={allChecked}
