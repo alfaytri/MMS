@@ -629,6 +629,7 @@ export default function EditPOPage() {
             <BookedRateLockRow
               currency={currency}
               initialRate={exchangeRate}
+              editable
               onEditClick={() => setChangeRateOpen(true)}
             />
             <ChangeBookedRateDialog
