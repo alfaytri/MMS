@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { ChevronDown, ChevronUp, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,7 +31,22 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
     )
   }
 
-  const visibleLayers = layers.slice(0, visibleCount)
+  // Group layers by warehouse so each warehouse becomes a titled section (rows
+  // then show the sub-location). Same-warehouse layers stay contiguous,
+  // warehouses keep their first-appearance order, and FIFO/date order is
+  // preserved within each warehouse.
+  const orderedLayers = useMemo(() => {
+    const groups = new Map<string, typeof layers>()
+    for (const l of layers) {
+      const key = l.warehouse_name ?? '—'
+      const g = groups.get(key)
+      if (g) g.push(l)
+      else groups.set(key, [l])
+    }
+    return Array.from(groups.values()).flat()
+  }, [layers])
+
+  const visibleLayers = orderedLayers.slice(0, visibleCount)
   const shownCount = Math.min(visibleCount, layers.length)
 
   return (
@@ -41,7 +56,7 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
           <TableHeader>
             <TableRow className="bg-muted">
               <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">SOURCE</TableHead>
-              <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">WAREHOUSE</TableHead>
+              <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">LOCATION</TableHead>
               <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground">DATE</TableHead>
               <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">QTY IN</TableHead>
               <TableHead className="text-[10px] h-7 font-semibold text-muted-foreground text-right">REMAINING</TableHead>
@@ -79,9 +94,18 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
             {!isLoading &&
               visibleLayers.map((layer, index) => {
                 const isInventoryReceival = typeof layer.receival_number === 'string' && layer.receival_number.startsWith('INV-')
+                const warehouse = layer.warehouse_name ?? '—'
+                const showHeader = index === 0 || (visibleLayers[index - 1].warehouse_name ?? '—') !== warehouse
                 return (
+                  <Fragment key={layer.id}>
+                    {showHeader && (
+                      <TableRow className="bg-muted/70 hover:bg-muted/70 border-t">
+                        <TableCell colSpan={9} className="py-1.5 text-[11px] font-semibold text-foreground">
+                          {warehouse}
+                        </TableCell>
+                      </TableRow>
+                    )}
                   <TableRow
-                    key={layer.id}
                     className="text-xs animate-in fade-in slide-in-from-top-1 fill-mode-both"
                     style={{ animationDelay: `${(index % PAGE_SIZE) * 30}ms`, animationDuration: '300ms' }}
                   >
@@ -100,17 +124,8 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
                         : layer.source_type === 'damaged_repair_return' ? <span className="text-orange-600">Return from Repair</span>
                         : <span className="text-muted-foreground">Manual</span>}
                     </TableCell>
-                    <TableCell className="text-[11px]">
-                      {layer.warehouse_name ? (
-                        <div className="flex flex-col leading-tight">
-                          <span>{layer.warehouse_name}</span>
-                          {layer.sub_container_name && (
-                            <span className="text-[10px] text-muted-foreground">{layer.sub_container_name}</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                    <TableCell className="text-[11px] text-muted-foreground">
+                      {layer.sub_container_name ?? '—'}
                     </TableCell>
                     <TableCell className="text-[11px]">{formatDate(layer.date)}</TableCell>
                     <TableCell className="text-right text-[11px]">{layer.qty}</TableCell>
@@ -145,6 +160,7 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
                       )}
                     </TableCell>
                   </TableRow>
+                  </Fragment>
                 )
               })}
           </TableBody>
