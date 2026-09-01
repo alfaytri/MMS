@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useCustodyLocations } from '@/hooks/useCustodyLocations'
+import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
+import { filterCustodyDestinationsByDivision } from '@/lib/warehouse/filterCustodyDestinationsByDivision'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, REVEAL_IN, staggerDelay } from '@/lib/motion'
 
@@ -31,7 +33,13 @@ export function PictureWhere({
   onChange: (d: Destination | null) => void
 }) {
   const { data: locations = [], isLoading } = useCustodyLocations()
-  const active = useMemo(() => locations.filter((l) => l.is_active), [locations])
+  const { userDivisionIds, isSuperViewer } = useUserDivisionScope()
+  // Only offer destinations in the sender's division(s); super-viewers see all.
+  const scoped = useMemo(
+    () => filterCustodyDestinationsByDivision(locations, userDivisionIds, isSuperViewer),
+    [locations, userDivisionIds, isSuperViewer],
+  )
+  const active = useMemo(() => scoped.filter((l) => l.is_active), [scoped])
   const [whId, setWhId] = useState('')
   const [divId, setDivId] = useState('')
 
