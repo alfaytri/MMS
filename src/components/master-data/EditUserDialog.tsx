@@ -201,6 +201,22 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
     )
   }
 
+  async function handleAssignAllDivisions() {
+    if (!profile?.id) return
+    const pid = profile.id
+    const toAssign = companiesWithUnassigned.flatMap((g) => g.items.map((d) => d.id))
+    if (toAssign.length === 0) return
+    try {
+      await Promise.all(
+        toAssign.map((division_id) => assignDivision.mutateAsync({ profile_id: pid, division_id })),
+      )
+      setDivisionPickValue('')
+      toast.success("All divisions assigned. Changes take effect on the user's next login.")
+    } catch (err) {
+      toast.error(humanizeDbError(err))
+    }
+  }
+
   function handleRemoveDivision(id: string) {
     if (!profile?.id) return
     // Guard: don't strip the last division from an account that needs one —
@@ -513,6 +529,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               </div>
 
               {companiesWithUnassigned.length > 0 && (
+                <div className="flex items-center gap-2">
                 <Select
                   value={divisionPickValue}
                   onValueChange={(v) => { if (v) { setDivisionPickValue(v); handleAssignDivision(v) } }}
@@ -540,6 +557,18 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 gap-1.5"
+                  onClick={handleAssignAllDivisions}
+                  disabled={assignDivision.isPending}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  All divisions
+                </Button>
+                </div>
               )}
             </div>
 
