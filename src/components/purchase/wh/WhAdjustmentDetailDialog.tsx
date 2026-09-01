@@ -49,6 +49,8 @@ type AdjustmentRow = {
   stock_adjustment_approvals?: StockAdjustmentApprovalStep[] | null
   source_check_id?: string | null
   source_check?: { id: string; check_number: string | null } | null
+  tool_unit_id?: string | null
+  tool_unit?: { serial_number: string | null; brand: string | null } | null
 }
 
 const TYPE_STYLES: Record<string, string> = {
@@ -164,6 +166,17 @@ export function WhAdjustmentDetailDialog({ adjustment, currentProfile, warehouse
             <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
               <span className="font-semibold">Auto-generated from inventory check</span>
               <span className="font-mono">{adjustment.source_check?.check_number ?? adjustment.source_check_id}</span>
+            </div>
+          )}
+
+          {adjustment.tool_unit_id && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-xs text-destructive flex items-center gap-2 flex-wrap">
+              <ShieldAlert className="h-4 w-4 shrink-0" />
+              <span className="font-semibold">Serialized tool scrap</span>
+              <span className="font-mono">{adjustment.tool_unit?.serial_number ?? adjustment.tool_unit_id}</span>
+              {adjustment.tool_unit?.brand && (
+                <span className="text-muted-foreground font-normal">· {adjustment.tool_unit.brand}</span>
+              )}
             </div>
           )}
 

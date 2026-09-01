@@ -724,7 +724,8 @@ export function useStockAdjustments({ warehouseId }: { warehouseId?: string } = 
             id, adjustment_id, step_order, step_role, step_label, status,
             profile_id, profile_name, action_at, notes, created_at
           ),
-          source_check:inventory_checks!source_check_id(id, check_number)
+          source_check:inventory_checks!source_check_id(id, check_number),
+          tool_unit:tool_asset_units!tool_unit_id(serial_number, brand)
         `)
         .order('created_at', { ascending: false })
       if (warehouseId) q = q.eq('warehouse_id', warehouseId)
