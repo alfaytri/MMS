@@ -615,7 +615,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
                 <div className="text-[9px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <Truck className="h-2.5 w-2.5" /> Supplier
                 </div>
-                <p className="font-semibold truncate">{selectedPO.supplier_name ?? '—'}</p>
+                <p className="font-semibold break-words">{selectedPO.supplier_name ?? '—'}</p>
               </div>
               <div>
                 <div className="text-[9px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
