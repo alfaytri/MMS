@@ -96,12 +96,23 @@ export function RepairTab() {
                     </span>
                   </div>
                   <div className="mt-auto flex items-center gap-1 pt-2">
-                    <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs" onClick={() => setSendUnit({ id: u.unit_id, label })}>
-                      <Truck className="h-4 w-4 shrink-0" /> Send for repair
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setScrapUnit({ id: u.unit_id, label })}>
-                      <Trash2 className="h-4 w-4 shrink-0" /> Scrap
-                    </Button>
+                    {u.pending_scrap ? (
+                      <div
+                        className="flex-1 flex items-center justify-center gap-1.5 h-11 sm:h-8 rounded-md border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400"
+                        title="A scrap write-off for this tool is awaiting warehouse approval — it can't be sent, scrapped again, or moved until then."
+                      >
+                        <CalendarClock className="h-3.5 w-3.5 shrink-0" /> Pending scrap approval
+                      </div>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs" onClick={() => setSendUnit({ id: u.unit_id, label })}>
+                          <Truck className="h-4 w-4 shrink-0" /> Send for repair
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setScrapUnit({ id: u.unit_id, label })}>
+                          <Trash2 className="h-4 w-4 shrink-0" /> Scrap
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )
