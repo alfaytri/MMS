@@ -19,6 +19,7 @@ import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:            { label: 'Pending',            color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
@@ -59,6 +60,7 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
   const { data: warehouses = [] } = useWarehouses()
   const bvIds = useMemo(() => (ret?.return_lines ?? []).map((i) => i.brand_variant_id).filter(Boolean) as string[], [ret?.return_lines])
   const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+  const variantTrees = useVariantCategoryPaths(bvIds)
 
   // Per-line provenance — each return line points at the receival_items row
   // it came from (D.4.a). Batch-resolve the ref# + warehouse + sub-container
@@ -173,7 +175,15 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                       const sourceInfo = item.receival_item_id ? sources?.receival.get(item.receival_item_id) ?? null : null
                       return (
                         <tr key={idx} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(idx)}>
-                          <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
+                          <td className="px-3 py-2.5 font-medium">
+                            {(() => {
+                              const path = item.brand_variant_id ? (variantTrees.get(item.brand_variant_id) ?? '') : ''
+                              return path ? (
+                                <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
+                              ) : null
+                            })()}
+                            {item.item_name}
+                          </td>
                           <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">{item.qty}</td>
                           <td className="px-3 py-2.5 text-center">
