@@ -175,6 +175,14 @@ export function useCompleteDelivery() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      // Record the completed delivery on the SO's activity feed (the cancel
+      // path already logs; completion previously did not, so delivered lines
+      // never showed under the SO Activity tab).
+      logActivity({
+        action:    'Delivery Completed',
+        module:    'sale_orders',
+        entity_id: variables.soId,
+      })
       // Auto-open the warranty certificate when this delivery produced any
       // warranty records (any covered item). Fire-and-forget + non-fatal: a
       // failure or a blocked pop-up never affects the completion itself, and
