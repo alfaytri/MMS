@@ -10,7 +10,7 @@ import {
   WarehouseIcon, Layers, Activity, Truck, TrendingUp, PackageSearch, FolderKanban, Loader2,
 } from 'lucide-react'
 import { useWarehouses } from '@/hooks/useWarehouses'
-import { useWarehouseTransfers, useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
+import { useReceivalsAndDeliveries, useStockAdjustments } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions } from '@/hooks/usePermissions'
 import { ResponsivePageHeader } from '@/components/shared/ResponsivePageHeader'
@@ -96,7 +96,6 @@ function WarehousesPageInner() {
     [warehousesAll],
   )
   const { data: currentProfile } = useCurrentUserProfile()
-  const { data: transfers = [] } = useWarehouseTransfers()
   const { data: receivalsDeliveries = [] } = useReceivalsAndDeliveries()
   const { data: adjustments = [] } = useStockAdjustments()
   const { data: permData } = usePermissions()
@@ -122,7 +121,6 @@ function WarehousesPageInner() {
     }
   }, [visibleTabs, activeTab])
 
-  const pendingTransferCount = transfers.filter(t => t.status === 'pending_approval').length
   const pendingReceivalCount = receivalsDeliveries.filter(
     r => r.direction === 'inbound' && r.status === 'pending_approval'
   ).length
@@ -177,11 +175,6 @@ function WarehousesPageInner() {
             <TabsTrigger value="transfers" className="text-xs gap-1">
               <ArrowRightLeft className="h-3 w-3" />
               Transfers
-              {pendingTransferCount > 0 && (
-                <span className="ml-1 h-4 px-1 text-[9px] bg-warning/20 text-warning rounded inline-flex items-center">
-                  {pendingTransferCount}
-                </span>
-              )}
             </TabsTrigger>
           )}
           {visibleTabs.has('adjustments') && (
