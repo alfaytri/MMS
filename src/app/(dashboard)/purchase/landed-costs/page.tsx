@@ -386,7 +386,7 @@ function LcDetailDialog({
                                           )}
                                         </td>
                                       </tr>
-                                      <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalId={r.id} colSpan={5} />
+                                      <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalIds={[r.id]} colSpan={5} />
                                       </Fragment>
                                     ))}
                                   </tbody>
@@ -568,7 +568,8 @@ function LcDetailDialog({
                           const lcPerUnit = previewLcPerUnitByVariant.get(item.brand_variant_id) ?? 0
                           const totalAdded = lcPerUnit * item.qty_received
                           return (
-                            <TableRow key={idx} className={item.warning ? 'bg-amber-50' : ''}>
+                            <Fragment key={idx}>
+                            <TableRow className={item.warning ? 'bg-amber-50' : ''}>
                               <TableCell className="text-sm">
                                 {item.item_name}
                                 {item.warning && (
@@ -590,6 +591,16 @@ function LcDetailDialog({
                                   : `+${formatCurrency(totalAdded, lc.currency)}`}
                               </TableCell>
                             </TableRow>
+                            {!loadingPreview && (
+                              <ReceivalStockSplitRow
+                                brandVariantId={item.brand_variant_id}
+                                receivalIds={lc.attached_receival_ids}
+                                colSpan={5}
+                                lcPerUnit={lcPerUnit}
+                                currency={lc.currency}
+                              />
+                            )}
+                            </Fragment>
                           )
                         })}
                       </TableBody>
@@ -1198,7 +1209,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                                   )}
                                                 </td>
                                               </tr>
-                                              <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalId={r.id} colSpan={4} />
+                                              <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalIds={[r.id]} colSpan={4} />
                                             </Fragment>
                                           ))}
                                         </tbody>
