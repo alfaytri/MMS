@@ -4,6 +4,18 @@ import { cn } from '@/lib/utils'
 import type { ItemMeta } from '@/hooks/itemMeta'
 
 /**
+ * Collapse a deep breadcrumb so it fits on one line in a tight cell: keep the
+ * type tag (first) and the leaf category (last), fold the middle into "…".
+ * "Products > AC Unit > Floor Ceiling > Inverter" → "Products > … > Inverter".
+ * Paths of 3 segments or fewer are left whole. The full path is shown on hover.
+ */
+function compactTree(tree: string): string {
+  const parts = tree.split(' > ')
+  if (parts.length <= 3) return tree
+  return `${parts[0]} > … > ${parts[parts.length - 1]}`
+}
+
+/**
  * The app-wide item label. Renders, top to bottom:
  *
  *   Tag > Category > Sub > … > Leaf   ← meta.tree   (tiny, muted)
@@ -35,7 +47,14 @@ export function ItemLabel({
   const line = 'text-[10px] text-muted-foreground leading-tight break-words'
   return (
     <div className={cn('min-w-0', className)}>
-      {meta?.tree ? <div className={cn(line, treeClassName)}>{meta.tree}</div> : null}
+      {meta?.tree ? (
+        <div
+          className={cn('text-[10px] text-muted-foreground leading-tight truncate', treeClassName)}
+          title={meta.tree}
+        >
+          {compactTree(meta.tree)}
+        </div>
+      ) : null}
       <div className={nameClassName}>{name}</div>
       {meta?.brand ? <div className={line}>{meta.brand}</div> : null}
       {meta?.origin ? <div className={line}>{meta.origin}</div> : null}
