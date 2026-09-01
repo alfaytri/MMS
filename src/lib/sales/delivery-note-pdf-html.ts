@@ -12,6 +12,8 @@ export interface DeliveryNoteItem {
   itemName:     string
   itemNameAr?:  string | null
   origin?:      string | null
+  /** Full category breadcrumb (root › … › leaf), printed above the item name. */
+  categoryPath?: string | null
   sku:          string | null
   qtyDelivered: number
 }
@@ -71,6 +73,7 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
       <tr>
         <td class="cell-num">${rowIdx}</td>
         <td class="cell-item">
+          ${item.categoryPath ? `<div class="item-cat">${esc(item.categoryPath)}</div>` : ''}
           <div class="item-name">${esc(item.itemName)}</div>
           ${item.itemNameAr ? `<div class="item-name-ar">${esc(item.itemNameAr)}</div>` : ''}
           ${item.origin ? `<div class="item-origin">Origin: ${esc(item.origin)}</div>` : ''}
@@ -91,6 +94,7 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
   ${BASE_CSS}
 
   table.lines td.cell-check { text-align: center; font-size: 14px; }
+  table.lines td.cell-item .item-cat { font-family: 'IBMPlexSans', sans-serif; font-size: 6.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 1.5px; line-height: 1.25; }
   table.lines td.cell-item .item-origin { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); margin-top: 1px; }
 
   .total-strip {

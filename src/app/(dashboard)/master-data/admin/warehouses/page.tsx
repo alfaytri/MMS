@@ -1,7 +1,8 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo } from 'react'
-import { MoreHorizontal, Pencil, Trash2, ChevronDown, ChevronRight, Package, WarehouseIcon, MapPin, User } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, ChevronDown, ChevronRight, Package, WarehouseIcon, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
@@ -9,6 +10,7 @@ import { SearchInput } from '@/components/shared/SearchInput'
 import { WarehouseFormDialog } from '@/components/master-data/WarehouseFormDialog'
 import { WarehouseSubContainersSection } from '@/components/master-data/WarehouseSubContainersSection'
 import { useWarehouses, useDeleteWarehouse, type Warehouse } from '@/hooks/useWarehouses'
+import { AddressMapLink } from '@/components/shared/AddressMapLink'
 import { formatNumber } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
@@ -73,7 +75,7 @@ export default function WarehousesPage() {
         setDeleteTarget(null)
       },
       onError: (err) => {
-        toast.error(err.message)
+        toast.error(humanizeDbError(err))
         setDeleteTarget(null)
       },
     })
@@ -141,10 +143,12 @@ export default function WarehousesPage() {
                             {wh.company_name}
                           </span>
                         )}
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {wh.location || 'No location'}
-                        </span>
+                        <AddressMapLink
+                          address={wh.location}
+                          latitude={wh.latitude}
+                          longitude={wh.longitude}
+                          emptyLabel="No location"
+                        />
                         <TooltipProvider delayDuration={200}>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -240,10 +244,9 @@ export default function WarehousesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete warehouse?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{deleteTarget?.name}</strong>. Sub-containers
-              and stock rows are protected by database constraints — if the warehouse has any,
-              deletion will fail. Deactivate sub-containers first if you need to remove the
-              warehouse.
+              This permanently deletes <strong>{deleteTarget?.name}</strong> together with its
+              empty sub-containers. If the warehouse still holds any stock or history, deletion is
+              blocked and you&apos;ll see exactly what&apos;s using it — move or clear that first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

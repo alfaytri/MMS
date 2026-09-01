@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { useForm } from 'react-hook-form'
@@ -166,7 +167,7 @@ export default function WarrantyPoliciesPage() {
                       { id: p.id, is_active: !p.is_active },
                       {
                         onSuccess: () => toast.success(p.is_active ? 'Deactivated' : 'Activated'),
-                        onError:   (e: Error) => toast.error(e.message),
+                        onError:   (e: Error) => toast.error(humanizeDbError(e)),
                       },
                     )
                   }

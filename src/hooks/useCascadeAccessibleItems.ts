@@ -81,19 +81,19 @@ export function useCascadeAccessibleItems(
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      let q = supabase
+      const q = supabase
         .from('inventory_items')
         .select('id, category_id, inventory_categories!inner(type, tool_tracking_mode)')
         .neq('status', 'archived')
         .eq('inventory_categories.type', type as 'products' | 'spare-parts' | 'consumables' | 'tools')
         .limit(5000)
-      // Sell/consume side (requireStock): only BULK tool categories are qty —
-      // serialized tools are managed as units in Tools & Assets, not sold or
-      // consumed by qty, so they stay excluded there. Buy side (PO,
-      // !requireStock) INCLUDES serialized tools: they're purchased, then
-      // received as asset units (create_tool_units_on_receival_layer stamps the
-      // unit cost from the receival FIFO layer).
-      if (type === 'tools' && requireStock) q = q.eq('inventory_categories.tool_tracking_mode', 'bulk')
+      // Tools: no category-mode filter here (Per-Division Mode, Phase 3). The
+      // sell/consume side (requireStock) is narrowed by bulkDivQuery below to
+      // tools whose EFFECTIVE mode in the ACTIVE DIVISION is bulk (per-
+      // (item,division) override, else category) — so a tool serialized in this
+      // division is excluded even if its category is bulk, and a per-division
+      // bulk tool is included even if its category is serialized. Buy side (PO)
+      // includes all tools (purchased, then received as units/qty per mode).
       const { data, error } = await q
       if (error) throw error
       return (data ?? []) as unknown as Array<{ id: string; category_id: string }>
@@ -173,6 +173,25 @@ export function useCascadeAccessibleItems(
     },
   })
 
+  // Sell/consume side, tools only: item ids whose EFFECTIVE mode in the active
+  // division is bulk (Per-Division Mode, Phase 3 — RPC not yet in generated
+  // types). Intersected with owned stock in the memo below so a tool is offered
+  // for sale only in the divisions where it is bulk.
+  const bulkDivQuery = useQuery({
+    queryKey: ['cascade-accessible', 'tool-bulk-div', activeDivisionId],
+    enabled: effectiveEnabled && requireStock && type === 'tools' && !!activeDivisionId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc(
+        'tool_bulk_items_in_division' as never,
+        { p_division_id: activeDivisionId } as never,
+      )
+      if (error) throw error
+      return new Set((data ?? []) as unknown as string[])
+    },
+  })
+
   return useMemo<CascadeAccessibleItems>(() => {
     const items = itemsQuery.data ?? []
     const itemCategoryMap = new Map<string, string>()
@@ -200,14 +219,23 @@ export function useCascadeAccessibleItems(
     // division. No cross-division consumption — stock moves between divisions via
     // a transfer, not a share.
     const stockInitialLoad = stockQuery.isLoading && !stockQuery.data
-    const isLoading = itemsInitialLoad || stockInitialLoad
+    const bulkDivInitialLoad = type === 'tools' && bulkDivQuery.isLoading && !bulkDivQuery.data
+    const isLoading = itemsInitialLoad || stockInitialLoad || bulkDivInitialLoad
 
     const rows = stockQuery.data ?? []
     const ownedByActive = new Set<string>()
     for (const r of rows) {
       if (r.division_id === activeDivisionId) ownedByActive.add(r.item_id)
     }
+    // Tools (Per-Division Mode, Phase 3): keep only those whose effective mode in
+    // the active division is bulk — a tool serialized in this division drops out
+    // even if it has qty stock here. Applied once the bulk-div set has loaded.
+    if (type === 'tools' && bulkDivQuery.data) {
+      for (const id of Array.from(ownedByActive)) {
+        if (!bulkDivQuery.data.has(id)) ownedByActive.delete(id)
+      }
+    }
 
     return { accessibleItemIds: ownedByActive, ownedItemIds: ownedByActive, itemCategoryMap, isLoading }
-  }, [effectiveEnabled, activeDivisionId, itemsQuery.data, itemsQuery.isLoading, stockQuery.data, stockQuery.isLoading, assignmentQuery.data, assignmentQuery.isLoading, requireStock])
+  }, [effectiveEnabled, activeDivisionId, type, itemsQuery.data, itemsQuery.isLoading, stockQuery.data, stockQuery.isLoading, assignmentQuery.data, assignmentQuery.isLoading, bulkDivQuery.data, bulkDivQuery.isLoading, requireStock])
 }

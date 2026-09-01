@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logPOActivity } from '@/lib/poActivityLogger'
 import { queryKeys } from '@/lib/queryKeys'
-import { recipientsForNotification } from '@/lib/notify'
+import { recipientsForNotification, notifyOwnerAndKey } from '@/lib/notify'
 
 export type ReceivalStatus = 'pending_approval' | 'approved' | 'rejected'
 
@@ -17,6 +17,7 @@ export type ReceivalItem = {
   unit_cost: number
   is_free: boolean | null
   brand_variant_id: string | null
+  sub_container_id: string | null
   // UI-computed: ordered qty comes from po_line_items join
   ordered_qty?: number
 }
@@ -90,7 +91,7 @@ export function useReceivals(filters?: {
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
-          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id,sub_container_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,currency),
           warehouses!receivals_warehouse_id_fkey(name)
         `)
@@ -128,7 +129,7 @@ export function useReceival(id: string | null) {
         .from('receivals')
         .select(`
           id,receival_number,po_id,warehouse_id,date,status,notes,received_by_name,created_at,is_replacement,source_debit_note_id,source_type,carved_from_layer_id,
-          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id),
+          receival_items(id,receival_id,po_line_item_id,item_name,sku,qty_received,unit_cost,is_free,brand_variant_id,sub_container_id),
           purchase_orders!receivals_po_id_fkey(po_number,supplier_name,currency,po_line_items(id,qty))
         `)
         .eq('id', id!)
@@ -204,8 +205,34 @@ export function useCreateReceival() {
 
       return result
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.receivals.all })
+      // Notify the PO's owner (the purchaser) that goods arrived (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: po } = await supabase
+          .from('purchase_orders')
+          .select('created_by, po_number, status')
+          .eq('id', variables.po_id)
+          .maybeSingle()
+        await notifyOwnerAndKey(
+          po?.created_by ?? null,
+          'notify.purchase.goods_received',
+          'po_goods_received',
+          `Goods received on PO ${po?.po_number ?? ''}`.trim(),
+          { relatedId: variables.po_id, relatedType: 'purchase_order', body: `Receival ${data.receival_number}` },
+        )
+        // If this receival completed the PO, tell the owner it's fully received.
+        if (po?.status === 'received' || po?.status === 'completed') {
+          await notifyOwnerAndKey(
+            po?.created_by ?? null,
+            'notify.purchase.goods_received',
+            'po_fully_received',
+            `PO ${po?.po_number ?? ''} fully received`.trim(),
+            { relatedId: variables.po_id, relatedType: 'purchase_order' },
+          )
+        }
+      })()
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.receivals(variables.po_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(variables.po_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
@@ -515,6 +542,10 @@ export type ReceivalItemWithFifo = {
   sku: string | null
   qty_received: number
   unit_cost: number
+  // unit_cost is in the PO's ordering currency; unit_cost_qar is that × the PO's
+  // booked exchange rate (rate 1 for inventory receivals) — the QAR value that
+  // actually lands in inventory.
+  unit_cost_qar: number
   brand_variant_id: string | null
   remaining_qty: number
 }
@@ -597,7 +628,7 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
     enabled: !!receivalId,
     queryFn: async () => {
       const supabase = createClient()
-      const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
+      const [{ data: items, error: iErr }, { data: layers, error: lErr }, { data: rcv, error: rErr }] = await Promise.all([
         supabase
           .from('receival_items')
           .select('id, item_name, sku, qty_received, unit_cost, brand_variant_id')
@@ -608,17 +639,28 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
           .select('brand_variant_id, remaining_qty')
           .eq('receival_id', receivalId!)
           .gt('remaining_qty', 0),
+        // PO booked rate → QAR (inventory receivals have no PO → rate 1), same
+        // conversion allocate_landed_cost uses for its value base.
+        supabase
+          .from('receivals')
+          .select('purchase_orders!receivals_po_id_fkey(initial_exchange_rate)')
+          .eq('id', receivalId!)
+          .maybeSingle(),
       ])
-      if (iErr || lErr) throw iErr ?? lErr
+      if (iErr || lErr || rErr) throw iErr ?? lErr ?? rErr
       // Sum remaining_qty across all layers for each brand_variant
       const remainingMap = new Map<string, number>()
       for (const l of layers ?? []) {
         if (!l.brand_variant_id) continue
         remainingMap.set(l.brand_variant_id, (remainingMap.get(l.brand_variant_id) ?? 0) + l.remaining_qty)
       }
+      const po = (rcv?.purchase_orders as { initial_exchange_rate: number | null } | null) ?? null
+      const poRate = Number(po?.initial_exchange_rate ?? 1)
+      const qarRate = poRate > 0 ? poRate : 1
       return (items ?? []).map((item) => ({
         ...item,
         remaining_qty: (item.brand_variant_id ? remainingMap.get(item.brand_variant_id) : 0) ?? 0,
+        unit_cost_qar: Number(item.unit_cost) * qarRate,
       })) as ReceivalItemWithFifo[]
     },
     staleTime: 2 * 60 * 1000,

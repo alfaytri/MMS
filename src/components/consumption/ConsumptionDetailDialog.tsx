@@ -21,6 +21,8 @@ import {
   type ConsumerType,
 } from '@/hooks/useConsumption'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ConsumptionEditRequestBanner } from './ConsumptionEditRequestBanner'
 import { RequestConsumptionEditDialog } from './RequestConsumptionEditDialog'
 
@@ -74,6 +76,11 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
   // Resolve the consumer name from the cross-division master list so a viewer
   // outside the consumer team's division never sees "(team removed)".
   const consumerLabel = useConsumerLabel()
+
+  // Full item label (category tree, brand, origin) above each consumed item name.
+  const variantMeta = useVariantItemMeta(
+    (data?.lines ?? []).map((l) => l.brand_variant_id).filter((v): v is string => !!v),
+  )
 
   const total = (data?.lines ?? []).reduce(
     (sum, l) => sum + (l.total_cost ?? (l.qty * (l.unit_cost ?? 0))),
@@ -181,7 +188,12 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                         {data.lines.map((l, i) => (
                           <tr key={l.id} className={STAGGER_IN} style={staggerDelay(i)}>
                             <td className="px-2.5 py-1.5">
-                              <div className="font-medium truncate max-w-[280px]">{l.item_name}</div>
+                              <ItemLabel
+                                className="max-w-[280px]"
+                                meta={l.brand_variant_id ? variantMeta.get(l.brand_variant_id) : undefined}
+                                name={l.item_name}
+                                nameClassName="font-medium truncate block"
+                              />
                               {l.sku && <div className="text-[10px] text-muted-foreground">{l.sku}</div>}
                             </td>
                             <td className="px-2.5 py-1.5 text-right tabular-nums">{l.qty}</td>

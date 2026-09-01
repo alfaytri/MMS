@@ -70,6 +70,43 @@ export function breadcrumb(id: string, flat: InventoryCategory[]): string {
   return chain.map((c) => c.name_en).join(' > ')
 }
 
+/** The four product-type tags as displayed app-wide. */
+export const CATEGORY_TYPE_LABELS: Record<string, string> = {
+  'products':    'Products',
+  'spare-parts': 'Spare Parts',
+  'consumables': 'Consumables',
+  'tools':       'Tools',
+}
+
+/**
+ * The product-type tag ("Products" / "Spare Parts" / "Consumables" / "Tools")
+ * taken from the ROOT of this category's ancestor chain, or null if unknown.
+ * `type` is stored on every category but is authoritative at the root.
+ */
+export function categoryTypeLabel(id: string, flat: InventoryCategory[]): string | null {
+  const map = new Map(flat.map((c) => [c.id, c]))
+  let node = map.get(id)
+  if (!node) return null
+  while (node.parent_id) {
+    const parent = map.get(node.parent_id)
+    if (!parent) break
+    node = parent
+  }
+  return node.type ? (CATEGORY_TYPE_LABELS[node.type] ?? null) : null
+}
+
+/**
+ * Breadcrumb prefixed with the product-type tag, e.g.
+ * "Products > AC Unit > Split > Indoor Unit". Falls back to the bare breadcrumb
+ * when the type is unknown.
+ */
+export function breadcrumbWithType(id: string, flat: InventoryCategory[]): string {
+  const crumb = breadcrumb(id, flat)
+  const tag = categoryTypeLabel(id, flat)
+  if (!tag) return crumb
+  return crumb ? `${tag} > ${crumb}` : tag
+}
+
 /**
  * Returns all descendant IDs (children, grandchildren, …) for a given node.
  * Useful for cycle prevention in parent pickers.

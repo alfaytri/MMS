@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/logActivity'
 import { nextNoteId } from '@/hooks/useCreditNotes'
 import type { DebitNote } from '@/types/invoice'
 import { queryKeys } from '@/lib/queryKeys'
+import { notifyOwnerAndKey } from '@/lib/notify'
 import { invalidateSupplierCreditViews } from '@/lib/queryInvalidation'
 
 export type POReturnStatus = 'pending' | 'dispatched' | 'supplier_confirmed' | 'closed' | 'cancelled'
@@ -213,7 +214,30 @@ export function usePurchaseReturns(filters: { search?: string; status?: string }
       }
       const { data, error } = await q.limit(500)
       if (error) throw error
-      return (data ?? []) as unknown as POReturn[]
+      const rows = data ?? []
+      // Attach the linked debit note (FK so_po_returns.debit_note_id → debit_notes.id)
+      // so the standalone detail dialog can show an existing note and hide the
+      // "Create Debit Note" action. Mirrors usePurchaseReturnsByPO — without this
+      // ret.debit_note is always undefined here and the detail always offered
+      // "Create" even for returns that already have a note.
+      const noteIds = rows
+        .map((r) => (r as Record<string, unknown>).debit_note_id as string | null)
+        .filter(Boolean) as string[]
+      const noteMap: Record<string, Record<string, unknown>> = {}
+      if (noteIds.length > 0) {
+        const { data: notes } = await supabase
+          .from('debit_notes')
+          .select('*')
+          .in('id', Array.from(new Set(noteIds)))
+        for (const n of (notes ?? [])) noteMap[(n as { id: string }).id] = n as Record<string, unknown>
+      }
+      return rows.map((r) => {
+        const row = r as Record<string, unknown>
+        return {
+          ...r,
+          debit_note: row.debit_note_id ? (noteMap[row.debit_note_id as string] ?? null) : null,
+        }
+      }) as unknown as POReturn[]
     },
     staleTime: 30 * 1000,
   })
@@ -527,10 +551,26 @@ export function useCreateDebitNoteForReturn() {
         reason:        ret.reason,
       })
     },
-    onSuccess: () => {
+    onSuccess: (_data, ret) => {
+      // .all covers the standalone Returns list (queryKeys.purchaseReturns.list);
+      // .byPo covers the PO detail Returns tab.
+      queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseReturns.byPo })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       invalidateSupplierCreditViews(queryClient)
+      // Notify the PO owner a debit note was issued (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: po } = await supabase
+          .from('purchase_orders').select('created_by').eq('id', ret.source_id).maybeSingle()
+        await notifyOwnerAndKey(
+          po?.created_by ?? null,
+          'notify.finance.debit_note',
+          'debit_note_issued',
+          `Debit note issued for return ${ret.return_number}`,
+          { relatedId: ret.source_id, relatedType: 'purchase_order' },
+        )
+      })()
     },
   })
 }

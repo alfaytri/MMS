@@ -18,6 +18,13 @@ import { useHasPermission } from '@/hooks/usePermissions'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
+// Stable empty-array reference. A fresh `= []` default on a react-query result
+// is a NEW identity every render *while the query is loading*, which makes the
+// derived `tree` churn and the search-expand effect setState in a loop (React
+// #185 "Maximum update depth") when you search + switch warehouse. Sharing one
+// reference keeps loading renders stable.
+const NO_ROWS: never[] = []
+
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 interface Props {
@@ -236,7 +243,7 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
   const [selectedSubContainerId, setSelectedSubContainerId] = useState<string | null>(
     initialSubContainerId ?? null,
   )
-  const { data: subs = [] } = useWarehouseSubContainers(selectedWarehouseId ?? null)
+  const { data: subs = NO_ROWS } = useWarehouseSubContainers(selectedWarehouseId ?? null)
   const activeSubs = useMemo(() => subs.filter((sc) => sc.is_active), [subs])
 
   useEffect(() => {
@@ -260,8 +267,8 @@ export const WhStockOverviewTab = React.memo(function WhStockOverviewTab({
     setExpanded(new Set())
   }, [activeType])
 
-  const { data: allStock = [] } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
-  const { data: fullStock = [] } = useWarehouseStock()
+  const { data: allStock = NO_ROWS } = useWarehouseStock(selectedWarehouseId, selectedSubContainerId)
+  const { data: fullStock = NO_ROWS } = useWarehouseStock()
   const divVisible = useDivisionScopedVisibility()
 
   // D.10 — row shape now carries `subLabel` so StockTooltip can render a

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -34,7 +35,7 @@ export function RequestEditDialog({ open, onOpenChange, poId, poNumber }: Props)
           setReason('')
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       },
     )
   }

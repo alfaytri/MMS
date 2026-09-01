@@ -6,22 +6,30 @@ import { Input } from '@/components/ui/input'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useTeamsWithToolCounts } from '@/hooks/useToolAssignments'
 import { useSearchToolUnits, useAssignedToolUnits, type ToolUnitSearchRow } from '@/hooks/useToolUnitHistory'
+import { useToolUnitItemMeta } from '@/hooks/useToolUnitCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
+import { type ItemMeta } from '@/hooks/itemMeta'
 import { ToolUnitTimeline } from './ToolUnitTimeline'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 const COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-function ToolRow({ row, onOpen }: { row: ToolUnitSearchRow; onOpen: (r: ToolUnitSearchRow) => void }) {
+function ToolRow({ row, onOpen, meta }: { row: ToolUnitSearchRow; onOpen: (r: ToolUnitSearchRow) => void; meta?: ItemMeta }) {
   return (
     <button
       type="button"
       onClick={() => onOpen(row)}
       className="w-full text-left p-3 flex items-center justify-between gap-2 hover:bg-accent"
     >
-      <span className="min-w-0 truncate">
-        {row.item_name ?? 'Tool'}{' '}
-        <span className="font-mono text-xs text-muted-foreground">{row.serial_number}</span>
-      </span>
+      <ItemLabel
+        meta={meta}
+        name={
+          <span className="block truncate">
+            {row.item_name ?? 'Tool'}{' '}
+            <span className="font-mono text-xs text-muted-foreground">{row.serial_number}</span>
+          </span>
+        }
+      />
       <span className="text-xs text-muted-foreground shrink-0 truncate max-w-[45%]">
         {row.current_team_name ?? 'Unassigned'}
       </span>
@@ -72,6 +80,12 @@ export function HistoryUsageTab() {
   const assignedCount = (assigned.data ?? []).length
   const error = searching ? search.error : assigned.error
 
+  // Category breadcrumb above each tool name, resolved via the unit id.
+  const unitMeta = useToolUnitItemMeta([
+    ...searchRows.map((r) => r.unit_id),
+    ...(assigned.data ?? []).map((r) => r.unit_id),
+  ])
+
   if (openUnit) {
     return <ToolUnitTimeline unit={openUnit} onBack={() => setOpenUnit(null)} />
   }
@@ -105,7 +119,7 @@ export function HistoryUsageTab() {
             )}
             {searchRows.map((r, i) => (
               <div key={r.unit_id} className={STAGGER_IN} style={staggerDelay(i)}>
-                <ToolRow row={r} onOpen={openRow} />
+                <ToolRow row={r} onOpen={openRow} meta={unitMeta.get(r.unit_id)} />
               </div>
             ))}
           </div>
@@ -145,7 +159,7 @@ export function HistoryUsageTab() {
               <div className="rounded-lg border divide-y">
                 {rows.map((r, i) => (
                   <div key={r.unit_id} className={STAGGER_IN} style={staggerDelay(i)}>
-                    <ToolRow row={r} onOpen={openRow} />
+                    <ToolRow row={r} onOpen={openRow} meta={unitMeta.get(r.unit_id)} />
                   </div>
                 ))}
               </div>

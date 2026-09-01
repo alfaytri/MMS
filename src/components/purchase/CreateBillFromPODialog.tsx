@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Package } from 'lucide-react'
@@ -144,7 +145,7 @@ export function CreateBillFromPODialog({ open, onOpenChange, poId }: Props) {
           await persistBillAttachments(newBill.id, attachments)
         } catch (err: unknown) {
           // Bill was created; only the attachment rows failed. Warn but continue.
-          toast.error(`Bill saved, but attaching files failed: ${(err as Error).message}`)
+          toast.error(`Bill saved, but attaching files failed: ${humanizeDbError(err)}`)
         }
       }
       // Mark submitted BEFORE closing — the close handler runs synchronously

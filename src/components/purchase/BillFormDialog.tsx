@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { Eye, EyeOff, Package, Truck, Calendar, Building2 } from 'lucide-react'
@@ -151,7 +152,7 @@ export function BillFormDialog({ open, onOpenChange, initialPoId }: Props) {
         try {
           await persistBillAttachments(newBill.id, attachments)
         } catch (err: unknown) {
-          toast.error(`Bill saved, but attaching files failed: ${(err as Error).message}`)
+          toast.error(`Bill saved, but attaching files failed: ${humanizeDbError(err)}`)
         }
       }
       // Mark submitted before closing so handleOpenChange's sweep skips.

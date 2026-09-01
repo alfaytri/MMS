@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useRef, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,6 +28,7 @@ import { passwordSchema } from '@/lib/auth/password-policy'
 import { PhoneInputWithCode } from '@/components/shared/PhoneInputWithCode'
 import { useCreateUser } from '@/hooks/useProfiles'
 import { useRoles } from '@/hooks/useRoles'
+import { rolesGrantSuperViewer } from '@/lib/auth/superViewer'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
 import { createClient } from '@/lib/supabase/client'
@@ -113,6 +115,14 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
   }
 
   function onSubmit(values: Values) {
+    // Guard: every internal account must have at least one division, otherwise
+    // RLS locks it out of all division-scoped data. The only exception is a
+    // super-viewer (an approval-slot Owner/Accountant), who sees every division.
+    const chosenRoles = (roles ?? []).filter((r) => values.role_ids.includes(r.id))
+    if (selectedDivisionIds.length === 0 && !rolesGrantSuperViewer(chosenRoles)) {
+      toast.error('Assign at least one division. Only Owner/Accountant accounts can be created without one.')
+      return
+    }
     createUser.mutate(
       {
         full_name: values.full_name,
@@ -128,7 +138,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
           else toast.success(`User "${values.username}" created successfully`)
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -269,6 +279,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               </div>
 
               {companiesWithAvailable.length > 0 && (
+                <div className="flex items-center gap-2">
                 <Select
                   value=""
                   onValueChange={(v) => { if (v) setSelectedDivisionIds((prev) => [...prev, v]) }}
@@ -296,6 +307,17 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 gap-1.5"
+                  onClick={() => setSelectedDivisionIds(allDivisions.map((d) => d.id))}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  All divisions
+                </Button>
+                </div>
               )}
             </div>
 

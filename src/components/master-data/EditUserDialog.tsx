@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -31,6 +32,7 @@ import {
   useUpdateUser, useUserDivisions, useAssignDivision, useRemoveDivision, type Profile,
 } from '@/hooks/useProfiles'
 import { useRoles, type CustomRole } from '@/hooks/useRoles'
+import { rolesGrantSuperViewer } from '@/lib/auth/superViewer'
 import { useAllDivisions } from '@/hooks/useDivisions'
 import { useCompanies } from '@/hooks/useCompanies'
 
@@ -194,18 +196,45 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
           setDivisionPickValue('')
           toast.success("Division assigned. Changes take effect on the user's next login.")
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
 
+  async function handleAssignAllDivisions() {
+    if (!profile?.id) return
+    const pid = profile.id
+    const toAssign = companiesWithUnassigned.flatMap((g) => g.items.map((d) => d.id))
+    if (toAssign.length === 0) return
+    try {
+      await Promise.all(
+        toAssign.map((division_id) => assignDivision.mutateAsync({ profile_id: pid, division_id })),
+      )
+      setDivisionPickValue('')
+      toast.success("All divisions assigned. Changes take effect on the user's next login.")
+    } catch (err) {
+      toast.error(humanizeDbError(err))
+    }
+  }
+
   function handleRemoveDivision(id: string) {
     if (!profile?.id) return
+    // Guard: don't strip the last division from an account that needs one —
+    // it would lock the user out of every division-scoped screen. Super-viewers
+    // (approval-slot Owner/Accountant) see all divisions, so they're exempt.
+    if (userDivisions.length <= 1) {
+      const assignedIds = new Set(form.getValues('role_assignments').map((a) => a.role_id))
+      const assignedRoles = (roles ?? []).filter((r) => assignedIds.has(r.id))
+      if (!rolesGrantSuperViewer(assignedRoles)) {
+        toast.error('This account needs at least one division. Assign another division first, or give it the Owner/Accountant role.')
+        return
+      }
+    }
     removeDivision.mutate(
       { id, profileId: profile.id },
       {
         onSuccess: () => toast.success('Division removed.'),
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -242,6 +271,14 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
       return
     }
     setExtensionError(null)
+    // Guard: saving a role set that isn't a super-viewer while the account has
+    // no division would lock the user out. Catches the case where the
+    // Owner/Accountant role is being removed on save from a division-less user.
+    const savedRoles = (roles ?? []).filter((r) => values.role_assignments.some((a) => a.role_id === r.id))
+    if (userDivisions.length === 0 && !rolesGrantSuperViewer(savedRoles)) {
+      toast.error('This account has no division. Assign a division, or keep the Owner/Accountant role, before saving.')
+      return
+    }
     const email = values.username.includes('@') ? values.username : `${values.username}@mms.local`
     updateUser.mutate(
       {
@@ -262,7 +299,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
           toast.success('User updated')
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -492,6 +529,7 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
               </div>
 
               {companiesWithUnassigned.length > 0 && (
+                <div className="flex items-center gap-2">
                 <Select
                   value={divisionPickValue}
                   onValueChange={(v) => { if (v) { setDivisionPickValue(v); handleAssignDivision(v) } }}
@@ -519,6 +557,18 @@ export function EditUserDialog({ open, onOpenChange, profile }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 gap-1.5"
+                  onClick={handleAssignAllDivisions}
+                  disabled={assignDivision.isPending}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  All divisions
+                </Button>
+                </div>
               )}
             </div>
 

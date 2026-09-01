@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Flag, Lock, Plus } from 'lucide-react'
@@ -81,7 +82,7 @@ export function MilestoneManager({ subContainerId, disciplineId, canManage }: Pr
       await addMilestone.mutateAsync({ sub_container_id: subContainerId, discipline_id: disciplineId, label })
       toast.success(`${label} added`)
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.error(humanizeDbError(e))
     } finally {
       setIsAdding(false)
     }
@@ -94,7 +95,7 @@ export function MilestoneManager({ subContainerId, disciplineId, canManage }: Pr
       toast.success(`Milestone ${closeTarget.label} closed`)
       setCloseTarget(null)
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.error(humanizeDbError(e))
       setCloseTarget(null)
     }
   }

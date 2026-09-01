@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
+import { recipientsForNotification, sendNotifications } from '@/lib/notify'
 import { humanizeDbError } from '@/lib/dbErrors'
 import type { Database } from '@/types/database.types'
 import { invalidateInventoryStockViews } from '@/lib/queryInvalidation'
@@ -156,6 +157,11 @@ export type Customer = {
   cr_url?:                  string | null
   establishment_id_url?:    string | null
   signed_credit_form_url?:  string | null
+  // Blue Plate / coordinates (migration 20261008000000). Not returned by
+  // search_customers — CustomerDialog loads these directly on edit.
+  address?:                 string | null
+  latitude?:                number | null
+  longitude?:               number | null
 }
 
 export type SOLineItemDraft = {
@@ -312,10 +318,15 @@ export function useCreateCustomer() {
       email: string | null
       credit_group_id?: string | null
       entity_type?: 'individual' | 'business'
+      address?: string | null
+      latitude?: number | null
+      longitude?: number | null
     }) => {
       const supabase = createClient()
       const { phones, ...customerFields } = payload
-      const row = { ...customerFields }
+      // address/latitude/longitude (migration 20261008000000) aren't in the stale
+      // generated Insert type — cast so they pass the type check; runtime sends them.
+      const row = { ...customerFields } as unknown as Database['public']['Tables']['customers']['Insert']
       const { data, error } = await supabase
         .from('customers')
         .insert(row)
@@ -363,6 +374,9 @@ export function useUpdateCustomer() {
         email?:                  string | null
         entity_type?:            'individual' | 'business'
         credit_group_id?:        string | null
+        address?:                string | null
+        latitude?:               number | null
+        longitude?:              number | null
       }
       // Old values for audit diff; only fields present here are checked
       previous: {
@@ -378,8 +392,10 @@ export function useUpdateCustomer() {
       const supabase = createClient()
 
       // Phones live on customer_phones; strip out of the customers update.
+      // address/latitude/longitude (migration 20261008000000) aren't in the stale
+      // generated Update type — cast so they pass the type check; runtime sends them.
       const { phones: newPhones, ...customerPatch } = args.patch
-      const update: Database['public']['Tables']['customers']['Update'] = { ...customerPatch }
+      const update = { ...customerPatch } as unknown as Database['public']['Tables']['customers']['Update']
 
       const { data, error } = await supabase
         .from('customers')
@@ -887,7 +903,7 @@ export function useConfirmSO() {
 
       return { status: 'confirmed' as const }
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleDeliveries.all })
@@ -899,6 +915,24 @@ export function useConfirmSO() {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       invalidateInventoryStockViews(queryClient)
+      // Diverted to approval → notify the sales approvers (best-effort).
+      if (data.status === 'pending_approval') {
+        void (async () => {
+          const supabase = createClient()
+          const { data: so } = await supabase
+            .from('sale_orders').select('so_number').eq('id', variables.id).maybeSingle()
+          const ids = await recipientsForNotification('so_approval_requested')
+          if (ids.length) {
+            await sendNotifications(ids.map((profile_id) => ({
+              profile_id,
+              type: 'so_approval_requested',
+              title: `Sale order ${so?.so_number ?? ''} needs approval`.trim(),
+              related_id: variables.id,
+              related_type: 'sale_order',
+            })))
+          }
+        })()
+      }
     },
   })
 }
@@ -971,6 +1005,15 @@ export function useCreateSOPayment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.payments(variables.so_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+      // A payment changes the invoice's payment_status (customer_invoices view).
+      // Detail is keyed ['customer-invoice', id] and list ['customer-invoices'] —
+      // different roots and no invoice id here — so refresh every invoice read.
+      queryClient.invalidateQueries({
+        predicate: (q) => {
+          const root = q.queryKey[0]
+          return root === 'customer-invoices' || root === 'customer-invoice' || root === 'invoices-by-so'
+        },
+      })
       logActivity({
         action:    'Payment Recorded',
         module:    'sale_orders',

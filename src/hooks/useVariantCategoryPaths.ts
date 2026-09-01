@@ -2,23 +2,19 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useAllCategoriesFlat, breadcrumb } from '@/hooks/useInventoryTree'
-import { queryKeys } from '@/lib/queryKeys'
+import { useAllCategoriesFlat, breadcrumbWithType } from '@/hooks/useInventoryTree'
+import { type ItemMeta, displayBrand } from '@/hooks/itemMeta'
 
 /**
- * Resolves the FULL category breadcrumb ("Root > … > Leaf") for a set of brand
- * variants, so the item picker header can show the whole classification tree
- * instead of the flattened leaf category. Items sit up to three category levels
- * deep, which `warehouse_stock_summary.category_name`/`subcategory_name` (two
- * flat columns) cannot represent — this walks the real tree.
+ * Resolves the full item label — tag-prefixed category tree, brand, and origin
+ * — for a set of brand variants, keyed by variant id. Feeds the shared
+ * <ItemLabel> so every item surface renders the same block.
  *
- * Path resolution is client-side + DB-agnostic: it walks
- * inventory_item_brand_variants → inventory_items.category_id and then up the
- * inventory_categories.parent_id chain via the shared `breadcrumb()` helper.
- * One bounded, cached read per variant-id set (no per-item queries), and the
- * category list is a separate long-cached read shared app-wide.
+ * One bounded, cached read per variant-id set (variant → brand, country, and
+ * inventory_items.category_id), plus the app-wide category list. The tree walks
+ * the real inventory_categories parent chain and prefixes the root's type tag.
  */
-export function useVariantCategoryPaths(variantIds: string[]): Map<string, string> {
+export function useVariantItemMeta(variantIds: string[]): Map<string, ItemMeta> {
   const { data: cats = [] } = useAllCategoriesFlat()
 
   // Stable, de-duplicated, sorted id set → stable cache key.
@@ -27,40 +23,56 @@ export function useVariantCategoryPaths(variantIds: string[]): Map<string, strin
     [variantIds],
   )
 
-  const { data: variantToCategory } = useQuery({
-    queryKey: queryKeys.inventory.variantCategoryPaths(ids.join(',')),
+  const { data: rows } = useQuery({
+    queryKey: ['variant-item-meta', ids.join(',')],
     enabled: ids.length > 0,
     staleTime: 10 * 60 * 1000,
-    queryFn: async (): Promise<Record<string, string | null>> => {
+    queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_item_brand_variants')
-        .select('id, inventory_items!inner(category_id)')
+        .select('id, brand, brands(name), country_codes(name), inventory_items!inner(category_id)')
         .in('id', ids)
         .limit(ids.length)
       if (error) throw error
-      const rows = (data ?? []) as Array<{
+      // PostgREST types to-one embeds as an array in some versions; handle both.
+      return (data ?? []) as Array<{
         id: string
-        // PostgREST types a to-one embed as an array in some versions; handle both.
+        brand: string | null
+        brands: { name: string | null } | { name: string | null }[] | null
+        country_codes: { name: string | null } | { name: string | null }[] | null
         inventory_items: { category_id: string | null } | { category_id: string | null }[] | null
       }>
-      const out: Record<string, string | null> = {}
-      for (const row of rows) {
-        const item = Array.isArray(row.inventory_items) ? row.inventory_items[0] : row.inventory_items
-        out[row.id] = item?.category_id ?? null
-      }
-      return out
     },
   })
 
   return useMemo(() => {
-    const map = new Map<string, string>()
-    if (!variantToCategory) return map
-    for (const [variantId, categoryId] of Object.entries(variantToCategory)) {
-      if (!categoryId) continue
-      const path = breadcrumb(categoryId, cats)
-      if (path) map.set(variantId, path)
+    const map = new Map<string, ItemMeta>()
+    for (const row of rows ?? []) {
+      const item = Array.isArray(row.inventory_items) ? row.inventory_items[0] : row.inventory_items
+      const brandJoin = Array.isArray(row.brands) ? row.brands[0] : row.brands
+      const countryJoin = Array.isArray(row.country_codes) ? row.country_codes[0] : row.country_codes
+      const categoryId = item?.category_id ?? null
+      map.set(row.id, {
+        tree:   categoryId ? breadcrumbWithType(categoryId, cats) : '',
+        brand:  displayBrand(brandJoin?.name ?? null, row.brand),
+        origin: countryJoin?.name?.trim() || null,
+      })
     }
     return map
-  }, [variantToCategory, cats])
+  }, [rows, cats])
+}
+
+/**
+ * Tree-only projection of {@link useVariantItemMeta}: Map<variantId, breadcrumb>.
+ * Retained for callers that only render the category path; new surfaces should
+ * use useVariantItemMeta + <ItemLabel> for the full block.
+ */
+export function useVariantCategoryPaths(variantIds: string[]): Map<string, string> {
+  const meta = useVariantItemMeta(variantIds)
+  return useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [id, m] of meta) if (m.tree) map.set(id, m.tree)
+    return map
+  }, [meta])
 }

@@ -25,7 +25,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 import {
@@ -326,7 +327,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // bounded, cached read over the sub's stock variants — resolved client-side so
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => sourceStock.map((s) => s.brand_variant_id), [sourceStock])
-  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+  const variantMeta = useVariantItemMeta(stockVariantIds)
 
   // Dedupe by brand_variant_id — the picker is gated on a chosen sub (so stock is
   // normally single-sub), but stay defensive against a variant appearing in more
@@ -349,14 +350,14 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         countryName:   s.country_name ?? null,
         sku:           s.sku ?? null,
         category:      s.category_name ?? null,
-        categoryPath:  categoryPaths.get(s.brand_variant_id) ?? null,
+        categoryPath:  variantMeta.get(s.brand_variant_id)?.tree ?? null,
         qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
         reorderPoint:  0,
         imageUrl:      s.image_url ?? null,
       })
     }
     return out
-  }, [sourceStock, availableQtyMap, mode, teamVariantIds, categoryPaths])
+  }, [sourceStock, availableQtyMap, mode, teamVariantIds, variantMeta])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
@@ -517,6 +518,8 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // attributed. (Non-project custody / internal have no disciplines → not required.)
   const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
   const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId && code.trim() !== '')
+  // Custody consumption is a sale — the invoice/order/project ref (Notes) is mandatory.
+  const notesSatisfied = consumerType !== 'custody' || notes.trim().length > 0
 
   const canOpenConfirm =
     !!srcWhId &&
@@ -526,6 +529,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     hasValidRows &&
     !hasValidationErrors &&
     projectTagsSatisfied &&
+    notesSatisfied &&
     !uploading &&
     !post.isPending
 
@@ -978,12 +982,17 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                   const triggerContent = (
                     <>
                       {selected ? (
-                        <span className="truncate">
-                          <span className="font-medium">{selected.item_name}</span>
-                          {selected.brand && (
-                            <span className="text-muted-foreground"> — {selected.brand}</span>
-                          )}
-                        </span>
+                        <ItemLabel
+                          showBrandOrigin={false}
+                          meta={variantMeta.get(row.brand_variant_id)}
+                          name={<>
+                            <span className="font-medium">{selected.item_name}</span>
+                            {selected.brand && (
+                              <span className="text-muted-foreground"> — {selected.brand}</span>
+                            )}
+                          </>}
+                          nameClassName="truncate"
+                        />
                       ) : (
                         <span className="text-muted-foreground">Search items…</span>
                       )}
@@ -991,7 +1000,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                     </>
                   )
                   const triggerCls =
-                    'flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer'
+                    'flex min-h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1 text-[11px] hover:bg-accent/50 cursor-pointer'
                   return (
                     <div
                       key={idx}
@@ -1120,15 +1129,22 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
             )}
           </div>
 
-          {/* Notes */}
+          {/* Notes — required for custody consumption (the sale reference) */}
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Notes</Label>
+            <Label className="text-[11px] text-muted-foreground">
+              Notes{consumerType === 'custody' && <span className="text-destructive"> *</span>}
+            </Label>
             <Textarea
               className="text-[11px] min-h-[48px] resize-none"
-              placeholder="Optional context (job ref, site visit, WO number, etc.)"
+              placeholder={consumerType === 'custody'
+                ? 'Enter invoice / order number / project code'
+                : 'Optional context (job ref, site visit, WO number, etc.)'}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+            {consumerType === 'custody' && notes.trim().length === 0 && (
+              <p className="text-[10px] text-destructive">Required — enter the invoice / order number / project code.</p>
+            )}
           </div>
 
           {/* Attachments */}
@@ -1268,9 +1284,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">
-                    {l.name}{l.brand ? <span className="text-muted-foreground"> — {l.brand}</span> : null}
-                  </div>
+                  <ItemLabel meta={variantMeta.get(l.id)} name={l.name} nameClassName="truncate font-medium" />
                   {l.highShare && (
                     <div className="mt-0.5 flex items-center gap-1 text-[10px] text-warning-foreground">
                       <AlertTriangle className="h-3 w-3 shrink-0" />

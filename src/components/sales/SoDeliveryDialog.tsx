@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
@@ -69,9 +70,13 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
       }>
     },
   })
+  // Scope the ship-from sub-containers to the sale order's division so a delivery
+  // can't be sourced from another division's shelf (mirrors DeliveryFormDialog).
+  // An order with no division falls back to all active subs.
   const activeSubContainers = useMemo(
-    () => subContainers.filter((sc) => sc.is_active),
-    [subContainers],
+    () => subContainers.filter((sc) =>
+      sc.is_active && (so.division_id == null || sc.division_id === so.division_id)),
+    [subContainers, so.division_id],
   )
 
   const { data: whStockMap } = useWarehouseStockByItems(bvIds, subContainerId || null)
@@ -124,6 +129,10 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
 
   function handleSubmit() {
     if (!warehouseId) { toast.error('Select a warehouse'); return }
+    if (activeSubContainers.length === 0) {
+      toast.error("This warehouse has no stock location for this order's division")
+      return
+    }
     if (activeSubContainers.length > 1 && !subContainerId) {
       toast.error('Select a sub-container')
       return
@@ -156,7 +165,7 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
           guardRef.current?.closeAfterSubmit()
           setQtys({})
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -217,7 +226,6 @@ export function SoDeliveryDialog({ open, onOpenChange, so }: SoDeliveryDialogPro
                     <option key={sc.id} value={sc.id}>
                       {sc.name}
                       {sc.division_name ? ` — ${sc.division_name}` : ''}
-                      {so.division_id && sc.division_id !== so.division_id ? ' (shared)' : ''}
                     </option>
                   ))}
                 </select>

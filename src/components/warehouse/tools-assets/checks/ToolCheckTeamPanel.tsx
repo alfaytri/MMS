@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTeamToolUnitsV2, type TeamToolUnitV2 } from '@/hooks/useToolInspections'
 import { useRecordCheck, type CheckVerdict } from '@/hooks/useToolChecks'
+import { useToolUnitItemMeta } from '@/hooks/useToolUnitCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ToolLifecycleBadge } from '../ToolBadges'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
@@ -31,6 +33,9 @@ export function ToolCheckTeamPanel({
       COLLATOR.compare(a.item_name ?? '', b.item_name ?? '') || COLLATOR.compare(a.serial_number ?? '', b.serial_number ?? '')),
     [units],
   )
+
+  // Category breadcrumb above each tool name, resolved via the unit id.
+  const unitMeta = useToolUnitItemMeta(checkable.map((u) => u.unit_id))
 
   async function check(u: TeamToolUnitV2, verdict: CheckVerdict) {
     try {
@@ -63,7 +68,11 @@ export function ToolCheckTeamPanel({
             return (
               <li key={u.unit_id} className={cn('flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3', STAGGER_IN)} style={staggerDelay(i)}>
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="font-medium text-sm truncate min-w-0" title={u.item_name ?? undefined}>{u.item_name ?? 'Tool'}</span>
+                  <ItemLabel
+                    className="w-full"
+                    meta={unitMeta.get(u.unit_id)}
+                    name={<span className="font-medium text-sm truncate min-w-0 block" title={u.item_name ?? undefined}>{u.item_name ?? 'Tool'}</span>}
+                  />
                   <span className="font-mono text-xs text-muted-foreground shrink-0">{u.serial_number ?? '—'}</span>
                   <ToolLifecycleBadge type={u.lifecycle_type} />
                   <span className="text-xs text-muted-foreground">· {u.condition}</span>

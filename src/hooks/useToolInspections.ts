@@ -23,6 +23,7 @@ export type RepairUnit = {
   current_team_name: string | null
   last_inspected_at: string | null
   lifecycle_type: string
+  pending_scrap: boolean
 }
 
 export type TeamToolUnitV2 = {

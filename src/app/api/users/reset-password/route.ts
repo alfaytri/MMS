@@ -43,9 +43,15 @@ export async function POST(request: Request) {
   }
   const { error: updErr } = await admin.auth.admin.updateUserById(user_id, {
     password,
-    user_metadata: existing.user.user_metadata ?? {},
+    user_metadata: { ...(existing.user.user_metadata ?? {}), must_change_password: true },
   })
   if (updErr) return NextResponse.json({ error: `Password reset failed: ${updErr.message}` }, { status: 400 })
+
+  // Force a password change on next login. The forced-reset gate reads
+  // user_data.must_change_password, so set it here too (not only in metadata).
+  await admin.from('user_data')
+    .update({ must_change_password: true })
+    .eq('auth_user_id', user_id)
 
   // Audit (no password in details).
   await logUserEvent({

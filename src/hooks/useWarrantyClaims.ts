@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { humanizeDbError } from '@/lib/dbErrors'
+import { recipientsForNotification, sendNotifications } from '@/lib/notify'
 
 /**
  * `warranty_claims` was added by a Stage 3 migration after the last
@@ -161,7 +162,8 @@ async function enrichClaims(
 
 /** List/search query — explicit columns, division + status + search filters, capped at 200. */
 export function useWarrantyClaims(
-  filters: { search?: string; divisionId?: string; status?: string } = {}
+  filters: { search?: string; divisionId?: string; status?: string; warrantyType?: string } = {},
+  options: { refreshOnFocus?: boolean } = {},
 ) {
   return useQuery({
     queryKey: queryKeys.warranty.claims(filters),
@@ -174,6 +176,9 @@ export function useWarrantyClaims(
         .limit(200)
       if (filters.divisionId) q = q.eq('division_id', filters.divisionId)
       if (filters.status) q = q.eq('status', filters.status)
+      // Type filter (e.g. the Consumption Warranties page passes 'consumption' so
+      // it only lists claims against consumption warranties; Sales omits it).
+      if (filters.warrantyType) q = q.eq('warranty_type', filters.warrantyType)
       if (filters.search) {
         const s = `%${filters.search}%`
         // Local-column search only, mirroring useWarrantyRecords — item /
@@ -189,6 +194,8 @@ export function useWarrantyClaims(
       return enrichClaims(supabase, data ?? [])
     },
     staleTime: 60_000,
+    // Opt-in (global default is off to protect quota) — see useWarrantyRecords.
+    refetchOnWindowFocus: options.refreshOnFocus ?? false,
   })
 }
 
@@ -227,9 +234,22 @@ export function useFileWarrantyClaim() {
       if (error) throw new Error(humanizeDbError(error, 'file a warranty claim'))
       return data as unknown as string
     },
-    onSuccess: () => {
+    onSuccess: (claimId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.claims() })
       queryClient.invalidateQueries({ queryKey: queryKeys.warranty.records() })
+      // Notify the warranty managers a claim was filed (best-effort).
+      void (async () => {
+        const ids = await recipientsForNotification('warranty_claim_filed')
+        if (ids.length) {
+          await sendNotifications(ids.map((profile_id) => ({
+            profile_id,
+            type: 'warranty_claim_filed',
+            title: 'A warranty claim was filed',
+            related_id: (claimId as string) ?? null,
+            related_type: 'warranty_claim',
+          })))
+        }
+      })()
     },
   })
 }

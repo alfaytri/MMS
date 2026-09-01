@@ -18,6 +18,7 @@ import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchCategoryInfoByBrandVariant } from '@/lib/pdf/category-paths'
 
 export type { PoPdfVariant } from '@/lib/purchase/po-pdf-html'
 
@@ -33,6 +34,27 @@ async function hydratePoArabic(
     ...l,
     item_name_ar: l.item_name_ar ?? (l.brand_variant_id ? map.get(l.brand_variant_id) ?? null : null),
   }))
+}
+
+/**
+ * Resolve each line's category breadcrumb (root › … › leaf) + catalog name.
+ * The catalog name is the fallback the template prints when a line's own
+ * item_name (the optional "Vendor Item Name") is blank.
+ */
+async function hydratePoCategories(
+  client: SupabaseClient,
+  lines:  PoLineItem[],
+): Promise<PoLineItem[]> {
+  if (lines.length === 0) return lines
+  const map = await fetchCategoryInfoByBrandVariant(client, lines.map((l) => l.brand_variant_id))
+  return lines.map((l) => {
+    const info = l.brand_variant_id ? map.get(l.brand_variant_id) : undefined
+    return {
+      ...l,
+      category_path: l.category_path ?? info?.category_path ?? null,
+      catalog_name:  l.catalog_name  ?? info?.catalog_name  ?? null,
+    }
+  })
 }
 
 /**
@@ -254,7 +276,7 @@ export async function generatePoPdf(
     supplier_phone:    supplierPhone,
     rfq_number:        rfqNumber,
     status:            po.status,
-    lines:             await hydratePoSpecs(supabase, await hydratePoArabic(supabase, po.po_line_items ?? []), po.show_specifications ?? true),
+    lines:             await hydratePoCategories(supabase, await hydratePoSpecs(supabase, await hydratePoArabic(supabase, po.po_line_items ?? []), po.show_specifications ?? true)),
     subtotal:          subtotalOriginal,
     discount_amount:   discountOriginal,
     total_qar:         totalOriginal,     // H5: field name kept for schema compat; value now in original currency
@@ -426,7 +448,7 @@ async function renderSnapshotPdf(
     supplier_phone:    supplierPhone,
     rfq_number:        rfqNumber,
     status:            po.status,
-    lines:             await hydratePoArabic(supabase, lines),
+    lines:             await hydratePoCategories(supabase, await hydratePoArabic(supabase, lines)),
     subtotal,
     discount_amount:   discountAmount,
     total_qar:         totalQar,

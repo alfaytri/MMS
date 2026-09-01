@@ -62,6 +62,35 @@ const NOTIFICATION_ROUTES: Record<string, NotificationMeta> = {
 
   // ── Warehouse Item Requests ──────────────────────────────────
   item_request:             { route: '/master-data/warehouses?tab=item-requests', actionable: true, icon: 'stock' },
+
+  // ── Notifications expansion (2026-08-26) · Phase 1 ───────────
+  // Action-needed → role holders
+  so_approval_requested:    { route: '/sales/approvals',   actionable: true,  icon: 'so' },
+  sale_return_created:      { route: '/sales/returns',     actionable: true,  icon: 'so' },
+  warranty_claim_filed:     { route: '/sales/warranties',  actionable: true,  icon: 'info' },
+  // Status/outcome → document owner
+  po_goods_received:        { route: '/purchase/receivals', actionable: false, icon: 'receival' },
+  shipment_delayed:         { route: '/purchase/shipments', actionable: false, icon: 'po' },
+  // Scheduled (daily cron) → finance
+  invoice_overdue:          { route: '/sales/invoices',    actionable: true,  icon: 'credit' },
+
+  // ── Notifications expansion (2026-08-26) · Phase 2 ───────────
+  // Status/outcome → document owner
+  customer_payment_received: { route: '/sales/invoices',   actionable: false, icon: 'credit' },
+  supplier_payment_made:     { route: '/purchase/bills',   actionable: false, icon: 'credit' },
+  invoice_generated:         { route: '/sales/invoices',   actionable: false, icon: 'credit' },
+  invoice_paid:              { route: '/sales/invoices',   actionable: false, icon: 'credit' },
+  delivery_completed:        { route: '/sales/deliveries', actionable: false, icon: 'so' },
+  credit_note_issued:        { route: '/sales/credit-notes', actionable: false, icon: 'credit' },
+  debit_note_issued:         { route: '/purchase/debit-notes', actionable: false, icon: 'credit' },
+  po_fully_received:         { route: '/purchase/orders',  actionable: false, icon: 'receival' },
+  supplier_bill_created:     { route: '/purchase/bills',   actionable: false, icon: 'receival' },
+  // Scheduled (daily cron)
+  installment_due:           { route: '/sales/invoices',   actionable: true,  icon: 'credit' },
+  supplier_bill_due:         { route: '/purchase/bills',   actionable: true,  icon: 'credit' },
+
+  // ── Notifications expansion (2026-08-26) · Phase 3 ───────────
+  po_return_resolved:        { route: '/purchase/debit-notes', actionable: false, icon: 'credit' },
 }
 
 export function getNotificationRoute(type: string, relatedId: string | null): string | null {
@@ -106,4 +135,15 @@ export const NOTIFICATION_RECIPIENTS: Record<
   stock_adj_pending:       { permission: 'warehouse.adjustments.view', notifyKey: 'notify.warehouse.stock_adj' },
   inv_check_pending:       { permission: 'warehouse.checks.view', notifyKey: 'notify.warehouse.inv_check' },
   credit_group_pending:    { permission: 'master_data.customers.change_credit_group', notifyKey: 'notify.finance.credit_group' },
+
+  // Notifications expansion (2026-08-26) · Phase 1 — action-needed + scheduled (role-routed)
+  so_approval_requested:   { permission: 'sales.approvals.view',        notifyKey: 'notify.sales.so_approval' },
+  sale_return_created:     { permission: 'sales.returns.manage',        notifyKey: 'notify.sales.return_created' },
+  warranty_claim_filed:    { permission: 'sales.warranty_claims.manage', notifyKey: 'notify.sales.warranty_claim' },
+  invoice_overdue:         { permission: 'sales.invoices.view',         notifyKey: 'notify.finance.invoice_overdue' },
+
+  // Phase 2 — scheduled (role-routed). Owner-routed types (payments, notes,
+  // delivery, bill-created) are emitted via notifyOwnerAndKey and are NOT here.
+  installment_due:         { permission: 'sales.payments.view',         notifyKey: 'notify.finance.installment_due' },
+  supplier_bill_due:       { permission: 'purchase.payments.view',      notifyKey: 'notify.finance.bill_due' },
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { humanizeDbError } from '@/lib/dbErrors'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
 import Link from 'next/link'
@@ -8,6 +9,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { LcCogsPostedPanel } from '@/components/landed-costs/LcCogsPostedPanel'
 import { toast } from 'sonner'
 import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
+import { LandedCostAllocationBreakdown } from '@/components/purchase/LandedCostAllocationBreakdown'
+import { ReceivalStockSplitRow } from '@/components/purchase/ReceivalStockSplitRow'
 import { createClient } from '@/lib/supabase/client'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -138,6 +141,7 @@ function LcDetailDialog({
   const { data: attachedPOs } = useAttachedPOs(lc?.attached_po_ids ?? [])
 
   const [detailExpandedReceivalId, setDetailExpandedReceivalId] = useState<string | null>(null)
+  const [expandedAllocId, setExpandedAllocId] = useState<string | null>(null)
   const { data: detailExpandedItems, isLoading: loadingDetailItems } = useReceivalItemsWithFifo(
     detailExpandedReceivalId,
   )
@@ -358,17 +362,32 @@ function LcDetailDialog({
                                   </thead>
                                   <tbody>
                                     {(detailExpandedItems ?? []).map((item, i) => (
-                                      <tr key={item.id} className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
+                                      <Fragment key={item.id}>
+                                      <tr className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
                                         <td className="py-1 pr-2">{item.item_name}</td>
                                         <td className="text-right py-1">{item.qty_received}</td>
                                         <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
                                           {item.remaining_qty}
                                         </td>
-                                        <td className="text-right py-1">{formatCurrency(item.unit_cost, r.currency)}</td>
+                                        <td className="text-right py-1">
+                                          {formatCurrency(item.unit_cost, r.currency)}
+                                          {r.currency !== 'QAR' && (
+                                            <span className="block text-[10px] font-normal text-muted-foreground/70">
+                                              ≈ {formatCurrency(item.unit_cost_qar, 'QAR')}
+                                            </span>
+                                          )}
+                                        </td>
                                         <td className="text-right py-1 font-medium">
                                           {formatCurrency(item.qty_received * item.unit_cost, r.currency)}
+                                          {r.currency !== 'QAR' && (
+                                            <span className="block text-[10px] font-normal text-muted-foreground/70">
+                                              ≈ {formatCurrency(item.qty_received * item.unit_cost_qar, 'QAR')}
+                                            </span>
+                                          )}
                                         </td>
                                       </tr>
+                                      <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalIds={[r.id]} colSpan={5} />
+                                      </Fragment>
                                     ))}
                                   </tbody>
                                 </table>
@@ -422,21 +441,49 @@ function LcDetailDialog({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(lc.landed_cost_item_allocations ?? []).map((alloc, i) => (
-                        <TableRow key={i} className={STAGGER_IN} style={staggerDelay(i)}>
-                          <TableCell className="text-sm">{alloc.item_name}</TableCell>
-                          <TableCell className="text-sm font-mono">{alloc.sku ?? '—'}</TableCell>
-                          <TableCell className="text-right text-sm">{alloc.qty_received}</TableCell>
-                          <TableCell className="text-right text-sm hidden sm:table-cell">
-                            {alloc.qty_remaining_at_lc ?? '—'}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">{formatCurrency(alloc.original_unit_cost, lc.currency)}</TableCell>
-                          <TableCell className="text-right text-sm text-blue-600">
-                            +{formatCurrency(alloc.lc_per_unit ?? 0, lc.currency)}
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-medium">{formatCurrency(alloc.updated_unit_cost, lc.currency)}</TableCell>
-                        </TableRow>
-                      ))}
+                      {(lc.landed_cost_item_allocations ?? []).map((alloc, i) => {
+                        const isOpen = expandedAllocId === alloc.id
+                        return (
+                          <Fragment key={alloc.id}>
+                            <TableRow
+                              className={cn(STAGGER_IN, 'cursor-pointer hover:bg-muted/40')}
+                              style={staggerDelay(i)}
+                              onClick={() => setExpandedAllocId(isOpen ? null : alloc.id)}
+                              title="Show how this cost was split"
+                            >
+                              <TableCell className="text-sm">
+                                <span className="inline-flex items-center gap-1">
+                                  {isOpen
+                                    ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                                  {alloc.item_name}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-sm font-mono">{alloc.sku ?? '—'}</TableCell>
+                              <TableCell className="text-right text-sm">{alloc.qty_received}</TableCell>
+                              <TableCell className="text-right text-sm hidden sm:table-cell">
+                                {alloc.qty_remaining_at_lc ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">{formatCurrency(alloc.original_unit_cost, lc.currency)}</TableCell>
+                              <TableCell className="text-right text-sm text-blue-600">
+                                +{formatCurrency(alloc.lc_per_unit ?? 0, lc.currency)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-medium">{formatCurrency(alloc.updated_unit_cost, lc.currency)}</TableCell>
+                            </TableRow>
+                            {isOpen && (
+                              <TableRow>
+                                <TableCell colSpan={7} className="p-2">
+                                  <LandedCostAllocationBreakdown
+                                    alloc={alloc}
+                                    currency={lc.currency}
+                                    receivalIds={lc.attached_receival_ids}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -521,7 +568,8 @@ function LcDetailDialog({
                           const lcPerUnit = previewLcPerUnitByVariant.get(item.brand_variant_id) ?? 0
                           const totalAdded = lcPerUnit * item.qty_received
                           return (
-                            <TableRow key={idx} className={item.warning ? 'bg-amber-50' : ''}>
+                            <Fragment key={idx}>
+                            <TableRow className={item.warning ? 'bg-amber-50' : ''}>
                               <TableCell className="text-sm">
                                 {item.item_name}
                                 {item.warning && (
@@ -543,6 +591,16 @@ function LcDetailDialog({
                                   : `+${formatCurrency(totalAdded, lc.currency)}`}
                               </TableCell>
                             </TableRow>
+                            {!loadingPreview && (
+                              <ReceivalStockSplitRow
+                                brandVariantId={item.brand_variant_id}
+                                receivalIds={lc.attached_receival_ids}
+                                colSpan={5}
+                                lcPerUnit={lcPerUnit}
+                                currency={lc.currency}
+                              />
+                            )}
+                            </Fragment>
                           )
                         })}
                       </TableBody>
@@ -561,7 +619,7 @@ function LcDetailDialog({
                         setApplyOpen(false)
                         onClose()
                       },
-                      onError: (err) => toast.error(err.message),
+                      onError: (err) => toast.error(humanizeDbError(err)),
                     })
                   }
                 >
@@ -742,7 +800,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
         sessionUploadsRef.current = sessionUploadsRef.current.filter((p) => p !== oldPath)
       }
     } catch (err: unknown) {
-      toast.error(`Upload failed: ${(err as Error).message}`)
+      toast.error(`Upload failed: ${humanizeDbError(err)}`)
     } finally {
       setUploadingLines((prev) => {
         const s = new Set(prev)
@@ -835,7 +893,7 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
           setConfirmCreateOpen(false)
           handleOpenChange(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -1032,8 +1090,10 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
                   return (
                     <div key={group.po_id} className="bg-card">
-                      {/* PO header */}
-                      <div className="flex items-center gap-2 px-2 py-2 bg-muted/40 sticky top-0 z-10">
+                      {/* PO header — opaque bg: it's sticky, so a translucent
+                          background would let the receival rows scroll through it
+                          and the text would visually overlap/ghost. */}
+                      <div className="flex items-center gap-2 px-2 py-2 bg-muted sticky top-0 z-10">
                         <input
                           type="checkbox"
                           checked={allChecked}
@@ -1133,14 +1193,24 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                         </thead>
                                         <tbody>
                                           {(expandedItems ?? []).map((item, i) => (
-                                            <tr key={item.id} className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
-                                              <td className="py-1 pr-2">{item.item_name}</td>
-                                              <td className="text-right py-1">{item.qty_received}</td>
-                                              <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
-                                                {item.remaining_qty}
-                                              </td>
-                                              <td className="text-right py-1">{formatCurrency(item.unit_cost, r.currency)}</td>
-                                            </tr>
+                                            <Fragment key={item.id}>
+                                              <tr className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
+                                                <td className="py-1 pr-2">{item.item_name}</td>
+                                                <td className="text-right py-1">{item.qty_received}</td>
+                                                <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
+                                                  {item.remaining_qty}
+                                                </td>
+                                                <td className="text-right py-1">
+                                                  {formatCurrency(item.unit_cost, r.currency)}
+                                                  {r.currency !== 'QAR' && (
+                                                    <span className="block text-[10px] font-normal text-muted-foreground/70">
+                                                      ≈ {formatCurrency(item.unit_cost_qar, 'QAR')}
+                                                    </span>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                              <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalIds={[r.id]} colSpan={4} />
+                                            </Fragment>
                                           ))}
                                         </tbody>
                                       </table>

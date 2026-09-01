@@ -554,8 +554,8 @@ export const queryKeys = {
     policyDetail:      (id: Nullable) => ['warranty-policies', 'detail', id] as const,
     effectiveForItem:  (itemId: Nullable) => ['warranty-effective', itemId] as const,
     recordsForDelivery:(deliveryId: Nullable) => ['warranty-records', 'delivery', deliveryId] as const,
-    records:           (filters?: { search?: string; divisionId?: string }) => ['warranty', 'records', filters ?? {}] as const,
-    claims:            (filters?: { search?: string; divisionId?: string; status?: string }) => ['warranty', 'claims', filters ?? {}] as const,
+    records:           (filters?: { search?: string; divisionId?: string; source?: string }) => ['warranty', 'records', filters ?? {}] as const,
+    claims:            (filters?: { search?: string; divisionId?: string; status?: string; warrantyType?: string }) => ['warranty', 'claims', filters ?? {}] as const,
     claim:             (id: Nullable) => ['warranty', 'claim', id] as const,
   },
 

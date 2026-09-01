@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Check, X, AlertTriangle, ShieldAlert, CheckCircle2, XCircle, FileText, ExternalLink, User } from 'lucide-react'
@@ -125,7 +126,7 @@ export function CreditGroupApprovalsContent() {
       { approvalId: dialogState.step.id, requestId: dialogState.request.id, comment },
       {
         onSuccess: () => { toast.success('Step approved'); setDialogState(null) },
-        onError:   (e) => toast.error(e.message),
+        onError:   (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -140,7 +141,7 @@ export function CreditGroupApprovalsContent() {
           toast.success('Request rejected — customer keeps previous group')
           setDialogState(null)
         },
-        onError:   (e) => toast.error(e.message),
+        onError:   (e) => toast.error(humanizeDbError(e)),
       },
     )
   }

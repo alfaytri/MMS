@@ -31,14 +31,16 @@ import { WhItemPicker, type PickerItem } from './WhItemPicker'
 import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { Profile } from '@/hooks/useProfiles'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import {
   useWarehouseStock,
   useCreateTransfer,
   useReorderPoints,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { createClient } from '@/lib/supabase/client'
 import { recipientsForNotification } from '@/lib/notify'
 import { toast } from 'sonner'
@@ -77,10 +79,41 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const toWh = warehouses.find((w) => w.id === toId)
   const fromWh = warehouses.find((w) => w.id === fromId)
 
+  // Division scope (top-bar view): both ends of a transfer stay within the
+  // division you're viewing, so a single-division operator can't move another
+  // division's stock or push it into another division's shelf. "All" = no filter.
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: whDivisionSets } = useWarehouseDivisionSets()
+  const visibleWarehouses = useMemo(() => {
+    if (viewDivisionIds.size === 0) return warehouses
+    return warehouses.filter((w) => {
+      const divs = whDivisionSets?.get(w.id)
+      if (!divs) return false
+      for (const d of viewDivisionIds) if (divs.has(d)) return true
+      return false
+    })
+  }, [warehouses, whDivisionSets, viewDivisionIds])
+
+  // Clear a picked end if a division switch makes it no longer in scope.
+  useEffect(() => {
+    if (fromId && !visibleWarehouses.some((w) => w.id === fromId)) setFromId('')
+    if (toId && !visibleWarehouses.some((w) => w.id === toId)) setToId('')
+  }, [fromId, toId, visibleWarehouses])
+
   const { data: fromSubs = [] } = useWarehouseSubContainers(fromId || null)
   const { data: toSubs = [] } = useWarehouseSubContainers(toId || null)
-  const eligibleFromSubs = useMemo(() => fromSubs.filter((sc) => sc.is_active), [fromSubs])
-  const eligibleToSubs = useMemo(() => toSubs.filter((sc) => sc.is_active), [toSubs])
+  const inViewDivision = (divId: string | null) =>
+    viewDivisionIds.size === 0 || (divId != null && viewDivisionIds.has(divId))
+  const eligibleFromSubs = useMemo(
+    () => fromSubs.filter((sc) => sc.is_active && inViewDivision(sc.division_id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fromSubs, viewDivisionIds],
+  )
+  const eligibleToSubs = useMemo(
+    () => toSubs.filter((sc) => sc.is_active && inViewDivision(sc.division_id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [toSubs, viewDivisionIds],
+  )
 
   useEffect(() => {
     if (eligibleFromSubs.length === 1) setFromSubContainerId(eligibleFromSubs[0].id)
@@ -159,7 +192,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   // bounded, cached read over the sub's stock variants — resolved client-side so
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => itemsByPriority.map((s) => s.brand_variant_id), [itemsByPriority])
-  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+  const variantMeta = useVariantItemMeta(stockVariantIds)
 
   const pickerItems: PickerItem[] = useMemo(
     () => itemsByPriority.map((s) => ({
@@ -169,14 +202,14 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       countryName:   s.country_name ?? null,
       sku:           s.sku ?? null,
       category:      s.category_name ?? null,
-      categoryPath:  categoryPaths.get(s.brand_variant_id) ?? null,
+      categoryPath:  variantMeta.get(s.brand_variant_id)?.tree ?? null,
       type:          s.item_type ?? null,
       qty:           fromSubContainerId ? (availableQtyMap.get(s.brand_variant_id) ?? 0) : s.available_qty,
       destQty:       destStockMap.get(s.brand_variant_id)?.qty,
       reorderPoint:  reorderMap.get(s.brand_variant_id) ?? 0,
       imageUrl:      s.image_url ?? null,
     })),
-    [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId, categoryPaths],
+    [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId, variantMeta],
   )
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -366,9 +399,15 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                     <SelectValue placeholder="Source warehouse" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                    ))}
+                    {visibleWarehouses.length === 0 ? (
+                      <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                        No warehouse holds this division&apos;s stock.
+                      </div>
+                    ) : (
+                      visibleWarehouses.map((wh) => (
+                        <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -382,9 +421,15 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                     <SelectValue placeholder="Destination warehouse" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-y-auto">
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                    ))}
+                    {visibleWarehouses.length === 0 ? (
+                      <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                        No warehouse holds this division&apos;s stock.
+                      </div>
+                    ) : (
+                      visibleWarehouses.map((wh) => (
+                        <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -505,15 +550,20 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                         {/* Searchable item picker */}
                         <Popover open={openItemIdx === idx} onOpenChange={(o) => setOpenItemIdx(o ? idx : null)}>
                           <PopoverTrigger
-                            className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
+                            className="flex min-h-8 py-1 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
                           >
                             {selectedItem && selLabel ? (
-                              <span className="truncate">
-                                <span className="font-medium">{selectedItem.item_name}</span>
-                                {(selectedItem.brand || selectedItem.country_name) && (
-                                  <span className="text-muted-foreground"> — {selLabel.primary}{selLabel.origin ? ` · ${selLabel.origin}` : ''}</span>
-                                )}
-                              </span>
+                              <ItemLabel
+                                showBrandOrigin={false}
+                                meta={variantMeta.get(row.brand_variant_id)}
+                                name={<>
+                                  <span className="font-medium">{selectedItem.item_name}</span>
+                                  {(selectedItem.brand || selectedItem.country_name) && (
+                                    <span className="text-muted-foreground"> — {selLabel.primary}{selLabel.origin ? ` · ${selLabel.origin}` : ''}</span>
+                                  )}
+                                </>}
+                                nameClassName="truncate"
+                              />
                             ) : (
                               <span className="text-muted-foreground">Search items...</span>
                             )}

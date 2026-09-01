@@ -3,6 +3,14 @@
     {
       "path": "/api/admin/contact-centre/purge/sweep",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/sweep-lc-bills",
+      "schedule": "30 3 * * *"
     }
   ]
 }

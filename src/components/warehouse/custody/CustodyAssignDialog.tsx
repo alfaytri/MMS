@@ -18,12 +18,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
 import { useWarehouses } from '@/hooks/useWarehouses'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useCreateCustodyAssign, useRequestWarehouseItem } from '@/hooks/useCustodyMoves'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 
 interface Props {
   open:            boolean
@@ -44,6 +46,8 @@ type LineRow = { brand_variant_id: string; qty: string }
 export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName, destKindLabel }: Props) {
   const { data: profile }                             = useCurrentUserProfile()
   const { data: warehouses = [] }                     = useWarehouses()
+  const { viewDivisionIds }                           = useActiveDivision()
+  const { data: whDivisionSets }                      = useWarehouseDivisionSets()
   const [fromWhId,  setFromWhId]                      = useState('')
   const [fromSubId, setFromSubId]                     = useState<string | null>(null)
   const [rows, setRows]                               = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
@@ -60,8 +64,33 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
   const assign = useCreateCustodyAssign()
   const requestItem = useRequestWarehouseItem()
 
+  // Only offer warehouses that actually hold the active division's stock — a
+  // warehouse with no sub-container in the selected division can't source it.
+  // "All" (empty view set) shows every warehouse.
+  const visibleWarehouses = useMemo(() => {
+    if (viewDivisionIds.size === 0) return warehouses
+    return warehouses.filter((w) => {
+      const divs = whDivisionSets?.get(w.id)
+      if (!divs) return false
+      for (const d of viewDivisionIds) if (divs.has(d)) return true
+      return false
+    })
+  }, [warehouses, whDivisionSets, viewDivisionIds])
+
+  // If the active division changes while open and the picked warehouse can no
+  // longer source it, clear the selection.
+  useEffect(() => {
+    if (fromWhId && !visibleWarehouses.some((w) => w.id === fromWhId)) setFromWhId('')
+  }, [fromWhId, visibleWarehouses])
+
   const { data: fromSubs = [] } = useWarehouseSubContainers(fromWhId || null)
-  const eligibleFromSubs = useMemo(() => fromSubs.filter((s) => s.is_active), [fromSubs])
+  // Active subs in the source warehouse, scoped to the active division so a
+  // requester can't pull from another division's shelf.
+  const eligibleFromSubs = useMemo(
+    () => fromSubs.filter((s) =>
+      s.is_active && (viewDivisionIds.size === 0 || (s.division_id != null && viewDivisionIds.has(s.division_id)))),
+    [fromSubs, viewDivisionIds],
+  )
 
   // A single-division requester takes from their own division's shelf in the chosen
   // warehouse — auto-pick that sub so they don't have to (and don't get) a choice.
@@ -96,7 +125,7 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
   // bounded, cached read over the sub's stock variants — resolved client-side so
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => sourceStock.map((s) => s.brand_variant_id), [sourceStock])
-  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+  const variantMeta = useVariantItemMeta(stockVariantIds)
 
   // Dedupe by brand_variant_id: when no source sub is picked yet (multi-sub
   // warehouse, e.g. an admin with no single division to auto-pick), sourceStock
@@ -115,14 +144,14 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
         brand:         s.brand ?? null,
         sku:           s.sku ?? null,
         category:      s.category_name ?? null,
-        categoryPath:  categoryPaths.get(s.brand_variant_id) ?? null,
+        categoryPath:  variantMeta.get(s.brand_variant_id)?.tree ?? null,
         qty:           availableQtyMap.get(s.brand_variant_id) ?? 0,
         reorderPoint:  0,
         imageUrl:      s.image_url ?? null,
       })
     }
     return out
-  }, [sourceStock, availableQtyMap, categoryPaths])
+  }, [sourceStock, availableQtyMap, variantMeta])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
@@ -246,24 +275,30 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-3 space-y-3 sm:px-5 sm:pb-5 sm:space-y-4">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 space-y-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1 min-w-0 space-y-1">
               <Label className="text-[11px] text-muted-foreground">Source warehouse</Label>
               <Select value={fromWhId} onValueChange={(v) => setFromWhId(v ?? '')}>
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs w-full">
                   <SelectValue placeholder="Pick source warehouse" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
-                  {warehouses.map((wh) => (
-                    <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                  ))}
+                  {visibleWarehouses.length === 0 ? (
+                    <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                      No warehouse holds this division&apos;s stock.
+                    </div>
+                  ) : (
+                    visibleWarehouses.map((wh) => (
+                      <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center justify-center h-9 px-1.5">
+            <div className="hidden sm:flex items-center justify-center h-9 px-1.5">
               <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 min-w-0 space-y-1">
               <Label className="text-[11px] text-muted-foreground">Destination</Label>
               <div className="h-9 flex items-center rounded-md border bg-muted/40 px-2.5 text-xs font-medium truncate">
                 {destSubName}
@@ -331,14 +366,19 @@ export function CustodyAssignDialog({ open, onOpenChange, destSubId, destSubName
                       className={`rounded-md border p-2.5 space-y-1.5 ${error ? 'border-destructive/50 bg-destructive/5' : 'bg-card'}`}
                     >
                       <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
-                        <PopoverTrigger className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer">
+                        <PopoverTrigger className="flex min-h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1 text-[11px] hover:bg-accent/50 cursor-pointer">
                           {selected ? (
-                            <span className="truncate">
-                              <span className="font-medium">{selected.item_name}</span>
-                              {selected.brand && (
-                                <span className="text-muted-foreground"> — {selected.brand}</span>
-                              )}
-                            </span>
+                            <ItemLabel
+                              showBrandOrigin={false}
+                              meta={variantMeta.get(row.brand_variant_id)}
+                              name={<>
+                                <span className="font-medium">{selected.item_name}</span>
+                                {selected.brand && (
+                                  <span className="text-muted-foreground"> — {selected.brand}</span>
+                                )}
+                              </>}
+                              nameClassName="truncate"
+                            />
                           ) : (
                             <span className="text-muted-foreground">Search items…</span>
                           )}

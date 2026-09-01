@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { useWarehouseStock, useReorderPoints, useUpsertReorderPoint } from '@/hooks/useWarehouseOperations'
 import { brandOriginText } from '@/lib/inventory/variantPickerLabel'
-import { useWarehouseSubContainers, shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { Warehouse } from '@/hooks/useWarehouses'
 
 const fmtVal = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -192,7 +192,11 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId, ca
   // Collapse the grid to two columns when the value column is hidden, so the
   // Stock column keeps its right edge instead of leaving a blank gap.
   const gridCols = canSeeCost ? 'grid-cols-[1fr_auto_auto]' : 'grid-cols-[1fr_auto]'
-  const { data: stock = [], isLoading } = useWarehouseStock(warehouseId, subContainerId ?? null)
+  const { data: rawStock = [], isLoading } = useWarehouseStock(warehouseId, subContainerId ?? null)
+  const divVisible = useDivisionScopedVisibility()
+  // Scope to the active-division view before building any tree/breakdown so an
+  // expanded warehouse never shows another division's sub-container groups.
+  const stock = useMemo(() => rawStock.filter((s) => divVisible(s.sub_container_id)), [rawStock, divVisible])
 
   const { data: fullStock = [] } = useWarehouseStock()
   const { data: subContainers = [] } = useWarehouseSubContainers(warehouseId)
@@ -200,12 +204,13 @@ export function WarehouseStockTree({ warehouseId, warehouses, subContainerId, ca
   const warehouseBreakdown = useMemo(() => {
     const map = new Map<string, { label: string; qty: number }[]>()
     for (const item of fullStock) {
+      if (!divVisible(item.sub_container_id)) continue
       if (!map.has(item.brand_variant_id)) map.set(item.brand_variant_id, [])
       const wh = warehouses.find((w) => w.id === item.warehouse_id)
       map.get(item.brand_variant_id)!.push({ label: wh?.name ?? 'Unknown', qty: item.qty })
     }
     return map
-  }, [fullStock, warehouses])
+  }, [fullStock, warehouses, divVisible])
 
   const { data: reorderPoints = [] } = useReorderPoints(warehouseId)
   const upsertRP = useUpsertReorderPoint()

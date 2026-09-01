@@ -21,7 +21,8 @@ import { useCustodyLocations } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useCreateCustodyTransfer } from '@/hooks/useCustodyMoves'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 
 interface Props {
   open:            boolean
@@ -106,7 +107,7 @@ export function CustodyTransferDialog({
   // bounded, cached read over the sub's stock variants — resolved client-side so
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => sourceStock.map((s) => s.brand_variant_id), [sourceStock])
-  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+  const variantMeta = useVariantItemMeta(stockVariantIds)
 
   const pickerItems: PickerItem[] = useMemo(() => {
     const seen = new Set<string>()
@@ -120,14 +121,14 @@ export function CustodyTransferDialog({
         brand:        s.brand ?? null,
         sku:          s.sku ?? null,
         category:     s.category_name ?? null,
-        categoryPath: categoryPaths.get(s.brand_variant_id) ?? null,
+        categoryPath: variantMeta.get(s.brand_variant_id)?.tree ?? null,
         qty:          availableQtyMap.get(s.brand_variant_id) ?? 0,
         reorderPoint: 0,
         imageUrl:     s.image_url ?? null,
       })
     }
     return out
-  }, [sourceStock, availableQtyMap, categoryPaths])
+  }, [sourceStock, availableQtyMap, variantMeta])
 
   const selectedIds = useMemo(() => new Set(rows.map((r) => r.brand_variant_id).filter(Boolean)), [rows])
 
@@ -289,14 +290,19 @@ export function CustodyTransferDialog({
                       className={`rounded-md border p-2.5 space-y-1.5 ${error ? 'border-destructive/50 bg-destructive/5' : 'bg-card'}`}
                     >
                       <Popover open={openPickerIdx === idx} onOpenChange={(o) => setOpenPickerIdx(o ? idx : null)}>
-                        <PopoverTrigger className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] hover:bg-accent/50 cursor-pointer">
+                        <PopoverTrigger className="flex min-h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 py-1 text-[11px] hover:bg-accent/50 cursor-pointer">
                           {selected ? (
-                            <span className="truncate">
-                              <span className="font-medium">{selected.item_name}</span>
-                              {selected.brand && (
-                                <span className="text-muted-foreground"> — {selected.brand}</span>
-                              )}
-                            </span>
+                            <ItemLabel
+                              showBrandOrigin={false}
+                              meta={variantMeta.get(row.brand_variant_id)}
+                              name={<>
+                                <span className="font-medium">{selected.item_name}</span>
+                                {selected.brand && (
+                                  <span className="text-muted-foreground"> — {selected.brand}</span>
+                                )}
+                              </>}
+                              nameClassName="truncate"
+                            />
                           ) : (
                             <span className="text-muted-foreground">Search items…</span>
                           )}

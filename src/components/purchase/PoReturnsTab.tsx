@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +20,9 @@ import {
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { useCreatePurchaseReturn, useUpdatePOReturnStatus, useCreateDebitNoteForReturn, useReceivalItemsForPo, type POReturn, type POReturnStatus, type ReceivalItemForReturn } from '@/hooks/usePurchaseReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 import { cn } from '@/lib/utils'
@@ -89,6 +92,12 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
     return Array.from(set)
   }, [poReturns])
   const { data: sourceMaps } = useReturnLineSources(allReceivalItemIds, [])
+
+  // Item label (category tree + brand + origin) above each returned item in the
+  // expanded view — resolve every line's variant across all shown returns in one pass.
+  const variantMeta = useVariantItemMeta(
+    poReturns.flatMap((r) => (r.return_lines ?? []).map((l) => l.brand_variant_id).filter((v): v is string => !!v)),
+  )
 
   // Sync editable rows to available candidates. Guard against no-op updates:
   // TanStack Query can hand back a fresh array reference on refetch while the
@@ -161,7 +170,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
       },
       {
         onSuccess: () => { toast.success('Return created'); setReturnCreateOpen(false) },
-        onError: (err: Error) => toast.error(err.message),
+        onError: (err: Error) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -208,7 +217,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                       disabled={updatePOReturnStatus.isPending}
                       onClick={() => updatePOReturnStatus.mutate(
                         { id: ret.id, status: next as POReturnStatus, sourceId: po.id },
-                        { onSuccess: () => toast.success(PO_STATUS_LABEL[next] ?? next), onError: (e: Error) => toast.error(e.message) }
+                        { onSuccess: () => toast.success(PO_STATUS_LABEL[next] ?? next), onError: (e: Error) => toast.error(humanizeDbError(e)) }
                       )}
                     >
                       {PO_STATUS_LABEL[next]}
@@ -222,7 +231,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                       disabled={updatePOReturnStatus.isPending}
                       onClick={() => updatePOReturnStatus.mutate(
                         { id: ret.id, status: 'cancelled', sourceId: po.id },
-                        { onSuccess: () => toast.success('Return cancelled'), onError: (e: Error) => toast.error(e.message) }
+                        { onSuccess: () => toast.success('Return cancelled'), onError: (e: Error) => toast.error(humanizeDbError(e)) }
                       )}
                     >
                       Cancel
@@ -256,7 +265,7 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                     disabled={createDebitNote.isPending}
                     onClick={() => createDebitNote.mutate(ret, {
                       onSuccess: () => toast.success('Debit note created'),
-                      onError: (e: Error) => toast.error(e.message),
+                      onError: (e: Error) => toast.error(humanizeDbError(e)),
                     })}
                   >
                     {createDebitNote.isPending ? 'Creating…' : 'Create Debit Note'}
@@ -279,7 +288,12 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                         const info = rlid ? sourceMaps?.receival.get(rlid) : undefined
                         return (
                           <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
-                            <TableCell className="text-xs">{item.item_name}{item.sku ? ` · ${item.sku}` : ''}</TableCell>
+                            <TableCell className="text-xs">
+                              <ItemLabel
+                                meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                                name={<>{item.item_name}{item.sku ? ` · ${item.sku}` : ''}</>}
+                              />
+                            </TableCell>
                             <TableCell><ReturnLineSourceBadges info={info} /></TableCell>
                             <TableCell className="text-xs text-right">{item.qty}</TableCell>
                           </TableRow>

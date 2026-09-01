@@ -51,13 +51,16 @@ const TYPE_CONFIG: Record<SoLineType, TypeConfig> = {
   tools:         { label: 'Tools & Assets', icon: Wrench,      headerClass: 'bg-purple-500/10 text-purple-700 border-b border-purple-200', buttonClass: 'border-purple-300 bg-purple-500/10 text-purple-700 hover:bg-purple-500/20' },
 }
 
-// Tools & Assets intentionally excluded from SO line-item creation — internal
-// equipment, never sold to customers. This applies to BOTH tracking modes:
-// bulk tool categories (Bulk Tools plan, Task 2a.7) join the full qty / PO /
-// receival / consumption / transfer machinery like a Consumable, but stay
-// OUT of sales by the same locked decision (design.md §3 Non-goals) as
-// serialized tools. Do not add 'tools' here without a new operator decision.
-const ALL_TYPES: SoLineType[] = ['products', 'consumables', 'spare-parts']
+// Bulk tools are sellable (operator decision 2026-08-30 — Selling Bulk Tools
+// plan, docs/plans/2026-08-30-selling-bulk-tools.md). A BULK tool category is
+// qty/FIFO like a Consumable, so it sells, delivers, and books COGS the same
+// way (the sale/delivery RPCs carry no type gate — verified against the live
+// DB). SERIALIZED tools stay OUT of sales, enforced by the PICKER, not this
+// list: CascadeInventorySelector runs the sell side (divisionFilterRequiresStock
+// defaults true), and useCascadeAccessibleItems filters tools ->
+// tool_tracking_mode='bulk' owned-stock only, so a serialized tool can never
+// surface in this group. Warranty rides the normal delivery hook.
+const ALL_TYPES: SoLineType[] = ['products', 'consumables', 'spare-parts', 'tools']
 
 function makeRow(line_type: SoLineType): SoLineItemRow {
   return {

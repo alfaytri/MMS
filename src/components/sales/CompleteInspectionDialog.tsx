@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -109,7 +110,7 @@ export function CompleteInspectionDialog({ open, onOpenChange, ret, suggestedWar
           toast.success(`${ret.return_number} inspection complete — ready to restock`)
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error((err as Error).message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       },
     )
   }

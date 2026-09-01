@@ -8,6 +8,8 @@ import { DashboardMain } from '@/components/layout/DashboardMain'
 import { TopNavV2Offset } from '@/components/layout/TopNavV2Offset'
 import { RoutePermissionGuard } from '@/components/auth/RoutePermissionGuard'
 import { DivisionProvider } from '@/components/providers/DivisionProvider'
+import { NoDivisionGate } from '@/components/auth/NoDivisionGate'
+import { PasswordResetGate } from '@/components/auth/PasswordResetGate'
 import { SentryUser } from '@/components/shared/SentryUser'
 import { ContactCenterProvider } from '@/contexts/ContactCenterContext'
 import { ContactCenterSidebarGate } from '@/components/contact-center/ContactCenterSidebarGate'
@@ -19,8 +21,10 @@ export default async function DashboardLayout({
 }) {
   return (
     <SessionGuard>
-      <DivisionProvider>
-        <ContactCenterProvider>
+      <PasswordResetGate>
+        <DivisionProvider>
+          <NoDivisionGate>
+            <ContactCenterProvider>
           <div className="h-screen bg-muted/30 flex flex-col overflow-hidden text-sm 2xl:text-base">
             <InactivityGuard />
             <SentryUser />
@@ -34,8 +38,10 @@ export default async function DashboardLayout({
             </DashboardMain>
             <ContactCenterSidebarGate />
           </div>
-        </ContactCenterProvider>
-      </DivisionProvider>
+            </ContactCenterProvider>
+          </NoDivisionGate>
+        </DivisionProvider>
+      </PasswordResetGate>
     </SessionGuard>
   )
 }

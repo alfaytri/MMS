@@ -165,6 +165,10 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
   const variantStockBreakdown = useMemo(() => {
     const map = new Map<string, { totalQty: number; totalValue: number; warehouses: { name: string; subContainer: string | null; qty: number; value: number }[] }>()
     for (const s of fullStock) {
+      // Division-scope the Stock qty/value column + its drill-down: skip stock in
+      // sub-containers outside the active-division view so the totals and the
+      // breakdown popup never reveal other divisions' stock.
+      if (!divVisible(s.sub_container_id)) continue
       if (!map.has(s.brand_variant_id)) {
         map.set(s.brand_variant_id, { totalQty: 0, totalValue: 0, warehouses: [] })
       }
@@ -175,7 +179,7 @@ export const WhMovementsTab = React.memo(function WhMovementsTab({ warehouses }:
       entry.warehouses.push({ name: whName, subContainer: s.sub_container_name, qty: s.qty, value: s.total_value })
     }
     return map
-  }, [fullStock, warehouseMap])
+  }, [fullStock, warehouseMap, divVisible])
 
   const filtered = useMemo(() => {
     return movements.filter((m: StockMovement) => {

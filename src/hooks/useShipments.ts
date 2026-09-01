@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { notifyOwnerAndKey } from '@/lib/notify'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,7 +103,27 @@ export function useUpdateShipmentStatus() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.shipments.all }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: queryKeys.shipments.all })
+      // Delay/customs → notify the PO's owner (the purchaser). Best-effort.
+      if (variables.status === 'delayed' || variables.status === 'customs') {
+        void (async () => {
+          const supabase = createClient()
+          const { data: sh } = await supabase
+            .from('shipments').select('po_id, tracking_number').eq('id', variables.id).maybeSingle()
+          if (!sh?.po_id) return
+          const { data: po } = await supabase
+            .from('purchase_orders').select('created_by, po_number').eq('id', sh.po_id).maybeSingle()
+          await notifyOwnerAndKey(
+            po?.created_by ?? null,
+            'notify.purchase.shipment_delayed',
+            'shipment_delayed',
+            `Shipment ${variables.status === 'customs' ? 'held at customs' : 'delayed'} — PO ${po?.po_number ?? ''}`.trim(),
+            { relatedId: sh.po_id, relatedType: 'purchase_order', body: sh.tracking_number ? `Tracking ${sh.tracking_number}` : undefined },
+          )
+        })()
+      }
+    },
   })
 }
 

@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useRepairBucket } from '@/hooks/useToolInspections'
 import { useToolsOutForRepair } from '@/hooks/useToolRepair'
+import { useToolUnitItemMeta } from '@/hooks/useToolUnitCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ToolLifecycleBadge } from './ToolBadges'
 import { ScrapToolDialog } from './ScrapToolDialog'
 import { SendToolForRepairDialog } from './SendToolForRepairDialog'
@@ -51,6 +53,12 @@ export function RepairTab() {
   const bucketSorted = useMemo(() => [...bucket].sort((a, b) => COLLATOR.compare(a.item_name ?? '', b.item_name ?? '')), [bucket])
   const outSorted = useMemo(() => [...out].sort((a, b) => COLLATOR.compare(a.item_name ?? '', b.item_name ?? '')), [out])
 
+  // Category breadcrumb above each tool name, resolved via the unit id.
+  const unitMeta = useToolUnitItemMeta([
+    ...bucketSorted.map((u) => u.unit_id),
+    ...outSorted.map((t) => t.unit_id),
+  ])
+
   if (error) return <p className="text-sm text-destructive">{(error as Error).message}</p>
 
   if (bucketLoading || outLoading) {
@@ -84,7 +92,10 @@ export function RepairTab() {
                 <div key={u.unit_id} className={cn('rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Wrench className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span className="font-semibold text-sm truncate" title={u.item_name ?? undefined}>{u.item_name ?? 'Tool'}</span>
+                    <ItemLabel
+                      meta={unitMeta.get(u.unit_id)}
+                      name={<span className="font-semibold text-sm truncate block" title={u.item_name ?? undefined}>{u.item_name ?? 'Tool'}</span>}
+                    />
                   </div>
                   <div className="font-mono text-xs text-muted-foreground truncate">{u.serial_number ?? '—'}</div>
                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground min-w-0">
@@ -96,12 +107,23 @@ export function RepairTab() {
                     </span>
                   </div>
                   <div className="mt-auto flex items-center gap-1 pt-2">
-                    <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs" onClick={() => setSendUnit({ id: u.unit_id, label })}>
-                      <Truck className="h-4 w-4 shrink-0" /> Send for repair
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setScrapUnit({ id: u.unit_id, label })}>
-                      <Trash2 className="h-4 w-4 shrink-0" /> Scrap
-                    </Button>
+                    {u.pending_scrap ? (
+                      <div
+                        className="flex-1 flex items-center justify-center gap-1.5 h-11 sm:h-8 rounded-md border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400"
+                        title="A scrap write-off for this tool is awaiting warehouse approval — it can't be sent, scrapped again, or moved until then."
+                      >
+                        <CalendarClock className="h-3.5 w-3.5 shrink-0" /> Pending scrap approval
+                      </div>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs" onClick={() => setSendUnit({ id: u.unit_id, label })}>
+                          <Truck className="h-4 w-4 shrink-0" /> Send for repair
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-11 sm:h-8 flex-1 min-w-0 justify-center gap-1 text-xs text-destructive hover:text-destructive" onClick={() => setScrapUnit({ id: u.unit_id, label })}>
+                          <Trash2 className="h-4 w-4 shrink-0" /> Scrap
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )
@@ -121,7 +143,10 @@ export function RepairTab() {
                 <div key={t.transfer_id} className={cn('rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Truck className="h-4 w-4 text-sky-600 shrink-0" />
-                    <span className="font-semibold text-sm truncate" title={t.item_name ?? undefined}>{t.item_name ?? 'Tool'}</span>
+                    <ItemLabel
+                      meta={unitMeta.get(t.unit_id)}
+                      name={<span className="font-semibold text-sm truncate block" title={t.item_name ?? undefined}>{t.item_name ?? 'Tool'}</span>}
+                    />
                   </div>
                   <div className="font-mono text-xs text-muted-foreground truncate">{t.serial_number ?? '—'}</div>
                   <div className="text-[11px] text-muted-foreground truncate">Vendor: {t.vendor_name ?? '—'}</div>

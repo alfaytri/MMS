@@ -17,9 +17,12 @@ import { toast } from 'sonner'
 import type { Profile } from '@/hooks/useProfiles'
 import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { useCreateStockAdjustmentV2, useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
-import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
+import { ReasonSelect } from '@/components/shared/ReasonSelect'
 
 const ADJUSTMENT_TYPES = [
   { value: 'increase',  label: 'Increase (Found/Returned)' },
@@ -55,8 +58,31 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   // carry item_type + origin so the picker groups by type and shows origin.
   const { data: containerStock = [] } = useWarehouseStock(warehouseId || undefined, subContainerId)
 
+  // Division scope (top-bar view): only adjust the active division's stock, so a
+  // single-division operator can't decrease/damage/write-off another division's
+  // shelf. "All" = no filter.
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: whDivisionSets } = useWarehouseDivisionSets()
+  const visibleWarehouses = useMemo(() => {
+    if (viewDivisionIds.size === 0) return warehouses
+    return warehouses.filter((w) => {
+      const divs = whDivisionSets?.get(w.id)
+      if (!divs) return false
+      for (const d of viewDivisionIds) if (divs.has(d)) return true
+      return false
+    })
+  }, [warehouses, whDivisionSets, viewDivisionIds])
+
+  useEffect(() => {
+    if (warehouseId && !visibleWarehouses.some((w) => w.id === warehouseId)) setWarehouseId('')
+  }, [warehouseId, visibleWarehouses])
+
   const { data: allSubs = [] } = useWarehouseSubContainers(warehouseId || null)
-  const eligibleSubs = useMemo(() => allSubs.filter((sc) => sc.is_active), [allSubs])
+  const eligibleSubs = useMemo(
+    () => allSubs.filter((sc) =>
+      sc.is_active && (viewDivisionIds.size === 0 || (sc.division_id != null && viewDivisionIds.has(sc.division_id)))),
+    [allSubs, viewDivisionIds],
+  )
 
   useEffect(() => {
     if (eligibleSubs.length === 1) setSubContainerId(eligibleSubs[0].id)
@@ -72,7 +98,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   // bounded, cached read over the sub's stock variants — resolved client-side so
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => containerStock.map((s) => s.brand_variant_id), [containerStock])
-  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+  const variantMeta = useVariantItemMeta(stockVariantIds)
 
   const pickerItems: PickerItem[] = useMemo(() => {
     if (!warehouseId) return []
@@ -87,12 +113,12 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       countryName: s.country_name ?? null,
       sku:         s.sku ?? null,
       category:    s.category_name ?? null,
-      categoryPath: categoryPaths.get(s.brand_variant_id) ?? null,
+      categoryPath: variantMeta.get(s.brand_variant_id)?.tree ?? null,
       type:        s.item_type ?? null,
       qty:         s.qty,
       imageUrl:    s.image_url ?? null,
     }))
-  }, [containerStock, warehouseId, categoryPaths])
+  }, [containerStock, warehouseId, variantMeta])
 
   const selectedItem = selectedVariantId ? pickerItems.find((p) => p.id === selectedVariantId) ?? null : null
   const selVarLabel = selectedItem
@@ -238,9 +264,15 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
                   <SelectValue placeholder="Select warehouse..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
-                  {warehouses.map(wh => (
-                    <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
-                  ))}
+                  {visibleWarehouses.length === 0 ? (
+                    <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                      No warehouse holds this division&apos;s stock.
+                    </div>
+                  ) : (
+                    visibleWarehouses.map(wh => (
+                      <SelectItem key={wh.id} value={wh.id} className="text-xs">{wh.name}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               {warehouseId && (
@@ -281,13 +313,18 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
               <Label className="text-[11px] text-muted-foreground">Item *</Label>
               <Popover open={itemPickerOpen} onOpenChange={setItemPickerOpen}>
                 <PopoverTrigger
-                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
+                  className="flex min-h-9 py-1 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
                 >
                   {selectedItem && selVarLabel ? (
-                    <span className="truncate">
-                      <span className="font-medium">{selectedItem.name}</span>
-                      <span className="text-muted-foreground"> — {selVarLabel.primary}{selVarLabel.origin ? ` · ${selVarLabel.origin}` : ''}</span>
-                    </span>
+                    <ItemLabel
+                      showBrandOrigin={false}
+                      meta={variantMeta.get(selectedItem.id)}
+                      name={<>
+                        <span className="font-medium">{selectedItem.name}</span>
+                        <span className="text-muted-foreground"> — {selVarLabel.primary}{selVarLabel.origin ? ` · ${selVarLabel.origin}` : ''}</span>
+                      </>}
+                      nameClassName="truncate"
+                    />
                   ) : (
                     <span className="text-muted-foreground">{warehouseId ? 'Search items…' : 'Select a warehouse first'}</span>
                   )}
@@ -344,11 +381,11 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
             {/* Reason */}
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Reason *</Label>
-              <Input
-                className="h-9 text-xs"
-                placeholder="Reason for adjustment..."
+              <ReasonSelect
+                category="adjustment"
                 value={reason}
-                onChange={e => setReason(e.target.value)}
+                onChange={setReason}
+                placeholder="Select a reason…"
               />
             </div>
 

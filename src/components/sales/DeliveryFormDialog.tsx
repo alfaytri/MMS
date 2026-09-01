@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Package } from 'lucide-react'
 import { toast } from 'sonner'
@@ -114,7 +115,7 @@ export function DeliveryFormDialog({ open, onOpenChange, delivery }: Props) {
       toast.success('Delivery completed')
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
-      toast.error((err as Error).message)
+      toast.error(humanizeDbError(err))
     } finally {
       setSaving(false)
     }

@@ -14,6 +14,9 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { Receival } from '@/hooks/useReceivals'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
+import { ReceivalCheckButton } from '@/components/purchase/ReceivalCheckButton'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   approved:         { label: 'Approved',         color: 'text-green-700',  bg: 'bg-green-50 border-green-200' },
@@ -42,6 +45,13 @@ interface Props {
 
 export function ReceivalDetailDialog({ receival, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
+  // Full category tree per received item's variant, for the breadcrumb above the
+  // item name. Called before the early return so hook order stays constant.
+  const variantMeta = useVariantItemMeta(
+    (receival?.receival_items ?? [])
+      .map((i) => i.brand_variant_id)
+      .filter((x): x is string => !!x),
+  )
 
   if (!receival) return null
 
@@ -184,7 +194,13 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                   <tbody className="divide-y">
                     {items.map((item, i) => (
                       <tr key={item.id} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(i)}>
-                        <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
+                        <td className="px-3 py-2.5">
+                          <ItemLabel
+                            meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                            name={item.item_name}
+                            nameClassName="font-medium"
+                          />
+                        </td>
                         <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{item.qty_received}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">
@@ -241,7 +257,14 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
 
         {/* Footer */}
         <Separator />
-        <div className="px-6 py-3 flex items-center justify-end">
+        <div className="px-6 py-3 flex items-center justify-end gap-2 flex-wrap">
+          {/* P2 parity — receival check-sheet (blank + per-receival), PO-sourced only. */}
+          {receival.source_type !== 'inventory' && receival.po_id && (
+            <>
+              <ReceivalCheckButton poId={receival.po_id} poNumber={receival.po_number ?? ''} mode="blank" />
+              <ReceivalCheckButton poId={receival.po_id} poNumber={receival.po_number ?? ''} mode="per_receival" receivalId={receival.id} />
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={pdfBusy}>
             {pdfBusy
               ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />

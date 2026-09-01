@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
@@ -513,7 +514,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
       toast.success('Receival recorded and approved')
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
-      toast.error((err as Error).message)
+      toast.error(humanizeDbError(err))
     } finally {
       setSaving(false)
     }
@@ -614,7 +615,7 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
                 <div className="text-[9px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <Truck className="h-2.5 w-2.5" /> Supplier
                 </div>
-                <p className="font-semibold truncate">{selectedPO.supplier_name ?? '—'}</p>
+                <p className="font-semibold break-words">{selectedPO.supplier_name ?? '—'}</p>
               </div>
               <div>
                 <div className="text-[9px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
@@ -725,6 +726,9 @@ export function ReceivalFormDialog({ open, onOpenChange }: Props) {
             <div className="rounded-lg border border-dashed py-8 text-center text-muted-foreground">
               <PackageCheck className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
               <p className="text-xs">Select a PO to load expected line items</p>
+              <p className="mt-1 text-[11px] text-muted-foreground/80">
+                Received something not on the PO? Once a PO is picked you can add <span className="text-success font-medium">free items</span> to the same receival.
+              </p>
             </div>
           )}
         </div>

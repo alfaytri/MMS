@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Save, CheckCircle2, Users, Package, AlertTriangle } from 'lucide-react'
@@ -210,7 +211,7 @@ export default function CreateSOPage() {
         toast.success('Saved as quotation')
         router.push('/sales/orders')
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 
@@ -225,7 +226,7 @@ export default function CreateSOPage() {
         }
         router.push('/sales/orders')
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 

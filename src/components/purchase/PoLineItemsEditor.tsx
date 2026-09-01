@@ -225,12 +225,12 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                     {/* Row 1: division + item picker + delete */}
                     <div className="flex items-start gap-2">
                       {showDivisionPicker && (
-                        <div className="w-[150px] shrink-0">
+                        <div className="w-[180px] shrink-0">
                           <Select
                             value={row.division_id ?? ''}
                             onValueChange={(v) => updateRow(row._key, { division_id: v || null, ...CLEARED_ITEM })}
                           >
-                            <SelectTrigger className="h-9 w-full text-xs">
+                            <SelectTrigger className="h-8 w-full text-xs" title={divisionName(row.division_id) ?? undefined}>
                               <SelectValue placeholder="Division…" />
                             </SelectTrigger>
                             <SelectContent className="max-h-60 overflow-y-auto">
@@ -242,7 +242,7 @@ export function PoLineItemsEditor({ value, onChange, currency, readOnly = false,
                         </div>
                       )}
                       {readOnly && row.division_id && divisionName(row.division_id) && (
-                        <div className="w-[150px] shrink-0 h-9 px-2 flex items-center rounded-md border bg-muted/30 text-xs text-muted-foreground truncate">
+                        <div className="w-[180px] shrink-0 h-9 px-2 flex items-center rounded-md border bg-muted/30 text-xs text-muted-foreground truncate">
                           {divisionName(row.division_id)}
                         </div>
                       )}

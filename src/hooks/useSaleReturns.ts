@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { nextNoteId } from '@/hooks/useCreditNotes'
 import { queryKeys } from '@/lib/queryKeys'
+import { recipientsForNotification, sendNotifications, notifyOwnerAndKey } from '@/lib/notify'
 
 export type ReturnLineCondition = 'good' | 'damaged' | 'inspection'
 export type SaleReturnStatus =
@@ -282,6 +283,19 @@ export function useCreateSaleReturn() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      // Notify the sales-returns team a return came in (best-effort).
+      void (async () => {
+        const ids = await recipientsForNotification('sale_return_created')
+        if (ids.length) {
+          await sendNotifications(ids.map((profile_id) => ({
+            profile_id,
+            type: 'sale_return_created',
+            title: `Sales return ${data.return_number} created`,
+            related_id: data.id,
+            related_type: 'sale_return',
+          })))
+        }
+      })()
       const lines = data.return_lines ?? []
       const damagedCount = lines.filter((i) => i.condition === 'damaged').reduce((s, i) => s + i.qty, 0)
       const goodCount    = lines.filter((i) => i.condition === 'good').reduce((s, i) => s + i.qty, 0)
@@ -520,9 +534,22 @@ export function useCreateCreditNoteForReturn() {
         reason:        ret.reason,
       })
     },
-    onSuccess: () => {
+    onSuccess: (_data, ret) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.bySo })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      // Notify the SO owner a credit note was issued (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: so } = await supabase
+          .from('sale_orders').select('created_by').eq('id', ret.source_id).maybeSingle()
+        await notifyOwnerAndKey(
+          so?.created_by ?? null,
+          'notify.finance.credit_note',
+          'credit_note_issued',
+          `Credit note issued for return ${ret.return_number}`,
+          { relatedId: ret.source_id, relatedType: 'sale_order' },
+        )
+      })()
     },
   })
 }

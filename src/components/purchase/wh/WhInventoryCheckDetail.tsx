@@ -28,6 +28,7 @@ import {
 import type { InventoryCheck, InventoryCheckItem, PostCountMovement } from '@/hooks/useWarehouseOperations'
 import { cn } from '@/lib/utils'
 import { ItemTreeCell } from './ItemTreeCell'
+import { ReasonSelect } from '@/components/shared/ReasonSelect'
 import type { Profile } from '@/hooks/useProfiles'
 import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
 import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
@@ -1314,12 +1315,12 @@ export function WhInventoryCheckDetail({ check, open, onClose, currentProfile }:
         <DialogFooter className="gap-2">
           {confirmingCancel ? (
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
-              <Input
+              <ReasonSelect
+                category="cancellation"
                 value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
+                onChange={setCancelReason}
                 placeholder="Reason for cancelling (optional)…"
-                className="h-8 text-xs sm:flex-1"
-                autoFocus
+                className="sm:flex-1"
               />
               <div className="flex items-center justify-end gap-2">
                 <Button

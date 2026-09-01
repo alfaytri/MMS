@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -43,6 +44,9 @@ export default function CreatePOPage() {
   const router = useRouter()
   const createPO = useCreatePO()
   const submitForApproval = useSubmitPOForApproval()
+  // Which action is running, so only the clicked button shows its spinner
+  // (all three still disable while any one is pending).
+  const [pendingAction, setPendingAction] = useState<'rfq' | 'draft' | 'submit' | null>(null)
   const { data: suppliers } = useSuppliers()
   const { data: currencies = [] } = useCurrencies()
 
@@ -184,25 +188,27 @@ export default function CreatePOPage() {
     const payload: CreatePOPayload = poType === 'rfq'
       ? { ...base, rfq_supplier_ids: [supplierId], po_type: poType }
       : { ...base, po_type: poType }
+    setPendingAction(poType)
     createPO.mutate(payload, {
       onSuccess: () => { toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders') },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => { setPendingAction(null); toast.error(humanizeDbError(err)) },
     })
   }
 
   function submitApproval() {
     if (!validate({ requirePayment: true })) return
+    setPendingAction('submit')
     createPO.mutate(buildPayload(), {
       onSuccess: (po) => {
         submitForApproval.mutate(
           { id: po.id },
           {
             onSuccess: () => { toast.success('Submitted for approval'); router.push('/purchase/orders') },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => { setPendingAction(null); toast.error(humanizeDbError(err)) },
           }
         )
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => { setPendingAction(null); toast.error(humanizeDbError(err)) },
     })
   }
 
@@ -231,7 +237,7 @@ export default function CreatePOPage() {
             disabled={isPending || isPriceLoading || !exchangeRateValid}
             title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
           >
-            {isPending ? <Spinner size="sm" /> : <Save className="h-3.5 w-3.5" />}
+            {pendingAction === 'rfq' ? <Spinner size="sm" /> : <Save className="h-3.5 w-3.5" />}
             Save as RFQ
           </Button>
           <Button
@@ -242,8 +248,8 @@ export default function CreatePOPage() {
             disabled={isPending || isPriceLoading || !exchangeRateValid}
             title={!exchangeRateValid ? 'Enter an exchange rate before saving.' : undefined}
           >
-            {isPending ? <Spinner size="sm" /> : <Save className="h-3.5 w-3.5" />}
-            {isPending ? 'Please wait…' : 'Save as Draft'}
+            {pendingAction === 'draft' ? <Spinner size="sm" /> : <Save className="h-3.5 w-3.5" />}
+            {pendingAction === 'draft' ? 'Please wait…' : 'Save as Draft'}
           </Button>
           <Button
             size="sm"
@@ -252,8 +258,8 @@ export default function CreatePOPage() {
             disabled={isPending || isPriceLoading || !exchangeRateValid}
             title={!exchangeRateValid ? 'Enter an exchange rate before submitting.' : undefined}
           >
-            {isPending || isPriceLoading ? <Spinner size="sm" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-            {isPending ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
+            {pendingAction === 'submit' || isPriceLoading ? <Spinner size="sm" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            {pendingAction === 'submit' ? 'Submitting…' : isPriceLoading ? 'Fetching price…' : 'Submit for Approval'}
           </Button>
         </div>
       </div>

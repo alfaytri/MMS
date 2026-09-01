@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   GuardedDialog,
   type GuardedFormDialogHandle,
@@ -20,8 +22,11 @@ import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
 import { useCategorySubContainer } from '@/hooks/useCategorySubContainer'
 import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
 import { useCategoryHasStockOrUnits } from '@/hooks/useCategoryHasStockOrUnits'
+import { useDivisions } from '@/hooks/useDivisions'
+import { useCategoryDivisions, useSetCategoryDivisions, useCascadeCategoryUnitsDivision } from '@/hooks/useCategoryDivisions'
 import { createClient } from '@/lib/supabase/client'
 import { buildLevels } from '@/lib/inventory/categoryLevels'
+import { computeDivisionRows } from '@/lib/inventory/divisionRows'
 
 const TYPE_LABELS: Record<string, string> = {
   'products': 'Products',
@@ -58,6 +63,15 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const update = useUpdateInventoryCategory()
   const cascadeMode = useCascadeCategoryTrackingMode()
   const { flat } = useInventoryTree(categoryType)
+  const { data: divisions = [] } = useDivisions()
+  // Gated on `open` (+ edit mode): this dialog is mounted once per CategoryRow
+  // (outside the {expanded} guard), so without the gate every visible category
+  // fires this recursive-CTE RPC (rpc_category_divisions) on page load while
+  // the dialog is closed. The seed-once ref below (`ownDivisionsSeededRef`)
+  // keeps the now-async resolution from clobbering in-progress ticks.
+  const { data: catDivs } = useCategoryDivisions(open && isEdit ? (category?.id ?? null) : null)
+  const setCategoryDivisions = useSetCategoryDivisions()
+  const cascadeUnits = useCascadeCategoryUnitsDivision()
 
   const [nameEn, setNameEn] = useState('')
   const [nameAr, setNameAr] = useState('')
@@ -66,14 +80,29 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
   const [warehouseId, setWarehouseId] = useState<string | null>(null)
   const [subContainerId, setSubContainerId] = useState<string | null>(null)
   const [warrantyPolicyId, setWarrantyPolicyId] = useState<string | null>(null)
-  const [trackingMode, setTrackingMode] = useState<'serialized' | 'bulk'>('serialized')
+  // Bulk is the default tracking mode: bulk tools are the sellable/quantity kind
+  // (FIFO like consumables); serialized (per-unit custody) is the deliberate
+  // opt-in. Overridden on open from the category's stored mode when editing.
+  const [trackingMode, setTrackingMode] = useState<'serialized' | 'bulk'>('bulk')
   const [isTeamItem, setIsTeamItem] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  // Own (editable) division assignment for this category — seeded from
+  // `catDivs.own` below. Inherited divisions are locked/checked but never
+  // stored here (additive-only; see the "Assigned divisions" section).
+  const [ownDivisionIds, setOwnDivisionIds] = useState<string[]>([])
+  // Tools only: chosen physical-home division for the opt-in unit move.
+  const [unitHomeId, setUnitHomeId] = useState<string>('')
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
   // Gated on `open`: this dialog is mounted once per CategoryRow (outside the
   // {expanded} guard), so without the gate every visible category fires this
   // multi-table probe on page load while the dialog is closed.
-  const { data: categoryHasStockOrUnits } = useCategoryHasStockOrUnits(open && isEdit ? (category?.id ?? null) : null)
+  const { data: categoryStock } = useCategoryHasStockOrUnits(open && isEdit ? (category?.id ?? null) : null)
+  // Serial units block ANY mode switch. Bulk-only qty (no units) still allows the
+  // corrective serialized -> bulk flip (mirrors guard_tool_tracking_mode_switch,
+  // migration 20260831002300); -> serialized while qty exists is left to the DB
+  // guard to reject with a clear message.
+  const catHasUnits = !!categoryStock?.hasUnits
+  const catHasQty = !!categoryStock?.hasQty
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
   const parentId = selectedParentId
@@ -93,7 +122,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       const nextSku = category?.sku ?? ''
       const nextSubContainerId = category?.default_sub_container_id ?? null
       const nextWarrantyPolicyId = category?.default_warranty_policy_id ?? null
-      const nextTrackingMode = category?.tool_tracking_mode ?? 'serialized'
+      // New category → bulk (sellable) by default; edit → the stored mode.
+      const nextTrackingMode = category?.tool_tracking_mode ?? 'bulk'
       const nextIsTeamItem = (category as unknown as { is_team_item?: boolean } | null)?.is_team_item ?? false
       setNameEn(nextNameEn)
       setNameAr(nextNameAr)
@@ -102,6 +132,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       setWarrantyPolicyId(nextWarrantyPolicyId)
       setTrackingMode(nextTrackingMode)
       setIsTeamItem(nextIsTeamItem)
+      setUnitHomeId('')
 
       const targetId = isEdit ? (category?.parent_id ?? null) : (defaultParentId ?? null)
       const seededParent = targetId && flat.some((c) => c.id === targetId) ? targetId : null
@@ -119,6 +150,23 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       })
     }
   }, [open, category, defaultParentId, isEdit, flat])
+
+  // Seed own-divisions ONCE per open — either when the edit fetch first
+  // resolves, or immediately for a create (no category yet, query disabled
+  // above). A later refetch must not clobber a checkbox the operator toggled
+  // in between. Mirrors ItemEditDialog's `assignedSeededRef` pattern.
+  const ownDivisionsSeededRef = useRef(false)
+  useEffect(() => {
+    if (!open) { ownDivisionsSeededRef.current = false; return }
+    if (ownDivisionsSeededRef.current) return
+    if (catDivs !== undefined) {
+      setOwnDivisionIds(catDivs.own)
+      ownDivisionsSeededRef.current = true
+    } else if (!isEdit) {
+      setOwnDivisionIds([])
+      ownDivisionsSeededRef.current = true
+    }
+  }, [open, catDivs, isEdit])
 
   useEffect(() => {
     if (!open) return
@@ -175,7 +223,8 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
     subContainerId !== snapshot.subContainerId ||
     warrantyPolicyId !== snapshot.warrantyPolicyId ||
     trackingMode !== snapshot.trackingMode ||
-    isTeamItem !== snapshot.isTeamItem
+    isTeamItem !== snapshot.isTeamItem ||
+    JSON.stringify([...ownDivisionIds].sort()) !== JSON.stringify([...(catDivs?.own ?? [])].sort())
   )
 
   function handleSubmit(e: React.FormEvent) {
@@ -193,6 +242,13 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
       tool_tracking_mode: trackingMode,
       is_team_item: isTeamItem,
     }
+
+    // The own-set to persist is ownDivisionIds directly: it is seeded from catDivs.own
+    // (line ~144) and can only gain ACTIVE, non-locked ids (inherited rows render as
+    // disabled checkboxes and cannot be toggled), so it never contains an inherited-only
+    // id — additive-safe — while preserving own-divisions that are inactive or also
+    // inherited (which the active-only computeDivisionRows re-derivation was dropping).
+    const divisionIdsToSave = ownDivisionIds
 
     if (isEdit && category) {
       // Tools categories: a Bulk/Serialized change cascades to descendant
@@ -219,17 +275,31 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
             } else {
               toast.success('Category updated')
             }
+            try {
+              await setCategoryDivisions.mutateAsync({ categoryId: category.id, divisionIds: divisionIdsToSave })
+            } catch (err) {
+              // The category itself already saved; surface only the divisions failure.
+              toast.error(err instanceof Error ? err.message : 'Failed to save divisions')
+            }
             guardRef.current?.closeAfterSubmit()
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         },
       )
     } else {
       create.mutate(
         { ...payload, type: categoryType },
         {
-          onSuccess: () => { toast.success('Category created'); guardRef.current?.closeAfterSubmit() },
-          onError: (err) => toast.error(err.message),
+          onSuccess: async (created) => {
+            toast.success('Category created')
+            try {
+              await setCategoryDivisions.mutateAsync({ categoryId: created.id, divisionIds: divisionIdsToSave })
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Failed to save divisions')
+            }
+            guardRef.current?.closeAfterSubmit()
+          },
+          onError: (err) => toast.error(humanizeDbError(err)),
         },
       )
     }
@@ -441,7 +511,7 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                   <Select
                     value={trackingMode}
                     onValueChange={(v) => setTrackingMode(v as 'serialized' | 'bulk')}
-                    disabled={isEdit && !!categoryHasStockOrUnits}
+                    disabled={isEdit && catHasUnits}
                   >
                     <SelectTrigger id="cat-tracking-mode" className="h-10 w-full min-w-0">
                       <span className="truncate">
@@ -449,18 +519,114 @@ export function CategoryEditDialog({ open, onOpenChange, categoryType, category,
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="serialized">Serialized (per-unit)</SelectItem>
+                      {/* Can't move TO serialized while bulk qty exists (qty can't
+                          become per-unit stock) — but leave it pickable when
+                          nothing blocks it. */}
+                      <SelectItem value="serialized" disabled={isEdit && catHasQty}>Serialized (per-unit)</SelectItem>
                       <SelectItem value="bulk">Bulk (qty tracking)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-muted-foreground break-words leading-snug">
-                    {isEdit && categoryHasStockOrUnits
-                      ? 'Locked — category holds stock/units. Empty it first to switch.'
-                      : 'Serialized = per-unit asset tracking. Bulk = qty/FIFO like consumables.'}
+                    {isEdit && catHasUnits
+                      ? 'Locked — category holds serial units. Empty it first to switch.'
+                      : isEdit && catHasQty
+                        ? 'Holds bulk qty — you can switch to Bulk. Switching to Serialized needs the qty cleared first.'
+                        : 'Serialized = per-unit asset tracking. Bulk = qty/FIFO like consumables.'}
                   </p>
                 </div>
               )}
             </div>
+
+            {/* Assigned divisions */}
+            {(() => {
+              const inherited = catDivs?.inherited ?? []
+              const rows = computeDivisionRows(divisions.map((d) => d.id), { editableIds: ownDivisionIds, lockedIds: inherited })
+              const divName = (id: string) => divisions.find((d) => d.id === id)?.name ?? '…'
+              const effective = Array.from(new Set([...ownDivisionIds, ...inherited]))
+              return (
+                <div className="rounded-md border border-dashed border-border">
+                  <div className="px-3 py-2 text-xs font-medium">Assigned divisions</div>
+                  <div className="px-3 pb-3 pt-1 space-y-2">
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Divisions this category (and everything under it) belongs to. Sub-categories and items inherit these. Locked = inherited from a parent category.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {rows.map((row) => (
+                        <label
+                          key={row.id}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-md border border-transparent min-h-9 ${row.locked ? 'opacity-70' : 'hover:border-border hover:bg-muted/30 cursor-pointer'}`}
+                        >
+                          <Checkbox
+                            checked={row.checked}
+                            disabled={row.locked || readOnly}
+                            onCheckedChange={(v) => setOwnDivisionIds((cur) => (v ? [...cur, row.id] : cur.filter((id) => id !== row.id)))}
+                          />
+                          <span className="text-xs flex-1 truncate">
+                            {divName(row.id)}
+                            {row.locked && <span className="text-[10px] text-muted-foreground"> · inherited</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {rows.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground italic">No active divisions configured yet.</p>
+                    )}
+
+                    {/* Tools only: opt-in unit move. Not part of the form's own
+                        save — the checkbox grid above persists on submit like
+                        every other field, but relocating already-issued serial
+                        units is a separate, explicit action with its own
+                        confirmation. The wrapper keeps a fixed min-h so the
+                        select (which appears only once 2+ divisions apply)
+                        popping in/out never shifts the footer below it. */}
+                    {categoryType === 'tools' && (
+                      <div className="pt-2 border-t border-border space-y-1.5 min-h-24">
+                        {effective.length > 0 ? (
+                          <>
+                            <p className="text-[10px] text-muted-foreground">Physical home for serialized units:</p>
+                            {effective.length > 1 && (
+                              <select
+                                className="text-xs border border-input bg-transparent dark:bg-input/30 rounded-md px-2 py-1 w-full max-w-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                                value={unitHomeId}
+                                disabled={readOnly}
+                                onChange={(e) => setUnitHomeId(e.target.value)}
+                              >
+                                <option value="">Select…</option>
+                                {effective.map((id) => (
+                                  <option key={id} value={id}>{divName(id)}</option>
+                                ))}
+                              </select>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="min-h-9"
+                              disabled={readOnly || cascadeUnits.isPending || (effective.length > 1 && !unitHomeId) || !category}
+                              onClick={async () => {
+                                if (!category) return
+                                const home = effective.length === 1 ? effective[0] : unitHomeId
+                                if (!home) return
+                                if (!confirm(`Move all units under this category to ${divName(home)}?`)) return
+                                try {
+                                  const res = await cascadeUnits.mutateAsync({ categoryId: category.id, divisionId: home })
+                                  toast.success(`Moved ${res.moved} unit(s) to ${divName(home)}`)
+                                } catch (err) {
+                                  toast.error(err instanceof Error ? err.message : 'Unit move failed')
+                                }
+                              }}
+                            >
+                              Move all units to home division
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground">Assign at least one division above to enable moving units.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
 
           </div>
           </fieldset>

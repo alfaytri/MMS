@@ -34,7 +34,10 @@ type PgError = { code?: string; message?: string; details?: string; hint?: strin
 const RECORD_COLUMNS =
   'id, warranty_number, item_name, sku, qty, customer_id, division_id, policy_name_snapshot, coverage_type_snapshot, start_date, end_date, origin_name_snapshot, source_type, sale_order_id, sale_delivery_line_id, created_at, remaining_qty'
 
-export function useWarrantyRecords(filters: { search?: string; divisionId?: string } = {}) {
+export function useWarrantyRecords(
+  filters: { search?: string; divisionId?: string; source?: string } = {},
+  options: { refreshOnFocus?: boolean } = {},
+) {
   return useQuery({
     queryKey: queryKeys.warranty.records(filters),
     queryFn: async (): Promise<WarrantyRecordRow[]> => {
@@ -45,6 +48,9 @@ export function useWarrantyRecords(filters: { search?: string; divisionId?: stri
         .order('created_at', { ascending: false })
         .limit(200)
       if (filters.divisionId) q = q.eq('division_id', filters.divisionId)
+      // Source filter (e.g. the Consumption Warranties page passes 'consumption'
+      // so it only shows warranties issued at custody consumption; Sales omits it).
+      if (filters.source) q = q.eq('source_type', filters.source)
       if (filters.search) {
         const s = `%${filters.search}%`
         q = q.or(`warranty_number.ilike.${s},item_name.ilike.${s},sku.ilike.${s}`)
@@ -57,5 +63,8 @@ export function useWarrantyRecords(filters: { search?: string; divisionId?: stri
       return (data ?? []) as WarrantyRecordRow[]
     },
     staleTime: 60_000,
+    // Opt-in (global default is off to protect quota): surfaces that must reflect
+    // warranties created by a consumption post in another tab refetch on focus.
+    refetchOnWindowFocus: options.refreshOnFocus ?? false,
   })
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import {
   ChevronDown, ChevronRight, Plus, Star, Zap, Loader2,
@@ -94,7 +95,7 @@ function StepConditionPopover({ step, canEdit }: StepConditionPopoverProps) {
       conditionTypes: draftConditional ? draftTypes : [],
     })
       .then(() => { toast.success('Step trigger updated'); setOpen(false) })
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   if (!canEdit) {
@@ -241,7 +242,7 @@ function AddStepRow({ workflow, groupId, availableRoles, onDone }: AddStepRowPro
         toast.success('Step added')
         onDone()
       })
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   return (
@@ -305,21 +306,21 @@ function StepRow({ step, index, isOwner, profileId, approvalRoles }: StepRowProp
 
   function handleToggle(checked: boolean) {
     toggle.mutateAsync({ stepId: step.id, active: checked })
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   function handleRoleChange(roleId: string | null) {
     if (!roleId || roleId === step.role_id) return
     updateRole.mutateAsync({ stepId: step.id, roleId })
       .then(() => toast.success('Step role updated'))
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   function handleDeleteConfirm() {
     if (!profileId) return
     deleteStep.mutateAsync({ stepId: step.id, profileId })
       .then(() => { toast.success('Step deleted'); setConfirmOpen(false) })
-      .catch((err: Error) => { toast.error(err.message); setConfirmOpen(false) })
+      .catch((err: Error) => { toast.error(humanizeDbError(err)); setConfirmOpen(false) })
   }
 
   return (
@@ -423,7 +424,7 @@ function GroupSection({ group, steps, allWorkflowSteps, isOwner, profileId, appr
     if (!mode) return
     updateGroup.mutateAsync({ id: group.id, mode: mode as 'any_one' | 'all_must' })
       .then(() => toast.success('Path mode updated'))
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   function handleRenameConfirm() {
@@ -434,13 +435,13 @@ function GroupSection({ group, steps, allWorkflowSteps, isOwner, profileId, appr
     }
     updateGroup.mutateAsync({ id: group.id, group_label: trimmed })
       .then(() => { toast.success('Path renamed'); setEditingLabel(false) })
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   function handleDeleteConfirm() {
     deleteGroup.mutateAsync(group.id)
       .then(() => { toast.success('Path deleted'); setConfirmDelete(false) })
-      .catch((err: Error) => { toast.error(err.message); setConfirmDelete(false) })
+      .catch((err: Error) => { toast.error(humanizeDbError(err)); setConfirmDelete(false) })
   }
 
   return (
@@ -591,7 +592,7 @@ function WorkflowSection({ workflow, groups, steps, isOwner, profileId, approval
       mode: 'any_one',
     })
       .then(() => toast.success('New path added'))
-      .catch((err: Error) => toast.error(err.message))
+      .catch((err: Error) => toast.error(humanizeDbError(err)))
   }
 
   return (

@@ -56,10 +56,13 @@ interface FileWarrantyClaimDialogProps {
    * omitted/null, a searchable record picker is shown instead (opened from the
    * Claims tab's "File a claim" button). */
   record?: WarrantyRecordRow | null
+  /** Scope the built-in record picker to one source (e.g. 'consumption' on the
+   * Consumption Warranties page). Omit to show all records (Sales default). */
+  source?: string
   onFiled?: (claimId: string) => void
 }
 
-export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onFiled }: FileWarrantyClaimDialogProps) {
+export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, source, onFiled }: FileWarrantyClaimDialogProps) {
   const [pickerSearch, setPickerSearch] = useState('')
   const [selectedRecord, setSelectedRecord] = useState<WarrantyRecordRow | null>(null)
   const [issue, setIssue] = useState('')
@@ -72,7 +75,7 @@ export function FileWarrantyClaimDialog({ open, onOpenChange, record = null, onF
   // own default query key, so this normally reuses an already-warm cache entry
   // instead of firing an extra request.
   const { data: candidateRecords = [], isLoading: candidatesLoading, error: candidatesError } =
-    useWarrantyRecords({ search: pickerSearch })
+    useWarrantyRecords({ search: pickerSearch, source })
 
   // Reset local form state every time the dialog opens (or the pre-selected
   // record changes) so a previous attempt never leaks into the next one.

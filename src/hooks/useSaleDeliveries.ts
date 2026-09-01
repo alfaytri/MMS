@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
 import { openWarrantyCertificate, deliveryHasWarrantyRecords } from '@/lib/sales/warranty-certificate'
+import { notifyOwnerAndKey } from '@/lib/notify'
 
 export type DeliveryStatus = 'pending' | 'in_progress' | 'delivered' | 'cancelled'
 
@@ -32,6 +33,7 @@ export type SaleDelivery = {
   // joined
   so_number?: string
   customer_name?: string
+  division_id?: string | null
 }
 
 export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
@@ -41,7 +43,7 @@ export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
       const supabase = createClient()
       let q = supabase
         .from('sale_deliveries')
-        .select('*, sale_delivery_lines(*), sale_orders(so_number, customers(name))')
+        .select('*, sale_delivery_lines(*), sale_orders(so_number, division_id, customers(name))')
         .order('created_at', { ascending: false })
       if (filters?.status) q = q.eq('status', filters.status)
       const { data, error } = await q.limit(500)
@@ -50,6 +52,7 @@ export function useSaleDeliveries(filters?: { status?: DeliveryStatus | '' }) {
         ...d,
         so_number: d.sale_orders?.so_number ?? null,
         customer_name: d.sale_orders?.customers?.name ?? null,
+        division_id: d.sale_orders?.division_id ?? null,
       })) as SaleDelivery[]
     },
   })
@@ -153,12 +156,33 @@ export function useCompleteDelivery() {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       // saleOrders.detail uses ['sale-order', id] (singular) — .all won't cover it.
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(variables.soId) })
+      // Notify the SO owner their delivery was completed (best-effort).
+      void (async () => {
+        const supabase = createClient()
+        const { data: so } = await supabase
+          .from('sale_orders').select('created_by, so_number').eq('id', variables.soId).maybeSingle()
+        await notifyOwnerAndKey(
+          so?.created_by ?? null,
+          'notify.sales.delivery_completed',
+          'delivery_completed',
+          `Delivery completed for SO ${so?.so_number ?? ''}`.trim(),
+          { relatedId: variables.soId, relatedType: 'sale_order' },
+        )
+      })()
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.inventoryBrandVariants })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.fifoLayers })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.stockMovements })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.cogsEntries })
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
+      // Record the completed delivery on the SO's activity feed (the cancel
+      // path already logs; completion previously did not, so delivered lines
+      // never showed under the SO Activity tab).
+      logActivity({
+        action:    'Delivery Completed',
+        module:    'sale_orders',
+        entity_id: variables.soId,
+      })
       // Auto-open the warranty certificate when this delivery produced any
       // warranty records (any covered item). Fire-and-forget + non-fatal: a
       // failure or a blocked pop-up never affects the completion itself, and

@@ -1,5 +1,14 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+// Bundle analyzer — inert unless `ANALYZE=true` is set for the build, so normal
+// dev/prod builds are unaffected. Run: `ANALYZE=true npm run build`.
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+  openAnalyzer: false,
+  analyzerMode: "json",
+});
 
 const CHROMIUM_FILES = ['./node_modules/@sparticuz/chromium/**/*']
 
@@ -40,11 +49,24 @@ const nextConfig: NextConfig = {
 // ad-blocker user never reaches Sentry. The path is a fixed string (not `true`,
 // which would randomize per build) so it can be allow-listed in middleware.ts,
 // where the tunnel POSTs skip the Supabase auth refresh.
-export default withSentryConfig(nextConfig, {
+export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: true,
-  disableLogger: true,
+  // Strip Sentry's debug logging from the client bundle. `disableLogger` was
+  // deprecated in @sentry/nextjs v10 in favour of the webpack tree-shake option.
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
   tunnelRoute: '/monitoring',
-});
+  // Sentry generates source maps so IT can show readable stack traces, uploads
+  // them privately, then deletes them from the build so they are NEVER served
+  // to the public (no one can download and read our original source). Explicit
+  // here so the intent survives a future SDK default change.
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+}));

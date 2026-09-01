@@ -1,0 +1,176 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Inventory Cost Accounting</title><style>
+  :root{--ink:#0F172A;--muted:#64748B;--accent:#F97316;--line:#E2E8F0;--tip:#FFF7ED;--code:#F1F5F9;}
+  *{box-sizing:border-box;}
+  body{font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);line-height:1.5;font-size:10.5pt;margin:0;}
+  .title{margin:0 0 1.2em;border-bottom:3px solid var(--accent);padding-bottom:.5em;}
+  .title h1{font-size:26pt;color:var(--accent);margin:0;line-height:1.1;}
+  .subtitle{color:var(--muted);font-size:10pt;margin-top:.3em;}
+  h1{font-size:19pt;color:var(--accent);margin:1.2em 0 .3em;}
+  h2{font-size:14pt;margin:1.3em 0 .4em;padding-bottom:.18em;border-bottom:2px solid var(--line);}
+  h3{font-size:12pt;margin:1em 0 .3em;color:var(--ink);}
+  h4{font-size:10.8pt;margin:.9em 0 .25em;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  p{margin:.45em 0;}
+  ul,ol{margin:.4em 0;padding-left:1.4em;}
+  li{margin:.22em 0;}
+  code{background:var(--code);padding:.05em .35em;border-radius:4px;font-family:"Cascadia Code",Consolas,monospace;font-size:.86em;color:#0B5294;}
+  strong{color:var(--ink);}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:.8em 1em;overflow-x:auto;break-inside:avoid;page-break-inside:avoid;margin:.7em 0;}
+  pre code{background:none;padding:0;color:#0F172A;font-size:9pt;line-height:1.45;}
+  hr{border:none;border-top:1px solid var(--line);margin:1.3em 0;}
+  blockquote{margin:.8em 0;padding:.7em 1em;background:var(--tip);border-radius:8px;border:1px solid #FED7AA;color:#7C2D12;}
+  blockquote strong{color:#7C2D12;}
+  table{border-collapse:collapse;width:100%;margin:.7em 0;font-size:9.2pt;break-inside:avoid;page-break-inside:avoid;}
+  th{background:var(--accent);color:#fff;font-weight:600;text-align:left;padding:6px 8px;border:1px solid #EA6A0C;}
+  td{padding:5px 8px;border:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even){background:#F8FAFC;}
+  h1,h2,h3{break-after:avoid;page-break-after:avoid;}
+</style></head><body><div class="title"><h1>Inventory Cost Accounting — How the System Stores &amp; Protects Cost</h1><div class="subtitle">Alfaytri — Technical Reference &nbsp;·&nbsp; Generated 2026-08-29</div></div>
+<blockquote><strong>Audience:</strong> developers and power operators who need to understand *how the numbers are stored*, not just how to click the UI. <strong>Scope:</strong> the FIFO cost-layer engine and every flow that reads or writes it — receival, landed cost, warehouse→warehouse transfer, consumption, sale delivery (COGS), returns, adjustments — plus the derived caches the app displays, reserved/available stock, the damaged-stock repair lifecycle, the procurement chain (PO → receival → bill → payment), and project-pool spend. Every example is <strong>real data pulled from the staging database</strong> (project <code>mwvblpgbgxipvrevkeff</code>) so you can re-run the queries and see it yourself.</blockquote>
+<hr/>
+<h2>0. The one big idea</h2>
+<p>Stock is not stored as a single "quantity × average cost". It is stored as a <strong>stack of cost layers</strong> — one layer per batch of stock that entered at a particular cost. Every outbound movement (sale, consumption, transfer, write-off) <strong>consumes layers oldest-first (FIFO)</strong> and carries <strong>each layer's exact cost</strong> with it.</p>
+<p>The system <strong>never blends two receival costs into one number and loses the detail.</strong> If you received 3 units at QAR 2,500 and 2 units at QAR 4,745, the system knows — forever — that you have "3 @ 2,500 + 2 @ 4,745", not "5 @ 3,398 average". Averages are *computed on demand* for display; the truth is the layers.</p>
+<p>This is what protects cost through the complex flows the rest of this document walks through.</p>
+<hr/>
+<h2>1. The foundation: <code>fifo_cost_layers</code></h2>
+<p>This one table is the cost ledger. Everything else derives from it.</p>
+<table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody><tr><td><code>brand_variant_id</code></td><td>which item-variant this layer belongs to</td></tr><tr><td><code>warehouse_id</code>, <code>sub_container_id</code></td><td><strong>where</strong> the stock physically sits (a sub-container = a division's shelf inside a warehouse)</td></tr><tr><td><code>date</code>, <code>receival_number</code>, <code>created_at</code>, <code>id</code></td><td>the <strong>FIFO sort key</strong> (oldest first, in that tie-break order)</td></tr><tr><td><code>qty</code></td><td>how many units the layer was *born* with</td></tr><tr><td><code>unit_cost</code></td><td>the base purchase cost per unit</td></tr><tr><td><code>landed_cost_per_unit</code></td><td>freight/duty added later (starts 0)</td></tr><tr><td><code>total_unit_cost</code></td><td><strong><code>unit_cost + landed_cost_per_unit</code></strong> — the true cost the system uses everywhere</td></tr><tr><td><code>remaining_qty</code></td><td>how many units of this layer are <strong>still on hand</strong> (the live balance)</td></tr><tr><td><code>source_type</code></td><td>how the layer was born: <code>receival</code>, <code>opening</code>, transfer-in, etc.</td></tr><tr><td><code>source_currency</code>, <code>source_exchange_rate</code></td><td>the currency the cost was booked in + its rate to QAR</td></tr></tbody></table>
+<p><strong>The core invariant:</strong> <code>remaining_qty</code> is the single source of truth for "how much is left, and at what cost". A layer with <code>remaining_qty = 0</code> is spent but is <strong>kept</strong> (history + retroactive landed-cost + reporting all need it).</p>
+<p>Everything the UI shows about stock is *derived* from these layers:</p>
+<table><thead><tr><th>What the app shows</th><th>Where it comes from</th></tr></thead><tbody><tr><td>Per-warehouse qty / value / avg cost</td><td><code>warehouse_stock_summary</code> — a trigger rebuilds one row per (sub-container, variant) whenever layers change</td></tr><tr><td>"All divisions" qty (per variant)</td><td><code>inventory_item_brand_variants.stock_level</code> — a denormalized company-wide total</td></tr><tr><td>Average cost</td><td><code>inventory_item_brand_variants.average_cost</code> — recomputed after every layer change</td></tr></tbody></table>
+<blockquote>These three are <strong>caches</strong>. They are only ever as correct as the layers behind them, which is why every flow below updates the layers first and the caches second.</blockquote>
+<hr/>
+<h2>2. How stock is born — Receival → a cost layer</h2>
+<p>When a receival is <strong>approved</strong>, each received line writes one <code>fifo_cost_layers</code> row: <code>qty</code> and <code>unit_cost</code> from the PO/receival, <code>source_type = 'receival'</code>, stamped with the <code>receival_number</code> and the destination warehouse/sub-container. That layer *is* the stock.</p>
+<p><strong>Staging example — <code>RCV-00030</code>, "3.0 TON — INVERTER | R410A":</strong></p>
+<table><thead><tr><th>receival</th><th>qty</th><th>unit_cost</th><th>landed/unit</th><th><strong>total_unit_cost</strong></th><th>remaining</th><th>currency</th><th>rate</th></tr></thead><tbody><tr><td>RCV-00030</td><td>15</td><td>1,500</td><td>73.33</td><td><strong>1,573.33</strong></td><td>10</td><td>QAR</td><td>1</td></tr></tbody></table>
+<p>It was received at <strong>QAR 1,500</strong>; the <code>73.33</code> landed cost and the drop from 15→10 remaining came *later* (see §4 and §6). Receiving a *second* batch of the same item at a different price simply adds a *second* layer — the two never merge.</p>
+<hr/>
+<h2>3. The FIFO engine — <code>deduct_fifo_layers()</code></h2>
+<p>Every outbound flow (transfer, consumption, sale, damaged write-off) calls this one function. Understanding it is understanding the whole system.</p>
+<pre><code>deduct_fifo_layers(variant, warehouse, qty, is_transfer, sub_container)
+  → returns one row PER LAYER consumed: (layer_id, qty_taken, unit_cost, total_cost, …)</code></pre>
+<p>What it does:</p>
+<ol><li>Selects that variant's layers in the warehouse/sub-container with <code>remaining_qty &gt; 0</code>, <strong>ordered oldest-first</strong> (<code>date, receival_number, created_at, id</code>), and <strong>locks them</strong> (<code>FOR UPDATE</code>) so two operations can't double-spend the same units.</li><li>Walks them, taking <code>LEAST(still-needed, layer.remaining_qty)</code> from each, decrementing <code>remaining_qty</code>, and <strong>emitting one result row per layer with that layer's exact <code>total_unit_cost</code>.</strong></li><li>If it runs out of layers before satisfying the qty → <code>RAISE 'Insufficient stock'</code> (the whole operation rolls back — you can never oversell).</li><li>If <strong>not</strong> a transfer, it also decrements the company-wide <code>variant.stock_level</code>. A transfer passes <code>is_transfer = true</code> and *skips* this — because a transfer doesn't change how much the company owns, only *where* it is (see §5).</li><li>Recomputes <code>average_cost</code>.</li></ol>
+<p>The key output is <strong>"here are the exact per-layer costs of the units you just took."</strong> The caller decides what to do with them — record COGS, or re-create layers elsewhere.</p>
+<hr/>
+<h2>4. Warehouse → Warehouse transfer — cost preserved per layer</h2>
+<p><strong>This is the headline mechanic.</strong> A transfer of 5 units that came from two different receivals arrives at the destination as <strong>two layers at their original costs</strong> — never as one blended layer.</p>
+<p>It is a two-step handoff:</p>
+<p><strong>Step 1 — Dispatch (<code>dispatch_transfer</code>)</strong> at the source:</p>
+<ul><li>Calls <code>deduct_fifo_layers(..., is_transfer := true)</code> → pulls the qty from the source layers oldest-first, getting back the per-layer split.</li><li>Writes <strong>one <code>transfer_out</code> movement per layer, at that layer's exact cost.</strong></li><li>Skips the <code>stock_level</code> decrement (goods are *in transit*, still company-owned).</li></ul>
+<p><strong>Step 2 — Receive (<code>receive_transfer</code>)</strong> at the destination:</p>
+<ul><li>Walks those <code>transfer_out</code> movements in order and, for the received portion of each, <strong>inserts a NEW <code>fifo_cost_layers</code> row at the destination with the same <code>unit_cost</code></strong> + a matching <code>transfer_in</code> movement.</li><li>Any shortfall (received &lt; dispatched) becomes a <code>transfer_shrinkage</code> movement on the source side and is deducted from <code>stock_level</code>.</li></ul>
+<p><strong>Staging example — <code>WT-2026-00016</code></strong> (Birkat Alawamer → Industrial Area Accommodation), item <strong>"Split AC 12000BTU" (DAIKIN, IMP-SPL-003)</strong>, 5 units:</p>
+<p>The 5 units spanned two source cost layers. Here is exactly what the transfer recorded (<code>inventory_stock_movements</code> where <code>reference_id = the transfer</code>):</p>
+<table><thead><tr><th>movement</th><th>qty</th><th>unit_cost</th><th>side</th></tr></thead><tbody><tr><td><code>transfer_out</code></td><td>−3</td><td><strong>2,500</strong></td><td>source (Birkat)</td></tr><tr><td><code>transfer_out</code></td><td>−2</td><td><strong>4,745</strong></td><td>source (Birkat)</td></tr><tr><td><code>transfer_in</code></td><td>+3</td><td><strong>2,500</strong></td><td>destination</td></tr><tr><td><code>transfer_in</code></td><td>+2</td><td><strong>4,745</strong></td><td>destination</td></tr></tbody></table>
+<p>→ The destination received <strong>two new layers: 3 @ 2,500 and 2 @ 4,745</strong>, not "5 @ 3,398". If those units are later sold or transferred again, they still leave at 2,500 and 4,745 respectively. <strong>Cost integrity survives any number of hops.</strong></p>
+<p>Why this matters: a naive system would move "5 units at the average cost", and after a few transfers the cost of a unit would drift away from what you actually paid, corrupting margin and stock valuation. This design makes that impossible.</p>
+<hr/>
+<h2>5. Warehouse → Consumption — COGS booked per layer</h2>
+<p>Consumption (issuing stock to a team, a project, or internal use) is an *outbound* flow, so it drains layers the same FIFO way — but instead of re-creating layers, it books <strong>cost of goods</strong>.</p>
+<p><code>rpc_post_consumption</code>:</p>
+<ol><li>Creates a <code>consumption_entries</code> header (source, consumer, project/discipline/ milestone tags, division).</li><li>For each line, calls <code>deduct_fifo_layers(..., is_transfer := false)</code> (so <code>stock_level</code> *does* drop).</li><li>For <strong>each layer consumed</strong>, writes:</li></ol>
+<ul><li>a <strong><code>cogs_entries</code></strong> row at that layer's exact cost (this is what the P&amp;L reads), and</li><li>a <code>consumption</code> stock movement (<code>qty</code> negative).</li></ul>
+<ol><li>Stores one <code>consumption_lines</code> row with the <strong>weighted-average</strong> unit cost (<code>Σ layer costs ÷ qty</code>) — purely for display on the document.</li></ol>
+<p><strong>Staging example — <code>CE-Custody-2026-08-05</code>, "1 STAGE 4 CFM VP-135 YANGYI":</strong></p>
+<table><thead><tr><th>line qty</th><th>line unit_cost (display)</th><th>→ COGS rows booked</th></tr></thead><tbody><tr><td>1</td><td>259.99</td><td><code>1 @ 259.99 = 259.99</code> (<code>source_type = consumption</code>)</td></tr></tbody></table>
+<p>Here 1 unit came from a single layer, so line cost = layer cost. <strong>If a consumption of, say, 5 units straddled two layers</strong> (like the transfer in §4 or the sale in §6), you'd get <strong>two <code>cogs_entries</code> rows</strong> — e.g. <code>3 @ 2,500</code> and <code>2 @ 4,745</code> — and the consumption line would show the weighted average <code>(3·2500 + 2·4745) / 5 = 3,398</code>. The COGS is always the *true* FIFO cost; the averaged number is only a label.</p>
+<hr/>
+<h2>6. Sale delivery → COGS (the same engine, multi-layer in the wild)</h2>
+<p>A confirmed sale delivery deducts FIFO layers and books <code>cogs_entries</code> exactly like consumption — this is where a single sale routinely spans multiple cost layers.</p>
+<p><strong>Staging example — one delivery of "3.0 TON — INVERTER | R410A", 7 units:</strong></p>
+<table><thead><tr><th>COGS row</th><th>qty</th><th>unit_cost</th><th>total_cost</th></tr></thead><tbody><tr><td>layer A</td><td>4</td><td>1,500</td><td>6,000</td></tr><tr><td>layer B</td><td>3</td><td>1,600</td><td>4,800</td></tr><tr><td><strong>sale COGS</strong></td><td><strong>7</strong></td><td>—</td><td><strong>10,800</strong></td></tr></tbody></table>
+<p>The 7 sold units drained two cost layers oldest-first — units received at 1,500 and at 1,600 — for COGS = QAR 10,800, booked at the real cost of each layer. The revenue−COGS margin on this line is therefore exact, not smeared by an average.</p>
+<hr/>
+<h2>7. Landed cost — retroactive cost on stock already received (and already sold)</h2>
+<p>Freight, customs, and clearing bills usually arrive <strong>after</strong> the goods. Landed cost (<code>allocate_landed_cost</code>) reaches back and corrects the cost of stock that was already received — including units that were <strong>already sold</strong> before the bill came.</p>
+<p>How it allocates:</p>
+<ol><li>Sum the QAR value of every eligible receival item attached to the LC (each converted at its PO's booked exchange rate — a mixed-currency LC still splits correctly). That's the <strong>value base</strong>.</li><li>Each variant's share of the LC = <code>LC total × (variant value ÷ value base)</code> — <strong>proportional to value.</strong> Per-unit = share ÷ qty received.</li><li>Split that share by where the units are now:</li></ol>
+<ul><li><strong>Still on hand</strong> → bump those layers: <code>landed_cost_per_unit += per-unit</code> and <code>total_unit_cost += per-unit</code>. Future valuation &amp; COGS now include freight. (Recorded as a <code>cost_adjustment</code> movement.)</li><li><strong>Already sold</strong> → write a retroactive <strong><code>cogs_entries</code></strong> row (<code>source_type = 'landed_cost'</code>) so the P&amp;L reflects the true landed cost for units sold before the bill existed.</li></ul>
+<ol><li>Snapshot the deltas into <code>landed_costs.revert_snapshot</code> so the LC can be cleanly reverted.</li></ol>
+<p><strong>Staging example — <code>LC-2026-0003</code> on "3.0 TON — INVERTER | R410A":</strong></p>
+<table><thead><tr><th>received</th><th>remaining at LC</th><th>sold at LC</th><th>original cost</th><th>LC / unit</th><th><strong>updated cost</strong></th><th>→ inventory</th><th>→ retro COGS</th></tr></thead><tbody><tr><td>15</td><td>15</td><td>0</td><td>1,500.00</td><td>73.33</td><td><strong>1,573.33</strong></td><td>1,100.00</td><td>0.00</td></tr></tbody></table>
+<p>All 15 units were still on hand when the freight bill landed, so the whole QAR 1,100 folded into the layer cost (1,500 → 1,573.33) and nothing was booked as retroactive COGS. Had 5 already been sold, ~QAR 366 of it would have posted as a <code>landed_cost</code> COGS entry against those 5 units instead. This is the same <code>RCV-00030</code> layer from §2 — you can see the <code>73.33</code> and <code>1,573.33</code> there.</p>
+<hr/>
+<h2>8. Returns — reversing cost cleanly</h2>
+<p>A <strong>sale return</strong> puts stock back and reverses the margin. Rather than guessing a cost, the system reuses the sale's own FIFO cost basis (<code>_return_line_fifo_unit_cost</code>) so what comes back matches what went out.</p>
+<p><strong>Staging example — a "Capacitor" return line:</strong></p>
+<table><thead><tr><th>COGS row</th><th>qty</th><th>unit_cost</th><th>total_cost</th></tr></thead><tbody><tr><td>return</td><td>−5</td><td>7.63</td><td>−38.15</td></tr></tbody></table>
+<p>A <strong>negative</strong> COGS entry (−38.15) — the earlier COGS is unwound at the same unit cost, and the units re-enter stock. A <strong>purchase return</strong> is the mirror on the buy side (stock leaves, supplier balance adjusts).</p>
+<hr/>
+<h2>9. Stock adjustments — increase / decrease / damage / write-off</h2>
+<p>Adjustments (<code>create_stock_adjustment_v2</code> → approval → <code>approve_stock_adjustment _inventory</code>) are the manual corrections, and they respect the layer model too:</p>
+<ul><li><strong>Increase / Found</strong> → adds a layer (or a zero/known-cost layer) at the chosen sub-container.</li><li><strong>Decrease / Lost / Damage / Write-off</strong> → drains FIFO layers (via the same engine) and books the cost as a loss.</li><li><strong>Damaged write-off</strong> specifically consumes the *damaged* pile (<code>inventory_damaged_stock</code>, tracked per warehouse) via <code>_consume_damaged_stock_fifo</code>, logging a <code>damaged_write_off</code> movement — no good-stock FIFO deduction.</li></ul>
+<blockquote>The adjustment <strong>type</strong> (<code>increase/decrease/damage/write_off</code>) is a fixed enum that drives the approval workflow and the ledger effect — it is separate from the admin-managed <strong>reason</strong> text. See the reason lists in *Master Data › Reason Lists*.</blockquote>
+<hr/>
+<h2>10. The derived numbers — how the displayed figures are computed</h2>
+<ul><li><strong><code>average_cost</code></strong> (<code>recalc_average_cost</code>): <code>Σ(remaining_qty × total_unit_cost) ÷ Σ(remaining_qty)</code> over layers with <code>remaining_qty &gt; 0</code> <strong>and</strong> <code>total_unit_cost &gt; 0</code> — free/zero-cost layers are excluded so they don't dilute the displayed unit cost. Recomputed after every layer change.</li><li><strong><code>warehouse_stock_summary</code></strong> (trigger <code>trg_fifo_stock_summary</code> → <code>refresh_stock_summary_row</code>): after any layer insert/update/delete, one row per <code>(warehouse, sub-container, variant)</code> is rebuilt with <code>qty = Σ remaining</code>, <code>avg_cost</code> over *paid* layers, and <code>total_value</code>. This is what the division- scoped Inventory views read. <strong>Never insert into it by hand</strong> — the trigger owns it.</li><li><strong><code>stock_level</code></strong> on the variant is the company-wide <code>Σ remaining</code> across all warehouses; it is the "All divisions" number.</li></ul>
+<hr/>
+<h2>11. Multi-currency</h2>
+<p>Each layer carries <code>source_currency</code> + <code>source_exchange_rate</code>, and costs are normalized to <strong>QAR</strong> as the base. Landed-cost allocation converts every item to QAR at <strong>its PO's booked rate</strong> before splitting, so a single LC spanning items bought in different currencies still allocates by true relative value.</p>
+<hr/>
+<h2>12. Reserved / available stock — how committed units are held</h2>
+<p>On-hand quantity and *available* quantity are not the same. When units are committed to an in-flight operation, they are <strong>reserved</strong> so they can't be double-spent, without yet leaving stock.</p>
+<p>The reservation lives in <strong><code>warehouse_stock_allocations.allocated_qty</code></strong>, one row per <code>(warehouse, sub-container, variant)</code>. The stock summary then exposes:</p>
+<pre><code>available_qty  =  qty (on hand)  −  allocated_qty (reserved)</code></pre>
+<p>In this system the reservation is <strong>transfer-driven</strong>:</p>
+<ul><li><strong><code>create_transfer_v2</code></strong> (transfer created, still <code>pending</code>) → <strong>reserves</strong> the qty at the source. The units are still physically there, but <code>available_qty</code> drops so nothing else can commit them.</li><li><strong><code>dispatch_transfer</code></strong> → <strong>releases</strong> the reservation *and* deducts the FIFO layers (the goods actually leave; see §4).</li><li><strong><code>cancel_transfer</code> / <code>reject_transfer_v2</code></strong> → <strong>release</strong> the reservation with no deduction (the units become available again).</li></ul>
+<blockquote>Sale deliveries do <strong>not</strong> reserve here — they deduct FIFO directly on confirm/ complete. Reservation is specifically the "a pending transfer is holding these" mechanism.</blockquote>
+<p><strong>Staging example — three live reservations:</strong></p>
+<table><thead><tr><th>Item</th><th>On hand</th><th>Reserved</th><th><strong>Available</strong></th></tr></thead><tbody><tr><td>Fan Motor YDK60-6Z</td><td>24</td><td>5</td><td><strong>19</strong></td></tr><tr><td>13AMP Socket — Tenby</td><td>5</td><td>3</td><td><strong>2</strong></td></tr><tr><td>AC Converted — 2 Ton</td><td>2</td><td>2</td><td><strong>0</strong> (fully held by a pending transfer)</td></tr></tbody></table>
+<p>The AC Converted line shows why this matters: all 2 units are spoken for by a pending transfer, so the item reads <strong>0 available</strong> — a second transfer or issue can't grab them until the first one dispatches or is cancelled.</p>
+<hr/>
+<h2>13. Damaged-stock lifecycle — a separate pile, in and out of repair</h2>
+<p>Damaged units are <strong>not</strong> FIFO layers. They live in their own ledger — <strong><code>inventory_damaged_stock</code></strong> (a per-*warehouse* balance; no sub-container / division) with <strong><code>inventory_damaged_movements</code></strong> as the signed history. Good stock and damaged stock never mix.</p>
+<p>The lifecycle (movement types in <code>inventory_damaged_movements</code>):</p>
+<ol><li><strong>Born</strong> — <code>restock_as_damaged_in</code>: units enter the damaged pile, usually from a sale return whose disposition marks them damaged (or a damaged receival), carrying their unit cost.</li><li><strong>Sent for repair</strong> — <code>rpc_send_damaged_for_repair</code> moves them out (<code>send_for_repair_out</code>) to a <strong>repair vendor's virtual warehouse</strong> (the vendor is a sub-container of the structural *Repair* warehouse) via a transfer of kind <code>damaged_repair_out</code>.</li><li><strong>Returned from repair</strong> — <code>rpc_return_damaged_from_repair</code>, outcome <strong>good / writeoff / mixed</strong> (and <code>qty_good + qty_writeoff</code> must equal what went out):</li></ol>
+<ul><li><strong>Good</strong> → re-enters <strong>good FIFO stock</strong> as a <strong>new <code>fifo_cost_layers</code> row at the ORIGINAL unit cost</strong> (<code>source_type = 'damaged_repair_return'</code>), plus a <code>damaged_return_from_repair_as_good</code> movement. **Repair cost is deliberately *not* amortized** into the unit cost.</li><li><strong>Write-off</strong> → a <code>return_from_repair_as_writeoff</code> entry in the damaged ledger — the units are unrecoverable and leave the system as a loss.</li></ul>
+<ol><li><strong>Written off from the pile directly</strong> — <code>damaged_write_off</code> (see §9), or <code>damaged_adjust</code> for manual corrections.</li></ol>
+<p><strong>Staging example — "PVC Roll" (unit cost QAR 180.49):</strong></p>
+<table><thead><tr><th>date</th><th>movement</th><th>qty</th></tr></thead><tbody><tr><td>2026-07-30</td><td><code>restock_as_damaged_in</code></td><td>+1</td></tr><tr><td>2026-07-31</td><td><code>send_for_repair_out</code></td><td>−1</td></tr><tr><td>2026-08-02</td><td><code>restock_as_damaged_in</code></td><td>+1</td></tr><tr><td>2026-08-02</td><td><code>send_for_repair_out</code></td><td>−1</td></tr></tbody></table>
+<p>Each unit is tracked at its cost through the pile → repair → return cycle, entirely separate from the FIFO good-stock ledger; only a *good* repair outcome mints a new FIFO layer back into sellable stock.</p>
+<hr/>
+<h2>14. Procurement chain — PO → receival → landed cost → bill → payment</h2>
+<p>This is where cost enters the system and where the money owed is tracked. The key idea: <strong>inventory cost and the supplier liability are two linked-but-separate ledgers.</strong></p>
+<table><thead><tr><th>Stage</th><th>Table(s)</th><th>What it records</th></tr></thead><tbody><tr><td><strong>Purchase order</strong></td><td><code>purchase_orders</code></td><td>the order — supplier, division, <code>initial_exchange_rate</code> (the booked FX rate)</td></tr><tr><td><strong>Receival</strong></td><td><code>receivals</code> (<code>po_id</code>), <code>receival_items</code></td><td>goods in → <strong>creates FIFO cost layers</strong> at the PO's unit cost (§2)</td></tr><tr><td><strong>Landed cost</strong></td><td><code>landed_costs</code> (§7)</td><td>freight/duty <strong>bumps the layer cost</strong> retroactively</td></tr><tr><td><strong>Bill</strong></td><td><code>bills</code> (<code>rpc_create_purchase_bill</code>)</td><td>the <strong>AP liability</strong> — links PO + (optionally) receival + supplier; <code>bill_number = &lt;PO&gt;-B</code>; subtotal/discount/total; <code>payment_status</code></td></tr><tr><td><strong>Payment</strong></td><td><code>payments</code> + <code>payment_bill_allocations</code> (<code>allocate_payment_to_bill</code>)</td><td>money out, <strong>allocated</strong> to bills</td></tr></tbody></table>
+<p>Payments are <strong>many-to-many</strong> with bills: one payment can be split across several bills, and one bill can be settled by several payments. <code>allocate_payment_to_bill</code> guards that a payment can't be allocated beyond its own amount, then flips the bill to <code>partially_paid</code> / <code>paid</code> from the running total.</p>
+<blockquote><strong>Cost vs. liability are distinct.</strong> The FIFO layers (what a unit *costs* for valuation &amp; COGS) come from the receival + landed cost. The bill (what you *owe*) is a separate document. They are linked by the PO/receival but move on their own ledgers — paying a bill does not touch inventory cost, and a landed cost bumps inventory value without changing what you owe.</blockquote>
+<p><strong>Staging example — <code>PO-2026-07-013</code>:</strong></p>
+<table><thead><tr><th>PO</th><th>Bill</th><th>Supplier</th><th>Bill total</th><th>Payments</th><th>Status</th></tr></thead><tbody><tr><td>PO-2026-07-013</td><td>PO-2026-07-013-B</td><td>Test INt</td><td>QAR 12,750</td><td>2 × QAR 1,500 (debit_note)</td><td><strong>partially_paid</strong> (3,000 / 12,750)</td></tr></tbody></table>
+<p>Two 1,500 allocations bring the bill to 3,000 paid, so it reads <code>partially_paid</code>; the remaining QAR 9,750 keeps the supplier balance open. (The cost side of this PO's goods lands as FIFO layers on its receival, exactly like <code>RCV-00030</code> in §2 / §7.)</p>
+<hr/>
+<h2>15. Project-pool consumption — discipline / milestone spend</h2>
+<p>A project is <strong>one stock-pool sub-container</strong> (a <code>warehouse_sub_containers</code> row with <code>project_id</code> set). **Disciplines and milestones are cost *tags* on consumption**, not separate stock pools — so project spend is tracked without fragmenting the inventory.</p>
+<p>When stock is consumed *to* a project (<code>rpc_post_consumption</code> with the project sub-container as consumer + <code>p_discipline_id</code> + <code>p_milestone_id</code>), it drains FIFO and books <code>cogs_entries</code> exactly as in §5 — but each COGS row is <strong>stamped with the division, discipline, and milestone</strong>. Guards enforce integrity:</p>
+<ul><li>the discipline must belong to the consumer project;</li><li>the milestone must belong to that <code>(consumer sub-container, discipline)</code>.</li></ul>
+<p><code>rpc_report_project_consumption</code> then rolls spend up by discipline and milestone for the project cost report.</p>
+<p><strong>Staging example — the project structure exists:</strong></p>
+<table><thead><tr><th>Project</th><th>Disciplines</th><th>Milestones</th></tr></thead><tbody><tr><td>Smoke Test Project</td><td>2</td><td>1</td></tr><tr><td>"no need"</td><td>3</td><td>0</td></tr></tbody></table>
+<p>(Discipline catalog: Automation, Electrical, Plumbing.)</p>
+<blockquote>No project-tagged consumption has been posted on staging yet, so there is no live COGS example to show here — but the booking path is identical to §5's consumption (<code>deduct_fifo_layers</code> → <code>cogs_entries</code>), with the division/discipline/milestone stamped onto each COGS row so the project report can group by them.</blockquote>
+<hr/>
+<h2>16. Invariants the system guarantees</h2>
+<ol><li><strong>No blended cost.</strong> Two receivals at different prices stay two layers; their costs never merge into one number that loses the detail.</li><li><strong>FIFO, always.</strong> Every outbound flow consumes oldest-first, deterministically (tie-broken by receival number, then creation time, then id).</li><li><strong>Cost survives movement.</strong> A transfer re-creates layers at the destination at their exact source costs — through any number of hops.</li><li><strong>You cannot oversell.</strong> <code>deduct_fifo_layers</code> raises and rolls back the whole transaction if the layers can't cover the requested qty; row locks prevent two operations double-spending the same units.</li><li><strong>Company stock is conserved by transfers.</strong> A transfer never changes <code>stock_level</code> (only location); only genuine loss (shrinkage, write-off, consumption, sale) reduces it.</li><li><strong>Cost can be corrected after the fact.</strong> Landed cost retroactively adjusts both on-hand layer costs and already-sold COGS, and is fully revertible.</li><li><strong>Displayed numbers are derived, and rebuilt on every change</strong> — so the caches can't silently drift from the layer truth.</li><li><strong>Committed units are reserved, not double-spent.</strong> A pending transfer holds stock (<code>available = on-hand − reserved</code>) until it dispatches or is cancelled.</li><li><strong>Damaged stock is a separate ledger.</strong> It never mixes with good FIFO stock; only a *good* repair outcome mints a new FIFO layer back into sellable stock, at the original cost.</li><li><strong>Cost and liability are separate ledgers.</strong> What a unit *costs* (FIFO layers) and what you *owe* (bills / payments) are linked by the PO/receival but move independently — paying a bill doesn't change inventory cost, and a landed cost doesn't change what you owe.</li></ol>
+<hr/>
+<h2>Appendix — verify any transaction yourself</h2>
+<p>Every worked example above is queryable on staging. The pattern:</p>
+<pre><code>-- the per-layer story of any transfer / consumption / delivery:
+SELECT movement_type, qty, unit_cost, sub_container_id, notes
+FROM   inventory_stock_movements
+WHERE  reference_id = '&lt;transfer|consumption|delivery id&gt;'
+ORDER  BY created_at, id;
+
+-- what cost basis a sale/consumption actually used:
+SELECT qty, unit_cost, total_cost, source_type
+FROM   cogs_entries
+WHERE  consumption_id = '&lt;…&gt;'  -- or sale_delivery_id / landed_cost_id
+ORDER  BY unit_cost;
+
+-- the live cost layers of an item-variant (the truth behind every number):
+SELECT date, receival_number, qty, unit_cost, landed_cost_per_unit,
+       total_unit_cost, remaining_qty, warehouse_id, sub_container_id
+FROM   fifo_cost_layers
+WHERE  brand_variant_id = '&lt;variant id&gt;'
+ORDER  BY date, created_at;</code></pre>
+<p>*Source of truth is the live database function bodies (<code>pg_get_functiondef</code>), not this document — if a function changes, update this file in the same PR.*</p></body></html>

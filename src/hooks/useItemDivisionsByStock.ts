@@ -2,12 +2,14 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-export type ItemShareType = 'products' | 'spare-parts' | 'consumables'
+export type ItemShareType = 'products' | 'spare-parts' | 'consumables' | 'tools'
 
 export interface ItemDivisionMembership {
   /** item id → its division ids: the UNION of explicit assignment
-   *  (the inventory_item_divisions table) and where its stock currently
-   *  sits (sub_container.division_id). Empty array = neither. */
+   *  (the inventory_item_divisions table), where its stock currently
+   *  sits (sub_container.division_id), and divisions inherited from the
+   *  item's category chain (inventory_category_divisions). Empty array =
+   *  none of the three. */
   divisionsByItem: Map<string, string[]>
   /** item id → its category id (for tree pruning). */
   itemCategoryMap: Map<string, string>
@@ -16,15 +18,18 @@ export interface ItemDivisionMembership {
 
 /**
  * For one inventory type, resolves each non-archived item's divisions as the
- * UNION of (a) its explicit assignment (the `inventory_item_divisions` table)
- * and (b) where its stock currently sits — the distinct `division_id`s of the
- * sub-containers holding its stock (`rpc_item_divisions_by_stock`). The list view
- * prunes the catalog tree to the division(s) picked in the nav-bar multi-select.
+ * UNION of (a) its explicit assignment (the `inventory_item_divisions` table),
+ * (b) where its stock currently sits — the distinct `division_id`s of the
+ * sub-containers holding its stock, and (c) divisions inherited from the
+ * item's category chain (`inventory_category_divisions`, walked up through
+ * parent categories) — all resolved server-side by `rpc_item_divisions_by_stock`.
+ * The list view prunes the catalog tree to the division(s) picked in the
+ * nav-bar multi-select.
  *
- * Every non-archived item comes back; an item with neither an assignment nor
- * divisioned stock gets an empty division set, so it shows only under "All".
- * This makes a zero-stock catalog (e.g. a fresh import) still appear under the
- * division it was assigned to.
+ * Every non-archived item comes back; an item with no assignment, no
+ * divisioned stock, and no category-level division gets an empty division
+ * set, so it shows only under "All". This makes a zero-stock catalog (e.g. a
+ * fresh import) still appear under the division it was assigned to.
  */
 export function useItemDivisionsByStock(type: ItemShareType): ItemDivisionMembership {
   const query = useQuery({

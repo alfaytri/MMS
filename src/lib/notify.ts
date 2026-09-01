@@ -33,6 +33,40 @@ export async function notifyOne(
 }
 
 /**
+ * Status/outcome notifications (2026-08-26 expansion). The document **owner**
+ * (creator's profile id) always gets it; any role an admin granted the type's
+ * `notify.*` key ALSO gets it (so the recipient set is admin-tunable without a
+ * code change). No-ops when there is no owner and no key-holder. Deduped so the
+ * same person isn't notified twice when they're also a key-holder.
+ */
+export async function notifyOwnerAndKey(
+  ownerId: string | null | undefined,
+  notifyKey: string,
+  type: string,
+  title: string,
+  opts?: { body?: string; relatedId?: string; relatedType?: string },
+) {
+  const ids = new Set<string>()
+  if (ownerId) ids.add(ownerId)
+  try {
+    for (const id of await getRecipientsForPermission(notifyKey)) ids.add(id)
+  } catch {
+    // key-holder lookup is best-effort; the owner still gets notified
+  }
+  if (ids.size === 0) return
+  await sendNotifications(
+    [...ids].map((profile_id) => ({
+      profile_id,
+      type,
+      title,
+      body: opts?.body ?? null,
+      related_id: opts?.relatedId ?? null,
+      related_type: opts?.relatedType ?? null,
+    })),
+  )
+}
+
+/**
  * Phase-2 recipient resolver. Returns the profile ids of everyone whose role
  * grants `perm` (or full system-admin, or `opts.override`). For warehouse-scoped
  * notification types, pass `opts.warehouseId` — perm-holders are then narrowed to

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { Plus, Pencil, Power, PowerOff, Package, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
@@ -56,7 +57,7 @@ export function WarehouseSubContainersSection({
           setToggleTarget(null)
         },
         (err: Error) => {
-          toast.error(err.message)
+          toast.error(humanizeDbError(err))
           setToggleTarget(null)
         },
       )

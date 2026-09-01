@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useMemo } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -175,7 +176,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
       { id: deliveryId, soId: current.id },
       {
         onSuccess: () => toast.success('Delivery cancelled'),
-        onError: (err) => toast.error((err as Error).message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -721,7 +722,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   setReplacementOpen(false)
                   setSelectedReturn(null)
                 } catch (e) {
-                  toast.error((e as Error).message)
+                  toast.error(humanizeDbError(e))
                 }
               }}
             />
@@ -765,7 +766,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   },
                   {
                     onSuccess: () => { toast.success('Delivery marked as delivered'); setConfirmDeliveryId(null) },
-                    onError: (err) => toast.error((err as Error).message),
+                    onError: (err) => toast.error(humanizeDbError(err)),
                   }
                 )
               }}
@@ -799,7 +800,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                     setCancelSOOpen(false)
                     onOpenChange(false)
                   },
-                  onError: (err) => toast.error((err as Error).message),
+                  onError: (err) => toast.error(humanizeDbError(err)),
                 })
               }}
             >
@@ -838,7 +839,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 { id: editDeliveryId, ...updates },
                 {
                   onSuccess: () => { toast.success('Delivery updated'); setEditDeliveryId(null) },
-                  onError: (err) => toast.error((err as Error).message),
+                  onError: (err) => toast.error(humanizeDbError(err)),
                 }
               )
             }}

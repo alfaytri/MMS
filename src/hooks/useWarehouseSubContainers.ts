@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/logActivity'
 import type { DBTable } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { compareSubContainerName } from '@/hooks/useWarehouses'
 
 /**
  * D.1 auto-creates sub-containers with the name "<Warehouse> — <Division>",
@@ -126,14 +127,53 @@ export function useSubContainerDivisionMap() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('warehouse_sub_containers')
-        .select('id, division_id')
-        .limit(1000)
+      // Complete sub-container -> division map via the SECURITY DEFINER RPC
+      // get_sub_container_division_map(). We CANNOT read warehouse_sub_container_totals
+      // here: the 2026-08-26 anon-exposure fix (C1) made that view
+      // security_invoker=true, so it is now RLS-scoped and — under a division filter —
+      // returns only the ACTIVE division's sub-containers. That left the map INCOMPLETE
+      // and other-division stock slipped through useDivisionScopedVisibility's null-safe
+      // fallback (rendering as "Unassigned" in the warehouse stock tree). The RPC returns
+      // EVERY sub-container's division (metadata only, authenticated-only), so the client
+      // filter can actually hide other divisions again.
+      const { data, error } = await supabase.rpc('get_sub_container_division_map' as never)
       if (error) throw error
       const map = new Map<string, string | null>()
-      for (const r of (data ?? []) as Array<{ id: string; division_id: string | null }>) {
-        map.set(r.id, r.division_id)
+      for (const r of (data ?? []) as unknown as Array<{ sub_container_id: string | null; division_id: string | null }>) {
+        if (r.sub_container_id) map.set(r.sub_container_id, r.division_id ?? null)
+      }
+      return map
+    },
+  })
+}
+
+/**
+ * Map of warehouse_id → Set(division_id) for every active sub-container, sourced
+ * from the RLS-bypassing `warehouse_sub_container_totals` view so it's COMPLETE
+ * for super-viewers (not narrowed to the active division). Powers "which
+ * warehouses can source stock for the active division" — e.g. the custody
+ * request dialog only offers warehouses that actually hold that division's stock.
+ */
+export function useWarehouseDivisionSets() {
+  return useQuery({
+    queryKey: ['warehouse-sub-containers', 'wh-division-sets'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const supabase = createClient()
+      // Complete map via the SECURITY DEFINER RPC (see useSubContainerDivisionMap for
+      // why the security_invoker warehouse_sub_container_totals view can't be used —
+      // it would be RLS-scoped and miss other divisions).
+      const { data, error } = await supabase.rpc('get_sub_container_division_map' as never)
+      if (error) throw error
+      const map = new Map<string, Set<string>>()
+      for (const r of (data ?? []) as unknown as Array<{
+        warehouse_id: string | null
+        division_id: string | null
+        is_active: boolean | null
+      }>) {
+        if (!r.warehouse_id || !r.division_id || r.is_active === false) continue
+        if (!map.has(r.warehouse_id)) map.set(r.warehouse_id, new Set())
+        map.get(r.warehouse_id)!.add(r.division_id)
       }
       return map
     },
@@ -172,14 +212,16 @@ export function useWarehouseSubContainers(warehouseId?: string | null) {
         .from('warehouse_sub_containers')
         .select('*, company_divisions(name)')
         .eq('warehouse_id', warehouseId)
-        .order('created_at')
       if (error) throw error
-      return (data ?? []).map((row) => {
+      const rows = (data ?? []).map((row) => {
         const { company_divisions, ...rest } = row as typeof row & {
           company_divisions: { name: string } | null
         }
         return { ...rest, division_name: company_divisions?.name ?? null }
       }) as WarehouseSubContainer[]
+      // a-z / 1..N by name (was created-at order → teams landed unsorted).
+      rows.sort((a, b) => compareSubContainerName(a.name, b.name))
+      return rows
     },
     enabled: !!warehouseId,
     staleTime: 60 * 1000,
@@ -205,7 +247,7 @@ export function useWarehouseSubContainersAdmin(warehouseId?: string | null) {
         p_warehouse_id: warehouseId,
       })
       if (error) throw error
-      return (data ?? []).map((r): WarehouseSubContainer => ({
+      const rows = (data ?? []).map((r): WarehouseSubContainer => ({
         id:                              r.id,
         warehouse_id:                    r.warehouse_id,
         division_id:                     r.division_id,
@@ -223,6 +265,9 @@ export function useWarehouseSubContainersAdmin(warehouseId?: string | null) {
         project_id:                      null,
         discipline_id:                   null,
       }))
+      // Admin RPC has no ORDER BY → sort a-z / 1..N by name here.
+      rows.sort((a, b) => compareSubContainerName(a.name, b.name))
+      return rows
     },
     enabled: !!warehouseId,
     staleTime: 60 * 1000,

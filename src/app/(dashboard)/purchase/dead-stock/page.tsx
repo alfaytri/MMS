@@ -10,6 +10,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
 import { Badge } from '@/components/ui/badge'
 import { useDeadStockReport, type DeadStockItem, type DeadStockStatus } from '@/hooks/useDeadStock'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { formatCurrency, formatDate, formatRelative } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 
@@ -57,7 +58,10 @@ export default function DeadStockPage() {
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<DeadStockStatus | ''>('')
 
-  const { data: rawItems = [], isLoading } = useDeadStockReport()
+  // Scope the report to the active division(s) from the top bar (empty = All).
+  const { viewDivisionIds } = useActiveDivision()
+  const divisionIds = useMemo(() => Array.from(viewDivisionIds), [viewDivisionIds])
+  const { data: rawItems = [], isLoading } = useDeadStockReport(divisionIds)
 
   const items = useMemo(() => {
     let list = rawItems

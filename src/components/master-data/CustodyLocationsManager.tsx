@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { ChevronDown, MoreHorizontal, Pencil, Power, Users2, User } from 'lucide-react'
@@ -107,7 +108,7 @@ export function CustodyLocationsManager() {
       { id, warehouse_id: selectedWhId, is_active: isActive },
       {
         onSuccess: () => toast.success(isActive ? 'Location activated' : 'Location deactivated'),
-        onError: (e) => toast.error((e as Error).message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }

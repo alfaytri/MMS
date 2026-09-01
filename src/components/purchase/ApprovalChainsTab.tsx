@@ -1,6 +1,7 @@
 // src/components/purchase/ApprovalChainsTab.tsx
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
@@ -139,7 +140,7 @@ export function ApprovalChainsTab() {
       { division_id: divisionId, name: newChainName.trim() },
       {
         onSuccess: () => { setNewChainName(''); setNewChainDivision(''); toast.success('Chain created') },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -154,7 +155,7 @@ export function ApprovalChainsTab() {
       { chain_id: chainId, rank: nextRank(chainId), min_amount, max_amount: parseTierForm(tierForm).max_amount, required_roles: tierForm.roles },
       {
         onSuccess: () => { setAddingTierFor(null); setTierForm(EMPTY_FORM); toast.success('Tier added') },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -192,7 +193,7 @@ export function ApprovalChainsTab() {
       },
       {
         onSuccess: () => { setEditingTier(null); toast.success('Tier updated') },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -210,7 +211,7 @@ export function ApprovalChainsTab() {
               : `${divName ?? 'Division'} will use Company Default`,
           )
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -411,7 +412,7 @@ export function ApprovalChainsTab() {
                               </Button>
                               <Button
                                 variant="ghost" size="icon" className="h-7 w-7"
-                                onClick={() => deleteTier.mutate({ tierId: tier.id, chainId: chain.id }, { onError: (e) => toast.error(e.message) })}
+                                onClick={() => deleteTier.mutate({ tierId: tier.id, chainId: chain.id }, { onError: (e) => toast.error(humanizeDbError(e)) })}
                               >
                                 <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
                               </Button>
@@ -480,7 +481,7 @@ export function ApprovalChainsTab() {
           if (archiveTarget) {
             deleteChain.mutate(archiveTarget.id, {
               onSuccess: () => { toast.success('Chain deleted'); setArchiveTarget(null) },
-              onError: (e) => toast.error(e.message),
+              onError: (e) => toast.error(humanizeDbError(e)),
             })
           }
         }}

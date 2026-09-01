@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, FileText, Clock, Package, DollarSign, Search, X, MoreVertical, ChevronDown } from 'lucide-react'
@@ -554,7 +555,7 @@ export default function PurchaseOrdersPage() {
                                   if (!confirm(`Cancel ${po.po_number}? The PO will remain visible with Cancelled status.`)) return
                                   cancelPO.mutate(po.id, {
                                     onSuccess: () => toast.success(`${po.po_number} cancelled`),
-                                    onError: (e) => toast.error(e.message),
+                                    onError: (e) => toast.error(humanizeDbError(e)),
                                   })
                                 }}
                               >

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Check, Lock, ShieldCheck, ShieldX, X } from 'lucide-react'
@@ -83,7 +84,7 @@ export function ConsumptionEditRequestBanner({ request, canReview }: Props) {
                       },
                       {
                         onSuccess: () => toast.success('Approved — stock restored'),
-                        onError:   (err) => toast.error(err.message),
+                        onError:   (err) => toast.error(humanizeDbError(err)),
                       },
                     )
                   }}
@@ -133,7 +134,7 @@ export function ConsumptionEditRequestBanner({ request, canReview }: Props) {
                         setDeclineOpen(false)
                         setDeclineComment('')
                       },
-                      onError: (err) => toast.error(err.message),
+                      onError: (err) => toast.error(humanizeDbError(err)),
                     },
                   )
                 }}

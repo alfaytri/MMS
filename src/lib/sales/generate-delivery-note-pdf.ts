@@ -3,6 +3,7 @@ import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { fetchArabicNamesByBrandVariant, fetchOriginsByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchCategoryInfoByBrandVariant } from '@/lib/pdf/category-paths'
 import {
   buildDeliveryNoteHtml,
   type DeliveryNoteItem,
@@ -73,14 +74,16 @@ export async function generateDeliveryNotePdf(
 
   const rawLines = del.sale_delivery_lines ?? []
   const bvIds = rawLines.map((l) => l.brand_variant_id)
-  const [arMap, originMap] = await Promise.all([
+  const [arMap, originMap, catMap] = await Promise.all([
     fetchArabicNamesByBrandVariant(supabase, bvIds),
     fetchOriginsByBrandVariant(supabase, bvIds),
+    fetchCategoryInfoByBrandVariant(supabase, bvIds),
   ])
   const items: DeliveryNoteItem[] = rawLines.map(i => ({
     itemName:     i.item_name,
     itemNameAr:   i.brand_variant_id ? arMap.get(i.brand_variant_id) ?? null : null,
     origin:       i.brand_variant_id ? originMap.get(i.brand_variant_id) ?? null : null,
+    categoryPath: i.brand_variant_id ? catMap.get(i.brand_variant_id)?.category_path ?? null : null,
     sku:          i.sku,
     qtyDelivered: i.qty_delivered,
   }))

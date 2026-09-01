@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo } from 'react'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -147,7 +148,7 @@ export default function UsersRolesPage() {
       { full_name: name },
       {
         onSuccess: () => { toast.success('Profile created'); setMyName('') },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -471,7 +472,7 @@ export default function UsersRolesPage() {
           if (!deleteRoleTarget) return
           deleteRole?.mutate(deleteRoleTarget.id, {
             onSuccess: () => { toast.success('Role deleted'); setDeleteRoleTarget(null) },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => toast.error(humanizeDbError(err)),
           })
         }}
         onOpenChange={(open) => { if (!open) setDeleteRoleTarget(null) }}

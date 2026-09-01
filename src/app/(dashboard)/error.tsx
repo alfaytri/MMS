@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle } from 'lucide-react'
 
@@ -13,6 +14,10 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     console.error('Dashboard error:', error)
+    // Report caught render errors (incl. React #185 "Maximum update depth") so
+    // they surface in Sentry with the route + digest — otherwise this boundary
+    // swallows them to the console and they're invisible in production.
+    Sentry.captureException(error)
   }, [error])
 
   return (

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -263,7 +264,7 @@ export function DivisionFormDialog({
             toast.success('Division updated')
             handleOpenChange(false)
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         }
       )
     } else {
@@ -274,7 +275,7 @@ export function DivisionFormDialog({
           toast.success('Division created')
           handleOpenChange(false)
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       })
     }
   }

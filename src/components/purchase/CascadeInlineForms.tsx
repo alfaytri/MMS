@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, type KeyboardEvent } from 'react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -43,7 +44,7 @@ export function CascadeNewCategoryForm({ lineType, parentId = null, onCreated, o
       },
       {
         onSuccess: (cat) => { toast.success('Category created'); onCreated(cat) },
-        onError:   (err) => toast.error(err.message),
+        onError:   (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -118,7 +119,7 @@ export function CascadeNewItemForm({ categoryId, onCreated, onCancel }: NewItemF
       },
       {
         onSuccess: (item) => { toast.success('Item created'); onCreated(item as InventoryItem) },
-        onError:   (err)  => toast.error(err.message),
+        onError:   (err)  => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -231,7 +232,7 @@ export function CascadeNewVariantForm({ itemId, onCreated, onCancel }: NewVarian
             country_codes: country ? { name: country.name, flag: country.flag, iso: country.iso } : null,
           })
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }

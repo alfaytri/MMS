@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -21,6 +22,8 @@ import {
   useResolveDebitNoteReplacement,
 } from '@/hooks/useCreditNotes'
 import { useReturnLineProgress, useReturnProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
+import { useSkuItemMeta } from '@/hooks/useSkuCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import type { DebitNote, DebitNoteLine } from '@/types/invoice'
 
 /** DebitNote with joined relations from useDebitNotes */
@@ -72,6 +75,19 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
   const linkedReturnId = isCredit && note ? (note as CreditNote).source_return_id : null
   const { data: lineProgress = [] } = useReturnLineProgress(open ? linkedReturnId : null)
   const { data: returnProgress } = useReturnProgress(open ? linkedReturnId : null)
+
+  // Category breadcrumb above each item name. Note-line tables drop the variant
+  // fk at insert time, keeping only the SKU — so resolve SKU → category tree
+  // (variant `code` is a unique natural key). Covers both the original and
+  // returned tables, both note kinds.
+  const noteSkus = useMemo(() => {
+    if (!open) return []
+    const lines = (noteKind === 'debit'
+      ? (note as DebitNoteWithJoins | null)?.debit_note_lines
+      : (note as CreditNote | null)?.credit_note_lines) ?? []
+    return lines.map((l) => l.sku).filter((s): s is string => !!s)
+  }, [note, noteKind, open])
+  const skuMeta = useSkuItemMeta(noteSkus)
 
   // Build unit-price-per-return-line map by matching return_lines to CN's
   // returned credit_note_lines by brand_variant_id (SKU/item fallback).
@@ -267,7 +283,9 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                 <TableBody>
                   {pdfData.original_lines.map((line: NoteLineItem, idx: number) => (
                     <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
-                      <TableCell className="text-sm">{line.item_name}</TableCell>
+                      <TableCell className="text-sm">
+                        <ItemLabel meta={line.sku ? skuMeta.get(line.sku) : undefined} name={line.item_name} />
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
                       <TableCell className="text-sm text-right whitespace-nowrap tabular-nums">
@@ -305,7 +323,9 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                 <TableBody>
                   {pdfData.returned_lines.map((line: NoteDebitLineItem, idx: number) => (
                     <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
-                      <TableCell className="text-sm">{line.item_name}</TableCell>
+                      <TableCell className="text-sm">
+                        <ItemLabel meta={line.sku ? skuMeta.get(line.sku) : undefined} name={line.item_name} />
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
                       {isDebit && (
@@ -416,7 +436,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                               amount: note.total_amount,
                             }, {
                               onSuccess: () => { toast.success('Credit added to customer balance') },
-                              onError: (e) => { toast.error(e.message) },
+                              onError: (e) => { toast.error(humanizeDbError(e)) },
                             })
                           }}
                         >
@@ -480,7 +500,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       toast.success('Refund recorded')
                       setShowRefundForm(false)
                     },
-                    onError: (e) => { toast.error(e.message) },
+                    onError: (e) => { toast.error(humanizeDbError(e)) },
                   })
                 }}
               />
@@ -514,7 +534,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       toast.success('Credit added to customer balance')
                       setShowStoreCreditForm(false)
                     },
-                    onError: (e) => { toast.error(e.message) },
+                    onError: (e) => { toast.error(humanizeDbError(e)) },
                   })
                 }}
               />
@@ -540,7 +560,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                       toast.success('Marked as replacement')
                       setShowReplacementReceival(true)
                     },
-                    onError: (e) => { toast.error(e.message) },
+                    onError: (e) => { toast.error(humanizeDbError(e)) },
                   })
                 }}
                 disabled={resolveDebitReplacement.isPending}

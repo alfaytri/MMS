@@ -22,6 +22,9 @@ import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDia
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { useToolUnitItemMeta } from '@/hooks/useToolUnitCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useCustodyLocations, type CustodyLocationRow } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions, useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
@@ -199,6 +202,17 @@ function CustodyTab({
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [rows])
 
+  // Collapsed division sections (default: all expanded). Lets the operator fold
+  // away a long division — e.g. Maintenance's 35 teams — to reach the others.
+  const [collapsedDivisions, setCollapsedDivisions] = useState<Set<string>>(new Set())
+  function toggleDivision(name: string) {
+    setCollapsedDivisions((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
+
   // Serialized tool units assigned to these teams — one bulk query for the whole
   // tab (scoped to the divisions actually shown), grouped per team and handed to
   // each card, mirroring how stockRows is loaded once and distributed. Read-only:
@@ -251,33 +265,45 @@ function CustodyTab({
 
   return (
     <div className="space-y-6">
-      {grouped.map(([divisionName, subs]) => (
-        <div key={divisionName} className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{divisionName}</h3>
-            <span className="text-[11px] text-muted-foreground">
-              {subs.length} location{subs.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {subs.map((sub, i) => (
-              <div key={sub.id} className={STAGGER_IN} style={staggerDelay(i)}>
-                <CustodyCard
-                  sub={sub}
-                  warehouseId={warehouseId}
-                  warehouseName={warehouseName}
-                  canEdit={canEdit}
-                  canTransferCustody={canTransferCustody}
-                  realWarehouses={realWarehouses}
-                  stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
-                  pending={pendingBySub.get(sub.id) ?? []}
-                  toolUnits={toolsBySub.get(sub.id) ?? []}
-                />
+      {grouped.map(([divisionName, subs]) => {
+        const isCollapsed = collapsedDivisions.has(divisionName)
+        return (
+          <div key={divisionName} className="space-y-2">
+            <button
+              type="button"
+              onClick={() => toggleDivision(divisionName)}
+              className="group flex w-full items-baseline justify-between gap-2"
+            >
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground uppercase tracking-wide transition-colors group-hover:text-foreground">
+                {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 self-center" /> : <ChevronDown className="h-3.5 w-3.5 self-center" />}
+                {divisionName}
+              </h3>
+              <span className="text-[11px] text-muted-foreground">
+                {subs.length} location{subs.length === 1 ? '' : 's'}
+              </span>
+            </button>
+            {!isCollapsed && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {subs.map((sub, i) => (
+                  <div key={sub.id} className={STAGGER_IN} style={staggerDelay(i)}>
+                    <CustodyCard
+                      sub={sub}
+                      warehouseId={warehouseId}
+                      warehouseName={warehouseName}
+                      canEdit={canEdit}
+                      canTransferCustody={canTransferCustody}
+                      realWarehouses={realWarehouses}
+                      stockRows={stock.filter((s) => s.sub_container_id === sub.id)}
+                      pending={pendingBySub.get(sub.id) ?? []}
+                      toolUnits={toolsBySub.get(sub.id) ?? []}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -311,6 +337,11 @@ function CustodyCard({
   const [acceptRow, setAcceptRow] = useState<PendingCustodyAssign | null>(null)
 
   const canCreateConsumption = useCanCreateConsumptionFor('custody')
+
+  // Category breadcrumb above each held item name.
+  const variantMeta = useVariantItemMeta(stockRows.map((r) => r.brand_variant_id))
+  // …and above each assigned tool name (tools resolve via their unit id).
+  const toolMeta = useToolUnitItemMeta(toolUnits.map((t) => t.unit_id))
 
   const isResponsible      = !!profile?.id && profile.id === sub.responsible_person_profile_id
   const isPrivileged       = !!perms && (perms.isSystemAdmin || perms.roles.includes('inventory_manager'))
@@ -487,7 +518,7 @@ function CustodyCard({
               {stockRows.map((r) => (
                 <div key={r.brand_variant_id} className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2 text-[11px]">
                   <div className="min-w-0">
-                    <div className="font-medium break-words">{r.item_name}</div>
+                    <ItemLabel meta={variantMeta.get(r.brand_variant_id)} name={r.item_name} nameClassName="font-medium break-words" />
                     {r.brand && <div className="text-[10px] text-muted-foreground break-words">{r.brand}{r.sku ? ` · ${r.sku}` : ''}</div>}
                   </div>
                   <div className="flex items-baseline gap-1.5 tabular-nums text-[11px] shrink-0 sm:flex-col sm:items-end sm:gap-0 sm:text-right">
@@ -529,7 +560,7 @@ function CustodyCard({
               {toolUnits.map((t) => (
                 <div key={t.unit_id} className="flex items-start justify-between gap-2 text-[11px]">
                   <div className="min-w-0">
-                    <div className="font-medium break-words">{t.item_name ?? 'Tool'}</div>
+                    <ItemLabel meta={toolMeta.get(t.unit_id)} name={t.item_name ?? 'Tool'} nameClassName="font-medium break-words" />
                     {t.serial_number && (
                       <div className="text-[10px] text-muted-foreground font-mono break-words">SN {t.serial_number}</div>
                     )}

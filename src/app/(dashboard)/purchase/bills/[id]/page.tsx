@@ -11,6 +11,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useBillViewModel, useBillAttachments } from '@/hooks/useSupplierBills'
 import { BillAttachmentsList } from '@/components/purchase/BillAttachmentsList'
 import { BillPaymentsList } from '@/components/purchase/BillPaymentsList'
+import { PoPaymentDialog } from '@/components/purchase/PoPaymentDialog'
+import { usePurchaseOrder } from '@/hooks/usePurchaseOrders'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { cn } from '@/lib/utils'
 
 const PAY_STATUS_COLORS: Record<string, string> = {
@@ -66,6 +69,14 @@ function BillDetailContent() {
   const bill = viewModel?.bill
   const paymentStatus = bill?.payment_status ?? 'unpaid'
 
+  // P3 parity — record a supplier payment from the bill detail (edit/delete
+  // already live in BillPaymentsList). The payment is booked against the bill's PO.
+  const poId = (bill as { purchase_order_id?: string | null } | undefined)?.purchase_order_id ?? null
+  const { data: purchaseOrder } = usePurchaseOrder(poId)
+  const canManagePayments = useHasPermission('purchase.payments.manage')
+  const [paymentOpen, setPaymentOpen] = useState(false)
+  const canRecordPayment = canManagePayments && !!purchaseOrder && paymentStatus !== 'paid'
+
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]">
       {/* Slim toolbar */}
@@ -85,6 +96,12 @@ function BillDetailContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {canRecordPayment && (
+            <Button size="sm" onClick={() => setPaymentOpen(true)}>
+              <Wallet className="h-3.5 w-3.5 mr-1.5" />
+              Record Payment
+            </Button>
+          )}
           <Popover>
             <PopoverTrigger
               render={<Button size="sm" variant="outline" className="gap-1.5" />}
@@ -172,6 +189,11 @@ function BillDetailContent() {
           />
         )}
       </div>
+
+      {/* P3 parity — record a supplier payment against the bill's PO. */}
+      {purchaseOrder && (
+        <PoPaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} po={purchaseOrder} />
+      )}
     </div>
   )
 }

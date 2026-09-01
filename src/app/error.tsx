@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 
 export default function GlobalError({
   error,
@@ -11,6 +12,9 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error('Global error:', error)
+    // Report caught render errors (incl. React #185 "Maximum update depth") to
+    // Sentry so they're visible in production instead of only in the console.
+    Sentry.captureException(error)
   }, [error])
 
   return (

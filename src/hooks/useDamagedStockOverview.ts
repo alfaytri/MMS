@@ -398,6 +398,7 @@ export type PendingRepairAssignmentRow = {
   return_number:     string
   warehouse_id:      string
   warehouse_name:    string
+  division_id:       string | null
   brand_variant_id:  string | null
   item_name:         string
   sku:               string
@@ -424,6 +425,7 @@ export function usePendingRepairAssignments() {
             so_po_returns!inner (
               return_number,
               restock_warehouse_id,
+              division_id,
               warehouses:restock_warehouse_id ( name )
             )
           )
@@ -446,6 +448,7 @@ export function usePendingRepairAssignments() {
           so_po_returns: {
             return_number: string | null
             restock_warehouse_id: string | null
+            division_id: string | null
             warehouses: { name: string | null } | null
           } | null
         } | null
@@ -459,6 +462,7 @@ export function usePendingRepairAssignments() {
           return_number:    ret?.return_number ?? '—',
           warehouse_id:     ret?.restock_warehouse_id ?? '',
           warehouse_name:   ret?.warehouses?.name ?? '—',
+          division_id:      ret?.division_id ?? null,
           brand_variant_id: rl?.brand_variant_id ?? null,
           item_name:        rl?.item_name ?? 'Unknown item',
           sku:              rl?.sku ?? '',

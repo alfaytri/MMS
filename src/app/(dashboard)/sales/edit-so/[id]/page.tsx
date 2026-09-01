@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Users, Package, AlertTriangle } from 'lucide-react'
@@ -187,7 +188,7 @@ export default function EditSOPage() {
         }
         router.push('/sales/orders')
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 

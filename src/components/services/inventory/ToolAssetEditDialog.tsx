@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -47,13 +48,13 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }
     if (isEdit && item) {
       update.mutate({ id: item.id, ...payload }, {
         onSuccess: () => { toast.success('Tool updated'); guardRef.current?.closeAfterSubmit() },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       })
     } else {
       if (!categoryId) { toast.error('Category is required to create a tool'); return }
       create.mutate({ ...payload, category_id: categoryId }, {
         onSuccess: () => { toast.success('Tool created'); guardRef.current?.closeAfterSubmit() },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       })
     }
   }
@@ -195,12 +196,12 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
     if (isEdit && unit) {
       update.mutate({ id: unit.id, item_id: itemId, ...payload }, {
         onSuccess: () => { toast.success('Unit updated'); guardRef.current?.closeAfterSubmit() },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       })
     } else {
       create.mutate({ item_id: itemId, ...payload }, {
         onSuccess: () => { toast.success('Unit added'); guardRef.current?.closeAfterSubmit() },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       })
     }
   }

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -11,6 +12,8 @@ import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEdi
 import { ToolUnitTransferDialog } from './ToolUnitTransferDialog'
 import { PlaceholderUnitRow } from './PlaceholderUnitRow'
 import { BulkToolItemRow } from './BulkToolItemRow'
+import { ToolModeBadge, ToolModeDot } from '@/components/warehouse/tools-assets/ToolBadges'
+import { useToolPerDivisionModes, type ToolDivisionMode } from '@/hooks/useToolPerDivisionModes'
 import { BulkToolStockProvider, type BulkToolStockBatch } from '@/components/shared/BulkToolStockContext'
 import { useBulkToolStockBatch } from '@/hooks/useBulkToolStockBatch'
 import {
@@ -48,7 +51,7 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
   function handleAutoGenerate() {
     autoGenerate.mutate({ item_id: itemId }, {
       onSuccess: (res) => toast.success(`Generated ${res.updated_count} serial${res.updated_count === 1 ? '' : 's'}`),
-      onError: (err) => toast.error(err.message),
+      onError: (err) => toast.error(humanizeDbError(err)),
     })
   }
 
@@ -170,6 +173,7 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
         <td className="py-2.5 pr-2" style={{ paddingLeft: indent }}>
           <div className="flex items-center gap-2 min-w-0">
             {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+            <ToolModeDot mode="serialized" />
             <span className="text-sm font-medium truncate">{item.name_en}</span>
             {item.name_ar && <span className="text-[10px] text-muted-foreground truncate flex-shrink-0" dir="rtl">{item.name_ar}</span>}
           </div>
@@ -189,6 +193,97 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
   )
 }
 
+// One tool item that has per-(item,division) mode overrides — rendered ONCE
+// (no duplicate catalog record), with each division's effective mode + stock
+// inline. Bulk divisions show a quantity; serialized divisions show a serial-
+// unit count. Tools Per-Division Mode, Phase 2.
+function PerDivisionToolItemRow({ item, depth, divisions }: { item: InventoryItem; depth: number; divisions: ToolDivisionMode[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const indent = 12 + (depth + 1) * 20
+  const stockLabel = (d: ToolDivisionMode) =>
+    d.effective_mode === 'bulk'
+      ? `${d.bulk_qty.toLocaleString()} qty`
+      : `${d.unit_count} unit${d.unit_count === 1 ? '' : 's'}`
+  // Custody side (Phase 4): if any division tracks this item serialized, the
+  // expanded row surfaces the actual serial units (view / add / auto-generate /
+  // edit / transfer) via the shared ToolUnitRows — the same UI a serialized-
+  // category item gets. The units carry their own division_id (shown in the
+  // DIVISION column), so all of the item's units belong to its serialized
+  // divisions; bulk divisions hold qty, never units.
+  const serializedDivs = divisions.filter((d) => d.effective_mode === 'serialized')
+  const hasSerialized = serializedDivs.length > 0
+  return (
+    <>
+      <tr className="border-b border-border hover:bg-muted/20 cursor-pointer" onClick={() => setExpanded((v) => !v)}>
+        <td className="py-2.5 pr-2" style={{ paddingLeft: indent }}>
+          <div className="flex items-center gap-2 min-w-0">
+            {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+            <span className="text-sm font-medium truncate">{item.name_en}</span>
+          </div>
+        </td>
+        <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {divisions.map((d) => (
+              <span key={d.division_id} className="inline-flex items-center gap-1 whitespace-nowrap">
+                <ToolModeBadge mode={d.effective_mode} />
+                <span>{d.division_name} · {stockLabel(d)}</span>
+              </span>
+            ))}
+          </div>
+        </td>
+        <td className="py-2.5 px-2 text-right">
+          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="icon" aria-label="Edit tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </div>
+        </td>
+      </tr>
+      {expanded && (
+        <>
+          <tr className="bg-muted/10">
+            <td colSpan={3} className="py-2 pl-12 pr-4">
+              <div className="rounded border border-border overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="text-left text-[10px] font-semibold py-1.5 px-2">DIVISION</th>
+                      <th className="text-left text-[10px] font-semibold py-1.5 px-2">MODE</th>
+                      <th className="text-left text-[10px] font-semibold py-1.5 px-2">STOCK</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {divisions.map((d) => (
+                      <tr key={d.division_id} className="border-t border-border">
+                        <td className="py-1.5 px-2">{d.division_name}</td>
+                        <td className="py-1.5 px-2"><ToolModeBadge mode={d.effective_mode} /></td>
+                        <td className="py-1.5 px-2">
+                          {d.effective_mode === 'bulk'
+                            ? `${d.bulk_qty.toLocaleString()} on hand (quantity, sellable)`
+                            : `${d.unit_count} serial unit${d.unit_count === 1 ? '' : 's'} (custody)`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {hasSerialized && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Serial units for the custody division{serializedDivs.length === 1 ? '' : 's'}
+                  {' '}({serializedDivs.map((d) => d.division_name).join(', ')}) — add, auto-generate, edit, or transfer below.
+                </p>
+              )}
+            </td>
+          </tr>
+          {hasSerialized && <ToolUnitRows itemId={item.id} itemSku={item.sku} />}
+        </>
+      )}
+      <ItemEditDialog open={editOpen} onOpenChange={setEditOpen} categoryId={item.category_id} categoryType="tools" item={item} />
+    </>
+  )
+}
+
 type Props = {
   node: InventoryTreeNode
   showArchived: boolean
@@ -197,12 +292,15 @@ type Props = {
   onMoveUp: () => void
   onMoveDown: () => void
   depth?: number
+  /** When set (nav-bar division filter active), restrict this category's tool
+   *  items to those shared with the selected division(s). Undefined = show all. */
+  filterItemIds?: Set<string>
   /** Set by ToolsAssetsView on the top-level rows only — one-time staggered
    *  slide-in on first mount. Undefined on nested child rows. */
   animationIndex?: number
 }
 
-export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, animationIndex }: Props) {
+export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, onMoveUp, onMoveDown, depth = 0, filterItemIds, animationIndex }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [dialogReadOnly, setDialogReadOnly] = useState(false)
@@ -224,11 +322,18 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   // A tools category can hold both direct tool items AND sub-categories.
   const { data: toolItems = [] } = useInventoryItemsByCategory(expanded ? node.id : null, showArchived)
 
+  // When the nav-bar division filter is active, hide items not shared with the
+  // selected division(s) — mirrors CategoryRow for the other inventory tabs.
+  const visibleItems = useMemo(
+    () => (filterItemIds ? toolItems.filter((it) => filterItemIds.has(it.id)) : toolItems),
+    [toolItems, filterItemIds],
+  )
+
   // Batched variants + on-hand for bulk-tool rows — one variants query + one
   // stock query per expanded bulk category, replacing BulkToolItemRow's per-row
   // N+1. Distributed via BulkToolStockProvider (only the bulk branch below).
   const isBulk = node.tool_tracking_mode === 'bulk'
-  const bulkItemIds = useMemo(() => (isBulk ? toolItems.map((i) => i.id) : []), [isBulk, toolItems])
+  const bulkItemIds = useMemo(() => (isBulk ? visibleItems.map((i) => i.id) : []), [isBulk, visibleItems])
   const { data: bulkStock } = useBulkToolStockBatch(expanded ? bulkItemIds : [], showArchived)
   const bulkStockValue = useMemo<BulkToolStockBatch>(
     () => ({
@@ -237,6 +342,11 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
     }),
     [bulkStock],
   )
+
+  // Per-(item,division) mode overrides for this category's items (Phase 2).
+  // Items present here have a per-division mode split and render ONCE via
+  // PerDivisionToolItemRow; all others use the normal category-mode path below.
+  const { data: perDivModes } = useToolPerDivisionModes(expanded ? node.id : null)
 
   const indent = 12 + depth * 20
   const depthStyle = categoryDepthStyle(depth)
@@ -279,17 +389,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         </td>
         <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5 min-h-[18px]">
-            <span
-              className={`inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-medium whitespace-nowrap ${
-                node.tool_tracking_mode === 'bulk'
-                  ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
-                  : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-              }`}
-            >
-              {node.tool_tracking_mode === 'bulk' ? 'Bulk' : 'Serialized'}
-            </span>
-            {expanded && toolItems.length > 0 && (
-              <span>{toolItems.length} item{toolItems.length !== 1 ? 's' : ''}</span>
+            <ToolModeBadge mode={node.tool_tracking_mode === 'bulk' ? 'bulk' : 'serialized'} />
+            {expanded && visibleItems.length > 0 && (
+              <span>{visibleItems.length} item{visibleItems.length !== 1 ? 's' : ''}</span>
             )}
           </div>
         </td>
@@ -325,6 +427,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
           key={child.id}
           node={child}
           showArchived={showArchived}
+          filterItemIds={filterItemIds}
           canMoveUp={idx > 0}
           canMoveDown={idx < node.children.length - 1}
           onMoveUp={() => handleChildCategoryMove(idx, 'up')}
@@ -333,17 +436,29 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         />
       ))}
 
-      {expanded && (
-        isBulk
-          ? (
-            <BulkToolStockProvider value={bulkStockValue}>
-              {toolItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
-            </BulkToolStockProvider>
-          )
-          : toolItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)
-      )}
+      {expanded && (() => {
+        // Items with a per-(item,division) mode override render once via
+        // PerDivisionToolItemRow (no duplicate record); the rest use the normal
+        // category-mode path (bulk qty rows or serialized unit rows).
+        const perDivItems = perDivModes ? visibleItems.filter((it) => perDivModes.has(it.id)) : []
+        const regularItems = perDivModes ? visibleItems.filter((it) => !perDivModes.has(it.id)) : visibleItems
+        return (
+          <>
+            {perDivItems.map((item) => (
+              <PerDivisionToolItemRow key={item.id} item={item} depth={depth} divisions={perDivModes!.get(item.id)!} />
+            ))}
+            {isBulk
+              ? (
+                <BulkToolStockProvider value={bulkStockValue}>
+                  {regularItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
+                </BulkToolStockProvider>
+              )
+              : regularItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)}
+          </>
+        )
+      })()}
 
-      {expanded && isLeaf && toolItems.length === 0 && (
+      {expanded && isLeaf && visibleItems.length === 0 && (
         <tr className="border-b border-border">
           <td colSpan={3} className="py-3 text-[11px] text-muted-foreground" style={{ paddingLeft: indent + 24 }}>
             No tools in this category yet.
@@ -366,7 +481,7 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         onConfirm={() =>
           archiveCategory.mutate(node.id, {
             onSuccess: () => { toast.success('Category archived'); setArchiveOpen(false) },
-            onError: (err) => toast.error(err.message),
+            onError: (err) => toast.error(humanizeDbError(err)),
           })
         }
       />

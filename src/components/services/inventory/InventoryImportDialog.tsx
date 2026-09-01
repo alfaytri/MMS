@@ -23,7 +23,6 @@ import {
 import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared/GuardedFormDialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import {
@@ -97,6 +96,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
       await downloadTemplate({
         subContainers:      subContainerOptions,
         existingCategories: lookup.existingCategoryOptions,
+        countryNames:       lookup.countryNames,
       })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to build the template.')
@@ -135,8 +135,11 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
       setPreview(null)
 
       try {
-        const ctx = buildParseContext(subContainerOptions)
-        const [rows, lookup] = await Promise.all([parseExcelFile(selected, ctx), lookupMutation.mutateAsync()])
+        // Fetch the lookup first so the parse context has the country map —
+        // origin resolution (Origin column → country_id) happens at parse time.
+        const lookup = await lookupMutation.mutateAsync()
+        const ctx = buildParseContext(subContainerOptions, lookup.countryByName)
+        const rows = await parseExcelFile(selected, ctx)
 
         if (rows.length === 0) {
           toast.error('No data rows found in the file.')
@@ -205,6 +208,7 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
       if (result.categoriesCreated > 0) created.push(`${result.categoriesCreated} categor${result.categoriesCreated === 1 ? 'y' : 'ies'}`)
       if (result.itemsCreated > 0) created.push(`${result.itemsCreated} item${result.itemsCreated === 1 ? '' : 's'}`)
       if (result.variantsCreated > 0) created.push(`${result.variantsCreated} variant${result.variantsCreated === 1 ? '' : 's'}`)
+      if (result.unitsSeeded > 0) created.push(`${result.unitsSeeded.toLocaleString('en-QA')} unit${result.unitsSeeded === 1 ? '' : 's'} of stock`)
       toast.success(created.length > 0 ? `Import complete — created ${created.join(', ')}` : 'Import complete')
 
       if (result.skipped > 0) {
@@ -226,7 +230,12 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
 
   return (
     <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={!!file || !!preview} ref={guardRef}>
-      <DialogContent className="w-full h-full rounded-none sm:h-auto sm:max-w-2xl sm:rounded-xl max-h-[100vh] sm:max-h-[85vh] flex flex-col">
+      <DialogContent className={cn(
+        'w-full h-full rounded-none sm:h-auto sm:rounded-xl max-h-[100vh] sm:max-h-[85vh] flex flex-col',
+        // The preview table is wide (Origin + Quantity columns); give it room on
+        // desktop while keeping the upload step compact.
+        step === 'preview' ? 'sm:max-w-5xl' : 'sm:max-w-2xl',
+      )}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
@@ -340,13 +349,17 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                 <Badge variant="secondary">{preview.newCategories} new categor{preview.newCategories === 1 ? 'y' : 'ies'}</Badge>
                 <Badge variant="secondary">{preview.newItems} new item{preview.newItems === 1 ? '' : 's'}</Badge>
                 <Badge variant="secondary">{preview.newVariants} new variant{preview.newVariants === 1 ? '' : 's'}</Badge>
+                {preview.newUnits > 0 && (
+                  <Badge variant="secondary">{preview.newUnits.toLocaleString('en-QA')} unit{preview.newUnits === 1 ? '' : 's'} of stock</Badge>
+                )}
                 {preview.totalErrors > 0 && (
                   <Badge variant="destructive">{preview.totalErrors} error{preview.totalErrors === 1 ? '' : 's'}</Badge>
                 )}
               </div>
 
-              {/* Preview table */}
-              <ScrollArea className="max-h-[40vh] rounded-md border">
+              {/* Preview table — native scroll so the wide table (Origin + Qty +
+                  Sub-container columns) scrolls both axes inside the dialog. */}
+              <div className="max-h-[40vh] overflow-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/40">
@@ -358,6 +371,8 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                       <TableHead className="text-[10px] py-1.5">Brand</TableHead>
                       <TableHead className="text-[10px] py-1.5 text-right">Cost</TableHead>
                       <TableHead className="text-[10px] py-1.5 text-right">Sell</TableHead>
+                      <TableHead className="text-[10px] py-1.5">Origin</TableHead>
+                      <TableHead className="text-[10px] py-1.5 text-right">Qty</TableHead>
                       <TableHead className="text-[10px] py-1.5">Sub-container</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -391,6 +406,8 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                         <TableCell className="text-xs py-1.5">{row.brand || '—'}</TableCell>
                         <TableCell className="text-xs py-1.5 text-right tabular-nums">{formatPrice(row.costPrice)}</TableCell>
                         <TableCell className="text-xs py-1.5 text-right tabular-nums">{formatPrice(row.sellingPrice)}</TableCell>
+                        <TableCell className="text-xs py-1.5">{row.origin || '—'}</TableCell>
+                        <TableCell className="text-xs py-1.5 text-right tabular-nums">{row.quantity > 0 ? row.quantity.toLocaleString('en-QA') : '—'}</TableCell>
                         <TableCell className="text-xs py-1.5 max-w-[220px] truncate" title={row.warehouseSubLabel}>
                           {row.subContainer ? (
                             <span className="inline-flex items-center gap-1">
@@ -409,14 +426,14 @@ export function InventoryImportDialog({ open, onOpenChange }: Props) {
                     ))}
                     {sortedRows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-6">
+                        <TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-6">
                           No rows found
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
-              </ScrollArea>
+              </div>
             </>
           )}
         </div>

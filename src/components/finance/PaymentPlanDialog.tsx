@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Trash2, CalendarClock, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
@@ -124,7 +125,7 @@ export function PaymentPlanDialog({
       toast.success('Payment plan created')
       guardRef.current?.closeAfterSubmit()
     } catch (err: unknown) {
-      toast.error((err as Error).message)
+      toast.error(humanizeDbError(err))
     } finally {
       setSaving(false)
     }

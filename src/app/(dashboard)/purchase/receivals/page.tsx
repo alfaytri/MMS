@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -22,6 +23,7 @@ import {
   type ReceivalEditRequest,
   type ReceivalStatus,
 } from '@/hooks/useReceivals'
+import { useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { useMyApprovalSlotRoles } from '@/hooks/useRoles'
 import { formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
@@ -137,7 +139,7 @@ function RequestEditDialog({
               { receival_id: receival.id, reason },
               {
                 onSuccess: () => { toast.success('Edit request sent to admin'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >
@@ -175,7 +177,7 @@ function AdminEditApprovalDialog({
               { request_id: request.id, action: 'rejected', rejection_note: rejectionNote },
               {
                 onSuccess: () => { toast.success('Edit request rejected'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >Reject</Button>
@@ -185,7 +187,7 @@ function AdminEditApprovalDialog({
               { request_id: request.id, action: 'approved' },
               {
                 onSuccess: () => { toast.success('Edit approved — 48h window open'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >Approve Edit</Button>
@@ -280,7 +282,7 @@ function ReceivalEditDialog({
               { edit_request_id: request.id, items },
               {
                 onSuccess: () => { toast.success('Receival updated'); onClose() },
-                onError: (e) => toast.error(e.message),
+                onError: (e) => toast.error(humanizeDbError(e)),
               }
             )}
           >
@@ -306,7 +308,18 @@ export default function ReceivalsPage() {
   const [adminApproveTarget, setAdminApproveTarget] = useState<ReceivalEditRequest | null>(null)
   const [detailReceival, setDetailReceival] = useState<Receival | null>(null)
 
-  const { data: receivals, isLoading } = useReceivals({ status: statusFilter, source_type: sourceFilter })
+  const { data: rawReceivals, isLoading } = useReceivals({ status: statusFilter, source_type: sourceFilter })
+  // Scope to the active-division view: keep a receival if any of its lines landed
+  // in a sub-container of the selected division(s) (a receival with no resolvable
+  // sub-container stays visible — mirrors the warehouse-ops Receivals tab).
+  const divVisible = useDivisionScopedVisibility()
+  const receivals = useMemo(() => {
+    const list = rawReceivals ?? []
+    return list.filter((r) => {
+      const ids = (r.receival_items ?? []).map((i) => i.sub_container_id).filter((x): x is string => !!x)
+      return ids.length === 0 || ids.some((id) => divVisible(id))
+    })
+  }, [rawReceivals, divVisible])
   const { data: lcLockedIds } = useLcLockedReceivalIds()
   const { data: myRoles = [] } = useMyApprovalSlotRoles()
   const canApproveEdit = myRoles.some(
@@ -374,7 +387,7 @@ export default function ReceivalsPage() {
       id: 'supplier',
       header: 'Supplier',
       cell: ({ row }) => (
-        <span className="text-sm truncate max-w-[160px] block">
+        <span className="text-sm break-words max-w-[240px] block">
           {row.original.supplier_name ?? '—'}
         </span>
       ),
@@ -553,7 +566,7 @@ export default function ReceivalsPage() {
                   : <><ShoppingCart className="h-3 w-3" /><span className="font-mono">{r.po_number ?? '—'}</span></>}
                 <span className="ml-auto tabular-nums">{formatDate(r.date)}</span>
               </div>
-              <p className="text-sm truncate">{r.supplier_name ?? '—'}</p>
+              <p className="text-sm break-words">{r.supplier_name ?? '—'}</p>
               <div className="flex items-center justify-between text-xs">
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                   <span className="tabular-nums font-medium text-foreground">{paid}</span> line{paid === 1 ? '' : 's'}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
+import { humanizeDbError } from '@/lib/dbErrors'
 import { Gift, Check, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -243,7 +244,7 @@ export function PoReceiveTab({
       setNotes('')
       onReceivalCreated?.({ id: result.receival_id, number: result.receival_number })
     } catch (err: unknown) {
-      toast.error((err as Error).message ?? 'Failed to record receival')
+      toast.error(humanizeDbError(err))
     } finally {
       setSaving(false)
     }

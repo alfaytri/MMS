@@ -5,11 +5,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { WarehouseIcon, MapPin, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, Boxes, Wrench } from 'lucide-react'
+import { WarehouseIcon, User, Package, DollarSign, ArrowRight, ChevronDown, ChevronUp, ChevronRight, Boxes, Wrench } from 'lucide-react'
+import { AddressMapLink } from '@/components/shared/AddressMapLink'
 import { Warehouse } from '@/hooks/useWarehouses'
 import { WarehouseStockTree } from '@/components/purchase/wh/WarehouseStockTree'
 import { WarehouseStockExportButton } from '@/components/purchase/wh/WarehouseStockExportButton'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 interface Props {
@@ -38,6 +41,19 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
     return { mainWarehouses: main, virtualWarehouses: virt }
   }, [warehouses])
 
+  // Active-division scoping: when a division is picked in the nav bar, show only
+  // that division's sub-containers (and hide warehouses that hold none of it).
+  const divVisible = useDivisionScopedVisibility()
+  const { viewDivisionIds } = useActiveDivision()
+  const divisionFiltered = viewDivisionIds.size > 0
+  const visibleBreakdown = (wh: Warehouse) =>
+    (wh.sub_container_breakdown ?? []).filter((sc) => divVisible(sc.sub_container_id))
+  // A warehouse shows when no division is selected, or it has ≥1 sub-container in
+  // the selected division(s).
+  const showWh = (wh: Warehouse) => !divisionFiltered || visibleBreakdown(wh).length > 0
+  const visibleMain = mainWarehouses.filter(showWh)
+  const visibleVirtual = virtualWarehouses.filter(showWh)
+
   const totalValue = useMemo(
     () => mainWarehouses.reduce((sum, wh) => sum + (wh.total_value ?? 0), 0),
     [mainWarehouses],
@@ -49,9 +65,16 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
   const [selectedSubByWh, setSelectedSubByWh] = useState<Record<string, string>>({})
   // Virtual section starts collapsed; the operator opens it to peek at repair activity
   const [virtualOpen, setVirtualOpen] = useState(false)
+  // Per-card sub-container breakdown collapse. Missing key = default (long lists
+  // auto-collapse so a 43-team card stays compact); an explicit bool overrides.
+  const [breakdownCollapsed, setBreakdownCollapsed] = useState<Record<string, boolean>>({})
 
   function toggleExpand(id: string) {
     setExpandedWh((prev) => { const n = new Set(prev); if (n.has(id)) { n.delete(id) } else { n.add(id) } return n })
+  }
+
+  function toggleBreakdown(id: string, current: boolean) {
+    setBreakdownCollapsed((prev) => ({ ...prev, [id]: !current }))
   }
 
   function setSubForWh(warehouseId: string, subId: string) {
@@ -78,13 +101,18 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
   function renderCard(wh: Warehouse, index = 0) {
     const isExpanded = expandedWh.has(wh.id)
     const isVirtual = wh.is_virtual
-    const breakdown = wh.sub_container_breakdown ?? []
+    const breakdown = visibleBreakdown(wh)
     const selectedSubId = selectedSubByWh[wh.id] ?? null
     const selectedSub = selectedSubId ? breakdown.find((sc) => sc.sub_container_id === selectedSubId) ?? null : null
-    // When a sub is selected, header shows THAT sub's numbers. Otherwise warehouse totals.
-    const displayItemCount = selectedSub ? selectedSub.item_count : (wh.item_count ?? 0)
-    const displayValue     = selectedSub ? selectedSub.total_value : (wh.total_value ?? 0)
+    // A selected sub shows its own numbers; otherwise warehouse totals, or the
+    // sum of the visible sub-containers when a division filter is active.
+    const divItems = breakdown.reduce((s, sc) => s + sc.item_count, 0)
+    const divValue = breakdown.reduce((s, sc) => s + sc.total_value, 0)
+    const displayItemCount = selectedSub ? selectedSub.item_count : (divisionFiltered ? divItems : (wh.item_count ?? 0))
+    const displayValue     = selectedSub ? selectedSub.total_value : (divisionFiltered ? divValue : (wh.total_value ?? 0))
     const hasBreakdown = breakdown.length > 0
+    // Long breakdowns (e.g. the 43-team Teams card) auto-collapse; explicit toggle wins.
+    const isBreakdownCollapsed = breakdownCollapsed[wh.id] ?? (breakdown.length > 6)
     return (
       <Card key={wh.id} className={`hover:shadow-md transition-shadow ${STAGGER_IN}`} style={staggerDelay(index)}>
         <CardHeader className="pb-2">
@@ -110,6 +138,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
                   {breakdown.map((sc) => (
                     <SelectItem key={sc.sub_container_id} value={sc.sub_container_id} className="text-xs">
                       {sc.sub_container_name}
+                      {sc.division_name ? <span className="text-muted-foreground"> · {sc.division_name}</span> : null}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -121,9 +150,8 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
               <span className="font-medium text-foreground">{wh.division_name}</span>
             </div>
           ) : null}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3 flex-shrink-0" />
-            {wh.location ?? 'No location set'}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+            <AddressMapLink address={wh.location} latitude={wh.latitude} longitude={wh.longitude} emptyLabel="No location set" />
           </div>
           <div className="flex items-center gap-1.5 text-xs">
             <User className="h-3 w-3 flex-shrink-0" />
@@ -154,18 +182,39 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
             )}
           </div>
 
-          {/* Sub-container breakdown — shown only when "All" is picked AND there's more than one sub */}
+          {/* Sub-container breakdown — shown when "All" is picked AND there's more than
+              one sub. Collapsible; long lists (e.g. 43 teams) auto-collapse to keep the
+              card compact. */}
           {!selectedSub && breakdown.length > 1 && (
-            <div className="space-y-1 pt-1 pl-1 border-l-2 border-primary/20 ml-0.5">
-              {breakdown.map((sc) => (
-                <div key={sc.sub_container_id} className="flex justify-between items-center gap-2 text-[11px] pl-2">
-                  <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
-                  <span className="flex items-center gap-2 text-muted-foreground tabular-nums flex-shrink-0">
-                    <span>{sc.item_count.toLocaleString('en-QA')} items</span>
-                    {canSeeCost && <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
-                  </span>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => toggleBreakdown(wh.id, isBreakdownCollapsed)}
+                className="flex w-full items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isBreakdownCollapsed ? <ChevronRight className="h-3 w-3 flex-shrink-0" /> : <ChevronDown className="h-3 w-3 flex-shrink-0" />}
+                <span>{isBreakdownCollapsed ? `Show ${breakdown.length} sub-containers` : 'Hide sub-containers'}</span>
+              </button>
+              {!isBreakdownCollapsed && (
+                <div className="space-y-1 pt-1 pl-1 border-l-2 border-primary/20 ml-0.5">
+                  {breakdown.map((sc) => (
+                    <div key={sc.sub_container_id} className="flex justify-between items-center gap-2 text-[11px] pl-2">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-muted-foreground truncate">{sc.sub_container_name}</span>
+                        {sc.division_name && (
+                          <span className="flex-shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground/90">
+                            {sc.division_name}
+                          </span>
+                        )}
+                      </span>
+                      <span className="flex items-center gap-2 text-muted-foreground tabular-nums flex-shrink-0">
+                        <span>{sc.item_count.toLocaleString('en-QA')} items</span>
+                        {canSeeCost && <span className="text-foreground">QR {sc.total_value.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
 
@@ -217,22 +266,31 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
 
   return (
     <div className="space-y-6">
+      {divisionFiltered && visibleMain.length === 0 && visibleVirtual.length === 0 && (
+        <div className="flex items-center justify-center h-40">
+          <p className="text-xs text-muted-foreground text-center">
+            No warehouses hold stock locations in the selected division. Switch division (or pick &ldquo;All&rdquo;) to see the rest.
+          </p>
+        </div>
+      )}
+
       {/* ── Main warehouses ── */}
-      {mainWarehouses.length > 0 && (
+      {visibleMain.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <WarehouseIcon className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Main Warehouses</h3>
-            <span className="text-xs text-muted-foreground">({mainWarehouses.length})</span>
+            <span className="text-xs text-muted-foreground">({visibleMain.length})</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mainWarehouses.map((wh, i) => renderCard(wh, i))}
+            {visibleMain.map((wh, i) => renderCard(wh, i))}
           </div>
         </div>
       )}
 
-      {/* ── Value comparison bar (main warehouses only) — cost-gated ── */}
-      {canSeeCost && mainWarehouses.length > 1 && totalValue > 0 && (
+      {/* ── Value comparison bar (main warehouses only) — cost-gated. Hidden under a
+             division filter: it compares whole-warehouse totals, not per-division. ── */}
+      {canSeeCost && !divisionFiltered && mainWarehouses.length > 1 && totalValue > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Stock Value by Warehouse</p>
           <TooltipProvider delayDuration={200}>
@@ -281,7 +339,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
       )}
 
       {/* ── Virtual warehouses (repair vendors) — collapsible ── */}
-      {virtualWarehouses.length > 0 && (
+      {visibleVirtual.length > 0 && (
         <div className="space-y-3 pt-2 border-t border-border/60">
           <Button
             variant="ghost"
@@ -292,7 +350,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
           >
             <Wrench className="h-4 w-4 text-amber-600" />
             Virtual Warehouses
-            <span className="text-xs font-normal text-muted-foreground">({virtualWarehouses.length})</span>
+            <span className="text-xs font-normal text-muted-foreground">({visibleVirtual.length})</span>
             {virtualOpen
               ? <ChevronUp   className="h-4 w-4 text-muted-foreground" />
               : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -304,7 +362,7 @@ export const WhWarehousesTab = React.memo(function WhWarehousesTab({ warehouses,
           )}
           {virtualOpen && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {virtualWarehouses.map((wh, i) => renderCard(wh, i))}
+              {visibleVirtual.map((wh, i) => renderCard(wh, i))}
             </div>
           )}
         </div>

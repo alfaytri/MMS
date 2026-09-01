@@ -155,6 +155,11 @@ export function PictureItemFind({
                       style={staggerDelay(i)}
                     >
                       <PicturePhoto url={s.image_url} name={s.item_name} size={64} />
+                      {s.subcategory_name && (
+                        <span className="w-full truncate text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                          {s.subcategory_name}
+                        </span>
+                      )}
                       <span className="w-full min-h-[2.5em] break-words text-xs font-semibold leading-tight">{s.item_name}</span>
                       <span className="mt-auto text-[11px] font-bold text-muted-foreground">{Math.floor(s.available_qty ?? 0)} left</span>
                     </button>

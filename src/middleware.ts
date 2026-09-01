@@ -4,6 +4,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const WEBHOOK_PREFIXES = [
   '/api/webhooks/',
+  // Scheduled-notifications cron — called by an external scheduler with a shared
+  // secret (no user session); the route validates `x-cron-secret` itself.
+  '/api/cron/',
 ]
 
 export async function middleware(request: NextRequest) {

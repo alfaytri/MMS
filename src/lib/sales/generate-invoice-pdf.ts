@@ -18,20 +18,23 @@ import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { fetchArabicNamesByEnglishName, fetchOriginsByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchCategoryInfoByBrandVariant } from '@/lib/pdf/category-paths'
 
 async function hydrateInvoiceLines(
   client: SupabaseClient,
   lines:  InvoiceLineItem[],
 ): Promise<InvoiceLineItem[]> {
   if (lines.length === 0) return lines
-  const [arMap, originMap] = await Promise.all([
+  const [arMap, originMap, catMap] = await Promise.all([
     fetchArabicNamesByEnglishName(client, lines.map((l) => l.description)),
     fetchOriginsByBrandVariant(client, lines.map((l) => l.brand_variant_id ?? null)),
+    fetchCategoryInfoByBrandVariant(client, lines.map((l) => l.brand_variant_id ?? null)),
   ])
   return lines.map((l) => ({
     ...l,
     description_ar: arMap.get(l.description) ?? null,
     origin:         l.brand_variant_id ? originMap.get(l.brand_variant_id) ?? null : null,
+    category_path:  l.brand_variant_id ? catMap.get(l.brand_variant_id)?.category_path ?? null : null,
   }))
 }
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ChevronDown, ChevronRight, Users, Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -18,7 +19,8 @@ import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
 import { useEffectiveWarranty } from '@/hooks/useEffectiveWarranty'
 import { ItemAttributesSection } from '@/components/master-data/attributes/ItemAttributesSection'
 import { useDivisions } from '@/hooks/useDivisions'
-import { useItemDivisions, useSetItemDivisions } from '@/hooks/useItemDivisions'
+import { useItemEffectiveDivisions, useSetItemDivisions } from '@/hooks/useItemDivisions'
+import { computeDivisionRows } from '@/lib/inventory/divisionRows'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { createClient } from '@/lib/supabase/client'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -66,7 +68,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   // ItemRow, so without the gate every row fires them while closed (a big N+1 on
   // the Inventory list). The seed effects below already key on `open` + data
   // arrival, so deferring the fetch to open changes nothing the operator sees.
-  const { data: assignedFromDb } = useItemDivisions(open ? (item?.id ?? null) : null)
+  const { data: effDivs } = useItemEffectiveDivisions(open ? (item?.id ?? null) : null)
   const setItemDivisions = useSetItemDivisions()
   const { data: warrantyPolicies = [] } = useActiveWarrantyPolicies()
   const { data: effectiveWarranty } = useEffectiveWarranty(open ? (item?.id ?? null) : null)
@@ -91,19 +93,21 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
 
   // Seed assigned divisions ONCE per open — either when the edit fetch first
   // resolves, or immediately for a create (no item, query disabled). A later
-  // refetch must not clobber the operator's in-progress ticks.
+  // refetch must not clobber the operator's in-progress ticks. Only the
+  // EXPLICIT (item-level) set seeds this state — inherited divisions are
+  // rendered read-only from `effDivs.inherited` and never enter this array.
   const assignedSeededRef = useRef(false)
   useEffect(() => {
     if (!open) { assignedSeededRef.current = false; return }
     if (assignedSeededRef.current) return
-    if (assignedFromDb !== undefined) {
-      setAssignedDivisionIds(assignedFromDb)
+    if (effDivs !== undefined) {
+      setAssignedDivisionIds(effDivs.explicit)
       assignedSeededRef.current = true
     } else if (!item) {
       setAssignedDivisionIds([])
       assignedSeededRef.current = true
     }
-  }, [open, assignedFromDb, item])
+  }, [open, effDivs, item])
 
   // Seed the team-item override ONCE per open — from the item's stored value on
   // edit (once teamCtx resolves), or null (inherit) on create.
@@ -150,7 +154,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       sessionUploadsRef.current = [{ url: pub.publicUrl, path }]
       setImageUrl(pub.publicUrl)
     } catch (err) {
-      toast.error(`Photo upload failed: ${(err as Error).message}`)
+      toast.error(`Photo upload failed: ${humanizeDbError(err)}`)
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -187,7 +191,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         imageUrl !== ((item as unknown as { image_url?: string | null }).image_url ?? null) ||
         attrValues.length > 0 ||
         JSON.stringify(assignedDivisionIds.slice().sort()) !==
-          JSON.stringify(((assignedFromDb ?? []) as string[]).slice().sort()) ||
+          JSON.stringify((effDivs?.explicit ?? []).slice().sort()) ||
         teamOverride !== (teamCtx?.itemFlag ?? null)
       )
     : (
@@ -227,7 +231,6 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nameEn.trim()) { toast.error('Name (EN) is required'); return }
-    if (!sku.trim()) { toast.error('SKU is required'); return }
 
     const payload = {
       name_en: nameEn.trim(),
@@ -256,12 +259,14 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
       // Persist division assignments. On edit, only when the set changed AND the
       // current set has loaded — otherwise the seed is still the empty default and
       // saving a name-only edit before the fetch resolves would wipe real
-      // assignments. On create, write whatever the user picked.
+      // assignments. On create, write whatever the user picked. `assignedDivisionIds`
+      // only ever holds explicit ids (inherited rows are locked and can't be
+      // toggled), so this never writes an inherited-only division id.
       const assignmentsChanged =
         JSON.stringify(assignedDivisionIds.slice().sort()) !==
-        JSON.stringify(((assignedFromDb ?? []) as string[]).slice().sort())
+        JSON.stringify((effDivs?.explicit ?? []).slice().sort())
       if (isEdit && item) {
-        if (assignedFromDb !== undefined && assignmentsChanged) {
+        if (effDivs !== undefined && assignmentsChanged) {
           await setItemDivisions.mutateAsync({ itemId, divisionIds: assignedDivisionIds })
         }
       } else if (assignedDivisionIds.length > 0) {
@@ -277,6 +282,17 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
   }
 
   const isPending = create.isPending || update.isPending || upsertItemAttributes.isPending
+
+  // Grid rows = explicit ∪ inherited divisions (locked rows are inherited from the
+  // category and rendered checked+disabled). Computed once here and reused by the
+  // grid render, the header badge, and the empty-state check below so all three stay
+  // in sync — a category-inherited-only item is "assigned" for display purposes even
+  // though `assignedDivisionIds` (explicit-only) is empty.
+  const divisionRows = computeDivisionRows(divisions.map((d) => d.id), {
+    editableIds: assignedDivisionIds,
+    lockedIds: effDivs?.inherited ?? [],
+  })
+  const checkedDivisionCount = divisionRows.filter((row) => row.checked).length
 
   return (
     <><Dialog open={open} onOpenChange={guardedOnOpenChange}>
@@ -342,8 +358,8 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="item-sku">SKU *</Label>
-              <Input id="item-sku" value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" placeholder="PRD-HT-001" />
+              <Label htmlFor="item-sku">SKU</Label>
+              <Input id="item-sku" value={sku} onChange={(e) => setSku(e.target.value)} className="font-mono" placeholder="Optional — e.g. PRD-HT-001" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="item-unit">Unit</Label>
@@ -461,9 +477,9 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                 : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-medium">Assigned divisions</span>
-              {assignedDivisionIds.length > 0 && (
+              {checkedDivisionCount > 0 && (
                 <Badge variant="outline" className="ml-auto text-[10px] h-4 px-1.5">
-                  Assigned to {assignedDivisionIds.length}
+                  Assigned to {checkedDivisionCount}
                 </Badge>
               )}
             </button>
@@ -473,18 +489,22 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                   Divisions that stock and work with this item. Each division keeps its own quantity pool; to move stock between divisions, use a transfer.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {divisions.map((div) => {
-                    const checked = assignedDivisionIds.includes(div.id)
+                  {divisionRows.map((row) => {
+                    const div = divisions.find((d) => d.id === row.id)
+                    if (!div) return null
                     return (
                       <label
-                        key={div.id}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-transparent hover:border-border hover:bg-muted/30 cursor-pointer min-h-9"
+                        key={row.id}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md border border-transparent min-h-9 ${
+                          row.locked ? 'opacity-70' : 'hover:border-border hover:bg-muted/30 cursor-pointer'
+                        }`}
                       >
                         <Checkbox
-                          checked={checked}
+                          checked={row.checked}
+                          disabled={row.locked}
                           onCheckedChange={(v) => {
                             setAssignedDivisionIds((cur) =>
-                              v ? [...cur, div.id] : cur.filter((id) => id !== div.id),
+                              v ? [...cur, row.id] : cur.filter((id) => id !== row.id),
                             )
                           }}
                         />
@@ -493,12 +513,15 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
                           {div.short_name && (
                             <span className="text-[10px] text-muted-foreground"> · {div.short_name}</span>
                           )}
+                          {row.locked && (
+                            <span className="text-[10px] text-muted-foreground"> · from category</span>
+                          )}
                         </span>
                       </label>
                     )
                   })}
                 </div>
-                {assignedDivisionIds.length === 0 && (
+                {!divisionRows.some((row) => row.checked) && (
                   <p className="text-[10px] text-muted-foreground italic">
                     Not assigned to any division yet — assign at least one so it appears in that division&apos;s pickers.
                   </p>

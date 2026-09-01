@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import { notifyOwnerAndKey } from '@/lib/notify'
 import { logActivity } from '@/lib/logActivity'
 import { humanizeDbError } from '@/lib/dbErrors'
 
@@ -154,6 +155,33 @@ export function useCreateCustomerPayment() {
       queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerPayments.byInvoice(variables.invoice_id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+      // Notify the SO owner: payment received, and (if it cleared the balance)
+      // the invoice is now fully paid. Best-effort. The DB trigger recomputes
+      // payment_status before we read it back here.
+      void (async () => {
+        const supabase = createClient()
+        const { data: inv } = await supabase
+          .from('so_invoices')
+          .select('invoice_id, sale_order_id, payment_status')
+          .eq('id', variables.invoice_id)
+          .maybeSingle()
+        if (!inv?.sale_order_id) return
+        const { data: so } = await supabase
+          .from('sale_orders').select('created_by').eq('id', inv.sale_order_id).maybeSingle()
+        const owner = so?.created_by ?? null
+        await notifyOwnerAndKey(
+          owner, 'notify.finance.customer_payment', 'customer_payment_received',
+          `Payment received on invoice ${inv.invoice_id}`,
+          { relatedId: inv.sale_order_id, relatedType: 'sale_order' },
+        )
+        if (inv.payment_status === 'paid') {
+          await notifyOwnerAndKey(
+            owner, 'notify.finance.invoice_paid', 'invoice_paid',
+            `Invoice ${inv.invoice_id} is fully paid`,
+            { relatedId: inv.sale_order_id, relatedType: 'sale_order' },
+          )
+        }
+      })()
     },
   })
 }

@@ -15,12 +15,14 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { ShieldAlert, Eye } from 'lucide-react'
+import { ShieldAlert, Eye, SlidersHorizontal } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -39,7 +41,7 @@ import { SoApprovalChain } from '@/components/sales/SoApprovalChain'
 import { SalesApprovalDetailDialog } from '@/components/sales/SalesApprovalDetailDialog'
 import {
   usePendingSalesApprovals, useCompletedSalesApprovals,
-  useForceApproveSalesRequest, useIsOwner,
+  useForceApproveSalesRequest, useIsOwner, useMyApprovalRoleNames,
   type SalesApprovalSlip,
 } from '@/hooks/useSalesApprovals'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -71,6 +73,22 @@ export default function SalesApprovalsPage() {
   const forceApprove                                     = useForceApproveSalesRequest()
   const [selected, setSelected] = useState<SalesApprovalSlip | null>(null)
   const [viewSlip, setViewSlip] = useState<SalesApprovalSlip | null>(null)
+  const { data: myRoleNames = [] } = useMyApprovalRoleNames()
+  // Approvals filter: default to only what needs MY action; force-approvable
+  // (Owner-only) slips are hidden until the user opens the filter and ticks them.
+  const [showMine, setShowMine] = useState(true)
+  const [showForce, setShowForce] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
+
+  // A slip "needs my approval" when a current pending+active step is one of my
+  // roles; otherwise (Owners see every pending slip) it's force-approvable-only.
+  const needsMyApproval = (slip: SalesApprovalSlip) =>
+    slip.rows.some(
+      (r) => r.status === 'pending' && r.is_active && r.step_role && myRoleNames.includes(r.step_role),
+    )
+  const pendingList = pending ?? []
+  const forceOnlyCount = pendingList.filter((s) => !needsMyApproval(s)).length
+  const shownPending = pendingList.filter((s) => (needsMyApproval(s) ? showMine : showForce))
 
   function handleForceApprove(slip: SalesApprovalSlip) {
     forceApprove.mutate(
@@ -97,20 +115,47 @@ export default function SalesApprovalsPage() {
 
       {/* ── Pending Approvals ─────────────────────────────────────────── */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Pending Approvals</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Pending Approvals</h2>
+          {forceOnlyCount > 0 && (
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger className={cn(
+                'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted',
+                showForce && 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400',
+              )}>
+                <SlidersHorizontal className="h-3.5 w-3.5" /> Filter
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-60">
+                <p className="text-xs font-medium text-muted-foreground">Show approvals</p>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox checked={showMine} onCheckedChange={(v) => setShowMine(v === true)} />
+                  Needs my approval
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox checked={showForce} onCheckedChange={(v) => setShowForce(v === true)} />
+                  Force-approvable
+                  <span className="ml-auto text-xs text-muted-foreground">{forceOnlyCount}</span>
+                </label>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
         {pendingLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full rounded-lg" />
             ))}
           </div>
-        ) : (pending ?? []).length === 0 ? (
+        ) : shownPending.length === 0 ? (
           <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
-            No sales approvals pending for your roles
+            No approvals need your action.
+            {forceOnlyCount > 0 && !showForce && (
+              <> {forceOnlyCount} force-approvable — <button type="button" className="underline" onClick={() => setShowForce(true)}>show</button>.</>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
-            {(pending ?? []).map((slip, i) => {
+            {shownPending.map((slip, i) => {
               const pendingRoles = slip.rows
                 .filter((r) => r.status === 'pending' && r.is_active)
                 .map((r) => roleLabel(r.step_role))

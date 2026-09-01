@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
-  RotateCcw, Calendar, User, Hash, Loader2, Download,
+  RotateCcw, Calendar, User, Hash, Loader2, Download, FileText,
 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
@@ -13,11 +13,14 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
-import type { POReturn } from '@/hooks/usePurchaseReturns'
+import { useCreateDebitNoteForReturn, type POReturn } from '@/hooks/usePurchaseReturns'
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   pending:            { label: 'Pending',            color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
@@ -54,9 +57,11 @@ interface Props {
 
 export function POReturnDetailDialog({ ret, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
+  const createDebitNote = useCreateDebitNoteForReturn()
   const { data: warehouses = [] } = useWarehouses()
   const bvIds = useMemo(() => (ret?.return_lines ?? []).map((i) => i.brand_variant_id).filter(Boolean) as string[], [ret?.return_lines])
   const { data: whStockMap } = useWarehouseStockByItems(bvIds)
+  const variantMeta = useVariantItemMeta(bvIds)
 
   // Per-line provenance — each return line points at the receival_items row
   // it came from (D.4.a). Batch-resolve the ref# + warehouse + sub-container
@@ -171,7 +176,13 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
                       const sourceInfo = item.receival_item_id ? sources?.receival.get(item.receival_item_id) ?? null : null
                       return (
                         <tr key={idx} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(idx)}>
-                          <td className="px-3 py-2.5 font-medium">{item.item_name}</td>
+                          <td className="px-3 py-2.5">
+                            <ItemLabel
+                              meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                              name={item.item_name}
+                              nameClassName="font-medium"
+                            />
+                          </td>
                           <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">{item.qty}</td>
                           <td className="px-3 py-2.5 text-center">
@@ -232,7 +243,35 @@ export function POReturnDetailDialog({ ret, onClose }: Props) {
 
         {/* Footer */}
         <Separator />
-        <div className="px-6 py-3 flex items-center justify-end">
+        <div className="px-6 py-3 flex flex-wrap items-center justify-between gap-2">
+          {/* Debit note — create once the supplier has confirmed the return
+              (parity with the PO Returns tab). Download lives on the Debit
+              Notes page. */}
+          <div className="flex items-center gap-2">
+            {ret.debit_note ? (
+              <span className="text-xs text-muted-foreground">
+                Debit Note:{' '}
+                <span className="font-mono font-medium text-foreground">{ret.debit_note.debit_note_id}</span>
+              </span>
+            ) : (ret.status === 'supplier_confirmed' || ret.status === 'closed') ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={createDebitNote.isPending}
+                onClick={() => createDebitNote.mutate(ret!, {
+                  onSuccess: () => { toast.success('Debit note created'); onClose() },
+                  onError: (e: Error) => toast.error(humanizeDbError(e)),
+                })}
+              >
+                {createDebitNote.isPending
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  : <FileText className="h-3.5 w-3.5 mr-1.5" />}
+                {createDebitNote.isPending ? 'Creating…' : 'Create Debit Note'}
+              </Button>
+            ) : (
+              <span />
+            )}
+          </div>
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={pdfBusy}>
             {pdfBusy
               ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />

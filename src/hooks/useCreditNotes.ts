@@ -7,8 +7,33 @@ import type { DebitNote } from '@/types/invoice'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
 import { invalidateCustomerCreditViews, invalidateSupplierCreditViews } from '@/lib/queryInvalidation'
+import { notifyOwnerAndKey } from '@/lib/notify'
 
 type ReturnResolution = 'refund' | 'replacement' | 'store_credit'
+
+/**
+ * Notify the PO owner that a debit note / purchase return was resolved
+ * (best-effort). Shared by both debit-note resolution paths. debit_notes links
+ * straight to the PO via purchase_order_id.
+ */
+async function notifyPoReturnResolved(debitNoteId: string) {
+  const supabase = createClient()
+  const { data: dn } = await supabase
+    .from('debit_notes')
+    .select('purchase_order_id, debit_note_id')
+    .eq('id', debitNoteId)
+    .maybeSingle()
+  if (!dn?.purchase_order_id) return
+  const { data: po } = await supabase
+    .from('purchase_orders').select('created_by').eq('id', dn.purchase_order_id).maybeSingle()
+  await notifyOwnerAndKey(
+    po?.created_by ?? null,
+    'notify.purchase.return_resolved',
+    'po_return_resolved',
+    `Purchase return resolved — ${dn.debit_note_id}`,
+    { relatedId: dn.purchase_order_id, relatedType: 'purchase_order' },
+  )
+}
 
 export type ResolutionLineInput = { return_line_id: string; qty: number }
 
@@ -582,11 +607,12 @@ export function useResolveDebitNoteSupplierCredit() {
         new_data: { resolution_type: 'supplier_credit', status: 'resolved' } as unknown as Record<string, unknown>,
       })
     },
-    onSuccess: () => {
+    onSuccess: (_data, debitNoteId) => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       qc.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
       qc.invalidateQueries({ queryKey: queryKeys.purchaseReturns.all })
       invalidateSupplierCreditViews(qc)
+      void notifyPoReturnResolved(debitNoteId)
     },
   })
 }
@@ -613,9 +639,10 @@ export function useResolveDebitNoteReplacement() {
         new_data: { resolution_type: 'replacement', status: 'resolved' } as unknown as Record<string, unknown>,
       })
     },
-    onSuccess: () => {
+    onSuccess: (_data, debitNoteId) => {
       qc.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
       invalidateSupplierCreditViews(qc)
+      void notifyPoReturnResolved(debitNoteId)
     },
   })
 }

@@ -107,7 +107,11 @@ export function WhItemPicker({
       const cat = s.category ?? 'Uncategorised'
       if (!byCategory.has(cat)) byCategory.set(cat, new Map())
       const catMap = byCategory.get(cat)!
-      const key = s.name ?? '(No name)'
+      // Key by the item's full path + name, NOT name alone — two different items
+      // can share a name across sub-categories (e.g. "11.3 kg" under both
+      // Refrigerant › R410A and Refrigerant › R422D). categoryPath is unique per
+      // item leaf; fall back to the flat category when no path was supplied.
+      const key = `${s.categoryPath ?? s.category ?? ''}||${s.name ?? '(No name)'}`
       if (!catMap.has(key)) catMap.set(key, [])
       catMap.get(key)!.push(s)
     }
@@ -157,28 +161,29 @@ export function WhItemPicker({
       for (const s of typedItems) {
         const score = searchRank(q, { name: s.name, brand: s.brand, origin: s.countryName, sku: s.sku, category: s.category })
         if (score < 0) continue
-        const key = `${s.category ?? ''}||${s.name ?? ''}`
+        // Unique per item: full path + name (see the grouping note above).
+        const key = `${s.categoryPath ?? s.category ?? ''}||${s.name ?? ''}`
         const g = scored.get(key)
         if (!g) scored.set(key, { cat: s.category ?? '', name: s.name ?? '', variants: [s], score })
         else { g.variants.push(s); if (score < g.score) g.score = score }
       }
-      for (const g of [...scored.values()].sort((a, b) => a.score - b.score || a.name.localeCompare(b.name))) {
-        result.set(`${g.cat}||${g.name}`, { cat: g.cat, name: g.name, variants: g.variants })
+      for (const [key, g] of [...scored.entries()].sort((a, b) => a[1].score - b[1].score || a[1].name.localeCompare(b[1].name))) {
+        result.set(key, { cat: g.cat, name: g.name, variants: g.variants })
       }
       return result
     }
     if (selectedCategory === '__all') {
       for (const [cat, its] of grouped) {
-        for (const [name, variants] of its) {
-          result.set(`${cat}||${name}`, { cat, name, variants })
+        for (const [ikey, variants] of its) {
+          result.set(`${cat}||${ikey}`, { cat, name: variants[0]?.name ?? '(No name)', variants })
         }
       }
       return result
     }
     const catMap = grouped.get(selectedCategory)
     if (!catMap) return result
-    for (const [name, variants] of catMap) {
-      result.set(`${selectedCategory}||${name}`, { cat: selectedCategory, name, variants })
+    for (const [ikey, variants] of catMap) {
+      result.set(`${selectedCategory}||${ikey}`, { cat: selectedCategory, name: variants[0]?.name ?? '(No name)', variants })
     }
     return result
   }, [searching, search, selectedCategory, grouped, typedItems])
@@ -284,7 +289,7 @@ export function WhItemPicker({
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {Array.from(visibleItemGroups.values()).map(({ cat, name, variants }) => {
+              {Array.from(visibleItemGroups.entries()).map(([groupKey, { cat, name, variants }]) => {
                 // Every variant of the same item shares the same photo
                 // (it lives on inventory_items). Grab it from the first
                 // variant that has one.
@@ -302,7 +307,7 @@ export function WhItemPicker({
                 // you're already in that category (it would just repeat the sidebar).
                 const showCatLabel = !!fullPath || searching || selectedCategory === '__all'
                 return (
-                  <div key={`${cat}||${name}`} className="px-3 py-2 space-y-1.5">
+                  <div key={groupKey} className="px-3 py-2 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         {showCatLabel && headerPath && (

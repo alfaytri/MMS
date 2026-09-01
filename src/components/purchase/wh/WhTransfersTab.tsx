@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import React, { useMemo, useState, useCallback, useEffect } from 'react'
 import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { WarehouseReportButton } from './WarehouseReportButton'
@@ -35,6 +36,7 @@ import {
   type WarehouseTransfer,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useReasonLists } from '@/hooks/useReasonLists'
 import { shortenSubContainerName, useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import type { Warehouse } from '@/hooks/useWarehouses'
 import type { Profile } from '@/hooks/useProfiles'
@@ -55,13 +57,6 @@ const STATUS_STYLES: Record<string, string> = {
   pending_approval: 'bg-warning/10 text-warning',
   approved:         'bg-success/10 text-success',
 }
-
-const SHRINKAGE_REASONS = [
-  { value: 'damaged_in_transit', label: 'Damaged in Transit' },
-  { value: 'missing',           label: 'Missing' },
-  { value: 'wrong_item',        label: 'Wrong Item' },
-  { value: 'other',             label: 'Other' },
-] as const
 
 /* ─── Props ──────────────────────────────────────────────────────────────── */
 
@@ -93,6 +88,12 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   const [expandedReceival, setExpandedReceival] = useState<string | null>(null)
   const [receivalQtys, setReceivalQtys] = useState<Record<string, number>>({})
   const [shrinkageReasons, setShrinkageReasons] = useState<Record<string, string>>({})
+  // Shrinkage reasons are admin-managed via reason_lists ('transfer_shrinkage').
+  const { reasons: shrinkageOptions } = useReasonLists('transfer_shrinkage')
+  const defaultShrinkageLabel =
+    shrinkageOptions.find((r) => /missing/i.test(r.label))?.label
+    ?? shrinkageOptions[0]?.label
+    ?? 'Missing'
 
   // ── Cancel confirmation state ──
   const [cancelTarget, setCancelTarget] = useState<WarehouseTransfer | null>(null)
@@ -124,11 +125,14 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   }, [warehouses, currentProfile?.id])
 
   const canDispatch = useCallback((t: WarehouseTransfer): boolean => {
-    return t.status === 'pending' && isFieldRPOf(t.from_warehouse_id)
+    // Custody-assign transfers must use the custody dispatch/accept flow (shortfall
+    // disposition + cost recalc); the generic RPC now rejects them server-side too.
+    return t.status === 'pending' && t.transfer_kind !== 'custody_assign' && isFieldRPOf(t.from_warehouse_id)
   }, [isFieldRPOf])
 
   const canReceive = useCallback((t: WarehouseTransfer): boolean => {
-    return t.status === 'in_transit' && isFieldRPOf(t.to_warehouse_id)
+    // custody_assign must be accepted via the custody flow; custody_return is fine here.
+    return t.status === 'in_transit' && t.transfer_kind !== 'custody_assign' && isFieldRPOf(t.to_warehouse_id)
   }, [isFieldRPOf])
 
   const canCancel = useCallback((t: WarehouseTransfer): boolean => {
@@ -183,7 +187,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             t.id,
           )
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -209,7 +213,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
         transfer_item_id: item.id,
         received_qty: receivedQty,
         shrinkage_reason: receivedQty < dispatchedQty
-          ? (shrinkageReasons[item.id] ?? 'missing')
+          ? (shrinkageReasons[item.id] ?? defaultShrinkageLabel)
           : undefined,
       }
     })
@@ -250,7 +254,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             t.id,
           )
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -272,7 +276,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             )
           }
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -302,7 +306,7 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
           )
         },
         onError: (e) => {
-          toast.error(e.message)
+          toast.error(humanizeDbError(e))
           setCancelTarget(null)
         },
       },
@@ -499,6 +503,8 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
                   transfer={t}
                   receivalQtys={receivalQtys}
                   shrinkageReasons={shrinkageReasons}
+                  shrinkageOptions={shrinkageOptions}
+                  defaultShrinkageLabel={defaultShrinkageLabel}
                   onQtyChange={(itemId, qty) =>
                     setReceivalQtys(prev => ({ ...prev, [itemId]: qty }))
                   }
@@ -514,9 +520,9 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             </div>
           )
         })}
-        {transfers.length > 0 && totalPages > 1 && (
+        {scopedTransfers.length > 0 && totalPages > 1 && (
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-            <span>{transfers.length} transfer{transfers.length !== 1 ? 's' : ''}</span>
+            <span>{scopedTransfers.length} transfer{scopedTransfers.length !== 1 ? 's' : ''}</span>
             <div className="flex items-center gap-1.5">
               <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -562,6 +568,8 @@ function ReceivalSubForm({
   transfer,
   receivalQtys,
   shrinkageReasons,
+  shrinkageOptions,
+  defaultShrinkageLabel,
   onQtyChange,
   onReasonChange,
   onConfirm,
@@ -572,6 +580,8 @@ function ReceivalSubForm({
   transfer: WarehouseTransfer
   receivalQtys: Record<string, number>
   shrinkageReasons: Record<string, string>
+  shrinkageOptions: { id: string; label: string }[]
+  defaultShrinkageLabel: string
   onQtyChange: (itemId: string, qty: number) => void
   onReasonChange: (itemId: string, reason: string) => void
   onConfirm: () => void
@@ -633,15 +643,15 @@ function ReceivalSubForm({
                       -{dispatchedQty - receivedQty}
                     </Badge>
                     <Select
-                      value={shrinkageReasons[item.id] ?? 'missing'}
+                      value={shrinkageReasons[item.id] ?? defaultShrinkageLabel}
                       onValueChange={(v) => v && onReasonChange(item.id, v)}
                     >
                       <SelectTrigger className="h-7 w-36 text-[10px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="max-h-60 overflow-y-auto">
-                        {SHRINKAGE_REASONS.map((r) => (
-                          <SelectItem key={r.value} value={r.value} className="text-xs">
+                        {shrinkageOptions.map((r) => (
+                          <SelectItem key={r.id} value={r.label} className="text-xs">
                             {r.label}
                           </SelectItem>
                         ))}

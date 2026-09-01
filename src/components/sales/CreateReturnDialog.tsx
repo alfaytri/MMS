@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -179,7 +180,7 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
             : 'Return created')
           guardRef.current?.closeAfterSubmit()
         },
-        onError: (err) => toast.error((err as Error).message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       },
     )
   }

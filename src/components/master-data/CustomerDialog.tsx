@@ -1,5 +1,6 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Upload, FileCheck2, X, Lock, Plus, Star } from 'lucide-react'
@@ -15,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
+import { AddressFinder, EMPTY_ADDRESS, type AddressValue } from '@/components/shared/AddressFinder'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useCreateCustomer, useUpdateCustomer, useToggleCustomerActive, type Customer } from '@/hooks/useSaleOrders'
 import { useSubmitCreditGroupChange } from '@/hooks/useCreditGroupApprovals'
@@ -76,6 +78,7 @@ export function CustomerDialog({
   const [establishmentIdDoc, setEstablishmentIdDoc] = useState<UploadedDoc | null>(null)
   const [signedFormDoc, setSignedFormDoc]       = useState<UploadedDoc | null>(null)
   const [uploading, setUploading]       = useState<Slot | null>(null)
+  const [addressValue, setAddressValue] = useState<AddressValue>(EMPTY_ADDRESS)
 
   // Track pending/ uploads made in THIS dialog session so we can sweep them
   // on cancel. `submittedRef` distinguishes close-after-submit (paths are
@@ -116,11 +119,19 @@ export function CustomerDialog({
       setCrDoc(crPath ? { path: crPath, name: displayNameFromPath(crPath, 'cr') } : null)
       setEstablishmentIdDoc(esPath ? { path: esPath, name: displayNameFromPath(esPath, 'establishment') } : null)
       setSignedFormDoc(sgPath ? { path: sgPath, name: displayNameFromPath(sgPath, 'signed') } : null)
+      // Blue Plate / coordinates aren't returned by search_customers — load them directly.
+      setAddressValue(EMPTY_ADDRESS)
+      void (async () => {
+        const { data } = await createClient().from('customers').select('*').eq('id', customer.id).maybeSingle()
+        const row = data as unknown as { address?: string | null; latitude?: number | null; longitude?: number | null } | null
+        setAddressValue({ address: row?.address ?? '', latitude: row?.latitude ?? null, longitude: row?.longitude ?? null })
+      })()
     } else if (!isEdit) {
       setName(''); setPhones([newPhoneRow(true)]); setEmail('')
       // New customers default to cash — a credit group must be picked to promote.
       setCustomerType('cash'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
+      setAddressValue(EMPTY_ADDRESS)
     }
     setUploading(null)
     // Form fields are (re)initialised only when the dialog opens or the target
@@ -172,7 +183,7 @@ export function CustomerDialog({
       if (path.startsWith('pending/')) pendingPathsRef.current.push(path)
       return { path, name: file.name }
     } catch (err) {
-      toast.error(`Upload failed: ${(err as Error).message}`)
+      toast.error(`Upload failed: ${humanizeDbError(err)}`)
       return null
     } finally {
       setUploading(null)
@@ -280,6 +291,9 @@ export function CustomerDialog({
             phones:                 phonesPayload,
             email:                  email.trim() || null,
             entity_type:            entityType,
+            address:                addressValue.address.trim() || null,
+            latitude:               addressValue.latitude,
+            longitude:              addressValue.longitude,
             // customer_type is derived server-side from credit_group_id.
             // routeGroupViaApproval keeps the current group until approval
             // lands; otherwise clear it when saving as cash.
@@ -307,7 +321,7 @@ export function CustomerDialog({
             try {
               await saveCreditDocs.mutateAsync({ customer_id: customer.id, docs: buildDocsPayload() })
             } catch (err) {
-              toast.error(`Customer saved, but credit-docs failed: ${(err as Error).message}`)
+              toast.error(`Customer saved, but credit-docs failed: ${humanizeDbError(err)}`)
               handleOpenChange(false)
               return
             }
@@ -328,13 +342,13 @@ export function CustomerDialog({
                   handleOpenChange(false)
                 },
                 onError: (err) => {
-                  toast.error(`Saved, but credit group not sent: ${err.message}`)
+                  toast.error(`Saved, but credit group not sent: ${humanizeDbError(err)}`)
                   handleOpenChange(false)
                 },
               },
             )
           },
-          onError: (err) => toast.error(err.message),
+          onError: (err) => toast.error(humanizeDbError(err)),
         }
       )
       return
@@ -346,6 +360,9 @@ export function CustomerDialog({
         phones:                 phonesPayload,
         email:                  email.trim() || null,
         entity_type:            entityType,
+        address:                addressValue.address.trim() || null,
+        latitude:               addressValue.latitude,
+        longitude:              addressValue.longitude,
         // customer_type is derived — leave credit_group_id NULL when the
         // group still needs approval OR the user picked cash.
         credit_group_id:        newGroupNeedsApproval
@@ -366,7 +383,7 @@ export function CustomerDialog({
           try {
             await saveCreditDocs.mutateAsync({ customer_id: created.id, docs: buildDocsPayload() })
           } catch (err) {
-            toast.error(`Customer created, but credit-docs failed: ${(err as Error).message}`)
+            toast.error(`Customer created, but credit-docs failed: ${humanizeDbError(err)}`)
             onCreated?.(createdInfo)
             handleOpenChange(false)
             return
@@ -390,14 +407,14 @@ export function CustomerDialog({
                 handleOpenChange(false)
               },
               onError: (err) => {
-                toast.error(`Customer created, but credit group not sent: ${err.message}`)
+                toast.error(`Customer created, but credit group not sent: ${humanizeDbError(err)}`)
                 onCreated?.(createdInfo)
                 handleOpenChange(false)
               },
             },
           )
         },
-        onError: (err) => toast.error(err.message),
+        onError: (err) => toast.error(humanizeDbError(err)),
       }
     )
   }
@@ -592,6 +609,11 @@ export function CustomerDialog({
             />
           </div>
 
+          <div className="space-y-1.5">
+            <Label>Address (Blue Plate / coordinates)</Label>
+            <AddressFinder value={addressValue} onChange={setAddressValue} />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="cust-entity-type" className="flex items-center gap-1">
@@ -690,7 +712,7 @@ export function CustomerDialog({
                         toast.success(customer.is_active ? 'Customer disabled' : 'Customer enabled')
                         handleOpenChange(false)
                       },
-                      onError: (err) => toast.error(err.message),
+                      onError: (err) => toast.error(humanizeDbError(err)),
                     },
                   )
                 }}

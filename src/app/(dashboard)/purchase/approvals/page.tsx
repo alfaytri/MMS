@@ -1,8 +1,9 @@
 'use client'
 
+import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { ShieldAlert, Eye } from 'lucide-react'
+import { ShieldAlert, Eye, SlidersHorizontal } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PoStatusBadge } from '@/components/purchase/PoStatusBadge'
@@ -17,6 +18,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -61,6 +64,11 @@ export default function ApprovalsPage() {
   const [showRejectOptions, setShowRejectOptions] = useState(false)
   const [showPrevIterations, setShowPrevIterations] = useState<Record<string, boolean>>({})
   const [viewPO, setViewPO] = useState<PurchaseOrder | null>(null)
+  // Approvals filter: default to only what needs MY action; force-approvable
+  // (Owner-only) POs are hidden until the user opens the filter and ticks them.
+  const [showMine, setShowMine] = useState(true)
+  const [showForce, setShowForce] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const { data: pending, isLoading: pendingLoading } = usePendingApprovals()
   const { data: completed, isLoading: completedLoading } = useCompletedApprovals()
@@ -68,6 +76,19 @@ export default function ApprovalsPage() {
   const approveStep = useApproveStep()
   const rejectPO = useRejectPO()
   const forceApprove = useForceApproveAllSteps()
+
+  // A PO "needs my approval" when a current-iteration pending step is one of my
+  // roles; otherwise (Owners see every pending PO) it's force-approvable-only.
+  const needsMyApproval = (po: PurchaseOrder) => {
+    const steps = po.po_approvals ?? []
+    const maxIter = Math.max(...steps.map((s) => s.iteration ?? 1), 1)
+    return steps.some(
+      (s) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIter && myRoles.includes(s.role),
+    )
+  }
+  const pendingList = pending ?? []
+  const forceOnlyCount = pendingList.filter((po) => !needsMyApproval(po)).length
+  const shownPending = pendingList.filter((po) => (needsMyApproval(po) ? showMine : showForce))
 
   function openDialog(po: PurchaseOrder) {
     const allSteps = po.po_approvals ?? []
@@ -95,7 +116,7 @@ export default function ApprovalsPage() {
     const { po, step } = dialogState
     approveStep.mutate(
       { stepId: step.id, poId: po.id, comment },
-      { onSuccess: () => { toast.success('Step approved'); setDialogState(null) }, onError: (e) => toast.error(e.message) }
+      { onSuccess: () => { toast.success('Step approved'); setDialogState(null) }, onError: (e) => toast.error(humanizeDbError(e)) }
     )
   }
 
@@ -107,7 +128,7 @@ export default function ApprovalsPage() {
           const n = data?.approvedCount ?? 0
           toast.success(n > 1 ? `Force-approved ${n} remaining steps` : 'Force-approved')
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toast.error(humanizeDbError(e)),
       },
     )
   }
@@ -117,7 +138,7 @@ export default function ApprovalsPage() {
     const { po, step } = dialogState
     rejectPO.mutate(
       { poId: po.id, stepId: step.id, comment, mode: rejectMode },
-      { onSuccess: () => { toast.success(rejectMode === 'full_rejection' ? 'PO cancelled' : 'PO sent back to draft'); setDialogState(null) }, onError: (e) => toast.error(e.message) }
+      { onSuccess: () => { toast.success(rejectMode === 'full_rejection' ? 'PO cancelled' : 'PO sent back to draft'); setDialogState(null) }, onError: (e) => toast.error(humanizeDbError(e)) }
     )
   }
 
@@ -128,14 +149,43 @@ export default function ApprovalsPage() {
       <PageHeader title="PO Approvals" description="Review and action pending purchase order approvals" />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Pending Approvals</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Pending Approvals</h2>
+          {forceOnlyCount > 0 && (
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger className={cn(
+                'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted',
+                showForce && 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400',
+              )}>
+                <SlidersHorizontal className="h-3.5 w-3.5" /> Filter
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-60">
+                <p className="text-xs font-medium text-muted-foreground">Show approvals</p>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox checked={showMine} onCheckedChange={(v) => setShowMine(v === true)} />
+                  Needs my approval
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox checked={showForce} onCheckedChange={(v) => setShowForce(v === true)} />
+                  Force-approvable
+                  <span className="ml-auto text-xs text-muted-foreground">{forceOnlyCount}</span>
+                </label>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
         {pendingLoading ? (
           <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
-        ) : (pending ?? []).length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">No pending approvals requiring your action</div>
+        ) : shownPending.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
+            No approvals need your action.
+            {forceOnlyCount > 0 && !showForce && (
+              <> {forceOnlyCount} force-approvable — <button type="button" className="underline" onClick={() => setShowForce(true)}>show</button>.</>
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
-            {(pending ?? []).map((po, i) => {
+            {shownPending.map((po, i) => {
               const allSteps = po.po_approvals ?? []
               const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
               const currentSteps = allSteps.filter((s) => (s.iteration ?? 1) === maxIteration)
