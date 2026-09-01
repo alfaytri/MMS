@@ -51,6 +51,27 @@ describe('humanizeDbError()', () => {
     expect(humanizeDbError(error)).toBe("This warehouse still has stock and can't be deleted.")
   })
 
+  it('maps "insufficient available stock (available: X, requested: Y)" to a friendly, numbers-aware message', () => {
+    const error = { code: 'P0001', message: 'Insufficient available stock for item 3f2a1b0c-9d (available: 2, requested: 5)' }
+    expect(humanizeDbError(error)).toBe(
+      'Not enough stock — only 2 available but 5 requested. Adjust the quantity or restock, then try again.',
+    )
+  })
+
+  it('maps "insufficient stock … missing N units" even when wrapped by a mutation hook', () => {
+    const error = new Error('Complete delivery failed: P0001 Insufficient stock: requested 5, missing 3 units for variant abc')
+    expect(humanizeDbError(error)).toBe(
+      'Not enough stock — short by 3 units. Adjust the quantity or restock, then try again.',
+    )
+  })
+
+  it('maps a generic insufficient-stock (damaged pile) message to a friendly fallback', () => {
+    const error = { code: 'P0001', message: '_consume_damaged_stock_fifo: insufficient damaged stock at x / y (short by 4)' }
+    expect(humanizeDbError(error)).toBe(
+      'Not enough stock to complete this — check the available quantity and try again.',
+    )
+  })
+
   it('maps a network failure to a friendly connectivity message', () => {
     const error = { message: 'TypeError: Failed to fetch' }
     expect(humanizeDbError(error)).toBe('Network problem — please check your connection and try again.')

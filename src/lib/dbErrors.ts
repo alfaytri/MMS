@@ -75,6 +75,24 @@ export function humanizeDbError(error: unknown, action?: string): string {
   if (code === '23514' || /violates check constraint/i.test(msg)) {
     return "That value isn't allowed — please review your input and try again."
   }
+  // A few RPC business-rule messages leak UUIDs / column jargon at the operator.
+  // Map the common stock shortfalls to something actionable. Matched on the
+  // message text so it also catches wrapped strings (e.g. a mutation that threw
+  // "Complete delivery failed: P0001 Insufficient stock …"). Sentry still gets
+  // the raw message via the central react-query handler (QueryProvider).
+  const availMatch = msg.match(/insufficient available stock.*?available:\s*(\d+),\s*requested:\s*(\d+)/i)
+  if (availMatch) {
+    return `Not enough stock — only ${availMatch[1]} available but ${availMatch[2]} requested. Adjust the quantity or restock, then try again.`
+  }
+  const missMatch = msg.match(/insufficient stock:\s*requested\s*\d+,\s*missing\s*(\d+)/i)
+  if (missMatch) {
+    const n = missMatch[1]
+    return `Not enough stock — short by ${n} unit${n === '1' ? '' : 's'}. Adjust the quantity or restock, then try again.`
+  }
+  if (/insufficient (damaged )?stock/i.test(msg)) {
+    return 'Not enough stock to complete this — check the available quantity and try again.'
+  }
+
   // Business rule raised by one of our RPCs (RAISE EXCEPTION) — already written
   // for humans; show it as-is.
   if (code === 'P0001' && msg) return msg
