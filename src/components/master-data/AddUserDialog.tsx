@@ -279,6 +279,7 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
               </div>
 
               {companiesWithAvailable.length > 0 && (
+                <div className="flex items-center gap-2">
                 <Select
                   value=""
                   onValueChange={(v) => { if (v) setSelectedDivisionIds((prev) => [...prev, v]) }}
@@ -306,6 +307,17 @@ export function AddUserDialog({ open, onOpenChange }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 gap-1.5"
+                  onClick={() => setSelectedDivisionIds(allDivisions.map((d) => d.id))}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  All divisions
+                </Button>
+                </div>
               )}
             </div>
 
