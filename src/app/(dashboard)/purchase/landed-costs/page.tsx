@@ -10,6 +10,7 @@ import { LcCogsPostedPanel } from '@/components/landed-costs/LcCogsPostedPanel'
 import { toast } from 'sonner'
 import { Eye, Plus, Trash2, Paperclip, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react'
 import { LandedCostAllocationBreakdown } from '@/components/purchase/LandedCostAllocationBreakdown'
+import { ReceivalStockSplitRow } from '@/components/purchase/ReceivalStockSplitRow'
 import { createClient } from '@/lib/supabase/client'
 import { compressImageBeforeUpload } from '@/lib/compressImage'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -361,7 +362,8 @@ function LcDetailDialog({
                                   </thead>
                                   <tbody>
                                     {(detailExpandedItems ?? []).map((item, i) => (
-                                      <tr key={item.id} className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
+                                      <Fragment key={item.id}>
+                                      <tr className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
                                         <td className="py-1 pr-2">{item.item_name}</td>
                                         <td className="text-right py-1">{item.qty_received}</td>
                                         <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
@@ -384,6 +386,8 @@ function LcDetailDialog({
                                           )}
                                         </td>
                                       </tr>
+                                      <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalId={r.id} colSpan={5} />
+                                      </Fragment>
                                     ))}
                                   </tbody>
                                 </table>
@@ -1178,21 +1182,24 @@ function CreateLcDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                                         </thead>
                                         <tbody>
                                           {(expandedItems ?? []).map((item, i) => (
-                                            <tr key={item.id} className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
-                                              <td className="py-1 pr-2">{item.item_name}</td>
-                                              <td className="text-right py-1">{item.qty_received}</td>
-                                              <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
-                                                {item.remaining_qty}
-                                              </td>
-                                              <td className="text-right py-1">
-                                                {formatCurrency(item.unit_cost, r.currency)}
-                                                {r.currency !== 'QAR' && (
-                                                  <span className="block text-[10px] font-normal text-muted-foreground/70">
-                                                    ≈ {formatCurrency(item.unit_cost_qar, 'QAR')}
-                                                  </span>
-                                                )}
-                                              </td>
-                                            </tr>
+                                            <Fragment key={item.id}>
+                                              <tr className={cn('border-b last:border-0', STAGGER_IN)} style={staggerDelay(i)}>
+                                                <td className="py-1 pr-2">{item.item_name}</td>
+                                                <td className="text-right py-1">{item.qty_received}</td>
+                                                <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
+                                                  {item.remaining_qty}
+                                                </td>
+                                                <td className="text-right py-1">
+                                                  {formatCurrency(item.unit_cost, r.currency)}
+                                                  {r.currency !== 'QAR' && (
+                                                    <span className="block text-[10px] font-normal text-muted-foreground/70">
+                                                      ≈ {formatCurrency(item.unit_cost_qar, 'QAR')}
+                                                    </span>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                              <ReceivalStockSplitRow brandVariantId={item.brand_variant_id} receivalId={r.id} colSpan={4} />
+                                            </Fragment>
                                           ))}
                                         </tbody>
                                       </table>
