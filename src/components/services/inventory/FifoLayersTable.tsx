@@ -23,14 +23,6 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
   const { data: receivalDetail } = useReceival(viewingReceivalId)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  if (!canSeePricing) {
-    return (
-      <div className="rounded border border-border bg-muted px-3 py-2 text-[11px] text-muted-foreground">
-        You don&apos;t have permission to view cost layers.
-      </div>
-    )
-  }
-
   // Group layers by warehouse -> sub-container, so each becomes a titled section.
   // Same-warehouse (then same-sub-container) layers stay contiguous, groups keep
   // their first-appearance order, and FIFO/date order is preserved within each.
@@ -51,6 +43,17 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
         out.push(...g)
     return out
   }, [layers])
+
+  // Cost gate — the FIFO layer breakdown is entirely cost data. Show a note when
+  // the user can't see inventory pricing. (After the hooks above so hook order
+  // stays constant across renders — react-hooks/rules-of-hooks.)
+  if (!canSeePricing) {
+    return (
+      <div className="rounded border border-border bg-muted px-3 py-2 text-[11px] text-muted-foreground">
+        You don&apos;t have permission to view cost layers.
+      </div>
+    )
+  }
 
   const visibleLayers = orderedLayers.slice(0, visibleCount)
   const shownCount = Math.min(visibleCount, layers.length)
