@@ -2,7 +2,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useAllCategoriesFlat, breadcrumb } from '@/hooks/useInventoryTree'
+import { useAllCategoriesFlat, breadcrumbWithType } from '@/hooks/useInventoryTree'
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
@@ -58,7 +58,7 @@ export function useVariantCategoryPaths(variantIds: string[]): Map<string, strin
     if (!variantToCategory) return map
     for (const [variantId, categoryId] of Object.entries(variantToCategory)) {
       if (!categoryId) continue
-      const path = breadcrumb(categoryId, cats)
+      const path = breadcrumbWithType(categoryId, cats)
       if (path) map.set(variantId, path)
     }
     return map

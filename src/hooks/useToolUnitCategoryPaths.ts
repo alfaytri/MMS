@@ -2,7 +2,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useAllCategoriesFlat, breadcrumb } from '@/hooks/useInventoryTree'
+import { useAllCategoriesFlat, breadcrumbWithType } from '@/hooks/useInventoryTree'
 
 /**
  * Resolves the FULL category breadcrumb ("Root > … > Leaf") for a set of tool
@@ -56,7 +56,7 @@ export function useToolUnitCategoryPaths(unitIds: (string | null | undefined)[])
     if (!unitToCategory) return map
     for (const [unitId, categoryId] of Object.entries(unitToCategory)) {
       if (!categoryId) continue
-      const path = breadcrumb(categoryId, cats)
+      const path = breadcrumbWithType(categoryId, cats)
       if (path) map.set(unitId, path)
     }
     return map
