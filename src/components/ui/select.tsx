@@ -52,9 +52,18 @@ function Select({ children, ...props }: SelectPrimitive.Root.Props<string>) {
   // no mounting dependency — the tree is walked purely as React elements.
   const registry = React.useMemo(() => buildRegistry(children), [children])
 
+  // Keep the label-lookup identity STABLE across renders. `children` are new
+  // JSX every render, so `registry` (and a `useCallback([registry])` over it)
+  // changed identity every render — which made Base UI's Select.Root re-sync in
+  // a loop during rapid parent re-renders (React #185 "Maximum update depth",
+  // e.g. searching + switching warehouse while a dependent Select mounts). Read
+  // the latest registry through a ref so the callback identity never changes.
+  const registryRef = React.useRef(registry)
+  registryRef.current = registry
+
   const itemToStringLabel = React.useCallback(
-    (value: unknown): string => registry.get(String(value ?? "")) ?? "",
-    [registry],
+    (value: unknown): string => registryRef.current.get(String(value ?? "")) ?? "",
+    [],
   )
 
   return (
