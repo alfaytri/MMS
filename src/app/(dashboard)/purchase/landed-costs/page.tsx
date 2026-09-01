@@ -365,9 +365,21 @@ function LcDetailDialog({
                                         <td className={cn('text-right py-1 font-medium', item.remaining_qty === 0 && 'text-amber-600')}>
                                           {item.remaining_qty}
                                         </td>
-                                        <td className="text-right py-1">{formatCurrency(item.unit_cost, r.currency)}</td>
+                                        <td className="text-right py-1">
+                                          {formatCurrency(item.unit_cost, r.currency)}
+                                          {r.currency !== 'QAR' && (
+                                            <span className="block text-[10px] font-normal text-muted-foreground/70">
+                                              ≈ {formatCurrency(item.unit_cost_qar, 'QAR')}
+                                            </span>
+                                          )}
+                                        </td>
                                         <td className="text-right py-1 font-medium">
                                           {formatCurrency(item.qty_received * item.unit_cost, r.currency)}
+                                          {r.currency !== 'QAR' && (
+                                            <span className="block text-[10px] font-normal text-muted-foreground/70">
+                                              ≈ {formatCurrency(item.qty_received * item.unit_cost_qar, 'QAR')}
+                                            </span>
+                                          )}
                                         </td>
                                       </tr>
                                     ))}

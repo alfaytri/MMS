@@ -542,6 +542,10 @@ export type ReceivalItemWithFifo = {
   sku: string | null
   qty_received: number
   unit_cost: number
+  // unit_cost is in the PO's ordering currency; unit_cost_qar is that × the PO's
+  // booked exchange rate (rate 1 for inventory receivals) — the QAR value that
+  // actually lands in inventory.
+  unit_cost_qar: number
   brand_variant_id: string | null
   remaining_qty: number
 }
@@ -624,7 +628,7 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
     enabled: !!receivalId,
     queryFn: async () => {
       const supabase = createClient()
-      const [{ data: items, error: iErr }, { data: layers, error: lErr }] = await Promise.all([
+      const [{ data: items, error: iErr }, { data: layers, error: lErr }, { data: rcv, error: rErr }] = await Promise.all([
         supabase
           .from('receival_items')
           .select('id, item_name, sku, qty_received, unit_cost, brand_variant_id')
@@ -635,17 +639,28 @@ export function useReceivalItemsWithFifo(receivalId: string | null) {
           .select('brand_variant_id, remaining_qty')
           .eq('receival_id', receivalId!)
           .gt('remaining_qty', 0),
+        // PO booked rate → QAR (inventory receivals have no PO → rate 1), same
+        // conversion allocate_landed_cost uses for its value base.
+        supabase
+          .from('receivals')
+          .select('purchase_orders!receivals_po_id_fkey(initial_exchange_rate)')
+          .eq('id', receivalId!)
+          .maybeSingle(),
       ])
-      if (iErr || lErr) throw iErr ?? lErr
+      if (iErr || lErr || rErr) throw iErr ?? lErr ?? rErr
       // Sum remaining_qty across all layers for each brand_variant
       const remainingMap = new Map<string, number>()
       for (const l of layers ?? []) {
         if (!l.brand_variant_id) continue
         remainingMap.set(l.brand_variant_id, (remainingMap.get(l.brand_variant_id) ?? 0) + l.remaining_qty)
       }
+      const po = (rcv?.purchase_orders as { initial_exchange_rate: number | null } | null) ?? null
+      const poRate = Number(po?.initial_exchange_rate ?? 1)
+      const qarRate = poRate > 0 ? poRate : 1
       return (items ?? []).map((item) => ({
         ...item,
         remaining_qty: (item.brand_variant_id ? remainingMap.get(item.brand_variant_id) : 0) ?? 0,
+        unit_cost_qar: Number(item.unit_cost) * qarRate,
       })) as ReceivalItemWithFifo[]
     },
     staleTime: 2 * 60 * 1000,
