@@ -387,7 +387,7 @@ export default function ReceivalsPage() {
       id: 'supplier',
       header: 'Supplier',
       cell: ({ row }) => (
-        <span className="text-sm truncate max-w-[160px] block">
+        <span className="text-sm break-words max-w-[240px] block">
           {row.original.supplier_name ?? '—'}
         </span>
       ),
@@ -566,7 +566,7 @@ export default function ReceivalsPage() {
                   : <><ShoppingCart className="h-3 w-3" /><span className="font-mono">{r.po_number ?? '—'}</span></>}
                 <span className="ml-auto tabular-nums">{formatDate(r.date)}</span>
               </div>
-              <p className="text-sm truncate">{r.supplier_name ?? '—'}</p>
+              <p className="text-sm break-words">{r.supplier_name ?? '—'}</p>
               <div className="flex items-center justify-between text-xs">
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                   <span className="tabular-nums font-medium text-foreground">{paid}</span> line{paid === 1 ? '' : 's'}
