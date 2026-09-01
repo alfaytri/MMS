@@ -39,7 +39,8 @@ import {
   useReorderPoints,
 } from '@/hooks/useWarehouseOperations'
 import { useHasPermission } from '@/hooks/usePermissions'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { createClient } from '@/lib/supabase/client'
 import { recipientsForNotification } from '@/lib/notify'
 import { toast } from 'sonner'
@@ -191,7 +192,7 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   // bounded, cached read over the sub's stock variants — resolved client-side so
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => itemsByPriority.map((s) => s.brand_variant_id), [itemsByPriority])
-  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+  const variantMeta = useVariantItemMeta(stockVariantIds)
 
   const pickerItems: PickerItem[] = useMemo(
     () => itemsByPriority.map((s) => ({
@@ -201,14 +202,14 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
       countryName:   s.country_name ?? null,
       sku:           s.sku ?? null,
       category:      s.category_name ?? null,
-      categoryPath:  categoryPaths.get(s.brand_variant_id) ?? null,
+      categoryPath:  variantMeta.get(s.brand_variant_id)?.tree ?? null,
       type:          s.item_type ?? null,
       qty:           fromSubContainerId ? (availableQtyMap.get(s.brand_variant_id) ?? 0) : s.available_qty,
       destQty:       destStockMap.get(s.brand_variant_id)?.qty,
       reorderPoint:  reorderMap.get(s.brand_variant_id) ?? 0,
       imageUrl:      s.image_url ?? null,
     })),
-    [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId, categoryPaths],
+    [itemsByPriority, destStockMap, reorderMap, availableQtyMap, fromSubContainerId, variantMeta],
   )
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -549,15 +550,20 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
                         {/* Searchable item picker */}
                         <Popover open={openItemIdx === idx} onOpenChange={(o) => setOpenItemIdx(o ? idx : null)}>
                           <PopoverTrigger
-                            className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
+                            className="flex min-h-8 py-1 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
                           >
                             {selectedItem && selLabel ? (
-                              <span className="truncate">
-                                <span className="font-medium">{selectedItem.item_name}</span>
-                                {(selectedItem.brand || selectedItem.country_name) && (
-                                  <span className="text-muted-foreground"> — {selLabel.primary}{selLabel.origin ? ` · ${selLabel.origin}` : ''}</span>
-                                )}
-                              </span>
+                              <ItemLabel
+                                showBrandOrigin={false}
+                                meta={variantMeta.get(row.brand_variant_id)}
+                                name={<>
+                                  <span className="font-medium">{selectedItem.item_name}</span>
+                                  {(selectedItem.brand || selectedItem.country_name) && (
+                                    <span className="text-muted-foreground"> — {selLabel.primary}{selLabel.origin ? ` · ${selLabel.origin}` : ''}</span>
+                                  )}
+                                </>}
+                                nameClassName="truncate"
+                              />
                             ) : (
                               <span className="text-muted-foreground">Search items...</span>
                             )}

@@ -20,7 +20,8 @@ import { useCreateStockAdjustmentV2, useWarehouseStock, type WarehouseStockItem 
 import { useWarehouseSubContainers, useWarehouseDivisionSets } from '@/hooks/useWarehouseSubContainers'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ReasonSelect } from '@/components/shared/ReasonSelect'
 
 const ADJUSTMENT_TYPES = [
@@ -97,7 +98,7 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
   // bounded, cached read over the sub's stock variants — resolved client-side so
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => containerStock.map((s) => s.brand_variant_id), [containerStock])
-  const categoryPaths = useVariantCategoryPaths(stockVariantIds)
+  const variantMeta = useVariantItemMeta(stockVariantIds)
 
   const pickerItems: PickerItem[] = useMemo(() => {
     if (!warehouseId) return []
@@ -112,12 +113,12 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
       countryName: s.country_name ?? null,
       sku:         s.sku ?? null,
       category:    s.category_name ?? null,
-      categoryPath: categoryPaths.get(s.brand_variant_id) ?? null,
+      categoryPath: variantMeta.get(s.brand_variant_id)?.tree ?? null,
       type:        s.item_type ?? null,
       qty:         s.qty,
       imageUrl:    s.image_url ?? null,
     }))
-  }, [containerStock, warehouseId, categoryPaths])
+  }, [containerStock, warehouseId, variantMeta])
 
   const selectedItem = selectedVariantId ? pickerItems.find((p) => p.id === selectedVariantId) ?? null : null
   const selVarLabel = selectedItem
@@ -312,13 +313,18 @@ export function WhAdjustmentDialog({ warehouses, currentProfile, children }: Pro
               <Label className="text-[11px] text-muted-foreground">Item *</Label>
               <Popover open={itemPickerOpen} onOpenChange={setItemPickerOpen}>
                 <PopoverTrigger
-                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
+                  className="flex min-h-9 py-1 w-full items-center justify-between rounded-md border border-input bg-background px-2.5 text-[11px] ring-offset-background hover:bg-accent/50 cursor-pointer"
                 >
                   {selectedItem && selVarLabel ? (
-                    <span className="truncate">
-                      <span className="font-medium">{selectedItem.name}</span>
-                      <span className="text-muted-foreground"> — {selVarLabel.primary}{selVarLabel.origin ? ` · ${selVarLabel.origin}` : ''}</span>
-                    </span>
+                    <ItemLabel
+                      showBrandOrigin={false}
+                      meta={variantMeta.get(selectedItem.id)}
+                      name={<>
+                        <span className="font-medium">{selectedItem.name}</span>
+                        <span className="text-muted-foreground"> — {selVarLabel.primary}{selVarLabel.origin ? ` · ${selVarLabel.origin}` : ''}</span>
+                      </>}
+                      nameClassName="truncate"
+                    />
                   ) : (
                     <span className="text-muted-foreground">{warehouseId ? 'Search items…' : 'Select a warehouse first'}</span>
                   )}

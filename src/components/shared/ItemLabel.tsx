@@ -9,7 +9,7 @@ import type { ItemMeta } from '@/hooks/itemMeta'
  * "Products > AC Unit > Floor Ceiling > Inverter" → "Products > … > Inverter".
  * Paths of 3 segments or fewer are left whole. The full path is shown on hover.
  */
-function compactTree(tree: string): string {
+export function compactTree(tree: string): string {
   const parts = tree.split(' > ')
   if (parts.length <= 3) return tree
   return `${parts[0]} > … > ${parts[parts.length - 1]}`
@@ -33,6 +33,7 @@ export function ItemLabel({
   nameClassName,
   className,
   treeClassName,
+  showBrandOrigin = true,
 }: {
   meta?: ItemMeta | null
   /** The item name node — styled by the caller to match its surface. */
@@ -43,6 +44,12 @@ export function ItemLabel({
   className?: string
   /** Optional override for the category-tree line. */
   treeClassName?: string
+  /**
+   * Show the brand + origin lines below the name. Default true. Set false in
+   * compact controls (e.g. picker trigger buttons) that already carry brand
+   * inline in `name` and must stay short — the tree line still renders.
+   */
+  showBrandOrigin?: boolean
 }) {
   const line = 'text-[10px] text-muted-foreground leading-tight break-words'
   return (
@@ -56,8 +63,8 @@ export function ItemLabel({
         </div>
       ) : null}
       <div className={nameClassName}>{name}</div>
-      {meta?.brand ? <div className={line}>{meta.brand}</div> : null}
-      {meta?.origin ? <div className={line}>{meta.origin}</div> : null}
+      {showBrandOrigin && meta?.brand ? <div className={line}>{meta.brand}</div> : null}
+      {showBrandOrigin && meta?.origin ? <div className={line}>{meta.origin}</div> : null}
     </div>
   )
 }
