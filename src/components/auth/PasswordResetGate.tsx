@@ -17,8 +17,10 @@ import { queryKeys } from '@/lib/queryKeys'
  * so it only renders for authenticated users. While the profile is still
  * loading it renders the app untouched (no flash for users who don't need it).
  *
- * Testing escape hatch: press "i" three times (while NOT focused in a text
- * field) to skip the gate for the current browser session — see BYPASS below.
+ * Escape hatch: press "i" three times (while NOT focused in a text field) to
+ * skip the gate — but only for the CURRENT login. It's cleared on sign-out
+ * (this gate wraps the whole app, so its listener is always mounted), so the
+ * next login shows the reset screen again until the user actually resets.
  */
 const BYPASS_KEY = 'pwreset_bypass'
 
@@ -27,7 +29,7 @@ export function PasswordResetGate({ children }: { children: React.ReactNode }) {
   const [bypassed, setBypassed] = useState(false)
   const presses = useRef<number[]>([])
 
-  // Restore a bypass set earlier this session.
+  // Restore a bypass set earlier this login.
   useEffect(() => {
     try {
       if (sessionStorage.getItem(BYPASS_KEY) === '1') setBypassed(true)
@@ -36,7 +38,21 @@ export function PasswordResetGate({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // "iii" bypass — three quick "i" presses skip the gate for this session.
+  // A bypass lasts only for the CURRENT login: clear it on sign-out so the next
+  // login shows the reset screen again (until the user actually resets, which
+  // clears must_change_password server-side). The gate wraps the whole app, so
+  // this listener stays mounted even while the app is shown (bypassed).
+  useEffect(() => {
+    const { data: sub } = createClient().auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        try { sessionStorage.removeItem(BYPASS_KEY) } catch { /* ignore */ }
+        setBypassed(false)
+      }
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  // "iii" bypass — three quick "i" presses skip the gate for this login only.
   // Ignored while typing in a field so a password containing "i" can't trigger it.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -121,6 +137,7 @@ function PasswordResetScreen({ name }: { name: string | null }) {
   async function signOut() {
     setSigningOut(true)
     try {
+      try { sessionStorage.removeItem(BYPASS_KEY) } catch { /* ignore */ }
       await createClient().auth.signOut()
     } finally {
       window.location.href = '/login'
