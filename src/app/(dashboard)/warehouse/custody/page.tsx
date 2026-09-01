@@ -23,6 +23,7 @@ import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useToolUnitCategoryPaths } from '@/hooks/useToolUnitCategoryPaths'
 import { useCustodyLocations, type CustodyLocationRow } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions, useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
@@ -338,6 +339,8 @@ function CustodyCard({
 
   // Category breadcrumb above each held item name.
   const variantTrees = useVariantCategoryPaths(stockRows.map((r) => r.brand_variant_id))
+  // …and above each assigned tool name (tools resolve via their unit id).
+  const toolTrees = useToolUnitCategoryPaths(toolUnits.map((t) => t.unit_id))
 
   const isResponsible      = !!profile?.id && profile.id === sub.responsible_person_profile_id
   const isPrivileged       = !!perms && (perms.isSystemAdmin || perms.roles.includes('inventory_manager'))
@@ -560,6 +563,10 @@ function CustodyCard({
               {toolUnits.map((t) => (
                 <div key={t.unit_id} className="flex items-start justify-between gap-2 text-[11px]">
                   <div className="min-w-0">
+                    {(() => {
+                      const path = toolTrees.get(t.unit_id)
+                      return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words">{path}</div> : null
+                    })()}
                     <div className="font-medium break-words">{t.item_name ?? 'Tool'}</div>
                     {t.serial_number && (
                       <div className="text-[10px] text-muted-foreground font-mono break-words">SN {t.serial_number}</div>

@@ -11,6 +11,7 @@ import {
   DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTeamToolUnitsV2, type TeamToolUnitV2 } from '@/hooks/useToolInspections'
+import { useToolUnitCategoryPaths } from '@/hooks/useToolUnitCategoryPaths'
 import { useSetToolLifecycle, type ToolLifecycle } from '@/hooks/useToolAssignments'
 import { ToolLifecycleBadge } from './ToolBadges'
 import { MoveToolUnitDialog } from './MoveToolUnitDialog'
@@ -37,6 +38,9 @@ export function TeamToolsDetail({ team, onBack }: { team: TeamRef; onBack: () =>
   const [assignOpen, setAssignOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const setType = useSetToolLifecycle()
+  // Category breadcrumb above each item group. Every unit in a group shares the
+  // same item → same category, so the group's first unit resolves it.
+  const unitTrees = useToolUnitCategoryPaths(units.map((u) => u.unit_id))
 
   async function setLifecycle(unitId: string, t: ToolLifecycle, label: string) {
     try {
@@ -111,8 +115,14 @@ export function TeamToolsDetail({ team, onBack }: { team: TeamRef; onBack: () =>
                       className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/50 transition-colors"
                     >
                       {isCollapsed ? <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                      <span className="font-medium text-sm truncate min-w-0" title={itemName}>{itemName}</span>
-                      <Badge variant="secondary" className="ml-auto shrink-0 text-[10px] h-5 px-1.5 font-normal">{list.length}</Badge>
+                      <div className="min-w-0 flex-1">
+                        {(() => {
+                          const path = unitTrees.get(list[0].unit_id)
+                          return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words">{path}</div> : null
+                        })()}
+                        <span className="font-medium text-sm truncate min-w-0 block" title={itemName}>{itemName}</span>
+                      </div>
+                      <Badge variant="secondary" className="shrink-0 text-[10px] h-5 px-1.5 font-normal">{list.length}</Badge>
                     </button>
 
                     {!isCollapsed && (
