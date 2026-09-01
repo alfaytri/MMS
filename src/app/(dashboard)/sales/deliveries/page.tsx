@@ -95,7 +95,7 @@ export default function DeliveriesPage() {
       id: 'customer',
       header: 'Customer',
       cell: ({ row }) => (
-        <span className="text-sm truncate max-w-[160px] block">
+        <span className="text-sm whitespace-normal break-words max-w-[240px] block">
           {row.original.customer_name ?? '—'}
         </span>
       ),
@@ -228,7 +228,7 @@ export default function DeliveriesPage() {
                 <span className="font-mono">{del.so_number ?? '—'}</span>
                 <span className="ml-auto tabular-nums">{del.date ? formatDate(del.date) : '—'}</span>
               </div>
-              <p className="text-sm truncate">{del.customer_name ?? '—'}</p>
+              <p className="text-sm break-words">{del.customer_name ?? '—'}</p>
               <div className="flex items-center justify-between text-xs">
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                   <span className="tabular-nums font-medium text-foreground">{lines.length}</span> line{lines.length === 1 ? '' : 's'}

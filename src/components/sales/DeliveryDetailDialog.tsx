@@ -7,6 +7,7 @@ import {
   Truck, Calendar, Warehouse, User, Hash, Loader2, Download, ShieldCheck, PackageCheck,
 } from 'lucide-react'
 import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDelivery'
+import { useVariantHierarchy } from '@/hooks/useVariantHierarchy'
 import { useCancelDelivery } from '@/hooks/useSaleDeliveries'
 import { DeliveryFormDialog } from '@/components/sales/DeliveryFormDialog'
 import { humanizeDbError } from '@/lib/dbErrors'
@@ -87,6 +88,10 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
   const [formOpen, setFormOpen] = useState(false)
   const [confirmingCancel, setConfirmingCancel] = useState(false)
   const cancelDelivery = useCancelDelivery()
+  // Resolve each line's variant → parent item + category for the breadcrumb tree.
+  const { data: variantTrees } = useVariantHierarchy(
+    (delivery?.sale_delivery_lines ?? []).map((i) => i.brand_variant_id),
+  )
   // Reset transient action state when the viewed delivery changes.
   useEffect(() => { setFormOpen(false); setConfirmingCancel(false) }, [delivery?.id])
 
@@ -238,6 +243,13 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
                     {items.map((item, i) => (
                       <tr key={i} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(i)}>
                         <td className="px-3 py-2.5 font-medium">
+                          {(() => {
+                            const t = item.brand_variant_id ? variantTrees?.get(item.brand_variant_id) : undefined
+                            const path = t ? [t.categoryName, t.itemName].filter(Boolean).join(' › ') : ''
+                            return path ? (
+                              <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
+                            ) : null
+                          })()}
                           <div className="flex items-center gap-1.5">
                             <span>{item.item_name}</span>
                             {item.is_gift && (
