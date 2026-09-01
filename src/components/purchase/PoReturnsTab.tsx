@@ -20,8 +20,9 @@ import {
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { useCreatePurchaseReturn, useUpdatePOReturnStatus, useCreateDebitNoteForReturn, useReceivalItemsForPo, type POReturn, type POReturnStatus, type ReceivalItemForReturn } from '@/hooks/usePurchaseReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrders'
 import { cn } from '@/lib/utils'
@@ -92,9 +93,9 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
   }, [poReturns])
   const { data: sourceMaps } = useReturnLineSources(allReceivalItemIds, [])
 
-  // Category breadcrumb above each returned item in the expanded view — resolve
-  // every line's variant across all shown returns in one pass.
-  const variantTrees = useVariantCategoryPaths(
+  // Item label (category tree + brand + origin) above each returned item in the
+  // expanded view — resolve every line's variant across all shown returns in one pass.
+  const variantMeta = useVariantItemMeta(
     poReturns.flatMap((r) => (r.return_lines ?? []).map((l) => l.brand_variant_id).filter((v): v is string => !!v)),
   )
 
@@ -285,14 +286,13 @@ export function PoReturnsTab({ po, poReturns }: PoReturnsTabProps) {
                       {(ret.return_lines ?? []).map((item, idx) => {
                         const rlid = (item as { receival_item_id?: string | null }).receival_item_id ?? null
                         const info = rlid ? sourceMaps?.receival.get(rlid) : undefined
-                        const path = item.brand_variant_id ? (variantTrees.get(item.brand_variant_id) ?? '') : ''
                         return (
                           <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                             <TableCell className="text-xs">
-                              {path ? (
-                                <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
-                              ) : null}
-                              {item.item_name}{item.sku ? ` · ${item.sku}` : ''}
+                              <ItemLabel
+                                meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                                name={<>{item.item_name}{item.sku ? ` · ${item.sku}` : ''}</>}
+                              />
                             </TableCell>
                             <TableCell><ReturnLineSourceBadges info={info} /></TableCell>
                             <TableCell className="text-xs text-right">{item.qty}</TableCell>

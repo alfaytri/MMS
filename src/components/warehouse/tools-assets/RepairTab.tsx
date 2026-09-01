@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useRepairBucket } from '@/hooks/useToolInspections'
 import { useToolsOutForRepair } from '@/hooks/useToolRepair'
-import { useToolUnitCategoryPaths } from '@/hooks/useToolUnitCategoryPaths'
+import { useToolUnitItemMeta } from '@/hooks/useToolUnitCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ToolLifecycleBadge } from './ToolBadges'
 import { ScrapToolDialog } from './ScrapToolDialog'
 import { SendToolForRepairDialog } from './SendToolForRepairDialog'
@@ -53,7 +54,7 @@ export function RepairTab() {
   const outSorted = useMemo(() => [...out].sort((a, b) => COLLATOR.compare(a.item_name ?? '', b.item_name ?? '')), [out])
 
   // Category breadcrumb above each tool name, resolved via the unit id.
-  const unitTrees = useToolUnitCategoryPaths([
+  const unitMeta = useToolUnitItemMeta([
     ...bucketSorted.map((u) => u.unit_id),
     ...outSorted.map((t) => t.unit_id),
   ])
@@ -91,13 +92,10 @@ export function RepairTab() {
                 <div key={u.unit_id} className={cn('rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Wrench className="h-4 w-4 text-amber-600 shrink-0" />
-                    <div className="min-w-0">
-                      {(() => {
-                        const path = unitTrees.get(u.unit_id)
-                        return path ? <div className="text-[10px] font-normal text-muted-foreground leading-tight break-words">{path}</div> : null
-                      })()}
-                      <span className="font-semibold text-sm truncate block" title={u.item_name ?? undefined}>{u.item_name ?? 'Tool'}</span>
-                    </div>
+                    <ItemLabel
+                      meta={unitMeta.get(u.unit_id)}
+                      name={<span className="font-semibold text-sm truncate block" title={u.item_name ?? undefined}>{u.item_name ?? 'Tool'}</span>}
+                    />
                   </div>
                   <div className="font-mono text-xs text-muted-foreground truncate">{u.serial_number ?? '—'}</div>
                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground min-w-0">
@@ -145,13 +143,10 @@ export function RepairTab() {
                 <div key={t.transfer_id} className={cn('rounded-lg border bg-card shadow-sm p-4 min-h-[9.5rem] min-w-0 flex flex-col gap-1', STAGGER_IN)} style={staggerDelay(i)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Truck className="h-4 w-4 text-sky-600 shrink-0" />
-                    <div className="min-w-0">
-                      {(() => {
-                        const path = unitTrees.get(t.unit_id)
-                        return path ? <div className="text-[10px] font-normal text-muted-foreground leading-tight break-words">{path}</div> : null
-                      })()}
-                      <span className="font-semibold text-sm truncate block" title={t.item_name ?? undefined}>{t.item_name ?? 'Tool'}</span>
-                    </div>
+                    <ItemLabel
+                      meta={unitMeta.get(t.unit_id)}
+                      name={<span className="font-semibold text-sm truncate block" title={t.item_name ?? undefined}>{t.item_name ?? 'Tool'}</span>}
+                    />
                   </div>
                   <div className="font-mono text-xs text-muted-foreground truncate">{t.serial_number ?? '—'}</div>
                   <div className="text-[11px] text-muted-foreground truncate">Vendor: {t.vendor_name ?? '—'}</div>

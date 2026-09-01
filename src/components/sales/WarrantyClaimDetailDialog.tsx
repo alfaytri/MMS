@@ -24,7 +24,7 @@ import {
   type WarrantyClaimStatus,
   type WarrantyClaimResolutionType,
 } from '@/hooks/useWarrantyClaims'
-import { useSkuCategoryPaths } from '@/hooks/useSkuCategoryPaths'
+import { useSkuItemMeta } from '@/hooks/useSkuCategoryPaths'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { queryKeys } from '@/lib/queryKeys'
 import { humanizeDbError } from '@/lib/dbErrors'
@@ -57,7 +57,7 @@ const CLAIM_STATUS_CONFIG: Record<WarrantyClaimStatus, { label: string; badgeCla
   void:        { label: 'Void',        badgeClassName: 'border-border bg-muted text-muted-foreground' },
 }
 
-function MetaCard({ icon, label, value, above }: { icon: React.ReactNode; label: string; value: string; above?: React.ReactNode }) {
+function MetaCard({ icon, label, value, above, below }: { icon: React.ReactNode; label: string; value: string; above?: React.ReactNode; below?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
@@ -67,6 +67,7 @@ function MetaCard({ icon, label, value, above }: { icon: React.ReactNode; label:
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none mb-0.5">{label}</p>
         {above}
         <p className="text-sm font-medium truncate">{value}</p>
+        {below}
       </div>
     </div>
   )
@@ -85,8 +86,8 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
   const canManage = useHasPermission('sales.warranty_claims.manage')
 
   const { data: claim, isLoading, error, refetch, isFetching } = useWarrantyClaim(claimId ?? undefined)
-  const skuTrees = useSkuCategoryPaths([claim?.sku])
-  const itemPath = claim?.sku ? skuTrees.get(claim.sku) : undefined
+  const skuMeta = useSkuItemMeta([claim?.sku])
+  const meta = claim?.sku ? skuMeta.get(claim.sku) : undefined
 
   const [mode, setMode] = useState<ActionMode>('none')
   const [decision, setDecision] = useState<'covered' | 'rejected' | null>(null)
@@ -250,7 +251,11 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
                   icon={<Package className="h-4 w-4 text-muted-foreground" />}
                   label="Item"
                   value={claim.item_name}
-                  above={itemPath ? <p className="text-[10px] text-muted-foreground leading-tight break-words">{itemPath}</p> : null}
+                  above={meta?.tree ? <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.tree}</p> : null}
+                  below={<>
+                    {meta?.brand && <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.brand}</p>}
+                    {meta?.origin && <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.origin}</p>}
+                  </>}
                 />
                 <MetaCard icon={<Hash className="h-4 w-4 text-muted-foreground" />} label="SKU" value={claim.sku ?? '—'} />
                 <MetaCard icon={<Layers className="h-4 w-4 text-muted-foreground" />} label="Claimed Qty" value={`${claim.claim_qty} unit${claim.claim_qty !== 1 ? 's' : ''}`} />

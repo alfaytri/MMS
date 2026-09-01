@@ -11,7 +11,8 @@ import { CreateReturnDialog } from '@/components/sales/CreateReturnDialog'
 import { CompleteInspectionDialog } from '@/components/sales/CompleteInspectionDialog'
 import type { CreditNote } from '@/hooks/useCreditNotes'
 import { useUpdateReturnStatus, useCreateCreditNoteForReturn, useReturnProgress, type SaleReturn } from '@/hooks/useSaleReturns'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useDeliveriesByReturnId } from '@/hooks/useSaleDeliveries'
 import { useReturnReasons } from '@/hooks/useReturnReasons'
 import { PackageIcon } from 'lucide-react'
@@ -150,9 +151,9 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
   const createCreditNote = useCreateCreditNoteForReturn()
   useReturnReasons('sale_return') // warm cache for the dialog
 
-  // Category breadcrumb above each returned item — resolve every line's variant
-  // across all returns in one pass.
-  const variantTrees = useVariantCategoryPaths(
+  // Item label (category tree + brand + origin) above each returned item —
+  // resolve every line's variant across all returns in one pass.
+  const variantMeta = useVariantItemMeta(
     soReturns.flatMap((r) => (r.return_lines ?? []).map((l) => l.brand_variant_id).filter((v): v is string => !!v)),
   )
 
@@ -259,13 +260,10 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
                     {(ret.return_lines ?? []).map((item, i) => (
                       <TableRow key={i} className={STAGGER_IN} style={staggerDelay(i)}>
                         <TableCell className="text-xs">
-                          {(() => {
-                            const path = item.brand_variant_id ? (variantTrees.get(item.brand_variant_id) ?? '') : ''
-                            return path ? (
-                              <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
-                            ) : null
-                          })()}
-                          {item.item_name}
+                          <ItemLabel
+                            meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                            name={item.item_name}
+                          />
                         </TableCell>
                         <TableCell className="text-xs text-right">{item.qty}</TableCell>
                         <TableCell className="text-xs">

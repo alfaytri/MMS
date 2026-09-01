@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ReturnFromRepairDialog } from '@/components/warehouse/ReturnFromRepairDialog'
 import { SendForRepairDialog } from '@/components/warehouse/SendForRepairDialog'
 import { SendDamagedStockForRepairDialog } from '@/components/warehouse/SendDamagedStockForRepairDialog'
@@ -22,7 +23,7 @@ import {
 import { useHasPermission, useHasEditPermission } from '@/hooks/usePermissions'
 import { useDivisionScopedVisibility } from '@/hooks/useWarehouseSubContainers'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
 import { formatDate, formatDateTime } from '@/lib/utils/formatters'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 // formatDateTime is used by the Out-for-Repair table row's dispatched-at
@@ -185,7 +186,7 @@ function PendingRepairAssignmentSection({
       : rawData.filter((r) => r.division_id == null || viewDivisionIds.has(r.division_id)),
     [rawData, viewDivisionIds],
   )
-  const variantTrees = useVariantCategoryPaths(data.map((r) => r.brand_variant_id).filter((v): v is string => !!v))
+  const variantMeta = useVariantItemMeta(data.map((r) => r.brand_variant_id).filter((v): v is string => !!v))
   if (error) return <ErrorLine error={error as Error} />
   if (isLoading) return null           // silent — main table below shows skeleton
   if (data.length === 0) return null   // hide the entire section when empty
@@ -221,11 +222,7 @@ function PendingRepairAssignmentSection({
               <tr key={r.disposition_id} className={STAGGER_IN} style={staggerDelay(i)}>
                 <td className="px-3 py-2 font-mono text-xs">{r.return_number}</td>
                 <td className="px-3 py-2">
-                  {(() => {
-                    const path = r.brand_variant_id ? variantTrees.get(r.brand_variant_id) : undefined
-                    return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words max-w-xs mb-0.5">{path}</div> : null
-                  })()}
-                  <div className="truncate max-w-xs">{r.item_name}</div>
+                  <ItemLabel meta={r.brand_variant_id ? variantMeta.get(r.brand_variant_id) : undefined} name={r.item_name} nameClassName="truncate max-w-xs block" className="max-w-xs" />
                   <div className="text-[11px] text-muted-foreground">{r.sku || '—'}</div>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
@@ -249,13 +246,7 @@ function PendingRepairAssignmentSection({
         {data.map((r) => (
           <div key={r.disposition_id} className="bg-card border rounded-md p-3 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                {(() => {
-                  const path = r.brand_variant_id ? variantTrees.get(r.brand_variant_id) : undefined
-                  return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words">{path}</div> : null
-                })()}
-                <span className="text-sm font-medium block truncate">{r.item_name}</span>
-              </div>
+              <ItemLabel meta={r.brand_variant_id ? variantMeta.get(r.brand_variant_id) : undefined} name={r.item_name} nameClassName="text-sm font-medium block truncate" />
               <span className="text-sm font-semibold tabular-nums shrink-0">
                 {nfInt.format(r.qty)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
               </span>
@@ -295,7 +286,7 @@ function OnHandTab({
     return { items, totalQty, warehouses }
   }, [data])
 
-  const variantTrees = useVariantCategoryPaths(data.map((r) => r.brand_variant_id).filter((v): v is string => !!v))
+  const variantMeta = useVariantItemMeta(data.map((r) => r.brand_variant_id).filter((v): v is string => !!v))
 
   if (error) return <ErrorLine error={error as Error} />
   if (isLoading) return <TableSkeleton />
@@ -336,11 +327,7 @@ function OnHandTab({
                   <td className="px-3 py-2 font-medium">{r.warehouse_name}</td>
                   <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.source_sub_container_name ?? '—'}</td>
                   <td className="px-3 py-2">
-                    {(() => {
-                      const path = r.brand_variant_id ? variantTrees.get(r.brand_variant_id) : undefined
-                      return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words max-w-xs mb-0.5">{path}</div> : null
-                    })()}
-                    <div className="truncate max-w-xs">{r.item_name}</div>
+                    <ItemLabel meta={r.brand_variant_id ? variantMeta.get(r.brand_variant_id) : undefined} name={r.item_name} nameClassName="truncate max-w-xs block" className="max-w-xs" />
                     <div className="md:hidden text-[11px] text-muted-foreground">{r.sku || '—'}</div>
                   </td>
                   <td className="hidden md:table-cell px-3 py-2 text-muted-foreground">{r.sku || '—'}</td>
@@ -384,13 +371,7 @@ function OnHandTab({
           {data.map((r) => (
             <div key={r.key} className="bg-card border rounded-md p-3 space-y-1.5">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  {(() => {
-                    const path = r.brand_variant_id ? variantTrees.get(r.brand_variant_id) : undefined
-                    return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words">{path}</div> : null
-                  })()}
-                  <span className="text-sm font-medium block truncate">{r.item_name}</span>
-                </div>
+                <ItemLabel meta={r.brand_variant_id ? variantMeta.get(r.brand_variant_id) : undefined} name={r.item_name} nameClassName="text-sm font-medium block truncate" />
                 <span className="text-sm font-semibold tabular-nums shrink-0">
                   {nfInt.format(r.qty)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
                 </span>
@@ -448,7 +429,7 @@ function OutForRepairTab({
     return { transfers, totalQty }
   }, [data])
 
-  const variantTrees = useVariantCategoryPaths(data.map((r) => r.brand_variant_id).filter((v): v is string => !!v))
+  const variantMeta = useVariantItemMeta(data.map((r) => r.brand_variant_id).filter((v): v is string => !!v))
 
   if (error) return <ErrorLine error={error as Error} />
   if (isLoading) return <TableSkeleton />
@@ -488,11 +469,7 @@ function OutForRepairTab({
                 <tr key={`${r.transfer_id}:${r.brand_variant_id}`} className={STAGGER_IN} style={staggerDelay(i)}>
                   <td className="px-3 py-2 font-mono text-xs">{r.transfer_number}</td>
                   <td className="px-3 py-2">
-                    {(() => {
-                      const path = r.brand_variant_id ? variantTrees.get(r.brand_variant_id) : undefined
-                      return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words max-w-xs mb-0.5">{path}</div> : null
-                    })()}
-                    <div className="truncate max-w-xs">{r.item_name}</div>
+                    <ItemLabel meta={r.brand_variant_id ? variantMeta.get(r.brand_variant_id) : undefined} name={r.item_name} nameClassName="truncate max-w-xs block" className="max-w-xs" />
                     <div className="text-[11px] text-muted-foreground">{r.sku || '—'}</div>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{nfInt.format(r.qty)}</td>
@@ -519,13 +496,7 @@ function OutForRepairTab({
           {data.map((r) => (
             <div key={`${r.transfer_id}:${r.brand_variant_id}`} className="bg-card border rounded-md p-3 space-y-1.5">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  {(() => {
-                    const path = r.brand_variant_id ? variantTrees.get(r.brand_variant_id) : undefined
-                    return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words">{path}</div> : null
-                  })()}
-                  <span className="text-sm font-medium block truncate">{r.item_name}</span>
-                </div>
+                <ItemLabel meta={r.brand_variant_id ? variantMeta.get(r.brand_variant_id) : undefined} name={r.item_name} nameClassName="text-sm font-medium block truncate" />
                 <span className="text-sm font-semibold tabular-nums shrink-0">
                   {nfInt.format(r.qty)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
                 </span>

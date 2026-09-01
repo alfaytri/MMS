@@ -1,0 +1,44 @@
+// src/components/shared/ItemLabel.tsx
+import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+import type { ItemMeta } from '@/hooks/itemMeta'
+
+/**
+ * The app-wide item label. Renders, top to bottom:
+ *
+ *   Tag > Category > Sub > … > Leaf   ← meta.tree   (tiny, muted)
+ *   Item name                          ← `name`      (caller-styled)
+ *   Brand                              ← meta.brand  (only when present)
+ *   Origin                             ← meta.origin (only when present)
+ *
+ * Brand/origin are hidden when empty (and "Generic" brands are already dropped
+ * upstream). Resolve `meta` once per list with useVariantItemMeta /
+ * useSkuItemMeta / useToolUnitItemMeta and pass it in — never per row.
+ */
+export function ItemLabel({
+  meta,
+  name,
+  nameClassName,
+  className,
+  treeClassName,
+}: {
+  meta?: ItemMeta | null
+  /** The item name node — styled by the caller to match its surface. */
+  name: ReactNode
+  /** Class for the item-name line (e.g. "font-medium truncate"). */
+  nameClassName?: string
+  /** Wrapper class (defaults to min-w-0 so it truncates inside flex/table cells). */
+  className?: string
+  /** Optional override for the category-tree line. */
+  treeClassName?: string
+}) {
+  const line = 'text-[10px] text-muted-foreground leading-tight break-words'
+  return (
+    <div className={cn('min-w-0', className)}>
+      {meta?.tree ? <div className={cn(line, treeClassName)}>{meta.tree}</div> : null}
+      <div className={nameClassName}>{name}</div>
+      {meta?.brand ? <div className={line}>{meta.brand}</div> : null}
+      {meta?.origin ? <div className={line}>{meta.origin}</div> : null}
+    </div>
+  )
+}

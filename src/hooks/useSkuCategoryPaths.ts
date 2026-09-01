@@ -2,23 +2,19 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { type ItemMeta } from '@/hooks/itemMeta'
 
 /**
- * Resolves the FULL category breadcrumb ("Root > … > Leaf") for a set of item
- * SKUs, for surfaces that carry only a SKU and never the brand_variant_id.
+ * Resolves the full item label (tag-prefixed tree, brand, origin) for a set of
+ * item SKUs, for surfaces that carry only a SKU and never the brand_variant_id.
  *
- * Credit- and debit-note lines are the motivating case: their tables drop the
- * variant fk at insert time, so the line only remembers its SKU. A variant's
- * `code` is a unique, non-null natural key, so SKU → code maps deterministically
- * to a brand variant; from there this reuses useVariantCategoryPaths to walk the
- * real category tree. Lines whose SKU matches no variant simply resolve to no
- * path (graceful — the caller renders the item with no breadcrumb).
- *
- * Two bounded, long-cached reads (sku→variant, then the shared variant→category
- * read) — no per-line queries. Returns Map<sku, breadcrumb>.
+ * A variant's `code` is a unique, non-null natural key, so SKU → code maps
+ * deterministically to a brand variant; from there this reuses useVariantItemMeta.
+ * SKUs that match no variant simply resolve to nothing (the caller renders the
+ * item with no label). Returns Map<sku, ItemMeta>.
  */
-export function useSkuCategoryPaths(skus: (string | null | undefined)[]): Map<string, string> {
+export function useSkuItemMeta(skus: (string | null | undefined)[]): Map<string, ItemMeta> {
   // Stable, de-duplicated, sorted SKU set → stable cache key.
   const cleanSkus = useMemo(
     () => Array.from(new Set(skus.filter((s): s is string => !!s))).sort(),
@@ -26,7 +22,7 @@ export function useSkuCategoryPaths(skus: (string | null | undefined)[]): Map<st
   )
 
   const { data: skuToVariant } = useQuery({
-    queryKey: ['sku-category-variants', cleanSkus.join(',')],
+    queryKey: ['sku-variant-ids', cleanSkus.join(',')],
     enabled: cleanSkus.length > 0,
     staleTime: 10 * 60 * 1000,
     queryFn: async (): Promise<Record<string, string>> => {
@@ -49,15 +45,28 @@ export function useSkuCategoryPaths(skus: (string | null | undefined)[]): Map<st
     () => (skuToVariant ? Array.from(new Set(Object.values(skuToVariant))) : []),
     [skuToVariant],
   )
-  const variantPaths = useVariantCategoryPaths(variantIds)
+  const variantMeta = useVariantItemMeta(variantIds)
 
   return useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, ItemMeta>()
     if (!skuToVariant) return map
     for (const [sku, variantId] of Object.entries(skuToVariant)) {
-      const path = variantPaths.get(variantId)
-      if (path) map.set(sku, path)
+      const meta = variantMeta.get(variantId)
+      if (meta) map.set(sku, meta)
     }
     return map
-  }, [skuToVariant, variantPaths])
+  }, [skuToVariant, variantMeta])
+}
+
+/**
+ * Tree-only projection of {@link useSkuItemMeta}: Map<sku, breadcrumb>.
+ * Retained for callers that only render the category path.
+ */
+export function useSkuCategoryPaths(skus: (string | null | undefined)[]): Map<string, string> {
+  const meta = useSkuItemMeta(skus)
+  return useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [sku, m] of meta) if (m.tree) map.set(sku, m.tree)
+    return map
+  }, [meta])
 }

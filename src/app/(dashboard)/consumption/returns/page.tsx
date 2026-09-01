@@ -26,7 +26,8 @@ import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useReturnProgress } from '@/hooks/useSaleReturns'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import {
   useConsumptionReturns, useReturnableConsumptions, useConsumptionReturnableLines,
   useCreateConsumptionReturn, useProcessConsumptionReturnRestock,
@@ -406,7 +407,7 @@ function CreateConsumptionReturnDialog({ onClose }: { onClose: () => void }) {
 function ConsumptionReturnDetailDialog({ ret, onClose }: { ret: ConsumptionReturn; onClose: () => void }) {
   const { data: progress } = useReturnProgress(ret.id)
   const lines = ret.return_lines ?? []
-  const variantTrees = useVariantCategoryPaths(lines.map((l) => l.brand_variant_id).filter((v): v is string => !!v))
+  const variantMeta = useVariantItemMeta(lines.map((l) => l.brand_variant_id).filter((v): v is string => !!v))
   const totalQty = lines.reduce((s, l) => s + l.qty, 0)
   const cfg = STATUS_CONFIG[ret.status] ?? STATUS_CONFIG.pending!
   return (
@@ -446,12 +447,12 @@ function ConsumptionReturnDetailDialog({ ret, onClose }: { ret: ConsumptionRetur
               <tbody className="divide-y">
                 {lines.map((l, idx) => (
                   <tr key={idx} className="hover:bg-muted/20">
-                    <td className="px-3 py-2.5 font-medium">
-                      {(() => {
-                        const path = l.brand_variant_id ? variantTrees.get(l.brand_variant_id) : undefined
-                        return path ? <div className="text-[10px] font-normal text-muted-foreground leading-tight break-words mb-0.5">{path}</div> : null
-                      })()}
-                      {l.item_name}
+                    <td className="px-3 py-2.5">
+                      <ItemLabel
+                        meta={l.brand_variant_id ? variantMeta.get(l.brand_variant_id) : undefined}
+                        name={l.item_name}
+                        nameClassName="font-medium"
+                      />
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{l.sku ?? '—'}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{l.qty}</td>

@@ -22,7 +22,8 @@ import {
   useResolveDebitNoteReplacement,
 } from '@/hooks/useCreditNotes'
 import { useReturnLineProgress, useReturnProgress, type ReturnLineProgress } from '@/hooks/useSaleReturns'
-import { useSkuCategoryPaths } from '@/hooks/useSkuCategoryPaths'
+import { useSkuItemMeta } from '@/hooks/useSkuCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import type { DebitNote, DebitNoteLine } from '@/types/invoice'
 
 /** DebitNote with joined relations from useDebitNotes */
@@ -86,7 +87,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
       : (note as CreditNote | null)?.credit_note_lines) ?? []
     return lines.map((l) => l.sku).filter((s): s is string => !!s)
   }, [note, noteKind, open])
-  const skuTrees = useSkuCategoryPaths(noteSkus)
+  const skuMeta = useSkuItemMeta(noteSkus)
 
   // Build unit-price-per-return-line map by matching return_lines to CN's
   // returned credit_note_lines by brand_variant_id (SKU/item fallback).
@@ -283,13 +284,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                   {pdfData.original_lines.map((line: NoteLineItem, idx: number) => (
                     <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                       <TableCell className="text-sm">
-                        {(() => {
-                          const path = line.sku ? (skuTrees.get(line.sku) ?? '') : ''
-                          return path ? (
-                            <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
-                          ) : null
-                        })()}
-                        {line.item_name}
+                        <ItemLabel meta={line.sku ? skuMeta.get(line.sku) : undefined} name={line.item_name} />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>
@@ -329,13 +324,7 @@ export function CreditDebitNoteDetailDialog({ note, noteKind = 'credit', referen
                   {pdfData.returned_lines.map((line: NoteDebitLineItem, idx: number) => (
                     <TableRow key={idx} className={STAGGER_IN} style={staggerDelay(idx)}>
                       <TableCell className="text-sm">
-                        {(() => {
-                          const path = line.sku ? (skuTrees.get(line.sku) ?? '') : ''
-                          return path ? (
-                            <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
-                          ) : null
-                        })()}
-                        {line.item_name}
+                        <ItemLabel meta={line.sku ? skuMeta.get(line.sku) : undefined} name={line.item_name} />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{line.sku ?? '—'}</TableCell>
                       <TableCell className="text-sm text-right">{line.qty}</TableCell>

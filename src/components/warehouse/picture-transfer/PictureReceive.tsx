@@ -6,7 +6,8 @@ import { toast } from 'sonner'
 import { useWarehouseTransfers, useReceiveTransfer } from '@/hooks/useWarehouseOperations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useVariantImages } from '@/hooks/useVariantImages'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { PicturePhoto } from './PicturePhoto'
 import { QtyStepper } from './QtyStepper'
 import { cn } from '@/lib/utils'
@@ -34,7 +35,7 @@ export function PictureReceive({
     [mine],
   )
   const { data: images } = useVariantImages(allVariantIds)
-  const variantTrees = useVariantCategoryPaths(allVariantIds)
+  const variantMeta = useVariantItemMeta(allVariantIds)
   const receive = useReceiveTransfer()
   const { data: currentProfile } = useCurrentUserProfile()
 
@@ -99,11 +100,7 @@ export function PictureReceive({
                       <div key={i.id} className="flex items-center gap-4">
                         <PicturePhoto url={images?.get(i.brand_variant_id) ?? null} name={i.item_name} size={64} />
                         <div className="min-w-0 flex-1">
-                          {(() => {
-                            const path = variantTrees.get(i.brand_variant_id)
-                            return path ? <div className="mb-0.5 break-words text-[11px] font-medium text-muted-foreground leading-tight">{path}</div> : null
-                          })()}
-                          <div className="break-words text-base font-bold leading-tight">{i.item_name}</div>
+                          <ItemLabel meta={variantMeta.get(i.brand_variant_id)} name={i.item_name} nameClassName="break-words text-base font-bold leading-tight" />
                           {showFewer && (
                             <div className="mt-1 w-40">
                               <QtyStepper value={val} min={0} max={dispatched} onChange={(n) => setQtys((p) => ({ ...p, [i.id]: n }))} />

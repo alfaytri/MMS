@@ -14,7 +14,8 @@ import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { Receival } from '@/hooks/useReceivals'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ReceivalCheckButton } from '@/components/purchase/ReceivalCheckButton'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -46,7 +47,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
   const [pdfBusy, setPdfBusy] = useState(false)
   // Full category tree per received item's variant, for the breadcrumb above the
   // item name. Called before the early return so hook order stays constant.
-  const variantTrees = useVariantCategoryPaths(
+  const variantMeta = useVariantItemMeta(
     (receival?.receival_items ?? [])
       .map((i) => i.brand_variant_id)
       .filter((x): x is string => !!x),
@@ -193,14 +194,12 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                   <tbody className="divide-y">
                     {items.map((item, i) => (
                       <tr key={item.id} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(i)}>
-                        <td className="px-3 py-2.5 font-medium">
-                          {(() => {
-                            const path = item.brand_variant_id ? (variantTrees.get(item.brand_variant_id) ?? '') : ''
-                            return path ? (
-                              <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
-                            ) : null
-                          })()}
-                          {item.item_name}
+                        <td className="px-3 py-2.5">
+                          <ItemLabel
+                            meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                            name={item.item_name}
+                            nameClassName="font-medium"
+                          />
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{item.qty_received}</td>

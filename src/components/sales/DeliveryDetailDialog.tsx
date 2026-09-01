@@ -7,7 +7,8 @@ import {
   Truck, Calendar, Warehouse, User, Hash, Loader2, Download, ShieldCheck, PackageCheck,
 } from 'lucide-react'
 import { useWarrantyRecordsForDelivery } from '@/hooks/useWarrantyRecordsForDelivery'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useCancelDelivery } from '@/hooks/useSaleDeliveries'
 import { DeliveryFormDialog } from '@/components/sales/DeliveryFormDialog'
 import { humanizeDbError } from '@/lib/dbErrors'
@@ -90,7 +91,7 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
   const cancelDelivery = useCancelDelivery()
   // Resolve each line's variant → its FULL category tree (Root › … › Leaf) for
   // the breadcrumb shown above the item name.
-  const variantTrees = useVariantCategoryPaths(
+  const variantMeta = useVariantItemMeta(
     (delivery?.sale_delivery_lines ?? [])
       .map((i) => i.brand_variant_id)
       .filter((x): x is string => !!x),
@@ -245,19 +246,18 @@ export function DeliveryDetailDialog({ delivery, onClose }: Props) {
                   <tbody className="divide-y">
                     {items.map((item, i) => (
                       <tr key={i} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(i)}>
-                        <td className="px-3 py-2.5 font-medium">
-                          {(() => {
-                            const path = item.brand_variant_id ? (variantTrees.get(item.brand_variant_id) ?? '') : ''
-                            return path ? (
-                              <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
-                            ) : null
-                          })()}
-                          <div className="flex items-center gap-1.5">
-                            <span>{item.item_name}</span>
-                            {item.is_gift && (
-                              <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">Gift</Badge>
-                            )}
-                          </div>
+                        <td className="px-3 py-2.5">
+                          <ItemLabel
+                            meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                            name={
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <span>{item.item_name}</span>
+                                {item.is_gift && (
+                                  <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">Gift</Badge>
+                                )}
+                              </div>
+                            }
+                          />
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{item.qty_delivered}</td>

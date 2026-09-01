@@ -18,7 +18,8 @@ import { useReturnProgress } from '@/hooks/useSaleReturns'
 import { useReturnLineSources } from '@/hooks/useReturnLineSources'
 import { useWarrantyClaim } from '@/hooks/useWarrantyClaims'
 import { ReturnLineSourceBadges } from '@/components/shared/ReturnLineSourceBadges'
-import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useMemo } from 'react'
 
 const RESOLUTION_LABEL: Record<string, string> = {
@@ -137,7 +138,7 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
   // When this return was spawned by a warranty claim, surface the claim + whether
   // the parent warranty still has coverage left.
   const { data: warrantyClaim } = useWarrantyClaim(ret?.warranty_claim_id ?? undefined)
-  const variantTrees = useVariantCategoryPaths(
+  const variantMeta = useVariantItemMeta(
     items.map((i) => i.brand_variant_id).filter((v): v is string => !!v),
   )
 
@@ -273,14 +274,12 @@ export function SaleReturnDetailDialog({ ret, onClose }: Props) {
                       const info = sdlid ? sourceMaps?.delivery.get(sdlid) : undefined
                       return (
                         <tr key={idx} className={cn('hover:bg-muted/20', STAGGER_IN)} style={staggerDelay(idx)}>
-                          <td className="px-3 py-2.5 font-medium">
-                            {(() => {
-                              const path = item.brand_variant_id ? (variantTrees.get(item.brand_variant_id) ?? '') : ''
-                              return path ? (
-                                <p className="text-[10px] text-muted-foreground leading-tight mb-0.5 break-words">{path}</p>
-                              ) : null
-                            })()}
-                            {item.item_name}
+                          <td className="px-3 py-2.5">
+                            <ItemLabel
+                              meta={item.brand_variant_id ? variantMeta.get(item.brand_variant_id) : undefined}
+                              name={item.item_name}
+                              nameClassName="font-medium"
+                            />
                           </td>
                           <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
                           <td className="px-3 py-2.5"><ReturnLineSourceBadges info={info} /></td>
