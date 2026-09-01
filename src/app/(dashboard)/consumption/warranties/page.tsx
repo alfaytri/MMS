@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import { useWarrantyRecords, type WarrantyRecordRow } from '@/hooks/useWarrantyRecords'
 import { useSkuItemMeta } from '@/hooks/useSkuCategoryPaths'
-import { ItemLabel } from '@/components/shared/ItemLabel'
+import { ItemLabel, compactTree } from '@/components/shared/ItemLabel'
 import {
   useWarrantyClaims, type WarrantyClaimRow, type WarrantyClaimStatus, type WarrantyClaimResolutionType,
 } from '@/hooks/useWarrantyClaims'
@@ -143,7 +143,7 @@ function WarrantyRecordDetailDialog({
               icon={<Package className="h-4 w-4 text-muted-foreground" />}
               label="Item"
               value={record.item_name}
-              above={meta?.tree ? <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.tree}</p> : null}
+              above={meta?.tree ? <p className="text-[10px] text-muted-foreground leading-tight truncate" title={meta.tree}>{compactTree(meta.tree)}</p> : null}
               below={<>
                 {meta?.brand && <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.brand}</p>}
                 {meta?.origin && <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.origin}</p>}

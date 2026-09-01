@@ -25,6 +25,7 @@ import {
   type WarrantyClaimResolutionType,
 } from '@/hooks/useWarrantyClaims'
 import { useSkuItemMeta } from '@/hooks/useSkuCategoryPaths'
+import { compactTree } from '@/components/shared/ItemLabel'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { queryKeys } from '@/lib/queryKeys'
 import { humanizeDbError } from '@/lib/dbErrors'
@@ -251,7 +252,7 @@ export function WarrantyClaimDetailDialog({ claimId, onClose }: WarrantyClaimDet
                   icon={<Package className="h-4 w-4 text-muted-foreground" />}
                   label="Item"
                   value={claim.item_name}
-                  above={meta?.tree ? <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.tree}</p> : null}
+                  above={meta?.tree ? <p className="text-[10px] text-muted-foreground leading-tight truncate" title={meta.tree}>{compactTree(meta.tree)}</p> : null}
                   below={<>
                     {meta?.brand && <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.brand}</p>}
                     {meta?.origin && <p className="text-[10px] text-muted-foreground leading-tight break-words">{meta.origin}</p>}
