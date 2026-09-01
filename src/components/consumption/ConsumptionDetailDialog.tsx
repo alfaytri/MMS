@@ -21,6 +21,7 @@ import {
   type ConsumerType,
 } from '@/hooks/useConsumption'
 import { useHasPermission } from '@/hooks/usePermissions'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 import { ConsumptionEditRequestBanner } from './ConsumptionEditRequestBanner'
 import { RequestConsumptionEditDialog } from './RequestConsumptionEditDialog'
 
@@ -74,6 +75,11 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
   // Resolve the consumer name from the cross-division master list so a viewer
   // outside the consumer team's division never sees "(team removed)".
   const consumerLabel = useConsumerLabel()
+
+  // Category breadcrumb above each consumed item name.
+  const variantTrees = useVariantCategoryPaths(
+    (data?.lines ?? []).map((l) => l.brand_variant_id).filter((v): v is string => !!v),
+  )
 
   const total = (data?.lines ?? []).reduce(
     (sum, l) => sum + (l.total_cost ?? (l.qty * (l.unit_cost ?? 0))),
@@ -181,6 +187,10 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                         {data.lines.map((l, i) => (
                           <tr key={l.id} className={STAGGER_IN} style={staggerDelay(i)}>
                             <td className="px-2.5 py-1.5">
+                              {(() => {
+                                const path = variantTrees.get(l.brand_variant_id)
+                                return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words max-w-[280px]">{path}</div> : null
+                              })()}
                               <div className="font-medium truncate max-w-[280px]">{l.item_name}</div>
                               {l.sku && <div className="text-[10px] text-muted-foreground">{l.sku}</div>}
                             </td>

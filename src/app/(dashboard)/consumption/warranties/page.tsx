@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useWarrantyRecords, type WarrantyRecordRow } from '@/hooks/useWarrantyRecords'
+import { useSkuCategoryPaths } from '@/hooks/useSkuCategoryPaths'
 import {
   useWarrantyClaims, type WarrantyClaimRow, type WarrantyClaimStatus, type WarrantyClaimResolutionType,
 } from '@/hooks/useWarrantyClaims'
@@ -82,7 +83,7 @@ function lookupName(map: Map<string, string>, id: string | null | undefined, fal
 }
 
 // ── Detail dialog ────────────────────────────────────────────────────────
-function MetaCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function MetaCard({ icon, label, value, above }: { icon: React.ReactNode; label: string; value: string; above?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
@@ -90,6 +91,7 @@ function MetaCard({ icon, label, value }: { icon: React.ReactNode; label: string
       </div>
       <div className="min-w-0">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none mb-0.5">{label}</p>
+        {above}
         <p className="text-sm font-medium truncate">{value}</p>
       </div>
     </div>
@@ -107,7 +109,9 @@ interface WarrantyDetailProps {
 function WarrantyRecordDetailDialog({
   record, divisionName, onClose, onFileClaim, canFileClaim,
 }: WarrantyDetailProps) {
+  const skuTrees = useSkuCategoryPaths([record?.sku])
   if (!record) return null
+  const itemPath = record.sku ? skuTrees.get(record.sku) : undefined
 
   return (
     <Dialog open={!!record} onOpenChange={(open) => { if (!open) onClose() }}>
@@ -133,7 +137,12 @@ function WarrantyRecordDetailDialog({
         {/* Body — single scroll region */}
         <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <MetaCard icon={<Package className="h-4 w-4 text-muted-foreground" />} label="Item" value={record.item_name} />
+            <MetaCard
+              icon={<Package className="h-4 w-4 text-muted-foreground" />}
+              label="Item"
+              value={record.item_name}
+              above={itemPath ? <p className="text-[10px] text-muted-foreground leading-tight break-words">{itemPath}</p> : null}
+            />
             <MetaCard icon={<Hash className="h-4 w-4 text-muted-foreground" />} label="SKU" value={record.sku ?? '—'} />
             <MetaCard icon={<Layers className="h-4 w-4 text-muted-foreground" />} label="Qty" value={`${record.qty} unit${record.qty !== 1 ? 's' : ''}`} />
             <MetaCard icon={<ShieldCheck className="h-4 w-4 text-muted-foreground" />} label="Warranty Left" value={`${record.remaining_qty} of ${record.qty}`} />
@@ -208,6 +217,14 @@ export default function ConsumptionWarrantiesPage() {
     [divisions]
   )
 
+  // Category breadcrumb above item names. Warranty records/claims carry only a
+  // SKU (no brand_variant_id), so resolve SKU → category tree. One combined
+  // pass covers both the records and claims tables + their mobile cards.
+  const skuTrees = useSkuCategoryPaths([
+    ...records.map((r) => r.sku),
+    ...claims.map((c) => c.sku),
+  ])
+
   const columns = useMemo<ColumnDef<WarrantyRecordRow>[]>(() => [
     {
       accessorKey: 'warranty_number',
@@ -219,9 +236,15 @@ export default function ConsumptionWarrantiesPage() {
     {
       accessorKey: 'item_name',
       header: 'Item',
-      cell: ({ row }) => (
-        <span className="text-sm font-medium truncate max-w-[220px] block">{row.original.item_name}</span>
-      ),
+      cell: ({ row }) => {
+        const path = row.original.sku ? skuTrees.get(row.original.sku) : undefined
+        return (
+          <div className="min-w-0">
+            {path ? <div className="text-[10px] text-muted-foreground leading-tight break-words max-w-[220px]">{path}</div> : null}
+            <span className="text-sm font-medium truncate max-w-[220px] block">{row.original.item_name}</span>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'sku',
@@ -282,7 +305,7 @@ export default function ConsumptionWarrantiesPage() {
         <span className="text-xs text-muted-foreground">{row.original.origin_name_snapshot ?? '—'}</span>
       ),
     },
-  ], [divisionNameById])
+  ], [divisionNameById, skuTrees])
 
   const claimColumns = useMemo<ColumnDef<WarrantyClaimRow>[]>(() => [
     {
@@ -302,9 +325,15 @@ export default function ConsumptionWarrantiesPage() {
     {
       accessorKey: 'item_name',
       header: 'Item',
-      cell: ({ row }) => (
-        <span className="text-sm font-medium truncate max-w-[200px] block">{row.original.item_name}</span>
-      ),
+      cell: ({ row }) => {
+        const path = row.original.sku ? skuTrees.get(row.original.sku) : undefined
+        return (
+          <div className="min-w-0">
+            {path ? <div className="text-[10px] text-muted-foreground leading-tight break-words max-w-[200px]">{path}</div> : null}
+            <span className="text-sm font-medium truncate max-w-[200px] block">{row.original.item_name}</span>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'claim_qty',
@@ -347,7 +376,7 @@ export default function ConsumptionWarrantiesPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Reported" />,
       cell: ({ row }) => <span className="text-xs tabular-nums">{formatDate(row.original.reported_at)}</span>,
     },
-  ], [])
+  ], [skuTrees])
 
   return (
     <PageWrapper>
@@ -417,6 +446,10 @@ export default function ConsumptionWarrantiesPage() {
                     <span className="font-mono text-sm font-semibold truncate">{r.warranty_number}</span>
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">Consumption</Badge>
                   </div>
+                  {(() => {
+                    const path = r.sku ? skuTrees.get(r.sku) : undefined
+                    return path ? <p className="text-[10px] text-muted-foreground leading-tight break-words">{path}</p> : null
+                  })()}
                   <p className="text-sm font-medium truncate">{r.item_name}</p>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     {r.sku && <span className="font-mono">{r.sku}</span>}
@@ -511,6 +544,10 @@ export default function ConsumptionWarrantiesPage() {
                         {cfg.label}
                       </Badge>
                     </div>
+                    {(() => {
+                      const path = c.sku ? skuTrees.get(c.sku) : undefined
+                      return path ? <p className="text-[10px] text-muted-foreground leading-tight break-words">{path}</p> : null
+                    })()}
                     <p className="text-sm font-medium truncate">{c.item_name}</p>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="font-mono">{c.warranty_number}</span>

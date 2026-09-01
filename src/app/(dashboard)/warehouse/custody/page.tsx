@@ -22,6 +22,7 @@ import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDia
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
+import { useVariantCategoryPaths } from '@/hooks/useVariantCategoryPaths'
 import { useCustodyLocations, type CustodyLocationRow } from '@/hooks/useCustodyLocations'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions, useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
@@ -335,6 +336,9 @@ function CustodyCard({
 
   const canCreateConsumption = useCanCreateConsumptionFor('custody')
 
+  // Category breadcrumb above each held item name.
+  const variantTrees = useVariantCategoryPaths(stockRows.map((r) => r.brand_variant_id))
+
   const isResponsible      = !!profile?.id && profile.id === sub.responsible_person_profile_id
   const isPrivileged       = !!perms && (perms.isSystemAdmin || perms.roles.includes('inventory_manager'))
   // Server-side gate on rpc_accept_custody_assign: sub responsible person OR
@@ -510,6 +514,10 @@ function CustodyCard({
               {stockRows.map((r) => (
                 <div key={r.brand_variant_id} className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2 text-[11px]">
                   <div className="min-w-0">
+                    {(() => {
+                      const path = variantTrees.get(r.brand_variant_id)
+                      return path ? <div className="text-[10px] text-muted-foreground leading-tight break-words">{path}</div> : null
+                    })()}
                     <div className="font-medium break-words">{r.item_name}</div>
                     {r.brand && <div className="text-[10px] text-muted-foreground break-words">{r.brand}{r.sku ? ` · ${r.sku}` : ''}</div>}
                   </div>
