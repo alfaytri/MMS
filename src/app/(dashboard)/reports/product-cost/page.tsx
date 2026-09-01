@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Lock } from 'lucide-react'
+import { ChevronRight, Lock, Tag } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ReportFilterBar } from '@/components/reports/ReportFilterBar'
@@ -54,8 +55,20 @@ export default function ProductCostReportPage() {
   const { data: divisions = [] } = useDivisions()
   const { data: warehouses = [] } = useWarehouses()
 
-  const totalValue = useMemo(() => rows.reduce((s, r) => s + (r.total_cost ?? 0), 0), [rows])
-  const totalQty   = useMemo(() => rows.reduce((s, r) => s + (r.qty ?? 0), 0), [rows])
+  // Client-side Type filter (the report's product_type: Spare Parts, Products,
+  // Consumables…). Options come from the current division/warehouse result set.
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const productTypes = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.product_type).filter((t): t is string => !!t))).sort(),
+    [rows],
+  )
+  const filteredRows = useMemo(
+    () => (typeFilter === 'all' ? rows : rows.filter((r) => r.product_type === typeFilter)),
+    [rows, typeFilter],
+  )
+
+  const totalValue = useMemo(() => filteredRows.reduce((s, r) => s + (r.total_cost ?? 0), 0), [filteredRows])
+  const totalQty   = useMemo(() => filteredRows.reduce((s, r) => s + (r.qty ?? 0), 0), [filteredRows])
 
   const subtitle = useMemo(() => {
     const dv = filters.divisionIds.length
@@ -98,25 +111,38 @@ export default function ProductCostReportPage() {
             title="Product Cost Report (PO-wise)"
             subtitle={subtitle}
             columns={columns}
-            rows={rows}
+            rows={filteredRows}
             groupBy={(r) => r.division_name ?? '—'}
             grandTotalLabel="Grand total (all divisions)"
-            disabled={rows.length === 0}
+            disabled={filteredRows.length === 0}
           />
         }
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        <Stat label="Layers" value={rows.length} />
+        <Stat label="Layers" value={filteredRows.length} />
         <Stat label="Units on hand" value={totalQty.toLocaleString()} />
         <Stat label="On-hand value" value={QAR.format(totalValue)} />
       </div>
 
-      <ReportFilterBar value={filters} onChange={setFilters} showDate={false} showWarehouse />
+      <ReportFilterBar value={filters} onChange={setFilters} showDate={false} showWarehouse>
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? 'all')}>
+          <SelectTrigger className="h-9 min-w-[10rem] gap-2">
+            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {productTypes.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </ReportFilterBar>
 
       <ReportGroupedTable
         columns={columns}
-        rows={rows}
+        rows={filteredRows}
         groupBy={(r) => r.division_name ?? '—'}
         isLoading={isLoading}
         grandTotalLabel="Grand total (all divisions)"
