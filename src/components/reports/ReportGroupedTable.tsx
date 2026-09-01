@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
@@ -16,12 +16,16 @@ type Props<T> = {
   emptyText?: string
   /** First-cell label on the grand-total footer. */
   grandTotalLabel?: string
+  /** Opt-in pagination: render `pageSize` rows at a time with prev/next. The
+   *  grand total still reflects ALL rows; per-group subtotals are hidden while
+   *  paginated (a group can span pages). Omit for the classic all-rows table. */
+  pageSize?: number
 }
 
 const alignClass = { left: 'text-left', right: 'text-right', center: 'text-center' } as const
 
 export function ReportGroupedTable<T>({
-  columns, rows, groupBy, isLoading, emptyText = 'No data for the selected filters.', grandTotalLabel = 'Grand total',
+  columns, rows, groupBy, isLoading, emptyText = 'No data for the selected filters.', grandTotalLabel = 'Grand total', pageSize,
 }: Props<T>) {
   const groups = useMemo(() => {
     if (!groupBy) return null
@@ -37,6 +41,35 @@ export function ReportGroupedTable<T>({
 
   const totalCols = useMemo(() => new Set(columns.filter((c) => c.total).map((c) => c.header)), [columns])
   const colCount = columns.length
+
+  // ── Pagination (opt-in via pageSize) ────────────────────────────────────
+  // Rows in the order they render (grouped bands first, else flat) so paging
+  // matches the eye. The grand total below still sums ALL rows; per-group
+  // subtotals are hidden while paginated since a group can span pages.
+  const orderedRows = useMemo(() => (groups ? groups.flatMap((g) => g.rows) : rows), [groups, rows])
+  const paginated = !!pageSize && pageSize > 0 && orderedRows.length > pageSize
+  const pageCount = paginated ? Math.ceil(orderedRows.length / pageSize) : 1
+  const [page, setPage] = useState(0)
+  useEffect(() => { setPage(0) }, [orderedRows.length, pageSize])
+  const safePage = Math.min(page, pageCount - 1)
+  const start = paginated ? safePage * pageSize : 0
+  const end = paginated ? start + pageSize : orderedRows.length
+  const pageRows = paginated ? orderedRows.slice(start, end) : orderedRows
+  const fullCountByLabel = useMemo(
+    () => new Map((groups ?? []).map((g) => [g.label, g.rows.length])),
+    [groups],
+  )
+  const pageGroups = useMemo(() => {
+    if (!groupBy) return null
+    const map = new Map<string, T[]>()
+    for (const r of pageRows) {
+      const k = groupBy(r) || '—'
+      const arr = map.get(k) ?? []
+      arr.push(r)
+      map.set(k, arr)
+    }
+    return [...map.entries()].map(([label, gr]) => ({ label, rows: gr }))
+  }, [pageRows, groupBy])
 
   function cell(row: T, col: ReportColumn<T>) {
     if (col.render) return col.render(row)
@@ -98,7 +131,8 @@ export function ReportGroupedTable<T>({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border bg-card">
+    <div className="rounded-lg border bg-card">
+      <div className="overflow-x-auto">
       <table className="w-full text-xs 2xl:text-sm">
         <thead>
           <tr className="border-b bg-muted/60">
@@ -132,20 +166,20 @@ export function ReportGroupedTable<T>({
                 {emptyText}
               </td>
             </tr>
-          ) : groups ? (
-            groups.map((g) => (
+          ) : pageGroups ? (
+            pageGroups.map((g) => (
               <Fragment key={g.label}>
                 <tr className="bg-muted/30">
                   <td colSpan={colCount} className="px-3 py-1.5 2xl:px-4 2xl:py-2 text-[11px] 2xl:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {g.label} <span className="font-normal normal-case opacity-60">· {g.rows.length}</span>
+                    {g.label} <span className="font-normal normal-case opacity-60">· {fullCountByLabel.get(g.label) ?? g.rows.length}</span>
                   </td>
                 </tr>
                 {g.rows.map((row, ri) => dataRow(row, `${g.label}-${ri}`, ri))}
-                {totalCols.size > 0 && <TotalsRow label={`Subtotal — ${g.label}`} groupRows={g.rows} variant="subtotal" />}
+                {!paginated && totalCols.size > 0 && <TotalsRow label={`Subtotal — ${g.label}`} groupRows={g.rows} variant="subtotal" />}
               </Fragment>
             ))
           ) : (
-            rows.map((row, ri) => dataRow(row, String(ri), ri))
+            pageRows.map((row, ri) => dataRow(row, String(ri), ri))
           )}
         </tbody>
         {!isLoading && rows.length > 0 && totalCols.size > 0 && (
@@ -154,6 +188,33 @@ export function ReportGroupedTable<T>({
           </tfoot>
         )}
       </table>
+      </div>
+      {paginated && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            {start + 1}–{Math.min(end, orderedRows.length)} of {orderedRows.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={safePage === 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="rounded-md border px-2 py-1 font-medium hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Prev
+            </button>
+            <span className="px-1 tabular-nums">Page {safePage + 1} / {pageCount}</span>
+            <button
+              type="button"
+              disabled={safePage >= pageCount - 1}
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              className="rounded-md border px-2 py-1 font-medium hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -147,6 +147,7 @@ export default function ProductCostReportPage() {
         isLoading={isLoading}
         grandTotalLabel="Grand total (all divisions)"
         emptyText="No on-hand stock for the selected filters."
+        pageSize={50}
       />
     </PageWrapper>
   )
