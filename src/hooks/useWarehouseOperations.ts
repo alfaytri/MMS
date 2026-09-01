@@ -104,6 +104,7 @@ export type WarehouseTransfer = {
   from_sub_container_name: string | null
   to_sub_container_name: string | null
   status: TransferStatus
+  transfer_kind: string | null
   created_by_name: string | null
   created_by_profile_id: string | null
   dispatched_by_profile_id: string | null

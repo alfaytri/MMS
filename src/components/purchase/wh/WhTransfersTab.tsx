@@ -125,11 +125,14 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   }, [warehouses, currentProfile?.id])
 
   const canDispatch = useCallback((t: WarehouseTransfer): boolean => {
-    return t.status === 'pending' && isFieldRPOf(t.from_warehouse_id)
+    // Custody-assign transfers must use the custody dispatch/accept flow (shortfall
+    // disposition + cost recalc); the generic RPC now rejects them server-side too.
+    return t.status === 'pending' && t.transfer_kind !== 'custody_assign' && isFieldRPOf(t.from_warehouse_id)
   }, [isFieldRPOf])
 
   const canReceive = useCallback((t: WarehouseTransfer): boolean => {
-    return t.status === 'in_transit' && isFieldRPOf(t.to_warehouse_id)
+    // custody_assign must be accepted via the custody flow; custody_return is fine here.
+    return t.status === 'in_transit' && t.transfer_kind !== 'custody_assign' && isFieldRPOf(t.to_warehouse_id)
   }, [isFieldRPOf])
 
   const canCancel = useCallback((t: WarehouseTransfer): boolean => {
