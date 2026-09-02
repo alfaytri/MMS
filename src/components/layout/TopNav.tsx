@@ -50,7 +50,7 @@ export async function TopNav() {
           <span className="text-sm">{brandName}</span>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
+        <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto scroll-x-fade scroll-smooth">
           <NavDropdownGroup>
             {NAV_ITEMS.map((entry) => (
               <NavDropdown key={entry.label} entry={entry} />
