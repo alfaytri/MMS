@@ -1,5 +1,33 @@
--- whole-app 04: functions (live, byte-exact via pg_get_functiondef)
+-- whole-app 04: functions (live post-repair, byte-exact via pg_get_functiondef)
 SET check_function_bodies = false;
+
+CREATE OR REPLACE FUNCTION public._apply_tool_scrap_on_adjustment()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NEW.tool_unit_id IS NULL THEN RETURN NEW; END IF;
+
+  -- Approved: retire the unit now.
+  IF NEW.status = 'approved' AND OLD.status IS DISTINCT FROM 'approved' THEN
+    UPDATE public.tool_unit_assignments
+      SET released_at = COALESCE(released_at, now()), release_reason = COALESCE(release_reason, 'scrapped')
+      WHERE unit_id = NEW.tool_unit_id AND released_at IS NULL;
+    UPDATE public.tool_asset_units
+      SET status = 'retired', current_custody_location_id = NULL, pending_scrap = false
+      WHERE id = NEW.tool_unit_id;
+
+  -- Rejected: release the lock; the unit returns to its prior state.
+  ELSIF NEW.status = 'rejected' AND OLD.status IS DISTINCT FROM 'rejected' THEN
+    UPDATE public.tool_asset_units SET pending_scrap = false WHERE id = NEW.tool_unit_id;
+  END IF;
+
+  RETURN NEW;
+END
+$function$
+;
 
 CREATE OR REPLACE FUNCTION public._auth_can_create_catalog()
  RETURNS boolean
@@ -36,6 +64,48 @@ AS $function$
     WHERE ud.auth_user_id = auth.uid()
       AND public._user_has_permission(ud.id, p_permission)
   );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._autostick_item_division()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_item uuid; v_div uuid;
+begin
+  if new.remaining_qty is null or new.remaining_qty <= 0 then return new; end if;
+  select sc.division_id into v_div
+    from public.warehouse_sub_containers sc where sc.id = new.sub_container_id;
+  if v_div is null then return new; end if;
+  select bv.item_id into v_item
+    from public.inventory_item_brand_variants bv where bv.id = new.brand_variant_id;
+  if v_item is null then return new; end if;
+  insert into public.inventory_item_divisions (item_id, division_id, category_id)
+  select v_item, v_div, (select category_id from public.inventory_items where id = v_item)
+  on conflict (item_id, division_id) do nothing;   -- additive; never removes
+  return new;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._bill_qar_factor(p_bill_id uuid)
+ RETURNS numeric
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT CASE
+    WHEN po.currency IS NOT NULL
+     AND po.currency <> 'QAR'
+     AND COALESCE(po.exchange_rate, 0) > 0
+    THEN po.exchange_rate
+    ELSE 1
+  END
+  FROM public.bills b
+  LEFT JOIN public.purchase_orders po ON po.id = b.purchase_order_id
+  WHERE b.id = p_bill_id;
 $function$
 ;
 
@@ -218,6 +288,58 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public._emit_send_for_repair_transfer(p_warehouse_id uuid, p_to_warehouse_id uuid, p_brand_variant_id uuid, p_qty numeric, p_unit_cost numeric, p_item_name text, p_sku text, p_from_sub_container_id uuid, p_to_sub_container_id uuid, p_repair_vendor_id uuid, p_expected_return_date date, p_notes text, p_disposition_id uuid, p_movement_notes text, p_uid uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_transfer_id     uuid;
+  v_transfer_number text;
+begin
+  v_transfer_number := public.generate_transfer_number();
+
+  insert into public.warehouse_transfers (
+    transfer_number, from_warehouse_id, to_warehouse_id,
+    status, date, notes,
+    transfer_kind, repair_vendor_id, source_return_line_disposition_id, expected_return_date,
+    from_sub_container_id, to_sub_container_id,
+    created_by_profile_id, dispatched_by_profile_id, dispatched_at
+  ) values (
+    v_transfer_number, p_warehouse_id, p_to_warehouse_id,
+    'in_transit', current_date, p_notes,
+    'damaged_repair_out', p_repair_vendor_id, p_disposition_id, p_expected_return_date,
+    p_from_sub_container_id, p_to_sub_container_id,
+    p_uid, p_uid, now()
+  )
+  returning id into v_transfer_id;
+
+  insert into public.warehouse_transfer_items (
+    transfer_id, brand_variant_id, item_name, sku, requested_qty, unit_cost, dispatched_qty,
+    sub_container_id
+  ) values (
+    v_transfer_id, p_brand_variant_id,
+    coalesce(p_item_name, ''), nullif(p_sku, ''),
+    p_qty::integer, p_unit_cost, p_qty::integer,
+    p_from_sub_container_id
+  );
+
+  perform public._consume_damaged_stock_fifo(p_warehouse_id, p_brand_variant_id, p_qty);
+
+  insert into public.inventory_damaged_movements
+    (movement_type, qty, warehouse_id, brand_variant_id, unit_cost,
+     source_return_line_disposition_id, source_transfer_id, notes, created_by)
+  values (
+    'send_for_repair_out', p_qty, p_warehouse_id, p_brand_variant_id, p_unit_cost,
+    p_disposition_id, v_transfer_id, p_movement_notes, p_uid
+  );
+
+  return v_transfer_id;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public._enforce_return_line_provenance()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -231,12 +353,17 @@ BEGIN
 
   IF v_source = 'purchase_order' AND NEW.receival_item_id IS NULL THEN
     RAISE EXCEPTION 'return_lines.receival_item_id is required for PO returns (return_id=%)', NEW.return_id
-      USING HINT = 'Every PO-return line must reference the receival_items row it originated from — D.4.a rule.';
+      USING HINT = 'Every PO-return line must reference the receival_items row it originated from.';
   END IF;
 
   IF v_source = 'sale_order' AND NEW.sale_delivery_line_id IS NULL THEN
     RAISE EXCEPTION 'return_lines.sale_delivery_line_id is required for SO returns (return_id=%)', NEW.return_id
-      USING HINT = 'Every SO-return line must reference the sale_delivery_lines row it originated from — D.4.b rule.';
+      USING HINT = 'Every SO-return line must reference the sale_delivery_lines row it originated from.';
+  END IF;
+
+  IF v_source = 'consumption' AND NEW.consumption_line_id IS NULL THEN
+    RAISE EXCEPTION 'return_lines.consumption_line_id is required for consumption returns (return_id=%)', NEW.return_id
+      USING HINT = 'Every consumption-return line must reference the consumption_lines row it originated from.';
   END IF;
 
   RETURN NEW;
@@ -396,6 +523,7 @@ CREATE OR REPLACE FUNCTION public._maybe_close_return(p_return_id uuid)
  SET search_path TO 'public'
 AS $function$
 declare
+  v_source               public.return_source_type;
   v_customer_remaining   numeric;
   v_inventory_remaining  numeric;
   v_new_status           public.return_status;
@@ -404,7 +532,38 @@ declare
   v_all_store_credit     boolean;
   v_all_refund           boolean;
   v_new_resolution_type  public.credit_note_resolution_type;
+  v_restocked_at         timestamptz;
+  v_has_good             boolean;
 begin
+  select source_type into v_source from public.so_po_returns where id = p_return_id;
+
+  -- Phase 3b: consumption returns carry no customer / credit-note dimension.
+  -- Close when good lines have been restocked AND the damaged-line dispositions
+  -- are fully resolved.
+  if v_source = 'consumption' then
+    select restocked_at into v_restocked_at from public.so_po_returns where id = p_return_id;
+    select exists (
+      select 1 from public.return_lines
+      where return_id = p_return_id and condition = 'good' and qty > 0
+    ) into v_has_good;
+    if v_has_good and v_restocked_at is null then
+      return;  -- good stock not put back yet
+    end if;
+
+    select inventory_remaining into v_inventory_remaining
+      from public.return_progress where return_id = p_return_id;
+    if coalesce(v_inventory_remaining, 0) > 0 then
+      return;  -- damaged dispositions still pending
+    end if;
+
+    update public.so_po_returns
+      set status = 'closed', updated_at = now()
+      where id = p_return_id
+        and status not in ('cancelled', 'closed');
+    return;
+  end if;
+
+  -- Sales / PO path (unchanged).
   select customer_remaining, inventory_remaining
     into v_customer_remaining, v_inventory_remaining
     from public.return_progress
@@ -439,9 +598,6 @@ begin
     return;
   end if;
 
-  -- Phase 8.6 fix: compute the customer-ledger mix and stamp the correct
-  -- resolution_type. Pure store_credit now gets its own arm (was silently
-  -- collapsing to 'refund' before).
   select
     bool_and(cr.resolution_type = 'replacement'),
     bool_and(cr.resolution_type = 'store_credit'),
@@ -664,6 +820,11 @@ begin
       'restock_as_damaged_in', p_qty, p_warehouse_id, v_brand_variant, v_unit_cost,
       v_new_id, p_notes, v_uid, v_division
     );
+
+    -- Phase 3a: reverse the sale COGS for the disposed qty (full-line
+    -- reversal; the cost moves from sold -> damaged asset). The helper
+    -- no-ops for non-sale-sourced returns.
+    perform public._reverse_sale_cogs_for_return(v_return_id, v_brand_variant, p_qty);
   end if;
 
   return v_new_id;
@@ -735,7 +896,7 @@ begin
       where sale_order_id = v_source_id
         and brand_variant_id = v_brand_variant
         and qty > 0
-      order by date asc, unit_cost asc, id asc
+      order by date asc, id asc
   loop
     exit when v_qty_remaining <= 0;
     v_qty_this_chunk := least(v_cogs.qty, v_qty_remaining);
@@ -767,6 +928,112 @@ AS $function$
   from public.return_lines rl
   join public.return_line_customer_resolutions cr on cr.return_line_id = rl.id
   where rl.return_id = p_return_id;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._reverse_sale_cogs_for_return(p_return_id uuid, p_brand_variant_id uuid, p_qty numeric)
+ RETURNS numeric
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_return          RECORD;
+  v_cogs            RECORD;
+  v_qty_remaining   numeric := p_qty;
+  v_qty_this_chunk  numeric;
+  v_available_qty   numeric;
+  v_reversed_cost   numeric := 0;
+BEGIN
+  IF p_qty IS NULL OR p_qty <= 0 THEN RETURN 0; END IF;
+
+  SELECT id, source_type, source_id, division_id, return_number
+  INTO   v_return
+  FROM   public.so_po_returns
+  WHERE  id = p_return_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION '_reverse_sale_cogs_for_return: return % not found', p_return_id;
+  END IF;
+
+  IF v_return.source_type = 'sale_order' THEN
+    -- Sale reversal (unchanged from Phase 3a).
+    SELECT COALESCE(SUM(qty), 0) INTO v_available_qty
+    FROM   public.cogs_entries
+    WHERE  sale_order_id = v_return.source_id AND brand_variant_id = p_brand_variant_id
+      AND  source_type = 'sale' AND qty > 0;
+    IF v_available_qty < p_qty THEN
+      RAISE EXCEPTION '_reverse_sale_cogs_for_return: return % variant % requests qty % but only % sale COGS available',
+        v_return.return_number, p_brand_variant_id, p_qty, v_available_qty;
+    END IF;
+    FOR v_cogs IN
+      SELECT id, sale_delivery_id, sale_order_id, qty, unit_cost, division_id
+      FROM   public.cogs_entries
+      WHERE  sale_order_id = v_return.source_id AND brand_variant_id = p_brand_variant_id
+        AND  source_type = 'sale' AND qty > 0
+      ORDER  BY date ASC, id ASC
+    LOOP
+      EXIT WHEN v_qty_remaining <= 0;
+      v_qty_this_chunk := least(v_cogs.qty, v_qty_remaining);
+      INSERT INTO public.cogs_entries (
+        brand_variant_id, sale_delivery_id, sale_order_id,
+        qty, unit_cost, total_cost, date, source_type, division_id, notes
+      ) VALUES (
+        p_brand_variant_id, v_cogs.sale_delivery_id, v_cogs.sale_order_id,
+        -v_qty_this_chunk, v_cogs.unit_cost, -(v_qty_this_chunk * v_cogs.unit_cost), current_date,
+        'sale_return', COALESCE(v_return.division_id, v_cogs.division_id),
+        'COGS reversed by return ' || v_return.return_number || ' (disposition)'
+      );
+      v_reversed_cost := v_reversed_cost + (v_qty_this_chunk * v_cogs.unit_cost);
+      v_qty_remaining := v_qty_remaining - v_qty_this_chunk;
+    END LOOP;
+
+  ELSIF v_return.source_type = 'consumption' THEN
+    -- Phase 3b: consumption reversal. Consumption COGS keys on consumption_id
+    -- (no delivery/order); reverse into negative cogs_entries('consumption_return').
+    SELECT COALESCE(SUM(qty), 0) INTO v_available_qty
+    FROM   public.cogs_entries
+    WHERE  consumption_id = v_return.source_id AND brand_variant_id = p_brand_variant_id
+      AND  source_type = 'consumption' AND qty > 0;
+    IF v_available_qty < p_qty THEN
+      RAISE EXCEPTION '_reverse_sale_cogs_for_return: return % variant % requests qty % but only % consumption COGS available',
+        v_return.return_number, p_brand_variant_id, p_qty, v_available_qty;
+    END IF;
+    FOR v_cogs IN
+      SELECT id, consumption_id, qty, unit_cost, division_id,
+             consumer_type, consumer_sub_container_id, consumer_customer_id
+      FROM   public.cogs_entries
+      WHERE  consumption_id = v_return.source_id AND brand_variant_id = p_brand_variant_id
+        AND  source_type = 'consumption' AND qty > 0
+      ORDER  BY date ASC, id ASC
+    LOOP
+      EXIT WHEN v_qty_remaining <= 0;
+      v_qty_this_chunk := least(v_cogs.qty, v_qty_remaining);
+      INSERT INTO public.cogs_entries (
+        brand_variant_id, consumption_id,
+        qty, unit_cost, total_cost, date, source_type, division_id,
+        consumer_type, consumer_sub_container_id, consumer_customer_id, notes
+      ) VALUES (
+        p_brand_variant_id, v_cogs.consumption_id,
+        -v_qty_this_chunk, v_cogs.unit_cost, -(v_qty_this_chunk * v_cogs.unit_cost), current_date,
+        'consumption_return', COALESCE(v_return.division_id, v_cogs.division_id),
+        v_cogs.consumer_type, v_cogs.consumer_sub_container_id, v_cogs.consumer_customer_id,
+        'Consumption COGS reversed by return ' || v_return.return_number || ' (disposition)'
+      );
+      v_reversed_cost := v_reversed_cost + (v_qty_this_chunk * v_cogs.unit_cost);
+      v_qty_remaining := v_qty_remaining - v_qty_this_chunk;
+    END LOOP;
+
+  ELSE
+    RETURN 0;  -- purchase_order or other: not applicable
+  END IF;
+
+  IF v_qty_remaining > 0 THEN
+    RAISE EXCEPTION '_reverse_sale_cogs_for_return: return % variant % could not fully attribute % units',
+      v_return.return_number, p_brand_variant_id, v_qty_remaining;
+  END IF;
+
+  RETURN v_reversed_cost;
+END;
 $function$
 ;
 
@@ -836,6 +1103,24 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public._stamp_sale_delivery_creator()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NEW.created_by IS NULL THEN
+    NEW.created_by := public._current_user_data_id();
+  END IF;
+  IF NEW.created_by_name IS NULL AND NEW.created_by IS NOT NULL THEN
+    NEW.created_by_name := (SELECT full_name FROM public.user_data WHERE id = NEW.created_by);
+  END IF;
+  RETURN NEW;
+END
 $function$
 ;
 
@@ -1018,24 +1303,38 @@ DECLARE
   v_all_refund       boolean;
   v_resolution_type  text;
 BEGIN
+  -- Consumption warranty return (Phase 4): no customer/credit dimension; the
+  -- claim resolves once the return is fully processed (status='closed').
+  IF NEW.source_type = 'consumption' THEN
+    IF NEW.status <> 'closed' THEN
+      RETURN NEW;
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM warranty_claims WHERE id = NEW.warranty_claim_id AND status = 'in_progress'
+    ) THEN
+      RETURN NEW;
+    END IF;
+    UPDATE warranty_claims
+      SET status = 'resolved',
+          resolved_at = now(),
+          resolution_type = NULL,
+          linked_credit_note_id = NULL,
+          updated_at = now()
+      WHERE id = NEW.warranty_claim_id;
+    RETURN NEW;
+  END IF;
+
+  -- Sales path (unchanged).
   IF NEW.status NOT IN ('resolved_credit','resolved_replacement','resolved_partial') THEN
     RETURN NEW;
   END IF;
 
-  -- Only a claim still awaiting resolution gets flipped; this also makes
-  -- the trigger idempotent against later, unrelated updates to an
-  -- already-resolved return (status stays terminal, claim stays resolved).
   IF NOT EXISTS (
     SELECT 1 FROM warranty_claims WHERE id = NEW.warranty_claim_id AND status = 'in_progress'
   ) THEN
     RETURN NEW;
   END IF;
 
-  -- Mirror _maybe_close_return's own finer decomposition of the customer
-  -- ledger (per-line resolution_type), since warranty_claims.resolution_type
-  -- needs refund vs credit distinguished (the coarser resolved_credit status
-  -- conflates them). resolution_type is the CUSTOMER outcome only; repair is
-  -- an inventory disposition, not a customer resolution (see header).
   SELECT
     bool_and(cr.resolution_type = 'replacement'),
     bool_and(cr.resolution_type = 'store_credit'),
@@ -1049,7 +1348,7 @@ BEGIN
     WHEN v_all_replacement  THEN 'replacement'
     WHEN v_all_refund       THEN 'refund'
     WHEN v_all_store_credit THEN 'credit'
-    ELSE NULL              -- mixed / partial: no single customer outcome
+    ELSE NULL
   END;
 
   UPDATE warranty_claims
@@ -1910,7 +2209,6 @@ BEGIN
       FROM fifo_cost_layers fcl
      WHERE fcl.brand_variant_id = v_bv.brand_variant_id
        AND fcl.remaining_qty    > 0
-       AND fcl.source_type      = 'receival'
        AND fcl.receival_id      = ANY(v_lc.attached_receival_ids);
 
     v_sold := GREATEST(v_bv.qty_received - v_bv_remaining, 0);
@@ -1965,7 +2263,6 @@ BEGIN
           FROM fifo_cost_layers fcl
          WHERE fcl.brand_variant_id = v_bv.brand_variant_id
            AND fcl.remaining_qty    > 0
-           AND fcl.source_type      = 'receival'
            AND fcl.receival_id      = ANY(v_lc.attached_receival_ids)
          FOR UPDATE
       LOOP
@@ -3983,6 +4280,7 @@ BEGIN
            )
       AND  direction = 'outgoing'
       AND  deleted_at IS NULL
+      AND  NOT EXISTS (SELECT 1 FROM public.payment_bill_allocations pba WHERE pba.payment_id = payments.id)
   ), 0);
 
   v_paid := v_paid + COALESCE((
@@ -4345,13 +4643,19 @@ BEGIN
           LIMIT  1
         );
       END IF;
+
+      IF v_line.brand_variant_id IS NOT NULL THEN
+        UPDATE inventory_item_brand_variants
+           SET reserved_qty = reserved_qty + v_line.qty_delivered, updated_at = now()
+         WHERE id = v_line.brand_variant_id;
+      END IF;
     END LOOP;
 
     -- Restore FIFO layers from cogs_entries, per-layer sub_container_id
     FOR v_cogs IN
       SELECT brand_variant_id, qty, unit_cost, source_id
       FROM   cogs_entries
-      WHERE  sale_delivery_id = p_delivery_id
+      WHERE  sale_delivery_id = p_delivery_id AND qty > 0
     LOOP
       -- Restore to the SAME sub-container the drained layer came from
       v_sub_container_id := NULL;
@@ -4375,7 +4679,7 @@ BEGIN
         qty, unit_cost, landed_cost_per_unit, total_unit_cost, remaining_qty
       ) VALUES (
         v_cogs.brand_variant_id, v_wh_id, v_sub_container_id, COALESCE(v_delivery.date, CURRENT_DATE),
-        v_cogs.qty, v_cogs.unit_cost, 0, v_cogs.unit_cost, v_cogs.qty
+        v_cogs.qty, v_cogs.unit_cost - COALESCE((SELECT landed_cost_per_unit FROM public.fifo_cost_layers WHERE id = v_cogs.source_id), 0), COALESCE((SELECT landed_cost_per_unit FROM public.fifo_cost_layers WHERE id = v_cogs.source_id), 0), v_cogs.unit_cost, v_cogs.qty
       );
 
       UPDATE inventory_item_brand_variants
@@ -4461,12 +4765,11 @@ BEGIN
         AND sub_container_id = v_transfer.from_sub_container_id;
 
     ELSIF v_transfer.status = 'in_transit' THEN
-      SELECT ABS(unit_cost) INTO v_avg_cost
+      SELECT SUM(ABS(qty) * ABS(unit_cost)) / NULLIF(SUM(ABS(qty)), 0) INTO v_avg_cost
       FROM inventory_stock_movements
       WHERE reference_id = p_transfer_id
         AND brand_variant_id = v_item.brand_variant_id
-        AND movement_type = 'transfer_out'
-      LIMIT 1;
+        AND movement_type = 'transfer_out';
 
       v_avg_cost := COALESCE(v_avg_cost, v_item.unit_cost);
 
@@ -5436,10 +5739,12 @@ begin
 
   insert into sale_deliveries (
     delivery_number, sale_order_id,
-    warehouse_id, warehouse_name, date, status
+    warehouse_id, warehouse_name, date, status, created_by, created_by_name
   ) values (
     v_delivery_number, p_so_id,
-    p_warehouse_id, p_warehouse_name, p_date, 'pending'
+    p_warehouse_id, p_warehouse_name, p_date, 'pending',
+    public._current_user_data_id(),
+    (SELECT full_name FROM public.user_data WHERE id = public._current_user_data_id())
   )
   returning sale_deliveries.id into v_new_id;
 
@@ -5481,10 +5786,12 @@ BEGIN
 
   INSERT INTO sale_deliveries (
     delivery_number, sale_order_id,
-    warehouse_id, warehouse_name, date, status
+    warehouse_id, warehouse_name, date, status, created_by, created_by_name
   ) VALUES (
     v_delivery_number, p_so_id,
-    p_warehouse_id, p_warehouse_name, p_date, 'pending'
+    p_warehouse_id, p_warehouse_name, p_date, 'pending',
+    public._current_user_data_id(),
+    (SELECT full_name FROM public.user_data WHERE id = public._current_user_data_id())
   )
   RETURNING sale_deliveries.id INTO v_new_id;
 
@@ -6813,30 +7120,54 @@ CREATE OR REPLACE FUNCTION public.create_tool_units_on_receival_layer()
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_item_id     uuid;
-  v_category    text;
-  v_mode        text;
-  v_ri_id       uuid;
-  v_qty         int := COALESCE(NEW.qty, 0)::int;
-  v_receival_id uuid;
-  v_unit_cost   numeric := COALESCE(NEW.total_unit_cost, NEW.unit_cost);
-  i             int;
+  v_item_id       uuid;
+  v_category      text;
+  v_effective     text;
+  v_division_id   uuid;
+  v_has_override  boolean;
+  v_unit_division uuid;
+  v_ri_id         uuid;
+  v_qty           int := COALESCE(NEW.qty, 0)::int;
+  v_receival_id   uuid;
+  v_unit_cost     numeric := COALESCE(NEW.total_unit_cost, NEW.unit_cost);
+  i               int;
 BEGIN
   IF NEW.source_type <> 'receival' THEN RETURN NEW; END IF;
   IF v_qty <= 0 THEN RETURN NEW; END IF;
 
-  SELECT ii.id, ic.type::text, ic.tool_tracking_mode::text
-    INTO v_item_id, v_category, v_mode
+  SELECT ii.id, ic.type::text
+    INTO v_item_id, v_category
   FROM inventory_item_brand_variants biv
   JOIN inventory_items       ii ON ii.id = biv.item_id
   JOIN inventory_categories  ic ON ic.id = ii.category_id
   WHERE biv.id = NEW.brand_variant_id;
 
-  -- Only serialized tool categories create placeholder asset units. Non-tools
-  -- and BULK tools fall through to the qty/FIFO machinery with no unit rows.
-  IF v_category IS NULL OR v_category <> 'tools' OR v_mode <> 'serialized' THEN
+  -- The division this layer landed in (its sub-container's division). NULL when
+  -- the sub-container is division-less — tool_effective_mode() then falls back
+  -- to the category mode, i.e. exactly the pre-per-division behavior.
+  SELECT sc.division_id INTO v_division_id
+  FROM warehouse_sub_containers sc
+  WHERE sc.id = NEW.sub_container_id;
+
+  -- Route by EFFECTIVE mode of (item, this division). Non-tools and divisions
+  -- where the tool is bulk fall through to the qty/FIFO machinery (no units).
+  v_effective := public.tool_effective_mode(v_item_id, v_division_id)::text;
+  IF v_category IS NULL OR v_category <> 'tools' OR v_effective <> 'serialized' THEN
     RETURN NEW;
   END IF;
+
+  -- Scope the spawned units to the receival division ONLY when the serialization
+  -- comes from an explicit per-(item,division) override. For a plain serialized
+  -- CATEGORY (no override) keep the shipped behavior: NULL division, established
+  -- on first team assign — zero change for existing serialized tools.
+  SELECT (iid.tool_tracking_mode IS NOT NULL) INTO v_has_override
+  FROM inventory_item_divisions iid
+  WHERE iid.item_id = v_item_id AND iid.division_id = v_division_id
+  LIMIT 1;
+  v_unit_division := CASE
+    WHEN v_has_override IS TRUE AND v_division_id IS NOT NULL THEN v_division_id
+    ELSE NULL
+  END;
 
   BEGIN
     v_receival_id := NEW.receival_id::uuid;
@@ -6858,9 +7189,9 @@ BEGIN
   FOR i IN 1..v_qty LOOP
     INSERT INTO tool_asset_units (
       item_id, receival_item_id, serial_number, is_placeholder,
-      status, condition, brand, unit_cost
+      status, condition, brand, unit_cost, division_id
     ) VALUES (
-      v_item_id, v_ri_id, NULL, true, 'available', 'Good', 'Default', v_unit_cost
+      v_item_id, v_ri_id, NULL, true, 'available', 'Good', 'Default', v_unit_cost, v_unit_division
     );
   END LOOP;
 
@@ -6905,7 +7236,7 @@ DECLARE
   v_to_sub_container_id   UUID;
   v_from_count            INT;
   v_to_count              INT;
-BEGIN
+BEGIN IF p_to_sub_container_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.warehouse_sub_containers sc JOIN public.warehouses w ON w.id = sc.warehouse_id WHERE sc.id = p_to_sub_container_id AND w.warehouse_kind = 'custody' AND sc.division_id IS NOT NULL AND public.is_division_member(sc.division_id) IS NOT TRUE) THEN RAISE EXCEPTION 'destination is outside your division' USING ERRCODE = '42501'; END IF;
   IF NOT public._auth_user_has_permission('warehouse.transfer.create') THEN RAISE EXCEPTION 'Not authorized to create transfers' USING ERRCODE = '42501'; END IF;
   -- ─ Resolve source sub-container ─────────────────────────────────────
   IF p_from_sub_container_id IS NOT NULL THEN
@@ -7119,6 +7450,135 @@ BEGIN
   END LOOP;
 
   RETURN v_transfer_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.create_warranty_records_for_consumption(p_consumption_id uuid)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_ce            RECORD;
+  v_line          RECORD;
+  v_item_id       uuid;
+  v_country_id    integer;
+  v_country_name  text;
+  v_policy_id     uuid;
+  v_policy        RECORD;
+  v_start_date    date;
+  v_inserted      integer := 0;
+BEGIN
+  SELECT id, date, division_id, consumer_type
+  INTO   v_ce
+  FROM   public.consumption_entries
+  WHERE  id = p_consumption_id;
+
+  IF NOT FOUND THEN
+    RETURN 0;
+  END IF;
+
+  -- Warranty only on custody consumption (the sale case); internal gets none.
+  IF v_ce.consumer_type <> 'custody' OR v_ce.division_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  FOR v_line IN
+    SELECT id, brand_variant_id, item_name, sku, qty
+    FROM   public.consumption_lines
+    WHERE  consumption_id = p_consumption_id
+  LOOP
+    IF v_line.brand_variant_id IS NULL
+       OR v_line.qty IS NULL
+       OR v_line.qty <= 0
+    THEN
+      CONTINUE;
+    END IF;
+
+    SELECT biv.item_id, biv.country_id, cc.name
+    INTO   v_item_id, v_country_id, v_country_name
+    FROM   public.inventory_item_brand_variants biv
+    LEFT JOIN public.country_codes cc ON cc.id = biv.country_id
+    WHERE  biv.id = v_line.brand_variant_id;
+
+    IF v_item_id IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    v_policy_id := public.get_effective_warranty_policy(v_item_id);
+
+    IF v_policy_id IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    SELECT * INTO v_policy
+    FROM   public.warranty_policies
+    WHERE  id = v_policy_id;
+
+    IF v_policy.duration_months = 0 THEN
+      CONTINUE;
+    END IF;
+
+    -- Consumption has no delivery/invoice split: the warranty always starts on
+    -- the consumption date. The policy's starts_from is still snapshotted for
+    -- the record of what rule was in force.
+    v_start_date := COALESCE(v_ce.date, CURRENT_DATE);
+
+    INSERT INTO public.warranty_records (
+      warranty_number,
+      source_type,
+      consumption_id,
+      consumption_line_id,
+      division_id,
+      brand_variant_id,
+      item_name,
+      sku,
+      qty,
+      policy_id,
+      policy_name_snapshot,
+      coverage_type_snapshot,
+      duration_months_snapshot,
+      terms_en_snapshot,
+      terms_ar_snapshot,
+      void_conditions_snapshot,
+      starts_from_snapshot,
+      start_date,
+      end_date,
+      origin_country_id,
+      origin_name_snapshot
+    ) VALUES (
+      public.next_warranty_number('consumption'::warranty_source_type, v_ce.division_id),
+      'consumption'::warranty_source_type,
+      v_ce.id,
+      v_line.id,
+      v_ce.division_id,
+      v_line.brand_variant_id,
+      COALESCE(v_line.item_name, 'Item'),
+      NULLIF(v_line.sku, ''),
+      v_line.qty,
+      v_policy.id,
+      v_policy.name,
+      v_policy.coverage_type,
+      v_policy.duration_months,
+      v_policy.terms_en,
+      v_policy.terms_ar,
+      v_policy.void_conditions,
+      v_policy.starts_from,
+      v_start_date,
+      (v_start_date + (v_policy.duration_months || ' months')::interval)::date,
+      v_country_id,
+      v_country_name
+    )
+    ON CONFLICT (consumption_line_id) DO NOTHING;
+
+    IF FOUND THEN
+      v_inserted := v_inserted + 1;
+    END IF;
+  END LOOP;
+
+  RETURN v_inserted;
 END;
 $function$
 ;
@@ -7500,6 +7960,106 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.delete_warehouse(p_warehouse_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_sub_ids uuid[];
+  r  record;
+  n  bigint;
+  blockers text[] := '{}';
+BEGIN
+  IF p_warehouse_id IS NULL THEN
+    RAISE EXCEPTION 'A warehouse id is required.';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM warehouses WHERE id = p_warehouse_id) THEN
+    RAISE EXCEPTION 'Warehouse not found (it may already have been deleted).';
+  END IF;
+
+  SELECT coalesce(array_agg(id), '{}') INTO v_sub_ids
+    FROM warehouse_sub_containers WHERE warehouse_id = p_warehouse_id;
+
+  -- Refuse if any RESTRICT / NO ACTION child (real stock or history) points at
+  -- the warehouse or any of its sub-containers. The self-FK
+  -- (warehouse_sub_containers.warehouse_id) is excluded — we delete those rows
+  -- ourselves below.
+  FOR r IN
+    SELECT tc.table_name AS c_tab, kcu.column_name AS c_col, ccu.table_name AS p_tab
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+      ON kcu.constraint_name = tc.constraint_name AND kcu.constraint_schema = tc.constraint_schema
+    JOIN information_schema.constraint_column_usage ccu
+      ON ccu.constraint_name = tc.constraint_name AND ccu.constraint_schema = tc.constraint_schema
+    JOIN information_schema.referential_constraints rc
+      ON rc.constraint_name = tc.constraint_name AND rc.constraint_schema = tc.constraint_schema
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+      AND ccu.table_name IN ('warehouses','warehouse_sub_containers')
+      AND rc.delete_rule IN ('RESTRICT','NO ACTION')
+      AND NOT (tc.table_name = 'warehouse_sub_containers' AND kcu.column_name = 'warehouse_id')
+  LOOP
+    IF r.p_tab = 'warehouses' THEN
+      EXECUTE format('SELECT count(*) FROM public.%I WHERE %I = $1', r.c_tab, r.c_col)
+        INTO n USING p_warehouse_id;
+    ELSIF cardinality(v_sub_ids) > 0 THEN
+      EXECUTE format('SELECT count(*) FROM public.%I WHERE %I = ANY($1)', r.c_tab, r.c_col)
+        INTO n USING v_sub_ids;
+    ELSE
+      n := 0;
+    END IF;
+    IF n > 0 THEN
+      blockers := blockers || format('%s: %s', r.c_tab, n);
+    END IF;
+  END LOOP;
+
+  IF cardinality(blockers) > 0 THEN
+    RAISE EXCEPTION 'This warehouse still has stock or history and can''t be deleted (%). Move or clear those records first.',
+      array_to_string(blockers, ', ');
+  END IF;
+
+  DELETE FROM warehouse_sub_containers WHERE warehouse_id = p_warehouse_id;
+  DELETE FROM warehouses              WHERE id           = p_warehouse_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.delete_workflow_step(p_step_id uuid, p_profile_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_is_owner boolean;
+BEGIN
+  IF NOT public._auth_user_has_permission('purchase.approvals.chain.manage') THEN
+    RAISE EXCEPTION 'Not authorized to edit approval workflows' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM user_custom_roles ucr
+    JOIN custom_roles cr ON cr.id = ucr.role_id
+    WHERE ucr.profile_id = p_profile_id
+      AND cr.name = 'Owner'
+      AND cr.is_approval_slot = true
+      AND cr.deleted_at IS NULL
+  ) INTO v_is_owner;
+
+  IF NOT v_is_owner THEN
+    RAISE EXCEPTION 'Only owners can delete approval chain steps';
+  END IF;
+
+  DELETE FROM approval_workflow_steps WHERE id = p_step_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Step not found';
+  END IF;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.detach_payment_from_invoice(p_payment_id uuid, p_invoice_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -7624,7 +8184,7 @@ DECLARE
   v_transfer RECORD;
   v_item     RECORD;
   v_layer    RECORD;
-BEGIN
+BEGIN IF (SELECT transfer_kind FROM public.warehouse_transfers WHERE id = p_transfer_id) = 'damaged_repair_out' THEN RAISE EXCEPTION 'repair transfers use the Send / Return-from-repair flow, not the generic transfer action' USING ERRCODE = '42501'; END IF; IF (SELECT transfer_kind FROM public.warehouse_transfers WHERE id = p_transfer_id) = 'custody_assign' THEN RAISE EXCEPTION 'custody transfers use the custody flow (dispatch/accept), not the generic transfer action' USING ERRCODE = '42501'; END IF;
   IF NOT public._auth_user_has_permission('warehouse.transfer.dispatch') THEN RAISE EXCEPTION 'Not authorized to dispatch transfers' USING ERRCODE = '42501'; END IF;
   SELECT id, from_warehouse_id, to_warehouse_id, status, date,
          from_sub_container_id, to_sub_container_id
@@ -7669,13 +8229,13 @@ BEGIN
       INSERT INTO inventory_stock_movements (
         warehouse_id, brand_variant_id, item_name, sku,
         movement_type, qty, unit_cost, reference_type, reference_id,
-        sub_container_id
+        sub_container_id, source_id
       ) VALUES (
         v_transfer.from_warehouse_id, v_item.brand_variant_id,
         v_item.item_name, v_item.sku,
         'transfer_out', -v_layer.qty_taken, v_layer.unit_cost,
         'transfer', p_transfer_id,
-        v_transfer.from_sub_container_id
+        v_transfer.from_sub_container_id, v_layer.layer_id
       );
     END LOOP;
 
@@ -8172,6 +8732,8 @@ DECLARE
   v_new_inv_str      TEXT;
   v_paid_amount      NUMERIC;
   v_payment_status   TEXT;
+  v_delivered_subtotal NUMERIC;
+  v_delivered_total    NUMERIC;
 BEGIN
   IF NOT public._auth_user_has_permission('sales.invoices.create') AND NOT public._auth_user_has_permission('sales.invoices.manage') THEN RAISE EXCEPTION 'Not authorized to create invoices' USING ERRCODE = '42501'; END IF;
   PERFORM pg_advisory_xact_lock(hashtext('invoices_serial'));
@@ -8202,6 +8764,15 @@ BEGIN
     RAISE EXCEPTION 'so_not_invoiceable';
   END IF;
 
+  SELECT COALESCE(SUM(sol.delivered_qty * sol.unit_price), 0)
+    INTO v_delivered_subtotal
+    FROM sale_order_lines sol
+   WHERE sol.sale_order_id = p_so_id;
+  v_delivered_total := round(v_delivered_subtotal * COALESCE(v_so.total_amount / NULLIF(v_so.subtotal, 0), 1), 2);
+  IF v_delivered_subtotal <= 0 THEN
+    RAISE EXCEPTION 'nothing_delivered';
+  END IF;
+
   SELECT COALESCE(SUM(amount), 0)
     INTO v_paid_amount
   FROM   public.payments
@@ -8211,7 +8782,7 @@ BEGIN
     AND  deleted_at IS NULL;
 
   v_payment_status := CASE
-    WHEN v_paid_amount >= v_so.total_amount THEN 'paid'
+    WHEN v_paid_amount >= v_delivered_total THEN 'paid'
     WHEN v_paid_amount > 0                  THEN 'partially_paid'
     ELSE                                          'unpaid'
   END;
@@ -8236,7 +8807,7 @@ BEGIN
     v_invoice_id_str, v_so.customer_id, p_so_id,
     v_so.division_id,
     v_invoice_type::public.invoice_type, 'draft', v_payment_status::public.invoice_payment_status, false,
-    v_so.total_amount, v_so.subtotal, v_paid_amount,
+    v_delivered_total, v_delivered_subtotal, v_paid_amount,
     v_issued_date, v_due_date,
     'sale_order', p_so_id::text, 'SO #' || v_so.so_number
   )
@@ -8256,9 +8827,9 @@ BEGIN
   PERFORM public.rpc_recompute_document_fx('sale_order', p_so_id);
 
   INSERT INTO invoice_line_items (invoice_id, description, qty, unit_price, total, brand_variant_id)
-  SELECT v_new_inv_id, sol.item_name, sol.qty, sol.unit_price, sol.total, sol.brand_variant_id
+  SELECT v_new_inv_id, sol.item_name, sol.delivered_qty, sol.unit_price, round(sol.delivered_qty * sol.unit_price, 2), sol.brand_variant_id
   FROM   sale_order_lines sol
-  WHERE  sol.sale_order_id = p_so_id;
+  WHERE  sol.sale_order_id = p_so_id AND sol.delivered_qty > 0;
 
   RETURN jsonb_build_object(
     'id',           v_new_inv_id,
@@ -8404,6 +8975,7 @@ AS $function$
   LEFT JOIN public.inventory_categories c ON c.id = i.category_id
   WHERE (u.division_id = p_division_id OR u.division_id IS NULL)
     AND u.status NOT IN ('retired','maintenance')
+    AND u.pending_scrap = false
     AND NOT EXISTS (SELECT 1 FROM public.tool_unit_assignments a WHERE a.unit_id = u.id AND a.released_at IS NULL)
     AND (p_search IS NULL OR length(trim(p_search)) = 0
          OR u.serial_number ILIKE '%'||p_search||'%'
@@ -8845,6 +9417,88 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.get_dead_stock_report(p_division_ids uuid[] DEFAULT NULL::uuid[])
+ RETURNS TABLE(brand_variant_id uuid, item_name text, category_name text, brand text, sku text, stock_level numeric, average_cost numeric, total_value numeric, last_movement_date timestamp with time zone, last_movement_source text, days_idle integer, status text)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH
+  div_stock AS (
+    -- On-hand for the selected division(s), from FIFO layers by sub-container.
+    SELECT fcl.brand_variant_id,
+           SUM(fcl.remaining_qty)::numeric                       AS qty,
+           SUM(fcl.remaining_qty::numeric * fcl.total_unit_cost) AS value
+      FROM fifo_cost_layers fcl
+      JOIN warehouse_sub_containers sc ON sc.id = fcl.sub_container_id
+     WHERE p_division_ids IS NOT NULL
+       AND fcl.remaining_qty > 0
+       AND sc.division_id = ANY(p_division_ids)
+     GROUP BY fcl.brand_variant_id
+  ),
+  latest_movements AS (
+    SELECT brand_variant_id, MAX(created_at) AS last_movement_at
+      FROM inventory_stock_movements
+     GROUP BY brand_variant_id
+  ),
+  oldest_fifo AS (
+    SELECT brand_variant_id, MIN(date) AS oldest_layer_date
+      FROM fifo_cost_layers
+     WHERE remaining_qty > 0
+     GROUP BY brand_variant_id
+  ),
+  computed AS (
+    SELECT
+      ibv.id                                                      AS brand_variant_id,
+      ii.name_en                                                  AS item_name,
+      ic.name_en                                                  AS category_name,
+      COALESCE(b.name, NULLIF(TRIM(ibv.brand), ''))               AS brand,
+      ibv.code                                                    AS sku,
+      CASE WHEN p_division_ids IS NULL THEN ibv.stock_level
+           ELSE ds.qty END                                        AS stock_level,
+      CASE WHEN p_division_ids IS NULL THEN COALESCE(ibv.average_cost, 0)
+           ELSE COALESCE(ds.value / NULLIF(ds.qty, 0), 0) END     AS average_cost,
+      CASE WHEN p_division_ids IS NULL THEN ibv.stock_level * COALESCE(ibv.average_cost, 0)
+           ELSE COALESCE(ds.value, 0) END                         AS total_value,
+      COALESCE(lm.last_movement_at,
+               of.oldest_layer_date::timestamptz,
+               ibv.created_at)                                    AS last_movement_date,
+      CASE
+        WHEN lm.last_movement_at  IS NOT NULL THEN 'movement'
+        WHEN of.oldest_layer_date IS NOT NULL THEN 'fifo'
+        WHEN ibv.created_at       IS NOT NULL THEN 'created'
+        ELSE NULL
+      END                                                         AS last_movement_source,
+      EXTRACT(DAY FROM
+        CURRENT_TIMESTAMP -
+        COALESCE(lm.last_movement_at,
+                 of.oldest_layer_date::timestamptz,
+                 ibv.created_at)
+      )::int                                                      AS days_idle
+    FROM       public.inventory_item_brand_variants ibv
+    JOIN       public.inventory_items          ii ON ii.id = ibv.item_id
+    LEFT JOIN  public.inventory_categories     ic ON ic.id = ii.category_id
+    LEFT JOIN  public.brands                   b  ON b.id  = ibv.brand_id
+    LEFT JOIN  latest_movements                lm ON lm.brand_variant_id = ibv.id
+    LEFT JOIN  oldest_fifo                     of ON of.brand_variant_id = ibv.id
+    LEFT JOIN  div_stock                       ds ON ds.brand_variant_id = ibv.id
+    WHERE (p_division_ids IS NULL     AND ibv.stock_level > 0)
+       OR (p_division_ids IS NOT NULL AND ds.qty > 0)
+  )
+  SELECT
+    brand_variant_id, item_name, category_name, brand, sku,
+    stock_level, average_cost, total_value, last_movement_date,
+    last_movement_source, days_idle,
+    CASE
+      WHEN days_idle <= 30  THEN 'active'
+      WHEN days_idle <= 90  THEN 'slow_moving'
+      WHEN days_idle <= 180 THEN 'at_risk'
+      ELSE                       'dead'
+    END AS status
+  FROM computed;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.get_effective_attributes(p_category_id uuid)
  RETURNS TABLE(definition_id uuid, category_id uuid, category_name text, attribute_key text, label_en text, label_ar text, sort_order integer, depth integer, is_inherited boolean)
  LANGUAGE sql
@@ -9061,7 +9715,7 @@ $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.get_repair_bucket(p_division_ids uuid[] DEFAULT NULL::uuid[])
- RETURNS TABLE(unit_id uuid, item_name text, serial_number text, brand text, condition text, division_id uuid, division_name text, current_team_id uuid, current_team_name text, last_inspected_at timestamp with time zone, lifecycle_type text)
+ RETURNS TABLE(unit_id uuid, item_name text, serial_number text, brand text, condition text, division_id uuid, division_name text, current_team_id uuid, current_team_name text, last_inspected_at timestamp with time zone, lifecycle_type text, pending_scrap boolean)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
@@ -9069,7 +9723,7 @@ AS $function$
   SELECT u.id, i.name_en, u.serial_number, u.brand, u.condition::text,
          u.division_id, cd.name, la.team_id, sc.name,
          (SELECT max(ins.inspected_at) FROM public.tool_unit_inspections ins WHERE ins.unit_id = u.id),
-         u.lifecycle_type::text
+         u.lifecycle_type::text, u.pending_scrap
   FROM public.tool_asset_units u
   LEFT JOIN public.inventory_items i ON i.id = u.item_id
   LEFT JOIN public.company_divisions cd ON cd.id = u.division_id
@@ -9148,6 +9802,17 @@ AS $function$
       COALESCE(sale_agg.sold_at_sale_total, 0) <> 0
       OR COALESCE(lc_agg.lc_adjustments_total, 0) <> 0
     );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_sub_container_division_map()
+ RETURNS TABLE(sub_container_id uuid, warehouse_id uuid, division_id uuid, is_active boolean)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT id, warehouse_id, division_id, is_active
+  FROM public.warehouse_sub_containers;
 $function$
 ;
 
@@ -9371,6 +10036,42 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.get_tool_item_division_modes(p_category_id uuid)
+ RETURNS TABLE(item_id uuid, item_name text, division_id uuid, division_name text, effective_mode tool_tracking_mode, bulk_qty numeric, unit_count integer)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  WITH ov_items AS (
+    SELECT DISTINCT iid.item_id
+    FROM public.inventory_item_divisions iid
+    JOIN public.inventory_items it ON it.id = iid.item_id
+    WHERE it.category_id = p_category_id
+      AND iid.tool_tracking_mode IS NOT NULL
+  )
+  SELECT
+    it.id,
+    it.name_en,
+    iid.division_id,
+    cd.name,
+    public.tool_effective_mode(it.id, iid.division_id),
+    COALESCE((
+      SELECT SUM(f.remaining_qty)
+      FROM public.inventory_item_brand_variants v
+      JOIN public.fifo_cost_layers f ON f.brand_variant_id = v.id
+      JOIN public.warehouse_sub_containers sc ON sc.id = f.sub_container_id
+      WHERE v.item_id = it.id AND sc.division_id = iid.division_id
+    ), 0)::numeric,
+    (SELECT count(*) FROM public.tool_asset_units u
+      WHERE u.item_id = it.id AND u.division_id = iid.division_id)::integer
+  FROM ov_items oi
+  JOIN public.inventory_items it ON it.id = oi.item_id
+  JOIN public.inventory_item_divisions iid ON iid.item_id = it.id
+  JOIN public.company_divisions cd ON cd.id = iid.division_id
+  ORDER BY it.name_en, cd.name;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.get_tool_unit_timeline(p_unit_id uuid)
  RETURNS TABLE(assignment_id uuid, team_id uuid, team_name text, assigned_at timestamp with time zone, released_at timestamp with time zone, days numeric, is_current boolean, returned_to_name text)
  LANGUAGE sql
@@ -9524,6 +10225,65 @@ BEGIN
 
   -- NB: status and resolution_type are intentionally NOT guarded — the client
   -- legitimately sets status='resolved' + resolution_type on manual resolution.
+
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.guard_item_division_tracking_mode_switch()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_old_mode public.tool_tracking_mode;
+  v_cat_mode public.tool_tracking_mode;
+  v_old_eff  public.tool_tracking_mode;
+  v_new_eff  public.tool_tracking_mode;
+  v_units    int;
+  v_qty      numeric;
+BEGIN
+  -- Prior override: NULL on INSERT (nothing existed), else the old row's value.
+  v_old_mode := CASE WHEN TG_OP = 'UPDATE' THEN OLD.tool_tracking_mode ELSE NULL END;
+
+  IF NEW.tool_tracking_mode IS NOT DISTINCT FROM v_old_mode THEN
+    RETURN NEW;  -- override unchanged (covers no-op updates and NULL-mode inserts)
+  END IF;
+
+  SELECT ic.tool_tracking_mode INTO v_cat_mode
+  FROM inventory_items ii
+  JOIN inventory_categories ic ON ic.id = ii.category_id
+  WHERE ii.id = NEW.item_id;
+
+  v_old_eff := COALESCE(v_old_mode, v_cat_mode);
+  v_new_eff := COALESCE(NEW.tool_tracking_mode, v_cat_mode);
+  IF v_old_eff IS NOT DISTINCT FROM v_new_eff THEN
+    RETURN NEW;  -- effective mode unchanged (redundant override, or matches category)
+  END IF;
+
+  SELECT count(*) INTO v_units
+  FROM tool_asset_units tau
+  WHERE tau.item_id = NEW.item_id
+    AND tau.division_id = NEW.division_id
+    AND tau.status <> 'retired';
+
+  SELECT COALESCE(sum(fcl.remaining_qty), 0) INTO v_qty
+  FROM inventory_item_brand_variants bv
+  JOIN fifo_cost_layers fcl ON fcl.brand_variant_id = bv.id AND fcl.remaining_qty > 0
+  JOIN warehouse_sub_containers sc ON sc.id = fcl.sub_container_id
+  WHERE bv.item_id = NEW.item_id AND sc.division_id = NEW.division_id;
+
+  -- Corrective exception: serialized → bulk with ONLY bulk qty (no serial units)
+  -- is safe — the qty is already bulk-shaped. Everything else stays blocked.
+  IF (v_units > 0 OR v_qty > 0)
+     AND NOT (v_new_eff = 'bulk'::public.tool_tracking_mode AND v_units = 0) THEN
+    RAISE EXCEPTION
+      'Cannot set this tool''s tracking mode in this division while it holds stock: % unit(s), % qty on hand. Empty the division first.',
+      v_units, v_qty
+      USING ERRCODE = 'raise_exception';
+  END IF;
 
   RETURN NEW;
 END;
@@ -9772,7 +10532,9 @@ BEGIN
   JOIN fifo_cost_layers fcl ON fcl.brand_variant_id = bv.id AND fcl.remaining_qty > 0
   WHERE ii.category_id = NEW.id;
 
-  IF v_units > 0 OR v_qty > 0 THEN
+  -- Corrective exception: serialized -> bulk with ONLY bulk qty (no serial units).
+  IF (v_units > 0 OR v_qty > 0)
+     AND NOT (NEW.tool_tracking_mode = 'bulk'::public.tool_tracking_mode AND v_units = 0) THEN
     RAISE EXCEPTION
       'Cannot switch tracking mode while the category holds stock: % asset unit(s), % qty on hand. Empty the category first.',
       v_units, v_qty
@@ -9798,6 +10560,39 @@ BEGIN
   IF NOT _user_has_permission(_current_user_data_id(), 'inventory.catalog.manage') THEN
     RAISE EXCEPTION 'not authorized to change the owning division of a tool unit'
       USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.guard_tool_unit_serialized_division()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_is_tool boolean;
+  v_eff     public.tool_tracking_mode;
+BEGIN
+  IF NEW.division_id IS NULL THEN RETURN NEW; END IF;
+  IF TG_OP = 'UPDATE' AND NEW.division_id IS NOT DISTINCT FROM OLD.division_id THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT (ic.type = 'tools') INTO v_is_tool
+  FROM inventory_items ii
+  JOIN inventory_categories ic ON ic.id = ii.category_id
+  WHERE ii.id = NEW.item_id;
+  IF v_is_tool IS NOT TRUE THEN RETURN NEW; END IF;
+
+  v_eff := public.tool_effective_mode(NEW.item_id, NEW.division_id);
+  IF v_eff = 'bulk' THEN
+    RAISE EXCEPTION
+      'A serial unit cannot belong to a division where this tool is tracked in bulk. Switch that division to serialized first, or leave the unit''s division unset.'
+      USING ERRCODE = 'raise_exception';
   END IF;
 
   RETURN NEW;
@@ -11098,7 +11893,7 @@ DECLARE
   v_take          NUMERIC;
   v_miss          NUMERIC;
   v_dest_date     DATE;
-BEGIN
+BEGIN IF (SELECT transfer_kind FROM public.warehouse_transfers WHERE id = p_transfer_id) = 'damaged_repair_out' THEN RAISE EXCEPTION 'repair transfers use the Send / Return-from-repair flow, not the generic transfer action' USING ERRCODE = '42501'; END IF; IF (SELECT transfer_kind FROM public.warehouse_transfers WHERE id = p_transfer_id) = 'custody_assign' THEN RAISE EXCEPTION 'custody transfers use the custody flow (dispatch/accept), not the generic transfer action' USING ERRCODE = '42501'; END IF;
   IF NOT public._auth_user_has_permission('warehouse.transfer.receive') THEN RAISE EXCEPTION 'Not authorized to receive transfers' USING ERRCODE = '42501'; END IF;
   SELECT id, from_warehouse_id, to_warehouse_id, status, date,
          dispatched_by_profile_id,
@@ -11186,7 +11981,7 @@ BEGIN
     -- order). Split each into "received portion → dest layer + transfer_in"
     -- and "missing portion → transfer_shrinkage".
     FOR v_move IN
-      SELECT id, qty, unit_cost
+      SELECT id, qty, unit_cost, source_id
       FROM inventory_stock_movements
       WHERE reference_id = p_transfer_id
         AND brand_variant_id = v_item.brand_variant_id
@@ -11205,11 +12000,11 @@ BEGIN
         INSERT INTO fifo_cost_layers (
           brand_variant_id, warehouse_id, date,
           qty, unit_cost, landed_cost_per_unit, total_unit_cost, remaining_qty,
-          sub_container_id
+          sub_container_id, source_type, source_id, receival_id
         ) VALUES (
           v_item.brand_variant_id, v_transfer.to_warehouse_id, v_dest_date,
           v_take, v_move.unit_cost, 0, v_move.unit_cost, v_take,
-          v_transfer.to_sub_container_id
+          v_transfer.to_sub_container_id, 'transfer', p_transfer_id, (select fcl.receival_id from public.fifo_cost_layers fcl where fcl.id = v_move.source_id)
         );
 
         INSERT INTO inventory_stock_movements (
@@ -11771,12 +12566,11 @@ BEGIN
         AND sub_container_id = v_transfer.from_sub_container_id;
 
     ELSIF v_transfer.status = 'in_transit' THEN
-      SELECT ABS(unit_cost) INTO v_avg_cost
+      SELECT SUM(ABS(qty) * ABS(unit_cost)) / NULLIF(SUM(ABS(qty)), 0) INTO v_avg_cost
       FROM inventory_stock_movements
       WHERE reference_id = p_transfer_id
         AND brand_variant_id = v_item.brand_variant_id
-        AND movement_type = 'transfer_out'
-      LIMIT 1;
+        AND movement_type = 'transfer_out';
 
       v_avg_cost := COALESCE(v_avg_cost, v_item.unit_cost);
 
@@ -12158,34 +12952,15 @@ BEGIN
       PERFORM recalc_average_cost(v_bv_id);
     END LOOP;
 
-    INSERT INTO inventory_stock_movements
-      (warehouse_id, sub_container_id, brand_variant_id, item_name, sku,
-       movement_type, qty, unit_cost, reference_type, reference_id, notes)
-    SELECT
-      warehouse_id, sub_container_id, brand_variant_id, item_name, sku,
-      'cost_adjustment', qty, -unit_cost, 'landed_cost', p_lc_id,
-      'Reversal of LC ' || v_lc.lc_number || ' — reverted by ' || p_performer_name
-    FROM inventory_stock_movements
+    DELETE FROM inventory_stock_movements
     WHERE reference_type = 'landed_cost'
       AND reference_id   = p_lc_id
-      AND movement_type  = 'cost_adjustment'
-      AND unit_cost      > 0;
+      AND movement_type  = 'cost_adjustment';
   END IF;
 
-  INSERT INTO cogs_entries (
-    brand_variant_id, sale_delivery_id, sale_order_id, landed_cost_id,
-    qty, unit_cost, total_cost, date, notes, source_type,
-    division_id, source_id
-  )
-  SELECT
-    brand_variant_id, NULL, NULL, p_lc_id,
-    -qty, unit_cost, -total_cost, v_now::DATE,
-    'Reversal of LC ' || v_lc.lc_number || ' — reverted by ' || p_performer_name,
-    'landed_cost_reversal',
-    division_id, source_id
-  FROM cogs_entries
-  WHERE landed_cost_id = p_lc_id
-    AND total_cost     > 0;
+  DELETE FROM cogs_entries
+    WHERE landed_cost_id = p_lc_id
+      AND source_type IN ('landed_cost', 'landed_cost_reversal');
 
   DELETE FROM landed_cost_item_allocations WHERE landed_cost_id = p_lc_id;
 
@@ -12319,7 +13094,7 @@ begin
     -- (re-created source fifo layer + transfer_in at source). No early exit —
     -- layers past the received qty are fully short and must still be recorded.
     for v_move in
-      select qty, unit_cost
+      select qty, unit_cost, source_id
       from   public.inventory_stock_movements
       where  reference_type   = 'transfer'
         and  reference_id     = p_transfer_id
@@ -12334,11 +13109,11 @@ begin
         insert into public.fifo_cost_layers (
           brand_variant_id, warehouse_id, sub_container_id, date,
           qty, unit_cost, landed_cost_per_unit, total_unit_cost, remaining_qty,
-          source_type, source_id
+          source_type, source_id, receival_id
         ) values (
           v_item.brand_variant_id, v_transfer.to_warehouse_id, v_transfer.to_sub_container_id, current_date,
           v_take, v_move.unit_cost, 0, v_move.unit_cost, v_take,
-          'custody_assign', p_transfer_id
+          'custody_assign', p_transfer_id, (select fcl.receival_id from public.fifo_cost_layers fcl where fcl.id = v_move.source_id)
         );
 
         insert into public.inventory_stock_movements (
@@ -12361,11 +13136,11 @@ begin
           insert into public.fifo_cost_layers (
             brand_variant_id, warehouse_id, sub_container_id, date,
             qty, unit_cost, landed_cost_per_unit, total_unit_cost, remaining_qty,
-            source_type, source_id
+            source_type, source_id, receival_id
           ) values (
             v_item.brand_variant_id, v_transfer.from_warehouse_id, v_transfer.from_sub_container_id, current_date,
             v_miss, v_move.unit_cost, 0, v_move.unit_cost, v_miss,
-            'custody_return', p_transfer_id
+            'custody_return', p_transfer_id, (select fcl.receival_id from public.fifo_cost_layers fcl where fcl.id = v_move.source_id)
           );
 
           insert into public.inventory_stock_movements (
@@ -12442,6 +13217,8 @@ DECLARE
   v_payment_id     text;
   v_payment_uuid   uuid;
   v_last_num       int;
+  v_bill_currency  text;
+  v_bill_rate      numeric;
 BEGIN
   IF p_debit_note_id IS NULL THEN
     RAISE EXCEPTION 'rpc_apply_debit_note_to_bill: p_debit_note_id is required';
@@ -12522,6 +13299,19 @@ BEGIN
    WHERE payment_id ILIKE 'PAY-%';
   v_payment_id := 'PAY-' || LPAD((v_last_num + 1)::text, 5, '0');
 
+  -- The DN/bill amounts are in the PO's currency; resolve that currency + booking
+  -- rate so the offset payment records amount_qar in QAR (was hardcoded QAR/1,
+  -- understating QAR cash-out for foreign bills in the dashboard & P&L cash basis).
+  SELECT
+    CASE WHEN po.currency IS NOT NULL AND po.currency <> 'QAR' THEN po.currency ELSE 'QAR' END,
+    CASE WHEN po.currency IS NOT NULL AND po.currency <> 'QAR' AND COALESCE(po.exchange_rate, 0) > 0
+         THEN po.exchange_rate ELSE 1 END
+    INTO v_bill_currency, v_bill_rate
+    FROM public.purchase_orders po
+   WHERE po.id = v_bill.purchase_order_id;
+  v_bill_currency := COALESCE(v_bill_currency, 'QAR');
+  v_bill_rate     := COALESCE(v_bill_rate, 1);
+
   INSERT INTO payments (
     payment_id, bill_id, debit_note_id,
     amount, currency, exchange_rate, amount_qar,
@@ -12529,7 +13319,7 @@ BEGIN
     notes
   ) VALUES (
     v_payment_id, v_bill.id, p_debit_note_id,
-    v_amount, 'QAR', 1, v_amount,
+    v_amount, v_bill_currency, v_bill_rate, round(v_amount * v_bill_rate, 2),
     'debit_note', CURRENT_DATE, 'outgoing', 'completed',
     'Debit note ' || v_dn.debit_note_id || ' applied to bill ' || v_bill.bill_number
   )
@@ -12571,15 +13361,30 @@ CREATE OR REPLACE FUNCTION public.rpc_assess_warranty_claim(p_claim_id uuid, p_d
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE v_profile uuid; v_status warranty_claim_status;
+DECLARE v_profile uuid; v_status warranty_claim_status; v_source text;
 BEGIN
   SELECT id INTO v_profile FROM user_data WHERE auth_user_id = auth.uid();
-  IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
-    RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
-  END IF;
-  IF p_decision NOT IN ('covered','rejected') THEN RAISE EXCEPTION 'decision must be covered or rejected'; END IF;
-  SELECT status INTO v_status FROM warranty_claims WHERE id = p_claim_id FOR UPDATE;
+
+  -- Load the claim (locked) + its warranty source so the permission key can be
+  -- chosen by source.
+  SELECT wc.status, wr.source_type INTO v_status, v_source
+    FROM warranty_claims wc
+    JOIN warranty_records wr ON wr.id = wc.warranty_record_id
+    WHERE wc.id = p_claim_id
+    FOR UPDATE OF wc;
   IF v_status IS NULL THEN RAISE EXCEPTION 'Claim not found'; END IF;
+
+  IF v_source = 'consumption' THEN
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'consumption.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: consumption.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  ELSE
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  END IF;
+
+  IF p_decision NOT IN ('covered','rejected') THEN RAISE EXCEPTION 'decision must be covered or rejected'; END IF;
   IF v_status <> 'open' THEN RAISE EXCEPTION 'Only an open claim can be assessed (status: %)', v_status USING ERRCODE='42501'; END IF;
   IF p_decision = 'rejected' AND COALESCE(btrim(p_reason),'') = '' THEN RAISE EXCEPTION 'A rejection reason is required'; END IF;
   UPDATE warranty_claims
@@ -12597,16 +13402,17 @@ CREATE OR REPLACE FUNCTION public.rpc_assign_tool_unit_to_team(p_unit_id uuid, p
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE v_unit_div uuid; v_team_div uuid; v_status public.tool_status; v_id uuid;
+DECLARE v_unit_div uuid; v_team_div uuid; v_status public.tool_status; v_pending boolean; v_id uuid;
 BEGIN
   IF NOT public._user_has_permission(public._current_user_data_id(), 'tools.assets.manage') THEN
     RAISE EXCEPTION 'not authorized to assign tools' USING ERRCODE = '42501';
   END IF;
 
-  SELECT division_id, status INTO v_unit_div, v_status
+  SELECT division_id, status, pending_scrap INTO v_unit_div, v_status, v_pending
     FROM public.tool_asset_units WHERE id = p_unit_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'tool unit % not found', p_unit_id; END IF;
   IF v_status = 'retired' THEN RAISE EXCEPTION 'tool unit is retired and cannot be assigned'; END IF;
+  IF v_pending THEN RAISE EXCEPTION 'unit is pending scrap approval' USING ERRCODE = 'P0001'; END IF;
 
   SELECT division_id INTO v_team_div FROM public.warehouse_sub_containers WHERE id = p_team_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'team % not found', p_team_id; END IF;
@@ -12799,6 +13605,19 @@ BEGIN
     RAISE EXCEPTION 'No approval chain configured for this PO.';
   END IF;
 
+  -- Fail closed: an applicable band with no approvers would silently drop its
+  -- required sign-off. Block until an admin configures a role for that band.
+  IF EXISTS (
+    SELECT 1 FROM po_approval_chain_tiers t
+     WHERE t.chain_id   = v_chain_id
+       AND t.deleted_at IS NULL
+       AND t.min_amount <= COALESCE(v_po.total_qar, 0)
+       AND COALESCE(array_length(t.required_roles, 1), 0) = 0
+  ) THEN
+    RAISE EXCEPTION 'An approval band for this PO amount has no approvers configured. Ask an admin to add a role to it in Approval Settings.'
+      USING ERRCODE = '23514';
+  END IF;
+
   v_iteration := COALESCE((SELECT max(iteration) FROM po_approvals WHERE po_id = p_po_id), 0) + 1;
 
   -- Derive steps from the authoritative tier config: every tier whose
@@ -12852,7 +13671,7 @@ BEGIN
   FOR v_cogs IN
     SELECT brand_variant_id, qty, unit_cost, source_id
     FROM   public.cogs_entries
-    WHERE  consumption_id = p_consumption_id
+    WHERE  consumption_id = p_consumption_id AND qty > 0
   LOOP
     v_sub_container_id := NULL;
     IF v_cogs.source_id IS NOT NULL THEN
@@ -13029,6 +13848,8 @@ DECLARE
   v_changed text[] := ARRAY[]::text[];
   v_locked  text[] := ARRAY[]::text[];
   r RECORD;
+  v_has_units boolean;
+  v_has_qty   boolean;
   v_locked_row boolean;
 BEGIN
   IF p_category_id IS NULL OR p_mode IS NULL THEN
@@ -13045,28 +13866,30 @@ BEGIN
         FROM inventory_categories c
         JOIN subtree s ON c.parent_id = s.id
     )
-    -- Skip the root (depth 0): the caller sets the target's own mode through the
-    -- normal category update; this RPC only propagates to descendants.
     SELECT id, name_en, tool_tracking_mode
       FROM subtree
      WHERE depth > 0
      ORDER BY name_en
   LOOP
-    -- Already at the target mode → nothing to do, not reported.
     CONTINUE WHEN r.tool_tracking_mode IS NOT DISTINCT FROM p_mode;
 
-    v_locked_row :=
-      EXISTS (
-        SELECT 1 FROM tool_asset_units tau
-        JOIN inventory_items ii ON ii.id = tau.item_id
-        WHERE ii.category_id = r.id
-      )
-      OR EXISTS (
-        SELECT 1 FROM inventory_items ii
-        JOIN inventory_item_brand_variants bv ON bv.item_id = ii.id
-        JOIN fifo_cost_layers fcl ON fcl.brand_variant_id = bv.id AND fcl.remaining_qty > 0
-        WHERE ii.category_id = r.id
-      );
+    v_has_units := EXISTS (
+      SELECT 1 FROM tool_asset_units tau
+      JOIN inventory_items ii ON ii.id = tau.item_id
+      WHERE ii.category_id = r.id
+    );
+    v_has_qty := EXISTS (
+      SELECT 1 FROM inventory_items ii
+      JOIN inventory_item_brand_variants bv ON bv.item_id = ii.id
+      JOIN fifo_cost_layers fcl ON fcl.brand_variant_id = bv.id AND fcl.remaining_qty > 0
+      WHERE ii.category_id = r.id
+    );
+
+    -- Lock (skip) only for the unsafe cases: any serial units, or moving to a
+    -- non-bulk mode while bulk qty exists. serialized -> bulk with only qty is
+    -- the corrective, allowed flip.
+    v_locked_row := v_has_units
+      OR (v_has_qty AND p_mode <> 'bulk'::tool_tracking_mode);
 
     IF v_locked_row THEN
       v_locked := v_locked || r.name_en;
@@ -13081,6 +13904,64 @@ BEGIN
     'locked',  to_jsonb(v_locked)
   );
 END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.rpc_cascade_category_units_division(p_category_id uuid, p_division_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_moved int := 0; v_skipped text[] := array[]::text[]; r record;
+begin
+  if not public._user_has_permission(public._current_user_data_id(), 'inventory.catalog.manage') then
+    raise exception 'not authorized';
+  end if;
+  if p_division_id is null then raise exception 'target division required'; end if;
+
+  for r in
+    with recursive subtree as (
+      select id from public.inventory_categories where id = p_category_id
+      union all
+      select c.id from public.inventory_categories c join subtree s on c.parent_id = s.id
+    )
+    select tau.id as unit_id
+      from public.tool_asset_units tau
+      join public.inventory_items ii on ii.id = tau.item_id
+     where ii.category_id in (select id from subtree)
+       and tau.division_id is distinct from p_division_id
+  loop
+    -- mirror rpc_transfer_tool_unit: division moves, open team assignment released, custody cleared
+    update public.tool_asset_units set division_id = p_division_id where id = r.unit_id;
+    update public.tool_unit_assignments set released_at = now(), release_reason = 'moved'
+      where unit_id = r.unit_id and released_at is null;
+    update public.tool_asset_units set current_custody_location_id = null where id = r.unit_id;
+    v_moved := v_moved + 1;
+  end loop;
+
+  return jsonb_build_object('moved', v_moved, 'skipped', to_jsonb(v_skipped));
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.rpc_category_divisions(p_category_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  with recursive anc(id) as (
+    select parent_id from public.inventory_categories where id = p_category_id and parent_id is not null
+    union all
+    select c.parent_id from public.inventory_categories c join anc a on c.id = a.id where c.parent_id is not null
+  )
+  select jsonb_build_object(
+    'own', coalesce((select array_agg(division_id)
+                       from public.inventory_category_divisions where category_id = p_category_id), '{}'::uuid[]),
+    'inherited', coalesce((select array_agg(distinct icd.division_id)
+                             from anc join public.inventory_category_divisions icd on icd.category_id = anc.id), '{}'::uuid[])
+  );
 $function$
 ;
 
@@ -13234,7 +14115,11 @@ DECLARE
   v_seen_lines     UUID[] := ARRAY[]::UUID[];
   v_pending_insp   INT;
 BEGIN
-  IF NOT (public._auth_user_has_permission('sales.returns.create') OR public._auth_user_has_permission('sales.returns.manage') OR public._auth_user_has_permission('purchase.returns.create') OR public._auth_user_has_permission('purchase.returns.manage')) THEN RAISE EXCEPTION 'Not authorized to complete return inspection' USING ERRCODE = '42501'; END IF;
+  IF NOT (public._auth_user_has_permission('sales.returns.create') OR public._auth_user_has_permission('sales.returns.manage')
+       OR public._auth_user_has_permission('purchase.returns.create') OR public._auth_user_has_permission('purchase.returns.manage')
+       OR public._auth_user_has_permission('consumption.returns.create') OR public._auth_user_has_permission('consumption.returns.manage')) THEN
+    RAISE EXCEPTION 'Not authorized to complete return inspection' USING ERRCODE = '42501';
+  END IF;
   SELECT id, status, return_number, division_id
   INTO   v_return
   FROM   so_po_returns
@@ -13292,11 +14177,11 @@ BEGIN
       INSERT INTO return_lines (
         return_id, brand_variant_id, item_name, sku,
         qty, condition, condition_notes,
-        sale_delivery_line_id, receival_item_id
+        sale_delivery_line_id, receival_item_id, consumption_line_id
       ) VALUES (
         p_return_id, v_line.brand_variant_id, v_line.item_name, v_line.sku,
         v_split.good_qty, 'good', NULL,
-        v_line.sale_delivery_line_id, v_line.receival_item_id
+        v_line.sale_delivery_line_id, v_line.receival_item_id, v_line.consumption_line_id
       );
     END IF;
 
@@ -13304,12 +14189,12 @@ BEGIN
       INSERT INTO return_lines (
         return_id, brand_variant_id, item_name, sku,
         qty, condition, condition_notes,
-        sale_delivery_line_id, receival_item_id
+        sale_delivery_line_id, receival_item_id, consumption_line_id
       ) VALUES (
         p_return_id, v_line.brand_variant_id, v_line.item_name, v_line.sku,
         v_split.damaged_qty, 'damaged',
         COALESCE(v_split.condition_notes, v_line.condition_notes),
-        v_line.sale_delivery_line_id, v_line.receival_item_id
+        v_line.sale_delivery_line_id, v_line.receival_item_id, v_line.consumption_line_id
       );
     END IF;
 
@@ -13619,12 +14504,12 @@ begin
       insert into public.inventory_stock_movements (
         warehouse_id, sub_container_id, brand_variant_id,
         item_name, sku, movement_type, qty, unit_cost,
-        reference_type, reference_id, notes
+        reference_type, reference_id, notes, source_id
       ) values (
         v_source_sub.warehouse_id, p_source_sub_container_id, v_bv_id,
         coalesce(v_label.item_name, ''), v_label.sku,
         'transfer_out', -v_layer.qty_taken, v_layer.unit_cost,
-        'transfer', v_transfer_id, nullif(p_notes, '')
+        'transfer', v_transfer_id, nullif(p_notes, ''), v_layer.layer_id
       );
     end loop;
 
@@ -13773,7 +14658,7 @@ begin
     v_line_total := 0;
 
     for v_layer in
-      select qty_taken, unit_cost, total_cost
+      select layer_id, qty_taken, unit_cost, total_cost
       from public.deduct_fifo_layers(
         v_bv_id,
         v_source_sub.warehouse_id,
@@ -13788,12 +14673,12 @@ begin
       insert into public.inventory_stock_movements (
         warehouse_id, sub_container_id, brand_variant_id,
         item_name, sku, movement_type, qty, unit_cost,
-        reference_type, reference_id
+        reference_type, reference_id, source_id
       ) values (
         v_source_sub.warehouse_id, p_source_sub_container_id, v_bv_id,
         coalesce(v_label.item_name, ''), v_label.sku,
         'transfer_out', -v_layer.qty_taken, v_layer.unit_cost,
-        'transfer', v_transfer_id
+        'transfer', v_transfer_id, v_layer.layer_id
       );
     end loop;
 
@@ -13848,6 +14733,8 @@ DECLARE
   v_disp_sub_cont   uuid;
   v_return_division uuid;
   v_fallback_div    uuid;
+  v_layer           RECORD;
+  v_repl_sub        uuid;
 BEGIN
   IF NOT (public._auth_user_has_permission('sales.returns.create') OR public._auth_user_has_permission('sales.returns.manage')) THEN RAISE EXCEPTION 'Not authorized to create replacements' USING ERRCODE = '42501'; END IF;
   SELECT id, source_id, status, division_id
@@ -13876,6 +14763,12 @@ BEGIN
       v_delivery_num, v_sale_order_id, p_warehouse_id, current_date,
       'delivered', 'replacement', p_return_id
     ) RETURNING id INTO v_delivery_id;
+
+    -- Phase 3a: destination sub-container for FIFO deduction of the free
+    -- replacement / gift lines (mirrors complete_delivery_inventory).
+    v_repl_sub := public._find_or_create_sub_container(
+      p_warehouse_id,
+      coalesce(v_return_division, (SELECT division_id FROM public.sale_orders WHERE id = v_sale_order_id)));
   END IF;
 
   FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines) LOOP
@@ -13901,6 +14794,33 @@ BEGIN
       v_line_qty::integer
     );
 
+    -- Phase 3a: book the replacement's cost. Free swap (customer already paid),
+    -- so mirror complete_delivery_inventory (deduct FIFO + one cogs + one
+    -- movement per layer) with source_type='sale_replacement' -> the P&L counts
+    -- the cost with ZERO revenue (revenue is forced to 0 for this source_type).
+    FOR v_layer IN
+      SELECT layer_id, qty_taken, unit_cost, total_cost
+      FROM public.deduct_fifo_layers(v_return_line.brand_variant_id, p_warehouse_id, v_line_qty::integer, false, v_repl_sub)
+    LOOP
+      INSERT INTO public.cogs_entries (
+        brand_variant_id, sale_delivery_id, sale_order_id,
+        qty, unit_cost, total_cost, date, source_type, source_id, division_id
+      ) VALUES (
+        v_return_line.brand_variant_id, v_delivery_id, v_sale_order_id,
+        v_layer.qty_taken, v_layer.unit_cost, v_layer.total_cost, current_date,
+        'sale_replacement', v_layer.layer_id, v_return_division
+      );
+      INSERT INTO public.inventory_stock_movements (
+        warehouse_id, sub_container_id, brand_variant_id, item_name, sku,
+        movement_type, qty, unit_cost, reference_type, reference_id, notes
+      ) VALUES (
+        p_warehouse_id, v_repl_sub, v_return_line.brand_variant_id,
+        coalesce(v_return_line.item_name, ''), nullif(v_return_line.sku, ''),
+        'sale_delivery', -v_layer.qty_taken, v_layer.unit_cost,
+        'sale_delivery', v_delivery_id, 'Free replacement — ' || v_delivery_num
+      );
+    END LOOP;
+
     PERFORM public._record_customer_resolution(
       p_return_line_id    => v_line_id,
       p_resolution_type   => 'replacement',
@@ -13923,6 +14843,30 @@ BEGIN
       v_delivery_id, v_gift_variant, coalesce(v_gift_item.item_name, 'Gift'), v_gift_item.sku,
       v_gift_qty::integer
     );
+
+    -- Phase 3a: gifts also leave inventory free -> book cost (sale_replacement).
+    FOR v_layer IN
+      SELECT layer_id, qty_taken, unit_cost, total_cost
+      FROM public.deduct_fifo_layers(v_gift_variant, p_warehouse_id, v_gift_qty::integer, false, v_repl_sub)
+    LOOP
+      INSERT INTO public.cogs_entries (
+        brand_variant_id, sale_delivery_id, sale_order_id,
+        qty, unit_cost, total_cost, date, source_type, source_id, division_id
+      ) VALUES (
+        v_gift_variant, v_delivery_id, v_sale_order_id,
+        v_layer.qty_taken, v_layer.unit_cost, v_layer.total_cost, current_date,
+        'sale_replacement', v_layer.layer_id, v_return_division
+      );
+      INSERT INTO public.inventory_stock_movements (
+        warehouse_id, sub_container_id, brand_variant_id, item_name, sku,
+        movement_type, qty, unit_cost, reference_type, reference_id, notes
+      ) VALUES (
+        p_warehouse_id, v_repl_sub, v_gift_variant,
+        coalesce(v_gift_item.item_name, 'Gift'), nullif(v_gift_item.sku, ''),
+        'sale_delivery', -v_layer.qty_taken, v_layer.unit_cost,
+        'sale_delivery', v_delivery_id, 'Gift on return — ' || v_delivery_num
+      );
+    END LOOP;
   END LOOP;
 
   IF jsonb_typeof(p_dispositions) = 'array' AND jsonb_array_length(p_dispositions) > 0 THEN
@@ -13998,6 +14942,18 @@ BEGIN
           p_qty                         => v_disp_qty,
           p_inventory_stock_movement_id => v_mov_id
         );
+
+        -- Phase 3a: this RPC has its OWN inline write-off; emit the
+        -- damaged_write_off the P&L Scrap reads + reverse the sale COGS.
+        INSERT INTO public.inventory_damaged_movements (
+          movement_type, qty, warehouse_id, brand_variant_id, unit_cost,
+          notes, created_by, division_id
+        ) VALUES (
+          'damaged_write_off', v_disp_qty, v_disp_warehouse, v_return_line.brand_variant_id, v_disp_cost,
+          coalesce(v_return_line.condition_notes, 'Written off on customer return'),
+          public._current_user_data_id(), coalesce(v_return_division, v_fallback_div)
+        );
+        PERFORM public._reverse_sale_cogs_for_return(p_return_id, v_return_line.brand_variant_id, v_disp_qty);
 
       ELSIF v_disp_type = 'restock_as_damaged' THEN
         PERFORM public._record_inventory_disposition(
@@ -14307,6 +15263,7 @@ AS $function$
   LEFT JOIN so_invoices inv ON inv.id = p.invoice_id
   WHERE p.direction = 'incoming'
     AND p.deleted_at IS NULL
+    AND COALESCE(p.method::text, '') NOT IN ('credit_note', 'store_credit')
     AND p.status IN ('completed', 'pending', 'processing')
     AND COALESCE(p.customer_id, so.customer_id, inv.customer_id) = p_customer_id
     AND (p_date_from IS NULL OR p.date >= p_date_from)
@@ -14318,7 +15275,7 @@ AS $function$
     cn.created_at::date AS txn_date,
     'credit_note' AS txn_type,
     cn.credit_note_id AS reference,
-    'Credit Note — ' || COALESCE(cn.reason, cn.type) AS description,
+    'Credit Note — ' || COALESCE(cn.reason, cn.resolution_type::text) AS description,
     0::numeric AS debit,
     cn.total_amount AS credit
   FROM credit_notes cn
@@ -14751,13 +15708,13 @@ BEGIN
       INSERT INTO public.inventory_stock_movements (
         warehouse_id, sub_container_id, brand_variant_id,
         item_name, sku, movement_type, qty, unit_cost,
-        reference_type, reference_id
+        reference_type, reference_id, source_id
       ) VALUES (
         v_transfer.from_warehouse_id, v_transfer.from_sub_container_id,
         v_item.brand_variant_id,
         COALESCE(v_item.item_name, ''), v_item.sku,
         'transfer_out', -v_layer.qty_taken, v_layer.unit_cost,
-        'transfer', p_transfer_id
+        'transfer', p_transfer_id, v_layer.layer_id
       );
     END LOOP;
 
@@ -15012,14 +15969,24 @@ DECLARE
   v_id        uuid;
 BEGIN
   SELECT id INTO v_profile FROM user_data WHERE auth_user_id = auth.uid();
-  IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
-    RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
-  END IF;
 
   -- Lock the record so concurrent files can't both pass the remaining check.
+  -- Loaded before the permission check so the key can be chosen by source.
   SELECT id, source_type, division_id, qty INTO v_rec
     FROM warranty_records WHERE id = p_warranty_record_id FOR UPDATE;
   IF v_rec.id IS NULL THEN RAISE EXCEPTION 'Warranty record not found'; END IF;
+
+  -- Source-aware permission: consumption warranties use the consumption key;
+  -- everything else (sale/service/contract) keeps the sales key.
+  IF v_rec.source_type = 'consumption' THEN
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'consumption.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: consumption.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  ELSE
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  END IF;
 
   IF COALESCE(btrim(p_issue),'') = '' THEN RAISE EXCEPTION 'Issue description is required'; END IF;
   IF p_claim_qty IS NULL OR p_claim_qty < 1 THEN
@@ -15111,8 +16078,8 @@ BEGIN
 
   -- AP payables from bills
   SELECT
-    COALESCE(SUM(total_amount - paid_amount), 0),
-    COALESCE(SUM(CASE WHEN due_date < CURRENT_DATE THEN total_amount - paid_amount END), 0),
+    COALESCE(SUM((total_amount - paid_amount) * public._bill_qar_factor(id)), 0),
+    COALESCE(SUM(CASE WHEN due_date < CURRENT_DATE THEN (total_amount - paid_amount) * public._bill_qar_factor(id) END), 0),
     COALESCE(COUNT(CASE WHEN due_date < CURRENT_DATE THEN 1 END), 0)
   INTO payables_total, payables_overdue, payables_overdue_count
   FROM bills
@@ -15163,7 +16130,7 @@ BEGIN
     AND issued_date <= CURRENT_DATE;
 
   -- Billed this month from bills (AP)
-  SELECT COALESCE(SUM(total_amount), 0)
+  SELECT COALESCE(SUM(total_amount * public._bill_qar_factor(id)), 0)
   INTO billed_this_month
   FROM bills
   WHERE issued_date >= v_month_start
@@ -15180,7 +16147,7 @@ BEGIN
         WHERE DATE_TRUNC('month', issued_date) = m.month
       ), 0) AS invoiced,
       COALESCE((
-        SELECT SUM(total_amount) FROM bills
+        SELECT SUM(total_amount * public._bill_qar_factor(id)) FROM bills
         WHERE DATE_TRUNC('month', issued_date) = m.month
       ), 0) AS billed,
       COALESCE((
@@ -15230,7 +16197,7 @@ BEGIN
     SELECT
       s.id,
       s.name,
-      SUM(b.total_amount - b.paid_amount) AS amount,
+      SUM((b.total_amount - b.paid_amount) * public._bill_qar_factor(b.id)) AS amount,
       COUNT(*) AS bill_count,
       MIN(b.due_date) AS oldest_due,
       (CURRENT_DATE - MIN(b.due_date))::int AS days_overdue
@@ -15274,6 +16241,91 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.rpc_import_inventory_stock(p_rows jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_uid      uuid := public._current_user_data_id();
+  v_row      jsonb;
+  v_bv       uuid;
+  v_sub      uuid;
+  v_qty      integer;
+  v_cost     numeric;
+  v_wh       uuid;
+  v_layers   integer := 0;
+  v_units    bigint := 0;
+  v_value    numeric := 0;
+  v_variants uuid[] := '{}';
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'You need to be signed in to import stock.' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public._user_has_permission(v_uid, 'inventory.catalog.manage') THEN
+    RAISE EXCEPTION 'Missing permission: inventory.catalog.manage' USING ERRCODE = '42501';
+  END IF;
+
+  FOR v_row IN SELECT * FROM jsonb_array_elements(COALESCE(p_rows, '[]'::jsonb)) LOOP
+    v_bv   := (v_row->>'brand_variant_id')::uuid;
+    v_sub  := (v_row->>'sub_container_id')::uuid;
+    v_qty  := (v_row->>'qty')::integer;
+    v_cost := COALESCE((v_row->>'unit_cost')::numeric, 0);
+    IF v_bv IS NULL OR v_sub IS NULL OR v_qty IS NULL OR v_qty <= 0 THEN
+      CONTINUE;
+    END IF;
+
+    SELECT warehouse_id INTO v_wh FROM public.warehouse_sub_containers WHERE id = v_sub;
+    IF v_wh IS NULL THEN
+      RAISE EXCEPTION 'Unknown sub-container %', v_sub USING ERRCODE = '23503';
+    END IF;
+
+    INSERT INTO public.fifo_cost_layers (
+      brand_variant_id, warehouse_id, sub_container_id, date,
+      qty, remaining_qty, unit_cost, total_unit_cost, landed_cost_per_unit,
+      source_type, source_currency, source_exchange_rate
+    ) VALUES (
+      v_bv, v_wh, v_sub, CURRENT_DATE,
+      v_qty, v_qty, v_cost, v_cost, 0,
+      'inventory_import', 'QAR', 1
+    );
+
+    v_layers   := v_layers + 1;
+    v_units    := v_units + v_qty;
+    v_value    := v_value + (v_qty * v_cost);
+    v_variants := array_append(v_variants, v_bv);
+  END LOOP;
+
+  -- Caches the FIFO trigger does not maintain (refresh_stock_summary_row builds
+  -- warehouse_stock_summary only). Not guarded — the pricing guard fires only on
+  -- cost_price/selling_price changes, which we don't touch here.
+  SELECT array_agg(DISTINCT x) INTO v_variants FROM unnest(v_variants) AS x;
+  IF v_variants IS NOT NULL AND array_length(v_variants, 1) > 0 THEN
+    UPDATE public.inventory_item_brand_variants bv SET
+      stock_level = COALESCE((
+        SELECT SUM(l.remaining_qty) FROM public.fifo_cost_layers l
+        WHERE l.brand_variant_id = bv.id AND l.remaining_qty > 0), 0),
+      average_cost = COALESCE((
+        SELECT SUM(l.remaining_qty::numeric * l.total_unit_cost) FILTER (WHERE l.total_unit_cost > 0)
+             / NULLIF(SUM(l.remaining_qty) FILTER (WHERE l.total_unit_cost > 0), 0)
+        FROM public.fifo_cost_layers l
+        WHERE l.brand_variant_id = bv.id AND l.remaining_qty > 0), bv.average_cost)
+    WHERE bv.id = ANY(v_variants);
+
+    UPDATE public.inventory_items ii SET
+      total_stock = COALESCE((
+        SELECT SUM(bv.stock_level) FROM public.inventory_item_brand_variants bv
+        WHERE bv.item_id = ii.id), 0)
+    WHERE ii.id IN (
+      SELECT DISTINCT item_id FROM public.inventory_item_brand_variants WHERE id = ANY(v_variants));
+  END IF;
+
+  RETURN jsonb_build_object('layers_created', v_layers, 'units', v_units, 'value', v_value);
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.rpc_initiate_tool_check_session(p_division_id uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -15301,32 +16353,55 @@ CREATE OR REPLACE FUNCTION public.rpc_item_divisions_by_stock(p_type text)
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
+  with recursive cat_anc(cat_id, anc_id) as (
+    select id, id from public.inventory_categories
+    union all
+    select ca.cat_id, c.parent_id
+    from cat_anc ca
+    join public.inventory_categories c on c.id = ca.anc_id
+    where c.parent_id is not null
+  )
   select ii.id, ii.category_id,
-         coalesce(
-           ( select array_agg(distinct d)
-             from (
-               -- (a) explicit division assignment (was shared_with_division_ids)
-               select idv.division_id as d
-               from public.inventory_item_divisions idv
-               where idv.item_id = ii.id
-               union
-               -- (b) divisions where the item currently holds stock (unchanged)
-               select sc.division_id
-               from public.inventory_item_brand_variants bv
-               join public.fifo_cost_layers fcl
-                 on fcl.brand_variant_id = bv.id and fcl.remaining_qty > 0
-               join public.warehouse_sub_containers sc
-                 on sc.id = fcl.sub_container_id and sc.division_id is not null
-               where bv.item_id = ii.id
-             ) u
-             where d is not null
-           ),
-           '{}'::uuid[]
-         ) as division_ids
+    coalesce((
+      select array_agg(distinct d) from (
+        select idv.division_id as d
+          from public.inventory_item_divisions idv where idv.item_id = ii.id
+        union
+        select sc.division_id
+          from public.inventory_item_brand_variants bv
+          join public.fifo_cost_layers fcl on fcl.brand_variant_id = bv.id and fcl.remaining_qty > 0
+          join public.warehouse_sub_containers sc on sc.id = fcl.sub_container_id and sc.division_id is not null
+         where bv.item_id = ii.id
+        union
+        select icd.division_id
+          from cat_anc ca
+          join public.inventory_category_divisions icd on icd.category_id = ca.anc_id
+         where ca.cat_id = ii.category_id
+      ) u where d is not null
+    ), '{}'::uuid[]) as division_ids
   from public.inventory_items ii
-  join public.inventory_categories ic
-    on ic.id = ii.category_id and ic.type::text = p_type
+  join public.inventory_categories ic on ic.id = ii.category_id and ic.type::text = p_type
   where ii.status <> 'archived';
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.rpc_item_effective_divisions(p_item_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  with recursive anc(id) as (
+    select category_id from public.inventory_items where id = p_item_id and category_id is not null
+    union all
+    select c.parent_id from public.inventory_categories c join anc a on c.id = a.id where c.parent_id is not null
+  )
+  select jsonb_build_object(
+    'explicit', coalesce((select array_agg(division_id)
+                            from public.inventory_item_divisions where item_id = p_item_id), '{}'::uuid[]),
+    'inherited', coalesce((select array_agg(distinct icd.division_id)
+                             from anc join public.inventory_category_divisions icd on icd.category_id = anc.id), '{}'::uuid[])
+  );
 $function$
 ;
 
@@ -15336,14 +16411,17 @@ CREATE OR REPLACE FUNCTION public.rpc_move_tool_unit_to_team(p_unit_id uuid, p_t
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE v_unit_div uuid; v_team_div uuid; v_id uuid;
+DECLARE v_unit_div uuid; v_team_div uuid; v_status public.tool_status; v_pending boolean; v_id uuid;
 BEGIN
   IF NOT public._user_has_permission(public._current_user_data_id(), 'tools.assets.manage') THEN
     RAISE EXCEPTION 'not authorized to move tools' USING ERRCODE = '42501';
   END IF;
 
-  SELECT division_id INTO v_unit_div FROM public.tool_asset_units WHERE id = p_unit_id FOR UPDATE;
+  SELECT division_id, status, pending_scrap INTO v_unit_div, v_status, v_pending
+    FROM public.tool_asset_units WHERE id = p_unit_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'tool unit % not found', p_unit_id; END IF;
+  IF v_status = 'retired' THEN RAISE EXCEPTION 'tool unit is retired and cannot be moved'; END IF;
+  IF v_pending THEN RAISE EXCEPTION 'unit is pending scrap approval' USING ERRCODE = 'P0001'; END IF;
 
   SELECT division_id INTO v_team_div FROM public.warehouse_sub_containers WHERE id = p_to_team_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'team % not found', p_to_team_id; END IF;
@@ -15424,6 +16502,12 @@ begin
 
   if p_consumer_type = 'custody' and p_consumer_sub_container_id is null then
     raise exception 'rpc_post_consumption: consumer_type=custody requires consumer_sub_container_id';
+  end if;
+
+  -- Phase 1: custody consumption is a sale — the invoice/order/project ref is mandatory.
+  if p_consumer_type = 'custody' and nullif(btrim(p_notes), '') is null then
+    raise exception 'Notes are required for custody consumption — enter the invoice / order number / project code.'
+      using errcode = 'P0001';
   end if;
 
   if p_consumer_type <> 'custody' then
@@ -15521,7 +16605,7 @@ begin
   -- cheap indexed filter. Effective flag per item = COALESCE(item, category, false).
   -- A single consumption is homogeneous by construction (the UI never mixes the two
   -- pickers); assert exactly one distinct effective flag so the stored value is
-  -- unambiguous. INNER joins are safe (variant→item→category are NOT NULL FKs); a
+  -- unambiguous. INNER joins are safe (variant->item->category are NOT NULL FKs); a
   -- bogus variant id simply drops out here and fails later in the FIFO drain.
   select array_agg(distinct coalesce(ii.is_team_item, ic.is_team_item, false))
     into v_team_flags
@@ -15632,8 +16716,147 @@ begin
     perform public.recalc_average_cost(v_variant);
   end loop;
 
+  -- Consumption warranties: issue warranty records for custody-sold items
+  -- (custody-only + policy checks live inside create_warranty_records_for_consumption).
+  perform public.create_warranty_records_for_consumption(v_consumption_id);
+
   return v_consumption_id;
 end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.rpc_process_consumption_return_restock(p_return_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_return          RECORD;
+  v_line            RECORD;
+  v_cogs            RECORD;
+  v_qty_remaining   int;
+  v_qty_this_chunk  numeric;
+  v_available_qty   numeric;
+  v_pending_insp    int;
+  v_division        uuid;
+  v_warehouse       uuid;
+  v_sub_container   uuid;
+BEGIN
+  IF NOT (public._auth_user_has_permission('consumption.returns.create')
+       OR public._auth_user_has_permission('consumption.returns.manage')) THEN
+    RAISE EXCEPTION 'Not authorized to restock consumption returns' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT id, source_type, source_id, restock_warehouse_id, status, restocked_at, return_number, division_id
+  INTO   v_return
+  FROM   public.so_po_returns
+  WHERE  id = p_return_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Return % not found', p_return_id; END IF;
+  IF v_return.source_type <> 'consumption' THEN
+    RAISE EXCEPTION 'rpc_process_consumption_return_restock: expected source_type=consumption, got %', v_return.source_type;
+  END IF;
+  IF v_return.restocked_at IS NOT NULL THEN RETURN; END IF;  -- idempotent
+
+  SELECT count(*) INTO v_pending_insp
+  FROM   public.return_lines WHERE return_id = p_return_id AND condition = 'inspection';
+  IF v_pending_insp > 0 THEN
+    RAISE EXCEPTION 'Return % has % line(s) awaiting inspection — complete inspection before restocking',
+      v_return.return_number, v_pending_insp;
+  END IF;
+
+  -- Destination = operator-chosen warehouse + the return's (or consumption's) division.
+  v_warehouse := v_return.restock_warehouse_id;
+  IF v_warehouse IS NULL THEN
+    RAISE EXCEPTION 'Return % has no restock warehouse set', v_return.return_number
+      USING HINT = 'Choose the warehouse to receive the good stock back into before restocking.';
+  END IF;
+  v_division := v_return.division_id;
+  IF v_division IS NULL THEN
+    SELECT ce.division_id INTO v_division FROM public.consumption_entries ce WHERE ce.id = v_return.source_id;
+  END IF;
+  IF v_division IS NULL THEN
+    RAISE EXCEPTION 'Return %: cannot resolve division from return or consumption', v_return.return_number;
+  END IF;
+  v_sub_container := public._find_or_create_sub_container(v_warehouse, v_division);
+
+  FOR v_line IN
+    SELECT id, brand_variant_id, item_name, sku, qty
+    FROM   public.return_lines
+    WHERE  return_id = p_return_id AND brand_variant_id IS NOT NULL AND qty > 0 AND condition = 'good'
+  LOOP
+    SELECT COALESCE(SUM(qty), 0) INTO v_available_qty
+    FROM   public.cogs_entries
+    WHERE  consumption_id = v_return.source_id AND brand_variant_id = v_line.brand_variant_id
+      AND  source_type = 'consumption' AND qty > 0;
+    IF v_available_qty < v_line.qty THEN
+      RAISE EXCEPTION 'Return line % (variant %) requests qty % but only % consumption COGS available',
+        v_line.id, v_line.brand_variant_id, v_line.qty, v_available_qty;
+    END IF;
+
+    v_qty_remaining := v_line.qty;
+    FOR v_cogs IN
+      SELECT id, consumption_id, qty, unit_cost, division_id,
+             consumer_type, consumer_sub_container_id, consumer_customer_id, date, source_id
+      FROM   public.cogs_entries
+      WHERE  consumption_id = v_return.source_id AND brand_variant_id = v_line.brand_variant_id
+        AND  source_type = 'consumption' AND qty > 0
+      ORDER  BY date ASC, id ASC
+    LOOP
+      EXIT WHEN v_qty_remaining <= 0;
+      v_qty_this_chunk := least(v_cogs.qty, v_qty_remaining);
+
+      INSERT INTO public.fifo_cost_layers (
+        brand_variant_id, warehouse_id, date,
+        qty, unit_cost, landed_cost_per_unit, total_unit_cost, remaining_qty,
+        source_type, source_id, sub_container_id
+      ) VALUES (
+        v_line.brand_variant_id, v_warehouse, v_cogs.date,
+        v_qty_this_chunk, v_cogs.unit_cost - COALESCE((SELECT landed_cost_per_unit FROM public.fifo_cost_layers WHERE id = v_cogs.source_id), 0), COALESCE((SELECT landed_cost_per_unit FROM public.fifo_cost_layers WHERE id = v_cogs.source_id), 0), v_cogs.unit_cost, v_qty_this_chunk,
+        'consumption_return', p_return_id, v_sub_container
+      );
+
+      INSERT INTO public.cogs_entries (
+        brand_variant_id, consumption_id,
+        qty, unit_cost, total_cost, date, source_type, division_id,
+        consumer_type, consumer_sub_container_id, consumer_customer_id, notes
+      ) VALUES (
+        v_line.brand_variant_id, v_cogs.consumption_id,
+        -v_qty_this_chunk, v_cogs.unit_cost, -(v_qty_this_chunk * v_cogs.unit_cost), current_date,
+        'consumption_return', COALESCE(v_return.division_id, v_cogs.division_id),
+        v_cogs.consumer_type, v_cogs.consumer_sub_container_id, v_cogs.consumer_customer_id,
+        'Reversed by consumption return ' || v_return.return_number
+      );
+
+      INSERT INTO public.inventory_stock_movements (
+        warehouse_id, sub_container_id, brand_variant_id, item_name, sku,
+        movement_type, qty, unit_cost, reference_type, reference_id, notes
+      ) VALUES (
+        v_warehouse, v_sub_container, v_line.brand_variant_id, v_line.item_name, nullif(v_line.sku, ''),
+        'consumption_return', v_qty_this_chunk, v_cogs.unit_cost,
+        'return', p_return_id, 'Consumption return restocked (good) — ' || v_return.return_number
+      );
+
+      v_qty_remaining := v_qty_remaining - v_qty_this_chunk;
+    END LOOP;
+
+    IF v_qty_remaining > 0 THEN
+      RAISE EXCEPTION 'Return line % (variant %) could not be fully attributed: % units unmatched',
+        v_line.id, v_line.brand_variant_id, v_qty_remaining;
+    END IF;
+
+    UPDATE public.inventory_item_brand_variants
+       SET stock_level = stock_level + v_line.qty, updated_at = now()
+     WHERE id = v_line.brand_variant_id;
+  END LOOP;
+
+  UPDATE public.so_po_returns
+    SET status = 'restocked', restocked_at = now(), updated_at = now()
+    WHERE id = p_return_id;
+
+  PERFORM public._maybe_close_return(p_return_id);
+END;
 $function$
 ;
 
@@ -15916,12 +17139,12 @@ BEGIN
     v_qty_remaining := v_line.qty;
 
     FOR v_cogs IN
-      SELECT id, sale_delivery_id, sale_order_id, qty, unit_cost, division_id, date
+      SELECT id, sale_delivery_id, sale_order_id, qty, unit_cost, division_id, date, source_id
       FROM   cogs_entries
       WHERE  sale_order_id = v_return.source_id
         AND  brand_variant_id = v_line.brand_variant_id
         AND  qty > 0
-      ORDER  BY date ASC, unit_cost ASC, id ASC
+      ORDER  BY date ASC, id ASC
     LOOP
       EXIT WHEN v_qty_remaining <= 0;
 
@@ -15935,10 +17158,10 @@ BEGIN
       ) VALUES (
         v_line.brand_variant_id,
         v_line_warehouse,
-        current_date,
+        v_cogs.date,
         v_qty_this_chunk,
-        v_cogs.unit_cost,
-        0,
+        v_cogs.unit_cost - COALESCE((SELECT landed_cost_per_unit FROM public.fifo_cost_layers WHERE id = v_cogs.source_id), 0),
+        COALESCE((SELECT landed_cost_per_unit FROM public.fifo_cost_layers WHERE id = v_cogs.source_id), 0),
         v_cogs.unit_cost,
         v_qty_this_chunk,
         'sale_return',
@@ -15989,6 +17212,10 @@ BEGIN
       RAISE EXCEPTION 'Return line % (variant %) could not be fully attributed: % units unmatched',
         v_line.id, v_line.brand_variant_id, v_qty_remaining;
     END IF;
+
+    UPDATE public.inventory_item_brand_variants
+       SET stock_level = stock_level + v_line.qty, updated_at = now()
+     WHERE id = v_line.brand_variant_id;
   END LOOP;
 
   UPDATE so_po_returns
@@ -16026,7 +17253,7 @@ begin
     select
       ce.brand_variant_id,
       sum(ce.qty)::numeric                            as qty,
-      sum(ce.qty * sol.unit_price)                    as revenue,
+      sum(CASE WHEN ce.source_type IN ('sale', 'sale_return') THEN ce.qty * sol.unit_price * coalesce(so_fx.exchange_rate, 1) ELSE 0 END)                    as revenue,
       sum(ce.total_cost)                              as cogs,
       (array_agg(sol.item_name order by sol.created_at desc))[1] as item_name,
       (array_agg(sol.sku       order by sol.created_at desc))[1] as sku
@@ -16034,8 +17261,10 @@ begin
     join sale_order_lines sol
       on sol.sale_order_id  = ce.sale_order_id
      and sol.brand_variant_id = ce.brand_variant_id
+    join sale_orders so_fx on so_fx.id = ce.sale_order_id
     where ce.date >= p_start_date
       and ce.date <= p_end_date
+      and public.is_division_visible(ce.division_id)
     group by ce.brand_variant_id
   ),
   current_with_meta as (
@@ -16062,14 +17291,16 @@ begin
   ),
   prev_totals as (
     select
-      coalesce(sum(ce.qty * sol.unit_price), 0)  as revenue,
+      coalesce(sum(CASE WHEN ce.source_type IN ('sale', 'sale_return') THEN ce.qty * sol.unit_price * coalesce(so_fx.exchange_rate, 1) ELSE 0 END), 0)  as revenue,
       coalesce(sum(ce.total_cost), 0)            as cogs
     from cogs_entries ce
     join sale_order_lines sol
       on sol.sale_order_id  = ce.sale_order_id
      and sol.brand_variant_id = ce.brand_variant_id
+    join sale_orders so_fx on so_fx.id = ce.sale_order_id
     where ce.date >= v_prev_start
       and ce.date <= v_prev_end
+      and public.is_division_visible(ce.division_id)
   ),
   products_agg as (
     select coalesce(
@@ -16138,9 +17369,9 @@ BEGIN
         ce.sale_order_id,
         ce.brand_variant_id,
         SUM(ce.qty)::numeric                              AS qty,
-        SUM(ce.qty * sol.unit_price)                      AS line_revenue,
+        SUM(CASE WHEN ce.source_type IN ('sale', 'sale_return') THEN ce.qty * sol.unit_price * COALESCE(so_fx.exchange_rate, 1) ELSE 0 END)                      AS line_revenue,
         SUM(ce.total_cost)                                AS line_cogs,
-        SUM(ce.qty * sol.unit_price) - SUM(ce.total_cost) AS line_profit,
+        SUM(CASE WHEN ce.source_type IN ('sale', 'sale_return') THEN ce.qty * sol.unit_price * COALESCE(so_fx.exchange_rate, 1) ELSE 0 END) - SUM(ce.total_cost) AS line_profit,
         sol.unit_price,
         (array_agg(sol.item_name ORDER BY sol.created_at DESC))[1] AS item_name,
         (array_agg(sol.sku       ORDER BY sol.created_at DESC))[1] AS sku
@@ -16148,9 +17379,11 @@ BEGIN
       JOIN sale_order_lines sol
         ON sol.sale_order_id  = ce.sale_order_id
        AND sol.brand_variant_id = ce.brand_variant_id
+      JOIN sale_orders so_fx ON so_fx.id = ce.sale_order_id
       WHERE ce.date >= p_start_date
         AND ce.date <= p_end_date
         AND ce.sale_order_id IS NOT NULL
+        AND public.is_division_visible(ce.division_id)
       GROUP BY ce.sale_order_id, ce.brand_variant_id, sol.unit_price
     ),
     so_agg AS (
@@ -16212,12 +17445,12 @@ AS $function$
   SELECT
     b.supplier_id,
     s.name AS supplier_name,
-    COALESCE(SUM(CASE WHEN b.due_date >= CURRENT_DATE THEN b.total_amount - b.paid_amount END), 0) AS current_amt,
-    COALESCE(SUM(CASE WHEN b.due_date BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE - 1 THEN b.total_amount - b.paid_amount END), 0) AS days_1_30,
-    COALESCE(SUM(CASE WHEN b.due_date BETWEEN CURRENT_DATE - 60 AND CURRENT_DATE - 31 THEN b.total_amount - b.paid_amount END), 0) AS days_31_60,
-    COALESCE(SUM(CASE WHEN b.due_date BETWEEN CURRENT_DATE - 90 AND CURRENT_DATE - 61 THEN b.total_amount - b.paid_amount END), 0) AS days_61_90,
-    COALESCE(SUM(CASE WHEN b.due_date < CURRENT_DATE - 90 THEN b.total_amount - b.paid_amount END), 0) AS days_over_90,
-    COALESCE(SUM(b.total_amount - b.paid_amount), 0) AS total_outstanding,
+    COALESCE(SUM(CASE WHEN b.due_date >= CURRENT_DATE THEN (b.total_amount - b.paid_amount) * public._bill_qar_factor(b.id) END), 0) AS current_amt,
+    COALESCE(SUM(CASE WHEN b.due_date BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE - 1 THEN (b.total_amount - b.paid_amount) * public._bill_qar_factor(b.id) END), 0) AS days_1_30,
+    COALESCE(SUM(CASE WHEN b.due_date BETWEEN CURRENT_DATE - 60 AND CURRENT_DATE - 31 THEN (b.total_amount - b.paid_amount) * public._bill_qar_factor(b.id) END), 0) AS days_31_60,
+    COALESCE(SUM(CASE WHEN b.due_date BETWEEN CURRENT_DATE - 90 AND CURRENT_DATE - 61 THEN (b.total_amount - b.paid_amount) * public._bill_qar_factor(b.id) END), 0) AS days_61_90,
+    COALESCE(SUM(CASE WHEN b.due_date < CURRENT_DATE - 90 THEN (b.total_amount - b.paid_amount) * public._bill_qar_factor(b.id) END), 0) AS days_over_90,
+    COALESCE(SUM((b.total_amount - b.paid_amount) * public._bill_qar_factor(b.id)), 0) AS total_outstanding,
     COUNT(*) AS bill_count
   FROM bills b
   JOIN suppliers s ON s.id = b.supplier_id
@@ -16291,6 +17524,9 @@ declare
   v_mov_id       uuid;
   v_unit_cost    numeric;
   v_count        int := 0;
+  v_disp_id      uuid;
+  v_return_div   uuid;
+  v_sub          uuid;
 begin
   if not exists (
     select 1 from public.so_po_returns
@@ -16326,11 +17562,30 @@ begin
 
       v_unit_cost := public._return_line_fifo_unit_cost(p_return_id, v_disp_line_id, v_disp_qty);
 
+      -- Phase 3a: resolve the return division + a destination sub-container.
+      -- inventory_stock_movements.sub_container_id is NOT NULL; the previous insert
+      -- omitted it and broke on a schema drift, so no write-off could be recorded.
+      -- Sale returns are commonly created with a NULL division_id, so fall back to
+      -- the source sale order's division (mirrors rpc_create_partial_replacement).
+      -- On a real (non-virtual) warehouse a NULL division is rejected by
+      -- _enforce_sub_container_division_rule, so resolve it before creating the sub.
+      select coalesce(r.division_id, so.division_id)
+        into v_return_div
+        from public.so_po_returns r
+        left join public.sale_orders so
+          on so.id = r.source_id and r.source_type = 'sale_order'
+        where r.id = p_return_id;
+      if v_return_div is null then
+        raise exception 'rpc_record_inventory_disposition: write_off cannot resolve division from return or sale order for warehouse %.', p_warehouse_id
+          using hint = 'Set division_id on the return or its sale order before writing off.';
+      end if;
+      v_sub := public._find_or_create_sub_container(p_warehouse_id, v_return_div);
+
       insert into public.inventory_stock_movements (
-        warehouse_id, brand_variant_id, item_name, sku,
+        warehouse_id, sub_container_id, brand_variant_id, item_name, sku,
         movement_type, qty, unit_cost, reference_type, reference_id, notes
       ) values (
-        p_warehouse_id, v_return_line.brand_variant_id, v_return_line.item_name, nullif(v_return_line.sku, ''),
+        p_warehouse_id, v_sub, v_return_line.brand_variant_id, v_return_line.item_name, nullif(v_return_line.sku, ''),
         'sale_return_damaged'::public.stock_movement_type,
         v_disp_qty::integer,
         v_unit_cost,
@@ -16338,12 +17593,25 @@ begin
         coalesce(v_return_line.condition_notes, 'Damaged on customer return — written off')
       ) returning id into v_mov_id;
 
-      perform public._record_inventory_disposition(
+      select public._record_inventory_disposition(
         p_return_line_id              => v_disp_line_id,
         p_disposition_type            => 'write_off',
         p_qty                         => v_disp_qty,
         p_inventory_stock_movement_id => v_mov_id
+      ) into v_disp_id;
+
+      -- Phase 3a: emit the damaged_write_off movement the P&L Scrap line reads
+      -- (only a P&L-invisible sale_return_damaged stock movement was written
+      -- before), and reverse the sale COGS (full-line reversal — cost -> scrap).
+      insert into public.inventory_damaged_movements (
+        movement_type, qty, warehouse_id, brand_variant_id, unit_cost,
+        source_return_line_disposition_id, notes, created_by, division_id
+      ) values (
+        'damaged_write_off', v_disp_qty, p_warehouse_id, v_return_line.brand_variant_id, v_unit_cost,
+        v_disp_id, coalesce(v_return_line.condition_notes, 'Written off on customer return'),
+        public._current_user_data_id(), v_return_div
       );
+      perform public._reverse_sale_cogs_for_return(p_return_id, v_return_line.brand_variant_id, v_disp_qty);
 
     elsif v_disp_type = 'restock_as_damaged' then
       if not exists (
@@ -16759,12 +18027,15 @@ AS $function$
       b.purchase_order_id AS po_id,
       b.issued_date,
       b.due_date,
-      a.amount                              AS amount,
-      a.paid                                AS paid,
-      (a.amount - a.paid)                   AS due,
+      -- Bills store money in the PO's currency; convert the per-division
+      -- allocated amounts to QAR using the PO's booking rate.
+      round(a.amount * f.factor, 2)            AS amount,
+      round(a.paid   * f.factor, 2)            AS paid,
+      round((a.amount - a.paid) * f.factor, 2) AS due,
       CASE WHEN po.currency IS NOT NULL AND po.currency <> 'QAR' THEN po.currency ELSE NULL END AS po_currency,
-      CASE WHEN po.currency IS NOT NULL AND po.currency <> 'QAR' AND COALESCE(po.exchange_rate, 0) > 0
-           THEN round(a.amount / po.exchange_rate, 2) ELSE NULL END                             AS po_amount,
+      -- Original PO-currency amount, shown alongside the QAR value.
+      CASE WHEN po.currency IS NOT NULL AND po.currency <> 'QAR'
+           THEN round(a.amount, 2) ELSE NULL END AS po_amount,
       CASE
         WHEN b.payment_status = 'paid' OR (a.amount - a.paid) <= 0 THEN 'Paid'
         WHEN b.due_date < CURRENT_DATE THEN 'Over Due'
@@ -16806,6 +18077,7 @@ AS $function$
       SELECT b.division_id, COALESCE(b.total_amount, 0), COALESCE(b.paid_amount, 0)
       WHERE NOT EXISTS (SELECT 1 FROM w)
     ) a
+    CROSS JOIN LATERAL (SELECT public._bill_qar_factor(b.id) AS factor) f
     LEFT JOIN public.company_divisions d ON d.id = a.division_id
     WHERE public.is_division_visible(a.division_id)
       AND (p_division_ids IS NULL OR a.division_id = ANY(p_division_ids))
@@ -16875,7 +18147,7 @@ AS $function$
       COALESCE(cust.name, sup.name)            AS party,
       CASE WHEN p.direction = 'incoming' THEN COALESCE(p.amount_qar, 0) ELSE 0 END AS debit,
       CASE WHEN p.direction = 'outgoing' THEN COALESCE(p.amount_qar, 0) ELSE 0 END AS credit,
-      COALESCE(so.division_id, po.division_id, si.division_id, bl.division_id)      AS division_id
+      COALESCE(so.division_id, po.division_id, si.division_id, bl.division_id, (SELECT w.division_id FROM public._po_division_weights(po.id) w ORDER BY w.weight DESC NULLS LAST LIMIT 1))      AS division_id
     FROM public.payments p
     JOIN public.payment_methods pm ON pm.id = p.method_id AND pm.is_cash_equivalent
     LEFT JOIN public.sale_orders so     ON p.source_type = 'sale_order'     AND so.id = p.source_id
@@ -16971,8 +18243,21 @@ BEGIN
       LEFT JOIN public.warehouse_sub_containers wsc ON wsc.id = sm.sub_container_id
       WHERE sm.movement_type::text  = 'adjustment'
         AND sm.reference_type       = 'adjustment'
-        AND sa.adjustment_type::text = 'write_off'
+        AND sa.adjustment_type::text IN ('write_off', 'decrease')
         AND sa.status::text          = 'approved'
+        AND sm.created_at::date BETWEEN p_start AND p_end
+        AND public.is_division_visible(wsc.division_id)
+        AND (p_division_ids  IS NULL OR wsc.division_id = ANY(p_division_ids))
+        AND (p_warehouse_ids IS NULL OR sm.warehouse_id = ANY(p_warehouse_ids))
+    ), 0)
+    +
+    COALESCE((
+      -- Transfer shrinkage: stock lost in transit, logged at the source
+      -- sub-container. Division + warehouse scoped via sub_container -> division.
+      SELECT SUM(ABS(sm.qty) * sm.unit_cost)
+      FROM public.inventory_stock_movements sm
+      LEFT JOIN public.warehouse_sub_containers wsc ON wsc.id = sm.sub_container_id
+      WHERE sm.movement_type::text = 'transfer_shrinkage'
         AND sm.created_at::date BETWEEN p_start AND p_end
         AND public.is_division_visible(wsc.division_id)
         AND (p_division_ids  IS NULL OR wsc.division_id = ANY(p_division_ids))
@@ -16984,7 +18269,7 @@ BEGIN
       -- (stamped from the source sub-container / return at damage time).
       SELECT SUM(dm.qty * dm.unit_cost)
       FROM public.inventory_damaged_movements dm
-      WHERE dm.movement_type = 'damaged_write_off'
+      WHERE dm.movement_type IN ('damaged_write_off', 'return_from_repair_as_writeoff')
         AND dm.created_at::date BETWEEN p_start AND p_end
         AND public.is_division_visible(dm.division_id)
         AND (p_division_ids  IS NULL OR dm.division_id = ANY(p_division_ids))
@@ -17043,7 +18328,8 @@ BEGIN
       SELECT
         ce.source_type,
         initcap(replace(COALESCE(c.type::text, 'other'), '-', ' ')) AS category_stream,
-        (ce.qty * COALESCE(sol.unit_price, 0) * COALESCE(so.exchange_rate, 1)) AS revenue,
+        CASE WHEN ce.source_type = 'sale_replacement' THEN 0
+             ELSE (ce.qty * COALESCE(sol.unit_price, 0) * COALESCE(so.exchange_rate, 1)) END AS revenue,
         ce.total_cost AS cogs
       FROM public.cogs_entries ce
       JOIN public.inventory_item_brand_variants v ON v.id = ce.brand_variant_id
@@ -17056,7 +18342,7 @@ BEGIN
         LIMIT 1
       ) sol ON true
       LEFT JOIN public.fifo_cost_layers fl ON fl.id = ce.source_id
-      WHERE ce.source_type IN ('sale', 'sale_return', 'consumption', 'landed_cost', 'landed_cost_reversal')
+      WHERE ce.source_type IN ('sale', 'sale_return', 'sale_replacement', 'consumption', 'landed_cost', 'landed_cost_reversal')
         AND ce.date BETWEEN p_start AND p_end
         AND public.is_division_visible(COALESCE(ce.consumer_division_id, ce.division_id))
         AND (p_division_ids IS NULL OR COALESCE(ce.consumer_division_id, ce.division_id) = ANY(p_division_ids))
@@ -17131,7 +18417,7 @@ AS $function$
   LEFT JOIN public.landed_costs lc          ON lc.id = ce.landed_cost_id
   LEFT JOIN public.fifo_cost_layers fl      ON fl.id = ce.source_id
   LEFT JOIN public.company_divisions d      ON d.id  = COALESCE(ce.consumer_division_id, ce.division_id)
-  WHERE ce.source_type IN ('sale', 'sale_return', 'consumption', 'landed_cost', 'landed_cost_reversal')
+  WHERE ce.source_type IN ('sale', 'sale_return', 'sale_replacement', 'consumption', 'landed_cost', 'landed_cost_reversal')
     AND ce.date BETWEEN p_start AND p_end
     AND public.is_division_visible(COALESCE(ce.consumer_division_id, ce.division_id))
     AND (p_division_ids  IS NULL OR COALESCE(ce.consumer_division_id, ce.division_id) = ANY(p_division_ids))
@@ -17271,7 +18557,10 @@ AS $function$
     disc.name                                                                  AS discipline_name,
     COALESCE(pm.label, 'Unassigned')                                           AS milestone_label,
     c.code                                                                      AS code,
-    COALESCE(ii.name_en, '(item removed)')                                      AS item_name,
+    -- Category-qualified so same-named items in different sub-categories stay
+    -- distinct rows (and are readable in the Item column).
+    COALESCE(NULLIF(ic.name_en, '') || ' · ', '')
+      || COALESCE(ii.name_en, '(item removed)')                                AS item_name,
     ii.sku                                                                      AS sku,
     c.date                                                                      AS consumed_on,
     SUM(c.qty)::int                                                             AS qty,
@@ -17283,6 +18572,7 @@ AS $function$
   LEFT JOIN public.project_milestones           pm   ON pm.id   = c.milestone_id
   LEFT JOIN public.inventory_item_brand_variants biv ON biv.id  = c.brand_variant_id
   LEFT JOIN public.inventory_items              ii   ON ii.id   = biv.item_id
+  LEFT JOIN public.inventory_categories         ic   ON ic.id   = ii.category_id
   WHERE c.source_type = 'consumption'
     AND c.date BETWEEN p_from AND p_to
     AND c.consumer_sub_container_id IS NOT NULL
@@ -17413,7 +18703,7 @@ DECLARE
   v_id          uuid;
   v_step        RECORD;
   v_ord         int := 0;
-BEGIN
+BEGIN IF NOT public._auth_user_has_permission('damaged_stock.on_hand.edit') THEN RAISE EXCEPTION 'not authorized' USING ERRCODE = '42501'; END IF;
   IF p_qty IS NULL OR p_qty <= 0 THEN
     RAISE EXCEPTION 'rpc_request_damaged_writeoff: qty must be > 0 (got %)', p_qty;
   END IF;
@@ -17612,8 +18902,10 @@ CREATE OR REPLACE FUNCTION public.rpc_resolve_tool_repair(p_unit_id uuid, p_outc
 AS $function$
 DECLARE
   v_status public.tool_status;
+  v_pending boolean;
   v_bv uuid; v_sub uuid; v_wh uuid;
   v_actor uuid; v_actor_name text; v_sa uuid;
+  v_step RECORD; v_ord int := 0;
 BEGIN
   IF NOT public._user_has_permission(public._current_user_data_id(), 'tools.assets.manage') THEN
     RAISE EXCEPTION 'not authorized to resolve repairs' USING errcode = '42501';
@@ -17622,9 +18914,11 @@ BEGIN
     RAISE EXCEPTION 'invalid outcome: %', p_outcome;
   END IF;
 
-  SELECT status INTO v_status FROM public.tool_asset_units WHERE id = p_unit_id FOR UPDATE;
+  SELECT status, pending_scrap INTO v_status, v_pending
+    FROM public.tool_asset_units WHERE id = p_unit_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'unit % not found', p_unit_id; END IF;
   IF v_status = 'retired' THEN RAISE EXCEPTION 'unit is already retired'; END IF;
+  IF v_pending THEN RAISE EXCEPTION 'unit is pending scrap approval' USING ERRCODE = 'P0001'; END IF;
 
   IF p_outcome = 'repaired' THEN
     -- Back in service: Good again; assigned if still held by a team, else available.
@@ -17640,15 +18934,7 @@ BEGIN
   v_actor := public._current_user_data_id();
   SELECT full_name INTO v_actor_name FROM public.user_data WHERE id = v_actor;
 
-  -- 1) Close any open custody ledger row + retire + clear the pointer. (Always.)
-  UPDATE public.tool_unit_assignments
-    SET released_at = now(), release_reason = 'scrapped'
-    WHERE unit_id = p_unit_id AND released_at IS NULL;
-  UPDATE public.tool_asset_units
-    SET status = 'retired', current_custody_location_id = NULL
-    WHERE id = p_unit_id;
-
-  -- 2) Resolve the unit's stock position + cost from its receival link.
+  -- Resolve the unit's stock position + cost from its receival link.
   SELECT ri.brand_variant_id, ri.sub_container_id, sc.warehouse_id
     INTO v_bv, v_sub, v_wh
     FROM public.tool_asset_units u
@@ -17656,25 +18942,47 @@ BEGIN
     LEFT JOIN public.warehouse_sub_containers sc ON sc.id = ri.sub_container_id
     WHERE u.id = p_unit_id;
 
-  -- 3) If a costed stock position resolves, post a qty-1 write-off through the
-  --    EXISTING applier so it hits P&L v_scrap (FIFO-valued). Savepoint-guarded:
-  --    a missing FIFO layer / insufficient stock (seed units, ISSUE-2 drift) must
-  --    NOT fail the scrap — the unit stays retired, zero value posted.
   IF v_bv IS NOT NULL AND v_sub IS NOT NULL AND v_wh IS NOT NULL THEN
-    BEGIN
-      INSERT INTO public.stock_adjustments
-        (warehouse_id, sub_container_id, brand_variant_id, adjustment_type, qty,
-         reason, status, requested_by, requested_by_name)
-      VALUES
-        (v_wh, v_sub, v_bv, 'write_off'::public.stock_adjustment_type, 1,
-         COALESCE(NULLIF(p_notes,''), 'Tool scrapped'), 'pending_approval', v_actor, v_actor_name)
-      RETURNING id INTO v_sa;
+    -- GATED: lock the unit and route a pending write_off through the stock_adj
+    -- approval chain. The unit is NOT retired here — trg_tool_scrap_on_adjustment
+    -- retires it (and closes the assignment) on approval, or releases the lock
+    -- on rejection.
+    UPDATE public.tool_asset_units SET pending_scrap = true WHERE id = p_unit_id;
 
-      PERFORM public.approve_stock_adjustment_inventory(v_sa, COALESCE(v_actor_name, 'system'));
-    EXCEPTION WHEN OTHERS THEN
-      RAISE NOTICE 'scrap: cost write-off skipped for unit % — %', p_unit_id, SQLERRM;
-    END;
+    INSERT INTO public.stock_adjustments
+      (warehouse_id, sub_container_id, brand_variant_id, adjustment_type, qty,
+       reason, status, requested_by, requested_by_name, tool_unit_id)
+    VALUES
+      (v_wh, v_sub, v_bv, 'write_off'::public.stock_adjustment_type, 1,
+       COALESCE(NULLIF(p_notes,''), 'Tool scrapped'), 'pending_approval', v_actor, v_actor_name, p_unit_id)
+    RETURNING id INTO v_sa;
+
+    FOR v_step IN
+      SELECT step_key, step_label, is_conditional, condition_types
+      FROM   public.approval_workflow_steps
+      WHERE  workflow = 'stock_adj' AND is_active = true AND archived_at IS NULL
+      ORDER BY step_order
+    LOOP
+      IF v_step.is_conditional AND NOT ('write_off' = ANY(v_step.condition_types)) THEN
+        CONTINUE;
+      END IF;
+      v_ord := v_ord + 1;
+      INSERT INTO public.stock_adjustment_approvals (adjustment_id, step_order, step_role, step_label)
+      VALUES (v_sa, v_ord, v_step.step_key, v_step.step_label);
+    END LOOP;
+
+    IF v_ord = 0 THEN
+      RAISE EXCEPTION 'No approval steps configured for stock_adj workflow';
+    END IF;
   ELSE
+    -- UNCOSTED (seed / no receival cost layer): nothing to cost, so retire
+    -- immediately at zero value (owner decision), closing any open assignment.
+    UPDATE public.tool_unit_assignments
+      SET released_at = now(), release_reason = 'scrapped'
+      WHERE unit_id = p_unit_id AND released_at IS NULL;
+    UPDATE public.tool_asset_units
+      SET status = 'retired', current_custody_location_id = NULL
+      WHERE id = p_unit_id;
     RAISE NOTICE 'scrap: unit % has no receival cost layer — retired at zero value', p_unit_id;
   END IF;
 END $function$
@@ -17843,12 +19151,12 @@ begin
   if p_qty_writeoff > 0 then
     insert into public.inventory_damaged_movements
       (movement_type, qty, warehouse_id, brand_variant_id, unit_cost,
-       source_return_line_disposition_id, source_transfer_id, notes, created_by)
+       source_return_line_disposition_id, source_transfer_id, notes, created_by, division_id)
     values (
       'return_from_repair_as_writeoff', p_qty_writeoff, v_wh_source, v_variant, coalesce(v_unit_cost_base, 0),
       v_disp_id, p_transfer_id,
       coalesce(p_notes, format('Return from repair — %s units written off (unrecoverable)', p_qty_writeoff)),
-      v_uid
+      v_uid, (select division_id from public.warehouse_sub_containers where id = v_to_sub_container_id)
     );
 
     v_transfer_num := public.generate_transfer_number();
@@ -17897,6 +19205,7 @@ DECLARE
   v_uid uuid := public._current_user_data_id(); v_actor_name text;
   v_unit uuid; v_kind text; v_tstatus text;
   v_bv uuid; v_sub uuid; v_wh uuid; v_sa uuid;
+  v_step RECORD; v_ord int := 0;
 BEGIN
   IF NOT public._user_has_permission(v_uid, 'tools.assets.manage') THEN
     RAISE EXCEPTION 'not authorized to resolve repairs' USING ERRCODE = '42501';
@@ -17922,11 +19231,8 @@ BEGIN
           current_custody_location_id = NULL
       WHERE id = v_unit;
   ELSE
-    -- writeoff -> retire + scrap->P&L (the assignment is already closed).
+    -- ── writeoff ──
     SELECT full_name INTO v_actor_name FROM public.user_data WHERE id = v_uid;
-    UPDATE public.tool_asset_units
-      SET status = 'retired', current_custody_location_id = NULL
-      WHERE id = v_unit;
 
     SELECT ri.brand_variant_id, ri.sub_container_id, sc.warehouse_id INTO v_bv, v_sub, v_wh
       FROM public.tool_asset_units u
@@ -17935,23 +19241,44 @@ BEGIN
       WHERE u.id = v_unit;
 
     IF v_bv IS NOT NULL AND v_sub IS NOT NULL AND v_wh IS NOT NULL THEN
-      BEGIN
-        INSERT INTO public.stock_adjustments
-          (warehouse_id, sub_container_id, brand_variant_id, adjustment_type, qty,
-           reason, status, requested_by, requested_by_name)
-        VALUES
-          (v_wh, v_sub, v_bv, 'write_off'::public.stock_adjustment_type, 1,
-           COALESCE(NULLIF(p_notes,''), 'Tool scrapped (repair writeoff)'), 'pending_approval', v_uid, v_actor_name)
-        RETURNING id INTO v_sa;
-        PERFORM public.approve_stock_adjustment_inventory(v_sa, COALESCE(v_actor_name, 'system'));
-      EXCEPTION WHEN OTHERS THEN
-        RAISE NOTICE 'writeoff: cost write-off skipped for unit % — %', v_unit, SQLERRM;
-      END;
+      -- GATED: lock + route a pending write_off; the trigger retires on approve.
+      UPDATE public.tool_asset_units SET pending_scrap = true WHERE id = v_unit;
+
+      INSERT INTO public.stock_adjustments
+        (warehouse_id, sub_container_id, brand_variant_id, adjustment_type, qty,
+         reason, status, requested_by, requested_by_name, tool_unit_id)
+      VALUES
+        (v_wh, v_sub, v_bv, 'write_off'::public.stock_adjustment_type, 1,
+         COALESCE(NULLIF(p_notes,''), 'Tool scrapped (repair writeoff)'), 'pending_approval', v_uid, v_actor_name, v_unit)
+      RETURNING id INTO v_sa;
+
+      FOR v_step IN
+        SELECT step_key, step_label, is_conditional, condition_types
+        FROM   public.approval_workflow_steps
+        WHERE  workflow = 'stock_adj' AND is_active = true AND archived_at IS NULL
+        ORDER BY step_order
+      LOOP
+        IF v_step.is_conditional AND NOT ('write_off' = ANY(v_step.condition_types)) THEN
+          CONTINUE;
+        END IF;
+        v_ord := v_ord + 1;
+        INSERT INTO public.stock_adjustment_approvals (adjustment_id, step_order, step_role, step_label)
+        VALUES (v_sa, v_ord, v_step.step_key, v_step.step_label);
+      END LOOP;
+
+      IF v_ord = 0 THEN
+        RAISE EXCEPTION 'No approval steps configured for stock_adj workflow';
+      END IF;
     ELSE
+      -- UNCOSTED: retire immediately at zero value (owner decision).
+      UPDATE public.tool_asset_units
+        SET status = 'retired', current_custody_location_id = NULL
+        WHERE id = v_unit;
       RAISE NOTICE 'writeoff: unit % has no receival cost layer — retired at zero value', v_unit;
     END IF;
   END IF;
 
+  -- The tool physically returned either way — close the repair transfer.
   UPDATE public.warehouse_transfers
     SET status = 'received', received_at = now(), received_by_profile_id = v_uid
     WHERE id = p_transfer_id;
@@ -18126,15 +19453,13 @@ declare
   v_return                record;
   v_vendor                record;
   v_transfer_id           uuid;
-  v_transfer_number       text;
   v_unit_cost             numeric;
   v_current_damaged       numeric;
   v_source_division       uuid;
   v_sub_ct                int;
   v_from_sub_container_id uuid;
-  v_to_sub_container_id   uuid;
   v_uid                   uuid := public._current_user_data_id();
-begin
+begin IF NOT public._auth_user_has_permission('damaged_stock.out_for_repair.edit') THEN RAISE EXCEPTION 'not authorized' USING ERRCODE = '42501'; END IF;
   select id, return_line_id, disposition_type, qty, warehouse_transfer_id
     into v_disp
     from public.return_line_inventory_dispositions
@@ -18181,6 +19506,12 @@ begin
     into v_return
     from public.so_po_returns r
     where r.id = v_return_line.return_id;
+
+  -- Phase 3a: the unit leaves "sold" state here (returned -> sent to repair), so
+  -- reverse the original sale COGS (full-line reversal). No-op for non-sale
+  -- returns. The already-linked guard above ensures this runs once per
+  -- disposition; rpc_return_damaged_from_repair does NOT re-reverse (no double).
+  perform public._reverse_sale_cogs_for_return(v_return_line.return_id, v_return_line.brand_variant_id, v_disp.qty);
 
   -- Cascade: explicit override → return → parent SO/PO → cogs_entries → single sub.
   v_source_division := p_source_division_id;
@@ -18273,43 +19604,15 @@ begin
   end if;
 
   v_from_sub_container_id := public._find_or_create_sub_container(p_warehouse_id, v_source_division);
-  v_to_sub_container_id   := v_vendor.sub_container_id;
 
-  v_transfer_number := public.generate_transfer_number();
-
-  insert into public.warehouse_transfers (
-    transfer_number, from_warehouse_id, to_warehouse_id,
-    status, date, notes,
-    transfer_kind, repair_vendor_id, source_return_line_disposition_id, expected_return_date,
-    from_sub_container_id, to_sub_container_id,
-    created_by_profile_id, dispatched_by_profile_id, dispatched_at
-  ) values (
-    v_transfer_number, p_warehouse_id, v_vendor.virtual_warehouse_id,
-    'in_transit', current_date, p_notes,
-    'damaged_repair_out', p_repair_vendor_id, p_return_line_disposition_id, p_expected_return_date,
-    v_from_sub_container_id, v_to_sub_container_id,
-    v_uid, v_uid, now()
-  )
-  returning id into v_transfer_id;
-
-  insert into public.warehouse_transfer_items (
-    transfer_id, brand_variant_id, item_name, sku, requested_qty, unit_cost, dispatched_qty,
-    sub_container_id
-  ) values (
-    v_transfer_id, v_return_line.brand_variant_id,
-    coalesce(v_return_line.item_name, ''), nullif(v_return_line.sku, ''),
-    v_disp.qty::integer, v_unit_cost, v_disp.qty::integer,
-    v_from_sub_container_id
-  );
-
-  perform public._consume_damaged_stock_fifo(p_warehouse_id, v_return_line.brand_variant_id, v_disp.qty);
-
-  insert into public.inventory_damaged_movements
-    (movement_type, qty, warehouse_id, brand_variant_id, unit_cost,
-     source_return_line_disposition_id, source_transfer_id, notes, created_by)
-  values (
-    'send_for_repair_out', v_disp.qty, p_warehouse_id, v_return_line.brand_variant_id, v_unit_cost,
-    v_disp.id, v_transfer_id, p_notes, v_uid
+  v_transfer_id := public._emit_send_for_repair_transfer(
+    p_warehouse_id, v_vendor.virtual_warehouse_id, v_return_line.brand_variant_id, v_disp.qty,
+    v_unit_cost, v_return_line.item_name, v_return_line.sku,
+    v_from_sub_container_id, v_vendor.sub_container_id,
+    p_repair_vendor_id, p_expected_return_date, p_notes,
+    v_disp.id,
+    p_notes,
+    v_uid
   );
 
   update public.return_line_inventory_dispositions
@@ -18330,15 +19633,12 @@ AS $function$
 declare
   v_vendor                record;
   v_available             numeric;
-  v_transfer_id           uuid;
-  v_transfer_number       text;
   v_unit_cost             numeric;
   v_item_name             text;
   v_item_sku              text;
   v_from_sub_container_id uuid;
-  v_to_sub_container_id   uuid;
   v_uid                   uuid := public._current_user_data_id();
-begin
+begin IF NOT public._auth_user_has_permission('damaged_stock.on_hand.edit') THEN RAISE EXCEPTION 'not authorized' USING ERRCODE = '42501'; END IF;
   if p_qty is null or p_qty <= 0 then
     raise exception 'rpc_send_damaged_stock_for_repair: qty must be > 0 (got %)', p_qty;
   end if;
@@ -18385,48 +19685,16 @@ begin
     where bv.id = p_brand_variant_id;
 
   v_from_sub_container_id := public._find_or_create_sub_container(p_warehouse_id, p_source_division_id);
-  v_to_sub_container_id   := v_vendor.sub_container_id;
 
-  v_transfer_number := public.generate_transfer_number();
-
-  insert into public.warehouse_transfers (
-    transfer_number, from_warehouse_id, to_warehouse_id,
-    status, date, notes,
-    transfer_kind, repair_vendor_id, source_return_line_disposition_id, expected_return_date,
-    from_sub_container_id, to_sub_container_id,
-    created_by_profile_id, dispatched_by_profile_id, dispatched_at
-  ) values (
-    v_transfer_number, p_warehouse_id, v_vendor.virtual_warehouse_id,
-    'in_transit', current_date, p_notes,
-    'damaged_repair_out', p_repair_vendor_id, NULL, p_expected_return_date,
-    v_from_sub_container_id, v_to_sub_container_id,
-    v_uid, v_uid, now()
-  )
-  returning id into v_transfer_id;
-
-  insert into public.warehouse_transfer_items (
-    transfer_id, brand_variant_id, item_name, sku, requested_qty, unit_cost, dispatched_qty,
-    sub_container_id
-  ) values (
-    v_transfer_id, p_brand_variant_id,
-    v_item_name, nullif(v_item_sku, ''),
-    p_qty, v_unit_cost, p_qty,
-    v_from_sub_container_id
-  );
-
-  perform public._consume_damaged_stock_fifo(p_warehouse_id, p_brand_variant_id, p_qty);
-
-  insert into public.inventory_damaged_movements
-    (movement_type, qty, warehouse_id, brand_variant_id, unit_cost,
-     source_transfer_id, notes, created_by)
-  values (
-    'send_for_repair_out', p_qty, p_warehouse_id, p_brand_variant_id, v_unit_cost,
-    v_transfer_id,
+  return public._emit_send_for_repair_transfer(
+    p_warehouse_id, v_vendor.virtual_warehouse_id, p_brand_variant_id, p_qty::numeric,
+    v_unit_cost, v_item_name, v_item_sku,
+    v_from_sub_container_id, v_vendor.sub_container_id,
+    p_repair_vendor_id, p_expected_return_date, p_notes,
+    NULL::uuid,
     coalesce(p_notes, 'Ad-hoc send-for-repair from Damaged Stock On-hand'),
     v_uid
   );
-
-  return v_transfer_id;
 end;
 $function$
 ;
@@ -18440,16 +19708,18 @@ AS $function$
 DECLARE
   v_uid uuid := public._current_user_data_id();
   v_status public.tool_status;
+  v_pending boolean;
   v_vendor record; v_from_sub uuid; v_from_wh uuid; v_num text; v_tid uuid;
 BEGIN
   IF NOT public._user_has_permission(v_uid, 'tools.assets.manage') THEN
     RAISE EXCEPTION 'not authorized to send tools for repair' USING ERRCODE = '42501';
   END IF;
-  SELECT status INTO v_status FROM public.tool_asset_units WHERE id = p_unit_id FOR UPDATE;
+  SELECT status, pending_scrap INTO v_status, v_pending FROM public.tool_asset_units WHERE id = p_unit_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'tool unit % not found', p_unit_id; END IF;
   IF v_status <> 'maintenance' THEN
     RAISE EXCEPTION 'tool must be in the Repair bucket (maintenance) before sending to a vendor';
   END IF;
+  IF v_pending THEN RAISE EXCEPTION 'unit is pending scrap approval' USING ERRCODE = 'P0001'; END IF;
   IF EXISTS (SELECT 1 FROM public.warehouse_transfers wt
              WHERE wt.tool_unit_id = p_unit_id AND wt.transfer_kind = 'damaged_repair_out' AND wt.status = 'in_transit') THEN
     RAISE EXCEPTION 'tool is already out for repair';
@@ -18517,6 +19787,27 @@ BEGIN
 END $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.rpc_set_category_divisions(p_category_id uuid, p_division_ids uuid[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if not public._user_can_write_catalog(public._current_user_data_id()) then
+    raise exception 'not authorized';
+  end if;
+  delete from public.inventory_category_divisions
+   where category_id = p_category_id
+     and not (division_id = any(coalesce(p_division_ids, '{}'::uuid[])));
+  insert into public.inventory_category_divisions (category_id, division_id, created_by)
+  select p_category_id, d, public._current_user_data_id()
+  from unnest(coalesce(p_division_ids, '{}'::uuid[])) as d
+  on conflict (category_id, division_id) do nothing;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.rpc_set_item_divisions(p_item_id uuid, p_division_ids uuid[])
  RETURNS void
  LANGUAGE plpgsql
@@ -18527,9 +19818,13 @@ begin
   if not _user_can_write_catalog(_current_user_data_id()) then
     raise exception 'not authorized';
   end if;
+  -- Remove divisions no longer selected.
   delete from public.inventory_item_divisions
    where item_id = p_item_id
      and not (division_id = any(coalesce(p_division_ids, '{}'::uuid[])));
+  -- Add newly selected divisions; keep existing rows (and their category overlay)
+  -- untouched via ON CONFLICT DO NOTHING. New rows file under the item's canonical
+  -- category (Phase 2 will let the dialog set a per-division category).
   insert into public.inventory_item_divisions (item_id, division_id, category_id, created_by)
   select p_item_id, d, (select category_id from public.inventory_items where id = p_item_id), _current_user_data_id()
   from unnest(coalesce(p_division_ids, '{}'::uuid[])) as d
@@ -18711,13 +20006,11 @@ DECLARE
   v_claim        RECORD;
   v_rec          RECORD;
   v_delivery_id  uuid;
+  v_division     uuid;
   v_return_number text;
   v_return_id     uuid;
 BEGIN
   SELECT id, full_name INTO v_profile, v_profile_name FROM user_data WHERE auth_user_id = auth.uid();
-  IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
-    RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
-  END IF;
 
   SELECT id, claim_number, status, warranty_type, warranty_record_id, division_id, claim_qty
     INTO v_claim
@@ -18726,49 +20019,101 @@ BEGIN
     FOR UPDATE;
   IF v_claim.id IS NULL THEN RAISE EXCEPTION 'Claim not found'; END IF;
 
-  IF v_claim.warranty_type <> 'sale' THEN
+  -- Permission by source: consumption claims use the consumption key (Phase 4);
+  -- sale claims keep the sales key. Service / contract not built yet.
+  IF v_claim.warranty_type = 'consumption' THEN
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'consumption.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: consumption.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  ELSIF v_claim.warranty_type = 'sale' THEN
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  ELSE
     RAISE EXCEPTION 'service/contract warranty resolution is not built yet' USING ERRCODE='0A000';
   END IF;
+
   IF v_claim.status <> 'covered' THEN
     RAISE EXCEPTION 'Only a covered claim can start resolution (status: %)', v_claim.status USING ERRCODE='42501';
   END IF;
 
-  SELECT id, sale_order_id, sale_delivery_line_id, brand_variant_id, item_name, sku
-    INTO v_rec
-    FROM warranty_records
-    WHERE id = v_claim.warranty_record_id;
-  IF v_rec.id IS NULL THEN RAISE EXCEPTION 'Warranty record not found'; END IF;
+  IF v_claim.warranty_type = 'sale' THEN
+    -- ── Sales return (unchanged) ──
+    SELECT id, sale_order_id, sale_delivery_line_id, brand_variant_id, item_name, sku
+      INTO v_rec
+      FROM warranty_records
+      WHERE id = v_claim.warranty_record_id;
+    IF v_rec.id IS NULL THEN RAISE EXCEPTION 'Warranty record not found'; END IF;
 
-  SELECT sale_delivery_id INTO v_delivery_id
-    FROM sale_delivery_lines
-    WHERE id = v_rec.sale_delivery_line_id;
+    SELECT sale_delivery_id INTO v_delivery_id
+      FROM sale_delivery_lines
+      WHERE id = v_rec.sale_delivery_line_id;
 
-  -- Replicate useCreateSaleReturn's return-number scheme (count of existing
-  -- source_type='sale_order' returns + 1 -> 'SR-#####'), serialized with an
-  -- advisory lock since this runs server-side and must not race.
-  PERFORM pg_advisory_xact_lock(hashtext('so_po_returns_return_number'));
-  SELECT 'SR-' || lpad((count(*) + 1)::text, 5, '0')
-    INTO v_return_number
-    FROM so_po_returns
-    WHERE source_type = 'sale_order';
+    PERFORM pg_advisory_xact_lock(hashtext('so_po_returns_return_number'));
+    SELECT 'SR-' || lpad((count(*) + 1)::text, 5, '0')
+      INTO v_return_number
+      FROM so_po_returns
+      WHERE source_type = 'sale_order';
 
-  INSERT INTO so_po_returns (
-    return_number, source_type, source_id, source_delivery_id,
-    reason, status, division_id, warranty_claim_id,
-    created_by, created_by_name
-  ) VALUES (
-    v_return_number, 'sale_order', v_rec.sale_order_id, v_delivery_id,
-    'Warranty claim ' || v_claim.claim_number, 'pending_inspection', v_claim.division_id, p_claim_id,
-    v_profile, v_profile_name
-  )
-  RETURNING id INTO v_return_id;
+    INSERT INTO so_po_returns (
+      return_number, source_type, source_id, source_delivery_id,
+      reason, status, division_id, warranty_claim_id,
+      created_by, created_by_name
+    ) VALUES (
+      v_return_number, 'sale_order', v_rec.sale_order_id, v_delivery_id,
+      'Warranty claim ' || v_claim.claim_number, 'pending_inspection', v_claim.division_id, p_claim_id,
+      v_profile, v_profile_name
+    )
+    RETURNING id INTO v_return_id;
 
-  -- Return line carries the CLAIM quantity (partial claim -> partial return).
-  INSERT INTO return_lines (
-    return_id, brand_variant_id, item_name, sku, qty, condition, sale_delivery_line_id
-  ) VALUES (
-    v_return_id, v_rec.brand_variant_id, v_rec.item_name, v_rec.sku, v_claim.claim_qty, 'inspection', v_rec.sale_delivery_line_id
-  );
+    INSERT INTO return_lines (
+      return_id, brand_variant_id, item_name, sku, qty, condition, sale_delivery_line_id
+    ) VALUES (
+      v_return_id, v_rec.brand_variant_id, v_rec.item_name, v_rec.sku, v_claim.claim_qty, 'inspection', v_rec.sale_delivery_line_id
+    );
+
+  ELSE
+    -- ── Consumption return (Phase 4) ──
+    SELECT id, consumption_id, consumption_line_id, brand_variant_id, item_name, sku
+      INTO v_rec
+      FROM warranty_records
+      WHERE id = v_claim.warranty_record_id;
+    IF v_rec.id IS NULL THEN RAISE EXCEPTION 'Warranty record not found'; END IF;
+    IF v_rec.consumption_id IS NULL OR v_rec.consumption_line_id IS NULL THEN
+      RAISE EXCEPTION 'Consumption warranty record % is missing its consumption linkage', v_rec.id;
+    END IF;
+
+    -- The consumption return needs a division for the disposition/restock
+    -- sub-container resolution (no sale-order fallback exists). Prefer the
+    -- claim's division, else the consumption's.
+    v_division := COALESCE(
+      v_claim.division_id,
+      (SELECT ce.division_id FROM consumption_entries ce WHERE ce.id = v_rec.consumption_id)
+    );
+
+    PERFORM pg_advisory_xact_lock(hashtext('so_po_returns_return_number'));
+    SELECT 'CR-' || lpad((count(*) + 1)::text, 5, '0')
+      INTO v_return_number
+      FROM so_po_returns
+      WHERE source_type = 'consumption';
+
+    INSERT INTO so_po_returns (
+      return_number, source_type, source_id,
+      reason, status, division_id, warranty_claim_id,
+      created_by, created_by_name
+    ) VALUES (
+      v_return_number, 'consumption', v_rec.consumption_id,
+      'Warranty claim ' || v_claim.claim_number, 'pending_inspection', v_division, p_claim_id,
+      v_profile, v_profile_name
+    )
+    RETURNING id INTO v_return_id;
+
+    INSERT INTO return_lines (
+      return_id, brand_variant_id, item_name, sku, qty, condition, consumption_line_id
+    ) VALUES (
+      v_return_id, v_rec.brand_variant_id, v_rec.item_name, v_rec.sku, v_claim.claim_qty, 'inspection', v_rec.consumption_line_id
+    );
+  END IF;
 
   UPDATE warranty_claims
     SET status = 'in_progress', linked_return_id = v_return_id, updated_at = now()
@@ -19131,16 +20476,30 @@ DECLARE
   v_status        warranty_claim_status;
   v_return_id     uuid;
   v_return_status return_status;
+  v_source        text;
 BEGIN
   SELECT id INTO v_profile FROM user_data WHERE auth_user_id = auth.uid();
-  IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
-    RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
-  END IF;
-  IF COALESCE(btrim(p_reason),'') = '' THEN RAISE EXCEPTION 'A void reason is required'; END IF;
 
-  SELECT status, linked_return_id INTO v_status, v_return_id
-    FROM warranty_claims WHERE id = p_claim_id FOR UPDATE;
+  -- Load the claim (locked) + its warranty source so the permission key can be
+  -- chosen by source.
+  SELECT wc.status, wc.linked_return_id, wr.source_type INTO v_status, v_return_id, v_source
+    FROM warranty_claims wc
+    JOIN warranty_records wr ON wr.id = wc.warranty_record_id
+    WHERE wc.id = p_claim_id
+    FOR UPDATE OF wc;
   IF v_status IS NULL THEN RAISE EXCEPTION 'Claim not found'; END IF;
+
+  IF v_source = 'consumption' THEN
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'consumption.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: consumption.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  ELSE
+    IF NOT public._user_has_permission(p_profile_id := v_profile, p_permission := 'sales.warranty_claims.manage') THEN
+      RAISE EXCEPTION 'Missing permission: sales.warranty_claims.manage' USING ERRCODE='42501';
+    END IF;
+  END IF;
+
+  IF COALESCE(btrim(p_reason),'') = '' THEN RAISE EXCEPTION 'A void reason is required'; END IF;
   IF v_status IN ('resolved','void') THEN RAISE EXCEPTION 'Claim is already %', v_status USING ERRCODE='42501'; END IF;
 
   -- in_progress claim: reconcile its linked return so voiding can't orphan a live
@@ -20431,6 +21790,39 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.sync_role_name_to_approval_tiers()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+  IF (TG_OP = 'DELETE') THEN
+    UPDATE public.po_approval_chain_tiers
+       SET required_roles = array_remove(required_roles, OLD.name)
+     WHERE OLD.name = ANY(required_roles);
+    RETURN OLD;
+  END IF;
+
+  -- UPDATE: propagate a rename
+  IF NEW.name IS DISTINCT FROM OLD.name THEN
+    UPDATE public.po_approval_chain_tiers
+       SET required_roles = array_replace(required_roles, OLD.name, NEW.name)
+     WHERE OLD.name = ANY(required_roles);
+  END IF;
+
+  -- UPDATE: treat a soft delete (deleted_at newly set) as a removal
+  IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
+    UPDATE public.po_approval_chain_tiers
+       SET required_roles = array_remove(required_roles, NEW.name)
+     WHERE NEW.name = ANY(required_roles);
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.sync_service_pending_lock()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -20522,6 +21914,38 @@ BEGIN
     RAISE EXCEPTION 'Step not found or already archived';
   END IF;
 END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.tool_bulk_items_in_division(p_division_id uuid)
+ RETURNS SETOF uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT it.id
+  FROM public.inventory_items it
+  JOIN public.inventory_categories ic ON ic.id = it.category_id AND ic.type = 'tools'
+  WHERE it.status <> 'archived'
+    AND public.tool_effective_mode(it.id, p_division_id) = 'bulk';
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.tool_effective_mode(p_item_id uuid, p_division_id uuid)
+ RETURNS tool_tracking_mode
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT coalesce(
+    (SELECT iid.tool_tracking_mode
+       FROM public.inventory_item_divisions iid
+      WHERE iid.item_id = p_item_id AND iid.division_id = p_division_id),
+    (SELECT ic.tool_tracking_mode
+       FROM public.inventory_items it
+       JOIN public.inventory_categories ic ON ic.id = it.category_id
+      WHERE it.id = p_item_id)
+  );
 $function$
 ;
 
@@ -21268,14 +22692,16 @@ BEGIN
       FROM receival_items ri
       JOIN receivals rv ON rv.id = ri.receival_id AND rv.status = 'approved'
       LEFT JOIN LATERAL (
-        -- Scope the remaining-qty sum to layers that came from THIS LC's
-        -- attached receivals — matches allocate_landed_cost's C5 scope so
-        -- the preview matches what the RPC will actually book.
+        -- Sum remaining across ALL layers that trace to THIS LC's attached
+        -- receivals (by receival_id) — including layers later moved by transfer
+        -- (source_type='transfer'), exactly as allocate_landed_cost books it.
+        -- A transferred layer keeps its receival_id and still receives the
+        -- landed cost, so filtering source_type='receival' undercounted remaining
+        -- and could wrongly flag "all units sold".
         SELECT SUM(fl.remaining_qty) AS remaining
         FROM   fifo_cost_layers fl
         WHERE  fl.brand_variant_id = ri.brand_variant_id
           AND  fl.remaining_qty > 0
-          AND  fl.source_type = 'receival'
           AND  fl.receival_id = ANY(v_lc.attached_receival_ids)
       ) fl_agg ON true
       WHERE ri.receival_id = ANY(v_lc.attached_receival_ids)

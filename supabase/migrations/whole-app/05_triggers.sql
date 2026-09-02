@@ -1,4 +1,4 @@
--- whole-app 05: triggers (live)
+-- whole-app 05: triggers (live, post-repair)
 
 CREATE TRIGGER bill_line_items_cascade_pdf_invalidation AFTER INSERT OR DELETE OR UPDATE ON bill_line_items FOR EACH ROW EXECUTE FUNCTION bill_line_items_invalidate_parent_pdf_fn();
 CREATE TRIGGER bills_invalidate_pdf_cache BEFORE UPDATE ON bills FOR EACH ROW EXECUTE FUNCTION bills_invalidate_pdf_cache_fn();
@@ -26,6 +26,7 @@ CREATE TRIGGER trg_credit_notes_updated_at BEFORE UPDATE ON credit_notes FOR EAC
 CREATE TRIGGER trg_guard_credit_notes_immutable BEFORE UPDATE ON credit_notes FOR EACH ROW EXECUTE FUNCTION guard_credit_notes_immutable();
 CREATE TRIGGER trg_currencies_updated_at BEFORE UPDATE ON currencies FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER set_custom_roles_updated_at BEFORE UPDATE ON custom_roles FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_sync_role_name_to_approval_tiers AFTER DELETE OR UPDATE OF name, deleted_at ON custom_roles FOR EACH ROW EXECUTE FUNCTION sync_role_name_to_approval_tiers();
 CREATE TRIGGER cleanup_customer_credit_docs_after_delete AFTER DELETE ON customer_credit_docs FOR EACH ROW EXECUTE FUNCTION trg_cleanup_customer_credit_docs_after_delete();
 CREATE TRIGGER cleanup_customer_credit_docs_after_update AFTER UPDATE OF cr_url, establishment_id_url, signed_credit_form_url ON customer_credit_docs FOR EACH ROW EXECUTE FUNCTION trg_cleanup_customer_credit_docs_after_update();
 CREATE TRIGGER trg_ccgr_updated_at BEFORE UPDATE ON customer_credit_group_requests FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -33,6 +34,7 @@ CREATE TRIGGER trg_guard_customer_credit_group BEFORE UPDATE ON customers FOR EA
 CREATE TRIGGER debit_notes_invalidate_pdf_cache BEFORE UPDATE ON debit_notes FOR EACH ROW EXECUTE FUNCTION debit_notes_invalidate_pdf_cache_fn();
 CREATE TRIGGER sync_debit_note_reason_id BEFORE INSERT OR UPDATE ON debit_notes FOR EACH ROW EXECUTE FUNCTION _sync_debit_note_reason_id_fn();
 CREATE TRIGGER trg_guard_debit_notes_money_columns BEFORE UPDATE ON debit_notes FOR EACH ROW EXECUTE FUNCTION guard_debit_notes_money_columns();
+CREATE TRIGGER trg_autostick_item_division AFTER INSERT ON fifo_cost_layers FOR EACH ROW EXECUTE FUNCTION _autostick_item_division();
 CREATE TRIGGER trg_create_tool_units_on_receival AFTER INSERT ON fifo_cost_layers FOR EACH ROW EXECUTE FUNCTION create_tool_units_on_receival_layer();
 CREATE TRIGGER trg_fifo_stock_summary AFTER INSERT OR DELETE OR UPDATE ON fifo_cost_layers FOR EACH ROW EXECUTE FUNCTION trg_fifo_refresh_stock_summary();
 CREATE TRIGGER trg_remove_tool_placeholders_on_layer_delete AFTER DELETE ON fifo_cost_layers FOR EACH ROW EXECUTE FUNCTION remove_tool_placeholders_on_layer_delete();
@@ -53,6 +55,7 @@ CREATE TRIGGER inventory_pricing_guard_trg BEFORE UPDATE ON inventory_item_brand
 CREATE TRIGGER set_updated_at_inventory_item_brand_variants BEFORE UPDATE ON inventory_item_brand_variants FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_auto_brand_variant_sku BEFORE INSERT OR UPDATE ON inventory_item_brand_variants FOR EACH ROW EXECUTE FUNCTION generate_brand_variant_sku();
 CREATE TRIGGER trg_sync_brand_variants_brand_text BEFORE INSERT OR UPDATE OF brand_id ON inventory_item_brand_variants FOR EACH ROW EXECUTE FUNCTION sync_brand_variant_brand_text();
+CREATE TRIGGER trg_guard_item_division_tracking_mode_switch BEFORE INSERT OR UPDATE ON inventory_item_divisions FOR EACH ROW EXECUTE FUNCTION guard_item_division_tracking_mode_switch();
 CREATE TRIGGER cleanup_inventory_item_image_after_delete AFTER DELETE ON inventory_items FOR EACH ROW EXECUTE FUNCTION trg_cleanup_inventory_item_image_after_delete();
 CREATE TRIGGER cleanup_inventory_item_image_after_update AFTER UPDATE OF image_url ON inventory_items FOR EACH ROW EXECUTE FUNCTION trg_cleanup_inventory_item_image_after_update();
 CREATE TRIGGER set_updated_at_inventory_items BEFORE UPDATE ON inventory_items FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -99,6 +102,7 @@ CREATE TRIGGER trg_repair_vendor_provision_warehouse BEFORE INSERT ON repair_ven
 CREATE TRIGGER trg_return_lines_provenance BEFORE INSERT OR UPDATE OF receival_item_id, sale_delivery_line_id, return_id ON return_lines FOR EACH ROW EXECUTE FUNCTION _enforce_return_line_provenance();
 CREATE TRIGGER set_updated_at_sale_deliveries BEFORE UPDATE ON sale_deliveries FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_guard_sale_delivery_status BEFORE INSERT OR UPDATE ON sale_deliveries FOR EACH ROW EXECUTE FUNCTION guard_sale_delivery_status();
+CREATE TRIGGER trg_stamp_sale_delivery_creator BEFORE INSERT ON sale_deliveries FOR EACH ROW EXECUTE FUNCTION _stamp_sale_delivery_creator();
 CREATE TRIGGER trg_approval_requests_decided_at BEFORE UPDATE ON sale_order_approvals FOR EACH ROW EXECUTE FUNCTION set_approval_request_decided_at();
 CREATE TRIGGER trg_approval_requests_updated_at BEFORE UPDATE ON sale_order_approvals FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_log_sales_approval_decision AFTER UPDATE ON sale_order_approvals FOR EACH ROW EXECUTE FUNCTION log_sales_approval_decision();
@@ -121,10 +125,12 @@ CREATE TRIGGER cleanup_stock_adjustment_photos_after_delete AFTER DELETE ON stoc
 CREATE TRIGGER cleanup_stock_adjustment_photos_after_update AFTER UPDATE OF photo_urls ON stock_adjustments FOR EACH ROW EXECUTE FUNCTION trg_cleanup_stock_adjustment_photos_after_update();
 CREATE TRIGGER set_stock_adjustments_updated_at BEFORE UPDATE ON stock_adjustments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_audit_stock_adjustments AFTER INSERT OR DELETE OR UPDATE ON stock_adjustments FOR EACH ROW EXECUTE FUNCTION log_activity_change('adjustments', 'full');
+CREATE TRIGGER trg_tool_scrap_on_adjustment AFTER UPDATE OF status ON stock_adjustments FOR EACH ROW EXECUTE FUNCTION _apply_tool_scrap_on_adjustment();
 CREATE TRIGGER sync_supplier_country_id BEFORE INSERT OR UPDATE ON suppliers FOR EACH ROW EXECUTE FUNCTION _sync_supplier_country_id_fn();
 CREATE TRIGGER trg_suppliers_updated_at BEFORE UPDATE ON suppliers FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_audit_tool_asset_units AFTER INSERT OR DELETE OR UPDATE ON tool_asset_units FOR EACH ROW EXECUTE FUNCTION log_activity_change('tools_assets', 'lean');
 CREATE TRIGGER trg_guard_tool_unit_division_write BEFORE UPDATE ON tool_asset_units FOR EACH ROW EXECUTE FUNCTION guard_tool_unit_division_write();
+CREATE TRIGGER trg_guard_tool_unit_serialized_division BEFORE INSERT OR UPDATE ON tool_asset_units FOR EACH ROW EXECUTE FUNCTION guard_tool_unit_serialized_division();
 CREATE TRIGGER trg_audit_tool_check_sessions AFTER INSERT OR DELETE OR UPDATE ON tool_check_sessions FOR EACH ROW EXECUTE FUNCTION log_activity_change('tools_assets', 'lean');
 CREATE TRIGGER trg_audit_tool_unit_assignments AFTER INSERT OR DELETE OR UPDATE ON tool_unit_assignments FOR EACH ROW EXECUTE FUNCTION log_activity_change('tools_assets', 'lean');
 CREATE TRIGGER trg_audit_tool_unit_inspections AFTER INSERT OR DELETE OR UPDATE ON tool_unit_inspections FOR EACH ROW EXECUTE FUNCTION log_activity_change('tools_assets', 'lean');

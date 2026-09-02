@@ -1,4 +1,4 @@
--- whole-app 01: enums (live)
+-- whole-app 01: enums (live, post-repair)
 
 CREATE TYPE public.address_type AS ENUM ('blue-plate', 'google-coords');
 CREATE TYPE public.approval_source_type AS ENUM ('sale_order', 'order');

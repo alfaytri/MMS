@@ -1,4 +1,4 @@
--- whole-app 07: views (live)
+-- whole-app 07: views (live, post-repair)
 
 CREATE OR REPLACE VIEW public.calendar_visits AS  SELECT ota.id,
     'order'::text AS source_type,
@@ -596,11 +596,14 @@ CREATE OR REPLACE VIEW public.warehouse_sub_container_totals AS  SELECT sc.wareh
     sc.is_active AS sub_container_is_active,
     count(DISTINCT fcl.brand_variant_id) FILTER (WHERE fcl.remaining_qty > 0) AS item_count,
     COALESCE(sum(fcl.remaining_qty) FILTER (WHERE fcl.remaining_qty > 0), 0::bigint)::numeric AS total_qty,
-    COALESCE(sum(fcl.remaining_qty::numeric * fcl.total_unit_cost) FILTER (WHERE fcl.remaining_qty > 0), 0::numeric) AS total_value
+    COALESCE(sum(fcl.remaining_qty::numeric * fcl.total_unit_cost) FILTER (WHERE fcl.remaining_qty > 0), 0::numeric) AS total_value,
+    sc.division_id,
+    d.name AS division_name
    FROM warehouse_sub_containers sc
      LEFT JOIN fifo_cost_layers fcl ON fcl.sub_container_id = sc.id
+     LEFT JOIN company_divisions d ON d.id = sc.division_id
   WHERE sc.is_active = true
-  GROUP BY sc.warehouse_id, sc.id, sc.name, sc.is_active;
+  GROUP BY sc.warehouse_id, sc.id, sc.name, sc.is_active, sc.division_id, d.name;
 
 CREATE OR REPLACE VIEW public.warranty_records_remaining AS  SELECT id,
     warranty_number,

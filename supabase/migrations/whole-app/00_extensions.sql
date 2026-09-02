@@ -1,4 +1,4 @@
--- whole-app 00: extensions (live wkmvjxxmzstsvahuiwsz)
+-- whole-app 00: extensions (live wkmvjxxmzstsvahuiwsz, post-repair 2026-09-02)
 
 CREATE EXTENSION IF NOT EXISTS "pg_cron" WITH SCHEMA pg_catalog;
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA extensions;

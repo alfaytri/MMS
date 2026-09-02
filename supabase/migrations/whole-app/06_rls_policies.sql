@@ -1,3 +1,5 @@
+-- whole-app 06: RLS + policies (live, post-repair)
+
 ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.approval_workflow_groups ENABLE ROW LEVEL SECURITY;
@@ -33,6 +35,7 @@ ALTER TABLE public.fifo_cost_layers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_attribute_definitions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_attribute_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_category_divisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_check_approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_check_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_check_items ENABLE ROW LEVEL SECURITY;
@@ -303,6 +306,7 @@ CREATE POLICY inv_cat_del ON public.inventory_categories AS PERMISSIVE FOR DELET
 CREATE POLICY inv_cat_ins ON public.inventory_categories AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (_user_can_create_catalog(_current_user_data_id()));
 CREATE POLICY inv_cat_select ON public.inventory_categories AS PERMISSIVE FOR SELECT TO authenticated USING (true);
 CREATE POLICY inv_cat_upd ON public.inventory_categories AS PERMISSIVE FOR UPDATE TO authenticated USING (_user_can_edit_catalog(_current_user_data_id())) WITH CHECK (_user_can_edit_catalog(_current_user_data_id()));
+CREATE POLICY icd_select ON public.inventory_category_divisions AS PERMISSIVE FOR SELECT TO authenticated USING (true);
 CREATE POLICY "authenticated can manage inventory_check_approvals" ON public.inventory_check_approvals AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "authenticated can manage inventory_check_assignments" ON public.inventory_check_assignments AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Internal users can manage inventory_check_items" ON public.inventory_check_items AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -345,12 +349,16 @@ CREATE POLICY division_scope_update_r ON public.invoice_line_items AS RESTRICTIV
   WHERE ((i.id = invoice_line_items.invoice_id) AND is_division_visible(i.division_id))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM so_invoices i
   WHERE ((i.id = invoice_line_items.invoice_id) AND is_division_visible(i.division_id)))));
-CREATE POLICY landed_cost_item_alloc_read ON public.landed_cost_item_allocations AS PERMISSIVE FOR SELECT TO public USING (true);
-CREATE POLICY landed_cost_item_alloc_write ON public.landed_cost_item_allocations AS PERMISSIVE FOR ALL TO public USING (true);
-CREATE POLICY landed_cost_lines_read ON public.landed_cost_lines AS PERMISSIVE FOR SELECT TO public USING (true);
-CREATE POLICY landed_cost_lines_write ON public.landed_cost_lines AS PERMISSIVE FOR ALL TO public USING (true);
+CREATE POLICY landed_cost_item_alloc_read ON public.landed_cost_item_allocations AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+CREATE POLICY landed_cost_item_alloc_write ON public.landed_cost_item_allocations AS PERMISSIVE FOR ALL TO authenticated USING (true);
+CREATE POLICY landed_cost_lines_read ON public.landed_cost_lines AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+CREATE POLICY landed_cost_lines_write ON public.landed_cost_lines AS PERMISSIVE FOR ALL TO authenticated USING (true);
 CREATE POLICY "Internal users can manage landed_costs" ON public.landed_costs AS PERMISSIVE FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY allow_all_notifications ON public.notifications AS PERMISSIVE FOR ALL TO public USING (true) WITH CHECK (true);
+CREATE POLICY notifications_delete_own ON public.notifications AS PERMISSIVE FOR DELETE TO authenticated USING ((profile_id = _current_user_data_id()));
+CREATE POLICY notifications_insert_any ON public.notifications AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY notifications_select_own ON public.notifications AS PERMISSIVE FOR SELECT TO authenticated USING ((profile_id = _current_user_data_id()));
+CREATE POLICY notifications_update_any ON public.notifications AS PERMISSIVE FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY division_scope_delete_r ON public.payment_bill_allocations AS RESTRICTIVE FOR DELETE TO public USING ((EXISTS ( SELECT 1
    FROM bills b
   WHERE ((b.id = payment_bill_allocations.bill_id) AND is_division_visible(b.division_id)))));
@@ -578,8 +586,27 @@ CREATE POLICY division_scope_update_r ON public.sale_deliveries AS RESTRICTIVE F
   WHERE ((so.id = sale_deliveries.sale_order_id) AND is_division_visible(so.division_id))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM sale_orders so
   WHERE ((so.id = sale_deliveries.sale_order_id) AND is_division_visible(so.division_id)))));
-CREATE POLICY sale_delivery_lines_read ON public.sale_delivery_lines AS PERMISSIVE FOR SELECT TO public USING (true);
-CREATE POLICY sale_delivery_lines_write ON public.sale_delivery_lines AS PERMISSIVE FOR ALL TO public USING (true);
+CREATE POLICY division_scope_delete_r ON public.sale_delivery_lines AS RESTRICTIVE FOR DELETE TO public USING ((EXISTS ( SELECT 1
+   FROM (sale_deliveries d
+     JOIN sale_orders so ON ((so.id = d.sale_order_id)))
+  WHERE ((d.id = sale_delivery_lines.sale_delivery_id) AND is_division_visible(so.division_id)))));
+CREATE POLICY division_scope_insert_r ON public.sale_delivery_lines AS RESTRICTIVE FOR INSERT TO public WITH CHECK ((EXISTS ( SELECT 1
+   FROM (sale_deliveries d
+     JOIN sale_orders so ON ((so.id = d.sale_order_id)))
+  WHERE ((d.id = sale_delivery_lines.sale_delivery_id) AND is_division_visible(so.division_id)))));
+CREATE POLICY division_scope_select_r ON public.sale_delivery_lines AS RESTRICTIVE FOR SELECT TO public USING ((EXISTS ( SELECT 1
+   FROM (sale_deliveries d
+     JOIN sale_orders so ON ((so.id = d.sale_order_id)))
+  WHERE ((d.id = sale_delivery_lines.sale_delivery_id) AND is_division_visible(so.division_id)))));
+CREATE POLICY division_scope_update_r ON public.sale_delivery_lines AS RESTRICTIVE FOR UPDATE TO public USING ((EXISTS ( SELECT 1
+   FROM (sale_deliveries d
+     JOIN sale_orders so ON ((so.id = d.sale_order_id)))
+  WHERE ((d.id = sale_delivery_lines.sale_delivery_id) AND is_division_visible(so.division_id))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM (sale_deliveries d
+     JOIN sale_orders so ON ((so.id = d.sale_order_id)))
+  WHERE ((d.id = sale_delivery_lines.sale_delivery_id) AND is_division_visible(so.division_id)))));
+CREATE POLICY sale_delivery_lines_read ON public.sale_delivery_lines AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+CREATE POLICY sale_delivery_lines_write ON public.sale_delivery_lines AS PERMISSIVE FOR ALL TO authenticated USING (true);
 CREATE POLICY "Internal can insert approval_requests" ON public.sale_order_approvals AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Internal can select approval_requests" ON public.sale_order_approvals AS PERMISSIVE FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Internal can update approval_requests" ON public.sale_order_approvals AS PERMISSIVE FOR UPDATE TO authenticated USING (true);

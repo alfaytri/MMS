@@ -1,7 +1,7 @@
--- whole-app 02: tables (live wkmvjxxmzstsvahuiwsz, byte-exact from catalog)
+-- whole-app 02: tables (live wkmvjxxmzstsvahuiwsz post-repair, byte-exact from catalog)
 -- order: sequences -> tables (with inline PK/UNIQUE/CHECK) -> sequence ownership -> foreign keys
 
--- ============ SEQUENCES (15) ============
+-- ============ SEQUENCES ============
 CREATE SEQUENCE public.consumption_entry_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 NO CYCLE;
 CREATE SEQUENCE public.contract_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 NO CYCLE;
 CREATE SEQUENCE public.country_codes_id_seq AS integer START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 NO CYCLE;
@@ -18,7 +18,7 @@ CREATE SEQUENCE public.sale_delivery_number_seq AS bigint START WITH 1 INCREMENT
 CREATE SEQUENCE public.storage_cleanup_failures_id_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 NO CYCLE;
 CREATE SEQUENCE public.warehouse_transfer_seq AS bigint START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 NO CYCLE;
 
--- ============ TABLES (186) ============
+-- ============ TABLES ============
 
 CREATE TABLE public.activity_log (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -720,6 +720,9 @@ CREATE TABLE public.customers (
   credit_group_id uuid,
   entity_type customer_entity_type DEFAULT 'individual'::customer_entity_type,
   is_active boolean DEFAULT true NOT NULL,
+  address text,
+  latitude numeric,
+  longitude numeric,
   CONSTRAINT customers_pkey PRIMARY KEY (id)
 );
 
@@ -945,10 +948,18 @@ CREATE TABLE public.inventory_categories (
   parent_id uuid,
   default_sub_container_id uuid,
   default_warranty_policy_id uuid,
-  tool_tracking_mode tool_tracking_mode DEFAULT 'serialized'::tool_tracking_mode NOT NULL,
+  tool_tracking_mode tool_tracking_mode DEFAULT 'bulk'::tool_tracking_mode NOT NULL,
   is_team_item boolean DEFAULT false NOT NULL,
   CONSTRAINT inventory_categories_pkey PRIMARY KEY (id),
   CONSTRAINT inventory_categories_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text])))
+);
+
+CREATE TABLE public.inventory_category_divisions (
+  category_id uuid NOT NULL,
+  division_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  created_by uuid,
+  CONSTRAINT inventory_category_divisions_pkey PRIMARY KEY (category_id, division_id)
 );
 
 CREATE TABLE public.inventory_check_approvals (
@@ -1121,6 +1132,7 @@ CREATE TABLE public.inventory_item_divisions (
   category_id uuid,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   created_by uuid,
+  tool_tracking_mode tool_tracking_mode,
   CONSTRAINT inventory_item_divisions_pkey PRIMARY KEY (item_id, division_id)
 );
 
@@ -2088,8 +2100,9 @@ CREATE TABLE public.return_lines (
   created_at timestamp with time zone DEFAULT now(),
   receival_item_id uuid,
   sale_delivery_line_id uuid,
+  consumption_line_id uuid,
   CONSTRAINT return_lines_pkey PRIMARY KEY (id),
-  CONSTRAINT return_lines_provenance_required CHECK (((receival_item_id IS NOT NULL) OR (sale_delivery_line_id IS NOT NULL)))
+  CONSTRAINT return_lines_provenance_required CHECK (((receival_item_id IS NOT NULL) OR (sale_delivery_line_id IS NOT NULL) OR (consumption_line_id IS NOT NULL)))
 );
 
 CREATE TABLE public.returns (
@@ -2550,6 +2563,7 @@ CREATE TABLE public.stock_adjustments (
   source_check_item_id uuid,
   sub_container_id uuid NOT NULL,
   source_pile text DEFAULT 'good'::text NOT NULL,
+  tool_unit_id uuid,
   CONSTRAINT stock_adjustments_pkey PRIMARY KEY (id),
   CONSTRAINT stock_adjustments_source_pile_check CHECK ((source_pile = ANY (ARRAY['good'::text, 'damaged'::text]))),
   CONSTRAINT stock_adjustments_status_check CHECK ((status = ANY (ARRAY['pending_approval'::text, 'approved'::text, 'rejected'::text])))
@@ -2799,6 +2813,7 @@ CREATE TABLE public.tool_asset_units (
   current_custody_location_id uuid,
   lifecycle_type tool_lifecycle_type DEFAULT 'new'::tool_lifecycle_type NOT NULL,
   unit_cost numeric,
+  pending_scrap boolean DEFAULT false NOT NULL,
   CONSTRAINT tool_asset_units_pkey PRIMARY KEY (id)
 );
 
@@ -3131,6 +3146,8 @@ CREATE TABLE public.warehouses (
   warehouse_kind text DEFAULT 'general'::text NOT NULL,
   is_project_warehouse boolean DEFAULT false NOT NULL,
   can_transfer_custody boolean DEFAULT false NOT NULL,
+  latitude numeric,
+  longitude numeric,
   CONSTRAINT warehouses_pkey PRIMARY KEY (id),
   CONSTRAINT warehouses_kind_check CHECK ((warehouse_kind = ANY (ARRAY['general'::text, 'repair'::text, 'custody'::text])))
 );
@@ -3203,9 +3220,9 @@ CREATE TABLE public.warranty_policies (
 CREATE TABLE public.warranty_records (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   warranty_number text NOT NULL,
-  sale_delivery_line_id uuid NOT NULL,
-  sale_order_id uuid NOT NULL,
-  customer_id uuid NOT NULL,
+  sale_delivery_line_id uuid,
+  sale_order_id uuid,
+  customer_id uuid,
   division_id uuid NOT NULL,
   brand_variant_id uuid,
   item_name text NOT NULL,
@@ -3225,6 +3242,8 @@ CREATE TABLE public.warranty_records (
   source_type warranty_source_type DEFAULT 'sale'::warranty_source_type NOT NULL,
   origin_country_id integer,
   origin_name_snapshot text,
+  consumption_id uuid,
+  consumption_line_id uuid,
   CONSTRAINT warranty_records_pkey PRIMARY KEY (id),
   CONSTRAINT warranty_records_sale_delivery_line_id_key UNIQUE (sale_delivery_line_id),
   CONSTRAINT warranty_records_warranty_number_key UNIQUE (warranty_number),
@@ -3232,6 +3251,7 @@ CREATE TABLE public.warranty_records (
   CONSTRAINT warranty_records_duration_months_snapshot_check CHECK ((duration_months_snapshot >= 0)),
   CONSTRAINT warranty_records_end_after_start CHECK ((end_date >= start_date)),
   CONSTRAINT warranty_records_qty_check CHECK ((qty > 0)),
+  CONSTRAINT warranty_records_source_xor CHECK ((((sale_delivery_line_id IS NOT NULL) AND (consumption_line_id IS NULL)) OR ((sale_delivery_line_id IS NULL) AND (consumption_line_id IS NOT NULL)))),
   CONSTRAINT warranty_records_starts_from_snapshot_check CHECK ((starts_from_snapshot = ANY (ARRAY['delivery_date'::text, 'invoice_date'::text])))
 );
 
@@ -3239,7 +3259,7 @@ CREATE TABLE public.warranty_records (
 ALTER SEQUENCE public.country_codes_id_seq OWNED BY public.country_codes.id;
 ALTER SEQUENCE public.storage_cleanup_failures_id_seq OWNED BY public.storage_cleanup_failures.id;
 
--- ============ FOREIGN KEYS (460) ============
+-- ============ FOREIGN KEYS ============
 ALTER TABLE public.approval_workflow_steps ADD CONSTRAINT approval_workflow_steps_group_id_fkey FOREIGN KEY (group_id) REFERENCES approval_workflow_groups(id) ON DELETE SET NULL;
 ALTER TABLE public.approval_workflow_steps ADD CONSTRAINT workflow_approval_steps_archived_by_fkey FOREIGN KEY (archived_by) REFERENCES user_data(id);
 ALTER TABLE public.approval_workflow_steps ADD CONSTRAINT workflow_approval_steps_role_id_fkey FOREIGN KEY (role_id) REFERENCES custom_roles(id);
@@ -3371,6 +3391,9 @@ ALTER TABLE public.inventory_attribute_options ADD CONSTRAINT inventory_attribut
 ALTER TABLE public.inventory_categories ADD CONSTRAINT inventory_categories_default_sub_container_id_fkey FOREIGN KEY (default_sub_container_id) REFERENCES warehouse_sub_containers(id) ON DELETE SET NULL;
 ALTER TABLE public.inventory_categories ADD CONSTRAINT inventory_categories_default_warranty_policy_id_fkey FOREIGN KEY (default_warranty_policy_id) REFERENCES warranty_policies(id) ON DELETE SET NULL;
 ALTER TABLE public.inventory_categories ADD CONSTRAINT inventory_categories_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES inventory_categories(id) ON DELETE RESTRICT;
+ALTER TABLE public.inventory_category_divisions ADD CONSTRAINT inventory_category_divisions_category_id_fkey FOREIGN KEY (category_id) REFERENCES inventory_categories(id) ON DELETE CASCADE;
+ALTER TABLE public.inventory_category_divisions ADD CONSTRAINT inventory_category_divisions_created_by_fkey FOREIGN KEY (created_by) REFERENCES user_data(id);
+ALTER TABLE public.inventory_category_divisions ADD CONSTRAINT inventory_category_divisions_division_id_fkey FOREIGN KEY (division_id) REFERENCES company_divisions(id) ON DELETE CASCADE;
 ALTER TABLE public.inventory_check_approvals ADD CONSTRAINT inventory_check_approvals_check_id_fkey FOREIGN KEY (check_id) REFERENCES inventory_checks(id) ON DELETE CASCADE;
 ALTER TABLE public.inventory_check_approvals ADD CONSTRAINT inventory_check_approvals_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES user_data(id);
 ALTER TABLE public.inventory_check_assignments ADD CONSTRAINT inventory_check_assignments_check_id_fkey FOREIGN KEY (check_id) REFERENCES inventory_checks(id) ON DELETE CASCADE;
@@ -3535,6 +3558,7 @@ ALTER TABLE public.return_line_inventory_dispositions ADD CONSTRAINT return_line
 ALTER TABLE public.return_line_inventory_dispositions ADD CONSTRAINT return_line_inventory_dispositions_return_line_id_fkey FOREIGN KEY (return_line_id) REFERENCES return_lines(id) ON DELETE CASCADE;
 ALTER TABLE public.return_line_inventory_dispositions ADD CONSTRAINT return_line_inventory_dispositions_warehouse_transfer_id_fkey FOREIGN KEY (warehouse_transfer_id) REFERENCES warehouse_transfers(id) ON DELETE SET NULL;
 ALTER TABLE public.return_lines ADD CONSTRAINT return_lines_brand_variant_id_fkey FOREIGN KEY (brand_variant_id) REFERENCES inventory_item_brand_variants(id);
+ALTER TABLE public.return_lines ADD CONSTRAINT return_lines_consumption_line_id_fkey FOREIGN KEY (consumption_line_id) REFERENCES consumption_lines(id);
 ALTER TABLE public.return_lines ADD CONSTRAINT return_lines_receival_item_id_fkey FOREIGN KEY (receival_item_id) REFERENCES receival_items(id);
 ALTER TABLE public.return_lines ADD CONSTRAINT return_lines_return_id_fkey FOREIGN KEY (return_id) REFERENCES so_po_returns(id) ON DELETE CASCADE;
 ALTER TABLE public.return_lines ADD CONSTRAINT return_lines_sale_delivery_line_id_fkey FOREIGN KEY (sale_delivery_line_id) REFERENCES sale_delivery_lines(id);
@@ -3598,6 +3622,7 @@ ALTER TABLE public.stock_adjustments ADD CONSTRAINT stock_adjustments_requested_
 ALTER TABLE public.stock_adjustments ADD CONSTRAINT stock_adjustments_source_check_id_fkey FOREIGN KEY (source_check_id) REFERENCES inventory_checks(id) ON DELETE SET NULL;
 ALTER TABLE public.stock_adjustments ADD CONSTRAINT stock_adjustments_source_check_item_id_fkey FOREIGN KEY (source_check_item_id) REFERENCES inventory_check_items(id) ON DELETE SET NULL;
 ALTER TABLE public.stock_adjustments ADD CONSTRAINT stock_adjustments_sub_container_id_fkey FOREIGN KEY (sub_container_id) REFERENCES warehouse_sub_containers(id) ON DELETE RESTRICT;
+ALTER TABLE public.stock_adjustments ADD CONSTRAINT stock_adjustments_tool_unit_id_fkey FOREIGN KEY (tool_unit_id) REFERENCES tool_asset_units(id) ON DELETE SET NULL;
 ALTER TABLE public.stock_adjustments ADD CONSTRAINT stock_adjustments_warehouse_id_fkey FOREIGN KEY (warehouse_id) REFERENCES warehouses(id);
 ALTER TABLE public.subscription_package_services ADD CONSTRAINT subscription_package_services_package_id_fkey FOREIGN KEY (package_id) REFERENCES subscription_packages(id) ON DELETE CASCADE;
 ALTER TABLE public.subscription_package_services ADD CONSTRAINT subscription_package_services_service_id_fkey FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE RESTRICT;
@@ -3694,6 +3719,8 @@ ALTER TABLE public.warranty_claims ADD CONSTRAINT warranty_claims_warranty_recor
 ALTER TABLE public.warranty_number_counters ADD CONSTRAINT warranty_number_counters_division_id_fkey FOREIGN KEY (division_id) REFERENCES company_divisions(id) ON DELETE RESTRICT;
 ALTER TABLE public.warranty_policies ADD CONSTRAINT warranty_policies_created_by_fkey FOREIGN KEY (created_by) REFERENCES user_data(id) ON DELETE SET NULL;
 ALTER TABLE public.warranty_records ADD CONSTRAINT warranty_records_brand_variant_id_fkey FOREIGN KEY (brand_variant_id) REFERENCES inventory_item_brand_variants(id) ON DELETE SET NULL;
+ALTER TABLE public.warranty_records ADD CONSTRAINT warranty_records_consumption_id_fkey FOREIGN KEY (consumption_id) REFERENCES consumption_entries(id) ON DELETE CASCADE;
+ALTER TABLE public.warranty_records ADD CONSTRAINT warranty_records_consumption_line_id_fkey FOREIGN KEY (consumption_line_id) REFERENCES consumption_lines(id) ON DELETE CASCADE;
 ALTER TABLE public.warranty_records ADD CONSTRAINT warranty_records_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT;
 ALTER TABLE public.warranty_records ADD CONSTRAINT warranty_records_division_id_fkey FOREIGN KEY (division_id) REFERENCES company_divisions(id) ON DELETE RESTRICT;
 ALTER TABLE public.warranty_records ADD CONSTRAINT warranty_records_origin_country_id_fkey FOREIGN KEY (origin_country_id) REFERENCES country_codes(id);
