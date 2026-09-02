@@ -7,6 +7,7 @@ import {
   stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
+import { orderNotesTermsHtml, hasOrderNotes, type OrderNotesInput } from '@/lib/pdf/order-notes'
 
 export interface ReceivalReceiptItem {
   itemName:    string
@@ -17,7 +18,7 @@ export interface ReceivalReceiptItem {
   isFree:      boolean
 }
 
-export interface BuildReceivalReceiptHtmlInput {
+export interface BuildReceivalReceiptHtmlInput extends OrderNotesInput {
   receivalNumber: string
   poNumber:       string
   supplierName:   string
@@ -102,6 +103,11 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
     ? `<div class="notes-block"><span class="notes-label">Notes:</span> ${esc(notes)}</div>`
     : ''
 
+  // Notes/terms carried over from the Purchase Order (vendor-facing).
+  const orderNotesHtml = hasOrderNotes(input)
+    ? `<div class="po-notes"><div class="po-notes-title">From Purchase Order</div>${orderNotesTermsHtml(input)}</div>`
+    : ''
+
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
@@ -126,6 +132,9 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
     border-left: 2px solid var(--orange);
   }
   .notes-block .notes-label { font-weight: 600; color: var(--text); font-style: normal; }
+
+  .po-notes { margin: 3mm 14mm 0; padding: 2mm 3mm; border-left: 2px solid var(--orange); }
+  .po-notes-title { font-family: 'IBMPlexSans', sans-serif; font-size: 9px; font-weight: 700; margin-bottom: 1.5mm; }
 
   .signature-block {
     margin: 12mm 14mm 0;
@@ -210,6 +219,8 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
   </div>
 
   ${notesHtml}
+
+  ${orderNotesHtml}
 
   <div class="signature-block">
     <div class="signature-slot">

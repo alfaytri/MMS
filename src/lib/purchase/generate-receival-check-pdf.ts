@@ -40,6 +40,9 @@ interface PoRow {
   po_number:     string
   supplier_name: string
   division_id:   string | null
+  vendor_notes:   string | null
+  payment_terms:  string | null
+  delivery_terms: string | null
 }
 
 interface PoLineItemRow {
@@ -93,7 +96,7 @@ export async function generateReceivalCheckPdf(
   // ── Fetch PO ─────────────────────────────────────────────────────────
   const { data: po, error: poErr } = await supabase
     .from('purchase_orders')
-    .select('id, po_number, supplier_name, division_id')
+    .select('id, po_number, supplier_name, division_id, vendor_notes, payment_terms, delivery_terms')
     .eq('id', poUuid)
     .single<PoRow>()
   if (poErr || !po) {
@@ -257,6 +260,9 @@ export async function generateReceivalCheckPdf(
     division:       null,
     receivalNumber: targetReceival?.receival_number ?? null,
     receivalNotes:  targetReceival?.notes ?? null,
+    vendor_notes:   po.vendor_notes,
+    payment_terms:  po.payment_terms,
+    delivery_terms: po.delivery_terms,
     rows,
     assets,
     fonts,

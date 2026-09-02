@@ -19,6 +19,7 @@ import {
   stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
+import { orderNotesTermsHtml, hasOrderNotes, type OrderNotesInput } from '@/lib/pdf/order-notes'
 
 export type ReceivalCheckMode = 'per_receival' | 'blank'
 
@@ -38,7 +39,7 @@ export interface ReceivalCheckRow {
   isLoose:               boolean         // true if PO line link is missing
 }
 
-export interface BuildReceivalCheckHtmlInput {
+export interface BuildReceivalCheckHtmlInput extends OrderNotesInput {
   mode:            ReceivalCheckMode
   docNo:           string     // "RCV-{receival_number}" or "RCV-CHECK-{po_number}"
   poNumber:        string
@@ -147,6 +148,11 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
     ? `<div class="notes-block"><span class="notes-label">Notes:</span> ${escapeHtml(receivalNotes)}</div>`
     : ''
 
+  // Notes/terms carried over from the Purchase Order (vendor-facing).
+  const orderNotesHtml = hasOrderNotes(input)
+    ? `<div class="po-notes"><div class="po-notes-title">From Purchase Order</div>${orderNotesTermsHtml(input)}</div>`
+    : ''
+
   const headerColsPerReceival = `
     <th style="width:5%">#</th>
     <th style="width:37%">Item</th>
@@ -207,6 +213,9 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
     border-left: 2px solid var(--orange);
   }
   .notes-block .notes-label { font-weight: 600; color: var(--text); font-style: normal; }
+
+  .po-notes { margin: 3mm 14mm 0; padding: 2mm 3mm; border-left: 2px solid var(--orange); }
+  .po-notes-title { font-family: 'IBMPlexSans', sans-serif; font-size: 9px; font-weight: 700; margin-bottom: 1.5mm; }
 
   .signature-block {
     margin-top: 12mm;
@@ -275,6 +284,8 @@ export function buildReceivalCheckHtml(input: BuildReceivalCheckHtmlInput): stri
   </div>
 
   ${notesHtml}
+
+  ${orderNotesHtml}
 
   <div class="signature-block">
     <div class="signature-slot">

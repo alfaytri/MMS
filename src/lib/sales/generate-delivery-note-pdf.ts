@@ -37,7 +37,7 @@ interface DeliveryRow {
   created_by_name: string | null
   type:            'standard' | 'replacement'
   pdf_url:         string | null
-  sale_orders:     { so_number: string; division_id: string | null; customers: { name: string | null } | null } | null
+  sale_orders:     { so_number: string; division_id: string | null; payment_terms: string | null; payment_terms_notes: string | null; delivery_terms: string | null; delivery_terms_notes: string | null; customer_notes: string | null; customers: { name: string | null } | null } | null
 }
 
 export async function generateDeliveryNotePdf(
@@ -53,7 +53,7 @@ export async function generateDeliveryNotePdf(
       id, delivery_number, sale_order_id, warehouse_name, date,
       status, created_by_name, type, pdf_url,
       sale_delivery_lines(item_name, sku, qty_delivered, brand_variant_id),
-      sale_orders(so_number, division_id, customers(name))
+      sale_orders(so_number, division_id, payment_terms, payment_terms_notes, delivery_terms, delivery_terms_notes, customer_notes, customers(name))
     `)
     .eq('id', deliveryId)
     .single<DeliveryRow>()
@@ -97,6 +97,11 @@ export async function generateDeliveryNotePdf(
   const html = buildDeliveryNoteHtml({
     deliveryNumber: del.delivery_number,
     soNumber:       del.sale_orders?.so_number ?? null,
+    payment_terms:        del.sale_orders?.payment_terms ?? null,
+    payment_terms_notes:  del.sale_orders?.payment_terms_notes ?? null,
+    delivery_terms:       del.sale_orders?.delivery_terms ?? null,
+    delivery_terms_notes: del.sale_orders?.delivery_terms_notes ?? null,
+    customer_notes:       del.sale_orders?.customer_notes ?? null,
     customerName:   del.sale_orders?.customers?.name ?? null,
     warehouseName:  del.warehouse_name,
     createdBy:      del.created_by_name,

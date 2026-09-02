@@ -14,6 +14,7 @@ import {
   stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
+import { orderNotesTermsHtml, hasOrderNotes, type OrderNotesInput } from '@/lib/pdf/order-notes'
 
 /* ─── Data interfaces ─────────────────────────────────────────────── */
 
@@ -31,7 +32,7 @@ export interface NoteReturnedLine extends NoteOriginalLine {
   condition_notes?: string | null
 }
 
-export interface BuildCreditDebitNoteHtmlInput {
+export interface BuildCreditDebitNoteHtmlInput extends OrderNotesInput {
   noteId:          string
   noteType:        'credit' | 'debit'
   partyName:       string
@@ -132,6 +133,8 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
     .reason-text { font-family: 'IBMPlexSans', sans-serif; font-size: 8px; color: var(--muted); }
     .reason-wrap { flex: 1; }
     ${isCredit ? '.reason-standalone { margin: 3mm 14mm 0; }' : ''}
+    .cn-notes { margin: 3mm 14mm 0; padding: 3mm 4mm; background: rgba(237, 124, 44, 0.06); border: 0.7px solid rgba(237, 124, 44, 0.3); }
+    .cn-notes-title { font-family: 'IBMPlexSans', sans-serif; font-size: 9px; font-weight: 700; color: var(--orange); margin-bottom: 1.5mm; }
     .summary-row.s-invoice-total { background: rgba(237, 124, 44, 0.08); }
     .summary-row.s-grand { ${grandBg} }
     .summary-row.s-grand .s-amount { ${grandAmountStyle} }
@@ -241,6 +244,12 @@ export function buildCreditDebitNoteHtml(input: BuildCreditDebitNoteHtmlInput): 
     <div class="reason-title-ar">${escapeHtml(reasonTitleAr)}</div>
     <div class="reason-title">${escapeHtml(reasonTitleEn)}</div>
     <div class="reason-text">${escapeHtml(input.reason)}</div>
+  </div>` : ''}
+
+  ${hasOrderNotes(input) ? `
+  <div class="cn-notes">
+    <div class="cn-notes-title">Notes / ملاحظات</div>
+    ${orderNotesTermsHtml(input)}
   </div>` : ''}
 
   ${stampSectionHtml(input.assets.stamp)}

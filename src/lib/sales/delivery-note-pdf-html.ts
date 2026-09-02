@@ -7,6 +7,7 @@ import {
   stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
+import { orderNotesTermsHtml, hasOrderNotes } from '@/lib/pdf/order-notes'
 
 export interface DeliveryNoteItem {
   itemName:     string
@@ -21,6 +22,11 @@ export interface DeliveryNoteItem {
 export interface BuildDeliveryNoteHtmlInput {
   deliveryNumber: string
   soNumber:       string | null
+  payment_terms?:        string | null
+  payment_terms_notes?:  string | null
+  delivery_terms?:       string | null
+  delivery_terms_notes?: string | null
+  customer_notes?:       string | null
   customerName:   string | null
   warehouseName:  string | null
   createdBy:      string | null
@@ -125,6 +131,9 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
   .signature-slot { display: flex; flex-direction: column; align-items: center; }
   .signature-line { width: 100%; border-top: 0.7px solid var(--text); height: 18mm; }
   .signature-label { font-size: 9px; text-align: center; margin-top: 2mm; }
+
+  .dn-notes { margin: 4mm 14mm 0; }
+  .dn-notes .dn-notes-title { font-family: 'IBMPlexSans', sans-serif; font-size: 9px; font-weight: 700; margin-bottom: 1.5mm; }
 </style>
 </head>
 <body>
@@ -173,6 +182,12 @@ export function buildDeliveryNoteHtml(input: BuildDeliveryNoteHtmlInput): string
     <span class="t-label">Total Delivered / إجمالي التسليم</span>
     <span class="t-value">${fmtQty(totalQty)} units</span>
   </div>
+
+  ${hasOrderNotes(input) ? `
+  <div class="dn-notes">
+    <div class="dn-notes-title">Notes / ملاحظات</div>
+    ${orderNotesTermsHtml(input)}
+  </div>` : ''}
 
   <div class="signature-block">
     <div class="signature-slot">

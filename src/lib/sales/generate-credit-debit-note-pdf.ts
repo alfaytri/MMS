@@ -172,6 +172,13 @@ export async function generateCreditDebitNotePdf(
   let returnNumber    = '—'
   let partyPhone      = phone
   let divisionId: string | null = null
+  // Notes we entered on the source order — SO customer notes for credit, PO vendor notes for debit.
+  let orderPaymentTerms:       string | null = null
+  let orderPaymentTermsNotes:  string | null = null
+  let orderDeliveryTerms:      string | null = null
+  let orderDeliveryTermsNotes: string | null = null
+  let orderCustomerNotes:      string | null = null
+  let orderVendorNotes:        string | null = null
 
   if (sourceReturnId) {
     const { data: ret } = await supabase
@@ -184,12 +191,15 @@ export async function generateCreditDebitNotePdf(
       if (isDebit && ret.source_type === 'purchase' && ret.source_id) {
         const { data: po } = await supabase
           .from('purchase_orders')
-          .select('po_number, supplier_id, division_id, currency')
+          .select('po_number, supplier_id, division_id, currency, vendor_notes, payment_terms, delivery_terms')
           .eq('id', ret.source_id)
-          .maybeSingle<{ po_number: string; supplier_id: string | null; division_id: string | null; currency: string | null }>()
+          .maybeSingle<{ po_number: string; supplier_id: string | null; division_id: string | null; currency: string | null; vendor_notes: string | null; payment_terms: string | null; delivery_terms: string | null }>()
         if (po?.po_number) referenceNumber = po.po_number
         if (po?.division_id) divisionId = po.division_id
         if (po?.currency) noteCurrency = po.currency
+        orderVendorNotes   = po?.vendor_notes ?? null
+        orderPaymentTerms  = po?.payment_terms ?? null
+        orderDeliveryTerms = po?.delivery_terms ?? null
         if (!partyPhone && po?.supplier_id) {
           const { data: sup } = await supabase
             .from('suppliers')
@@ -205,16 +215,23 @@ export async function generateCreditDebitNotePdf(
   if (!isDebit && invoiceOrBillId) {
     const { data: inv } = await supabase
       .from('so_invoices')
-      .select('invoice_id, customers(customer_phones(phone, is_primary)), sale_orders(division_id, currency)')
+      .select('invoice_id, customers(customer_phones(phone, is_primary)), sale_orders(division_id, currency, payment_terms, payment_terms_notes, delivery_terms, delivery_terms_notes, customer_notes)')
       .eq('id', invoiceOrBillId)
       .maybeSingle<{
         invoice_id: string
         customers: { customer_phones: { phone: string; is_primary: boolean }[] } | null
-        sale_orders: { division_id: string | null; currency: string | null } | null
+        sale_orders: { division_id: string | null; currency: string | null; payment_terms: string | null; payment_terms_notes: string | null; delivery_terms: string | null; delivery_terms_notes: string | null; customer_notes: string | null } | null
       }>()
     if (inv?.invoice_id) referenceNumber = inv.invoice_id
     if (inv?.sale_orders?.division_id) divisionId = inv.sale_orders.division_id
     if (inv?.sale_orders?.currency) noteCurrency = inv.sale_orders.currency
+    if (inv?.sale_orders) {
+      orderPaymentTerms       = inv.sale_orders.payment_terms ?? null
+      orderPaymentTermsNotes  = inv.sale_orders.payment_terms_notes ?? null
+      orderDeliveryTerms      = inv.sale_orders.delivery_terms ?? null
+      orderDeliveryTermsNotes = inv.sale_orders.delivery_terms_notes ?? null
+      orderCustomerNotes      = inv.sale_orders.customer_notes ?? null
+    }
     if (!partyPhone) {
       const phones = inv?.customers?.customer_phones ?? []
       const primary = phones.find((p) => p.is_primary) ?? phones[0]
@@ -265,6 +282,12 @@ export async function generateCreditDebitNotePdf(
     creditDebitTotal,
     newTotal:        Number(newTotal ?? 0),
     currency:        noteCurrency,
+    payment_terms:        orderPaymentTerms,
+    payment_terms_notes:  orderPaymentTermsNotes,
+    delivery_terms:       orderDeliveryTerms,
+    delivery_terms_notes: orderDeliveryTermsNotes,
+    customer_notes:       orderCustomerNotes,
+    vendor_notes:         orderVendorNotes,
     assets,
     fonts,
   })

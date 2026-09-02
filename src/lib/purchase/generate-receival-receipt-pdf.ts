@@ -38,7 +38,7 @@ interface ReceivalRow {
     is_free:           boolean | null
     brand_variant_id:  string | null
   }> | null
-  purchase_orders:  { po_number: string; supplier_name: string; division_id: string | null; currency: string | null } | null
+  purchase_orders:  { po_number: string; supplier_name: string; division_id: string | null; currency: string | null; vendor_notes: string | null; payment_terms: string | null; delivery_terms: string | null } | null
   warehouses:       { name: string } | null
 }
 
@@ -55,7 +55,7 @@ export async function generateReceivalReceiptPdf(
       id, receival_number, po_id, warehouse_id, date, notes, received_by_name,
       receipt_pdf_url,
       receival_items(id, item_name, sku, qty_received, unit_cost, is_free, brand_variant_id),
-      purchase_orders!receivals_po_id_fkey(po_number, supplier_name, division_id, currency),
+      purchase_orders!receivals_po_id_fkey(po_number, supplier_name, division_id, currency, vendor_notes, payment_terms, delivery_terms),
       warehouses!receivals_warehouse_id_fkey(name)
     `)
     .eq('id', receivalId)
@@ -103,6 +103,9 @@ export async function generateReceivalReceiptPdf(
     // receival_items.unit_cost is in the PO's currency (QAR for inventory
     // receivals) — see migration 20260729214710. Label the receipt truthfully.
     currency:       rcv.purchase_orders?.currency ?? 'QAR',
+    vendor_notes:   rcv.purchase_orders?.vendor_notes ?? null,
+    payment_terms:  rcv.purchase_orders?.payment_terms ?? null,
+    delivery_terms: rcv.purchase_orders?.delivery_terms ?? null,
     items,
     assets,
     fonts,

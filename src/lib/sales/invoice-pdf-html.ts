@@ -16,6 +16,7 @@ import {
   stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
+import { orderNotesTermsHtml } from '@/lib/pdf/order-notes'
 
 export interface InvoiceLineItem {
   description:    string
@@ -59,8 +60,11 @@ export interface BuildInvoiceHtmlInput {
   amount_paid:     number
   outstanding:     number
   payments:        InvoicePayment[]
-  payment_terms:   string | null
-  notes:           string | null
+  payment_terms:        string | null
+  payment_terms_notes:  string | null
+  delivery_terms:       string | null
+  delivery_terms_notes: string | null
+  customer_notes:       string | null
   isPaid:          boolean
   plan_type?:      'schedule' | 'adhoc' | null
   installments?:   InvoiceInstallment[]
@@ -152,13 +156,6 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
   ` : ''
 
   const termsRows: string[] = []
-  if (input.payment_terms) {
-    termsRows.push(`
-      <div class="terms-row">
-        <div class="terms-key">Payment Terms</div>
-        <div class="terms-val">${escapeHtml(input.payment_terms)}</div>
-      </div>`)
-  }
   if (input.so_number) {
     termsRows.push(`
       <div class="terms-row">
@@ -166,15 +163,13 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
         <div class="terms-val">${escapeHtml(input.so_number)}</div>
       </div>`)
   }
+  // Notes we entered on the Sales Order (payment/delivery terms + customer notes).
+  const termsInner = termsRows.join('') + orderNotesTermsHtml(input)
 
   const outstandingClass = input.outstanding > 0 ? ' s-outstanding' : ''
 
   const paidStampHtml = input.isPaid
     ? `<div class="paid-stamp">PAID</div>`
-    : ''
-
-  const notesHtml = input.notes
-    ? `<div class="notes-block"><span class="notes-label">Notes:</span> ${escapeHtml(input.notes)}</div>`
     : ''
 
   return `<!DOCTYPE html>
@@ -349,7 +344,7 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
         </thead>
         <tbody>${paymentRows}</tbody>
       </table>
-      ${termsRows.length > 0 ? `<div class="terms">${termsRows.join('')}</div>` : ''}
+      ${termsInner ? `<div class="terms">${termsInner}</div>` : ''}
     </div>
     <div class="summary-inner">
       <div class="summary-row">
@@ -393,8 +388,6 @@ export function buildInvoiceHtml(input: BuildInvoiceHtmlInput): string {
   </div>
 
   ${installmentSection}
-
-  ${notesHtml}
 
   ${stampSectionHtml(input.assets.stamp)}
 

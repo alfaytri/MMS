@@ -7,6 +7,7 @@ import {
   stampSectionHtml,
   BASE_CSS,
 } from '@/lib/pdf/pdf-fonts'
+import { orderNotesTermsHtml, hasOrderNotes, type OrderNotesInput } from '@/lib/pdf/order-notes'
 
 export interface BillLineItem {
   description:    string
@@ -25,7 +26,7 @@ export interface BillPaymentRow {
   reference: string | null
 }
 
-export interface BuildBillHtmlInput {
+export interface BuildBillHtmlInput extends OrderNotesInput {
   billId:          string
   poNumber:        string | null
   poDate:          string | null
@@ -148,6 +149,11 @@ export function buildBillHtml(input: BuildBillHtmlInput): string {
     ? `<div class="notes-block"><span class="notes-label">Notes:</span> ${escapeHtml(notes)}</div>`
     : ''
 
+  // Notes/terms carried over from the Purchase Order (vendor-facing).
+  const orderNotesHtml = hasOrderNotes(input)
+    ? `<div class="po-notes"><div class="po-notes-title">From Purchase Order</div>${orderNotesTermsHtml(input)}</div>`
+    : ''
+
   const paidStampHtml = isPaid
     ? `<div class="paid-stamp">PAID</div>`
     : ''
@@ -188,6 +194,9 @@ export function buildBillHtml(input: BuildBillHtmlInput): string {
     border-left: 2px solid var(--orange);
   }
   .notes-block .notes-label { font-weight: 600; color: var(--text); font-style: normal; }
+
+  .po-notes { margin: 3mm 14mm 0; padding: 2mm 3mm; border-left: 2px solid var(--orange); }
+  .po-notes-title { font-family: 'IBMPlexSans', sans-serif; font-size: 9px; font-weight: 700; margin-bottom: 1.5mm; }
 
   .paid-stamp {
     position: absolute; top: 45%; left: 50%;
@@ -294,6 +303,8 @@ export function buildBillHtml(input: BuildBillHtmlInput): string {
   </div>
 
   ${notesHtml}
+
+  ${orderNotesHtml}
 
   ${stampSectionHtml(assets.stamp)}
 

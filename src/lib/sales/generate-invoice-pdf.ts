@@ -53,12 +53,11 @@ interface InvoiceRow {
   total_amount:    number | null
   paid_amount:     number | null
   payment_status:  string | null
-  notes:           string | null
   pdf_url:         string | null
   sale_order_id:   string | null
   customers:       { name: string | null; customer_phones: { phone: string; is_primary: boolean }[] | null } | null
   invoice_line_items: InvoiceLineItem[] | null
-  sale_orders:     { so_number: string; payment_terms: string | null; division_id: string | null; currency: string | null } | null
+  sale_orders:     { so_number: string; payment_terms: string | null; payment_terms_notes: string | null; delivery_terms: string | null; delivery_terms_notes: string | null; customer_notes: string | null; division_id: string | null; currency: string | null } | null
 }
 
 export interface GenerateInvoicePdfResult {
@@ -81,10 +80,10 @@ export async function generateInvoicePdf(
     .select(`
       id, invoice_id, invoice_type, issued_date, due_date,
       subtotal, discount_amount, total_amount, paid_amount, payment_status,
-      notes, pdf_url, sale_order_id,
+      pdf_url, sale_order_id,
       customers(name, customer_phones(phone, is_primary)),
       invoice_line_items(description, qty, unit_price, total, brand_variant_id),
-      sale_orders(so_number, payment_terms, division_id, currency)
+      sale_orders(so_number, payment_terms, payment_terms_notes, delivery_terms, delivery_terms_notes, customer_notes, division_id, currency)
     `)
     .eq('id', invoiceUuid)
     .single<InvoiceRow>()
@@ -173,8 +172,11 @@ export async function generateInvoicePdf(
     amount_paid:    paid,
     outstanding,
     payments,
-    payment_terms:  inv.sale_orders?.payment_terms ?? null,
-    notes:          inv.notes,
+    payment_terms:        inv.sale_orders?.payment_terms ?? null,
+    payment_terms_notes:  inv.sale_orders?.payment_terms_notes ?? null,
+    delivery_terms:       inv.sale_orders?.delivery_terms ?? null,
+    delivery_terms_notes: inv.sale_orders?.delivery_terms_notes ?? null,
+    customer_notes:       inv.sale_orders?.customer_notes ?? null,
     isPaid:         inv.payment_status === 'paid',
     plan_type:      (paymentPlan?.plan_type as 'schedule' | 'adhoc' | null) ?? null,
     installments:   paymentInstallments,

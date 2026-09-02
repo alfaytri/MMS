@@ -48,7 +48,7 @@ export async function generateBillPdf(
       issued_date, due_date, notes, pdf_url, needs_refresh,
       bill_line_items(id, description, qty, unit_price, total, brand_variant_id),
       suppliers(name, contact_name, phone, email, address),
-      purchase_orders(po_number, created_date, currency, division_id)
+      purchase_orders(po_number, created_date, currency, division_id, vendor_notes, payment_terms, delivery_terms)
     `)
     .eq('id', billUuid)
     .single()
@@ -185,6 +185,9 @@ export async function generateBillPdf(
     outstanding,
     isPaid,
     notes:           bill.notes ?? null,
+    vendor_notes:    po?.vendor_notes ?? null,
+    payment_terms:   po?.payment_terms ?? null,
+    delivery_terms:  po?.delivery_terms ?? null,
     assets,
     fonts,
   })
