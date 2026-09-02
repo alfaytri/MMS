@@ -30,16 +30,29 @@ export function useTeamLeaderIdentity() {
         )
       const isAdmin = allPermissions.includes('teams.team_leader.view')
 
-      // Resolve teamId via DB join — never use user_metadata.team_id
+      // Resolve teamId = the team this user is the LEADER of. teams.leader_id is
+      // the single source of truth for "who leads a team" — it is set when a
+      // leader is picked in Teams & Employees (which also makes them the custody
+      // responsible person). We look up the caller's employee row, then the team
+      // whose leader_id points at it. (Previously this used employees.team_id,
+      // which matched any member, not the selected leader.)
       let teamId: string | null = null
-      if (profile.user_type === 'team-leader') {
+      {
         const { data: emp } = await supabase
           .from('employees')
-          .select('id, team_id')
+          .select('id')
           .eq('profile_id', profile.id)
           .maybeSingle()
-
-        teamId = emp?.team_id ?? null
+        if (emp?.id) {
+          const { data: led } = await supabase
+            .from('teams')
+            .select('id')
+            .eq('leader_id', emp.id)
+            .is('deleted_at', null)
+            .order('name', { ascending: true })
+            .limit(1)
+          teamId = led?.[0]?.id ?? null
+        }
       }
 
       // Use RPC to bypass PostgREST schema cache for new column
