@@ -22,7 +22,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
         sent_by_profile_id, revoked_at, created_at,
-        profiles!sent_by_profile_id(full_name)
+        user_data!sent_by_profile_id(full_name)
       `)
       .eq('conversation_id', convId)
       .order('created_at', { ascending: true })
@@ -36,7 +36,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     return (data as Record<string, unknown>[]).map((row) => ({
       ...row,
       reactions:  row.reactions ?? [],
-      agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
+      agent_name: (row.user_data as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
     })) as unknown as ChatMessage[]
   }, [supabase])
 
@@ -50,7 +50,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
         sent_by_profile_id, revoked_at, created_at,
-        profiles!sent_by_profile_id(full_name)
+        user_data!sent_by_profile_id(full_name)
       `)
       .eq('conversation_id', convId)
       .gte('created_at', since)
@@ -64,7 +64,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     return (data as Record<string, unknown>[]).map((row) => ({
       ...row,
       reactions:  row.reactions ?? [],
-      agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
+      agent_name: (row.user_data as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
     })) as unknown as ChatMessage[]
   }, [supabase])
 
@@ -306,7 +306,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
         text, agent_name, attachments, reactions,
         delivery_status, external_id, reply_to_external_id,
         sent_by_profile_id, revoked_at, created_at,
-        profiles!sent_by_profile_id(full_name)
+        user_data!sent_by_profile_id(full_name)
       `)
       .eq('conversation_id', conversationId)
       .gte('created_at', olderCutoff)
@@ -318,7 +318,7 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
     const older = (data as Record<string, unknown>[]).map((row) => ({
       ...row,
       reactions:  row.reactions ?? [],
-      agent_name: (row.profiles as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
+      agent_name: (row.user_data as { full_name?: string } | null)?.full_name ?? row.agent_name ?? null,
     })) as unknown as ChatMessage[]
 
     setMessages((prev) => {
