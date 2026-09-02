@@ -14,10 +14,12 @@ Two new folders (organizational — the Supabase CLI only auto-applies the flat,
   tools / damaged-stock / approvals schema. Generated **from the live (staging) database
   catalog**, which currently holds exactly this domain (verified: 0 module tables present).
   Authoritative for what is actually deployed.
-- **`whole-app/`** — the warehouse baseline **plus** the field-service modules
-  (team-leader + TL invoices, orders, contact-centre, contracts, quotations, calendar/map).
-  Those modules are **not** in any deployed DB yet; their DDL is consolidated from the
-  `full-build/*` import migrations on this branch (`full-build/admin-misc`).
+- **`whole-app/`** — the full app (warehouse **plus** the field-service modules: team-leader +
+  TL invoices, orders, contracts, quotations, contact-centre, calendar, QC, employees, chat,
+  promotions…). `schema.sql` was extracted from a real backup —
+  `db_cluster-23-08-2026@10-59-22.backup.gz`, a plain-SQL `pg_dumpall` dated 2026-08-23 — so it
+  reflects the actual current tables/columns (186 public tables = 114 warehouse + ~72 module).
+  Public schema only; roles/ownership/session cruft stripped, RLS + grants kept. See its README.
 
 ## Source & method
 - Warehouse files are reconstructed from the live catalog using Postgres' own DDL emitters
