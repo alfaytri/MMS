@@ -201,6 +201,9 @@ export function CustodyLocationsManager() {
                                     {!r.is_active && (
                                       <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">Inactive</Badge>
                                     )}
+                                    {r.team_id && (
+                                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">Team</Badge>
+                                    )}
                                   </div>
                                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                                     <User className="h-3 w-3 shrink-0" />
@@ -216,12 +219,20 @@ export function CustodyLocationsManager() {
                                     <MoreHorizontal className="h-4 w-4" />
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => { setEditing(r); setDialogOpen(true) }}>
-                                      <Pencil className="h-4 w-4 mr-2" /> Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleSetActive(r.id, !r.is_active)}>
-                                      <Power className="h-4 w-4 mr-2" /> {r.is_active ? 'Deactivate' : 'Activate'}
-                                    </DropdownMenuItem>
+                                    {r.team_id ? (
+                                      <DropdownMenuItem disabled>
+                                        Managed in Teams &amp; Employees
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <>
+                                        <DropdownMenuItem onClick={() => { setEditing(r); setDialogOpen(true) }}>
+                                          <Pencil className="h-4 w-4 mr-2" /> Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetActive(r.id, !r.is_active)}>
+                                          <Power className="h-4 w-4 mr-2" /> {r.is_active ? 'Deactivate' : 'Activate'}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
