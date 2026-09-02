@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { NavDropdown, NavDropdownGroup } from './NavDropdown'
+import { DragScrollNav } from './DragScrollNav'
 import { UserMenu } from './UserMenu'
 import { NotificationBell } from './NotificationBell'
 import { MobileNavDrawer } from './MobileNavDrawer'
@@ -50,13 +51,13 @@ export async function TopNav() {
           <span className="text-sm">{brandName}</span>
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto scroll-x-fade scroll-smooth">
+        <DragScrollNav className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto scroll-x-fade scroll-smooth select-none">
           <NavDropdownGroup>
             {NAV_ITEMS.map((entry) => (
               <NavDropdown key={entry.label} entry={entry} />
             ))}
           </NavDropdownGroup>
-        </nav>
+        </DragScrollNav>
 
         <div className="flex-1 lg:hidden" />
 
