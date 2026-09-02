@@ -15,6 +15,8 @@ const row = (id: string, division_id: string | null): CustodyLocationRow => ({
   responsible_person_phone: null,
   created_at: null,
   updated_at: null,
+  team_id: null,
+  team_name: null,
 })
 
 describe('filterCustodyDestinationsByDivision', () => {

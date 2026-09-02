@@ -376,7 +376,7 @@ export function useTeamActivityLog(entityId?: string | null) {
       const db = createClient()
       let query = db
         .from('team_activity_log')
-        .select('*, actor:profiles(id,full_name)')
+        .select('*, actor:user_data(id,full_name)')
         .order('created_at', { ascending: false })
         .limit(500)
       if (entityId) query = query.eq('entity_id', entityId)
@@ -510,10 +510,13 @@ export function useArchiveTeam() {
       if (error) throw error
       await logActivity({ action: 'team-archived', entityType: 'team', entityId: id })
     },
-    onSuccess: () => {
+    onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: queryKeys.teams.all })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
+      // Archived team → deactivate its custody location (keeps the link; fire-and-forget).
+      createClient().rpc('rpc_deactivate_team_custody' as never, { p_team_id: id } as never)
+        .then(({ error }) => { if (error) console.warn('team custody deactivate skipped:', error.message) })
     },
   })
 }
@@ -735,11 +738,14 @@ export function useSetTeamLeader() {
       })
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: (_d, { teamId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
       qc.invalidateQueries({ queryKey: queryKeys.teams.all })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
+      // Sync the linked custody location's responsible person to the new leader (fire-and-forget).
+      createClient().rpc('rpc_provision_team_custody' as never, { p_team_id: teamId } as never)
+        .then(({ error }) => { if (error) console.warn('team custody sync skipped:', error.message) })
     },
   })
 }
@@ -756,10 +762,13 @@ export function useRemoveTeamLeader() {
       if (error) throw error
       await logActivity({ action: 'leader-removed', entityType: 'team', entityId: teamId, beforeData: { leader_id: team.leader_id } })
     },
-    onSuccess: () => {
+    onSuccess: (_d, { teamId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.teams.all })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
+      // Leader cleared → sync responsible person off the custody location (fire-and-forget).
+      createClient().rpc('rpc_provision_team_custody' as never, { p_team_id: teamId } as never)
+        .then(({ error }) => { if (error) console.warn('team custody sync skipped:', error.message) })
     },
   })
 }
