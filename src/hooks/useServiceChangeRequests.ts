@@ -36,8 +36,8 @@ export function useServiceChangeRequests(filters?: {
         .from('service_edit_requests')
         .select(`
           *,
-          requester:profiles!service_change_requests_requested_by_fkey(full_name, avatar_url),
-          reviewer:profiles!service_change_requests_reviewed_by_fkey(full_name, avatar_url),
+          requester:user_data!service_change_requests_requested_by_fkey(full_name, avatar_url),
+          reviewer:user_data!service_change_requests_reviewed_by_fkey(full_name, avatar_url),
           service:services!service_change_requests_service_id_fkey(name_en, name_ar)
         `)
         .order('requested_at', { ascending: false })
@@ -67,8 +67,8 @@ export function useServiceChangeHistory(serviceId: string | null) {
         .from('service_edit_requests')
         .select(`
           *,
-          requester:profiles!service_change_requests_requested_by_fkey(full_name, avatar_url),
-          reviewer:profiles!service_change_requests_reviewed_by_fkey(full_name, avatar_url)
+          requester:user_data!service_change_requests_requested_by_fkey(full_name, avatar_url),
+          reviewer:user_data!service_change_requests_reviewed_by_fkey(full_name, avatar_url)
         `)
         .eq('service_id', serviceId!)
         .order('requested_at', { ascending: false })
@@ -88,7 +88,7 @@ export function usePendingAddRequests() {
         .from('service_edit_requests')
         .select(`
           *,
-          requester:profiles!service_change_requests_requested_by_fkey(full_name, avatar_url)
+          requester:user_data!service_change_requests_requested_by_fkey(full_name, avatar_url)
         `)
         .eq('change_type', 'add')
         .eq('status', 'pending')
