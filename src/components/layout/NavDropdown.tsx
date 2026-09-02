@@ -241,7 +241,7 @@ export function NavDropdown({ entry }: NavDropdownProps) {
   return (
     <div
       ref={triggerRef}
-      className="relative"
+      className="relative shrink-0"
       onMouseEnter={() => ctx.open(id)}
       onMouseLeave={() => ctx.close(id)}
     >
@@ -250,7 +250,7 @@ export function NavDropdown({ entry }: NavDropdownProps) {
         type="button"
         onClick={() => isOpen ? ctx.close(id) : ctx.open(id)}
         className={cn(
-          'inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          'inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2.5 text-[13px] font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           isActive
             ? 'text-primary border-b-2 border-primary rounded-none'
             : 'text-foreground hover:text-primary'
