@@ -1,6 +1,8 @@
 # Clean migration rebuild — warehouse vs whole-app
 
-**Status:** work in progress (generated autonomously overnight 2026-09-02). **Review before use.**
+**Status:** `warehouse/` reconstructed from live staging 2026-09-02; `whole-app/` regenerated
+byte-exact from the live whole-app DB `wkmvjxxmzstsvahuiwsz` 2026-09-02. Both count-validated
+against their live catalogs, neither test-applied yet (no Docker). **Review before use.**
 
 ## Why
 The active `supabase/migrations/` folder holds **806** incremental `.sql` files. This
@@ -16,10 +18,13 @@ Two new folders (organizational — the Supabase CLI only auto-applies the flat,
   Authoritative for what is actually deployed.
 - **`whole-app/`** — the full app (warehouse **plus** the field-service modules: team-leader +
   TL invoices, orders, contracts, quotations, contact-centre, calendar, QC, employees, chat,
-  promotions…). `schema.sql` was extracted from a real backup —
-  `db_cluster-23-08-2026@10-59-22.backup.gz`, a plain-SQL `pg_dumpall` dated 2026-08-23 — so it
-  reflects the actual current tables/columns (186 public tables = 114 warehouse + ~72 module).
-  Public schema only; roles/ownership/session cruft stripped, RLS + grants kept. See its README.
+  promotions…). **Regenerated 2026-09-02 byte-exact from the LIVE whole-app database
+  `wkmvjxxmzstsvahuiwsz`** (unpaused that day) via Postgres' own DDL emitters — same numbered
+  `00_*`→`07_*` layout as `warehouse/`. Supersedes the earlier `schema.sql` (extracted from the
+  Aug-23 `db_cluster` backup, now deleted). Verified current on the live DB: `user_data` present,
+  `profiles` gone, all renames applied; table set identical to the Aug-23 backup (0 added/dropped).
+  186 public tables = 113 warehouse + 73 module. Public schema only; RLS + policies kept, grants
+  and non-`public` objects out of scope. See its README.
 
 ## Source & method
 - Warehouse files are reconstructed from the live catalog using Postgres' own DDL emitters

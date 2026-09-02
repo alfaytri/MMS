@@ -1,42 +1,67 @@
-# whole-app — clean schema (warehouse + field-service modules)
+# whole-app — clean schema baseline (warehouse + field-service modules)
 
-**Status: DONE (from a real backup). UNVERIFIED (not test-applied). Read before use.**
+**Status: regenerated 2026-09-02 byte-exact from the LIVE whole-app database. UNVERIFIED (not test-applied — no Docker in the generating session). Read before use.**
 
 ## What this is
-`schema.sql` — a clean, consolidated schema for the **full application**: the warehouse
-domain **plus** the field-service modules. Extracted from a real database backup, so unlike a
-guess it reflects the actual tables/columns as they existed — renames, added columns, dropped
-columns and all.
+A consolidated, readable baseline for the **full application** — the warehouse domain
+**plus** the field-service modules (contracts, orders, quotations, TL invoices, QC,
+employees, chat, promotions, services, subscriptions, teams, vehicles, vouchers…). It replaces
+having to read 800+ incremental migrations to understand the schema.
 
-- **Source:** `db_cluster-23-08-2026@10-59-22.backup.gz` — a `pg_dumpall` cluster dump dated
-  **2026-08-23** (the day the module import work happened). Read directly (plain SQL); no
-  running database or Docker needed.
-- **Scope:** `public` schema + extensions only. Supabase-managed schemas (`auth`, `storage`,
-  `realtime`, `vault`, …) were dropped — a Supabase project already has those.
-- **Cleaned:** roles, ownership (`OWNER TO`), session `SET`s, `\restrict`, and `setval` data
-  removed. **RLS policies and grants kept.**
+Split into numbered files, applied in order (same layout as `../warehouse/`):
 
-## Contents
-**186 tables · 400 functions · 369 policies · 245 indexes · 135 triggers · 19 views · 74 enums · 5 extensions.**
-The 186 public tables = the 114 in `../warehouse/` **plus ~72 module tables**, e.g.:
-`contracts`, `contract_services`, `contract_milestones`, `contract_visits`, `contract_payments`;
-`orders`, `order_services`, `order_quotations`, `order_quotation_line_items`, `order_visit_dates`,
-`order_team_assignments`; `quotations`; `tl_invoices`, `tl_invoice_lines`, `tl_payment_batches`;
-`qc_checklists`, `qc_inspection_results`, `qc_schedule`; `employees`, `employee_services`;
-`chat_conversations`, `chat_messages`, `call_records`; `promotion_campaigns`, `promotion_rules`;
-`customer_addresses`, `customer_subscriptions`, `installed_products`, `follow_up_requests`, …
+| # | file | contents | count |
+|---|------|----------|-------|
+| 00 | `00_extensions.sql` | `CREATE EXTENSION` (non-`plpgsql`) | 5 |
+| 01 | `01_enums.sql` | `CREATE TYPE … AS ENUM` | 74 |
+| 02 | `02_tables.sql` | sequences (15) → `CREATE TABLE` with inline PK/UNIQUE/CHECK (186) → sequence ownership → foreign keys (460) | 186 tables |
+| 03 | `03_indexes.sql` | non-constraint-backed indexes (`pg_get_indexdef`) | 245 |
+| 04 | `04_functions.sql` | all functions (`pg_get_functiondef`); starts with `SET check_function_bodies = false;` | 400 |
+| 05 | `05_triggers.sql` | user triggers (`pg_get_triggerdef`) | 135 |
+| 06 | `06_rls_policies.sql` | `ENABLE ROW LEVEL SECURITY` (112) + `CREATE POLICY` (369) | 369 policies |
+| 07 | `07_views.sql` | `CREATE OR REPLACE VIEW` (`pg_get_viewdef`) | 18 |
 
-## ⚠️ Two things to know
-1. **Snapshot date.** This is the schema as of **2026-08-23**. The *warehouse* part here is
-   ~2 weeks behind the current `../warehouse/` (which was pulled live). A diff of the two showed
-   the current warehouse has only **1** extra table (`inventory_category_divisions`) — so the
-   warehouse portion is nearly current, but treat `../warehouse/` as the source of truth for the
-   warehouse domain and this file as the source for the **module** layer.
-2. **Not test-applied.** Reconstructed cleanly but not yet run against a fresh DB. To verify:
-   `supabase start`, apply `schema.sql` on an empty DB, resolve any ordering/extension gaps.
-   (Docker/`supabase start` would let this be verified — offered but not needed for extraction.)
+Also: 123 CHECK constraints (inline in 02), 6 generated columns, 0 identity columns.
 
-## Compared to the paused live DB `wkmvjxxmzstsvahuiwsz`
-That project is the current whole-app DB but was paused (free-tier 2-DB limit). If you unpause it
-later, I can pull its **current** schema the same way and diff it against this Aug-23 baseline to
-show exactly what changed since.
+## Source & method (this is the important change)
+- **Source:** the **live current whole-app database** `wkmvjxxmzstsvahuiwsz` (public schema),
+  read on **2026-09-02** via `supabase db query` using Postgres' own DDL emitters
+  (`pg_get_functiondef`, `pg_get_triggerdef`, `pg_get_indexdef`, `pg_get_viewdef`,
+  `pg_get_constraintdef`) plus `pg_catalog` / `pg_policies` for tables, enums and RLS.
+- This **supersedes** the previous `schema.sql`, which was extracted from the older Aug-23
+  `db_cluster` backup. The backup is no longer needed — the live DB is authoritative and current.
+- Functions/triggers/indexes/views/policies are **byte-exact** from the catalog. The
+  `CREATE TABLE`s are *constructed* from `pg_attribute`/`pg_constraint` (there is no
+  `pg_get_tabledef`), so they get the closest review — but every column type comes from
+  `format_type()` and every default/constraint from `pg_get_expr`/`pg_get_constraintdef`,
+  i.e. Postgres' own renderers, so they read like `pg_dump` output.
+
+## Currency — verified on the live DB
+- **Naming is current.** `user_data` exists; `profiles` is **gone** (checked directly on the
+  live DB, not inferred). All prior renames (`so_invoices`, `so_po_returns`, `order_quotations`,
+  `company_divisions`, `inventory_item_brand_variants`, `customer_credit_docs`, …) are applied.
+- **Table set matches the Aug-23 backup exactly** — 0 tables added or dropped between Aug-23 and
+  now. So the module layer has been stable; this regeneration mainly refreshes object *bodies*
+  (functions/policies/views) to their current definitions.
+- **Warehouse portion is 1 table behind staging.** This live whole-app DB has 113 of the 114
+  warehouse tables — it lacks `inventory_category_divisions`, which was added to staging after
+  this DB last synced. Treat `../warehouse/` as the source of truth for the warehouse domain
+  (114 tables, pulled live from staging); this file is the source of truth for the **73 module
+  tables** and for a self-contained full-app baseline.
+
+186 public tables = 113 warehouse + 73 module.
+
+## Apply order & safety
+Apply `00 → 07` in numeric order. This is safe as generated:
+- No table default or CHECK constraint references a user-defined function (verified: 0 of each),
+  so **tables (02) before functions (04) is fine**.
+- `04` sets `check_function_bodies = false` first, so SQL-language functions that reference
+  views or other functions won't fail on creation-order.
+- FKs are added at the end of `02`, so table order within the file doesn't matter.
+
+## ⚠️ Not test-applied
+Reconstructed cleanly and count-validated (every object count matches the live catalog exactly),
+but **not yet run against a fresh database** (Docker / `supabase start` wasn't available in the
+generating session). To fully verify: `supabase start` (or a scratch Postgres), apply `00 → 07`,
+resolve any ordering/extension/grant gaps, and diff the result against `wkmvjxxmzstsvahuiwsz`.
+Grants (`GRANT`/`REVOKE`) and non-`public` objects are intentionally out of scope.
