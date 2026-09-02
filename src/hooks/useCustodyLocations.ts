@@ -30,6 +30,8 @@ export type CustodyLocationRow = {
   responsible_person_phone:        string | null
   created_at:                      string | null
   updated_at:                      string | null
+  team_id:                         string | null
+  team_name:                       string | null
 }
 
 export type CustodyWarehouse = {
@@ -78,7 +80,7 @@ export function useCustodyLocations(warehouseId?: string | null) {
         p_warehouse_id: warehouseId ?? undefined,
       })
       if (error) throw error
-      return (data ?? []).map((r): CustodyLocationRow => ({
+      return ((data ?? []) as unknown as CustodyLocationRow[]).map((r): CustodyLocationRow => ({
         id:                              r.id,
         name:                            r.name,
         warehouse_id:                    r.warehouse_id,
@@ -91,6 +93,8 @@ export function useCustodyLocations(warehouseId?: string | null) {
         responsible_person_phone:        r.responsible_person_phone,
         created_at:                      r.created_at,
         updated_at:                      r.updated_at,
+        team_id:                         r.team_id ?? null,
+        team_name:                       r.team_name ?? null,
       }))
     },
     staleTime: 60_000,
