@@ -31,6 +31,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateTeam, useUpdateTeam, useArchiveTeam } from '@/hooks/useTeams'
+import { useProvisionTeamCustody, useDeactivateTeamCustody, useTeamCustody, deriveHoldsStock } from '@/hooks/teamCustody'
 import { useCompanies } from '@/hooks/useCompanies'
 import { useDivisionsByCompany } from '@/hooks/useDivisions'
 import { useTraccarDevices } from '@/hooks/useTraccar'
@@ -50,12 +51,17 @@ interface TeamFormValues {
   site_visit_order:     boolean
   site_visit_quotation: boolean
   traccar_device_id:    string
+  holds_stock:          boolean
 }
 
 export function TeamEditDialog() {
   const { teamDialog, closeTeamDialog } = useTeamsPage()
   const { open, team } = teamDialog
   const isEdit = !!team
+
+  const { data: linkedSub } = useTeamCustody(team?.id ?? null)
+  const provisionCustody   = useProvisionTeamCustody()
+  const deactivateCustody  = useDeactivateTeamCustody()
 
   const [saveError, setSaveError] = useState<string | null>(null)
   const [traccarError, setTraccarError] = useState<string | null>(null)
@@ -73,6 +79,7 @@ export function TeamEditDialog() {
       is_normal: true, is_emergency: false, is_qc: false,
       site_visit_order: false, site_visit_quotation: false,
       traccar_device_id: '',
+      holds_stock: true,
     },
   })
 
@@ -101,6 +108,7 @@ export function TeamEditDialog() {
         site_visit_order:     team.site_visit_order     ?? false,
         site_visit_quotation: team.site_visit_quotation ?? false,
         traccar_device_id:    team.traccar_device_id    ?? '',
+        holds_stock:          deriveHoldsStock(linkedSub),
       })
     } else {
       form.reset({
@@ -109,9 +117,10 @@ export function TeamEditDialog() {
         is_normal: true, is_emergency: false, is_qc: false,
         site_visit_order: false, site_visit_quotation: false,
         traccar_device_id: '',
+        holds_stock: true,
       })
     }
-  }, [team, open, form])
+  }, [team, open, form, linkedSub])
 
   async function onSubmit(values: TeamFormValues) {
     setSaveError(null)
@@ -149,14 +158,24 @@ export function TeamEditDialog() {
         traccar_device_id:    values.traccar_device_id || null,
       }
 
+      let teamId: string
       if (isEdit) {
         await updateTeam.mutateAsync({
           id:     team!.id,
           before: team as unknown as Record<string, unknown>,
           ...payload,
         })
+        teamId = team!.id
       } else {
-        await createTeam.mutateAsync(payload)
+        const created = await createTeam.mutateAsync(payload)
+        teamId = created.id
+      }
+
+      // Sync the team's Consumption/Custody presence (non-blocking; errors toast).
+      if (values.holds_stock) {
+        provisionCustody.mutate(teamId)
+      } else if (isEdit && deriveHoldsStock(linkedSub)) {
+        deactivateCustody.mutate(teamId)
       }
 
       closeTeamDialog()
@@ -360,6 +379,26 @@ export function TeamEditDialog() {
                       <div>
                         <FormLabel className="!mt-0 font-medium text-sm cursor-pointer">Contracts</FormLabel>
                         <p className="text-[11px] text-muted-foreground">Can be assigned to site visits during contract quoting.</p>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </section>
+
+              {/* Consumption / Custody */}
+              <section className="space-y-3 pt-4 border-t border-border/60">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Consumption / Custody</p>
+                <FormField
+                  control={form.control}
+                  name="holds_stock"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2 bg-muted/30">
+                      <div>
+                        <FormLabel className="!mt-0 font-medium text-sm cursor-pointer">Holds stock</FormLabel>
+                        <p className="text-[11px] text-muted-foreground">Give this team a custody location so it appears in Consumption and can hold field stock.</p>
                       </div>
                       <FormControl>
                         <Switch checked={field.value} onCheckedChange={field.onChange} />

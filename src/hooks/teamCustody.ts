@@ -3,6 +3,7 @@
 // SECURITY DEFINER RPCs from 20260902120000_teams_custody_bridge.sql.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
 /** A team "holds stock" when it has a linked, active custody location. */
@@ -45,6 +46,7 @@ export function useProvisionTeamCustody() {
       qc.invalidateQueries({ queryKey: ['team-custody', teamId] })
       qc.invalidateQueries({ queryKey: ['custody-locations'] })
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not link this team to Consumption.'),
   })
 }
 
@@ -63,5 +65,6 @@ export function useDeactivateTeamCustody() {
       qc.invalidateQueries({ queryKey: ['team-custody', teamId] })
       qc.invalidateQueries({ queryKey: ['custody-locations'] })
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not update the team custody location.'),
   })
 }
