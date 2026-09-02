@@ -3,7 +3,7 @@
 // - useCompleteVisit: uploads photos/signature to storage, then complete_visit RPC
 //   (persists field data + sets status=completed). No invoice.
 // - useCreateTlInvoice: create_tl_invoice RPC (server recomputes/validates money).
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
@@ -112,6 +112,34 @@ export function useCreateTlInvoice() {
     },
     onSuccess: (_d, { visit }) => {
       qc.invalidateQueries({ queryKey: queryKeys.teamLeader.orders(visit.team_id) })
+    },
+  })
+}
+
+export type VisitCompletion = {
+  service_statuses: Record<string, 'done' | 'skipped' | 'issue'> | null
+  damage_report:    { noted?: boolean; description?: string | null; photo_urls?: string[] } | null
+  notes:            string | null
+  qc_scores:        Record<string, number> | null
+  photo_urls:       string[] | null
+  signature_url:    string | null
+  completed_at:     string | null
+}
+
+/** Read the persisted field-work record for a visit (statuses/notes/damage/photos/signature). */
+export function useVisitCompletion(visitId: string | null) {
+  return useQuery({
+    queryKey: ['visit-completion', visitId],
+    enabled: !!visitId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<VisitCompletion | null> => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('visit_completions' as never)
+        .select('service_statuses, damage_report, notes, qc_scores, photo_urls, signature_url, completed_at')
+        .eq('visit_id' as never, visitId as never)
+        .maybeSingle()
+      return (data as unknown as VisitCompletion) ?? null
     },
   })
 }

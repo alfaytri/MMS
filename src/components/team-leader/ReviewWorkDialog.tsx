@@ -10,6 +10,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils'
 import { useTlInvoiceByVisit } from '@/hooks/useTlInvoices'
+import { useVisitCompletion } from '@/hooks/useTlActions'
 import type { TlVisit } from '@/types/team-leader'
 
 const STATUS_STYLE: Record<'unpaid' | 'partial' | 'paid', string> = {
@@ -26,6 +27,7 @@ interface Props {
 
 export function ReviewWorkDialog({ visit, open, onOpenChange }: Props) {
   const { data: invoice, isLoading } = useTlInvoiceByVisit(open ? visit?.id : null)
+  const { data: completion } = useVisitCompletion(open ? (visit?.id ?? null) : null)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -61,6 +63,50 @@ export function ReviewWorkDialog({ visit, open, onOpenChange }: Props) {
               </div>
             )}
           </div>
+
+          {/* Work record — persisted field data captured at completion (E) */}
+          {completion && (
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Work Record
+              </div>
+              {visit && completion.service_statuses && Object.keys(completion.service_statuses).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {visit.services.map((s) => {
+                    const st = completion.service_statuses?.[s.id]
+                    return (
+                      <Badge key={s.id} variant="outline" className="text-[11px]">
+                        {(s.name.split('/').pop() ?? s.name)}: {st ?? '—'}
+                      </Badge>
+                    )
+                  })}
+                </div>
+              )}
+              {completion.notes && (
+                <p className="text-sm"><span className="text-muted-foreground">Notes: </span>{completion.notes}</p>
+              )}
+              {completion.damage_report?.noted && (
+                <p className="text-sm text-amber-700">
+                  Damage noted{completion.damage_report.description ? `: ${completion.damage_report.description}` : ''}
+                </p>
+              )}
+              {(completion.photo_urls?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {completion.photo_urls!.map((u, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={u} alt="work photo" className="h-16 w-16 rounded object-cover border" />
+                  ))}
+                </div>
+              )}
+              {completion.signature_url && (
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">Signature</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={completion.signature_url} alt="signature" className="h-16 rounded border bg-white" />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Invoice section (only when tl_invoices row exists) */}
           {isLoading ? (
@@ -183,7 +229,7 @@ export function ReviewWorkDialog({ visit, open, onOpenChange }: Props) {
               <div className="flex items-center gap-2 mb-2">
                 <Receipt className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
-                  This visit type does not create an invoice.
+                  No invoice created for this visit yet.
                 </span>
               </div>
               {visit && visit.services.length > 0 && (
