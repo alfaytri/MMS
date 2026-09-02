@@ -6,8 +6,8 @@ import { Loader2, AlertTriangle, Users } from 'lucide-react'
 import { isToday, parseISO, format, addDays } from 'date-fns'
 import { useTeamLeaderIdentity, useAllTeamsForSelect } from '@/hooks/useTeamLeaderIdentity'
 import { useTeamLeaderOrders } from '@/hooks/useTeamLeaderOrders'
-import { useDeductOrderStock } from '@/hooks/useDeductOrderStock'
 import { useGpsTracking } from '@/hooks/useGpsTracking'
+import { useCompleteVisit, fetchAddedServices } from '@/hooks/useTlActions'
 import { TlHeader } from '@/components/team-leader/TlHeader'
 import { TlVisitList } from '@/components/team-leader/TlVisitList'
 import { OrderDetailDispatch } from '@/components/team-leader/OrderDetailDispatch'
@@ -22,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { clearDraft } from '@/lib/visitDrafts'
-import type { TlVisit, OrderCompletionData } from '@/types/team-leader'
+import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
 
 export default function TeamLeaderPage() {
   const { data: identity, isLoading: identityLoading } = useTeamLeaderIdentity()
@@ -41,7 +41,7 @@ export default function TeamLeaderPage() {
   const [completedVisits, setCompletedVisits]   = useState<Set<string>>(new Set())
   const [activeVisit, setActiveVisit]           = useState<TlVisit | null>(null)
   const [reviewVisit, setReviewVisit]           = useState<TlVisit | null>(null)
-  const [invoiceVisit, setInvoiceVisit]         = useState<{ visit: TlVisit; data: OrderCompletionData } | null>(null)
+  const [invoiceVisit, setInvoiceVisit]         = useState<{ visit: TlVisit; addedServices: AddedBillableService[] } | null>(null)
   const [teamPickerOpen, setTeamPickerOpen]     = useState(false)
   const [pendingDivision, setPendingDivision]   = useState<string | null>(null)
   const [pendingTeamId, setPendingTeamId]       = useState<string | null>(null)
@@ -88,7 +88,7 @@ export default function TeamLeaderPage() {
 
   const { data: allVisits = [], isLoading: visitsLoading } = useTeamLeaderOrders(effectiveTeamId)
 
-  const deductStock = useDeductOrderStock()
+  const completeVisit = useCompleteVisit()
 
   // Start GPS tracking when any visit is started
   const hasStartedVisit = startedVisits.size > 0
@@ -124,33 +124,34 @@ export default function TeamLeaderPage() {
     const visit = allVisits.find((v) => v.id === visitId)
     if (!identity || !effectiveTeamId || !visit) return
 
-    const items = Object.entries(data.inventoryUsage).flatMap(([serviceId, records]) =>
-      records
-        .filter((r) => r.brandVariantId && r.qtyUsed > 0)
-        .map((r) => ({ serviceId, brandVariantId: r.brandVariantId, qtyUsed: r.qtyUsed }))
-    )
-
-    if (items.length > 0) {
-      const result = await deductStock.mutateAsync({
-        visitId, teamId: effectiveTeamId, profileId: identity.profileId, items,
-      }).catch((err: Error) => {
-        toast.error(err.message)
-        return null
+    // Persist the field work + mark the job completed. Invoicing is a SEPARATE
+    // step now (from the completed card). Photos/signature upload in the hook.
+    try {
+      await completeVisit.mutateAsync({
+        visit, data, profileId: identity.profileId, teamId: effectiveTeamId,
       })
-      if (!result) return
-    }
-
-    await clearDraft(visitId)
-
-    // QC visits: close and done
-    if (data.visitType === 'qc') {
-      handleComplete(visitId)
-      toast.success('QC scores submitted')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to complete the job'
+      toast.error(msg.includes('already_completed')
+        ? 'This visit was already completed by another team'
+        : msg)
       return
     }
 
-    // All others: open invoice dialog
-    setInvoiceVisit({ visit, data })
+    await clearDraft(visitId)
+    handleComplete(visitId)
+    toast.success(
+      data.visitType === 'qc'
+        ? 'QC recorded'
+        : 'Job completed — create the invoice from the card when ready',
+    )
+  }
+
+  // Separate step: create the invoice for an already-completed job. Reads any
+  // extra billable services captured at completion so they carry onto the bill.
+  async function handleCreateInvoice(visit: TlVisit) {
+    const addedServices = await fetchAddedServices(visit.id)
+    setInvoiceVisit({ visit, addedServices })
     setActiveVisit(null)
   }
 
@@ -210,6 +211,7 @@ export default function TeamLeaderPage() {
           onStart={handleStart}
           onTapCard={setActiveVisit}
           onReviewWork={setReviewVisit}
+          onCreateInvoice={handleCreateInvoice}
         />
       )}
 
@@ -234,12 +236,9 @@ export default function TeamLeaderPage() {
       {invoiceVisit && identity && (
         <TlInvoiceDialog
           visit={invoiceVisit.visit}
-          data={invoiceVisit.data}
+          addedServices={invoiceVisit.addedServices}
           profileId={identity.profileId}
-          onDone={(visitId) => {
-            handleComplete(visitId)
-            setInvoiceVisit(null)
-          }}
+          onDone={() => setInvoiceVisit(null)}
           onClose={() => setInvoiceVisit(null)}
         />
       )}

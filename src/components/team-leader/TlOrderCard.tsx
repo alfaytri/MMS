@@ -30,6 +30,7 @@ interface Props {
   onStart: (visitId: string) => void
   onTapCard: (visit: TlVisit) => void
   onReviewWork?: (visit: TlVisit) => void
+  onCreateInvoice?: (visit: TlVisit) => void
 }
 
 /**
@@ -61,7 +62,7 @@ function InfoLabel({ children }: { children: React.ReactNode }) {
 }
 
 export function TlOrderCard({
-  visit, teamId, isStarted, isCompleted, onStart, onTapCard, onReviewWork,
+  visit, teamId, isStarted, isCompleted, onStart, onTapCard, onReviewWork, onCreateInvoice,
 }: Props) {
   const [unavailableOpen, setUnavailableOpen] = useState(false)
   const cfg = TYPE_CONFIG[visit.type] ?? TYPE_CONFIG['order']
@@ -229,26 +230,37 @@ export function TlOrderCard({
 
         {/* Action row — varies by status */}
         {isCompleted ? (
-          <div className={cn(
-            'grid gap-px bg-border border-t',
-            canEditWork ? 'grid-cols-2' : 'grid-cols-1',
-          )}>
-            <Button
-              variant="ghost"
-              className="rounded-none min-h-11 gap-1.5 text-xs"
-              onClick={() => onReviewWork?.(visit)}
-            >
-              <Eye className="h-4 w-4" /> Review Work
-            </Button>
+          <div className="border-t">
+            {/* Invoicing is now a separate step: only on a completed job with no invoice yet. */}
             {canEditWork && (
+              <Button
+                className="w-full rounded-none min-h-11 gap-1.5 text-xs"
+                onClick={() => onCreateInvoice?.(visit)}
+              >
+                <FileText className="h-4 w-4" /> Create Invoice
+              </Button>
+            )}
+            <div className={cn(
+              'grid gap-px bg-border',
+              canEditWork ? 'grid-cols-2 border-t' : 'grid-cols-1',
+            )}>
               <Button
                 variant="ghost"
                 className="rounded-none min-h-11 gap-1.5 text-xs"
-                onClick={() => onTapCard(visit)}
+                onClick={() => onReviewWork?.(visit)}
               >
-                <Pencil className="h-4 w-4" /> Edit Work
+                <Eye className="h-4 w-4" /> Review Work
               </Button>
-            )}
+              {canEditWork && (
+                <Button
+                  variant="ghost"
+                  className="rounded-none min-h-11 gap-1.5 text-xs"
+                  onClick={() => onTapCard(visit)}
+                >
+                  <Pencil className="h-4 w-4" /> Edit Work
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <>
