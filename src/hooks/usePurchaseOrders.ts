@@ -935,10 +935,15 @@ export function useSubmitPoVersion() {
       if (poErr) throw poErr
 
       // 4. Replace line items — money-path C1+C2: atomic RPC with guards.
+      //    Resolve blank names from the variant first, matching useUpdatePO /
+      //    useSavePoAsDraft — the amend path previously sent payload.line_items
+      //    raw, so an empty item_name persisted blank (the server RPC now also
+      //    resolves, but keep the paths consistent as defense in depth).
       {
+        const resolved = await resolveLineItemNames(supabase, payload.line_items)
         const { error: replaceErr } = await supabase.rpc('rpc_replace_po_lines', {
           p_po_id: id,
-          p_lines: payload.line_items as unknown as never,
+          p_lines: resolved as unknown as never,
         })
         if (replaceErr) throw new Error(formatPgError(replaceErr))
       }
