@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { PoStatusBadge } from '@/components/purchase/PoStatusBadge'
 import { PoApprovalChain } from '@/components/purchase/PoApprovalChain'
+import { PoApprovalItemsTable } from '@/components/purchase/PoApprovalItemsTable'
 import {
   usePendingApprovals, useCompletedApprovals,
   useApproveStep, useRejectPO, useForceApproveAllSteps, useMyApprovalRoles,
@@ -376,37 +377,7 @@ export default function ApprovalsPage() {
                   </div>
                 )}
 
-                {(dialogState.po.po_line_items ?? []).length > 0 && (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead className="text-right">Qty</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(dialogState.po.po_line_items ?? []).map((li, i) => (
-                          <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(i)}>
-                            <TableCell className="text-sm">{li.item_name}</TableCell>
-                            <TableCell className="text-right text-sm">{li.qty}</TableCell>
-                            <TableCell className="text-right text-sm font-medium">
-                              <div className="flex flex-col items-end leading-tight">
-                                <span>{formatCurrency(li.total_price, dialogState.po.currency)}</span>
-                                {dialogState.po.currency !== 'QAR' && dialogState.po.exchange_rate != null && dialogState.po.exchange_rate !== 1 && (
-                                  <span className="text-[10px] font-normal text-muted-foreground/70">
-                                    ≈ {formatCurrency(li.total_price * dialogState.po.exchange_rate, 'QAR')}
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                <PoApprovalItemsTable po={dialogState.po} />
 
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Chain:</span>
@@ -513,37 +484,7 @@ export default function ApprovalsPage() {
                     </div>
                   </div>
 
-                  {(viewPO.po_line_items ?? []).length > 0 && (
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead className="text-right">Qty</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(viewPO.po_line_items ?? []).map((li, i) => (
-                            <TableRow key={li.id} className={STAGGER_IN} style={staggerDelay(i)}>
-                              <TableCell className="text-sm">{li.item_name}</TableCell>
-                              <TableCell className="text-right text-sm">{li.qty}</TableCell>
-                              <TableCell className="text-right text-sm font-medium">
-                                <div className="flex flex-col items-end leading-tight">
-                                  <span>{formatCurrency(li.total_price, viewPO.currency)}</span>
-                                  {viewPO.currency !== 'QAR' && viewPO.exchange_rate != null && viewPO.exchange_rate !== 1 && (
-                                    <span className="text-[10px] font-normal text-muted-foreground/70">
-                                      ≈ {formatCurrency(li.total_price * viewPO.exchange_rate, 'QAR')}
-                                    </span>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                  <PoApprovalItemsTable po={viewPO} />
 
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Chain:</span>

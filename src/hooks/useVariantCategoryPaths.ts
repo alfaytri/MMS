@@ -31,7 +31,7 @@ export function useVariantItemMeta(variantIds: string[]): Map<string, ItemMeta> 
       const supabase = createClient()
       const { data, error } = await supabase
         .from('inventory_item_brand_variants')
-        .select('id, brand, brands(name), country_codes(name), inventory_items!inner(category_id)')
+        .select('id, brand, brands(name), country_codes(name), inventory_items!inner(category_id, name_en)')
         .in('id', ids)
         .limit(ids.length)
       if (error) throw error
@@ -41,7 +41,7 @@ export function useVariantItemMeta(variantIds: string[]): Map<string, ItemMeta> 
         brand: string | null
         brands: { name: string | null } | { name: string | null }[] | null
         country_codes: { name: string | null } | { name: string | null }[] | null
-        inventory_items: { category_id: string | null } | { category_id: string | null }[] | null
+        inventory_items: { category_id: string | null; name_en: string | null } | { category_id: string | null; name_en: string | null }[] | null
       }>
     },
   })
@@ -57,6 +57,7 @@ export function useVariantItemMeta(variantIds: string[]): Map<string, ItemMeta> 
         tree:   categoryId ? breadcrumbWithType(categoryId, cats) : '',
         brand:  displayBrand(brandJoin?.name ?? null, row.brand),
         origin: countryJoin?.name?.trim() || null,
+        name:   item?.name_en?.trim() || null,
       })
     }
     return map

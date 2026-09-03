@@ -14,7 +14,8 @@ import {
   type SalesApprovalSlip,
 } from '@/hooks/useSalesApprovals'
 import { useSaleOrder } from '@/hooks/useSaleOrders'
-import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
+import { ItemLabel } from '@/components/shared/ItemLabel'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
 
 function fmtMoney(n: number, currency: string): string {
   return `${currency} ${Number(n).toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -30,6 +31,11 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
   // Load the SO's lines so the approver sees WHAT is being ordered, not just a
   // total. Null id disables the query until a slip is open.
   const { data: fullSO } = useSaleOrder(slip?.so.id ?? null)
+  // Resolve the app-wide item block (tree > brand > origin) once for all lines.
+  const soLines = fullSO?.sale_order_lines ?? []
+  const metaMap = useVariantItemMeta(
+    soLines.map((li) => li.brand_variant_id).filter((id): id is string => !!id),
+  )
 
   if (!slip) return null
 
@@ -90,32 +96,27 @@ export function SalesApprovalDetailDialog({ slip, onClose }: Props) {
           </div>
 
           {/* Ordered items — so the approver sees WHAT is being ordered, not just a total. */}
-          {(fullSO?.sale_order_lines?.length ?? 0) > 0 && (
+          {soLines.length > 0 && (
             <div className="rounded-md border text-xs">
               <div className="border-b bg-muted/30 px-3 py-2 font-medium">Ordered items</div>
               <div className="divide-y">
-                {(fullSO!.sale_order_lines ?? []).map((li) => {
-                  const bv = li.inventory_item_brand_variants
-                  const vlabel = variantPickerLabel({
-                    brand_name:   bv?.brands?.name ?? null,
-                    brand:        bv?.brand ?? null,
-                    country_name: bv?.country_codes?.name ?? null,
-                  })
-                  const brandOrigin = vlabel.primary === GENERIC_VARIANT_LABEL
-                    ? null
-                    : vlabel.origin ? `${vlabel.primary} · ${vlabel.origin}` : vlabel.primary
+                {soLines.map((li) => {
+                  const meta = li.brand_variant_id ? metaMap.get(li.brand_variant_id) : null
+                  const resolvedName = li.item_name?.trim() || meta?.name || null
                   return (
                     <div key={li.id} className="flex items-start justify-between gap-3 px-3 py-1.5">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">
-                          {li.item_name}
-                          {brandOrigin && <span className="font-normal text-muted-foreground"> — {brandOrigin}</span>}
-                        </div>
-                        <div className="text-muted-foreground">
-                          {li.qty} × {fmtMoney(li.unit_price, slip.so.currency)}{li.sku ? ` · ${li.sku}` : ''}
+                      <ItemLabel
+                        meta={meta}
+                        name={resolvedName ?? <span className="italic text-muted-foreground">Unnamed item</span>}
+                        nameClassName="font-medium truncate"
+                        className="min-w-0"
+                      />
+                      <div className="shrink-0 text-right">
+                        <div className="font-medium tabular-nums">{fmtMoney(li.total, slip.so.currency)}</div>
+                        <div className="text-muted-foreground tabular-nums">
+                          {li.qty} × {fmtMoney(li.unit_price, slip.so.currency)}
                         </div>
                       </div>
-                      <div className="shrink-0 font-medium tabular-nums">{fmtMoney(li.total, slip.so.currency)}</div>
                     </div>
                   )
                 })}

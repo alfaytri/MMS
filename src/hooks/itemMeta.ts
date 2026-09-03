@@ -11,6 +11,13 @@ export type ItemMeta = {
   brand: string | null
   /** Country of origin (country_codes.name), or null when absent. */
   origin: string | null
+  /**
+   * The item's canonical name (inventory_items.name_en). Optional — only the
+   * variant resolver populates it. Callers that render a denormalized name
+   * (e.g. po_line_items.item_name) can fall back to this when that column is
+   * blank, so a stale/empty snapshot name never renders as an empty cell.
+   */
+  name?: string | null
 }
 
 /**
