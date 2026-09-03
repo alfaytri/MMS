@@ -15,10 +15,13 @@ create table if not exists public.visit_completions (
   damage_report    jsonb,                                -- {noted, description, photo_urls[]}
   notes            text,
   qc_scores        jsonb,
+  added_services   jsonb,                                -- extra billable services captured at completion
   signature_url    text,
   photo_urls       text[] not null default '{}',
   created_at       timestamptz not null default now()
 );
+-- Additive for an already-created table.
+alter table public.visit_completions add column if not exists added_services jsonb;
 
 alter table public.visit_completions enable row level security;
 -- Read for any authenticated user; writes go ONLY through the SECURITY DEFINER
@@ -28,7 +31,9 @@ create policy p_visit_completions_read on public.visit_completions
   for select using (auth.role() = 'authenticated');
 
 -- ── E + C decouple: complete a visit (persist + set status), no invoice ────
-create or replace function public.complete_visit(
+drop function if exists public.complete_visit(uuid,uuid,text,uuid,jsonb,jsonb,text,jsonb,text[],text,uuid);
+drop function if exists public.complete_visit(uuid,uuid,text,uuid,jsonb,jsonb,text,jsonb,text[],text,uuid,jsonb);
+create function public.complete_visit(
   p_visit_id         uuid,
   p_source_id        uuid,
   p_source_type      text,
@@ -39,7 +44,8 @@ create or replace function public.complete_visit(
   p_qc_scores        jsonb    default null,
   p_photo_urls       text[]   default '{}',
   p_signature_url    text     default null,
-  p_team_id          uuid     default null)
+  p_team_id          uuid     default null,
+  p_added_services   jsonb    default null)
  returns uuid language plpgsql security definer set search_path to 'public'
 as $function$
 declare v_updated int := 0; v_id uuid;
@@ -73,10 +79,10 @@ begin
 
   insert into public.visit_completions (
     visit_id, source_id, source_type, team_id, completed_by,
-    service_statuses, damage_report, notes, qc_scores, photo_urls, signature_url
+    service_statuses, damage_report, notes, qc_scores, added_services, photo_urls, signature_url
   ) values (
     p_visit_id, p_source_id, p_source_type, p_team_id, p_completed_by,
-    coalesce(p_service_statuses,'{}'::jsonb), p_damage, p_notes, p_qc_scores,
+    coalesce(p_service_statuses,'{}'::jsonb), p_damage, p_notes, p_qc_scores, p_added_services,
     coalesce(p_photo_urls,'{}'), p_signature_url
   )
   on conflict (visit_id) do update set
@@ -84,6 +90,7 @@ begin
     damage_report    = excluded.damage_report,
     notes            = excluded.notes,
     qc_scores        = excluded.qc_scores,
+    added_services   = excluded.added_services,
     photo_urls       = excluded.photo_urls,
     signature_url    = excluded.signature_url,
     completed_by     = excluded.completed_by,
@@ -164,9 +171,9 @@ end;
 $function$;
 
 -- ── Grants (SECURITY DEFINER funcs: authenticated only) ────────────────────
-revoke all on function public.complete_visit(uuid,uuid,text,uuid,jsonb,jsonb,text,jsonb,text[],text,uuid) from public, anon;
+revoke all on function public.complete_visit(uuid,uuid,text,uuid,jsonb,jsonb,text,jsonb,text[],text,uuid,jsonb) from public, anon;
 revoke all on function public.create_tl_invoice(uuid,text,text,text,jsonb,numeric,uuid,text,uuid,boolean) from public, anon;
-grant execute on function public.complete_visit(uuid,uuid,text,uuid,jsonb,jsonb,text,jsonb,text[],text,uuid) to authenticated;
+grant execute on function public.complete_visit(uuid,uuid,text,uuid,jsonb,jsonb,text,jsonb,text[],text,uuid,jsonb) to authenticated;
 grant execute on function public.create_tl_invoice(uuid,text,text,text,jsonb,numeric,uuid,text,uuid,boolean) to authenticated;
 
 -- ── E: storage bucket for completion photos + signature ────────────────────
