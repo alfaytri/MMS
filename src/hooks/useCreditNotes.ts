@@ -303,10 +303,6 @@ export function useCreateCreditNote() {
               description: l.description,
               qty: l.qty,
               unit_price: l.unit_price,
-              // Persist the line total like every other line table; the PDF has a
-              // qty*unit_price fallback, but leaving it NULL breaks any reader
-              // (e.g. a report) that sums credit_note_lines.total directly.
-              total: l.qty * l.unit_price,
             }))
           )
         if (lErr) throw lErr
