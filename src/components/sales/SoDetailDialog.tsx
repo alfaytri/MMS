@@ -27,6 +27,7 @@ import {
   useSaleOrder,
   useSOPayments,
   useCancelSO,
+  useSoCancelPreview,
   type SaleOrder,
   type SaleDelivery,
 } from '@/hooks/useSaleOrders'
@@ -140,6 +141,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: unresolvedReturns = [] } = useUnresolvedReturns(open ? (so?.id ?? null) : null)
   const createReplacement = useCreateReplacementDelivery()
   const recordDisposition = useRecordInventoryDisposition()
+  const cancelPreview = useSoCancelPreview(cancelSOOpen ? (so?.id ?? null) : null)
 
   const current = fullSO ?? so
 
@@ -162,7 +164,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
   const canConfirm = current?.status === 'quotation'
   const canEdit = current?.status === 'quotation'
-  const canCancel = current && ['quotation', 'confirmed'].includes(current.status)
+  // Cancel is offered for any live SO (incl. invoiced/delivered); the server RPC
+  // gates shipped-stock ones and points them to Returns.
+  const canCancel = current && !['cancelled', 'closed'].includes(current.status)
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const paymentStatus: 'paid' | 'partial' | 'unpaid' =
@@ -787,6 +791,15 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {cancelPreview.data?.invoiceNumber ? (
+            cancelPreview.data.paidAmount > 0 ? (
+              <p className="px-6 text-sm text-amber-700">
+                This also voids {cancelPreview.data.invoiceNumber} and opens a {formatCurrency(cancelPreview.data.paidAmount, current?.currency ?? 'QAR')} refund credit note to settle.
+              </p>
+            ) : (
+              <p className="px-6 text-sm text-muted-foreground">This also voids {cancelPreview.data.invoiceNumber} (unpaid) — no refund.</p>
+            )
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>Keep Order</AlertDialogCancel>
             <AlertDialogAction
@@ -795,8 +808,10 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               onClick={() => {
                 if (!current) return
                 cancelSO.mutate(current.id, {
-                  onSuccess: () => {
-                    toast.success('Sale order cancelled')
+                  onSuccess: (res) => {
+                    toast.success(res.refund_amount > 0
+                      ? `Sale order cancelled — refund credit note ${res.refund_credit_note} opened`
+                      : 'Sale order cancelled')
                     setCancelSOOpen(false)
                     onOpenChange(false)
                   },

@@ -1081,66 +1081,51 @@ export function useCancelSO() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-
-      // Six-domains H1: refuse cancellation on SOs that already have
-      // non-pending deliveries — FIFO deductions + COGS entries are already
-      // committed and cancelling here would leave them orphaned. Only
-      // quotation/confirmed/pending_approval SOs may be cancelled here.
-      const { data: so, error: soErr } = await supabase
-        .from('sale_orders')
-        .select('status')
-        .eq('id', id)
-        .single()
-      if (soErr) throw soErr
-      if (!so) throw new Error('Sale order not found')
-      const allowedStatuses = ['quotation', 'confirmed', 'pending_approval']
-      if (!allowedStatuses.includes(so.status as string)) {
-        throw new Error(
-          `Cannot cancel a sale order in "${so.status}" status. ` +
-          'Cancel or reverse the downstream deliveries/invoices first.'
-        )
-      }
-      const { data: nonPendingDeliveries } = await supabase
-        .from('sale_deliveries')
-        .select('id, status')
-        .eq('sale_order_id', id)
-        .neq('status', 'pending')
-        .limit(1)
-      if ((nonPendingDeliveries ?? []).length > 0) {
-        throw new Error(
-          'Cannot cancel: this sale order has non-pending deliveries. ' +
-          'Reverse the deliveries first, then cancel.'
-        )
-      }
-
-      // Fetch lines to release reserved stock before cancelling
-      const { data: lines } = await supabase
-        .from('sale_order_lines')
-        .select('brand_variant_id, qty')
-        .eq('sale_order_id', id)
-
-      const releases = (lines ?? [])
-        .filter((l) => l.brand_variant_id && l.qty > 0)
-        .map((l) => ({ bv_id: l.brand_variant_id!, delta: -l.qty }))
-
-      if (releases.length > 0) {
-        const { error: relErr } = await supabase.rpc('batch_update_reserved_qty', { p_updates: releases })
-        if (relErr) throw relErr
-      }
-
-      const { error } = await supabase
-        .from('sale_orders')
-        .update({ status: 'cancelled' })
-        .eq('id', id)
+      // Money-path cancel cascade (SECURITY DEFINER rpc_cancel_sale_order):
+      // validates no stock shipped, voids the SO's invoice, opens a refund
+      // credit note for any amount paid, releases reserved stock (via the
+      // status-change trigger), and cancels the SO — atomically. A shipped-stock
+      // precondition (or any other guard) surfaces to the caller's onError.
+      const { data, error } = await supabase.rpc('rpc_cancel_sale_order' as never, { p_so_id: id } as never)
       if (error) throw error
+      return data as unknown as {
+        action:          'cancelled' | 'noop'
+        invoice_voided:  boolean
+        invoice_number:  string | null
+        refund_credit_note: string | null
+        refund_amount:   number
+      }
     },
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id) })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
       invalidateInventoryStockViews(queryClient)
       logActivity({ action: 'Sale Order Cancelled', module: 'sale_orders', entity_id: id, severity: 'warning' })
+    },
+  })
+}
+
+/** Cancel-confirmation preview: the SO's live (non-void) invoice number + amount paid. */
+export function useSoCancelPreview(soId: string | null) {
+  return useQuery({
+    queryKey: ['so-cancel-preview', soId],
+    enabled: !!soId,
+    staleTime: 10_000,
+    queryFn: async (): Promise<{ invoiceNumber: string | null; paidAmount: number }> => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('so_invoices')
+        .select('invoice_id, paid_amount')
+        .eq('sale_order_id', soId!)
+        .neq('status', 'void')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return { invoiceNumber: data?.invoice_id ?? null, paidAmount: Number(data?.paid_amount ?? 0) }
     },
   })
 }

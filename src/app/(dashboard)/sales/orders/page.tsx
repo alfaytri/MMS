@@ -25,6 +25,7 @@ import {
   useSaleOrders,
   useConfirmSO,
   useCancelSO,
+  useSoCancelPreview,
   useCustomers,
   type SaleOrder,
   type SOStatus,
@@ -190,6 +191,7 @@ export default function SaleOrdersPage() {
 
   const confirmSO = useConfirmSO()
   const cancelSO = useCancelSO()
+  const cancelPreview = useSoCancelPreview(cancelTarget?.id ?? null)
   const { data: paidMap } = useSOPaymentTotals()
 
   const { availableDivisions, isSuperViewer } = useActiveDivision()
@@ -268,7 +270,11 @@ export default function SaleOrdersPage() {
     const so = cancelTarget
     if (!so) return
     cancelSO.mutate(so.id, {
-      onSuccess: () => toast.success(`${so.so_number} cancelled`),
+      onSuccess: (res) => toast.success(
+        res.refund_amount > 0
+          ? `${so.so_number} cancelled — refund credit note ${res.refund_credit_note} opened`
+          : `${so.so_number} cancelled`,
+      ),
       onError: (e) => toast.error(humanizeDbError(e)),
     })
     setCancelTarget(null)
@@ -671,6 +677,15 @@ export default function SaleOrdersPage() {
               The sale order will remain visible with a <span className="font-semibold text-foreground">Cancelled</span> status. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {cancelPreview.data?.invoiceNumber ? (
+            cancelPreview.data.paidAmount > 0 ? (
+              <p className="px-6 text-sm text-amber-700">
+                This also voids {cancelPreview.data.invoiceNumber} and opens a {formatCurrency(cancelPreview.data.paidAmount, 'QAR')} refund credit note to settle.
+              </p>
+            ) : (
+              <p className="px-6 text-sm text-muted-foreground">This also voids {cancelPreview.data.invoiceNumber} (unpaid) — no refund.</p>
+            )
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>Keep order</AlertDialogCancel>
             <AlertDialogAction onClick={confirmCancel} disabled={cancelSO.isPending}>
