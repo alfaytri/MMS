@@ -9,6 +9,7 @@ import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
 import { DataTable } from '@/components/shared/DataTable'
 import { DataTableColumnHeader } from '@/components/shared/DataTableColumnHeader'
+import { InvoiceRegenerateButton } from '@/components/sales/InvoiceRegenerateButton'
 import { useCustomerInvoices } from '@/hooks/useCustomerInvoices'
 import { type ArInvoice } from '@/types/invoice'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
@@ -82,9 +83,12 @@ export default function CustomerInvoicesPage() {
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-sm font-semibold">{row.getValue('invoice_id')}</span>
           {row.original.needs_refresh && (
-            <span title="Needs review — SO was modified">
-              <AlertTriangle className="w-3 h-3 text-amber-500" />
-            </span>
+            <>
+              <span title="Needs review — the invoice changed, so its PDF is outdated">
+                <AlertTriangle className="w-3 h-3 text-amber-500" />
+              </span>
+              <InvoiceRegenerateButton invoiceId={row.original.id} />
+            </>
           )}
         </div>
       ),
@@ -235,7 +239,12 @@ export default function CustomerInvoicesPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-sm font-semibold">{inv.invoice_id}</span>
-                  {inv.needs_refresh && <AlertTriangle className="w-3 h-3 text-amber-500" />}
+                  {inv.needs_refresh && (
+                    <>
+                      <AlertTriangle className="w-3 h-3 text-amber-500" />
+                      <InvoiceRegenerateButton invoiceId={inv.id} />
+                    </>
+                  )}
                 </div>
                 <Badge className={cn('text-[10px] px-1.5 py-0', payCfg.className)}>{payCfg.label}</Badge>
               </div>
