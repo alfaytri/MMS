@@ -59,9 +59,8 @@ BEGIN
       OR sale_delivery_id IN (SELECT id FROM sale_deliveries WHERE sale_order_id = p_so_id);
   SELECT count(*) INTO v_moves
     FROM inventory_stock_movements
-   WHERE source_id IN (SELECT id FROM sale_deliveries WHERE sale_order_id = p_so_id)
-      OR source_id IN (SELECT id FROM sale_delivery_lines
-                        WHERE sale_delivery_id IN (SELECT id FROM sale_deliveries WHERE sale_order_id = p_so_id));
+   WHERE reference_type = 'sale_delivery'
+     AND reference_id IN (SELECT id FROM sale_deliveries WHERE sale_order_id = p_so_id);
   IF v_bad_deliv > 0 OR v_cogs > 0 OR v_moves > 0 THEN
     RAISE EXCEPTION 'rpc_cancel_sale_order: SO % has shipped stock — reverse it through Returns.', v_so.so_number
       USING ERRCODE = '42501';
