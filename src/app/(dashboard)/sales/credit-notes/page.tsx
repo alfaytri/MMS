@@ -12,11 +12,13 @@ import { CreditNoteFormDialog } from '@/components/sales/CreditNoteFormDialog'
 import { CreditDebitNoteDownloadButton } from '@/components/sales/CreditDebitNoteDownloadButton'
 import { CreditDebitNoteDetailDialog } from '@/components/sales/CreditDebitNoteDetailDialog'
 import { ApplyCreditNoteDialog } from '@/components/sales/ApplyCreditNoteDialog'
+import { SettleRefundDialog } from '@/components/sales/SettleRefundDialog'
 import {
   useCreditNotes,
   type CreditNote,
   type CreditNoteStatus,
 } from '@/hooks/useCreditNotes'
+import { useRefundsPayable, type RefundPayable } from '@/hooks/useRefundsPayable'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,10 +43,12 @@ export default function CreditNotesPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState<CreditNoteStatus | ''>('')
   const [applyTarget, setApplyTarget] = useState<CreditNote | null>(null)
+  const [settleTarget, setSettleTarget] = useState<RefundPayable | null>(null)
   const [detailNote, setDetailNote] = useState<CreditNote | null>(null)
   const searchParams = useSearchParams()
 
   const { data: allCreditNotes = [], isLoading: cnLoading } = useCreditNotes()
+  const { data: refundsDue = [] } = useRefundsPayable()
 
   // Deep-link support: `?cn=<id>` auto-opens the detail dialog once the list
   // has loaded. Used by the customer credit-balance popup (opens in new tab).
@@ -234,6 +238,30 @@ export default function CreditNotesPage() {
         </div>
       </div>
 
+      {/* Refunds due — cash owed back to customers from cancelled orders */}
+      {refundsDue.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/20 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">Refunds Due</span>
+            <Badge className="bg-amber-200 text-amber-800">{refundsDue.length}</Badge>
+            <span className="ml-auto text-xs text-amber-700 dark:text-amber-400">Cash owed back from cancelled orders</span>
+          </div>
+          <div className="space-y-1.5">
+            {refundsDue.map((r) => (
+              <div key={r.credit_note_id} className="flex items-center gap-3 rounded-md border bg-background px-3 py-2 text-sm">
+                <span className="font-mono font-medium">{r.note_number}</span>
+                {r.so_number && <span className="text-xs text-muted-foreground font-mono">{r.so_number}</span>}
+                {r.invoice_number && <span className="text-xs text-muted-foreground font-mono">{r.invoice_number}</span>}
+                <span className="ml-auto tabular-nums font-semibold text-amber-700">{formatCurrency(r.amount_remaining, r.currency)}</span>
+                <Button size="sm" variant="outline" className="min-h-11 md:min-h-0" onClick={() => setSettleTarget(r)}>
+                  Record refund
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filter toolbar */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</span>
@@ -307,6 +335,8 @@ export default function CreditNotesPage() {
         open={!!applyTarget}
         onOpenChange={(v) => { if (!v) setApplyTarget(null) }}
       />
+
+      <SettleRefundDialog refund={settleTarget} onClose={() => setSettleTarget(null)} />
     </PageWrapper>
   )
 }
