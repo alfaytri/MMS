@@ -634,7 +634,8 @@ export const NAV_TREE: TreeNode[] = [
       { key: 'teams.view',             label: 'View Teams & Employees', description: 'Open the Teams & Employees master-data page' },
       { key: 'teams.map.view',         label: 'View Map',               description: 'Open the field team map view' },
       { key: 'calendar.view',          label: 'View Calendar',          description: 'Open the field-service scheduling calendar' },
-      { key: 'teams.team_leader.view', label: 'Team Leader Mode',       description: 'Open the Team-Leader field app' },
+      { key: 'teams.team_leader.view',   label: 'Team Leader Mode',       description: 'Open the Team-Leader field app (a leader sees their own team)' },
+      { key: 'teams.team_leader.manage', label: 'Team Leader — All Teams', description: 'Monitor & manage every team\'s visits, not just your own' },
     ],
   },
   {

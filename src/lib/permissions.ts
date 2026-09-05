@@ -542,8 +542,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       {
         label: 'Team Leader',
         permissions: [
-          { key: 'teams.team_leader.view',   label: 'View Team Leader',   description: 'Access the Team Leader field execution page and monitor any team\'s visits' },
-          { key: 'teams.team_leader.manage', label: 'Manage Team Leader', description: 'Manage team leader assignments and field execution actions' },
+          { key: 'teams.team_leader.view',   label: 'View Team Leader',   description: 'Open the Team-Leader field app; a leader sees their own team\'s visits' },
+          { key: 'teams.team_leader.manage', label: 'Manage Team Leader', description: 'Monitor ANY team\'s visits + manage field execution (team-leader admin)' },
         ],
       },
       {

@@ -97,7 +97,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // ── Teams / Map / Calendar / Team Leader ──────────────────────────────
   { pathPrefix: '/map',         permission: 'teams.map.view' },
   { pathPrefix: '/calendar',    permission: 'calendar.view' },
-  { pathPrefix: '/team-leader', permission: 'teams.team_leader.view' },
+  { pathPrefix: '/team-leader', permission: ['teams.team_leader.view', 'teams.team_leader.manage'] },
 
   // ── Reports (per-report gating; longest matching prefix wins, ANY-of) ────
   { pathPrefix: '/reports/dashboard',             permission: ['reports.view', 'reports.dashboard.view'] },

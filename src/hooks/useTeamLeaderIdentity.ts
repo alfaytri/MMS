@@ -17,18 +17,25 @@ export function useTeamLeaderIdentity() {
       // Resolve profile
       const { data: profile, error: profileError } = await supabase
         .from('user_data')
-        .select('id, user_type, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
+        .select('id, user_type, user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions, is_system_admin))')
         .eq('auth_user_id', user.id)
         .maybeSingle()
 
       if (profileError || !profile) return null
 
-      // Check admin permission
-      const allPermissions: string[] = (profile.user_custom_roles ?? [])
-        .flatMap((r: { custom_roles: { permissions: string[] } | null }) =>
-          r.custom_roles?.permissions ?? []
-        )
-      const isAdmin = allPermissions.includes('teams.team_leader.view')
+      // F②: "monitor any team" is teams.team_leader.manage (was conflated with
+      // .view, which every field leader holds just to open the app). A plain
+      // field leader (only .view) is NOT isAdmin → no team selector, and the
+      // get_team_leader_visits guard scopes them to the team they actually lead.
+      // A system-admin role implicitly holds every permission — mirror the DB's
+      // _user_has_permission(is_system_admin) bypass so an admin still monitors
+      // all teams on the client, matching what the guard will allow.
+      const roles = (profile.user_custom_roles ?? []) as Array<{
+        custom_roles: { permissions: string[] | null; is_system_admin: boolean | null } | null
+      }>
+      const allPermissions: string[] = roles.flatMap((r) => r.custom_roles?.permissions ?? [])
+      const isSystemAdmin = roles.some((r) => r.custom_roles?.is_system_admin === true)
+      const isAdmin = isSystemAdmin || allPermissions.includes('teams.team_leader.manage')
 
       // Resolve teamId = the team this user is the LEADER of. teams.leader_id is
       // the single source of truth for "who leads a team" — it is set when a
