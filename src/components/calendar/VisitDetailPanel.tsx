@@ -2,7 +2,7 @@
 
 import {
   X, User, Phone, Clock, Users, ExternalLink, RefreshCw, ClipboardList,
-  CheckCircle2, Circle, FileText,
+  CheckCircle2, Circle, FileText, UserPlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -182,6 +182,11 @@ export function VisitDetailPanel({
             {visit.customer_phone && <Row icon={Phone}>{visit.customer_phone}</Row>}
             <Row icon={Clock}>{timeLabel}</Row>
             {teamName && <Row icon={Users}>{teamName}</Row>}
+            {visit.created_by_name && (
+              <Row icon={UserPlus}>
+                <span className="text-muted-foreground">Created by</span> {visit.created_by_name}
+              </Row>
+            )}
           </div>
 
           {/* Services */}
