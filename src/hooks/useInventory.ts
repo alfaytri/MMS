@@ -392,6 +392,10 @@ export type FifoLayer = {
   warehouse_name: string | null
   sub_container_id: string | null
   sub_container_name: string | null
+  // Division that owns the layer's sub-container pool. Null when the layer is
+  // unassigned (no sub_container) — such layers aren't attributable to any one
+  // division and are hidden when the inventory list is division-filtered.
+  sub_container_division_id: string | null
 }
 
 export type ToolAssetUnit = {
@@ -675,7 +679,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('fifo_cost_layers')
-        .select('id, brand_variant_id, receival_number, receival_id, source_type, source_id, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at, warehouse_id, warehouses!fifo_cost_layers_warehouse_id_fkey(name), sub_container_id, warehouse_sub_containers:sub_container_id(name)')
+        .select('id, brand_variant_id, receival_number, receival_id, source_type, source_id, date, qty, remaining_qty, unit_cost, landed_cost_per_unit, total_unit_cost, created_at, warehouse_id, warehouses!fifo_cost_layers_warehouse_id_fkey(name), sub_container_id, warehouse_sub_containers:sub_container_id(name, division_id)')
         .eq('brand_variant_id', brandVariantId!)
         .order('date', { ascending: true })
         .order('receival_number', { ascending: true })
@@ -699,7 +703,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
           warehouse_id: string | null
           warehouses: { name: string } | null
           sub_container_id: string | null
-          warehouse_sub_containers: { name: string } | null
+          warehouse_sub_containers: { name: string; division_id: string | null } | null
         }
         return {
           id: row.id,
@@ -719,6 +723,7 @@ export function useFifoLayers(brandVariantId: string | null, enabled = true) {
           warehouse_name: row.warehouses?.name ?? null,
           sub_container_id: row.sub_container_id,
           sub_container_name: row.warehouse_sub_containers?.name ?? null,
+          sub_container_division_id: row.warehouse_sub_containers?.division_id ?? null,
         }
       }) as FifoLayer[]
     },

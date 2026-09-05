@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useFifoLayers } from '@/hooks/useInventory'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useReceival } from '@/hooks/useReceivals'
 import { ReceivalDetailDialog } from '@/components/purchase/ReceivalDetailDialog'
 import { useHasPermission } from '@/hooks/usePermissions'
@@ -19,6 +20,26 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
   // and show a note when the user can't see inventory pricing.
   const canSeePricing = useHasPermission('inventory.pricing.view')
   const { data: layers = [], isLoading } = useFifoLayers(brandVariantId, canSeePricing)
+
+  // Division scope — keep the cost-layer list consistent with the division
+  // filter the parent variant row already applies to its stock numbers. When
+  // one or more divisions are in the view set, show only layers whose
+  // sub-container belongs to an active division; an empty set = "All" shows
+  // every layer (unchanged). Layers with no sub-container carry no division and
+  // drop out of a filtered view, mirroring how division-scoped stock ignores
+  // unassigned pools. Filtered client-side so the fetch stays division-agnostic
+  // (one cached query per variant, re-filtered instantly as the filter changes).
+  const { viewDivisionIds } = useActiveDivision()
+  const scopedLayers = useMemo(
+    () =>
+      viewDivisionIds.size === 0
+        ? layers
+        : layers.filter(
+            (l) => l.sub_container_division_id && viewDivisionIds.has(l.sub_container_division_id),
+          ),
+    [layers, viewDivisionIds],
+  )
+
   const [viewingReceivalId, setViewingReceivalId] = useState<string | null>(null)
   const { data: receivalDetail } = useReceival(viewingReceivalId)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
@@ -27,8 +48,8 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
   // Same-warehouse (then same-sub-container) layers stay contiguous, groups keep
   // their first-appearance order, and FIFO/date order is preserved within each.
   const orderedLayers = useMemo(() => {
-    const whGroups = new Map<string, Map<string, typeof layers>>()
-    for (const l of layers) {
+    const whGroups = new Map<string, Map<string, typeof scopedLayers>>()
+    for (const l of scopedLayers) {
       const wh = l.warehouse_name ?? '—'
       const sub = l.sub_container_name ?? '—'
       let subMap = whGroups.get(wh)
@@ -37,12 +58,12 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
       if (g) g.push(l)
       else subMap.set(sub, [l])
     }
-    const out: typeof layers = []
+    const out: typeof scopedLayers = []
     for (const subMap of whGroups.values())
       for (const g of subMap.values())
         out.push(...g)
     return out
-  }, [layers])
+  }, [scopedLayers])
 
   // Cost gate — the FIFO layer breakdown is entirely cost data. Show a note when
   // the user can't see inventory pricing. (After the hooks above so hook order
@@ -56,7 +77,7 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
   }
 
   const visibleLayers = orderedLayers.slice(0, visibleCount)
-  const shownCount = Math.min(visibleCount, layers.length)
+  const shownCount = Math.min(visibleCount, scopedLayers.length)
 
   return (
     <>
@@ -91,10 +112,12 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
                 ))}
               </>
             )}
-            {!isLoading && layers.length === 0 && (
+            {!isLoading && scopedLayers.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-[11px] text-muted-foreground py-4">
-                  No cost layers recorded
+                  {layers.length > 0
+                    ? 'No cost layers in the selected division'
+                    : 'No cost layers recorded'}
                 </TableCell>
               </TableRow>
             )}
@@ -181,12 +204,12 @@ export function FifoLayersTable({ brandVariantId }: { brandVariantId: string }) 
         </Table>
       </div>
 
-      {!isLoading && layers.length > PAGE_SIZE && (
+      {!isLoading && scopedLayers.length > PAGE_SIZE && (
         <div className="mt-1.5 flex items-center justify-center gap-3">
           <span className="text-[10px] text-muted-foreground tabular-nums">
-            Showing {shownCount} of {layers.length}
+            Showing {shownCount} of {scopedLayers.length}
           </span>
-          {visibleCount < layers.length && (
+          {visibleCount < scopedLayers.length && (
             <Button
               variant="ghost"
               size="sm"
