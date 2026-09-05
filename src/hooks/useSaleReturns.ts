@@ -501,6 +501,7 @@ export function useUpdateReturnStatus() {
       if (ret.finalize) {
         // The SO was cancelled + invoice voided + (maybe) refund CN opened.
         queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+        queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(ret.source_id) })
         queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
         queryClient.invalidateQueries({ queryKey: ['refunds-payable'] })
         queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
@@ -738,6 +739,7 @@ export function useAssignWarehouseAndRestock() {
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
       if (ret.finalize) {
         queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+        queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(ret.source_id) })
         queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
         queryClient.invalidateQueries({ queryKey: ['refunds-payable'] })
         queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })

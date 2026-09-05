@@ -248,9 +248,13 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
 
               <p className="text-xs text-muted-foreground">{formatDate(ret.date)} · {ret.reason}</p>
 
-              <ReturnLedgerSummary returnId={ret.id} />
+              {/* Cancel-returns settle the customer via the SO cancel's refund CN,
+                  not a return resolution — so the customer-ledger summary and
+                  "Resolve Remaining" don't apply (they'd read a misleading
+                  "remaining"). The "Cancelled …" chip conveys the outcome. */}
+              {!ret.cancels_sale_order && <ReturnLedgerSummary returnId={ret.id} />}
 
-              {onSendReplacement && ret.status === 'restocked' && (
+              {!ret.cancels_sale_order && onSendReplacement && ret.status === 'restocked' && (
                 <ResolveRemainingButton
                   returnId={ret.id}
                   onClick={() => onSendReplacement(ret)}
