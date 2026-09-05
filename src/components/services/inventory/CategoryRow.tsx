@@ -2,16 +2,16 @@
 
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo, useEffect } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus, Tags } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus, Tags, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ItemRow } from './ItemRow'
+import { InventoryRemoveDialog } from './InventoryRemoveDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ItemEditDialog } from './ItemEditDialog'
 import { CategoryAttributesDialog } from '@/components/master-data/attributes/CategoryAttributesDialog'
 import { useHasViewPermission, useHasPermission, useInventoryCatalogPerms } from '@/hooks/usePermissions'
-import { useInventoryItemsByCategory, useArchiveInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
+import { useInventoryItemsByCategory, useArchiveInventoryCategory, useDeleteInventoryCategory, useUpdateSortOrders, type CategoryStockAggregate } from '@/hooks/useInventory'
 import { reorderSiblings } from '@/lib/inventory/reorder'
 import {
   useItemAttributesByCategory,
@@ -79,6 +79,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   const [addItemOpen, setAddItemOpen] = useState(false)
   const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [attributesOpen, setAttributesOpen] = useState(false)
   // Brief highlight when this row is reordered, so the eye follows it as it
   // jumps. Transition-based (inline bg) rather than a keyframe animation, so it
@@ -95,6 +96,7 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   const canSeePricing = useHasPermission('inventory.pricing.view')
   const { canCreate, canEdit } = useInventoryCatalogPerms()
   const archiveCategory = useArchiveInventoryCategory()
+  const deleteCategory = useDeleteInventoryCategory()
   const updateItemOrder = useUpdateSortOrders('inventory_items')
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
 
@@ -249,6 +251,19 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
   const indent = 12 + depth * 20
   const depthStyle = categoryDepthStyle(depth)
 
+  // Guard qty for archive/delete — the recursive subtree rollup (matches the
+  // server's _inv_category_stock_units). Undefined agg (no variants) ⇒ 0.
+  const catAgg = stockAggregates?.get(node.id) as (CategoryStockAggregate & { total_incoming?: number | string }) | undefined
+  const catBlockingBreakdown = catAgg
+    ? [
+        { label: 'On hand',  units: Math.abs(Number(catAgg.total_stock ?? 0)) },
+        { label: 'Reserved', units: Math.abs(Number(catAgg.total_reserved ?? 0)) },
+        { label: 'Damaged',  units: Math.abs(Number(catAgg.total_damaged ?? 0)) },
+        { label: 'Incoming', units: Math.abs(Number(catAgg.total_incoming ?? 0)) },
+      ].filter((b) => b.units > 0)
+    : []
+  const catBlockingUnits = catBlockingBreakdown.reduce((s, b) => s + b.units, 0)
+
   // Ancestor's attribute filter pruned this branch — nothing to show at
   // this row or below. Skip render entirely (parent stays visible). Placed
   // after all hooks so the Rules of Hooks stay satisfied.
@@ -367,6 +382,11 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
                 <Archive className="h-3 w-3" />
               </Button>
             )}
+            {canEdit && (
+              <Button variant="ghost" size="icon" aria-label="Delete category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         </td>
       </tr>
@@ -453,16 +473,34 @@ export function CategoryRow({ node, categoryType, showArchived, canMoveUp, canMo
           categoryName={node.name_en}
         />
       )}
-      <ConfirmDialog
+      <InventoryRemoveDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
-        title="Archive Category"
-        description={`Archive "${node.name_en}"? All items in this category will be hidden.`}
-        confirmLabel="Archive"
-        variant="destructive"
+        action="archive"
+        entity="category"
+        name={node.name_en}
+        blockingUnits={catBlockingUnits}
+        breakdown={catBlockingBreakdown}
+        isPending={archiveCategory.isPending}
         onConfirm={() =>
           archiveCategory.mutate(node.id, {
             onSuccess: () => { toast.success('Category archived'); setArchiveOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="category"
+        name={node.name_en}
+        blockingUnits={catBlockingUnits}
+        breakdown={catBlockingBreakdown}
+        isPending={deleteCategory.isPending}
+        onConfirm={() =>
+          deleteCategory.mutate(node.id, {
+            onSuccess: () => { toast.success('Category deleted'); setDeleteOpen(false) },
             onError: (err) => toast.error(humanizeDbError(err)),
           })
         }

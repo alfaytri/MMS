@@ -2,15 +2,16 @@
 
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, PackagePlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, PackagePlus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { FifoLayersTable } from './FifoLayersTable'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
+import { InventoryRemoveDialog } from './InventoryRemoveDialog'
 import { InventoryReceivalDialog } from '@/components/inventory/InventoryReceivalDialog'
-import { useArchiveInventoryBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
+import { useArchiveInventoryBrandVariant, useDeleteInventoryBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
+import { variantStockUnits } from '@/lib/inventory/stockUnits'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCanCreateInventoryReceivals } from '@/hooks/useInventoryReceivals'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
@@ -116,8 +117,11 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
   const [fifoOpen, setFifoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [invReceivalOpen, setInvReceivalOpen] = useState(false)
   const archive = useArchiveInventoryBrandVariant()
+  const del = useDeleteInventoryBrandVariant()
+  const blockingUnits = variantStockUnits(variant)
   const { data: canCreateInvRcv = false } = useCanCreateInventoryReceivals()
   const canSeePricing = useHasPermission('inventory.pricing.view')
   const { canEdit } = useInventoryCatalogPerms()
@@ -214,6 +218,9 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
                 <Button variant="ghost" size="icon" aria-label="Archive variant" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
                   <Archive className="h-3 w-3" />
                 </Button>
+                <Button variant="ghost" size="icon" aria-label="Delete variant" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </>
             )}
           </div>
@@ -238,16 +245,32 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
         variantCode={variant.code ?? '—'}
       />
 
-      <ConfirmDialog
+      <InventoryRemoveDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
-        title="Archive Brand Variant"
-        description={`Archive "${displayBrand}"? It will be hidden from the inventory view.`}
-        confirmLabel="Archive"
-        variant="destructive"
+        action="archive"
+        entity="variant"
+        name={displayBrand}
+        blockingUnits={blockingUnits}
+        isPending={archive.isPending}
         onConfirm={() =>
           archive.mutate(variant.id, {
             onSuccess: () => { toast.success('Variant archived'); setArchiveOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="variant"
+        name={displayBrand}
+        blockingUnits={blockingUnits}
+        isPending={del.isPending}
+        onConfirm={() =>
+          del.mutate(variant.id, {
+            onSuccess: () => { toast.success('Variant deleted'); setDeleteOpen(false) },
             onError: (err) => toast.error(humanizeDbError(err)),
           })
         }

@@ -591,13 +591,11 @@ export function useArchiveInventoryItem() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { data: old } = await supabase
-        .from('inventory_items').select('*').eq('id', id).maybeSingle()
-      const { error } = await supabase
-        .from('inventory_items')
-        .update({ status: 'archived' })
-        .eq('id', id)
+        .from('inventory_items').select('name_en').eq('id', id).maybeSingle()
+      // Guarded RPC: refuses if the item still holds any stock (qty ≠ 0).
+      const { error } = await supabase.rpc('rpc_archive_inventory_item' as never, { p_item_id: id } as never)
       if (error) throw error
-      const name = (old as { name?: string } | null)?.name ?? null
+      const name = (old as { name_en?: string } | null)?.name_en ?? null
       void logActivity({
         action: 'Item Archived',
         module: 'inventory',
@@ -606,6 +604,36 @@ export function useArchiveInventoryItem() {
         severity: 'warning',
         old_data: { name, status: 'active' },
         new_data: { name, status: 'archived' },
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+    },
+  })
+}
+
+// Hard-delete an item — guarded RPC refuses unless empty (qty = 0) AND
+// never-transacted (else surfaces "Archive it instead"). Cascades to its
+// (empty) variants.
+export function useDeleteInventoryItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_items').select('name_en').eq('id', id).maybeSingle()
+      const { error } = await supabase.rpc('rpc_delete_inventory_item' as never, { p_item_id: id } as never)
+      if (error) throw error
+      const name = (old as { name_en?: string } | null)?.name_en ?? null
+      void logActivity({
+        action: 'Item Deleted',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'item',
+        severity: 'warning',
+        old_data: { name },
+        new_data: null,
       })
     },
     onSuccess: () => {
@@ -645,11 +673,9 @@ export function useArchiveInventoryBrandVariant() {
     mutationFn: async (id: string) => {
       const supabase = createClient()
       const { data: old } = await supabase
-        .from('inventory_item_brand_variants').select('*').eq('id', id).maybeSingle()
-      const { error } = await supabase
-        .from('inventory_item_brand_variants')
-        .update({ status: 'archived' })
-        .eq('id', id)
+        .from('inventory_item_brand_variants').select('brand').eq('id', id).maybeSingle()
+      // Guarded RPC: refuses if the variant still holds any stock (qty ≠ 0).
+      const { error } = await supabase.rpc('rpc_archive_inventory_variant' as never, { p_variant_id: id } as never)
       if (error) throw error
       const brand = (old as { brand?: string } | null)?.brand ?? null
       void logActivity({
@@ -660,6 +686,35 @@ export function useArchiveInventoryBrandVariant() {
         severity: 'warning',
         old_data: { name: brand, status: 'active' },
         new_data: { name: brand, status: 'archived' },
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemVariantsBatch })
+    },
+  })
+}
+
+// Hard-delete a single variant — guarded RPC refuses unless empty (qty = 0)
+// AND never-transacted (else "Archive it instead").
+export function useDeleteInventoryBrandVariant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_item_brand_variants').select('brand').eq('id', id).maybeSingle()
+      const { error } = await supabase.rpc('rpc_delete_inventory_variant' as never, { p_variant_id: id } as never)
+      if (error) throw error
+      const brand = (old as { brand?: string } | null)?.brand ?? null
+      void logActivity({
+        action: 'Brand Variant Deleted',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'brand_variant',
+        severity: 'warning',
+        old_data: { name: brand },
+        new_data: null,
       })
     },
     onSuccess: () => {
@@ -1062,6 +1117,38 @@ export function useArchiveInventoryCategory() {
         severity: 'warning',
         old_data: { name: catName, status: 'active' },
         new_data: { name: catName, status: 'archived' },
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+    },
+  })
+}
+
+// Hard-delete a category — guarded RPC refuses unless the whole subtree has
+// zero stock AND the category is structurally empty (no sub-categories, no
+// items). Anything with history → "Archive it instead."
+export function useDeleteInventoryCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (categoryId: string) => {
+      const supabase = createClient()
+      const { data: cat } = await supabase
+        .from('inventory_categories').select('name_en').eq('id', categoryId).maybeSingle()
+      const { error } = await supabase.rpc('rpc_delete_inventory_category' as never, { p_category_id: categoryId } as never)
+      if (error) throw error
+      const catName = (cat as { name_en?: string } | null)?.name_en ?? null
+      void logActivity({
+        action: 'Category Deleted',
+        module: 'inventory',
+        entity_id: categoryId,
+        entity_type: 'category',
+        severity: 'warning',
+        old_data: { name: catName },
+        new_data: null,
       })
     },
     onSuccess: () => {

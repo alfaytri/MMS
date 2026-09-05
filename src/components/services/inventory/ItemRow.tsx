@@ -2,19 +2,20 @@
 
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useState, useMemo } from 'react'
-import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronRight, ChevronDown, Pencil, Archive, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { AttributeChipStrip } from '@/components/shared/AttributeChipStrip'
 import { BrandGroupRow } from './BrandGroupRow'
+import { InventoryRemoveDialog } from './InventoryRemoveDialog'
 import { VARIANT_COLUMN_COUNT } from './OriginVariantRow'
 import { ItemEditDialog } from './ItemEditDialog'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
-import { useInventoryBrandVariants, useArchiveInventoryItem, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
+import { useInventoryBrandVariants, useArchiveInventoryItem, useDeleteInventoryItem, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
+import { totalStockUnits, stockBreakdown } from '@/lib/inventory/stockUnits'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useItemVariantDivisionStock } from '@/hooks/useItemVariantDivisionStock'
 import { useItemVariantsContext } from '@/components/shared/ItemVariantsContext'
@@ -61,6 +62,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
   const [editOpen, setEditOpen] = useState(false)
   const [addVariantOpen, setAddVariantOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   // Brief highlight on reorder (transition-based, see CategoryRow).
   const [flashing, setFlashing] = useState(false)
   function flashMove(fn: () => void) {
@@ -69,6 +71,7 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
     window.setTimeout(() => setFlashing(false), 650)
   }
   const archive = useArchiveInventoryItem()
+  const del = useDeleteInventoryItem()
   const canSeePricing = useHasPermission('inventory.pricing.view')
   const { canCreate, canEdit } = useInventoryCatalogPerms()
 
@@ -121,6 +124,9 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
 
   const totalAtp = effectiveVariants.reduce((sum, v) => sum + (v.stock_level ?? 0) - (v.reserved_qty ?? 0), 0)
   const totalDamaged = effectiveVariants.reduce((sum, v) => sum + (v.damaged_qty ?? 0), 0)
+  // Guard qty: global (NOT division-scoped) since delete/archive act globally.
+  const blockingUnits = totalStockUnits(variants)
+  const blockingBreakdown = stockBreakdown(variants)
   const minReorder = Math.min(...effectiveVariants.map((v) => v.reorder_point ?? 0), Infinity)
   const reorderPoint = isFinite(minReorder) ? minReorder : 0
   const linkedCount = item.linked_services_count ?? 0
@@ -214,6 +220,11 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
                 <Archive className="h-3 w-3" />
               </Button>
             )}
+            {canEdit && (
+              <Button variant="ghost" size="icon" aria-label="Delete item" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         </td>
       </tr>
@@ -269,16 +280,34 @@ export function ItemRow({ item, categoryType, showArchived, canMoveUp, canMoveDo
 
       <ItemEditDialog open={editOpen} onOpenChange={setEditOpen} categoryId={item.category_id} categoryType={categoryType} item={item} />
       <BrandVariantEditDialog open={addVariantOpen} onOpenChange={setAddVariantOpen} itemId={item.id} />
-      <ConfirmDialog
+      <InventoryRemoveDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
-        title="Archive Item"
-        description={`Archive "${item.name_en}"? All variants will be hidden.`}
-        confirmLabel="Archive"
-        variant="destructive"
+        action="archive"
+        entity="item"
+        name={item.name_en}
+        blockingUnits={blockingUnits}
+        breakdown={blockingBreakdown}
+        isPending={archive.isPending}
         onConfirm={() =>
           archive.mutate(item.id, {
             onSuccess: () => { toast.success('Item archived'); setArchiveOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="item"
+        name={item.name_en}
+        blockingUnits={blockingUnits}
+        breakdown={blockingBreakdown}
+        isPending={del.isPending}
+        onConfirm={() =>
+          del.mutate(item.id, {
+            onSuccess: () => { toast.success('Item deleted'); setDeleteOpen(false) },
             onError: (err) => toast.error(humanizeDbError(err)),
           })
         }
