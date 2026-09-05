@@ -9,6 +9,7 @@ import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 import type { Json } from '@/types/database.types'
+import { effectiveUnitPrice } from '@/lib/orders/pricing'
 
 // Use LOCAL date components, not toISOString() — the latter returns UTC and
 // flips to "yesterday" for any local time between 00:00 and the UTC offset
@@ -292,13 +293,14 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
       // the attachments folder, and the saved order all agree; fall back only if
       // it's absent or a leftover site-visit id from a prior type toggle.
       const orderId = draft.orderId && !draft.orderId.startsWith('V/') ? draft.orderId : await generateIdForKind()
-      const totalAmount = draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount
+      // Emergency orders bill each service's emergency_price (fallback base).
+      const totalAmount = draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0) - draft.voucherDiscount
 
       const servicesPayload = draft.services.map((s) => ({
         service_id: s.serviceId,
         name: s.serviceName,
         qty: s.qty,
-        price: s.price,
+        price: effectiveUnitPrice(s, draft.mode),
         duration: s.duration,
         path: s.path,
         configuration: s.configuration ?? null,
@@ -324,7 +326,7 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
         }
       })
 
-      const { data: newOrderId, error } = await supabase.rpc('create_order_with_dates', {
+      const orderArgs = {
         p_order_id:            orderId,
         p_service_customer_id: draft.customerId,
         p_type:           draft.type,
@@ -341,7 +343,14 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
         p_assignments:    assignmentsPayload as unknown as Json,
         p_address_id:     draft.addressId ?? undefined,
         p_created_by:     createdBy ?? undefined,
-      })
+      }
+      // p_is_emergency is new on the RPC (generated types not regenerated yet);
+      // assert back to the known-args shape so the extra field passes through
+      // at runtime while the rest of the args stay type-checked.
+      const { data: newOrderId, error } = await supabase.rpc('create_order_with_dates', {
+        ...orderArgs,
+        p_is_emergency: draft.mode === 'emergency',
+      } as typeof orderArgs)
 
       if (error) {
         if (error.message?.startsWith('slot_conflict:')) {

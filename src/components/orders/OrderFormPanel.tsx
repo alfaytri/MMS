@@ -18,6 +18,7 @@ import { useUserCompanyDivisions } from '@/hooks/useUserCompanyDivisions'
 import { cn } from '@/lib/utils'
 import { SiteVisitCard } from './SiteVisitCard'
 import type { OrderDraft, OrderServiceDraft, CustomerAddress, OrderType, VisitDateWindow } from '@/types/orders'
+import { effectiveUnitPrice } from '@/lib/orders/pricing'
 
 const COUNTRY_CODES = [
   { code: '+974', label: 'QA +974' },
@@ -256,6 +257,7 @@ export function OrderFormPanel({
                         <SelectedServiceCard
                           key={s.serviceId}
                           service={s}
+                          unitPrice={effectiveUnitPrice(s, draft.mode)}
                           onRemove={onRemoveService}
                           onQtyChange={onUpdateServiceQty}
                           onTimeChange={onUpdateServiceTime}
@@ -419,7 +421,7 @@ export function OrderFormPanel({
           <div className="mx-5 mb-5 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 px-4 py-3 flex items-center justify-between">
             <span className="text-sm text-muted-foreground font-medium">Total</span>
             <span className="text-lg font-bold text-foreground">
-              QAR {draft.services.reduce((sum, s) => sum + s.price * s.qty, 0).toFixed(0)}
+              QAR {draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0).toFixed(0)}
             </span>
           </div>
         )}

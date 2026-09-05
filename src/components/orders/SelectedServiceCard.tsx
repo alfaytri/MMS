@@ -11,6 +11,9 @@ interface Props {
   onQtyChange: (serviceId: string, qty: number) => void
   onTimeChange: (serviceId: string, fromTime: string | null, toTime: string | null) => void
   isOverlay?: boolean
+  /** Effective unit price to display (e.g. emergency_price on an emergency
+   *  order). Falls back to the service's base price when omitted. */
+  unitPrice?: number
   /** When true, hides the per-service arrival window time grid (e.g. in quotation form) */
   hideTimeControls?: boolean
   /** When true, hides the drag handle (use when the day-window is the drag target instead) */
@@ -25,6 +28,7 @@ export function SelectedServiceCard({
   onQtyChange,
   onTimeChange,
   isOverlay = false,
+  unitPrice,
   hideTimeControls = false,
   hideDragHandle = false,
   visitDate,
@@ -101,7 +105,7 @@ export function SelectedServiceCard({
           )}
 
           <span className="ml-auto text-xs font-semibold text-foreground">
-            QAR {(service.price * service.qty).toFixed(0)}
+            QAR {((unitPrice ?? service.price) * service.qty).toFixed(0)}
           </span>
         </div>
 

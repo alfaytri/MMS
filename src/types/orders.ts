@@ -63,6 +63,9 @@ export interface OrderServiceDraft {
   path: string[]
   qty: number
   price: number
+  /** Service's emergency_price (if any) — billed instead of `price` when the
+   *  order mode is 'emergency'. See lib/orders/pricing.effectiveUnitPrice. */
+  emergencyPrice?: number | null
   duration: number
   /** Division slug derived from the service node's division tags (first entry) */
   division?: string

@@ -11,6 +11,7 @@ interface ServiceNode {
   name_en: string
   parent_id: string | null
   price: number | null
+  emergency_price: number | null
   duration: number | null
   division: string[] | null
 }
@@ -80,6 +81,7 @@ export function ServiceSelector({ onAdd, divisionFilters = [], treeType = 'norma
       path: pathNames,
       qty,
       price: lastSelected.price ?? 0,
+      emergencyPrice: lastSelected.emergency_price ?? null,
       duration: lastSelected.duration ?? 0,
       division: lastSelected.division?.[0] ?? '',
       rootSkillId: lastSelected.id as string,
