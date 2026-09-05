@@ -28,9 +28,11 @@ import {
   useSOPayments,
   useCancelSO,
   useSoCancelPreview,
+  soHasShipped,
   type SaleOrder,
   type SaleDelivery,
 } from '@/hooks/useSaleOrders'
+import { CreateReturnDialog } from '@/components/sales/CreateReturnDialog'
 import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery, useRecordInventoryDisposition } from '@/hooks/useSaleDeliveries'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
@@ -121,6 +123,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
   const cancelSO = useCancelSO()
   const [cancelSOOpen, setCancelSOOpen] = useState(false)
+  const [cancelReturnOpen, setCancelReturnOpen] = useState(false)
   const cancelDelivery = useCancelDelivery()
   const completeDelivery = useCompleteDelivery()
   const updateDelivery = useUpdateDelivery()
@@ -164,9 +167,11 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
   const canConfirm = current?.status === 'quotation'
   const canEdit = current?.status === 'quotation'
-  // Cancel is offered for any live SO (incl. invoiced/delivered); the server RPC
-  // gates shipped-stock ones and points them to Returns.
+  // Cancel is offered for any live SO (incl. invoiced/delivered). Shipped SOs
+  // route to "Cancel & Return Everything" (Phase 2 — returns the goods then
+  // finalizes the cancel); un-shipped SOs use the money-path cancel RPC.
   const canCancel = current && !['cancelled', 'closed'].includes(current.status)
+  const isShipped = soHasShipped(current)
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const paymentStatus: 'paid' | 'partial' | 'unpaid' =
@@ -583,9 +588,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   size="sm"
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   disabled={cancelSO.isPending}
-                  onClick={() => setCancelSOOpen(true)}
+                  onClick={() => (isShipped ? setCancelReturnOpen(true) : setCancelSOOpen(true))}
                 >
-                  {cancelSO.isPending ? 'Cancelling…' : 'Cancel SO'}
+                  {cancelSO.isPending ? 'Cancelling…' : isShipped ? 'Cancel & Return Everything' : 'Cancel SO'}
                 </Button>
               )}
               {canConfirm && onConfirm && (
@@ -824,6 +829,19 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Cancel & Return Everything (shipped SOs) — pre-filled return that
+          finalizes the SO cancel on restock. */}
+      {current && cancelReturnOpen && (
+        <CreateReturnDialog
+          open
+          cancelMode
+          onOpenChange={(o) => { if (!o) setCancelReturnOpen(false) }}
+          so={current}
+          fullSO={fullSO ?? null}
+          existingReturns={soReturns}
+        />
+      )}
 
       {/* Delivery form (used when SO has no division and the operator must pick a sub-container) */}
       {formDeliveryId && (() => {

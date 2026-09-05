@@ -186,7 +186,9 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
           }
           const canAdvance = ret.status === 'pending' || ret.status === 'received'
           const needsInspection = ret.status === 'pending_inspection'
-          const needsCreditNote = !ret.credit_note_id &&
+          // Cancel-returns (Phase 2) carry NO return credit note — the SO cancel's
+          // refund CN is the money instrument — so never prompt to create one.
+          const needsCreditNote = !ret.credit_note_id && !ret.cancels_sale_order &&
             (ret.status === 'restocked' || ret.status === 'closed')
 
           return (
@@ -194,6 +196,14 @@ export function SoReturnsTab({ so, fullSO, soReturns, invoiceId, onSendReplaceme
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-sm font-medium">{ret.return_number}</span>
+                  {ret.cancels_sale_order && (
+                    <span
+                      title="Restocking this return cancels the sale order: the invoice is voided and, for any amount paid, a refund credit note is opened."
+                      className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive"
+                    >
+                      {ret.status === 'restocked' ? `Cancelled ${so.so_number}` : `Will cancel ${so.so_number} on restock`}
+                    </span>
+                  )}
                   <ReplacementChips returnId={ret.id} />
                   <CompensationMissingChip returnId={ret.id} />
                 </div>

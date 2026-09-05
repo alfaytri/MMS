@@ -37,6 +37,7 @@ export type SaleReturn = {
   notes: string | null
   status: SaleReturnStatus
   credit_note_id: string | null
+  cancels_sale_order: boolean  // Phase 2: this return is the vehicle for a full SO cancellation
   warranty_claim_id: string | null  // set when this return was spawned by a warranty claim
   credit_note?: import('@/hooks/useCreditNotes').CreditNote | null  // full object for inline detail view
   created_by_name: string | null
@@ -205,6 +206,7 @@ export function useCreateSaleReturn() {
       }[]
       restock_warehouse_id: string | null
       notes: string | null
+      cancels_sale_order?: boolean  // Phase 2: full-cancellation return (no return CN; auto-finalizes the SO cancel on restock)
       // If ANY item is condition='inspection', the return is created in
       // status='pending_inspection' — restock is blocked until the
       // inspection is completed via rpc_complete_return_inspection.
@@ -253,9 +255,12 @@ export function useCreateSaleReturn() {
           restock_warehouse_id: payload.restock_warehouse_id,
           notes: payload.notes,
           status: initialStatus,
+          // cancels_sale_order lags the generated types (new column) — cast per
+          // the codebase convention for PostgREST type lag.
+          cancels_sale_order: payload.cancels_sale_order ?? false,
           created_by: createdById,
           created_by_name: createdByName,
-        })
+        } as never)
         .select()
         .single()
       if (error) throw error
@@ -428,18 +433,34 @@ async function createCreditNoteForReturn(
     .eq('id', returnId)
 }
 
+// Phase 2: shape returned by rpc_finalize_shipped_so_cancel (void invoice +
+// refund CN for amount paid + cancel the SO). Mirrors the Phase-1 cancel result.
+export type CancelFinalizeResult = {
+  action:             'cancelled' | 'noop'
+  invoice_voided?:    boolean
+  invoice_number?:    string | null
+  refund_credit_note?: string | null
+  refund_amount?:     number
+  return_number?:     string
+}
+
 export function useUpdateReturnStatus() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: SaleReturn['status'] }) => {
       const supabase = createClient()
 
-      const { data: ret, error: fetchErr } = await supabase
+      const { data: retRaw, error: fetchErr } = await supabase
         .from('so_po_returns')
-        .select('source_id, return_number, reason, return_lines(*)')
+        .select('source_id, return_number, reason, cancels_sale_order, return_lines(*)')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
+      // cancels_sale_order lags the generated types (new column) — cast per convention.
+      const ret = retRaw as unknown as {
+        source_id: string; return_number: string; reason: string
+        cancels_sale_order: boolean; return_lines: NonNullable<SaleReturn['return_lines']>
+      }
 
       const { error } = await supabase
         .from('so_po_returns')
@@ -447,16 +468,27 @@ export function useUpdateReturnStatus() {
         .eq('id', id)
       if (error) throw error
 
+      let finalize: CancelFinalizeResult | undefined
       if (status === 'restocked') {
         const { error: rpcError } = await supabase
           .rpc('rpc_process_return_restock', { p_return_id: id })
         if (rpcError) throw rpcError
 
-        // Auto-create credit note
-        await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret.return_lines ?? []) as NonNullable<SaleReturn['return_lines']> })
+        if (ret.cancels_sale_order) {
+          // Phase 2: a cancel-return has NO return credit note — the SO cancel's
+          // refund CN (for the amount actually paid) is the money instrument.
+          // Finalize voids the invoice + opens that refund CN + cancels the SO.
+          const { data: fin, error: finErr } = await supabase
+            .rpc('rpc_finalize_shipped_so_cancel' as never, { p_so_id: ret.source_id } as never)
+          if (finErr) throw finErr
+          finalize = fin as unknown as CancelFinalizeResult
+        } else {
+          // Auto-create credit note
+          await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret.return_lines ?? []) as NonNullable<SaleReturn['return_lines']> })
+        }
       }
 
-      return ret as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
+      return { ...ret, finalize } as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string; finalize?: CancelFinalizeResult }
     },
     onSuccess: (ret, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
@@ -465,6 +497,13 @@ export function useUpdateReturnStatus() {
       if (variables.status === 'restocked') {
         queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
         queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      }
+      if (ret.finalize) {
+        // The SO was cancelled + invoice voided + (maybe) refund CN opened.
+        queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+        queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+        queryClient.invalidateQueries({ queryKey: ['refunds-payable'] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
       }
       const label: Record<SaleReturn['status'], string> = {
         pending:            'Return Marked Pending',
@@ -657,12 +696,17 @@ export function useAssignWarehouseAndRestock() {
         .eq('id', id)
       if (whErr) throw whErr
 
-      const { data: ret, error: fetchErr } = await supabase
+      const { data: retRaw, error: fetchErr } = await supabase
         .from('so_po_returns')
-        .select('source_id, return_number, reason, return_lines(*)')
+        .select('source_id, return_number, reason, cancels_sale_order, return_lines(*)')
         .eq('id', id)
         .single()
       if (fetchErr) throw fetchErr
+      // cancels_sale_order lags the generated types (new column) — cast per convention.
+      const ret = retRaw as unknown as {
+        source_id: string; return_number: string; reason: string
+        cancels_sale_order: boolean; return_lines: NonNullable<SaleReturn['return_lines']>
+      }
 
       const { error: statusErr } = await supabase
         .from('so_po_returns')
@@ -674,9 +718,17 @@ export function useAssignWarehouseAndRestock() {
         .rpc('rpc_process_return_restock', { p_return_id: id })
       if (rpcError) throw rpcError
 
-      await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret.return_lines ?? []) as NonNullable<SaleReturn['return_lines']> })
+      let finalize: CancelFinalizeResult | undefined
+      if (ret.cancels_sale_order) {
+        const { data: fin, error: finErr } = await supabase
+          .rpc('rpc_finalize_shipped_so_cancel' as never, { p_so_id: ret.source_id } as never)
+        if (finErr) throw finErr
+        finalize = fin as unknown as CancelFinalizeResult
+      } else {
+        await createCreditNoteForReturn(supabase, id, { ...ret, return_lines: (ret.return_lines ?? []) as NonNullable<SaleReturn['return_lines']> })
+      }
 
-      return ret as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string }
+      return { ...ret, finalize } as { source_id: string; return_number: string; return_lines: NonNullable<SaleReturn['return_lines']>; reason: string; finalize?: CancelFinalizeResult }
     },
     onSuccess: (ret) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleReturns.all })
@@ -684,12 +736,18 @@ export function useAssignWarehouseAndRestock() {
       queryClient.invalidateQueries({ queryKey: queryKeys.activityLog.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
       queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.all })
+      if (ret.finalize) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all })
+        queryClient.invalidateQueries({ queryKey: queryKeys.customerInvoices.all })
+        queryClient.invalidateQueries({ queryKey: ['refunds-payable'] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.reservedOrderLines })
+      }
       logActivity({
-        action:    'Return Restocked',
+        action:    ret.finalize ? 'Sale Order Cancelled' : 'Return Restocked',
         module:    'sale_orders',
         entity_id: ret.source_id,
         details:   ret.return_number,
-        severity:  'info',
+        severity:  ret.finalize ? 'warning' : 'info',
       })
     },
   })

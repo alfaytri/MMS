@@ -27,6 +27,7 @@ import {
   useCancelSO,
   useSoCancelPreview,
   useCustomers,
+  soHasShipped,
   type SaleOrder,
   type SOStatus,
 } from '@/hooks/useSaleOrders'
@@ -263,6 +264,13 @@ export default function SaleOrdersPage() {
   }
 
   function handleCancel(so: SaleOrder) {
+    // Shipped SOs can't take the money-path cancel — they must return the goods
+    // first. Open the detail view where "Cancel & Return Everything" lives.
+    if (soHasShipped(so)) {
+      setDetailSO(so)
+      toast.info(`${so.so_number} has shipped — use "Cancel & Return Everything" in the order.`)
+      return
+    }
     // Unify with the SO detail view's styled confirm (Tier 4 — was window.confirm).
     setCancelTarget(so)
   }
@@ -436,7 +444,7 @@ export default function SaleOrdersPage() {
                       className="text-destructive focus:text-destructive"
                       onClick={() => handleCancel(so)}
                     >
-                      Cancel SO
+                      {soHasShipped(so) ? 'Cancel & Return…' : 'Cancel SO'}
                     </DropdownMenuItem>
                   </>
                 )}
