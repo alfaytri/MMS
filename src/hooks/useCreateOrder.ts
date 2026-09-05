@@ -48,36 +48,21 @@ const INITIAL_DRAFT: OrderDraft = {
   siteVisitToTime: null,
 }
 
+// Order/site-visit human IDs are authored SERVER-side by atomic sequence-backed
+// RPCs (next_order_id / next_visit_id). The previous client-side
+// read-latest-row-and-increment raced under concurrent booking: two agents read
+// the same last row, computed the same next number, and the unique index
+// (orders_order_id_key / site_visits_visit_id_key) rejected one — a lost booking.
 async function generateOrderId(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const { data: last } = await supabase
-    .from('orders')
-    .select('order_id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  const lastNum = last?.order_id
-    ? parseInt(last.order_id.match(/(\d+)$/)?.[1] ?? '0', 10)
-    : 0
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  return `N/${year}/${month}/${String(lastNum + 1).padStart(4, '0')}`
+  const { data, error } = await supabase.rpc('next_order_id' as never)
+  if (error || !data) throw new Error((error as { message?: string } | null)?.message ?? 'next_order_id failed')
+  return data as unknown as string
 }
 
 async function generateVisitId(supabase: ReturnType<typeof createClient>): Promise<string> {
-  const { data: last } = await supabase
-    .from('site_visits')
-    .select('visit_id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle() as { data: { visit_id: string } | null }
-  const lastNum = last?.visit_id
-    ? parseInt(last.visit_id.match(/(\d+)$/)?.[1] ?? '0', 10)
-    : 0
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  return `V/${year}/${month}/${String(lastNum + 1).padStart(4, '0')}`
+  const { data, error } = await supabase.rpc('next_visit_id' as never)
+  if (error || !data) throw new Error((error as { message?: string } | null)?.message ?? 'next_visit_id failed')
+  return data as unknown as string
 }
 
 export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
@@ -253,7 +238,10 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
 
       // ── Site visit path ─────────────────────────────────────────────────────
       if (draft.type === 'site-visit') {
-        const visitId = await generateVisitId(supabase)
+        // Reuse the id generated on mount / type-switch (already shown to the
+        // agent and used for the attachments folder above) so the saved id
+        // matches it; only allocate fresh if it's missing or the wrong kind.
+        const visitId = draft.orderId.startsWith('V/') ? draft.orderId : await generateVisitId(supabase)
 
         const assignmentsPayload = draft.assignments.map((a) => {
           let durationHours = Math.max(1, Math.ceil(a.duration / 60))
@@ -300,7 +288,10 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
       }
 
       // ── Regular order path ──────────────────────────────────────────────────
-      const orderId = await generateIdForKind()
+      // Reuse the pre-generated id (see the site-visit note) so the displayed id,
+      // the attachments folder, and the saved order all agree; fall back only if
+      // it's absent or a leftover site-visit id from a prior type toggle.
+      const orderId = draft.orderId && !draft.orderId.startsWith('V/') ? draft.orderId : await generateIdForKind()
       const totalAmount = draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount
 
       const servicesPayload = draft.services.map((s) => ({

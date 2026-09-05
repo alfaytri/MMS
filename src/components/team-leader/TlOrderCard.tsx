@@ -6,7 +6,6 @@ import {
   MapPin, Phone, Bell, Play, Users, AlertTriangle, Clock,
   FileText, Eye, Pencil, CheckCircle2, Hash, User,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { TlVisit, VisitType } from '@/types/team-leader'
@@ -21,6 +20,14 @@ const TYPE_CONFIG: Record<VisitType, { label: string; color: string }> = {
   'follow-up':           { label: 'Follow-up',             color: 'bg-purple-600 text-white' },
   'qc':                  { label: 'QC Visit',              color: 'bg-secondary text-secondary-foreground' },
 }
+
+// Only real service jobs get invoiced. Assessment-type visits (QC of another
+// team's work, contract visits covered by the contract, and site-visit
+// assessments that produce a quotation) must NOT open the invoice flow — doing so
+// created zero-total "paid" invoices for work that was never billed here.
+const INVOICEABLE_TYPES: ReadonlySet<VisitType> = new Set<VisitType>([
+  'order', 'backwork', 'follow-up',
+])
 
 interface Props {
   visit: TlVisit
@@ -79,6 +86,7 @@ export function TlOrderCard({
   }
 
   const canEditWork    = isCompleted && !visit.has_invoice
+  const canInvoice     = canEditWork && INVOICEABLE_TYPES.has(visit.type)
   const decodedNotes   = visit.notes ? decodeNotes(visit.notes) : ''
 
   return (
@@ -231,8 +239,10 @@ export function TlOrderCard({
         {/* Action row — varies by status */}
         {isCompleted ? (
           <div className="border-t">
-            {/* Invoicing is now a separate step: only on a completed job with no invoice yet. */}
-            {canEditWork && (
+            {/* Invoicing is a separate step: only a completed, not-yet-invoiced
+                job of a billable type (assessment visits are excluded — see
+                INVOICEABLE_TYPES). */}
+            {canInvoice && (
               <Button
                 className="w-full rounded-none min-h-11 gap-1.5 text-xs"
                 onClick={() => onCreateInvoice?.(visit)}
@@ -242,7 +252,8 @@ export function TlOrderCard({
             )}
             <div className={cn(
               'grid gap-px bg-border',
-              canEditWork ? 'grid-cols-2 border-t' : 'grid-cols-1',
+              canEditWork ? 'grid-cols-2' : 'grid-cols-1',
+              canInvoice && 'border-t',
             )}>
               <Button
                 variant="ghost"

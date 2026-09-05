@@ -383,7 +383,12 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('orders')
         .update({
-          confirmation_status:  watiOk ? 'sent' : 'failed',
+          // 'failed' is NOT a member of the confirmation_status enum
+          // (not_sent | sent | confirmed | no_response | manually_confirmed), so
+          // writing it silently 400s the whole update. On a WATI send failure the
+          // order simply stays unsent + retryable → 'not_sent'. (The chat row's
+          // delivery_status above legitimately records 'failed'.)
+          confirmation_status:  watiOk ? 'sent' : 'not_sent',
           confirmation_sent_at: watiOk ? now   : null,
           ...(watiOk && order.status === 'scheduled' ? { status: 'confirmed' } : {}),
         })
