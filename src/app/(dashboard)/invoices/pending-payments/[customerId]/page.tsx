@@ -12,9 +12,12 @@ export default function CustomerPendingDetailPage() {
   const router = useRouter()
   const { data: customers, isLoading, error } = usePendingPayments()
 
+  // The route param is the card's group_key (URL-encoded), which stays stable
+  // whether or not the invoice snapshot resolved to a real customer id.
+  const key = decodeURIComponent(customerId)
   const customer = useMemo(
-    () => customers?.find((c) => c.customer_id === customerId) ?? null,
-    [customers, customerId],
+    () => customers?.find((c) => c.group_key === key) ?? null,
+    [customers, key],
   )
 
   return (

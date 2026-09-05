@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Receipt } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Receipt, Search } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { CustomerPendingCard } from '@/components/invoices/CustomerPendingCard'
 import { CustomerInvoiceDetailDialog } from '@/components/invoices/CustomerInvoiceDetailDialog'
@@ -12,89 +11,66 @@ import { formatCurrency } from '@/lib/utils/formatters'
 
 export default function PendingPaymentsPage() {
   const { data: customers = [], isLoading } = usePendingPayments()
-  const [divisionFilter, setDivisionFilter] = useState<string | undefined>()
+  const [search, setSearch] = useState('')
   const [detailTarget, setDetailTarget] = useState<CustomerPending | null>(null)
 
-  // ── Unique divisions from data ──────────────────────────────────────
-  const divisions = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const c of customers) {
-      if (c.division_id && c.division_name) {
-        map.set(c.division_id, c.division_name)
-      }
-    }
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [customers])
-
-  // ── Filtered list — already sorted by total_pending DESC from RPC ───
+  // Filter by name / phone (list is already sorted by total_pending DESC from the RPC).
   const filtered = useMemo(() => {
-    if (!divisionFilter) return customers
-    return customers.filter((c) => c.division_id === divisionFilter)
-  }, [customers, divisionFilter])
+    const q = search.trim().toLowerCase()
+    if (!q) return customers
+    return customers.filter((c) =>
+      c.customer_name.toLowerCase().includes(q) ||
+      c.phones.some((p) => p.phone.toLowerCase().includes(q)) ||
+      (c.customer_phone ?? '').toLowerCase().includes(q)
+    )
+  }, [customers, search])
 
   const totalOutstanding = useMemo(
-    () => filtered.reduce((sum, c) => sum + c.total_pending, 0),
-    [filtered]
+    () => customers.reduce((sum, c) => sum + c.total_pending, 0),
+    [customers]
   )
 
   return (
     <PageWrapper>
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="space-y-3">
+      {/* ── Header + search ─────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl 2xl:text-3xl font-bold">Pending Payments</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {filtered.length} customer{filtered.length !== 1 ? 's' : ''} ·{' '}
-            {formatCurrency(totalOutstanding)} outstanding
+            Total Pending Payments:{' '}
+            <span className="font-semibold text-foreground">
+              {formatCurrency(totalOutstanding, 'QAR')}
+            </span>
+            {' · '}
+            {customers.length} customer{customers.length !== 1 ? 's' : ''}
           </p>
         </div>
-
-        {/* Division toggles — only shown when multiple divisions exist */}
-        {divisions.length > 1 && (
-          <div className="flex flex-wrap items-center gap-2">
-            {divisions.map(([id, name]) => (
-              <Button
-                key={id}
-                variant={divisionFilter === id ? 'default' : 'outline'}
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() =>
-                  setDivisionFilter(divisionFilter === id ? undefined : id)
-                }
-              >
-                {name}
-              </Button>
-            ))}
-            {divisionFilter && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => setDivisionFilter(undefined)}
-              >
-                Clear
-              </Button>
-            )}
-            <Badge variant="secondary" className="ml-auto text-xs">
-              Sorted by amount ↓
-            </Badge>
-          </div>
-        )}
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search name or phone…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 pl-8"
+          />
+        </div>
       </div>
 
-      {/* ── Customer grid ──────────────────────────────────────────── */}
+      {/* ── Customer grid ───────────────────────────────────────────── */}
       {isLoading ? (
         <p className="py-12 text-center text-sm text-muted-foreground">Loading…</p>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
           <Receipt className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
-          <p className="text-sm text-muted-foreground">No pending payments</p>
+          <p className="text-sm text-muted-foreground">
+            {search.trim() ? 'No customers match your search' : 'No pending payments'}
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           {filtered.map((customer) => (
             <CustomerPendingCard
-              key={customer.customer_id}
+              key={customer.group_key}
               customer={customer}
               onView={setDetailTarget}
             />
@@ -102,7 +78,7 @@ export default function PendingPaymentsPage() {
         </div>
       )}
 
-      {/* ── Detail dialog ──────────────────────────────────────────── */}
+      {/* ── Detail dialog ───────────────────────────────────────────── */}
       <CustomerInvoiceDetailDialog
         open={!!detailTarget}
         onOpenChange={(v) => { if (!v) setDetailTarget(null) }}

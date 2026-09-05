@@ -117,10 +117,12 @@ export function CustomerInvoiceDetailContent({ customer }: Props) {
 
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         <span>Issued {formatDate(inv.issued_date)}</span>
-                        <span className={cn(isOverdue && 'text-destructive font-medium')}>
-                          Due {formatDate(inv.due_date)}
-                          {isOverdue && ' · overdue'}
-                        </span>
+                        {inv.due_date && (
+                          <span className={cn(isOverdue && 'text-destructive font-medium')}>
+                            Due {formatDate(inv.due_date)}
+                            {isOverdue && ' · overdue'}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-xs">

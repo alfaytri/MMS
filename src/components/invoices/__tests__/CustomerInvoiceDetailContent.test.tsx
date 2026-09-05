@@ -15,50 +15,44 @@ function inv(id: string, amount: number): PendingInvoice {
     source_type: 'order',
     source_id: 'src-' + id,
     issued_date: '2026-06-01',
-    due_date: '2026-06-30',
+    due_date: null,
     total_amount: amount,
     paid_amount: 0,
     payment_status: 'unpaid',
   }
 }
 
+function cust(overrides: Partial<CustomerPending>): CustomerPending {
+  return {
+    group_key: 'cust-1',
+    customer_id: 'cust-1',
+    customer_name: 'Test Customer',
+    customer_phone: PHONE_A.phone,
+    is_blocked: false,
+    phones: [PHONE_A],
+    total_pending: 0,
+    invoice_count: 0,
+    oldest_pending_date: '2026-06-01',
+    invoices: [],
+    ...overrides,
+  }
+}
+
 describe('CustomerInvoiceDetailContent', () => {
   it('renders customer name and all phones as chips', () => {
-    const customer: CustomerPending = {
-      customer_id: 'cust-1',
-      customer_name: 'Test Customer',
-      phones: [PHONE_A, PHONE_B],
-      division_id: null,
-      division_name: null,
-      total_pending: 0,
-      invoice_count: 0,
-      overdue_count: 0,
-      invoices: [],
-    }
-    render(<CustomerInvoiceDetailContent customer={customer} />)
+    render(<CustomerInvoiceDetailContent customer={cust({ phones: [PHONE_A, PHONE_B] })} />)
     expect(screen.getByText('Test Customer')).toBeInTheDocument()
     expect(screen.getByText('+97412345678')).toBeInTheDocument()
     expect(screen.getByText('+97487654321')).toBeInTheDocument()
   })
 
   it('renders each unpaid invoice as a card', () => {
-    const customer: CustomerPending = {
-      customer_id: 'cust-1',
+    render(<CustomerInvoiceDetailContent customer={cust({
       customer_name: 'Test',
-      phones: [PHONE_A, PHONE_B],
-      division_id: null,
-      division_name: null,
       total_pending: 600,
       invoice_count: 4,
-      overdue_count: 0,
-      invoices: [
-        inv('1', 100),
-        inv('2', 200),
-        inv('3', 150),
-        inv('4', 150),
-      ],
-    }
-    render(<CustomerInvoiceDetailContent customer={customer} />)
+      invoices: [inv('1', 100), inv('2', 200), inv('3', 150), inv('4', 150)],
+    })} />)
 
     expect(screen.getByText('INV-1')).toBeInTheDocument()
     expect(screen.getByText('INV-2')).toBeInTheDocument()
@@ -67,18 +61,11 @@ describe('CustomerInvoiceDetailContent', () => {
   })
 
   it('shows "No pending invoices" when all are paid', () => {
-    const customer: CustomerPending = {
-      customer_id: 'cust-1',
+    render(<CustomerInvoiceDetailContent customer={cust({
       customer_name: 'Test',
-      phones: [PHONE_A],
-      division_id: null,
-      division_name: null,
-      total_pending: 0,
       invoice_count: 1,
-      overdue_count: 0,
       invoices: [{ ...inv('paid', 100), paid_amount: 100 }],
-    }
-    render(<CustomerInvoiceDetailContent customer={customer} />)
+    })} />)
     expect(screen.getByText('No pending invoices')).toBeInTheDocument()
   })
 })

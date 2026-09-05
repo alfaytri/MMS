@@ -76,7 +76,7 @@ export function RegisterTlPaymentDialog({ open, onOpenChange, invoice }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-primary" /> Register Payment
@@ -86,19 +86,19 @@ export function RegisterTlPaymentDialog({ open, onOpenChange, invoice }: Props) 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Invoice Total</span>
-              <span className="font-semibold">{formatCurrency(total)}</span>
+        <div className="space-y-5 py-2">
+          <div className="grid grid-cols-3 gap-3 rounded-lg border bg-muted/30 p-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Invoice Total</p>
+              <p className="mt-1 font-semibold">{formatCurrency(total)}</p>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Paid</span>
-              <span className="font-medium text-emerald-600">{formatCurrency(paid)}</span>
+            <div>
+              <p className="text-xs text-muted-foreground">Paid</p>
+              <p className="mt-1 font-semibold text-emerald-600">{formatCurrency(paid)}</p>
             </div>
-            <div className="flex justify-between text-sm border-t pt-1">
-              <span className="text-muted-foreground font-medium">Remaining</span>
-              <span className="font-bold">{formatCurrency(remaining)}</span>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Remaining</p>
+              <p className="mt-1 text-base font-bold">{formatCurrency(remaining)}</p>
             </div>
           </div>
 
@@ -122,27 +122,29 @@ export function RegisterTlPaymentDialog({ open, onOpenChange, invoice }: Props) 
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="tl-pay-method">Payment Method</Label>
-            <Select value={methodId} onValueChange={(v) => { if (v) setMethodId(v) }}>
-              <SelectTrigger id="tl-pay-method" className="h-10 w-full">
-                <SelectValue placeholder="Select method" />
-              </SelectTrigger>
-              <SelectContent>
-                {methods.length === 0 ? (
-                  <SelectItem value="__none" disabled>No active payment methods</SelectItem>
-                ) : (
-                  methods.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="tl-pay-method">Payment Method</Label>
+              <Select value={methodId} onValueChange={(v) => { if (v) setMethodId(v) }}>
+                <SelectTrigger id="tl-pay-method" className="h-10 w-full">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {methods.length === 0 ? (
+                    <SelectItem value="__none" disabled>No active payment methods</SelectItem>
+                  ) : (
+                    methods.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-1.5">
-            <Label>Registered By</Label>
-            <Input value={profile?.full_name ?? '—'} disabled className="h-10 bg-muted" />
+            <div className="space-y-1.5">
+              <Label>Registered By</Label>
+              <Input value={profile?.full_name ?? '—'} disabled className="h-10 bg-muted" />
+            </div>
           </div>
 
           <div className="space-y-1.5">
