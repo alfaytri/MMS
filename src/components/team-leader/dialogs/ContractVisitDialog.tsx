@@ -6,6 +6,7 @@ import { ChevronRight, ChevronDown, Building2 } from 'lucide-react'
 import { BaseOrderDialog } from '../shared/BaseOrderDialog'
 import { ServiceStatusList } from '../shared/ServiceStatusList'
 import { PhotoCapture } from '../shared/PhotoCapture'
+import { SignaturePad } from '../shared/SignaturePad'
 import type { TlVisit, OrderCompletionData, BuildingNode } from '@/types/team-leader'
 
 interface Props {
@@ -19,6 +20,7 @@ export function ContractVisitDialog({ visit, profileId: _profileId, onComplete, 
   const [openFloors, setOpenFloors] = useState<Set<string>>(new Set())
   const [statuses, setStatuses] = useState<Record<string, 'done' | 'skipped' | 'issue'>>({})
   const [photos, setPhotos] = useState<Blob[]>([])
+  const [signature, setSignature] = useState<Blob | null>(null)
 
   const building: BuildingNode = visit.building_node ?? {
     name: 'Building',
@@ -43,6 +45,7 @@ export function ContractVisitDialog({ visit, profileId: _profileId, onComplete, 
       orderId: visit.source_id, visitId: visit.id, visitType: visit.type,
       serviceStatuses: statuses, inventoryUsage: {}, photos,
       damageReport: { noted: false },
+      signature: signature ?? undefined,
     }
     onComplete(visit.id, data)
   }
@@ -104,6 +107,9 @@ export function ContractVisitDialog({ visit, profileId: _profileId, onComplete, 
       </div>
 
       <PhotoCapture visitId={visit.id} label="General Photos" photos={photos} onChange={setPhotos} />
+
+      {/* Customer sign-off */}
+      <SignaturePad visitId={visit.id} value={signature} onChange={setSignature} />
     </BaseOrderDialog>
   )
 }

@@ -15,6 +15,7 @@ import { X, Users, Info, AlertTriangle, Plus, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { ServiceStatusList } from '../shared/ServiceStatusList'
 import { PhotoCapture } from '../shared/PhotoCapture'
+import { SignaturePad } from '../shared/SignaturePad'
 import { DamageReportDialog } from '../shared/DamageReportDialog'
 import { TeamNotesSection } from '../shared/TeamNotesSection'
 import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
@@ -65,6 +66,7 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
   const [followUpConflict, setFollowUpConflict] = useState<string | null>(null)
   const followUpMut = useCreateFollowUpRequest()
   const [addedServices, setAddedServices] = useState<AddedBillableService[]>([])
+  const [signature, setSignature] = useState<Blob | null>(null)
 
   function toggleFollowUpService(id: string) {
     setFollowUpServices((prev) => {
@@ -128,6 +130,7 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
       photos,
       damageReport: { noted: damages.length > 0, description: damages.map((d) => d.description).join('\n') },
       addedServices: addedServices.length > 0 ? addedServices : undefined,
+      signature: signature ?? undefined,
     }
     onComplete(visit.id, data)
   }
@@ -339,6 +342,9 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
 
               {/* Photos */}
               <PhotoCapture visitId={visit.id} photos={photos} onChange={setPhotos} />
+
+              {/* Customer sign-off */}
+              <SignaturePad visitId={visit.id} value={signature} onChange={setSignature} />
             </div>
           </div>
 

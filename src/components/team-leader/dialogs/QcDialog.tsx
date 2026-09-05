@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ClipboardCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PhotoCapture } from '../shared/PhotoCapture'
+import { SignaturePad } from '../shared/SignaturePad'
 import type { TlVisit, OrderCompletionData } from '@/types/team-leader'
 
 interface Props {
@@ -26,6 +27,7 @@ export function QcDialog({ visit, profileId: _profileId, onComplete, onClose }: 
   const [scores, setScores] = useState<Record<string, number>>({})
   const [qcNotes, setQcNotes] = useState('')
   const [photos, setPhotos] = useState<Blob[]>([])
+  const [signature, setSignature] = useState<Blob | null>(null)
 
   const total = Object.values(scores).reduce((a, b) => a + b, 0)
   const maxTotal = items.reduce((a, b) => a + b.maxScore, 0)
@@ -39,6 +41,7 @@ export function QcDialog({ visit, profileId: _profileId, onComplete, onClose }: 
       orderId: visit.source_id, visitId: visit.id, visitType: 'qc',
       serviceStatuses: {}, inventoryUsage: {}, photos,
       damageReport: { noted: false }, qcScores: scores,
+      signature: signature ?? undefined,
     }
     onComplete(visit.id, data)
   }
@@ -129,6 +132,9 @@ export function QcDialog({ visit, profileId: _profileId, onComplete, onClose }: 
 
             {/* Photo Evidence */}
             <PhotoCapture visitId={visit.id} label="Photo Evidence" photos={photos} onChange={setPhotos} />
+
+            {/* Customer sign-off */}
+            <SignaturePad visitId={visit.id} value={signature} onChange={setSignature} />
           </div>
         </div>
 

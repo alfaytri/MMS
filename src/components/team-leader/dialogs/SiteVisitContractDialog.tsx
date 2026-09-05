@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { BaseOrderDialog } from '../shared/BaseOrderDialog'
 import { PhotoCapture } from '../shared/PhotoCapture'
+import { SignaturePad } from '../shared/SignaturePad'
 import type { TlVisit, OrderCompletionData } from '@/types/team-leader'
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 export function SiteVisitContractDialog({ visit, profileId: _profileId, onComplete, onClose }: Props) {
   const [photos, setPhotos] = useState<Blob[]>([])
   const [notes, setNotes] = useState('')
+  const [signature, setSignature] = useState<Blob | null>(null)
 
   const otherTeams = (visit.team_ids ?? []).filter((t) => t !== visit.team_id)
 
@@ -25,6 +27,7 @@ export function SiteVisitContractDialog({ visit, profileId: _profileId, onComple
       orderId: visit.source_id, visitId: visit.id, visitType: visit.type,
       serviceStatuses: {}, inventoryUsage: {}, photos,
       damageReport: { noted: false },
+      signature: signature ?? undefined,
     }
     onComplete(visit.id, data)
   }
@@ -55,6 +58,9 @@ export function SiteVisitContractDialog({ visit, profileId: _profileId, onComple
         <p className="text-sm font-semibold">Assessment Notes</p>
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder="Enter assessment findings..." />
       </div>
+
+      {/* Customer sign-off */}
+      <SignaturePad visitId={visit.id} value={signature} onChange={setSignature} />
     </BaseOrderDialog>
   )
 }

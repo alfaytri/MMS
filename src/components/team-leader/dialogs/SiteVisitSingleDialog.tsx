@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BaseOrderDialog } from '../shared/BaseOrderDialog'
 import { PhotoCapture } from '../shared/PhotoCapture'
+import { SignaturePad } from '../shared/SignaturePad'
 import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
 import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
 
@@ -23,6 +24,7 @@ export function SiteVisitSingleDialog({ visit, profileId: _profileId, onComplete
   const [quotationServices, setQuotationServices] = useState<AddedBillableService[]>([])
   const [customRequest, setCustomRequest] = useState('')
   const [customRequests, setCustomRequests] = useState<string[]>([])
+  const [signature, setSignature] = useState<Blob | null>(null)
 
   const otherTeams = (visit.team_ids ?? []).filter((t) => t !== visit.team_id)
 
@@ -37,6 +39,7 @@ export function SiteVisitSingleDialog({ visit, profileId: _profileId, onComplete
       orderId: visit.source_id, visitId: visit.id, visitType: visit.type,
       serviceStatuses: {}, inventoryUsage: {}, photos,
       damageReport: { noted: false },
+      signature: signature ?? undefined,
     }
     onComplete(visit.id, data)
   }
@@ -111,6 +114,9 @@ export function SiteVisitSingleDialog({ visit, profileId: _profileId, onComplete
 
         {/* Attachments */}
         <PhotoCapture visitId={visit.id} photos={photos} onChange={setPhotos} />
+
+        {/* Customer sign-off */}
+        <SignaturePad visitId={visit.id} value={signature} onChange={setSignature} />
       </BaseOrderDialog>
 
     </>

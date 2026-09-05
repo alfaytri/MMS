@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BaseOrderDialog } from '../shared/BaseOrderDialog'
 import { PhotoCapture } from '../shared/PhotoCapture'
+import { SignaturePad } from '../shared/SignaturePad'
 import { DamageReportDialog } from '../shared/DamageReportDialog'
 import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
 import type {
@@ -38,6 +39,7 @@ export function FollowUpDialog({ visit, profileId: _profileId, onComplete, onClo
   const [damageOpen, setDamageOpen] = useState(false)
   const [damages, setDamages] = useState<DamageReportEntry[]>([])
   const [billables, setBillables] = useState<AddedBillableService[]>([])
+  const [signature, setSignature] = useState<Blob | null>(null)
 
   const ctx = visit.followup_context
   const otherTeams = (visit.team_ids ?? []).filter((t) => t !== visit.team_id)
@@ -51,6 +53,7 @@ export function FollowUpDialog({ visit, profileId: _profileId, onComplete, onClo
       inventoryUsage: {},
       photos,
       damageReport: { noted: damages.length > 0, description: damages.map((d) => d.description).join('\n') },
+      signature: signature ?? undefined,
     }
     onComplete(visit.id, data)
   }
@@ -148,6 +151,9 @@ export function FollowUpDialog({ visit, profileId: _profileId, onComplete, onClo
             </div>
           ))}
         </div>
+
+        {/* Customer sign-off */}
+        <SignaturePad visitId={visit.id} value={signature} onChange={setSignature} />
       </BaseOrderDialog>
 
       <DamageReportDialog open={damageOpen} visitId={visit.id} onSubmit={(d) => setDamages((p) => [...p, d])} onClose={() => setDamageOpen(false)} />
