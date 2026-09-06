@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils'
 import { SiteVisitCard } from './SiteVisitCard'
 import type { OrderDraft, OrderServiceDraft, CustomerAddress, OrderType, VisitDateWindow } from '@/types/orders'
 import { effectiveUnitPrice } from '@/lib/orders/pricing'
+import { useCustomerRisk } from '@/hooks/useCustomerRisk'
+import { CustomerRiskIndicator } from '@/components/customers/CustomerRiskIndicator'
 
 const COUNTRY_CODES = [
   { code: '+974', label: 'QA +974' },
@@ -83,6 +85,7 @@ export function OrderFormPanel({
   onDivisionsChange,
 }: Props) {
   const { data: divisions = [] } = useUserCompanyDivisions()
+  const { tier: customerRiskTier } = useCustomerRisk(draft.customerId)
   const [multiDivision, setMultiDivision] = useState(false)
   const [selectedDivisions, setSelectedDivisions] = useState<string[]>([])
   const [arrivalCountryCode, setArrivalCountryCode] = useState('+974')
@@ -147,7 +150,10 @@ export function OrderFormPanel({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-foreground">{draft.customerName}</p>
-                <p className="truncate text-xs text-muted-foreground">{draft.phone}</p>
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-xs text-muted-foreground">{draft.phone}</p>
+                  <CustomerRiskIndicator variant="badge" tier={customerRiskTier} className="shrink-0" />
+                </div>
               </div>
               <button
                 type="button"

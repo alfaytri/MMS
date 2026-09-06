@@ -3,6 +3,8 @@
 import { User, Edit2, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CustomerRiskIndicator } from '@/components/customers/CustomerRiskIndicator'
+import { useCustomerRisk } from '@/hooks/useCustomerRisk'
 
 interface Customer {
   id:                       string
@@ -18,6 +20,8 @@ interface Props {
 }
 
 export function CustomerCardV2({ customer, onEdit }: Props) {
+  const { tier: riskTier } = useCustomerRisk(customer?.id)
+
   if (!customer) {
     return <p className="text-xs text-muted-foreground px-3 py-2">No customer linked</p>
   }
@@ -34,6 +38,12 @@ export function CustomerCardV2({ customer, onEdit }: Props) {
           <Edit2 className="h-3 w-3" />
         </Button>
       </div>
+
+      {riskTier && (
+        <div>
+          <CustomerRiskIndicator variant="badge" tier={riskTier} />
+        </div>
+      )}
 
       {customer.is_blocked && (
         <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 border border-destructive/30 px-2 py-1">
