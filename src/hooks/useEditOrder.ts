@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import { useOrderDetail } from './useOrderDetail'
 import { effectiveUnitPrice } from '@/lib/orders/pricing'
+import { addOrBumpService } from '@/lib/orders/draft-services'
 import { queryKeys } from '@/lib/queryKeys'
 import type {
   OrderDraft,
@@ -155,7 +156,7 @@ export function useEditOrder(orderId: string) {
   }
 
   function addService(service: OrderServiceDraft) {
-    setDraft((d) => d ? ({ ...d, services: [...d.services, service] }) : d)
+    setDraft((d) => d ? ({ ...d, services: addOrBumpService(d.services, service) }) : d)
   }
 
   function removeService(serviceId: string) {

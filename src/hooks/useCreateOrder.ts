@@ -10,6 +10,7 @@ import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 import type { Json } from '@/types/database.types'
 import { effectiveUnitPrice } from '@/lib/orders/pricing'
+import { addOrBumpService } from '@/lib/orders/draft-services'
 
 // Use LOCAL date components, not toISOString() — the latter returns UTC and
 // flips to "yesterday" for any local time between 00:00 and the UTC offset
@@ -112,7 +113,7 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
   }
 
   function addService(service: OrderServiceDraft) {
-    setDraft((d) => ({ ...d, services: [...d.services, service] }))
+    setDraft((d) => ({ ...d, services: addOrBumpService(d.services, service) }))
   }
 
   function removeService(serviceId: string) {

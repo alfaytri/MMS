@@ -9,6 +9,7 @@ import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { OrderServiceDraft } from '@/types/orders'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { roundMoney, computeDiscount } from '@/lib/money'
+import { addOrBumpService } from '@/lib/orders/draft-services'
 
 // Fetch the quotation PDF URL from the server-side generator. Replaces the
 // old DOM-screenshot pipeline (html2canvas + jspdf + manual storage upload)
@@ -99,7 +100,7 @@ export function useCreateQuotation(initialDraft?: QuotationDraft | null) {
       division: service.division ?? '',
     }
     setDraft((d) => {
-      const services = [...d.services, line]
+      const services = addOrBumpService(d.services, line)
       const division = d.division || line.division
       return { ...d, services, division }
     })
