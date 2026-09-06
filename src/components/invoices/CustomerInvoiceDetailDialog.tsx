@@ -17,7 +17,7 @@ interface Props {
 
 /**
  * Desktop entry point. The mobile experience uses the dedicated route
- * /invoices/pending-payments/[customerId] (see Task 9 for the switch).
+ * /orders/pending-payments/[customerId] (see Task 9 for the switch).
  *
  * Both surfaces share the same CustomerInvoiceDetailContent so behavior
  * stays in lockstep.

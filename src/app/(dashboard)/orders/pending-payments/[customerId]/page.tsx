@@ -28,7 +28,7 @@ export default function CustomerPendingDetailPage() {
           variant="ghost"
           size="sm"
           className="gap-1 -ml-2 text-muted-foreground min-h-9"
-          onClick={() => router.push('/invoices/pending-payments')}
+          onClick={() => router.push('/orders/pending-payments')}
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -53,7 +53,7 @@ export default function CustomerPendingDetailPage() {
           <p className="text-sm text-muted-foreground">
             Customer not found, or no pending invoices remain.
           </p>
-          <Button variant="outline" size="sm" onClick={() => router.push('/invoices/pending-payments')}>
+          <Button variant="outline" size="sm" onClick={() => router.push('/orders/pending-payments')}>
             Back to Pending Payments
           </Button>
         </div>

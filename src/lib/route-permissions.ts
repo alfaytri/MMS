@@ -39,6 +39,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/orders/create-follow-up', permission: 'follow_ups.confirm' },
   { pathPrefix: '/orders/create',           permission: 'orders.manage' },
   { pathPrefix: '/orders/approvals',        permission: 'orders.approve' },
+  { pathPrefix: '/orders/pending-payments', permission: 'payments.view' },
   { pathPrefix: '/orders',                  permission: 'orders.view' },
 
   // ── Quotations ─────────────────────────────────────────────────────────
@@ -51,7 +52,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/contracts',                  permission: ['contracts.live.view', 'contracts.quotations.view'] },
 
   // ── Invoices & Payments ────────────────────────────────────────────────
-  { pathPrefix: '/invoices/pending-payments', permission: 'payments.view' },
   { pathPrefix: '/invoices/payments',         permission: 'payments.view' },
   { pathPrefix: '/invoices',                  permission: 'invoices.view' },
 

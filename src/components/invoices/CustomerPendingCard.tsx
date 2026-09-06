@@ -29,7 +29,7 @@ export function CustomerPendingCard({ customer, tier, onView }: Props) {
     if (isLgUp) {
       onView(customer)
     } else {
-      router.push(`/invoices/pending-payments/${encodeURIComponent(customer.group_key)}`)
+      router.push(`/orders/pending-payments/${encodeURIComponent(customer.group_key)}`)
     }
   }
 

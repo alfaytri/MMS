@@ -125,6 +125,7 @@ export const NAV_ITEMS: NavEntry[] = [
           { label: 'View Orders',  href: '/orders',        icon: 'List',        permission: 'orders.view' },
           { label: 'Create Order', href: '/orders/create', icon: 'PlusCircle',  permission: 'orders.manage' },
           { label: 'Approvals',    href: '/orders/approvals', icon: 'ShieldCheck', permission: 'orders.approve' },
+          { label: 'Pending Payments', href: '/orders/pending-payments', icon: 'Clock', permission: 'payments.view' },
         ],
       },
       {
@@ -144,7 +145,6 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         items: [
           { label: 'View Invoices',    href: '/invoices',                  icon: 'FileText', permission: 'invoices.view' },
-          { label: 'Pending Payments', href: '/invoices/pending-payments', icon: 'Clock',    permission: 'payments.view' },
         ],
       },
     ],
