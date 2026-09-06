@@ -182,15 +182,12 @@ export function TeamCalendarPanel({
 
   const date = useMemo(() => new Date(visitDate), [visitDate])
 
-  const teamSkillMap = useMemo<Record<string, string[]>>(() => {
-    const map: Record<string, string[]> = {}
-    filteredTeams.forEach((t) => { map[t.id] = t.members.flatMap((e) => e.skills ?? []) })
-    return map
-  }, [filteredTeams])
-
+  // Skill-match tint while dragging a service: does the team have an employee
+  // skilled in it? Read the real source — employee_services, via useTeamSkills
+  // (teamSkillsMap) — not the dead employees.skills column, which is always '{}'.
   function getSkillMatch(teamId: string): boolean | null {
     if (!draggingService?.rootSkillId) return null
-    return (teamSkillMap[teamId] ?? []).includes(draggingService.rootSkillId)
+    return (teamSkillsMap.get(teamId) ?? []).includes(draggingService.rootSkillId)
   }
 
   function teamDisplayName(team: TeamFull): string {

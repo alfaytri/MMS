@@ -19,7 +19,8 @@ export function useTeamSkills(divisionSlug: string | null) {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const supabase = createClient()
-      // employees has a direct team_id FK — no junction table exists
+      // Skills live in the employee_services junction; join to employees (which
+      // carries the team_id FK) to group each service by the employee's team.
       const { data, error } = await supabase
         .from('employee_services')
         .select('service_id, employees!inner(team_id)')
