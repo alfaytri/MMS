@@ -193,7 +193,11 @@ export default function CreateOrderPage() {
   async function handleSubmit() {
     try {
       const result = await submit.mutateAsync()
-      toast.success('Order created successfully')
+      toast.success(
+        result.pendingApproval
+          ? 'Order sent for approval — it will book once approved'
+          : 'Order created successfully',
+      )
       const param = result.type === 'site-visit' ? 'openVisitId' : 'openOrderId'
       router.push(`/orders?${param}=${result.id}`)
     } catch (err: unknown) {

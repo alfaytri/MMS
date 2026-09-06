@@ -347,7 +347,7 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
       // p_is_emergency is new on the RPC (generated types not regenerated yet);
       // assert back to the known-args shape so the extra field passes through
       // at runtime while the rest of the args stay type-checked.
-      const { data: newOrderId, error } = await supabase.rpc('create_order_with_dates', {
+      const { data, error } = await supabase.rpc('create_order_with_dates', {
         ...orderArgs,
         p_is_emergency: draft.mode === 'emergency',
       } as typeof orderArgs)
@@ -361,7 +361,16 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
         throw new Error([error.message ?? 'Failed to create order', detail, hint].filter(Boolean).join(' — '))
       }
 
-      return { id: newOrderId as unknown as string, orderId, primaryDate, type: draft.type }
+      // The RPC now returns a row { order_id, pending_approval } — a high-risk
+      // customer's order is created as 'pending-approval' instead of booked.
+      const row = (data as unknown as Array<{ order_id: string; pending_approval: boolean }> | null)?.[0]
+      return {
+        id: row?.order_id ?? '',
+        orderId,
+        primaryDate,
+        type: draft.type,
+        pendingApproval: row?.pending_approval ?? false,
+      }
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: queryKeys.orders.all })
@@ -371,8 +380,9 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
       // Send confirmation immediately if the visit is within 2 days (cron would miss it).
       // IMPORTANT: this MUST stay fully fire-and-forget — mutateAsync() resolves only
       // after onSuccess finishes, so any awaited work here delays the navigation
-      // away from the create page.
-      if (result.type !== 'site-visit') {
+      // away from the create page. Skip it when the order is pending approval — it
+      // isn't booked yet, so no customer confirmation should go out.
+      if (!result.pendingApproval && result.type !== 'site-visit') {
         const todayMs        = new Date().setHours(0, 0, 0, 0)
         const visitMs        = new Date(result.primaryDate + 'T00:00:00').getTime()
         const daysUntilVisit = Math.round((visitMs - todayMs) / 86_400_000)

@@ -197,7 +197,11 @@ export default function CreateFollowUpPage() {
         toast.error(`Order created but link failed: ${err.error ?? 'unknown error'}`)
         return
       }
-      toast.success('Follow-up scheduled')
+      toast.success(
+        result.pendingApproval
+          ? 'Follow-up sent for approval — it will book once approved'
+          : 'Follow-up scheduled',
+      )
       router.push(`/orders?openOrderId=${result.id}`)
     } catch (err) {
       toast.error((err as Error).message || 'Failed to create follow-up')
