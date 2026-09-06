@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { fmt12 } from '@/lib/calendar/time'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,14 +34,6 @@ const STATUS_STYLES: Record<string, string> = {
   waitlist:   'bg-amber-100 text-amber-700',
 }
 
-function fmt12(t: string): string {
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = mStr ?? '00'
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
 
 const CONFIRMABLE = ['scheduled', 'waitlist']
 const CANCELLABLE = ['scheduled', 'confirmed', 'waitlist']

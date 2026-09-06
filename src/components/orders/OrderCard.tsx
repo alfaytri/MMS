@@ -2,6 +2,7 @@
 import { format } from 'date-fns'
 import { Phone, ClipboardList, Clock, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fmt12 } from '@/lib/calendar/time'
 import type { OrderListItem, OrderStatus, ConfirmationStatus } from '@/types/orders'
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
@@ -25,14 +26,6 @@ const CONFIRMATION_LABELS: Record<ConfirmationStatus, string> = {
   manually_confirmed: 'Manual Confirm',
 }
 
-function fmt12(t: string): string {
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = mStr ?? '00'
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
 
 interface Props {
   order: OrderListItem

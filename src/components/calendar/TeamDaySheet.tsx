@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns'
 import { Phone, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getVisitTypeConfig } from './VisitBlock'
+import { fmt12 } from '@/lib/calendar/time'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 
@@ -21,15 +22,6 @@ interface TeamDaySheetProps {
   onClose: () => void
 }
 
-/** "14:30" → "2:30 PM" */
-function fmt12(t: string): string {
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = mStr ?? '00'
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
 
 export function TeamDaySheet({
   team,

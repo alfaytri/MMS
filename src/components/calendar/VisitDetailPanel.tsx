@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { getVisitTypeConfig } from './VisitBlock'
+import { fmt12 } from '@/lib/calendar/time'
 import { useVisitPaymentStatus } from '@/hooks/useVisitPaymentStatus'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 
@@ -21,14 +22,6 @@ interface VisitDetailPanelProps {
   onClose: () => void
 }
 
-function fmt12(t: string): string {
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = mStr ?? '00'
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
 
 function Row({ icon: Icon, children }: { icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
   return (

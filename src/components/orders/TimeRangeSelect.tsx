@@ -5,6 +5,10 @@ import { isToday, parseISO } from 'date-fns'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toMinutes, fmt12 } from '@/lib/calendar/time'
+
+/** Back-compat re-export — formatTime12h === fmt12 for "HH:MM" input. */
+export { fmt12 as formatTime12h }
 
 // Generate 48 time slots: 00:00, 00:30, 01:00, ... 23:30
 const TIME_SLOTS: { value: string; label: string }[] = []
@@ -33,19 +37,6 @@ function useNowMinutes(enabled: boolean): number | null {
   return minutes
 }
 
-/** Convert "HH:MM" to total minutes for comparison */
-function toMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
-}
-
-export function formatTime12h(t: string): string {
-  const h = parseInt(t)
-  const m = t.split(':')[1]
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
 
 interface TimeRangeSelectProps {
   fromTime: string | null | undefined

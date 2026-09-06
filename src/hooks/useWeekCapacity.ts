@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { addDays, format, startOfWeek } from 'date-fns'
 import { queryKeys } from '@/lib/queryKeys'
+import { toMinutes as timeToMinutes } from '@/lib/calendar/time'
 
 export interface CapacityVisitRow {
   start_time: string | null
@@ -22,11 +23,6 @@ export interface DayCapacity {
   overflowMinutes: number
   visitCount: number
   isOff: boolean
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + (m ?? 0)
 }
 
 export function computeDayCapacity(visits: CapacityVisitRow[], schedule: DaySchedule): DayCapacity {

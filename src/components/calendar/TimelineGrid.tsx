@@ -7,24 +7,13 @@ import { NowIndicator } from './NowIndicator'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 import { deriveCalendarScheduleRaw, type CalendarSchedule } from '@/hooks/useCalendarSchedule'
+import { HALF_HOUR_SLOTS as ALL_HALF_HOURS, formatSlotLabel } from '@/lib/calendar/time'
 
 /** Width per half-hour slot (scroll mode). 48 slots × 40 = 1920 px total. */
 const SCROLL_CELL_WIDTH = 40
 /** Min width per half-hour slot (fit mode). */
 const FIT_MIN_CELL_WIDTH = 28
 const DIVISION_HEADER_H  = 38
-
-/** 48 half-hour slots: 0, 0.5, 1, 1.5, … 23.5 */
-const ALL_HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 0.5)
-
-function formatSlotLabel(slot: number): string {
-  const hour = Math.floor(slot)
-  const isHalf = slot % 1 !== 0
-  if (isHalf) return ':30'
-  if (hour === 0) return '12AM'
-  if (hour === 12) return '12PM'
-  return hour < 12 ? `${hour}AM` : `${hour - 12}PM`
-}
 
 function DivisionHeaderRow({
   name,

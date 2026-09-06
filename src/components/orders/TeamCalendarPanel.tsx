@@ -20,22 +20,10 @@ import { useTeamSkills } from '@/hooks/useTeamSkills'
 import { useServiceTree } from '@/hooks/useServices'
 import { useTeamServiceFilter } from '@/hooks/useTeamServiceFilter'
 import { deriveCalendarScheduleRaw } from '@/hooks/useCalendarSchedule'
+import { HALF_HOUR_SLOTS as SLOTS, formatSlotLabel } from '@/lib/calendar/time'
 
-
-/** Full day: 48 half-hour slots: 0, 0.5, 1, 1.5, … 23.5 */
-const SLOTS = Array.from({ length: 48 }, (_, i) => i * 0.5)
 const DEFAULT_CELL_W  = 36
 const FIT_MIN_CELL_W  = 24
-
-function formatSlotLabel(slot: number): string {
-  const hour = Math.floor(slot)
-  const isHalf = slot % 1 !== 0
-  if (isHalf) return ':30'
-  if (hour === 0) return '12AM'
-  if (hour < 12) return `${hour}AM`
-  if (hour === 12) return '12PM'
-  return `${hour - 12}PM`
-}
 
 interface Props {
   visitDate: string

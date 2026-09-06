@@ -7,6 +7,7 @@ import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { OrderServiceDraft, TeamAssignmentDraft } from '@/types/orders'
 import { cn } from '@/lib/utils'
 import { getVisitTypeConfig } from '@/lib/calendar/visitTypes'
+import { fmt12, toMinutesSafe as parseMinutes, toHours as parseHour, assignTracks } from '@/lib/calendar/time'
 
 // ─── Shared Constants ─────────────────────────────────────────────────────────
 
@@ -35,21 +36,9 @@ export const PAST_SLOT_STYLE = {
 
 // ─── Shared Helpers ───────────────────────────────────────────────────────────
 
-export function parseMinutes(t: string | null): number | null {
-  if (!t) return null
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = parseInt(mStr ?? '0')
-  return isNaN(h) ? null : h * 60 + (isNaN(m) ? 0 : m)
-}
-
-// Fractional hour — "09:30" → 9.5. The timeline grid is half-hour resolution,
-// so positions must be minute-precise; rounding to the hour was making 9:00
-// and 9:30 render at the same x position.
-export function parseHour(t: string | null): number | null {
-  const min = parseMinutes(t)
-  return min === null ? null : min / 60
-}
+// parseMinutes/parseHour/assignTracks come from the shared calendar core; kept
+// re-exported here because TeamCalendarPanel imports them from this module.
+export { parseMinutes, parseHour, assignTracks }
 
 function formatOvertimeDuration(overtimeMinutes: number): string {
   const h = Math.floor(overtimeMinutes / 60)
@@ -57,47 +46,6 @@ function formatOvertimeDuration(overtimeMinutes: number): string {
   if (h === 0) return `${m}m`
   if (m === 0) return `${h}h`
   return `${h}h ${m}m`
-}
-
-function fmt12(t: string): string {
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = mStr ?? '00'
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
-
-// ─── Track Assignment — greedy interval scheduling ────────────────────────────
-
-interface Block {
-  id: string
-  start: number
-  end: number
-}
-
-export function assignTracks(blocks: Block[]): Map<string, number> {
-  const sorted = [...blocks].sort((a, b) => a.start - b.start)
-  const trackEnds: number[] = []
-  const result = new Map<string, number>()
-
-  for (const b of sorted) {
-    let placed = false
-    for (let t = 0; t < trackEnds.length; t++) {
-      if (trackEnds[t] <= b.start) {
-        trackEnds[t] = b.end
-        result.set(b.id, t)
-        placed = true
-        break
-      }
-    }
-    if (!placed) {
-      result.set(b.id, trackEnds.length)
-      trackEnds.push(b.end)
-    }
-  }
-
-  return result
 }
 
 // ─── Shared Types ─────────────────────────────────────────────────────────────

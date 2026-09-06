@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { VisitBlock } from './VisitBlock'
+import { assignTracks, toMinutes as timeToMinutes } from '@/lib/calendar/time'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 
@@ -13,27 +14,6 @@ export const MIN_ROW_H = TRACK_H  // single track = one visit row height
 // ---------------------------------------------------------------------------
 
 interface Block { id: string; start: number; end: number }
-
-function assignTracks(blocks: Block[]): Map<string, number> {
-  const sorted = [...blocks].sort((a, b) => a.start - b.start)
-  const trackEnds: number[] = []
-  const result = new Map<string, number>()
-  for (const b of sorted) {
-    let placed = false
-    for (let t = 0; t < trackEnds.length; t++) {
-      if (trackEnds[t] <= b.start) {
-        trackEnds[t] = b.end; result.set(b.id, t); placed = true; break
-      }
-    }
-    if (!placed) { result.set(b.id, trackEnds.length); trackEnds.push(b.end) }
-  }
-  return result
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + (m ?? 0)
-}
 
 /** Pure computation — call from both TeamRow and TimelineGrid without side effects. */
 export function computeTeamRowLayout(visits: CalendarVisit[]): {

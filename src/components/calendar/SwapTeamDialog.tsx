@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { getVisitTypeConfig } from './VisitBlock'
+import { toMinutes as timeToMinutes } from '@/lib/calendar/time'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 import { queryKeys } from '@/lib/queryKeys'
@@ -23,11 +24,6 @@ export interface TeamEligibility {
   eligible: boolean
   reason?: string
   visitCount: number
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + (m ?? 0)
 }
 
 function timesOverlap(
