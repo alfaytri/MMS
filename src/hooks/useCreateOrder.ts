@@ -113,7 +113,7 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
   }
 
   function addService(service: OrderServiceDraft) {
-    setDraft((d) => ({ ...d, services: addOrBumpService(d.services, service) }))
+    setDraft((d) => ({ ...d, services: addOrBumpService(d.services, service, (s) => s.serviceId) }))
   }
 
   function removeService(serviceId: string) {

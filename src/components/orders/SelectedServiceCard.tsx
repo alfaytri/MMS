@@ -39,7 +39,10 @@ export function SelectedServiceCard({
     disabled: isOverlay || hideDragHandle,
   })
 
-  const pathLabel = service.path.slice(0, -1).join(' / ')
+  // Full tree path (root → leaf) so the line shows exactly which node it came
+  // from — two different paths can share a leaf name (e.g. Split › … › Cleaning
+  // of inner AC vs Duct › … › Cleaning of inner AC).
+  const treePath = service.path.join(' › ')
   const hasDuration = service.duration > 0
 
   return (
@@ -76,8 +79,8 @@ export function SelectedServiceCard({
       )}
 
       <div className={cn('pt-2 pb-2 space-y-1.5', isOverlay ? 'px-3' : 'pl-7 pr-7')}>
-        {pathLabel && (
-          <p className="truncate text-[11px] leading-none text-muted-foreground">{pathLabel}</p>
+        {treePath && (
+          <p className="break-words text-[11px] leading-tight text-muted-foreground">{treePath}</p>
         )}
         <p className="break-words pr-1 font-semibold leading-snug text-foreground">
           {service.serviceName}

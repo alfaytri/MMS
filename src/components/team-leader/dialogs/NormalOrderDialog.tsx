@@ -19,6 +19,7 @@ import { SignaturePad } from '../shared/SignaturePad'
 import { DamageReportDialog } from '../shared/DamageReportDialog'
 import { TeamNotesSection } from '../shared/TeamNotesSection'
 import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
+import { addOrBumpService } from '@/lib/orders/draft-services'
 import { useCreateFollowUpRequest } from '@/hooks/useCreateFollowUpRequest'
 import type {
   TlVisit, TlService, OrderCompletionData,
@@ -177,7 +178,7 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
 
                 <div className="pt-2 border-t space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Add Service</p>
-                  <ServiceCatalogPicker onAdd={(s) => setAddedServices((p) => [...p, s])} />
+                  <ServiceCatalogPicker onAdd={(s) => setAddedServices((p) => addOrBumpService(p, s, (x) => x.id))} />
                 </div>
               </div>
 

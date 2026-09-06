@@ -156,7 +156,7 @@ export function useEditOrder(orderId: string) {
   }
 
   function addService(service: OrderServiceDraft) {
-    setDraft((d) => d ? ({ ...d, services: addOrBumpService(d.services, service) }) : d)
+    setDraft((d) => d ? ({ ...d, services: addOrBumpService(d.services, service, (s) => s.serviceId) }) : d)
   }
 
   function removeService(serviceId: string) {

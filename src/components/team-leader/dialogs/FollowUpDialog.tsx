@@ -12,6 +12,7 @@ import { PhotoCapture } from '../shared/PhotoCapture'
 import { SignaturePad } from '../shared/SignaturePad'
 import { DamageReportDialog } from '../shared/DamageReportDialog'
 import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
+import { addOrBumpService } from '@/lib/orders/draft-services'
 import type {
   TlVisit, OrderCompletionData, FollowUpStatus,
   DamageReportEntry, AddedBillableService,
@@ -135,7 +136,7 @@ export function FollowUpDialog({ visit, profileId: _profileId, onComplete, onClo
         {/* Add Billable Service */}
         <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-4 space-y-3">
           <p className="text-sm font-semibold">Add Billable Service</p>
-          <ServiceCatalogPicker onAdd={(s) => setBillables((p) => [...p, s])} />
+          <ServiceCatalogPicker onAdd={(s) => setBillables((p) => addOrBumpService(p, s, (x) => x.id))} />
           {billables.map((s) => (
             <div key={s.id} className="flex items-center justify-between text-xs border rounded p-2 bg-background">
               <div>

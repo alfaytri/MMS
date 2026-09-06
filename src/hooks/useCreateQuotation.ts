@@ -100,7 +100,7 @@ export function useCreateQuotation(initialDraft?: QuotationDraft | null) {
       division: service.division ?? '',
     }
     setDraft((d) => {
-      const services = addOrBumpService(d.services, line)
+      const services = addOrBumpService(d.services, line, (s) => s.serviceId)
       const division = d.division || line.division
       return { ...d, services, division }
     })

@@ -10,6 +10,7 @@ import { BaseOrderDialog } from '../shared/BaseOrderDialog'
 import { PhotoCapture } from '../shared/PhotoCapture'
 import { SignaturePad } from '../shared/SignaturePad'
 import { ServiceCatalogPicker } from '../shared/ServiceCatalogPicker'
+import { addOrBumpService } from '@/lib/orders/draft-services'
 import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
 
 interface Props {
@@ -72,7 +73,7 @@ export function SiteVisitSingleDialog({ visit, profileId: _profileId, onComplete
         {/* Services for Quotation */}
         <div className="rounded-lg border border-green-200 bg-success/10 p-4 space-y-3">
           <p className="text-sm font-semibold">Services for Quotation</p>
-          <ServiceCatalogPicker onAdd={(s) => setQuotationServices((p) => [...p, s])} />
+          <ServiceCatalogPicker onAdd={(s) => setQuotationServices((p) => addOrBumpService(p, s, (x) => x.id))} />
 
           {quotationServices.map((s) => (
             <div key={s.id} className="flex items-center justify-between text-xs border rounded p-2 bg-background">
