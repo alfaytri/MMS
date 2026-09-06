@@ -1,13 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  Briefcase, Zap, RefreshCw, Wrench, MapPin, FileText, ClipboardList, ShieldCheck,
-  Phone, CheckCircle2, Circle,
-} from 'lucide-react'
+import { Phone, CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useVisitPaymentStatus } from '@/hooks/useVisitPaymentStatus'
+import { fmt12, toMinutes, blockLeftPx, blockWidthPx } from '@/lib/calendar/time'
+import { getVisitTypeConfig, solidColor, type VisitTypeDisplayConfig } from '@/lib/calendar/visitTypes'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
+
+// Re-export the shared visit-type config so this module's existing importers
+// (TeamDaySheet, VisitDetailPanel, SwapTeamDialog, TeamCard) keep working unchanged.
+export { getVisitTypeConfig, solidColor }
+export type { VisitTypeDisplayConfig }
 
 function parseServices(summary: string | null): string[] {
   if (!summary) return []
@@ -37,79 +41,6 @@ function kindLabel(visit: CalendarVisit): string {
   return 'Order'
 }
 
-export interface VisitTypeDisplayConfig {
-  key: string
-  label: string
-  /** Soft compound class — used on the calendar block itself.
-   *  Format: "bg-<hue>-100 border-<hue>-300 text-<hue>-900" */
-  blockClass: string
-  /** Mid-tone class for the order_number monospace label on the block. */
-  numberClass: string
-  /** Solid color — used for the colored pill inside the popup and the side panel header. */
-  solidClass: string
-  /** Back-compat alias for solidClass. Several legacy components (TeamCard,
-   *  TlOrderCard, TeamDaySheet, etc.) still read cfg.color. */
-  color: string
-  /** Icon tint class for the small icon used INSIDE the soft block. */
-  iconColor: string
-  icon: React.ComponentType<{ className?: string }>
-}
-
-// Visit type keys reflect the actual values emitted by the calendar_visits view.
-// Orders source uses orders.type literally (e.g. 'order', 'follow-up', 'site-visit')
-// with 'normal_order' as the COALESCE fallback. Hyphenated and underscored
-// variants both appear in the wild, so each gets its own entry pointing at
-// the same config.
-const VISIT_TYPE_CONFIGS: Array<Omit<VisitTypeDisplayConfig, 'color'>> = [
-  // Normal order — orders.type='order' OR the COALESCE fallback 'normal_order'
-  { key: 'order',               label: 'Normal Order',          blockClass: 'bg-orange-100 border-orange-300 text-orange-900', numberClass: 'text-orange-700', solidClass: 'bg-orange-500', iconColor: 'text-orange-700', icon: Briefcase },
-  { key: 'normal_order',        label: 'Normal Order',          blockClass: 'bg-orange-100 border-orange-300 text-orange-900', numberClass: 'text-orange-700', solidClass: 'bg-orange-500', iconColor: 'text-orange-700', icon: Briefcase },
-
-  { key: 'emergency',           label: 'Emergency',             blockClass: 'bg-red-100 border-red-300 text-red-900',          numberClass: 'text-red-700',    solidClass: 'bg-red-500',    iconColor: 'text-red-700',    icon: Zap },
-
-  { key: 'follow-up',           label: 'Follow Up',             blockClass: 'bg-yellow-100 border-yellow-400 text-yellow-900', numberClass: 'text-yellow-700', solidClass: 'bg-yellow-500', iconColor: 'text-yellow-700', icon: RefreshCw },
-  { key: 'follow_up',           label: 'Follow Up',             blockClass: 'bg-yellow-100 border-yellow-400 text-yellow-900', numberClass: 'text-yellow-700', solidClass: 'bg-yellow-500', iconColor: 'text-yellow-700', icon: RefreshCw },
-
-  { key: 'follow_up_request',   label: 'Follow-up Requested',   blockClass: 'bg-yellow-50 border-yellow-400 border-dashed text-yellow-900', numberClass: 'text-yellow-700', solidClass: 'bg-amber-500',  iconColor: 'text-yellow-700', icon: RefreshCw },
-
-  { key: 'backwork',            label: 'Backwork',              blockClass: 'bg-rose-100 border-rose-300 text-rose-900',       numberClass: 'text-rose-700',   solidClass: 'bg-rose-500',   iconColor: 'text-rose-700',   icon: Wrench },
-
-  { key: 'site_visit',          label: 'Site Visit',            blockClass: 'bg-green-100 border-green-300 text-green-900',    numberClass: 'text-green-700',  solidClass: 'bg-green-500',  iconColor: 'text-green-700',  icon: MapPin },
-  { key: 'site-visit',          label: 'Site Visit',            blockClass: 'bg-green-100 border-green-300 text-green-900',    numberClass: 'text-green-700',  solidClass: 'bg-green-500',  iconColor: 'text-green-700',  icon: MapPin },
-
-  { key: 'site_visit_contract', label: 'Site Visit (Contract)', blockClass: 'bg-teal-100 border-teal-300 text-teal-900',       numberClass: 'text-teal-700',   solidClass: 'bg-teal-500',   iconColor: 'text-teal-700',   icon: FileText },
-  { key: 'site-visit-contract', label: 'Site Visit (Contract)', blockClass: 'bg-teal-100 border-teal-300 text-teal-900',       numberClass: 'text-teal-700',   solidClass: 'bg-teal-500',   iconColor: 'text-teal-700',   icon: FileText },
-
-  { key: 'contract_visit',      label: 'Contract Visit',        blockClass: 'bg-purple-100 border-purple-300 text-purple-900', numberClass: 'text-purple-700', solidClass: 'bg-purple-500', iconColor: 'text-purple-700', icon: ClipboardList },
-  { key: 'contract',            label: 'Contract Visit',        blockClass: 'bg-purple-100 border-purple-300 text-purple-900', numberClass: 'text-purple-700', solidClass: 'bg-purple-500', iconColor: 'text-purple-700', icon: ClipboardList },
-
-  { key: 'qc_visit',            label: 'QC Visit',              blockClass: 'bg-indigo-100 border-indigo-300 text-indigo-900', numberClass: 'text-indigo-700', solidClass: 'bg-indigo-500', iconColor: 'text-indigo-700', icon: ShieldCheck },
-  { key: 'qc',                  label: 'QC Visit',              blockClass: 'bg-indigo-100 border-indigo-300 text-indigo-900', numberClass: 'text-indigo-700', solidClass: 'bg-indigo-500', iconColor: 'text-indigo-700', icon: ShieldCheck },
-]
-
-/** Back-compat: legacy code paths still pass cfg.color. Map to solidClass. */
-export function solidColor(c: string): string {
-  // No longer needed — kept as a passthrough so older imports don't break.
-  return c
-}
-
-type ConfigBase = Omit<VisitTypeDisplayConfig, 'color'>
-
-const FALLBACK_CONFIG: Omit<ConfigBase, 'key'> = {
-  label: 'Visit',
-  blockClass: 'bg-slate-100 border-slate-300 text-slate-900',
-  numberClass: 'text-slate-700',
-  solidClass: 'bg-slate-500',
-  iconColor: 'text-slate-700',
-  icon: Briefcase,
-}
-
-export function getVisitTypeConfig(visitType: string): VisitTypeDisplayConfig {
-  const found = VISIT_TYPE_CONFIGS.find(c => c.key === visitType) as ConfigBase | undefined
-  const base: ConfigBase = found ?? { key: visitType, ...FALLBACK_CONFIG }
-  return { ...base, color: base.solidClass }
-}
-
 interface VisitBlockProps {
   visit: CalendarVisit
   cellWidth: number
@@ -126,19 +57,6 @@ interface VisitBlockProps {
   onSwap: (visit: CalendarVisit) => void
 }
 
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + (m ?? 0)
-}
-
-function fmt12(t: string): string {
-  const [hStr, mStr] = t.split(':')
-  const h = parseInt(hStr)
-  const m = mStr ?? '00'
-  const period = h < 12 ? 'AM' : 'PM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${period}`
-}
 
 export function VisitBlock({
   visit,
@@ -156,11 +74,11 @@ export function VisitBlock({
 
   if (!visit.start_time || !visit.end_time) return null
 
-  const startMin  = timeToMinutes(visit.start_time)
-  const endMin    = timeToMinutes(visit.end_time)
+  const startMin  = toMinutes(visit.start_time)
+  const endMin    = toMinutes(visit.end_time)
   // cellWidth is per half-hour slot (30 min)
-  const leftPx    = ((startMin - dayStart * 60) / 30) * cellWidth
-  const widthPx   = Math.max(((endMin - startMin) / 30) * cellWidth, 4)
+  const leftPx    = blockLeftPx(startMin, dayStart, cellWidth)
+  const widthPx   = blockWidthPx(startMin, endMin, cellWidth)
   const isOvertime = endMin > workEnd * 60
 
   const topPx    = track * trackHeight + 2
