@@ -6,11 +6,15 @@ import { Input } from '@/components/ui/input'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { CustomerPendingCard } from '@/components/invoices/CustomerPendingCard'
 import { CustomerInvoiceDetailDialog } from '@/components/invoices/CustomerInvoiceDetailDialog'
+import { CustomerRiskIndicator } from '@/components/customers/CustomerRiskIndicator'
 import { usePendingPayments, type CustomerPending } from '@/hooks/usePendingPayments'
+import { useCustomerRiskTiers } from '@/hooks/useCustomerRiskTiers'
+import { resolveRiskTier } from '@/lib/customers/risk'
 import { formatCurrency } from '@/lib/utils/formatters'
 
 export default function PendingPaymentsPage() {
   const { data: customers = [], isLoading } = usePendingPayments()
+  const { data: riskTiers = [] } = useCustomerRiskTiers()
   const [search, setSearch] = useState('')
   const [detailTarget, setDetailTarget] = useState<CustomerPending | null>(null)
 
@@ -56,6 +60,19 @@ export default function PendingPaymentsPage() {
         </div>
       </div>
 
+      {/* ── Risk-tier legend ────────────────────────────────────────── */}
+      {riskTiers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          {riskTiers.map((t) => (
+            <span key={t.id} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CustomerRiskIndicator tier={t} variant="dot" />
+              {t.label}
+              <span className="text-muted-foreground/70">· {t.min_days}d+</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* ── Customer grid ───────────────────────────────────────────── */}
       {isLoading ? (
         <p className="py-12 text-center text-sm text-muted-foreground">Loading…</p>
@@ -72,6 +89,7 @@ export default function PendingPaymentsPage() {
             <CustomerPendingCard
               key={customer.group_key}
               customer={customer}
+              tier={resolveRiskTier(customer.oldest_pending_date, riskTiers)}
               onView={setDetailTarget}
             />
           ))}

@@ -9,15 +9,19 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils/formatters'
 import { useIsLgUp } from '@/hooks/useIsLgUp'
+import { CustomerRiskIndicator } from '@/components/customers/CustomerRiskIndicator'
+import type { RiskTier } from '@/lib/customers/risk'
 import type { CustomerPending } from '@/hooks/usePendingPayments'
 
 interface Props {
   customer: CustomerPending
+  /** Resolved payment-risk tier (from the page); drives the color accent + badge. */
+  tier?: RiskTier | null
   /** Desktop entry point — open the detail dialog. */
   onView: (customer: CustomerPending) => void
 }
 
-export function CustomerPendingCard({ customer, onView }: Props) {
+export function CustomerPendingCard({ customer, tier, onView }: Props) {
   const router = useRouter()
   const isLgUp = useIsLgUp()
 
@@ -47,17 +51,19 @@ export function CustomerPendingCard({ customer, onView }: Props) {
       )}
       onClick={handleOpen}
     >
-      {/* #3 seam: a risk-tone accent bar / border will be driven here by the
-          configurable customer-aging colors. Neutral for now. */}
+      <CustomerRiskIndicator variant="bar" tier={tier} />
 
-      <div className="p-4 space-y-3">
+      <div className="p-4 pl-5 space-y-3">
         {/* Top: identity + reminder action */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-semibold truncate">{customer.customer_name}</p>
-            {phone && (
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">— {phone}</p>
-            )}
+            <div className="mt-1 flex items-center gap-2">
+              <CustomerRiskIndicator variant="badge" tier={tier} className="shrink-0" />
+              {phone && (
+                <p className="text-xs text-muted-foreground truncate">— {phone}</p>
+              )}
+            </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <Button
