@@ -2,11 +2,9 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
-import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
 import { useCalendarSchedule, useDivisionSchedule, useAllDivisionSchedules } from '@/hooks/useCalendarSchedule'
 import { useCalendarVisits, groupVisitsByTeam, filterVisitsByType } from '@/hooks/useCalendarVisits'
-import { queryKeys } from '@/lib/queryKeys'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   useWeekCapacity,
   computeDayCapacity,
@@ -32,26 +30,18 @@ import { useRouter } from 'next/navigation'
 // ---------------------------------------------------------------------------
 
 function useCalendarPermissions() {
-  const { data: perms = [] } = useQuery({
-    queryKey: queryKeys.calendar.permissions,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
-      const { data: profile } = await supabase
-        .from('user_data')
-        .select('user_custom_roles!user_custom_roles_profile_id_fkey(custom_roles(permissions))')
-        .eq('auth_user_id', user.id)
-        .maybeSingle()
-      return ((profile?.user_custom_roles ?? []) as Array<{ custom_roles: { permissions: string[] } | null }>)
-        .flatMap(r => r.custom_roles?.permissions ?? [])
-    },
-  })
+  // Use the canonical permission resolver so system admins (is_system_admin /
+  // system.admin) implicitly hold every calendar key — consistent with the
+  // route guard and the rest of the app. `.manage` implies `.view`.
+  const { data, isLoading } = usePermissions()
+  const isAdmin = data?.isSystemAdmin ?? false
+  const perms = data?.permissions ?? []
+  const canManage = isAdmin || perms.includes('calendar.manage')
   return {
-    canView: perms.includes('calendar.view') || perms.length === 0,
-    canEdit: perms.includes('calendar.manage'),
-    canSwap: perms.includes('calendar.manage'),
+    canView: isAdmin || canManage || perms.includes('calendar.view'),
+    canEdit: canManage,
+    canSwap: canManage,
+    permsLoading: isLoading,
   }
 }
 
@@ -63,7 +53,9 @@ export function CalendarPage() {
   const router = useRouter()
 
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
-  const [fitMode, setFitMode] = useState(false)
+  // Default to Fit so the calendar opens framed on the company work window
+  // ("clearly fittable"); Scroll (fixed width, full 24h) is one click away.
+  const [fitMode, setFitMode] = useState(true)
   const [activeVisitTypes, setActiveVisitTypes] = useState<Set<string>>(new Set())
   const [swapVisit, setSwapVisit] = useState<CalendarVisit | null>(null)
   const [selectedVisit, setSelectedVisit] = useState<CalendarVisit | null>(null)
@@ -99,7 +91,7 @@ export function CalendarPage() {
   const { data: weekVisitsRaw = {} } = useWeekCapacity(weekStart, activeDivisionSlug, activeVisitTypes)
   const { data: allTeams = [] } = useTeams({ divisionId: activeDivisionSlug })
   const { data: teamSkills = new Map() } = useTeamSkills(activeDivisionSlug)
-  const { canView, canEdit, canSwap } = useCalendarPermissions()
+  const { canView, canEdit, canSwap, permsLoading } = useCalendarPermissions()
 
   const scheduleData = useMemo(
     () => schedule ?? { mode: 'normal' as const, day_start: 7, day_end: 18, scroll_to: 7, label: '' },
@@ -232,7 +224,7 @@ export function CalendarPage() {
     return team ? (team.name_en ?? team.name) : null
   }, [selectedVisit, teams])
 
-  if (!canView) {
+  if (!permsLoading && !canView) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
         You do not have permission to view the calendar.

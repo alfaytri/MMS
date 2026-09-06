@@ -20,10 +20,9 @@ import { useTeamSkills } from '@/hooks/useTeamSkills'
 import { useServiceTree } from '@/hooks/useServices'
 import { useTeamServiceFilter } from '@/hooks/useTeamServiceFilter'
 import { deriveCalendarScheduleRaw } from '@/hooks/useCalendarSchedule'
-import { HALF_HOUR_SLOTS as SLOTS, formatSlotLabel } from '@/lib/calendar/time'
+import { HALF_HOUR_SLOTS as SLOTS, formatSlotLabel, fitCellWidth } from '@/lib/calendar/time'
 
 const DEFAULT_CELL_W  = 36
-const FIT_MIN_CELL_W  = 24
 
 interface Props {
   visitDate: string
@@ -95,7 +94,8 @@ export function TeamCalendarPanel({
   const { data: visits } = useCalendarVisits(visitDate, null)
   const divisionSchedules = useAllDivisionSchedules()
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null)
-  const [fitMode, setFitMode] = useState(false)
+  // Default to Fit so the booking grid opens framed on the work window.
+  const [fitMode, setFitMode] = useState(true)
   const [containerWidth, setContainerWidth] = useState(0)
   const [nowMinutes, setNowMinutes] = useState<number | null>(null)
 
@@ -131,10 +131,6 @@ export function TeamCalendarPanel({
   // scrollContainerRef is stable — intentional empty-dep here
   }, [])
 
-  const cellWidth = fitMode && containerWidth > SIDEBAR_W
-    ? Math.max(Math.floor((containerWidth - SIDEBAR_W) / SLOTS.length), FIT_MIN_CELL_W)
-    : DEFAULT_CELL_W
-
   const divisionGroups = useMemo(() => {
     const groups = new Map<string, { slug: string; name: string; teams: TeamFull[] }>()
     for (const team of filteredTeams) {
@@ -146,20 +142,43 @@ export function TeamCalendarPanel({
     return Array.from(groups.values())
   }, [filteredTeams])
 
+  // The work window to frame in Fit mode = the union of the visible divisions'
+  // schedules (fallback 8–17). Mirrors the /calendar behaviour.
+  const fitWindow = useMemo(() => {
+    let start: number | null = null
+    let end: number | null = null
+    for (const group of divisionGroups) {
+      const s = divisionSchedules.get(group.slug)
+      if (!s) continue
+      start = start === null ? s.day_start : Math.min(start, s.day_start)
+      end = end === null ? s.day_end : Math.max(end, s.day_end)
+    }
+    return { start: start ?? 8, end: end ?? 17 }
+  }, [divisionGroups, divisionSchedules])
+
+  // Fit sizes cells so the work window fills the viewport; Scroll uses a fixed
+  // comfortable width. Off-hours stay reachable by horizontal scroll either way.
+  const cellWidth = fitMode
+    ? fitCellWidth(containerWidth - SIDEBAR_W, fitWindow.start, fitWindow.end, { fallback: DEFAULT_CELL_W })
+    : DEFAULT_CELL_W
+
+  // On first load, focus the grid on the work-window start (or the prefilled
+  // initialHour). The sticky team sidebar keeps team names visible once scrolled;
+  // rAF defers the scroll until the row content has established its width.
   useEffect(() => {
-    if (hasScrolled.current || !initialTeamId || !teamsRaw?.length) return
+    if (hasScrolled.current || !teamsRaw?.length) return
     hasScrolled.current = true
     const container = scrollContainerRef.current
     if (!container) return
-    if (typeof initialHour === 'number') {
-      container.scrollLeft = Math.max(0, initialHour * 2 * cellWidth - SIDEBAR_W)
-    }
-    const row = teamRowRefs.current.get(initialTeamId)
-    if (row) {
-      const rowTop = row.offsetTop
-      container.scrollTop = Math.max(0, rowTop - container.clientHeight / 3)
-    }
-  }, [initialTeamId, initialHour, teamsRaw, cellWidth])
+    const focusHour = typeof initialHour === 'number' ? initialHour : fitWindow.start
+    requestAnimationFrame(() => {
+      container.scrollLeft = Math.max(0, focusHour * 2 * cellWidth)
+      if (initialTeamId) {
+        const row = teamRowRefs.current.get(initialTeamId)
+        if (row) container.scrollTop = Math.max(0, row.offsetTop - container.clientHeight / 3)
+      }
+    })
+  }, [initialTeamId, initialHour, teamsRaw, cellWidth, fitWindow.start])
 
   const date = useMemo(() => new Date(visitDate), [visitDate])
 
@@ -333,7 +352,7 @@ export function TeamCalendarPanel({
 
           {/* Time header row */}
           <div className="flex border-b bg-muted sticky top-0 z-10">
-            <div className="w-32 shrink-0 border-r px-2 py-1 text-xs font-medium text-muted-foreground">
+            <div className="w-32 shrink-0 border-r px-2 py-1 text-xs font-medium text-muted-foreground sticky left-0 z-20 bg-muted">
               Teams / Time
             </div>
             <div className="flex">
@@ -378,7 +397,7 @@ export function TeamCalendarPanel({
                       <div
                         style={{ height: rowHeight }}
                         className={cn(
-                          'w-32 shrink-0 flex flex-col justify-center border-r px-2 gap-0.5',
+                          'w-32 shrink-0 flex flex-col justify-center border-r px-2 gap-0.5 sticky left-0 z-20 bg-background',
                           draggingService && getSkillMatch(team.id) === false && 'opacity-40',
                         )}
                       >

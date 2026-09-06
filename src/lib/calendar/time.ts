@@ -85,6 +85,36 @@ export function assignTracks(blocks: TrackBlock[]): Map<string, number> {
   return result
 }
 
+// ---------------------------------------------------------------------------
+// Fit-to-work-window helpers
+// ---------------------------------------------------------------------------
+
+/** Half-hour slots spanned by a work window [startHour, endHour), min 1. */
+export function workSlotCount(workStartHour: number, workEndHour: number): number {
+  return Math.max(1, Math.round((workEndHour - workStartHour) * 2))
+}
+
+/**
+ * Cell width (px per half-hour) sized so the *work window* [startHour, endHour)
+ * fills `availWidth` (the grid width MINUS the sticky team sidebar) — the
+ * calendar's "Fit" mode. This frames the company schedule rather than cramming
+ * all 24h; the off-hours outside the window stay reachable by horizontal
+ * scroll. Clamped by `min`/`max` so a short window doesn't yield absurdly wide
+ * cells nor a long one illegibly thin. Returns `fallback` until the container
+ * width has been measured (availWidth <= 0).
+ */
+export function fitCellWidth(
+  availWidth: number,
+  workStartHour: number,
+  workEndHour: number,
+  opts: { min?: number; max?: number; fallback?: number } = {},
+): number {
+  const { min = 28, max = 88, fallback = 40 } = opts
+  if (availWidth <= 0) return fallback
+  const raw = Math.floor(availWidth / workSlotCount(workStartHour, workEndHour))
+  return Math.max(min, Math.min(max, raw))
+}
+
 export interface Overtime {
   isEarly: boolean
   isLate: boolean

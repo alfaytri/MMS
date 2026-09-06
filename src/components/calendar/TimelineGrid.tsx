@@ -7,12 +7,10 @@ import { NowIndicator } from './NowIndicator'
 import type { CalendarVisit } from '@/hooks/useCalendarVisits'
 import type { TeamFull } from '@/hooks/useTeams'
 import { deriveCalendarScheduleRaw, type CalendarSchedule } from '@/hooks/useCalendarSchedule'
-import { HALF_HOUR_SLOTS as ALL_HALF_HOURS, formatSlotLabel } from '@/lib/calendar/time'
+import { HALF_HOUR_SLOTS as ALL_HALF_HOURS, formatSlotLabel, fitCellWidth } from '@/lib/calendar/time'
 
 /** Width per half-hour slot (scroll mode). 48 slots × 40 = 1920 px total. */
 const SCROLL_CELL_WIDTH = 40
-/** Min width per half-hour slot (fit mode). */
-const FIT_MIN_CELL_WIDTH = 28
 const DIVISION_HEADER_H  = 38
 
 function DivisionHeaderRow({
@@ -78,15 +76,15 @@ export function TimelineGrid({
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef   = useRef<HTMLDivElement>(null)
 
-  const slots     = ALL_HALF_HOURS
-  const slotCount = slots.length
+  const slots = ALL_HALF_HOURS
 
-  const rawFitWidth = bodyWidth > 0 ? Math.floor(bodyWidth / slotCount) : SCROLL_CELL_WIDTH
-  const cellWidth   = fitMode
-    ? Math.max(rawFitWidth, FIT_MIN_CELL_WIDTH)
+  // Fit mode sizes cells so the *work window* (the company schedule) fills the
+  // viewport; the off-hours outside it stay reachable by horizontal scroll.
+  // Scroll mode uses a fixed comfortable width. Either way the grid scrolls
+  // horizontally to reach the whole 24h day.
+  const cellWidth = fitMode
+    ? fitCellWidth(bodyWidth, schedule.day_start, schedule.day_end, { fallback: SCROLL_CELL_WIDTH })
     : SCROLL_CELL_WIDTH
-
-  const forceScroll = fitMode && rawFitWidth < FIT_MIN_CELL_WIDTH
 
   const onBodyScroll = useCallback(() => {
     if (headerScrollRef.current && bodyScrollRef.current) {
@@ -94,19 +92,23 @@ export function TimelineGrid({
     }
   }, [])
 
+  // Focus the grid on the work-window start (schedule.scroll_to = day_start) on
+  // load and whenever the schedule, zoom level, or team set changes. The rAF
+  // defers the scroll until after layout so the target isn't clamped to 0
+  // before the 24h content establishes its width — the race that used to dump
+  // you at midnight.
   useEffect(() => {
-    if (!bodyScrollRef.current) return
-    // scroll_to is an absolute hour (0-23); each hour = 2 half-hour slots
-    const scrollHour = schedule.scroll_to
-    bodyScrollRef.current.scrollLeft = scrollHour * 2 * cellWidth
-    if (headerScrollRef.current) {
-      headerScrollRef.current.scrollLeft = scrollHour * 2 * cellWidth
-    }
-  }, [schedule.scroll_to, cellWidth])
+    const body = bodyScrollRef.current
+    if (!body) return
+    const target = schedule.scroll_to * 2 * cellWidth
+    const raf = requestAnimationFrame(() => {
+      body.scrollLeft = target
+      if (headerScrollRef.current) headerScrollRef.current.scrollLeft = target
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [schedule.scroll_to, cellWidth, teams.length])
 
   const sidebarWidth = 192
-  const scrollable   = !fitMode || forceScroll
-  const _totalWidth  = slots.length * cellWidth
 
   // Group teams by division, preserving their original order
   const divisionGroups = useMemo(() => {
@@ -136,12 +138,11 @@ export function TimelineGrid({
       {/* Hour ruler */}
       <div
         ref={headerScrollRef}
-        className={cn(
-          'flex border-b bg-background z-10 sticky top-0',
-          !scrollable ? 'overflow-hidden' : 'overflow-x-hidden pointer-events-none',
-        )}
+        className="flex border-b bg-background z-10 sticky top-0 overflow-x-hidden pointer-events-none"
       >
-        <div className="shrink-0 border-r bg-background" style={{ width: sidebarWidth, minWidth: 128 }} />
+        {/* Sticky like the body's team-name sidebar so the ruler stays aligned
+            with the grid cells when scrolled (else off-hour labels overhang it). */}
+        <div className="sticky left-0 z-20 shrink-0 border-r bg-background" style={{ width: sidebarWidth, minWidth: 128 }} />
         <div className="flex">
           {slots.map((slot, i) => {
             const isHalf = slot % 1 !== 0
@@ -166,10 +167,7 @@ export function TimelineGrid({
       <div
         ref={bodyScrollRef}
         onScroll={onBodyScroll}
-        className={cn(
-          'flex-1 overflow-y-auto',
-          scrollable ? 'overflow-x-auto' : 'overflow-x-hidden',
-        )}
+        className="flex-1 overflow-y-auto overflow-x-auto"
       >
         <div className="relative">
           <NowIndicator
