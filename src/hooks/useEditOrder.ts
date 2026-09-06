@@ -249,51 +249,20 @@ export function useEditOrder(orderId: string) {
             .join(', ')
         : existingAddress
 
-      // 1. Update orders row
-      const { error: orderErr } = await supabase
-        .from('orders')
-        .update({
-          division:             draft.division || undefined,
-          scheduled_date:       primaryDate,
-          notes:                draft.notes || null,
-          arrival_phone:        draft.arrivalPhone || null,
-          address:              addressString || null,
-          total_amount:         draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0) - draft.voucherDiscount,
-          is_emergency:         draft.mode === 'emergency',
-          confirmation_sent_at: null,
-          confirmation_status:  'not_sent',
-        })
-        .eq('id', orderId)
-      if (orderErr) throw orderErr
+      // Build the payloads for the atomic edit RPC (mirrors create_order_with_dates).
+      // Emergency pricing is resolved here via effectiveUnitPrice, exactly like create.
+      const servicesPayload = draft.services.map((s) => ({
+        service_id: s.serviceId === SITE_VISIT_SERVICE_ID ? null : s.serviceId,
+        name: s.serviceName,
+        qty: s.qty,
+        price: effectiveUnitPrice(s, draft.mode),
+        duration: s.duration,
+        path: s.path ?? [],
+        from_time: s.fromTime ?? null,
+        to_time: s.toTime ?? null,
+      }))
 
-      // 2. Replace services
-      const { error: delSvcErr } = await supabase.from('order_services').delete().eq('order_id', orderId)
-      if (delSvcErr) throw delSvcErr
-      if (draft.services.length > 0) {
-        const { error: insSvcErr } = await supabase.from('order_services').insert(
-          draft.services.map((s) => ({
-            order_id: orderId,
-            service_id: s.serviceId === SITE_VISIT_SERVICE_ID ? null : s.serviceId,
-            name: s.serviceName,
-            qty: s.qty,
-            price: effectiveUnitPrice(s, draft.mode),
-            duration: s.duration,
-            path: s.path ?? [],
-            from_time: s.fromTime ?? null,
-            to_time: s.toTime ?? null,
-          }))
-        )
-        if (insSvcErr) throw insSvcErr
-      }
-
-      // 3. Replace team assignments
-      const { error: delAsnErr } = await supabase
-        .from('order_team_assignments')
-        .delete()
-        .eq('order_id', orderId)
-      if (delAsnErr) throw delAsnErr
-
-      const asnPayload = draft.assignments
+      const assignmentsPayload = draft.assignments
         .filter((a) => a.services.every((s) => s.serviceId !== SITE_VISIT_SERVICE_ID))
         .map((a) => {
           let durationHours = Math.max(1, Math.ceil(a.duration / 60))
@@ -303,7 +272,6 @@ export function useEditOrder(orderId: string) {
             if (!isNaN(startH) && !isNaN(endH) && endH >= startH) durationHours = endH - startH + 1
           }
           return {
-            order_id: orderId,
             team_id: a.teamId,
             services: a.services,
             scheduled_date: primaryDate,
@@ -311,37 +279,34 @@ export function useEditOrder(orderId: string) {
             duration: String(durationHours),
           }
         })
-      if (asnPayload.length > 0) {
-        const { error: insAsnErr } = await supabase.from('order_team_assignments').insert(asnPayload)
-        if (insAsnErr) throw insAsnErr
-      }
 
-      // 4. Replace visit dates
-      const { error: delDatesErr } = await supabase
-        .from('order_visit_dates')
-        .delete()
-        .eq('order_id', orderId)
-      if (delDatesErr) throw delDatesErr
-      if (sortedWindows.length > 0) {
-        const { error: insDatesErr } = await supabase.from('order_visit_dates').insert(
-          sortedWindows.map((w, i) => ({
-            order_id: orderId,
-            visit_date: w.date,
-            from_time: w.fromTime ?? null,
-            to_time: w.toTime ?? null,
-            sort_order: i,
-          }))
-        )
-        if (insDatesErr) throw insDatesErr
-      }
+      const visitDatesPayload = sortedWindows.map((w, i) => ({
+        visit_date: w.date,
+        from_time: w.fromTime ?? null,
+        to_time: w.toTime ?? null,
+        sort_order: i,
+      }))
 
-      // 5. Log
-      await supabase.from('order_log').insert({
-        order_id: orderId,
-        action: 'edited',
-        user_name: 'agent',
-        details: `Order updated — date: ${primaryDate}`,
-      })
+      const totalAmount =
+        draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0) - draft.voucherDiscount
+
+      // Single atomic call — updates the order and replaces all children in one
+      // transaction (no more partial-failure gutting), and logs the real editor
+      // server-side via auth.uid() instead of a hardcoded 'agent'.
+      const { error } = await supabase.rpc('edit_order_with_dates' as never, {
+        p_order_id: orderId,
+        p_division: draft.division || null,
+        p_scheduled_date: primaryDate,
+        p_total_amount: totalAmount,
+        p_address: addressString || null,
+        p_notes: draft.notes || null,
+        p_arrival_phone: draft.arrivalPhone || null,
+        p_is_emergency: draft.mode === 'emergency',
+        p_services: servicesPayload,
+        p_assignments: assignmentsPayload,
+        p_visit_dates: visitDatesPayload,
+      } as never)
+      if (error) throw error
 
       return { orderReadableId: draft.orderId, primaryDate }
     },
