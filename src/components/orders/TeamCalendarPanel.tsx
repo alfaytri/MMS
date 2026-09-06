@@ -397,7 +397,7 @@ export function TeamCalendarPanel({
                       <div
                         style={{ height: rowHeight }}
                         className={cn(
-                          'w-32 shrink-0 flex flex-col justify-center border-r px-2 gap-0.5 sticky left-0 z-20 bg-background',
+                          'w-32 shrink-0 flex flex-col justify-center border-r px-2 gap-0.5 sticky left-0 z-30 bg-background',
                           draggingService && getSkillMatch(team.id) === false && 'opacity-40',
                         )}
                       >
