@@ -10,7 +10,7 @@ interface ServiceNode {
  * Walk up the service tree from a leaf to the root, collecting all ancestor IDs.
  * Returns [leafId, parentId, grandparentId, ...rootId].
  */
-function getAncestorIds(serviceId: string, tree: ServiceNode[]): string[] {
+export function getAncestorIds(serviceId: string, tree: ServiceNode[]): string[] {
   const ids: string[] = [serviceId]
   let current = tree.find(s => s.id === serviceId)
   while (current?.parent_id) {

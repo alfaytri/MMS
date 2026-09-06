@@ -18,7 +18,7 @@ import type { OrderServiceDraft, TeamAssignmentDraft, OrderMode } from '@/types/
 import { cn } from '@/lib/utils'
 import { useTeamSkills } from '@/hooks/useTeamSkills'
 import { useServiceTree } from '@/hooks/useServices'
-import { useTeamServiceFilter } from '@/hooks/useTeamServiceFilter'
+import { useTeamServiceFilter, getAncestorIds } from '@/hooks/useTeamServiceFilter'
 import { deriveCalendarScheduleRaw } from '@/hooks/useCalendarSchedule'
 import { HALF_HOUR_SLOTS as SLOTS, formatSlotLabel, fitCellWidth } from '@/lib/calendar/time'
 
@@ -183,11 +183,19 @@ export function TeamCalendarPanel({
   const date = useMemo(() => new Date(visitDate), [visitDate])
 
   // Skill-match tint while dragging a service: does the team have an employee
-  // skilled in it? Read the real source — employee_services, via useTeamSkills
-  // (teamSkillsMap) — not the dead employees.skills column, which is always '{}'.
+  // skilled in it? Reads the real source (employee_services via useTeamSkills,
+  // teamSkillsMap) — not the dead employees.skills column. Ancestor-aware, like
+  // the capable-teams picker filter (useTeamServiceFilter): a parent-level skill
+  // covers descendant sub-services. Falls back to an exact match until the
+  // service tree has loaded.
   function getSkillMatch(teamId: string): boolean | null {
     if (!draggingService?.rootSkillId) return null
-    return (teamSkillsMap.get(teamId) ?? []).includes(draggingService.rootSkillId)
+    const skillIds = teamSkillsMap.get(teamId) ?? []
+    if (skillIds.length === 0) return false
+    const matchable = serviceTreeAll
+      ? getAncestorIds(draggingService.serviceId, serviceTreeAll)
+      : [draggingService.serviceId]
+    return skillIds.some((sid) => matchable.includes(sid))
   }
 
   function teamDisplayName(team: TeamFull): string {
