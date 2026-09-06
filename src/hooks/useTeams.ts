@@ -505,13 +505,17 @@ export function useArchiveTeam() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const supabase = createClient()
-      const { error } = await supabase.from('teams').update({ deleted_at: new Date().toISOString() } as DBUpdate<'teams'>).eq('id', id)
+      // Atomic archive: release members (active ones return to the unassigned
+      // pool) + vehicles and clear the leader, then set deleted_at — so archiving
+      // a staffed team never strands its members with a dangling team_id.
+      const { error } = await createClient().rpc('archive_team' as never, { p_team_id: id } as never)
       if (error) throw error
       await logActivity({ action: 'team-archived', entityType: 'team', entityId: id })
     },
     onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: queryKeys.teams.all })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
+      qc.invalidateQueries({ queryKey: queryKeys.teams.vehicles })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
       qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
       // Archived team → deactivate its custody location (keeps the link; fire-and-forget).

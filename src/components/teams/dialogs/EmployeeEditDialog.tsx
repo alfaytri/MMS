@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useServiceTree, type Service } from '@/hooks/useServices'
-import { useCreateEmployee, useArchiveEmployee, useDisableEmployee, useEnableEmployee, logActivity, type EmployeeInsert } from '@/hooks/useTeams'
+import { useArchiveEmployee, useDisableEmployee, useEnableEmployee, logActivity } from '@/hooks/useTeams'
 import { useDivisions } from '@/hooks/useDivisions'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useTeamsPage } from '../TeamsPageContext'
@@ -250,7 +250,6 @@ export function EmployeeEditDialog() {
   const isEdit = !!employee
 
   const qc             = useQueryClient()
-  const createEmployee  = useCreateEmployee()
   const disableEmployee = useDisableEmployee()
   const enableEmployee  = useEnableEmployee()
   const archiveEmployee = useArchiveEmployee()
@@ -409,27 +408,25 @@ export function EmployeeEditDialog() {
         qc.invalidateQueries({ queryKey: queryKeys.teams.activityLog })
         qc.invalidateQueries({ queryKey: queryKeys.teams.activityLogCount })
       } else {
-        const payload = {
-          name:        values.name,
-          phone:       fullPhone || null,
-          nationality: values.nationality || null,
-          join_date:   values.join_date,
-          status:      'unassigned' as const,
-          avatar_url:  avatarUrl || null,
-          division_id: values.division_id || null,
-        }
-        const created = await createEmployee.mutateAsync(payload as EmployeeInsert)
-        if (serviceIds.length > 0) {
-          const supabase = createClient()
-          const { error } = await supabase.rpc('upsert_employee_services', {
-            p_employee_id: created.id,
-            p_service_ids: serviceIds,
-          })
-          if (error) throw error
-        }
-        // Log only after employee + services both committed successfully
+        // Atomic create: one RPC inserts the employee + skills in a single
+        // transaction, so a mid-way failure can't leave a committed employee
+        // (and pressing Save again can't duplicate them). Phone is passed
+        // through — '' when blank, since employees.phone is NOT NULL — matching
+        // the edit path.
+        const supabase = createClient()
+        const { data: newId, error } = await supabase.rpc('create_employee' as never, {
+          p_name:        values.name,
+          p_phone:       fullPhone,
+          p_nationality: values.nationality || '',
+          p_join_date:   values.join_date || '',
+          p_avatar_url:  avatarUrl || '',
+          p_division_id: values.division_id || null,
+          p_service_ids: serviceIds,
+        } as never)
+        if (error) throw error
         await logActivity({
-          action: 'employee-created', entityType: 'employee', entityId: created.id,
+          action: 'employee-created', entityType: 'employee',
+          entityId: newId as unknown as string,
           afterData: { name: values.name },
         })
         qc.invalidateQueries({ queryKey: queryKeys.teams.employees })
