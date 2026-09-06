@@ -5664,6 +5664,7 @@ export type Database = {
           has_invoice: boolean | null
           id: string
           invoice_number: string | null
+          is_emergency: boolean
           notes: string | null
           order_id: string
           parent_order_id: string | null
@@ -5698,6 +5699,7 @@ export type Database = {
           has_invoice?: boolean | null
           id?: string
           invoice_number?: string | null
+          is_emergency?: boolean
           notes?: string | null
           order_id: string
           parent_order_id?: string | null
@@ -5732,6 +5734,7 @@ export type Database = {
           has_invoice?: boolean | null
           id?: string
           invoice_number?: string | null
+          is_emergency?: boolean
           notes?: string | null
           order_id?: string
           parent_order_id?: string | null

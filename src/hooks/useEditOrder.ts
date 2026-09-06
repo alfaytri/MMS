@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import { useOrderDetail } from './useOrderDetail'
+import { effectiveUnitPrice } from '@/lib/orders/pricing'
 import { queryKeys } from '@/lib/queryKeys'
 import type {
   OrderDraft,
@@ -125,7 +126,9 @@ export function useEditOrder(orderId: string) {
       visitDate: order.scheduled_date ?? '',
       visitDates,
       visitEndDate: null,
-      mode: 'normal',
+      // Load the real mode so an emergency order opens as Emergency (and prices
+      // as such) instead of silently reverting to Normal on save.
+      mode: (order as typeof order & { is_emergency?: boolean | null }).is_emergency ? 'emergency' : 'normal',
       assignments,
       voucherCode: '',
       voucherDiscount: 0,
@@ -255,7 +258,8 @@ export function useEditOrder(orderId: string) {
           notes:                draft.notes || null,
           arrival_phone:        draft.arrivalPhone || null,
           address:              addressString || null,
-          total_amount:         draft.services.reduce((sum, s) => sum + s.price * s.qty, 0) - draft.voucherDiscount,
+          total_amount:         draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0) - draft.voucherDiscount,
+          is_emergency:         draft.mode === 'emergency',
           confirmation_sent_at: null,
           confirmation_status:  'not_sent',
         })
@@ -272,7 +276,7 @@ export function useEditOrder(orderId: string) {
             service_id: s.serviceId === SITE_VISIT_SERVICE_ID ? null : s.serviceId,
             name: s.serviceName,
             qty: s.qty,
-            price: s.price,
+            price: effectiveUnitPrice(s, draft.mode),
             duration: s.duration,
             path: s.path ?? [],
             from_time: s.fromTime ?? null,

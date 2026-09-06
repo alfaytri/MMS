@@ -13,7 +13,7 @@ export function useOrderDetail(orderId: string | null) {
       const { data, error } = await supabase
         .from('orders')
         .select(`
-          id, order_id, service_customer_id, address_id, type, division, status, confirmation_status,
+          id, order_id, service_customer_id, address_id, type, is_emergency, division, status, confirmation_status,
           scheduled_date, total_amount, agent_name, address, notes, arrival_phone, has_invoice, invoice_number, created_at,
           service_customers(name, service_customer_phones(phone)),
           service_customer_addresses(id, label, building, street, zone, lat, lng, waze_link, is_primary),
