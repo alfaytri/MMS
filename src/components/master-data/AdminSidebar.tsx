@@ -26,6 +26,7 @@ import {
   Users2,
   Wrench,
   Hash,
+  AlertTriangle,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -69,6 +70,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Country Codes',      href: '/master-data/admin/country-codes',      icon: Globe,       permission: 'master_data.admin.view' },
       { label: 'PO Approval Bands', href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
       { label: 'Approval Workflows', href: '/master-data/admin/approval-workflows', icon: Workflow,    permission: 'master_data.admin.view' },
+      { label: 'Customer Risk Colors', href: '/master-data/admin/customer-risk',   icon: AlertTriangle, permission: 'master_data.admin.view' },
     ],
   },
 ]
