@@ -447,6 +447,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
           { key: 'orders.view',   label: 'View Orders',   description: 'Access the orders list and details' },
           { key: 'orders.create', label: 'Create Orders', description: 'Create new service orders' },
           { key: 'orders.manage', label: 'Edit Orders',   description: 'Edit and assign existing service orders (legacy .manage — alias of .edit)' },
+          { key: 'orders.approve', label: 'Approve Orders', description: 'Approve or reject orders held for high-risk customer approval (Service Order Approvals)' },
         ],
       },
       {

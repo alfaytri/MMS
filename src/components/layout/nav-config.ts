@@ -122,8 +122,9 @@ export const NAV_ITEMS: NavEntry[] = [
     groups: [
       {
         items: [
-          { label: 'View Orders',  href: '/orders',        icon: 'List',       permission: 'orders.view' },
-          { label: 'Create Order', href: '/orders/create', icon: 'PlusCircle', permission: 'orders.manage' },
+          { label: 'View Orders',  href: '/orders',        icon: 'List',        permission: 'orders.view' },
+          { label: 'Create Order', href: '/orders/create', icon: 'PlusCircle',  permission: 'orders.manage' },
+          { label: 'Approvals',    href: '/orders/approvals', icon: 'ShieldCheck', permission: 'orders.approve' },
         ],
       },
       {

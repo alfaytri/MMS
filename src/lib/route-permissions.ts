@@ -38,6 +38,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // ── Orders ─────────────────────────────────────────────────────────────
   { pathPrefix: '/orders/create-follow-up', permission: 'follow_ups.confirm' },
   { pathPrefix: '/orders/create',           permission: 'orders.manage' },
+  { pathPrefix: '/orders/approvals',        permission: 'orders.approve' },
   { pathPrefix: '/orders',                  permission: 'orders.view' },
 
   // ── Quotations ─────────────────────────────────────────────────────────
