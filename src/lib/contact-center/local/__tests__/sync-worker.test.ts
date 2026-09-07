@@ -63,104 +63,105 @@ describe('SyncWorker lifecycle', () => {
   })
 })
 
-describe('SyncWorker.subscribeRealtime', () => {
-  let onCalls: Array<{ event: string; cfg: Record<string, unknown> }>
+// Flush a handful of microtasks so the worker's `await authReady` → subscribe
+// chain resolves under fake timers.
+const tick = async () => { for (let i = 0; i < 5; i++) await Promise.resolve() }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mkBroadcastSupabase(): { supa: any; channels: Record<string, any>; broadcastCbs: Record<string, (msg: any) => void> } {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let supabaseMock: any
+  const channels: Record<string, any> = {}
+  const broadcastCbs: Record<string, (msg: unknown) => void> = {}
+  const supa = {
+    channel: vi.fn((topic: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ch: any = {
+        topic,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        on: vi.fn((type: string, _cfg: unknown, cb: (msg: any) => void) => {
+          if (type === 'broadcast') broadcastCbs[topic] = cb
+          return ch
+        }),
+        subscribe: vi.fn((cb?: (s: string) => void) => { cb?.('SUBSCRIBED'); return ch }),
+        unsubscribe: vi.fn(),
+      }
+      channels[topic] = ch
+      return ch
+    }),
+    removeChannel: vi.fn(),
+    auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: 't' } } }) },
+    realtime: { setAuth: vi.fn() },
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let dbMock: any
+  return { supa: supa as any, channels, broadcastCbs }
+}
 
-  beforeEach(() => {
-    onCalls = []
-    const channel = {
-      on: vi.fn((event: string, cfg: Record<string, unknown>) => {
-        onCalls.push({ event, cfg })
-        return channel
-      }),
-      subscribe: vi.fn(() => channel),
-    }
-    supabaseMock = {
-      channel: vi.fn(() => channel),
-      removeChannel: vi.fn(),
-    }
-    dbMock = { sync: { put: vi.fn() } } // minimal — start() only touches sync.put for status
-  })
-
-  it('subscribes to exactly one channel covering all chat_messages events', () => {
-    // 2026-06-14: filter relaxed from `from_type=eq.customer` INSERT to `*`.
-    // The customer-only filter prevented agent INSERTs and from_type heal UPDATEs
-    // from reaching Dexie, which broke the V2 sidebar (showed messages on the
-    // wrong side or hid them entirely). Still ONE subscription — far less than
-    // the original six unfiltered channels that prompted the tightening.
-    const worker = new SyncWorker(dbMock, supabaseMock, 'wati')
-    worker.start()
-
-    expect(supabaseMock.channel).toHaveBeenCalledTimes(1)
-    expect(onCalls).toHaveLength(1)
-    expect(onCalls[0]).toEqual({
-      event: 'postgres_changes',
-      cfg: {
-        event: '*',
-        schema: 'public',
-        table: 'chat_messages',
-      },
-    })
-
-    worker.stop()
-  })
-
-  it('does not subscribe to chat_conversations, service_customers, _addresses, _phones, or installed_products', () => {
-    const worker = new SyncWorker(dbMock, supabaseMock, 'wati')
-    worker.start()
-
-    const tables = onCalls.map((c) => (c.cfg as { table: string }).table)
-    expect(tables).not.toContain('chat_conversations')
-    expect(tables).not.toContain('service_customers')
-    expect(tables).not.toContain('service_customer_addresses')
-    expect(tables).not.toContain('service_customer_phones')
-    expect(tables).not.toContain('installed_products')
-
-    worker.stop()
-  })
-})
-
-describe('SyncWorker Realtime → Dexie', () => {
-  it('subscribes to chat_messages on start', () => {
-    const supa = mkSupabaseStub()
-    const w = new SyncWorker(getDb('test'), supa, 'wati')
+describe('SyncWorker realtime subscriptions (Broadcast)', () => {
+  it('start() subscribes to the private cc:inbox topic and never to postgres_changes', async () => {
+    // Was an unfiltered `event:'*'` postgres_changes subscription on
+    // chat_messages that fanned every row change out to every online agent.
+    // Now it's a scoped Broadcast (migration 20261058000000).
+    const { supa, channels } = mkBroadcastSupabase()
+    const dbMock = { sync: { put: vi.fn() } }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = new SyncWorker(dbMock as any, supa, 'wati')
     w.start()
-    expect(supa.channel).toHaveBeenCalledWith(expect.stringContaining('cc-sync'))
+    await tick()
+
+    expect(supa.channel).toHaveBeenCalledWith('cc:inbox', { config: { private: true } })
+    const onTypes = Object.values(channels).flatMap((c) => c.on.mock.calls.map((a: unknown[]) => a[0]))
+    expect(onTypes).toContain('broadcast')
+    expect(onTypes).not.toContain('postgres_changes')
     w.stop()
   })
 
-  it('buffers UPDATE events for 50ms then flushes via bulkPut', async () => {
-    const supa = mkSupabaseStub()
+  it('setActiveConversation subscribes to thread:{id} and re-points (removing the old) on change', async () => {
+    const { supa, channels } = mkBroadcastSupabase()
+    const dbMock = { sync: { put: vi.fn() } }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onSubCallbacks: Array<(payload: any) => void> = []
-    supa.channel.mockReturnValue({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      on: vi.fn().mockImplementation((_evt: string, _filter: any, cb: any) => {
-        onSubCallbacks.push(cb); return { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis(), unsubscribe: vi.fn() }
-      }),
-      subscribe: vi.fn().mockReturnThis(),
-      unsubscribe: vi.fn(),
-    })
-
-    const bulkSpy = vi.spyOn(messagesRepo, 'upsertMany').mockResolvedValue()
-    const w = new SyncWorker(getDb('test'), supa, 'wati')
+    const w = new SyncWorker(dbMock as any, supa, 'wati')
     w.start()
+    await tick()
+
+    w.setActiveConversation('c1')
+    await tick()
+    expect(supa.channel).toHaveBeenCalledWith('thread:c1', { config: { private: true } })
+
+    w.setActiveConversation('c2')
+    await tick()
+    expect(supa.removeChannel).toHaveBeenCalledWith(channels['thread:c1'])
+    expect(supa.channel).toHaveBeenCalledWith('thread:c2', { config: { private: true } })
+    w.stop()
+  })
+})
+
+describe('SyncWorker thread Broadcast → Dexie', () => {
+  it('buffers thread cc_message events for 50ms then flushes via bulkPut', async () => {
+    const { supa, broadcastCbs } = mkBroadcastSupabase()
+    const bulkSpy = vi.spyOn(messagesRepo, 'upsertMany').mockResolvedValue()
+    // Lightweight db stub — upsertMany is mocked, so this test never needs real
+    // Dexie (and a real Dexie read under fake timers wedges the shared test DB).
+    const dbMock = { sync: { put: vi.fn() } }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = new SyncWorker(dbMock as any, supa, 'wati')
+    w.start()
+    await tick()
+    w.setActiveConversation('c1')
+    await tick()
 
     for (let i = 0; i < 10; i++) {
-      onSubCallbacks[0]?.({
-        eventType: 'UPDATE',
-        new: {
-          id: `m-${i}`, conversation_id: 'c1',
-          delivery_status: 'read', external_id: `wamid.${i}`,
-          created_at: '2026-06-09T12:00:00Z',
-          from_type: 'agent', source: 'whatsapp_api', message_kind: 'message',
-          message_type: 'text', text: null, agent_name: null, attachments: null,
-          reactions: [], reply_to_external_id: null, sent_by_profile_id: null,
-          phone_id: null, deleted_at: null,
+      broadcastCbs['thread:c1']?.({
+        payload: {
+          op: 'UPDATE',
+          record: {
+            id: `m-${i}`, conversation_id: 'c1',
+            delivery_status: 'read', external_id: `wamid.${i}`,
+            created_at: '2026-06-09T12:00:00Z',
+            from_type: 'agent', source: 'whatsapp_api', message_kind: 'message',
+            message_type: 'text', text: null, agent_name: null, attachments: null,
+            reactions: [], reply_to_external_id: null, sent_by_profile_id: null,
+            phone_id: null, deleted_at: null,
+          },
         },
       })
     }
@@ -172,6 +173,7 @@ describe('SyncWorker Realtime → Dexie', () => {
 
     expect(bulkSpy).toHaveBeenCalledTimes(1)
     expect(bulkSpy.mock.calls[0][1].length).toBe(10)
+    w.stop()
   })
 })
 
@@ -182,13 +184,20 @@ describe('SyncWorker drain (text)', () => {
     await getDb('test').messages.clear()
   })
 
-  it('drains a queued send_message via supabase.functions.invoke', async () => {
-    const invoke = vi.fn().mockResolvedValue({
-      data: { message: { whatsappMessageId: 'WAMID-1' } },
-      error: null,
-    })
+  it('drains a queued send_message via the /api/wati/send-session route', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ whatsappMessageId: 'WAMID-1' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    // Chainable supabase stub so pushFullMessage + the external_id update resolve.
+    const chain = {
+      update: vi.fn().mockReturnThis(),
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      or: vi.fn().mockResolvedValue({ error: null }),
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
+    const supa = { ...mkSupabaseStub(), from: vi.fn(() => chain) } as any
 
     const w = new SyncWorker(getDb('test'), supa, 'wati')
     await getDb('test').messages.put({
@@ -209,26 +218,17 @@ describe('SyncWorker drain (text)', () => {
     w.start()
     await w.drainOnce()
 
-    expect(invoke).toHaveBeenCalledWith('api-wati', expect.objectContaining({
-      body: expect.objectContaining({
-        action: 'send_session_message',
-        text: 'hi',
-        message_id: 'msg-x',
-      }),
-    }))
+    expect(fetchMock).toHaveBeenCalledWith('/api/wati/send-session', expect.objectContaining({ method: 'POST' }))
     expect(await getDb('test').pendingWrites.get(pwId)).toBeUndefined()
     const m = await getDb('test').messages.get('msg-x')
     expect(m?.external_id).toBe('wati_WAMID-1')
     expect(m?.delivery_status).toBe('sent')
+    vi.unstubAllGlobals()
   })
 
   it('retries a 500-class failure with backoff (transient)', async () => {
-    const invoke = vi.fn().mockResolvedValue({
-      data: null, error: { message: 'server error', status: 500 },
-    })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
-    const w = new SyncWorker(getDb('test'), supa, 'wati')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'server error' }) }))
+    const w = new SyncWorker(getDb('test'), mkSupabaseStub(), 'wati')
 
     const pwId = await q.enqueue(getDb('test'), {
       kind: 'send_message',
@@ -242,13 +242,12 @@ describe('SyncWorker drain (text)', () => {
     const row = await getDb('test').pendingWrites.get(pwId)
     expect(row?.status).toBe('queued')
     expect(row?.retryCount).toBe(1)
+    vi.unstubAllGlobals()
   })
 
   it('marks terminal failure after MAX_RETRIES', async () => {
-    const invoke = vi.fn().mockResolvedValue({ data: null, error: { message: 'oops', status: 500 } })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supa = { ...mkSupabaseStub(), functions: { invoke } } as any
-    const w = new SyncWorker(getDb('test'), supa, 'wati')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'oops' }) }))
+    const w = new SyncWorker(getDb('test'), mkSupabaseStub(), 'wati')
 
     const pwId = await q.enqueue(getDb('test'), {
       kind: 'send_message', payload: { id: 'mz', conversationId: 'c1', phone: '+x', text: 'h' },
@@ -261,6 +260,7 @@ describe('SyncWorker drain (text)', () => {
 
     const row = await getDb('test').pendingWrites.get(pwId)
     expect(row?.status).toBe('failed')
+    vi.unstubAllGlobals()
   })
 })
 

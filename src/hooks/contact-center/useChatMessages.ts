@@ -144,15 +144,13 @@ export function useChatMessages(
         await supabase.from('chat_messages').update(patch).eq('id', tempId)
         patchMessage(tempId, patch)
       } else {
-        const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
-          body: { action: 'send_session_message', phone, text: text.trim() },
+        const sres = await fetch('/api/wati/send-session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, text: text.trim() }),
         })
-        if (fnErr) throw fnErr
-        const resp = fnData as WatiSendResponse | null
-        const watiId = resp?.message?.whatsappMessageId
-          ?? resp?.info?.whatsAppMessageId
-          ?? resp?.id
-          ?? resp?.messageId
+        const resp = (await sres.json().catch(() => ({}))) as { whatsappMessageId?: string; error?: string }
+        if (!sres.ok) throw new Error(resp.error ?? `send-session ${sres.status}`)
+        const watiId = resp.whatsappMessageId
         if (watiId) {
           await supabase
             .from('chat_messages')
@@ -244,21 +242,13 @@ export function useChatMessages(
       : bodyParams
 
     try {
-      const { data: fnData, error: fnErr } = await supabase.functions.invoke('api-wati', {
-        body: {
-          action:         'send_template',
-          phone,
-          template_name:  template.elementName,
-          broadcast_name: template.elementName,
-          parameters,
-        },
+      const tres = await fetch('/api/wati/send-template', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, template_name: template.elementName, broadcast_name: template.elementName, parameters }),
       })
-      if (fnErr) throw fnErr
-      const tResp = fnData as WatiSendResponse | null
-      const watiId = tResp?.message?.whatsappMessageId
-        ?? tResp?.info?.whatsAppMessageId
-        ?? tResp?.id
-        ?? tResp?.messageId
+      const tResp = (await tres.json().catch(() => ({}))) as { whatsappMessageId?: string; error?: string }
+      if (!tres.ok) throw new Error(tResp.error ?? `send-template ${tres.status}`)
+      const watiId = tResp.whatsappMessageId
       const patch = watiId
         ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
         : { delivery_status: 'sent' as const }
@@ -277,8 +267,8 @@ export function useChatMessages(
     setTemplatesLoading(true)
     setTemplates([])
     try {
-      const { data } = await supabase.functions.invoke('api-wati', { body: { action: 'get_templates' } })
-      const templatesResp = data as WatiSendResponse | null
+      const resTpl = await fetch('/api/wati/templates')
+      const templatesResp = (await resTpl.json().catch(() => null)) as WatiSendResponse | null
       const raw: WatiRawTemplate[] = templatesResp?.messageTemplates ?? []
       const parsed = raw.map((t) => {
         const comps: WatiRawComponent[] = t.components ?? []
@@ -316,7 +306,7 @@ export function useChatMessages(
     } finally {
       setTemplatesLoading(false)
     }
-  }, [templates.length, supabase])
+  }, [templates.length])
 
   const reactToMessage = useCallback(async (messageId: string, emoji: string, _phone?: string) => {
     const { data: row } = await supabase
@@ -369,14 +359,13 @@ export function useChatMessages(
         await supabase.from('chat_messages').update(patch).eq('id', message.id)
         patchMessage(message.id, patch)
       } else {
-        const { data: fnData } = await supabase.functions.invoke('api-wati', {
-          body: { action: 'send_session_message', phone, text: message.text },
+        const rres = await fetch('/api/wati/send-session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, text: message.text }),
         })
-        const retryResp = fnData as WatiSendResponse | null
-        const watiId = retryResp?.message?.whatsappMessageId
-          ?? retryResp?.info?.whatsAppMessageId
-          ?? retryResp?.id
-          ?? retryResp?.messageId
+        const retryResp = (await rres.json().catch(() => ({}))) as { whatsappMessageId?: string; error?: string }
+        if (!rres.ok) throw new Error(retryResp.error ?? `send-session ${rres.status}`)
+        const watiId = retryResp.whatsappMessageId
         const patch = watiId
           ? { external_id: `wati_${watiId}`, delivery_status: 'sent' as const }
           : { delivery_status: 'sent' as const }

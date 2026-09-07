@@ -12,7 +12,6 @@ import { useCustomerData }       from './useCustomerData'
 import { useChatMessages }       from './useChatMessages'
 import { useAddressState }       from './useAddressState'
 import { useProviderSetting }    from '@/hooks/useProviderSetting'
-import { playNotificationSound } from '@/lib/contact-center/notification-sound'
 import { ensureTeamConversation } from '@/lib/contact-center/ensure-team-conversation'
 import { markResolved }           from '@/lib/contact-center/mark-resolved'
 import { useTeamPhones }          from './local/useTeamPhones'
@@ -97,42 +96,10 @@ export function useContactCenterState() {
     }
   }, [])
 
-  // ── Sound notification for any inbound customer message ─────────────────────
-  // Single global subscription covers all conversations, not just the active one.
-  // The setTimeout(0) ensures React StrictMode's immediate cleanup can cancel the
-  // subscription before the WebSocket is created, avoiding the dev-mode warning
-  // "WebSocket is closed before the connection is established".
-  useEffect(() => {
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let cancelled = false
-
-    const timer = setTimeout(() => {
-      if (cancelled) return
-      // QUOTA REMEDIATION (2026-06-13): A3 of supabase-quota-remediation.
-      // Was a wide UPDATE chat_messages subscription whose only job was to chime
-      // when a customer added a reaction. Customer reactions live on AGENT rows
-      // (see api/wati/webhook + api/whapi/webhook), so the obvious from_type
-      // filter would have silently broken the feature, and an unfiltered UPDATE
-      // woke every browser on every delivery-status flip (sending → sent →
-      // delivered → read). Trade-off accepted: visual reactions still render in
-      // the open thread via useLiveThread; the audible chime is gone.
-      channel = supabase
-        .channel('global-inbound-sound')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'from_type=eq.customer' },
-          () => { playNotificationSound() }
-        )
-        .subscribe()
-    }, 0)
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-      if (channel) supabase.removeChannel(channel)
-    }
-  }, [])
+  // The inbound-message chime + conversation-list nudge now ride the sync
+  // worker's private `cc:inbox` Broadcast subscription (see sync-worker.ts
+  // onInboundPing + migration 20261058000000) — one scoped topic instead of a
+  // table-wide postgres_changes subscription on every agent.
 
   async function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
     let resolvedCustomerId   = customerId

@@ -170,56 +170,13 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
 
     init()
 
-    // ── Realtime subscription ────────────────────────────────────────────────
-    // REPLICA IDENTITY FULL is required on chat_messages for the
-    // conversation_id filter to match in WAL events. See migration
-    // 20260512210000_chat_messages_replica_identity.sql.
-    const channel = supabase
-      .channel(`thread-${conversationId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          if (cancelledRef.current) return
-          const newPayload = payload.new as Record<string, unknown>
-          const incoming = {
-            ...newPayload,
-            reactions: (newPayload.reactions as ChatMessage['reactions']) ?? [],
-          } as unknown as ChatMessage
-
-          if (payload.eventType === 'INSERT') {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === incoming.id)) return prev
-              return [...prev, incoming].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              )
-            })
-          } else if (payload.eventType === 'UPDATE') {
-            setMessages((prev) => {
-              const idx = prev.findIndex((m) => m.id === incoming.id)
-              if (idx === -1) return [...prev, incoming].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              )
-              const cur = prev[idx]
-              // Preserve a working attachment URL if the DB update has only empty URLs.
-              // fetch-messages upserts can clobber the Supabase storage URL we stored
-              // on send with an empty URL when WATI hasn't returned the media link yet.
-              const curHasUrl = cur.attachments?.some((a) => a.url)
-              const newHasUrl = incoming.attachments?.some((a) => a.url)
-              const attachments = curHasUrl && !newHasUrl ? cur.attachments : incoming.attachments
-              return prev.map((m) => (m.id === incoming.id ? { ...m, ...incoming, attachments } : m))
-            })
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        if (err) console.error('[useLiveThread] channel error', err)
-        // On any disconnect/error: poll immediately so we catch anything missed
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.warn('[useLiveThread] Realtime', status, '— polling immediately')
-          triggerPoll()
-        }
-      })
+    // ── Realtime ─────────────────────────────────────────────────────────────
+    // Live updates for the OPEN conversation are delivered to Dexie by the sync
+    // worker's private `thread:{conversationId}` Broadcast subscription (see
+    // sync-worker.ts + migration 20261058000000), and the V2 UI renders from
+    // Dexie via useLocalMessages. This hook no longer opens its own realtime
+    // channel; it keeps its local copy fresh for the WhatsApp-window calc
+    // through the 10 s poll below (and the visibility/online triggers).
 
     // ── Periodic DB poll: every 10 s, paused when tab hidden ─────────────────
     // Realtime WebSocket is the primary delivery channel; this poll is a
@@ -281,7 +238,6 @@ export function useLiveThread(conversationId: string | null, phone: string | nul
       cancelledRef.current = true
       clearInterval(poll)
       clearInterval(watiSync)
-      supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('online', handleOnline)
     }

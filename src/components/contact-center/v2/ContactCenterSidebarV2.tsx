@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useCountryCodes } from '@/hooks/useCountryCodes'
 import { splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useContactCenterState } from '@/hooks/contact-center/useContactCenterState'
+import { useCCPresence } from '@/hooks/contact-center/useCCPresence'
 import { useSyncWorker } from '@/hooks/contact-center/local/useSyncWorker'
 import { useLocalConversations } from '@/hooks/contact-center/local/useLocalConversations'
 import { useLocalCustomer } from '@/hooks/contact-center/local/useLocalCustomer'
@@ -58,11 +59,19 @@ export function ContactCenterSidebarV2() {
     })
   }, [])
 
-  const { fileMap } = useSyncWorker(authUserId, provider)
+  const { fileMap } = useSyncWorker(authUserId, provider, activeConversationId)
   const { conversations, loading: convsLoading } = useLocalConversations(authUserId)
   const local = useLocalCustomer(authUserId, activeCustomerId)
   const { data: myProfile } = useCurrentUserProfile()
   const { data: countryCodes = [] } = useCountryCodes()
+
+  // Live "who has which chat open right now" (presence) + handling-event logging.
+  const { byConversation: presenceByConversation } = useCCPresence({
+    authUserId,
+    profileId: myProfile?.id ?? null,
+    name: myProfile?.full_name ?? null,
+    activeConversationId,
+  })
 
   const { messages: unifiedMessages, loading: unifiedLoading } = useLocalMessages(authUserId, activeCustomerId, activeConversationId)
   const [composerFocused, setComposerFocused] = useState(false)
@@ -167,6 +176,13 @@ export function ContactCenterSidebarV2() {
         (t, name, i) => t.replace(`{{${name}}}`, vars[i] ?? ''),
         confirmTemplate.bodyOriginal || confirmTemplate.elementName,
       )
+      // Build WATI-ready named params (incl. header media), mirroring useChatMessages.
+      const bodyParams = confirmTemplate.paramNames.length > 0
+        ? confirmTemplate.paramNames.map((name, i) => ({ name, value: vars[i] ?? '' }))
+        : vars.map((v, i) => ({ name: `${i + 1}`, value: v }))
+      const parameters = confirmTemplate.headerMedia && headerUrl
+        ? [{ name: confirmTemplate.headerParamName ?? 'url', value: headerUrl }, ...bodyParams]
+        : bodyParams
       await sendTemplateLocal(getDb(authUserId), {
         conversationId: activeConversationId,
         phone: activePhone,
@@ -174,6 +190,7 @@ export function ContactCenterSidebarV2() {
         broadcastName: `mms_${confirmTemplate.elementName}_${Date.now()}`,
         bodyText,
         variables: vars,
+        parameters,
         headerUrl: headerUrl || undefined,
       })
       setConfirmTemplate(null)
@@ -228,8 +245,14 @@ export function ContactCenterSidebarV2() {
           <ChatListV2
             conversations={conversations}
             loading={convsLoading}
+            presenceByConversation={presenceByConversation}
             onSelectConversation={(c) => {
               if (c.provider && c.provider !== provider) setProvider(c.provider)
+              // Show-don't-block: warn if another agent already has this chat open.
+              const others = (presenceByConversation.get(c.id) ?? []).filter((p) => p.profileId !== myProfile?.id)
+              if (others.length > 0) {
+                toast.warning(`${others[0].name} is already chatting with this customer`)
+              }
               openConversation(c.id, c.customer_id, c.wati_phone)
               if (authUserId && c.id) {
                 void markReadLocal(getDb(authUserId), c.id)

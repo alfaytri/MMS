@@ -2,7 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { MmsCcDb } from './db'
 import type { LocalMessage, PendingWrite } from './schema'
 import * as messagesRepo from './repos/messages'
+import * as conversationsRepo from './repos/conversations'
 import * as q from './pending-writes'
+import { playNotificationSound } from '@/lib/contact-center/notification-sound'
+import { primeRealtimeAuth } from '@/lib/contact-center/realtime-auth'
 
 type Status = 'connected' | 'reconnecting' | 'offline'
 
@@ -15,7 +18,10 @@ export class SyncWorker {
   status: Status = 'offline'
   isRunning = false
 
-  private channel: ReturnType<SupabaseClient['channel']> | null = null
+  private inboxChannel: ReturnType<SupabaseClient['channel']> | null = null
+  private threadChannel: ReturnType<SupabaseClient['channel']> | null = null
+  private activeConversationId: string | null = null
+  private authReady: Promise<void> | null = null
   private drainTimer: ReturnType<typeof setInterval> | null = null
 
   private updateBuffer = new Map<string, LocalMessage>()
@@ -30,7 +36,9 @@ export class SyncWorker {
   start(): void {
     if (this.isRunning) return
     this.isRunning = true
-    this.subscribeRealtime()
+    // Prime the socket JWT once; both private-channel subscriptions await it.
+    this.authReady = primeRealtimeAuth(this.supabase)
+    void this.subscribeInbox()
     this.drainTimer = setInterval(() => { void this.drainOnce() }, 1_000)
     void this.drainOnce()
   }
@@ -39,10 +47,9 @@ export class SyncWorker {
     if (!this.isRunning) return
     this.isRunning = false
     this.fileMap.clear()
-    if (this.channel) {
-      this.supabase.removeChannel(this.channel)
-      this.channel = null
-    }
+    if (this.inboxChannel)  { this.supabase.removeChannel(this.inboxChannel);  this.inboxChannel = null }
+    if (this.threadChannel) { this.supabase.removeChannel(this.threadChannel); this.threadChannel = null }
+    this.activeConversationId = null
     if (this.drainTimer) { clearInterval(this.drainTimer); this.drainTimer = null }
     if (this.flushTimer) { clearTimeout(this.flushTimer); this.flushTimer = null }
     this.updateBuffer.clear()
@@ -54,29 +61,18 @@ export class SyncWorker {
     void this.db.sync.put({ key: 'realtimeStatus', value: next, updatedAt: Date.now() })
   }
 
-  private subscribeRealtime(): void {
-    // QUOTA REMEDIATION (2026-06-13): see docs/superpowers/specs/2026-06-13-supabase-quota-remediation-design.md
-    //
-    // Was 6 unfiltered `event: '*'` subscriptions across chat_messages,
-    // chat_conversations, service_customers, _addresses, _phones, installed_products
-    // — consumed ~70% of the project's Realtime quota.
-    //
-    // Tightened to ONE filtered INSERT subscription (from_type=customer).
-    //
-    // UPDATE (2026-06-14): customer-only filter broke the V2 sidebar — the UI reads
-    // from Dexie via useLocalMessages, so agent INSERTs from fetch-messages (Wati
-    // dashboard replies, broadcast templates) and from_type heal UPDATEs never
-    // reached the cache and the chat appeared empty / mis-sided. Restored full
-    // chat_messages event coverage. Still ONE subscription — far below the
-    // original six. Other quota optimisations (chat_conversations polling, CRM
-    // lazy-fetch) remain in effect.
-    this.channel = this.supabase
-      .channel(`cc-sync-${this.provider}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_messages' },
-        (payload: { eventType: string; new?: unknown; old?: unknown }) => this.onMessagePayload(payload),
-      )
+  // Realtime is Broadcast-from-DB (migration 20261058000000), NOT the old
+  // unfiltered `postgres_changes` firehose on chat_messages (which fanned every
+  // row change — incl. every delivery-status flip — out to every online agent).
+  // A trigger emits two scoped topics; we subscribe to:
+  //   • cc:inbox        — global chime + conversation-list nudge (always on)
+  //   • thread:{convId} — the open conversation's live messages (setActiveConversation)
+  private async subscribeInbox(): Promise<void> {
+    await this.authReady   // private channels need the JWT set first
+    if (!this.isRunning) return
+    this.inboxChannel = this.supabase
+      .channel('cc:inbox', { config: { private: true } })
+      .on('broadcast', { event: 'cc_inbound' }, () => this.onInboundPing())
       .subscribe((channelStatus: string) => {
         if (channelStatus === 'SUBSCRIBED')         this.setStatus('connected')
         else if (channelStatus === 'CHANNEL_ERROR') this.setStatus('offline')
@@ -84,15 +80,44 @@ export class SyncWorker {
       })
   }
 
-  private onMessagePayload(payload: { eventType: string; new?: unknown; old?: unknown }): void {
-    const row = (payload.new ?? payload.old) as LocalMessage | undefined
-    if (!row?.id) return
+  private onInboundPing(): void {
+    // A new inbound customer message landed. Chime + refresh the conversation
+    // list cache so the row bumps to the top. We deliberately don't carry the
+    // message body here: if it's the open thread, thread:{id} already delivered
+    // it; otherwise it loads from Supabase when the agent opens the chat.
+    playNotificationSound()
+    void conversationsRepo.lazyFetch(this.db, this.supabase, this.provider, { force: true })
+  }
 
-    if (payload.eventType === 'DELETE') {
-      void this.db.messages.delete(row.id)
+  /** (Re)subscribe live updates for the conversation the agent currently has open. */
+  setActiveConversation(conversationId: string | null): void {
+    if (conversationId === this.activeConversationId) return
+    this.activeConversationId = conversationId
+    if (this.threadChannel) {
+      this.supabase.removeChannel(this.threadChannel)
+      this.threadChannel = null
+    }
+    if (!conversationId) return
+    // Wait for the JWT (private channel) before joining; bail if the open
+    // conversation changed or the worker stopped while auth was resolving.
+    void (this.authReady ?? Promise.resolve()).then(() => {
+      if (!this.isRunning || this.activeConversationId !== conversationId) return
+      this.threadChannel = this.supabase
+        .channel(`thread:${conversationId}`, { config: { private: true } })
+        .on('broadcast', { event: 'cc_message' }, (msg: { payload?: unknown }) => this.onThreadEvent(msg.payload))
+        .subscribe()
+    })
+  }
+
+  private onThreadEvent(payload: unknown): void {
+    const body = payload as { op?: string; record?: LocalMessage; id?: string } | null
+    if (!body) return
+    if (body.op === 'DELETE') {
+      if (body.id) void this.db.messages.delete(body.id)
       return
     }
-
+    const row = body.record
+    if (!row?.id) return
     this.updateBuffer.set(row.id, row)
     if (this.flushTimer == null) {
       this.flushTimer = setTimeout(() => this.flush(), FLUSH_WINDOW_MS)
@@ -220,17 +245,20 @@ export class SyncWorker {
       return
     }
 
-    const { data, error } = await this.supabase.functions.invoke('api-wati', {
-      body: { action: 'send_session_message', phone, text, message_id: id },
+    // Send via the local /api/wati/send-session route (direct WATI) — the
+    // api-wati Edge Function 403s on user JWTs, so client sends can't invoke it.
+    const res = await fetch('/api/wati/send-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, text }),
     })
-    if (error) throw new Error(error.message ?? 'send_message failed')
-    // Wati uses several different field names for the message ID across endpoints
-    const watiId = data?.message?.whatsappMessageId
-                ?? data?.message?.whatsAppMessageId
-                ?? data?.info?.whatsAppMessageId
-                ?? data?.whatsappMessageId
-                ?? data?.id
-                ?? null
+    const data = await res.json().catch(() => ({} as { whatsappMessageId?: string; error?: string }))
+    if (!res.ok) {
+      const errMsg = (data as { error?: string }).error ?? `send-session ${res.status}`
+      if (res.status >= 400 && res.status < 500) throw new TerminalError(errMsg)
+      throw new Error(errMsg)
+    }
+    const watiId = (data as { whatsappMessageId?: string }).whatsappMessageId ?? null
     // Always promote the local bubble out of 'sending' once api-wati returned
     // without error — some response shapes omit the wamid and the row would
     // otherwise stick at the clock icon forever. The webhook will fill in
@@ -335,30 +363,20 @@ export class SyncWorker {
       return
     }
 
-    const { data, error } = await this.supabase.functions.invoke('api-wati', {
-      body: {
-        action: 'send_file',
-        phone: p.phone,
-        url: publicUrl,
-        caption: p.caption || undefined,
-        filename: p.filename,
-        mime_type: p.mime,
-        message_id: p.id,
-      },
+    const res = await fetch('/api/wati/send-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: p.phone, url: publicUrl, caption: p.caption || undefined, filename: p.filename, mime_type: p.mime }),
     })
-    if (error) throw new Error(error.message ?? 'send_file failed')
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const watiId = (data as any)?.message?.whatsappMessageId
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ?? (data as any)?.message?.whatsAppMessageId
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ?? (data as any)?.info?.whatsAppMessageId
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ?? (data as any)?.whatsappMessageId
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ?? (data as any)?.id
-                ?? null
+    const data = await res.json().catch(() => ({} as any))
+    if (!res.ok) {
+      const errMsg = (data as { error?: string }).error ?? `send-file ${res.status}`
+      if (res.status >= 400 && res.status < 500) throw new TerminalError(errMsg)
+      throw new Error(errMsg)
+    }
+    // The route returns WATI's raw response.
+    const watiId = data?.info?.whatsappMessageId ?? data?.message?.whatsappMessageId ?? data?.id ?? null
     const externalId = watiId ? `wati_${watiId}` : null
 
     await this.db.messages.update(p.id, {
@@ -382,30 +400,29 @@ export class SyncWorker {
     const p = row.payload as {
       id: string; conversationId: string; phone: string
       templateName: string; broadcastName: string
-      parameters: string[]; headerUrl: string | null
+      parameters: string[] | { name: string; value: string }[]; headerUrl: string | null
     }
     // Push to Supabase BEFORE calling Wati so the webhook dedup can find it
     // (carries agent_name + sent_by_profile_id) instead of inserting a duplicate.
     await this.pushFullMessage(p.id, p.conversationId, null)
 
-    const { data, error } = await this.supabase.functions.invoke('api-wati', {
-      body: {
-        action: 'send_template',
+    const res = await fetch('/api/wati/send-template', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         phone: p.phone,
         template_name: p.templateName,
         broadcast_name: p.broadcastName,
         parameters: p.parameters,
-        header_url: p.headerUrl || undefined,
-        message_id: p.id,
-      },
+      }),
     })
-    if (error) throw new Error(error.message ?? 'send_template failed')
-    const watiId = data?.message?.whatsappMessageId
-                ?? data?.message?.whatsAppMessageId
-                ?? data?.info?.whatsAppMessageId
-                ?? data?.whatsappMessageId
-                ?? data?.id
-                ?? null
+    const data = await res.json().catch(() => ({} as { whatsappMessageId?: string; error?: string }))
+    if (!res.ok) {
+      const errMsg = (data as { error?: string }).error ?? `send-template ${res.status}`
+      if (res.status >= 400 && res.status < 500) throw new TerminalError(errMsg)
+      throw new Error(errMsg)
+    }
+    const watiId = (data as { whatsappMessageId?: string }).whatsappMessageId ?? null
     // Always promote the local bubble out of 'sending' after a successful
     // invoke — template responses often omit the wamid, and leaving the row
     // at 'sending' was the cause of the perpetual clock icon. The webhook

@@ -93,6 +93,8 @@ export interface SendTemplateArgs {
   broadcastName: string
   bodyText: string
   variables: string[]
+  /** WATI-ready named params ([{name,value}], incl. header). Preferred when set. */
+  parameters?: { name: string; value: string }[]
   headerUrl?: string
   agentProfileId?: string | null
   agentName?: string | null
@@ -132,7 +134,7 @@ export async function sendTemplateLocal(db: MmsCcDb, args: SendTemplateArgs): Pr
         phone: args.phone,
         templateName: args.templateName,
         broadcastName: args.broadcastName,
-        parameters: args.variables,
+        parameters: args.parameters ?? args.variables,
         headerUrl: args.headerUrl ?? null,
       },
       localMessageId: id,

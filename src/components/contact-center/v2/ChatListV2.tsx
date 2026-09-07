@@ -19,6 +19,7 @@ import { tryNormalisePhone } from '@/lib/contact-center/normalise-phone'
 import type { FilterKey } from './ChatListEmptyState'
 import type { FilterCounts } from './ChatListFilterTabs'
 import type { ChatConversation } from '@/types/contact-center'
+import type { HandlerPresence } from '@/hooks/contact-center/useCCPresence'
 import type { SyncProgress } from '@/hooks/contact-center/useContactCenterState'
 import type { UseTeamPhonesResult } from '@/hooks/contact-center/local/useTeamPhones'
 import type { DivisionSlim } from './TeamGroupedList'
@@ -36,6 +37,7 @@ interface Props {
   divisions:            DivisionSlim[]
   onOpenTeam:           (team: TeamSlim) => void
   onMarkResolved:       (conversationId: string) => Promise<void>
+  presenceByConversation?: Map<string, HandlerPresence[]>
 }
 
 function looksLikePhone(s: string): boolean {
@@ -69,12 +71,13 @@ function ProviderTag({ provider }: { provider?: 'wati' | 'whapi' }) {
 const AGENT_ACTIVE_WINDOW_MS = 30 * 60 * 1000
 
 function ConversationRow({
-  c, now, onClick, onMarkResolved,
+  c, now, onClick, onMarkResolved, liveHandlerName,
 }: {
   c: ChatConversation
   now: number
   onClick: () => void
   onMarkResolved?: () => void
+  liveHandlerName?: string | null
 }) {
   const isBot = c.assigned_agent?.toLowerCase() === 'bot' || c.assigned_agent?.toLowerCase() === 'chatbot'
   const isResolved = c.wati_status === 'resolved'
@@ -114,17 +117,30 @@ function ConversationRow({
               </span>
             </div>
             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-              {agentChatting && (
+              {liveHandlerName ? (
+                // Live presence — an agent has this chat OPEN right now.
                 <span
                   className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 max-w-[140px]"
-                  title={`${c.assigned_agent} is chatting in this conversation`}
+                  title={`${liveHandlerName} has this chat open right now`}
+                >
+                  <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </span>
+                  <span className="truncate">{liveHandlerName} chatting</span>
+                </span>
+              ) : agentChatting ? (
+                // Fallback heuristic — replied recently (< 30 min).
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100/70 text-emerald-700/90 dark:bg-emerald-900/30 dark:text-emerald-300/90 max-w-[140px]"
+                  title={`${c.assigned_agent} replied here recently`}
                 >
                   {isBot
                     ? <Bot className="h-2.5 w-2.5 flex-shrink-0" />
                     : <MessageSquareText className="h-2.5 w-2.5 flex-shrink-0" />}
                   <span className="truncate">{c.assigned_agent} chatting</span>
                 </span>
-              )}
+              ) : null}
               {c.last_message_at && (
                 <span className="text-[10px] text-muted-foreground">
                   {new Date(c.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -163,6 +179,7 @@ function ConversationRow({
 export function ChatListV2({
   conversations, loading, onSelectConversation, onStartNewChat,
   onSync, syncProgress, provider, teamPhones, divisions, onOpenTeam, onMarkResolved,
+  presenceByConversation,
 }: Props) {
   const [search, setSearch] = useState('')
   const [syncing, setSyncing] = useState(false)
@@ -391,6 +408,7 @@ export function ChatListV2({
               key={c.id}
               c={c}
               now={now}
+              liveHandlerName={presenceByConversation?.get(c.id)?.[0]?.name ?? null}
               onClick={() => onSelectConversation(c)}
               onMarkResolved={
                 filter === 'unanswered'
