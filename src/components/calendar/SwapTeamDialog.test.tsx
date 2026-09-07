@@ -16,8 +16,6 @@ function makeTeam(overrides: Partial<TeamFull>): TeamFull {
     leader_id: null,
     vehicle_id: null,
     schedule_id: null,
-    schedule_start: null,
-    schedule_end: null,
     phone: null,
     tag: null,
     traccar_device_id: null,

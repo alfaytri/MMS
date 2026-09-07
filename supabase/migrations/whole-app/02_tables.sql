@@ -2694,8 +2694,6 @@ CREATE TABLE public.teams (
   tag team_tag DEFAULT 'normal'::team_tag,
   vehicle_id uuid,
   schedule_id uuid,
-  schedule_start integer DEFAULT 7,
-  schedule_end integer DEFAULT 17,
   leader_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermission } from '@/lib/auth/require-admin'
 import { computeAvailability, type Booking } from '@/lib/follow-ups/availability'
+import { workingHoursForDate, type ScheduleDayConfig } from '@/lib/follow-ups/working-hours'
 import type { CreateFollowUpRequestBody } from '@/types/follow-ups'
 import type { Json } from '@/types/database.types'
 
@@ -57,13 +58,34 @@ export async function POST(req: Request) {
 
     // 2. If a slot was requested, run conflict detection.
     if (hasSlot) {
+      // Resolve the team's working hours for the requested date from its active
+      // schedule, falling back to its division's calendar schedule, then to the
+      // default window — one source of truth, shared with the calendar. (The
+      // conflict check below gates on booking overlaps, not on these hours, which
+      // only shape the free-slot suggestions returned on a conflict.)
       const { data: team } = await admin
         .from('teams')
-        .select('schedule_start, schedule_end')
+        .select('schedule_id, division_id')
         .eq('id', teamId)
         .single()
-      const workingFrom = `${String(team?.schedule_start ?? 8).padStart(2, '0')}:00`
-      const workingTo   = `${String(team?.schedule_end   ?? 18).padStart(2, '0')}:00`
+
+      let scheduleDays: Record<string, ScheduleDayConfig> | null = null
+      if (team?.schedule_id) {
+        const { data: sched } = await admin
+          .from('schedules').select('days').eq('id', team.schedule_id).is('deleted_at', null).maybeSingle()
+        scheduleDays = (sched?.days as Record<string, ScheduleDayConfig> | null) ?? null
+      }
+      if (!scheduleDays && team?.division_id) {
+        const { data: div } = await admin
+          .from('company_divisions').select('calendar_schedule_id').eq('id', team.division_id).maybeSingle()
+        if (div?.calendar_schedule_id) {
+          const { data: sched } = await admin
+            .from('schedules').select('days').eq('id', div.calendar_schedule_id).is('deleted_at', null).maybeSingle()
+          scheduleDays = (sched?.days as Record<string, ScheduleDayConfig> | null) ?? null
+        }
+      }
+      const { working_from: workingFrom, working_to: workingTo } =
+        workingHoursForDate(scheduleDays, body.requested_date!)
 
       const nextDayISO = (d: string) => {
         const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + 1)

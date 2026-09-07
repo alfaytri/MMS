@@ -90,10 +90,35 @@ describe('POST /api/follow-up-requests', () => {
             select: () => ({
               eq: () => ({
                 single: vi.fn().mockResolvedValue({
-                  data: { id: teamId, schedule_start: 8, schedule_end: 18 },
+                  data: { schedule_id: 's1', division_id: 'd1' },
                   error: null,
                 }),
               }),
+            }),
+          }
+        }
+        if (table === 'schedules') {
+          // Working hours now come from a schedule's `days`; enable every day
+          // 08:00–18:00 so the requested date resolves to the historical window.
+          const allDays = Object.fromEntries(
+            ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((d) => [
+              d, { enabled: true, start: '08:00', end: '18:00' },
+            ])
+          )
+          return {
+            select: () => ({
+              eq: () => ({
+                is: () => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { days: allDays }, error: null }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'follow_up_requests') {
+          return {
+            select: () => ({
+              eq: () => ({ eq: () => ({ in: () => ({ data: [], error: null }) }) }),
             }),
           }
         }

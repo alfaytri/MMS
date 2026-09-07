@@ -10433,9 +10433,7 @@ export type Database = {
           name_ar: string | null
           name_en: string
           phone: string | null
-          schedule_end: number | null
           schedule_id: string | null
-          schedule_start: number | null
           site_visit_order: boolean
           site_visit_quotation: boolean
           tag: Database["public"]["Enums"]["team_tag"] | null
@@ -10456,9 +10454,7 @@ export type Database = {
           name_ar?: string | null
           name_en?: string
           phone?: string | null
-          schedule_end?: number | null
           schedule_id?: string | null
-          schedule_start?: number | null
           site_visit_order?: boolean
           site_visit_quotation?: boolean
           tag?: Database["public"]["Enums"]["team_tag"] | null
@@ -10479,9 +10475,7 @@ export type Database = {
           name_ar?: string | null
           name_en?: string
           phone?: string | null
-          schedule_end?: number | null
           schedule_id?: string | null
-          schedule_start?: number | null
           site_visit_order?: boolean
           site_visit_quotation?: boolean
           tag?: Database["public"]["Enums"]["team_tag"] | null
