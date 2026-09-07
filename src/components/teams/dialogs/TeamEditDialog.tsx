@@ -125,7 +125,30 @@ export function TeamEditDialog() {
   async function onSubmit(values: TeamFormValues) {
     setSaveError(null)
     setTraccarError(null)
+    form.clearErrors('name_en')
     try {
+      // Uniqueness check: no two live teams in the same division may share a name
+      // (team names surface in calendars and assignment pickers without division context).
+      const nameKey = values.name_en.trim().toLowerCase()
+      if (nameKey && values.division_id) {
+        const supabase = createClient()
+        const { data: sameDivTeams } = await supabase.from('teams')
+          .select('id, name_en, name')
+          .eq('division_id', values.division_id)
+          .is('deleted_at', null)
+          .neq('id', team?.id ?? '00000000-0000-0000-0000-000000000000')
+        const clash = (sameDivTeams ?? []).some(t =>
+          ((t.name_en?.trim().toLowerCase() || t.name?.trim().toLowerCase()) ?? '') === nameKey
+        )
+        if (clash) {
+          form.setError('name_en', {
+            type: 'validate',
+            message: 'A team with this name already exists in this division.',
+          })
+          return
+        }
+      }
+
       // Uniqueness check: a Traccar device can be linked to at most one team
       if (values.traccar_device_id) {
         const supabase = createClient()

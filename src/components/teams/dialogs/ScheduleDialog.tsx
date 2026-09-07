@@ -137,6 +137,17 @@ export function ScheduleDialog() {
 
   async function onAttach(values: AttachFormValues) {
     if (!teamIdStr) return
+    // A1 — the Select isn't a native required input, so guard the choice explicitly.
+    if (!values.scheduleId) {
+      attachForm.setError('scheduleId', { type: 'required', message: 'Select a schedule' })
+      return
+    }
+    // A2 — an end date, when given, cannot precede the start date. Date inputs are
+    // YYYY-MM-DD, so a plain string compare orders them correctly.
+    if (values.endDate && values.endDate < values.startDate) {
+      attachForm.setError('endDate', { type: 'min', message: 'End date must be on or after the start date' })
+      return
+    }
     await attachSchedule.mutateAsync({
       teamId: teamIdStr,
       scheduleId: values.scheduleId,
@@ -412,7 +423,7 @@ export function ScheduleDialog() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="text-sm font-medium">Schedule</label>
-                    <Select onValueChange={v => attachForm.setValue('scheduleId', v ?? '')}>
+                    <Select onValueChange={v => { attachForm.setValue('scheduleId', v ?? ''); attachForm.clearErrors('scheduleId') }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select..." />
                       </SelectTrigger>
@@ -424,6 +435,11 @@ export function ScheduleDialog() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {attachForm.formState.errors.scheduleId && (
+                      <p className="text-xs text-destructive mt-1">
+                        {attachForm.formState.errors.scheduleId.message}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="text-sm font-medium">Start Date</label>
@@ -438,8 +454,16 @@ export function ScheduleDialog() {
                     <Input
                       type="date"
                       className="h-8"
-                      {...attachForm.register('endDate')}
+                      min={attachForm.watch('startDate') || undefined}
+                      {...attachForm.register('endDate', {
+                        onChange: () => attachForm.clearErrors('endDate'),
+                      })}
                     />
+                    {attachForm.formState.errors.endDate && (
+                      <p className="text-xs text-destructive mt-1">
+                        {attachForm.formState.errors.endDate.message}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -450,7 +474,7 @@ export function ScheduleDialog() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => setShowAttachForm(false)}
+                    onClick={() => { setShowAttachForm(false); attachForm.reset() }}
                   >
                     Cancel
                   </Button>
