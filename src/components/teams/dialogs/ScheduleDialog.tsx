@@ -66,6 +66,49 @@ function defaultDays(): ScheduleFormValues['days'] {
   ) as ScheduleFormValues['days']
 }
 
+const DAY_LABEL: Record<Day, string> = {
+  sun: 'Sun', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat',
+}
+
+/** Minutes since midnight for an "HH:MM" time string. */
+function toMinutes(t: string): number {
+  const [h, m] = (t ?? '').split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+/**
+ * Cross-field validation for the day grid. Returns a human-readable error for the
+ * first misconfigured enabled day, or null when every enabled day is coherent:
+ * end after start, and any break starting within — and fitting inside — the window.
+ */
+function validateDays(days: ScheduleFormValues['days']): string | null {
+  const enabled = DAYS.filter(d => days[d]?.enabled)
+  if (enabled.length === 0) return 'Enable at least one working day.'
+  for (const d of enabled) {
+    const cfg = days[d]
+    const start = toMinutes(cfg.start)
+    const end = toMinutes(cfg.end)
+    if (start >= end) return `${DAY_LABEL[d]}: end time must be after start time.`
+    const brk = Number.isFinite(cfg.break_minutes) ? cfg.break_minutes : 0
+    if (brk > 0) {
+      const breakStart = toMinutes(cfg.break_start)
+      if (breakStart < start || breakStart >= end) return `${DAY_LABEL[d]}: break must start within working hours.`
+      if (breakStart + brk > end) return `${DAY_LABEL[d]}: the ${brk}-min break runs past the end time.`
+    }
+  }
+  return null
+}
+
+/**
+ * Do two date ranges overlap? A null end means open-ended (+infinity).
+ * Dates are YYYY-MM-DD, so string comparison orders them correctly.
+ */
+function rangesOverlap(aStart: string, aEnd: string | null, bStart: string, bEnd: string | null): boolean {
+  const aEndOr = aEnd ?? '9999-12-31'
+  const bEndOr = bEnd ?? '9999-12-31'
+  return aStart <= bEndOr && bStart <= aEndOr
+}
+
 interface AttachFormValues {
   scheduleId: string
   startDate: string
@@ -93,6 +136,7 @@ export function ScheduleDialog() {
   const [viewOnly, setViewOnly] = useState(false)
   const [showAttachForm, setShowAttachForm] = useState(false)
   const [expandedDivisions, setExpandedDivisions] = useState<string | null>(null)
+  const [dayError, setDayError] = useState<string | null>(null)
 
   const form = useForm<ScheduleFormValues>({
     defaultValues: { name: '', days: defaultDays() },
@@ -102,6 +146,7 @@ export function ScheduleDialog() {
   })
 
   function startEdit(schedule?: Schedule) {
+    setDayError(null)
     setViewOnly(false)
     setEditingId(schedule?.id ?? 'new')
     form.reset({
@@ -111,6 +156,7 @@ export function ScheduleDialog() {
   }
 
   function startView(schedule: Schedule) {
+    setDayError(null)
     setViewOnly(true)
     setEditingId(schedule.id)
     form.reset({
@@ -120,6 +166,9 @@ export function ScheduleDialog() {
   }
 
   async function onSaveSchedule(values: ScheduleFormValues) {
+    const err = validateDays(values.days)
+    if (err) { setDayError(err); return }
+    setDayError(null)
     if (editingId === 'new') {
       await createSchedule.mutateAsync({
         name: values.name,
@@ -166,6 +215,19 @@ export function ScheduleDialog() {
     if (end && isBefore(end, today)) return 'past'
     return 'active'
   }
+
+  // A3 — surface (without blocking) when the chosen range overlaps an existing,
+  // still-relevant assignment. Overlaps are legitimate — it's how a future switch
+  // is scheduled — but only the latest-starting schedule drives the calendar on
+  // shared days, so we name that rather than silently sideline one.
+  const attachStart = attachForm.watch('startDate')
+  const attachEnd = attachForm.watch('endDate')
+  const overlappingAssignments = attachStart
+    ? assignments.filter(
+        a => getAssignmentStatus(a) !== 'past' &&
+          rangesOverlap(attachStart, attachEnd || null, a.start_date, a.end_date),
+      )
+    : []
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) closeScheduleDialog() }}>
@@ -262,6 +324,10 @@ export function ScheduleDialog() {
                     })}
                   </div>
 
+                  {dayError && !viewOnly && (
+                    <p className="text-xs text-destructive">{dayError}</p>
+                  )}
+
                   <div className="flex gap-2">
                     {!viewOnly && (
                       <Button type="submit" size="sm">
@@ -274,7 +340,7 @@ export function ScheduleDialog() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => { setEditingId(null); setViewOnly(false) }}
+                      onClick={() => { setEditingId(null); setViewOnly(false); setDayError(null) }}
                     >
                       {viewOnly ? 'Close' : 'Cancel'}
                     </Button>
@@ -466,6 +532,14 @@ export function ScheduleDialog() {
                     )}
                   </div>
                 </div>
+                {overlappingAssignments.length > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500">
+                    Overlaps {overlappingAssignments.map(a => a.schedule.name ?? 'another schedule').join(', ')}. On shared
+                    days the schedule that starts latest drives the calendar; the other stays listed
+                    but inactive.
+                  </p>
+                )}
+
                 <div className="flex gap-2">
                   <Button type="submit" size="sm" disabled={attachSchedule.isPending}>
                     {attachSchedule.isPending ? 'Attaching...' : 'Attach'}

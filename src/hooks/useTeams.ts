@@ -939,35 +939,18 @@ export function useUpdateSchedule() {
   })
 }
 
-/** Soft-deletes a schedule, cascades assignment deletion, and re-syncs affected teams. */
+/** Soft-deletes a schedule, cascades assignment deletion, and re-syncs affected
+ *  teams — all in one transaction via the delete_schedule RPC. */
 export function useDeleteSchedule() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const supabase = createClient()
-
-      // 1. Find all teams that have an assignment to this schedule
-      const { data: affected } = await supabase
-        .from('team_schedule_assignments')
-        .select('team_id')
-        .eq('schedule_id', id)
-
-      // 2. Soft-delete the schedule
-      const { error } = await supabase
-        .from('schedules')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id)
+      // One atomic RPC: soft-delete the schedule, drop its assignments, and
+      // re-sync every team that referenced it (through an assignment or a direct
+      // teams.schedule_id pointer). Replaces four separate client round-trips that
+      // could half-complete and strand teams on a deleted schedule.
+      const { error } = await createClient().rpc('delete_schedule' as never, { p_schedule_id: id } as never)
       if (error) throw error
-
-      // 3. Delete all assignments referencing this schedule
-      await supabase.from('team_schedule_assignments').delete().eq('schedule_id', id)
-
-      // 4. Re-sync each affected team's active schedule pointer
-      const teamIds = [...new Set(((affected ?? []) as { team_id: string }[]).map(r => r.team_id))]
-      await Promise.all(
-        teamIds.map((teamId: string) => supabase.rpc('sync_team_active_schedule', { p_team_id: teamId }))
-      )
-
       await logActivity({ action: 'schedule-deleted', entityType: 'schedule', entityId: id })
     },
     onSuccess: () => {
