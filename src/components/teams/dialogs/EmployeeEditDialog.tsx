@@ -373,14 +373,33 @@ export function EmployeeEditDialog() {
     setSubmitError(null)
     setIsPending(true)
     try {
+      const fullPhone = values.phoneNumber
+        ? `${values.countryCode}${values.phoneNumber}`
+        : ''
+
+      // Duplicate-phone guard: a phone number identifies one person, so block
+      // reusing a non-blank number already held by another live employee. Blank
+      // phones may repeat (many employees have none on file). Checked before the
+      // avatar upload so a rejected save never orphans an uploaded file.
+      if (fullPhone) {
+        const supabase = createClient()
+        const { data: phoneClash } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('phone', fullPhone)
+          .is('deleted_at', null)
+          .neq('id', employee?.id ?? '00000000-0000-0000-0000-000000000000')
+          .limit(1)
+        if (phoneClash && phoneClash.length > 0) {
+          setSubmitError('Another employee already has this phone number.')
+          return
+        }
+      }
+
       let avatarUrl = values.avatar_url
       if (fileRef.current?.files?.[0]) {
         avatarUrl = await uploadAvatar(fileRef.current.files[0])
       }
-
-      const fullPhone = values.phoneNumber
-        ? `${values.countryCode}${values.phoneNumber}`
-        : ''
 
       const serviceIds = Array.from(selectedIds)
 

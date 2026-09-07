@@ -52,7 +52,10 @@ export function deriveCalendarScheduleRaw(
 
   if (starts.length === 0) return defaults
   const day_start = Math.min(...starts)
-  const day_end   = Math.max(...ends)
+  // Floor guard: a malformed schedule (an enabled day whose end precedes the
+  // earliest start) could yield day_end <= day_start and a zero/negative window.
+  // Keep the window at least one hour wide so the timeline never collapses.
+  const day_end = Math.max(day_start + 1, Math.max(...ends))
   return { mode: 'normal', day_start, day_end, scroll_to: day_start }
 }
 
