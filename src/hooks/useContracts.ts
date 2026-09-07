@@ -1,139 +1,143 @@
 'use client'
 
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { LiveContractSummary, ContractFilters, ContractLiveStatus } from '@/types/contracts'
 import { queryKeys } from '@/lib/queryKeys'
 
-const PAGE_SIZE = 50
+/** One row of contract_board_summary() (SQL-derived status + aggregates). */
+interface BoardRow {
+  id: string
+  contract_id: string
+  stored_status: string
+  derived_status: string
+  customer_name: string
+  site_name: string
+  phone: string
+  agent_name: string
+  divisions: string[]
+  services_summary: string
+  start_date: string
+  end_date: string
+  monthly_value: number
+  total_value: number
+  area_count: number
+  has_signed_doc: boolean
+  cancelled_date: string | null
+  cancel_reason: string | null
+  payment_schedule: string
+  total_visits: number
+  completed_visits: number
+  total_payments: number
+  paid_amount: number
+  overdue_unpaid: boolean
+  current_period_unpaid: number
+  next_due_date: string | null
+  upcoming_visits: { date: string; service_name: string; team_name?: string | null }[]
+}
 
+const LIVE_STATUS_KEYS = ['active', 'expiring_soon', 'overdue_payment', 'completed', 'cancelled']
+const OUTSTANDING_STATUSES = new Set(['active', 'expiring_soon', 'overdue_payment'])
+
+/**
+ * Live-contract board. A single visibility-filtered fetch of compact summaries
+ * with a SQL-derived status; counts, outstanding total, filtering and sorting
+ * are all computed over the FULL set (not per-page), so the KPIs are global and
+ * the query never embeds every child visit row.
+ */
 export function useContracts(filters?: ContractFilters) {
   const supabase = createClient()
 
-  return useInfiniteQuery({
-    queryKey: queryKeys.contracts.list(filters),
-    queryFn: async ({ pageParam = 0 }) => {
-      let query = supabase
-        .from('contracts')
-        .select(`
-          *,
-          contract_visits(id, scheduled_date, service_name, team_id, completed, teams(name_en)),
-          contract_payments(id, due_date, amount, status)
-        `)
-        .in(
-          'status',
-          filters?.status?.length
-            ? filters.status
-            : ['active', 'expiring_soon', 'overdue_payment', 'completed', 'cancelled'],
-        )
-
-      if (filters?.contractNumber)
-        query = query.ilike('contract_id', `%${filters.contractNumber}%`)
-      if (filters?.customer)
-        query = query.ilike('customer_name', `%${filters.customer}%`)
-      if (filters?.site) query = query.ilike('site_name', `%${filters.site}%`)
-      if (filters?.agent) query = query.eq('agent_name', filters.agent)
-
-      if (filters?.sortBy === 'endDate') {
-        query = query.order('end_date', { ascending: filters.sortDir === 'asc' })
-      } else {
-        query = query.order('created_at', { ascending: false })
-      }
-
-      const from = pageParam * PAGE_SIZE
-      const to = from + PAGE_SIZE - 1
-      const { data, error } = await query.range(from, to)
+  return useQuery({
+    queryKey: queryKeys.contracts.list('board'),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('contract_board_summary' as never)
       if (error) throw error
 
-      const today = new Date().toISOString().split('T')[0]
+      const rows = (data ?? []) as unknown as BoardRow[]
 
-      const contracts: LiveContractSummary[] = (data || []).map((c) => {
-        const visits = c.contract_visits || []
-        const payments = c.contract_payments || []
-        const completedVisits = visits.filter((v) => v.completed).length
-        const futureVisits = visits
-          .filter((v) => !v.completed && v.scheduled_date >= today)
-          .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
-          .slice(0, 6)
-          .map((v) => ({
-            date: v.scheduled_date,
-            service_name: v.service_name,
-            team_name: v.teams?.name_en,
-          }))
+      const all: LiveContractSummary[] = rows.map((r) => ({
+        id: r.id,
+        contract_id: r.contract_id || '',
+        status: (r.derived_status ?? 'active') as ContractLiveStatus,
+        customer_name: r.customer_name || '',
+        site_name: r.site_name || '',
+        phone: r.phone || '',
+        agent_name: r.agent_name || '',
+        divisions: r.divisions || [],
+        services_summary: r.services_summary || '',
+        start_date: r.start_date || '',
+        end_date: r.end_date || '',
+        monthly_value: r.monthly_value || 0,
+        total_value: r.total_value || 0,
+        total_visits: r.total_visits || 0,
+        completed_visits: r.completed_visits || 0,
+        upcoming_visits: (r.upcoming_visits || []).map((v) => ({
+          date: v.date,
+          service_name: v.service_name,
+          team_name: v.team_name ?? undefined,
+        })),
+        total_payments: r.total_payments || 0,
+        paid_amount: r.paid_amount || 0,
+        payments: [],
+        payment_schedule: r.payment_schedule || '',
+        has_signed_doc: r.has_signed_doc || false,
+        area_count: r.area_count || 0,
+        cancelled_date: r.cancelled_date,
+        cancel_reason: r.cancel_reason,
+        current_period_unpaid: r.current_period_unpaid || 0,
+        overdue_unpaid: r.overdue_unpaid || false,
+      }))
 
-        const paidAmount = payments
-          .filter((p) => p.status === 'paid')
-          .reduce((sum: number, p) => sum + (p.amount || 0), 0)
-        const totalPayments = payments.reduce(
-          (sum: number, p) => sum + (p.amount || 0),
-          0,
-        )
-
-        return {
-          id: c.id,
-          contract_id: c.contract_id || '',
-          status: (c.status ?? 'active') as ContractLiveStatus,
-          customer_name: c.customer_name || '',
-          site_name: c.site_name || '',
-          phone: c.phone || '',
-          agent_name: c.agent_name || '',
-          divisions: c.divisions || [],
-          services_summary: c.services_summary || '',
-          start_date: c.start_date || '',
-          end_date: c.end_date || '',
-          monthly_value: c.monthly_value || 0,
-          total_value: c.total_value || 0,
-          total_visits: visits.length,
-          completed_visits: completedVisits,
-          upcoming_visits: futureVisits,
-          total_payments: totalPayments,
-          paid_amount: paidAmount,
-          payments: payments.map((p) => ({
-            id: p.id,
-            contract_id: c.id,
-            due_date: p.due_date,
-            amount: p.amount,
-            status: (p.status || 'pending') as 'pending' | 'paid' | 'overdue',
-          })),
-          payment_schedule: c.payment_schedule || c.payment_frequency || '',
-          has_signed_doc: c.has_signed_doc || false,
-          area_count: c.area_count || 0,
-          cancelled_date: c.cancelled_date,
-          cancel_reason: c.cancel_reason,
-        }
-      })
-
-      if (filters?.sortBy === 'balance') {
-        contracts.sort((a, b) =>
-          filters.sortDir === 'asc'
-            ? (a.total_payments - a.paid_amount) - (b.total_payments - b.paid_amount)
-            : (b.total_payments - b.paid_amount) - (a.total_payments - a.paid_amount),
-        )
-      } else if (filters?.sortBy === 'visits') {
-        contracts.sort((a, b) =>
-          filters.sortDir === 'asc'
-            ? (a.total_visits - a.completed_visits) - (b.total_visits - b.completed_visits)
-            : (b.total_visits - b.completed_visits) - (a.total_visits - a.completed_visits),
-        )
+      // Global KPIs — computed over every visible live contract.
+      const statusCounts: Record<string, number> = {}
+      for (const status of LIVE_STATUS_KEYS) {
+        statusCounts[status] = all.filter((c) => c.status === status).length
       }
-
-      const outstandingTotal = contracts
-        .filter((c) => c.status === 'active')
+      const outstandingTotal = all
+        .filter((c) => OUTSTANDING_STATUSES.has(c.status))
         .reduce((sum, c) => sum + (c.total_payments - c.paid_amount), 0)
 
-      const statusCounts: Record<string, number> = {}
-      for (const status of ['active', 'expiring_soon', 'overdue_payment', 'completed', 'cancelled']) {
-        statusCounts[status] = contracts.filter((c) => c.status === status).length
+      // Client-side filtering (the board already scoped to what the user may see).
+      let items = all
+      if (filters?.status?.length) {
+        const set = new Set(filters.status)
+        items = items.filter((c) => set.has(c.status))
+      }
+      if (filters?.contractNumber) {
+        const q = filters.contractNumber.toLowerCase()
+        items = items.filter((c) => c.contract_id.toLowerCase().includes(q))
+      }
+      if (filters?.customer) {
+        const q = filters.customer.toLowerCase()
+        items = items.filter((c) => c.customer_name.toLowerCase().includes(q))
+      }
+      if (filters?.site) {
+        const q = filters.site.toLowerCase()
+        items = items.filter((c) => c.site_name.toLowerCase().includes(q))
+      }
+      if (filters?.agent) {
+        const q = filters.agent.toLowerCase()
+        items = items.filter((c) => c.agent_name.toLowerCase().includes(q))
       }
 
-      return {
-        items: contracts,
-        outstandingTotal,
-        statusCounts,
-        nextPage: contracts.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      const dir = filters?.sortDir === 'asc' ? 1 : -1
+      if (filters?.sortBy === 'endDate') {
+        items = [...items].sort((a, b) => dir * a.end_date.localeCompare(b.end_date))
+      } else if (filters?.sortBy === 'balance') {
+        items = [...items].sort(
+          (a, b) => dir * ((a.total_payments - a.paid_amount) - (b.total_payments - b.paid_amount)),
+        )
+      } else if (filters?.sortBy === 'visits') {
+        items = [...items].sort(
+          (a, b) => dir * ((a.total_visits - a.completed_visits) - (b.total_visits - b.completed_visits)),
+        )
+      } else {
+        // Default: most recently ending last-in / keep server order otherwise.
+        items = [...items].sort((a, b) => b.end_date.localeCompare(a.end_date))
       }
+
+      return { items, outstandingTotal, statusCounts }
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextPage,
   })
 }

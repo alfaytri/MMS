@@ -34,6 +34,8 @@ import { WorkflowProgressBar } from '@/components/contracts/WorkflowProgressBar'
 import { ContractBuildingTree } from '@/components/contracts/ContractBuildingTree'
 import { AreaServiceCard } from '@/components/contracts/AreaServiceCard'
 import { AddContractServiceDialog } from '@/components/contracts/AddContractServiceDialog'
+import { ServiceCustomerCombobox } from '@/components/contracts/ServiceCustomerCombobox'
+import type { ServiceCustomerRow } from '@/hooks/useServiceCustomers'
 import { PaymentScheduleSection } from '@/components/contracts/PaymentScheduleSection'
 // ContractTermsSection replaced by PDF upload
 import { VisitSummarySection } from '@/components/contracts/VisitSummarySection'
@@ -52,7 +54,7 @@ export default function CreateContractQuotationPage() {
   const { data: profile } = useCurrentUserProfile()
   const { divisions: userDivisions } = useUserDivisionScope()
   const createQuotation = useCreateContractQuotation()
-  const { selectedCustomer } = useContactCenterContext()
+  const { selectedCustomer, openCustomerByPhone, ccSidebar, setCcSidebar } = useContactCenterContext()
 
   // Customer lookup state
   const [lookupOpen, setLookupOpen] = useState(true)
@@ -94,6 +96,30 @@ export default function CreateContractQuotationPage() {
     setSelectedAddress(null)
     setAddress('')
     setLookupOpen(false)
+  }
+
+  function handleServiceCustomerSelect(c: ServiceCustomerRow) {
+    const primaryPhone = c.primaryPhone ?? c.allPhones[0] ?? null
+    setServiceCustomerId(c.id)
+    setPhoneId(primaryPhone?.id ?? null)
+    setCustomerName(c.name)
+    setPhone(primaryPhone?.phone ?? '')
+    setSelectedAddress(null)
+    setAddress('')
+    // Open the Contact Centre for this customer — same as the order flow.
+    if (ccSidebar !== 'none' && primaryPhone?.phone) {
+      openCustomerByPhone(primaryPhone.phone)
+      setCcSidebar('expanded')
+    }
+  }
+
+  function clearCustomer() {
+    setServiceCustomerId(null)
+    setPhoneId(null)
+    setCustomerName('')
+    setPhone('')
+    setSelectedAddress(null)
+    setAddress('')
   }
 
   // Sync from Contact Centre when a customer is resolved there
@@ -287,7 +313,7 @@ export default function CreateContractQuotationPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cq-customer-name">Customer Name *</Label>
+            <Label htmlFor="cq-customer-name">Customer *</Label>
             {serviceCustomerId ? (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 h-9 w-full rounded-md border border-input bg-muted/50 px-3 py-1 text-sm">
@@ -298,7 +324,7 @@ export default function CreateContractQuotationPage() {
                   variant="ghost"
                   size="icon"
                   className="shrink-0 h-9 w-9"
-                  onClick={() => setLookupOpen(true)}
+                  onClick={clearCustomer}
                   title="Change customer"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
@@ -306,7 +332,12 @@ export default function CreateContractQuotationPage() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Input id="cq-customer-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name" />
+                <ServiceCustomerCombobox
+                  id="cq-customer-name"
+                  value={serviceCustomerId}
+                  selectedName={customerName}
+                  onSelect={handleServiceCustomerSelect}
+                />
                 <Button
                   variant="outline"
                   size="icon"

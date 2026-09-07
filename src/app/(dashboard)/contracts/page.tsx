@@ -1,203 +1,289 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { Filter, X, Loader2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Plus, Search, Loader2, FileStack, Wallet, AlertTriangle, ListFilter, ChevronDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem,
+} from '@/components/ui/dropdown-menu'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useContracts } from '@/hooks/useContracts'
-import { useUpdateContract } from '@/hooks/useUpdateContract'
-import { useCurrentUserProfile } from '@/hooks/useProfiles'
-import { ContractCard } from '@/components/contracts/ContractCard'
-import { CancelContractDialog } from '@/components/contracts/CancelContractDialog'
-import { STATUS_CONFIG, LIVE_STATUSES } from '@/types/contracts'
-import type { ContractLiveStatus, ContractFilters } from '@/types/contracts'
+import { useContractQuotations } from '@/hooks/useContractQuotations'
+import { useHasPermission } from '@/hooks/usePermissions'
+import { ContractListCard } from '@/components/contracts/ContractListCard'
+import { STATUS_CONFIG, QUOTATION_STATUSES, LIVE_STATUSES } from '@/types/contracts'
+import type { ContractListRow, ContractStatus } from '@/types/contracts'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 
-export default function ViewLiveContractsPage() {
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [filters, setFilters] = useState<ContractFilters>({})
-  const [statusFilter, setStatusFilter] = useState<ContractLiveStatus[]>([])
-  const [cancelTarget, setCancelTarget] = useState<string | null>(null)
+const STATUS_PRIORITY: Record<string, number> = {
+  overdue_payment: 0, expiring_soon: 1, manager_review: 2, customer_pending: 3,
+  active: 4, approved: 5, draft: 6, rejected: 7, completed: 8, expired: 9, cancelled: 10,
+}
 
-  const { data: profile } = useCurrentUserProfile()
-  const updateContract = useUpdateContract()
+type Phase = 'all' | 'pipeline' | 'live'
 
-  const activeFilters: ContractFilters = {
-    ...filters,
-    status: statusFilter.length > 0 ? statusFilter : undefined,
+export default function ContractsPage() {
+  const router = useRouter()
+  const canCreate = useHasPermission('contracts.quotations.manage')
+
+  const live = useContracts()
+  const quotes = useContractQuotations()
+
+  const [phase, setPhase] = useState<Phase>('all')
+  const [statusFilter, setStatusFilter] = useState<Set<ContractStatus>>(new Set())
+  const [search, setSearch] = useState('')
+
+  const isLoading = live.isLoading || quotes.isLoading
+
+  const allRows: ContractListRow[] = useMemo(() => {
+    const liveRows: ContractListRow[] = (live.data?.items ?? []).map((c) => ({
+      id: c.id, number: c.contract_id, status: c.status, phase: 'live',
+      customer_name: c.customer_name, site_name: c.site_name, divisions: c.divisions,
+      total_value: c.total_value, monthly_value: c.monthly_value, end_date: c.end_date,
+      total_visits: c.total_visits, completed_visits: c.completed_visits,
+      total_payments: c.total_payments, paid_amount: c.paid_amount,
+    }))
+    const quoteRows: ContractListRow[] = (quotes.data?.data ?? []).map((q) => ({
+      id: q.id, number: q.quotation_number, status: q.status, phase: 'quotation',
+      customer_name: q.customer_name, site_name: q.site_name, divisions: q.divisions,
+      total_value: q.total_value, monthly_value: q.monthly_value, created_at: q.created_at,
+    }))
+    return [...liveRows, ...quoteRows]
+  }, [live.data, quotes.data])
+
+  const pipelineCount = useMemo(() => allRows.filter((r) => r.phase === 'quotation').length, [allRows])
+  const liveCount = useMemo(() => allRows.filter((r) => r.phase === 'live').length, [allRows])
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of allRows) counts[r.status] = (counts[r.status] || 0) + 1
+    return counts
+  }, [allRows])
+
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return allRows
+      .filter((r) => (phase === 'all' ? true : phase === 'pipeline' ? r.phase === 'quotation' : r.phase === 'live'))
+      .filter((r) => (statusFilter.size ? statusFilter.has(r.status) : true))
+      .filter((r) =>
+        q
+          ? r.number.toLowerCase().includes(q) ||
+            r.customer_name.toLowerCase().includes(q) ||
+            r.site_name.toLowerCase().includes(q)
+          : true,
+      )
+      .sort(
+        (a, b) =>
+          (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99) ||
+          b.total_value - a.total_value,
+      )
+  }, [allRows, phase, statusFilter, search])
+
+  const pipelineValue = quotes.data?.pipelineValue ?? 0
+  const outstandingTotal = live.data?.outstandingTotal ?? 0
+
+  function changePhase(p: Phase) {
+    setPhase(p)
+    setStatusFilter(new Set()) // status choices are phase-scoped; reset on switch
+  }
+  function toggleStatus(s: ContractStatus) {
+    setStatusFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(s)) next.delete(s)
+      else next.add(s)
+      return next
+    })
   }
 
-  const contractsQuery = useContracts(activeFilters)
-  const contracts = useMemo(
-    () => contractsQuery.data?.pages.flatMap((p) => p.items) ?? [],
-    [contractsQuery.data]
-  )
-  const outstandingTotal = contractsQuery.data?.pages[0]?.outstandingTotal ?? 0
-  const statusCounts = contractsQuery.data?.pages[0]?.statusCounts ?? {}
-  const isLoading = contractsQuery.isLoading
+  const showPipelineStatuses = phase === 'all' || phase === 'pipeline'
+  const showLiveStatuses = phase === 'all' || phase === 'live'
+  const hasFilters = statusFilter.size > 0 || search.length > 0 || phase !== 'all'
 
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!sentinelRef.current) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && contractsQuery.hasNextPage && !contractsQuery.isFetchingNextPage) {
-          contractsQuery.fetchNextPage()
-        }
-      },
-      { rootMargin: '200px' }
-    )
-    observer.observe(sentinelRef.current)
-    return () => observer.disconnect()
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- depends on specific query properties, not the unstable query object
-  }, [contractsQuery.hasNextPage, contractsQuery.isFetchingNextPage, contractsQuery.fetchNextPage])
-
-  function toggleStatus(status: ContractLiveStatus) {
-    setStatusFilter((prev) =>
-      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
-    )
-  }
-
-  function clearFilters() {
-    setFilters({})
-    setStatusFilter([])
-  }
-
-  async function handleCancel(reason: string) {
-    if (!cancelTarget || !profile) return
-    try {
-      await updateContract.mutateAsync({
-        contractId: cancelTarget,
-        updates: {},
-        newStatus: 'cancelled',
-        context: {
-          userId: profile.id,
-          userName: profile.full_name || '',
-          reason,
-        },
-      })
-      toast.success('Contract cancelled')
-      setCancelTarget(null)
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to cancel contract')
-    }
-  }
-
-  const hasActiveFilters = statusFilter.length > 0 ||
-    Object.values(filters).some((v) => v !== undefined && v !== '')
+  const segments: { key: Phase; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: allRows.length },
+    { key: 'pipeline', label: 'Pipeline', count: pipelineCount },
+    { key: 'live', label: 'Live', count: liveCount },
+  ]
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-20">
       <PageHeader
-        title="Live Contracts"
+        title="Contracts"
+        description="Quotations pipeline and live contracts in one place."
         actions={
-          outstandingTotal > 0 ? (
-            <Badge variant="destructive" className="text-sm">
-              Outstanding: {outstandingTotal.toLocaleString('en-QA')} QAR
-            </Badge>
+          canCreate ? (
+            <Button onClick={() => router.push('/contracts/create-quotation')} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Create Contract
+            </Button>
           ) : undefined
         }
       />
 
-      {/* Status counter chips */}
-      <div className="flex flex-wrap gap-2">
-        {LIVE_STATUSES.map((status) => {
-          const config = STATUS_CONFIG[status]
-          const count = statusCounts[status] || 0
-          const isActive = statusFilter.includes(status)
-          return (
+      {/* KPI tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatTile icon={<FileStack className="h-5 w-5" />} label="Total" value={allRows.length.toLocaleString('en-QA')} tone="muted" />
+        <StatTile icon={<Wallet className="h-5 w-5" />} label="Pipeline (quotations)" value={`${pipelineValue.toLocaleString('en-QA')} QAR`} tone="primary" />
+        <StatTile icon={<AlertTriangle className="h-5 w-5" />} label="Outstanding (live)" value={`${outstandingTotal.toLocaleString('en-QA')} QAR`} tone={outstandingTotal > 0 ? 'danger' : 'muted'} />
+      </div>
+
+      {/* Toolbar: phase toggle · status dropdown · search */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="inline-flex rounded-lg border bg-muted/40 p-0.5">
+          {segments.map((s) => (
             <button
-              key={status}
-              onClick={() => toggleStatus(status)}
+              key={s.key}
+              onClick={() => changePhase(s.key)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : config?.color || 'bg-gray-100 text-gray-700',
+                'rounded-md px-3.5 py-1.5 text-sm transition-colors',
+                phase === s.key
+                  ? 'bg-background font-medium shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {config?.label || status}
-              <span className="font-bold">{count}</span>
+              {s.label}
+              <span className={cn('ml-1.5', phase === s.key ? 'text-muted-foreground' : 'text-muted-foreground/70')}>
+                {s.count}
+              </span>
             </button>
-          )
-        })}
+          ))}
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-9 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground sm:w-44">
+            <span className="inline-flex items-center gap-2">
+              <ListFilter className="h-4 w-4" />
+              Status
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              {statusFilter.size > 0 && (
+                <Badge variant="secondary" className="px-1.5 text-xs">{statusFilter.size}</Badge>
+              )}
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {showPipelineStatuses && (
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Pipeline</DropdownMenuLabel>
+                {QUOTATION_STATUSES.map((s) => (
+                  <StatusCheckItem key={s} status={s} count={statusCounts[s] || 0} checked={statusFilter.has(s)} onToggle={() => toggleStatus(s)} />
+                ))}
+              </DropdownMenuGroup>
+            )}
+            {showPipelineStatuses && showLiveStatuses && <DropdownMenuSeparator />}
+            {showLiveStatuses && (
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Live</DropdownMenuLabel>
+                {LIVE_STATUSES.map((s) => (
+                  <StatusCheckItem key={s} status={s} count={statusCounts[s] || 0} checked={statusFilter.has(s)} onToggle={() => toggleStatus(s)} />
+                ))}
+              </DropdownMenuGroup>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search number, customer, site…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </div>
 
-      {/* Filter panel */}
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setFiltersOpen(!filtersOpen)}>
-          <Filter className="h-3.5 w-3.5 mr-1" />
-          Filters
-        </Button>
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            <X className="h-3.5 w-3.5 mr-1" />
-            Clear
-          </Button>
-        )}
-      </div>
-
-      {filtersOpen && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-lg border p-4">
-          <Input
-            placeholder="Contract ID..."
-            value={filters.contractNumber || ''}
-            onChange={(e) => setFilters((f) => ({ ...f, contractNumber: e.target.value || undefined }))}
-          />
-          <Input
-            placeholder="Customer..."
-            value={filters.customer || ''}
-            onChange={(e) => setFilters((f) => ({ ...f, customer: e.target.value || undefined }))}
-          />
-          <Input
-            placeholder="Site..."
-            value={filters.site || ''}
-            onChange={(e) => setFilters((f) => ({ ...f, site: e.target.value || undefined }))}
-          />
-          <Input
-            placeholder="Agent..."
-            value={filters.agent || ''}
-            onChange={(e) => setFilters((f) => ({ ...f, agent: e.target.value || undefined }))}
-          />
+      {/* Active status filters */}
+      {(statusFilter.size > 0 || (hasFilters && phase !== 'all')) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {phase !== 'all' && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium capitalize">
+              {phase}
+              <button onClick={() => changePhase('all')} aria-label="Clear phase">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {[...statusFilter].map((s) => (
+            <button
+              key={s}
+              onClick={() => toggleStatus(s)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/15"
+            >
+              {STATUS_CONFIG[s]?.label || s}
+              <X className="h-3 w-3" />
+            </button>
+          ))}
+          <button
+            onClick={() => { setStatusFilter(new Set()); setPhase('all'); setSearch('') }}
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Clear all
+          </button>
         </div>
       )}
 
-      {/* Contracts list */}
+      {/* List */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : contracts.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
+      ) : rows.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
           <p className="text-sm">No contracts found</p>
-          <p className="text-xs mt-1">Active contracts will appear here after quotation approval.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {contracts.map((c) => (
-            <ContractCard
-              key={c.id}
-              contract={c}
-              onCancel={(id) => setCancelTarget(id)}
-            />
-          ))}
-          <div ref={sentinelRef} className="h-1" />
-          {contractsQuery.isFetchingNextPage && (
-            <p className="text-center text-xs text-muted-foreground py-4">Loading more...</p>
+          {canCreate && (
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push('/contracts/create-quotation')}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Create your first contract
+            </Button>
           )}
         </div>
+      ) : (
+        <div className="space-y-2.5">
+          {rows.map((r) => (
+            <ContractListCard key={r.id} row={r} />
+          ))}
+        </div>
       )}
+    </div>
+  )
+}
 
-      <CancelContractDialog
-        open={!!cancelTarget}
-        onOpenChange={(open) => !open && setCancelTarget(null)}
-        contractId={cancelTarget || ''}
-        onConfirm={handleCancel}
-        isPending={updateContract.isPending}
-      />
+function StatusCheckItem({ status, count, checked, onToggle }: {
+  status: ContractStatus; count: number; checked: boolean; onToggle: () => void
+}) {
+  return (
+    <DropdownMenuCheckboxItem
+      checked={checked}
+      onCheckedChange={onToggle}
+      onSelect={(e) => e.preventDefault()}
+      className="justify-between gap-3"
+    >
+      <span>{STATUS_CONFIG[status]?.label || status}</span>
+      <span className="text-xs text-muted-foreground">{count}</span>
+    </DropdownMenuCheckboxItem>
+  )
+}
+
+function StatTile({ icon, label, value, tone }: {
+  icon: React.ReactNode; label: string; value: string; tone: 'primary' | 'danger' | 'muted'
+}) {
+  const toneCls =
+    tone === 'primary' ? 'bg-primary/10 text-primary'
+    : tone === 'danger' ? 'bg-destructive/10 text-destructive'
+    : 'bg-muted text-muted-foreground'
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-4">
+      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', toneCls)}>{icon}</div>
+      <div className="min-w-0">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-xl font-bold truncate">{value}</div>
+      </div>
     </div>
   )
 }

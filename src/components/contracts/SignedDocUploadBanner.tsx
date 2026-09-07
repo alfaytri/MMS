@@ -48,12 +48,17 @@ export function SignedDocUploadBanner({ contractId, onActivate, isActivating }: 
       return
     }
 
-    await supabase
+    const { error: linkError } = await supabase
       .from('contracts')
       .update({ signed_doc_url: path })
       .eq('id', contractId)
 
     setUploading(false)
+    if (linkError) {
+      toast.error('Upload saved but linking it to the contract failed. Please retry.')
+      setFile(null)
+      return
+    }
     setUploaded(true)
     toast.success('Document uploaded')
   }

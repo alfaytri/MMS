@@ -116,7 +116,9 @@ export function generateAllVisits(
     if (!step) continue
     let current = parseISO(startDate)
     const end = parseISO(endDate)
-    while (current <= end) {
+    // Exclusive end, to match paymentPeriodCount: a period whose visit falls
+    // exactly on the end date is not billed, so it must not be scheduled either.
+    while (current < end) {
       visits.push({
         temp_id: nanoid(),
         scheduled_date: format(current, 'yyyy-MM-dd'),

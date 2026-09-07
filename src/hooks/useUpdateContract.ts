@@ -2,7 +2,12 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { isValidTransition, applyTransitionSideEffects } from '@/lib/contractStateMachine'
+import {
+  isValidTransition,
+  applyTransitionSideEffects,
+  buildActivationPayments,
+} from '@/lib/contractStateMachine'
+import { logActivity } from '@/lib/logActivity'
 import type { ContractStatus, ContractFormData } from '@/types/contracts'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -20,10 +25,69 @@ export function useUpdateContract() {
 
   return useMutation({
     mutationFn: async ({ contractId, updates, newStatus, context, sessionId }: UpdateContractInput) => {
+      // Money-bearing transitions run atomically server-side (idempotent RPCs),
+      // so a partial failure can never double-generate an id or duplicate the
+      // payment schedule, and cancellation gets its money treatment.
+      if (newStatus === 'active' && context) {
+        const { data: c } = await supabase
+          .from('contracts')
+          .select('total_value, payment_mode, payment_frequency, start_date, end_date')
+          .eq('id', contractId)
+          .single()
+        if (!c) throw new Error('Contract not found')
+
+        let milestones: { amount: number; due_date: string | null }[] = []
+        if ((c.payment_mode || 'fixed') === 'milestone') {
+          const { data: ms } = await supabase
+            .from('contract_milestones')
+            .select('amount, due_date')
+            .eq('contract_id', contractId)
+            .order('sort_order')
+          milestones = ms ?? []
+        }
+
+        const payments = buildActivationPayments(c, milestones)
+        const { data: newId, error } = await supabase.rpc('rpc_activate_contract' as never, {
+          p_contract_id: contractId,
+          p_payments: payments,
+          p_user_id: context.userId,
+          p_user_name: context.userName,
+        } as never)
+        if (error) throw error
+        await logActivity({
+          action: 'contract_activated',
+          module: 'contracts',
+          entity_id: contractId,
+          details: `Contract activated as ${newId}`,
+          performer_name: context.userName,
+        })
+        return
+      }
+
+      if (newStatus === 'cancelled' && context) {
+        const { error } = await supabase.rpc('rpc_cancel_contract' as never, {
+          p_contract_id: contractId,
+          p_reason: context.reason || '',
+          p_user_id: context.userId,
+          p_user_name: context.userName,
+        } as never)
+        if (error) throw error
+        await logActivity({
+          action: 'contract_cancelled',
+          module: 'contracts',
+          entity_id: contractId,
+          severity: 'critical',
+          details: `Cancelled by ${context.userName}: ${context.reason}`,
+          performer_name: context.userName,
+        })
+        return
+      }
+
+      // Lightweight field-only transitions (draft→review, approvals, rejections).
       if (newStatus && context) {
         const { data: current } = await supabase
           .from('contracts')
-          .select('status, updated_at')
+          .select('status')
           .eq('id', contractId)
           .single()
 

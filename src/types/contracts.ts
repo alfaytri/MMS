@@ -225,6 +225,29 @@ export interface LiveContractSummary {
   area_count: number;
   cancelled_date: string | null;
   cancel_reason: string | null;
+  /** Unpaid amount whose due date falls in the current calendar month. */
+  current_period_unpaid: number;
+  /** True when an unpaid payment is already past its due date. */
+  overdue_unpaid: boolean;
+}
+
+// ——— Unified list row (blended quotations + live contracts) ———
+export interface ContractListRow {
+  id: string;
+  number: string; // contract_id (live) or quotation_number (quotation)
+  status: ContractStatus;
+  phase: 'quotation' | 'live';
+  customer_name: string;
+  site_name: string;
+  divisions: string[];
+  total_value: number;
+  monthly_value: number;
+  created_at?: string;
+  end_date?: string;
+  total_visits?: number;
+  completed_visits?: number;
+  total_payments?: number;
+  paid_amount?: number;
 }
 
 // ——— Filter types ———

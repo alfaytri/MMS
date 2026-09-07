@@ -48,7 +48,7 @@ export default function ContractDetailPage() {
 
   const {
     contract, services: loadedServices, visits, payments,
-    milestones: loadedMilestones, isLoading, createTentativeVisits,
+    milestones: loadedMilestones, isLoading, createTentativeVisits, recordPayment,
   } = useContractDetail(contractId)
 
   // Determine phase
@@ -220,6 +220,15 @@ export default function ContractDetailPage() {
     }
   }
 
+  async function handleRecordPayment(paymentId: string) {
+    try {
+      await recordPayment.mutateAsync(paymentId)
+      toast.success('Payment recorded')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to record payment')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -304,6 +313,12 @@ export default function ContractDetailPage() {
             <Button onClick={() => handleTransition('approved')}>
               <CheckCircle className="h-4 w-4 mr-1" />
               Customer Approved
+            </Button>
+          )}
+          {contract.status === 'active' && (
+            <Button variant="outline" onClick={() => handleTransition('completed')} disabled={updateContract.isPending}>
+              <CheckCircle className="h-4 w-4 mr-1" />
+              Mark Complete
             </Button>
           )}
         </div>
@@ -526,6 +541,7 @@ export default function ContractDetailPage() {
                   <th className="py-2 pr-4 font-medium">Due Date</th>
                   <th className="py-2 pr-4 font-medium text-right">Amount</th>
                   <th className="py-2 pr-4 font-medium">Status</th>
+                  <th className="py-2 pr-4 font-medium text-right"></th>
                 </tr>
               </thead>
               <tbody>
@@ -543,6 +559,18 @@ export default function ContractDetailPage() {
                       }>
                         {p.status}
                       </Badge>
+                    </td>
+                    <td className="py-2 pr-4 text-right">
+                      {p.status !== 'paid' && contract.status !== 'cancelled' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRecordPayment(p.id)}
+                          disabled={recordPayment.isPending}
+                        >
+                          Mark Paid
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}

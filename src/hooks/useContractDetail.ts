@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
 import type {
   Contract,
@@ -143,12 +144,8 @@ export function useContractDetail(contractId: string | undefined) {
       }))
       const { error } = await supabase.from('contract_visits').insert(rows as unknown as import('@/types/database.types').DBInsert<'contract_visits'>[])
       if (error) throw error
-
-      const currentTotal = (detail?.total_visits ?? 0) as number
-      await supabase
-        .from('contracts')
-        .update({ total_visits: currentTotal + pendingVisits.length })
-        .eq('id', contractId!)
+      // contracts.total_visits / completed_visits are maintained by the
+      // trg_contract_visits_counts trigger — no manual counter write here.
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -193,6 +190,29 @@ export function useContractDetail(contractId: string | undefined) {
     },
   })
 
+  const recordPayment = useMutation({
+    mutationFn: async (paymentId: string) => {
+      const { error } = await supabase.rpc('rpc_record_contract_payment' as never, {
+        p_payment_id: paymentId,
+        p_user_id: null,
+        p_user_name: null,
+      } as never)
+      if (error) throw error
+      await logActivity({
+        action: 'contract_payment_recorded',
+        module: 'contracts',
+        entity_id: contractId || '',
+        details: `Payment recorded as collected`,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.contracts.detail(contractId),
+      })
+      queryClient.invalidateQueries({ queryKey: queryKeys.contracts.all })
+    },
+  })
+
   return {
     contract,
     services,
@@ -205,5 +225,6 @@ export function useContractDetail(contractId: string | undefined) {
     createTentativeVisits,
     updateVisit,
     deleteVisit,
+    recordPayment,
   }
 }
