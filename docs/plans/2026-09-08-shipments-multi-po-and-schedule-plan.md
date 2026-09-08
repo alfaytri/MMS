@@ -488,7 +488,7 @@ await supabase.rpc('create_shipment', {
 - Consumes: `useShipmentDetail(id)`, `useUpdateShipmentStatus`, `useDeleteShipment`, line mutations.
 - Produces: `<ShipmentDetailDialog shipmentId onClose />`; `<ShipmentPoSection lines addLine removeLine updateQty />`.
 
-- [ ] **Step 1:** Dialog shell — header shows `shipment_number` (mono), `StatusBadge`, mode/carrier/tracking (sync bar rendered **only when `tracking_number` present**). Footer: Update Status dropdown, Delete (deregisters tracking only if present).
+- [ ] **Step 1:** Dialog shell — header shows `shipment_number` (mono), `StatusBadge`, mode/carrier/tracking, and a **Current location** line = the newest event carrying a `location` (this is "where is it now": 17track fills it for tracked shipments; for tracking-less ones the operator sets it by adding a location event — compute as `[...events].sort(byTimeDesc).find(e => e.location)?.location ?? '—'`). The 17track sync bar renders **only when `tracking_number` present**. Footer: Update Status dropdown, Delete (deregisters tracking only if present).
 - [ ] **Step 2:** `ShipmentPoSection` — group `lines` by `po_id`; per group a header (`po_number` + supplier + Whole/Partial badge derived from whether every line == its `po_qty` and all lines present) and item rows (`item_name` · sku, `qty` **of** `po_qty`). Inline "Add PO" / edit-qty / remove-line, soft-reconciliation warning as in Task 8.
 - [ ] **Step 3:** `tsc`/eslint clean. Commit `feat(shipments): detail dialog + PO/items section`.
 
