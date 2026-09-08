@@ -34,6 +34,12 @@ type Props = {
   uploads: BillAttachmentUpload[]
   onChange: (next: BillAttachmentUpload[]) => void
   disabled?: boolean
+  /** Storage bucket to upload into (default 'bill-attachments'). */
+  bucket?: string
+  /** Section label above the chips. */
+  label?: string
+  /** Button text when no files are attached yet. */
+  addLabel?: string
 }
 
 export type BillAttachmentPickerHandle = {
@@ -53,7 +59,10 @@ function fileIcon(mime: string | null) {
 }
 
 export const BillAttachmentPicker = forwardRef<BillAttachmentPickerHandle, Props>(
-  function BillAttachmentPicker({ uploads, onChange, disabled }, ref) {
+  function BillAttachmentPicker(
+    { uploads, onChange, disabled, bucket = 'bill-attachments', label = 'Supplier Invoice Attachments', addLabel = 'Add invoice files' },
+    ref,
+  ) {
     const inputRef = useRef<HTMLInputElement | null>(null)
     const [busy, setBusy] = useState(false)
 
@@ -62,7 +71,7 @@ export const BillAttachmentPicker = forwardRef<BillAttachmentPickerHandle, Props
         if (uploads.length === 0) return
         const supabase = createClient()
         await supabase.storage
-          .from('bill-attachments')
+          .from(bucket)
           .remove(uploads.map((u) => u.storage_key))
           .catch(() => { /* best-effort */ })
       },
@@ -89,7 +98,7 @@ export const BillAttachmentPicker = forwardRef<BillAttachmentPickerHandle, Props
           const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
           const path = `${year}/${month}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${sanitized}`
           const { error } = await supabase.storage
-            .from('bill-attachments')
+            .from(bucket)
             .upload(path, file, { contentType: file.type, cacheControl: '3600' })
           if (error) {
             toast.error(`${file.name}: ${humanizeDbError(error)}`)
@@ -124,7 +133,7 @@ export const BillAttachmentPicker = forwardRef<BillAttachmentPickerHandle, Props
       <div className="space-y-2">
         <Label className="flex items-center gap-1.5">
           <Paperclip className="h-3.5 w-3.5" />
-          Supplier Invoice Attachments
+          {label}
         </Label>
         <div className="flex flex-wrap gap-2">
           {uploads.map((u, idx) => (
@@ -168,7 +177,7 @@ export const BillAttachmentPicker = forwardRef<BillAttachmentPickerHandle, Props
             className={cn('gap-1.5 h-8')}
           >
             <Upload className="h-3.5 w-3.5" />
-            {busy ? 'Uploading…' : uploads.length === 0 ? 'Add invoice files' : 'Add more'}
+            {busy ? 'Uploading…' : uploads.length === 0 ? addLabel : 'Add more'}
           </Button>
           <p className="text-[11px] text-muted-foreground mt-1">
             PDF, JPG, PNG, WEBP. Max 5 MB each. Multiple files allowed.
