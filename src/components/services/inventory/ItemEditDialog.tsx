@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { useCreateInventoryItem, useUpdateInventoryItem, useItemTeamItemContext, type InventoryItem } from '@/hooks/useInventory'
+import { UnitCombobox } from './UnitCombobox'
 import { useUpsertItemAttributes } from '@/hooks/useAttributes'
 import { useActiveWarrantyPolicies } from '@/hooks/useWarrantyPolicies'
 import { useEffectiveWarranty } from '@/hooks/useEffectiveWarranty'
@@ -26,8 +27,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
 
 const PHOTO_BUCKET = 'inventory-item-photos'
-
-const UNITS = ['Piece', 'Kg', 'Litre', 'Set', 'Box', 'Metre', 'Roll', 'Pair', 'Other']
 
 type Props = {
   open: boolean
@@ -363,12 +362,7 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
             </div>
             <div className="space-y-1">
               <Label htmlFor="item-unit">Unit</Label>
-              <Select value={unit} onValueChange={(v) => { if (v !== null) setUnit(v) }}>
-                <SelectTrigger id="item-unit"><SelectValue /></SelectTrigger>
-                <SelectContent className="max-h-60 overflow-y-auto">
-                  {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <UnitCombobox id="item-unit" value={unit} onChange={(name) => setUnit(name ?? 'Piece')} />
             </div>
           </div>
           <div className="space-y-1">
