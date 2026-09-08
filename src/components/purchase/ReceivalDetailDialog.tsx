@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { Receival } from '@/hooks/useReceivals'
 import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { useReceivalItemBranches } from '@/hooks/useReceivalItemBranches'
 import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ReceivalCheckButton } from '@/components/purchase/ReceivalCheckButton'
 
@@ -51,6 +52,11 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
     (receival?.receival_items ?? [])
       .map((i) => i.brand_variant_id)
       .filter((x): x is string => !!x),
+  )
+  // Branch (division) each received item is stocked in — one call before the
+  // early return so hook order stays constant.
+  const { data: branchMap } = useReceivalItemBranches(
+    (receival?.receival_items ?? []).map((i) => i.brand_variant_id),
   )
 
   if (!receival) return null
@@ -185,6 +191,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                     <tr className="bg-muted/40 text-xs text-muted-foreground uppercase tracking-wider">
                       <th className="px-3 py-2 text-left font-medium">Item</th>
                       <th className="px-3 py-2 text-left font-medium">SKU</th>
+                      <th className="px-3 py-2 text-left font-medium">Branch</th>
                       <th className="px-3 py-2 text-right font-medium">Qty</th>
                       <th className="px-3 py-2 text-right font-medium">Unit Cost</th>
                       <th className="px-3 py-2 text-right font-medium">Total</th>
@@ -202,6 +209,9 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                           />
                         </td>
                         <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{item.sku ?? '—'}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground text-xs">
+                          {(item.brand_variant_id ? branchMap?.get(item.brand_variant_id) : undefined)?.join(', ') || '—'}
+                        </td>
                         <td className="px-3 py-2.5 text-right tabular-nums">{item.qty_received}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">
                           {item.is_free === true ? '—' : formatCurrency(item.unit_cost, currency)}
@@ -217,7 +227,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
                       </tr>
                     ))}
                     {items.length === 0 && (
-                      <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No items found</td></tr>
+                      <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No items found</td></tr>
                     )}
                   </tbody>
                 </table>

@@ -3,6 +3,7 @@ import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchVariantBranches } from '@/lib/purchase/item-branches'
 import {
   buildReceivalReceiptHtml,
   type ReceivalReceiptItem,
@@ -76,11 +77,15 @@ export async function generateReceivalReceiptPdf(
   }
 
   const rawItems = rcv.receival_items ?? []
-  const arMap = await fetchArabicNamesByBrandVariant(supabase, rawItems.map((r) => r.brand_variant_id))
+  const [arMap, branchMap] = await Promise.all([
+    fetchArabicNamesByBrandVariant(supabase, rawItems.map((r) => r.brand_variant_id)),
+    fetchVariantBranches(supabase, rawItems.map((r) => r.brand_variant_id)),
+  ])
   const items: ReceivalReceiptItem[] = rawItems.map(ri => ({
     itemName:    ri.item_name,
     itemNameAr:  ri.brand_variant_id ? arMap.get(ri.brand_variant_id) ?? null : null,
     sku:         ri.sku,
+    branches:    ri.brand_variant_id ? branchMap.get(ri.brand_variant_id) ?? [] : [],
     qtyReceived: ri.qty_received,
     unitCost:    ri.unit_cost,
     isFree:      ri.is_free === true,
