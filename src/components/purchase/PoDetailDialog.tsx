@@ -28,6 +28,7 @@ import { PoReturnsTab } from './PoReturnsTab'
 import { PoPdfButton } from './PoPdfButton'
 import type { PoPdfVariant } from '@/lib/purchase/generate-po-pdf'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
+import { OrderChatPanel } from '@/components/orders/OrderChatPanel'
 import { DocumentExchangeTab } from '@/components/shared/DocumentExchangeTab'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
 import {
@@ -92,6 +93,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
   const canTabReturns   = useHasPermission('purchase.orders.tab.returns.view')
   const canTabActivity  = useHasPermission('purchase.orders.tab.activity.view')
   const canTabExchange  = useHasPermission('purchase.orders.tab.exchange.view')
+  const canTabChat      = useHasPermission('purchase.orders.tab.chat.view')
   const deletePaymentMut = useDeleteSupplierPayment()
 
   const resolvedId = po?.id ?? poId ?? null
@@ -384,6 +386,7 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                   </TabsTrigger>
                 )}
                 {canTabActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
+                {canTabChat && <TabsTrigger value="chat">Discussion</TabsTrigger>}
                 {showReturns && canTabReturns && (
                   <TabsTrigger value="returns">
                     Returns{poReturns.length > 0 ? ` (${poReturns.length})` : ''}
@@ -709,6 +712,11 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
               {/* ── Activity ─────────────────────────────────────── */}
               <TabsContent value="activity" className="flex-1 overflow-y-auto">
                 <ActivityTimeline logs={activityLogs?.rows ?? []} />
+              </TabsContent>
+
+              {/* ── Discussion (internal chat) ───────────────────── */}
+              <TabsContent value="chat" className="flex-1 overflow-y-auto">
+                <OrderChatPanel kind="po" orderId={resolvedId} />
               </TabsContent>
 
               {/* ── Returns ──────────────────────────────────────── */}

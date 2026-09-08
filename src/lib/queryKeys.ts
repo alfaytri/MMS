@@ -707,6 +707,11 @@ export const queryKeys = {
     all: ['units'] as const,
   },
 
+  /* ── Order chat (per-order discussion) ────────────────── */
+  orderChat: {
+    thread: (kind: string, orderId: string | null) => ['order-chat', kind, orderId] as const,
+  },
+
   /* ── LC Attached (page-level) ─────────────────────────── */
   lcAttached: {
     receivals: (idsKey: string) => ['lc-attached-receivals', idsKey] as const,
