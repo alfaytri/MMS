@@ -1417,3 +1417,45 @@ These modules are called out in project plans / seed docs but have no material f
 - **Guards / preconditions:** manage-gated; a single division must be in the top-bar view; a second initiate for a division with an open session is rejected.
 - **Related flows:** [[Record Tool Inspection (condition check)]] (the underlying inspection RPC, now session-aware), [[Assign / Move / Return Tool Unit (team custody)]] (the units checked).
 - **Docs / plans:** [docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/](docs/plans/2026-08-18-tools-assets-team-tracking/phase-2-rework/). Migration `20260923000400`.
+
+### Create Shipment (multi-PO, item-level)
+
+- **Module:** Purchase
+- **Status:** Active
+- **Trigger surface(s):** `/purchase/shipments` → **Create Shipment** button → `CreateShipmentDialog` (searchable PO picker → per-line qty).
+- **Primary hook(s):** [`useCreateShipment`](src/hooks/useShipments.ts) (+ `useShippablePurchaseOrders`, `useLineShippedElsewhere`)
+- **RPC(s):** `public.create_shipment(p_mode,p_tracking_number,p_carrier,p_lines,p_etd_original,p_etd_reason)` — atomic shipment + `shipment_line_items` + ETD `original` revision (SECURITY DEFINER).
+- **Ledger writes:** `shipments` (number via `assign_shipment_number` trigger), `shipment_line_items`, `shipment_schedule_revisions`.
+- **Downstream side-effects:** invalidates `queryKeys.shipments.all`; if a tracking number is given, POSTs `/api/shipments/register-tracking` (17track). Soft reconciliation (warn, never block) on qty > PO remainder.
+- **Dialog / component:** [`CreateShipmentDialog`](src/components/purchase/shipments/CreateShipmentDialog.tsx)
+- **Guards / preconditions:** POs scoped to `approved | partially_received`; ≥1 line required (RPC raises otherwise).
+- **Related flows:** [[Add Shipment Schedule Revision]], [[Add Shipment Event / Update Status]]
+- **Docs / plans:** [docs/plans/2026-09-08-shipments-multi-po-and-schedule-plan.md](docs/plans/2026-09-08-shipments-multi-po-and-schedule-plan.md)
+
+### Add Shipment Schedule Revision
+
+- **Module:** Purchase
+- **Status:** Active
+- **Trigger surface(s):** `ShipmentDetailDialog` → Schedule section → **+ Add revision** (per leg).
+- **Primary hook(s):** [`useAddScheduleRevision`](src/hooks/useShipments.ts)
+- **RPC(s):** none — direct insert into `shipment_schedule_revisions`.
+- **Ledger writes:** `shipment_schedule_revisions`; the `trg_shipment_schedule_sync` trigger caches current-planned `etd/eta` + `etd_actual/eta_actual` onto `shipments`.
+- **Downstream side-effects:** invalidates shipments list + detail. Partial-unique indexes enforce one `original` + one `actual` per (shipment, leg).
+- **Dialog / component:** `ShipmentDetailDialog` (ScheduleSection)
+- **Guards / preconditions:** RLS `is_shipment_visible`; UI disables a second original/actual.
+- **Related flows:** [[Create Shipment (multi-PO, item-level)]]
+- **Docs / plans:** [docs/plans/2026-09-08-shipments-multi-po-and-schedule-plan.md](docs/plans/2026-09-08-shipments-multi-po-and-schedule-plan.md)
+
+### Add Shipment Event / Update Status
+
+- **Module:** Purchase
+- **Status:** Active
+- **Trigger surface(s):** `ShipmentDetailDialog` → Timeline **+ Add event** (title required, location optional), and footer **Update status**.
+- **Primary hook(s):** [`useAddShipmentEvent`](src/hooks/useShipments.ts), [`useUpdateShipmentStatus`](src/hooks/useShipments.ts)
+- **RPC(s):** none — updates `shipments.events` (jsonb) / `shipments.status`.
+- **Ledger writes:** `shipments`.
+- **Downstream side-effects:** on `delayed`/`customs`, notifies EVERY linked PO owner (resolved through the shipment's lines, deduped) via `notifyOwnerAndKey` + `notify.purchase.shipment_delayed`. Current location = newest event carrying a location.
+- **Dialog / component:** `ShipmentDetailDialog` (EventsSection)
+- **Guards / preconditions:** RLS `is_shipment_visible`; 17track sync bar only when a tracking number exists.
+- **Related flows:** [[Create Shipment (multi-PO, item-level)]]
+- **Docs / plans:** [docs/plans/2026-09-08-shipments-multi-po-and-schedule-plan.md](docs/plans/2026-09-08-shipments-multi-po-and-schedule-plan.md)
