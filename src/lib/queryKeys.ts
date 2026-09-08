@@ -702,6 +702,11 @@ export const queryKeys = {
     all: ['brands'] as const,
   },
 
+  /* ── Units (catalog) ──────────────────────────────────── */
+  units: {
+    all: ['units'] as const,
+  },
+
   /* ── LC Attached (page-level) ─────────────────────────── */
   lcAttached: {
     receivals: (idsKey: string) => ['lc-attached-receivals', idsKey] as const,
