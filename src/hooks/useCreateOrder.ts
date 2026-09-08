@@ -4,13 +4,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatAddressLine } from '@/lib/orders/warrantyUtils'
-import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment, VisitDateWindow, OrderType } from '@/types/orders'
+import type { OrderDraft, OrderServiceDraft, TeamAssignmentDraft, CustomerAddress, OrderAttachment, VisitDateWindow, OrderType, OrderMode } from '@/types/orders'
 import { SITE_VISIT_SERVICE_ID } from '@/components/orders/SiteVisitCard'
 import type { CustomerLookupResult } from '@/hooks/useCustomerLookup'
 import type { PendingAttachment } from '@/components/orders/AttachmentsUpload'
 import type { Json } from '@/types/database.types'
 import { effectiveUnitPrice } from '@/lib/orders/pricing'
 import { addOrBumpService } from '@/lib/orders/draft-services'
+import { orderIdRpcFor, type OrderKind } from '@/lib/orders/orderIdRpc'
 
 // Use LOCAL date components, not toISOString() — the latter returns UTC and
 // flips to "yesterday" for any local time between 00:00 and the UTC offset
@@ -67,20 +68,18 @@ async function generateVisitId(supabase: ReturnType<typeof createClient>): Promi
   return data as unknown as string
 }
 
-export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
+export function useCreateOrder(options?: { kind?: OrderKind }) {
   const kind = options?.kind ?? 'order'
   const [draft, setDraft] = useState<OrderDraft>(INITIAL_DRAFT)
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([])
   const supabase = createClient()
   const qc = useQueryClient()
 
-  async function generateIdForKind(): Promise<string> {
-    if (kind === 'follow-up') {
-      const { data, error } = await supabase.rpc('next_follow_up_order_id')
-      if (error || !data) throw new Error(error?.message ?? 'next_follow_up_order_id failed')
-      return data as unknown as string
-    }
-    return generateOrderId(supabase)
+  async function generateIdForKind(mode: OrderMode = 'normal'): Promise<string> {
+    const rpc = orderIdRpcFor(kind, mode)
+    const { data, error } = await supabase.rpc(rpc as never)
+    if (error || !data) throw new Error((error as { message?: string } | null)?.message ?? `${rpc} failed`)
+    return data as unknown as string
   }
 
   // Pre-generate the order ID on mount so it can be displayed before submit
@@ -293,7 +292,12 @@ export function useCreateOrder(options?: { kind?: 'order' | 'follow-up' }) {
       // Reuse the pre-generated id (see the site-visit note) so the displayed id,
       // the attachments folder, and the saved order all agree; fall back only if
       // it's absent or a leftover site-visit id from a prior type toggle.
-      const orderId = draft.orderId && !draft.orderId.startsWith('V/') ? draft.orderId : await generateIdForKind()
+      // Emergency orders were pre-generated as N/ on mount but must ship as E/;
+      // re-finalize at submit. Backwork/follow-up keep their mount id (BW//FW/).
+      const needsEmergencyId = kind === 'order' && draft.mode === 'emergency'
+      const orderId = (draft.orderId && !draft.orderId.startsWith('V/') && !needsEmergencyId)
+        ? draft.orderId
+        : await generateIdForKind(draft.mode)
       // Emergency orders bill each service's emergency_price (fallback base).
       const totalAmount = draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0) - draft.voucherDiscount
 
