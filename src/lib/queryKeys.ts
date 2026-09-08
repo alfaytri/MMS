@@ -488,6 +488,9 @@ export const queryKeys = {
     all: ['shipments'] as const,
     list: (archived?: boolean, search?: string) =>
       ['shipments', { archived, search }] as const,
+    detail: (id: string | null) => ['shipments', 'detail', id] as const,
+    shippablePos: (search?: string) => ['shipments', 'shippable-pos', search ?? ''] as const,
+    shippedByLine: (poLineIds: string[]) => ['shipments', 'shipped-by-line', [...poLineIds].sort()] as const,
   },
 
   /* ── Site Visits ──────────────────────────────────────── */
