@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import type { Receival } from '@/hooks/useReceivals'
 import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
-import { useReceivalItemBranches } from '@/hooks/useReceivalItemBranches'
+import { useItemBranchesByVariant } from '@/hooks/useItemBranchesByVariant'
 import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ReceivalCheckButton } from '@/components/purchase/ReceivalCheckButton'
 
@@ -55,7 +55,7 @@ export function ReceivalDetailDialog({ receival, onClose }: Props) {
   )
   // Branch (division) each received item is stocked in — one call before the
   // early return so hook order stays constant.
-  const { data: branchMap } = useReceivalItemBranches(
+  const { data: branchMap } = useItemBranchesByVariant(
     (receival?.receival_items ?? []).map((i) => i.brand_variant_id),
   )
 

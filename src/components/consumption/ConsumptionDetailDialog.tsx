@@ -22,6 +22,7 @@ import {
 } from '@/hooks/useConsumption'
 import { useHasPermission } from '@/hooks/usePermissions'
 import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { useItemBranchesByVariant } from '@/hooks/useItemBranchesByVariant'
 import { ItemLabel } from '@/components/shared/ItemLabel'
 import { ConsumptionEditRequestBanner } from './ConsumptionEditRequestBanner'
 import { RequestConsumptionEditDialog } from './RequestConsumptionEditDialog'
@@ -80,6 +81,10 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
   // Full item label (category tree, brand, origin) above each consumed item name.
   const variantMeta = useVariantItemMeta(
     (data?.lines ?? []).map((l) => l.brand_variant_id).filter((v): v is string => !!v),
+  )
+  // Branch (division) each consumed item is stocked in, shown under its name.
+  const { data: branchMap } = useItemBranchesByVariant(
+    (data?.lines ?? []).map((l) => l.brand_variant_id),
   )
 
   const total = (data?.lines ?? []).reduce(
@@ -195,6 +200,9 @@ export function ConsumptionDetailDialog({ open, onOpenChange, consumptionId }: P
                                 nameClassName="font-medium truncate block"
                               />
                               {l.sku && <div className="text-[10px] text-muted-foreground">{l.sku}</div>}
+                              {l.brand_variant_id && branchMap?.get(l.brand_variant_id)?.length
+                                ? <div className="text-[10px] text-muted-foreground">Branch: {branchMap.get(l.brand_variant_id)!.join(', ')}</div>
+                                : null}
                             </td>
                             <td className="px-2.5 py-1.5 text-right tabular-nums">{l.qty}</td>
                             {canSeeCost && (
