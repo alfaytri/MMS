@@ -22,13 +22,27 @@ import {
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
 import { useAllDivisions } from '@/hooks/useDivisions'
+import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { formatDate } from '@/lib/utils/formatters'
 import { categoryDepthStyle } from '@/lib/inventory/categoryDepth'
 import { reorderSiblings } from '@/lib/inventory/reorder'
 import type { InventoryTreeNode } from '@/hooks/useInventoryTree'
 
+// Narrow a unit list to the nav-bar division filter. Empty set = "All
+// divisions" (show everything). Units with no division_id belong to no
+// specific division, so they drop out once a division is selected — matching
+// the item-level filter (rpc_item_divisions_by_stock only counts non-null unit
+// divisions). Shared by the row count and the expanded unit table so the
+// number on the row always matches the rows shown when it is expanded.
+function unitsForActiveDivision(units: ToolAssetUnit[], viewDivisionIds: Set<string>): ToolAssetUnit[] {
+  if (viewDivisionIds.size === 0) return units
+  return units.filter((u) => u.division_id != null && viewDivisionIds.has(u.division_id))
+}
+
 function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | null }) {
-  const { data: units = [], isLoading } = useToolAssetUnits(itemId)
+  const { data: allUnits = [], isLoading } = useToolAssetUnits(itemId)
+  const { viewDivisionIds } = useActiveDivision()
+  const units = useMemo(() => unitsForActiveDivision(allUnits, viewDivisionIds), [allUnits, viewDivisionIds])
   const { data: allDivisions = [] } = useAllDivisions()
   const [editUnit, setEditUnit] = useState<ToolAssetUnit | null>(null)
   const [transferUnit, setTransferUnit] = useState<ToolAssetUnit | null>(null)
@@ -109,7 +123,7 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
                   <tr><td colSpan={8} className="text-center text-[11px] text-muted-foreground py-3">No units added yet</td></tr>
                 )}
                 {pendingUnits.map((unit) => (
-                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={units} showDivisionColumn showCostColumn />
+                  <PlaceholderUnitRow key={unit.id} unit={unit} siblingUnits={allUnits} showDivisionColumn showCostColumn />
                 ))}
                 {confirmedUnits.map((unit) => (
                   <tr key={unit.id} className="border-t border-border">
@@ -165,6 +179,16 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
+  // Serial-unit count for the INFO column (bulk tools show on-hand qty; a
+  // serialized tool's "quantity" is how many physical units are tracked).
+  // Reuses the same per-item units query the expanded table uses (shared cache,
+  // auto-invalidated by every unit write) and honours the nav-bar division
+  // filter so the count matches the rows shown when expanded.
+  const { viewDivisionIds } = useActiveDivision()
+  const { data: allUnits = [], isLoading: unitsLoading } = useToolAssetUnits(item.id)
+  const units = useMemo(() => unitsForActiveDivision(allUnits, viewDivisionIds), [allUnits, viewDivisionIds])
+  const pendingCount = units.filter((u) => !u.serial_number).length
+
   const indent = 12 + (depth + 1) * 20
 
   return (
@@ -178,7 +202,18 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
             {item.name_ar && <span className="text-[10px] text-muted-foreground truncate flex-shrink-0" dir="rtl">{item.name_ar}</span>}
           </div>
         </td>
-        <td className="py-2.5 px-2 text-[11px] text-muted-foreground" />
+        <td className="py-2.5 px-2 text-[11px] text-muted-foreground">
+          {unitsLoading
+            ? <span className="inline-block h-3 w-16 bg-muted animate-pulse rounded align-middle" />
+            : (
+              <span className="whitespace-nowrap">
+                {units.length} unit{units.length === 1 ? '' : 's'}
+                {pendingCount > 0 && (
+                  <span className="text-amber-700 dark:text-amber-400"> · {pendingCount} pending serial{pendingCount === 1 ? '' : 's'}</span>
+                )}
+              </span>
+            )}
+        </td>
         <td className="py-2.5 px-2 text-right">
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" aria-label="Edit tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
