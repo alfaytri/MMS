@@ -400,16 +400,18 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                     >
                       + Follow-up
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-red-200 text-destructive hover:bg-destructive/10"
-                      onClick={() =>
-                        window.open(`/orders/create-backwork?from=${orderId}`, '_blank')
-                      }
-                    >
-                      + Backwork
-                    </Button>
+                    {order.status === 'completed' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-red-200 text-destructive hover:bg-destructive/10"
+                        onClick={() =>
+                          window.open(`/orders/create-backwork?from=${orderId}`, '_blank')
+                        }
+                      >
+                        + Backwork
+                      </Button>
+                    )}
 
                     {pendingReqs.length > 0 && (
                       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs">
