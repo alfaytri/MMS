@@ -19,6 +19,7 @@ import { ReplacementDeliveryDialog } from '@/components/sales/ReplacementDeliver
 import { SoReturnsTab } from './SoReturnsTab'
 import { SoInvoiceTab } from './SoInvoiceTab'
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline'
+import { OrderChatPanel } from '@/components/orders/OrderChatPanel'
 import { DocumentExchangeTab } from '@/components/shared/DocumentExchangeTab'
 import { PaymentSummaryTab } from '@/components/shared/PaymentSummaryTab'
 import { PaymentPlanSection } from '@/components/finance/PaymentPlanSection'
@@ -111,6 +112,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canTabActivity   = useHasPermission('sales.orders.tab.activity.view')
   const canTabInvoice    = useHasPermission('sales.orders.tab.invoice.view')
   const canTabExchange   = useHasPermission('sales.orders.tab.exchange.view')
+  const canTabChat       = useHasPermission('sales.orders.tab.chat.view')
   const deletePaymentMut = useDeleteCustomerPayment()
   const [deliveryOpen, setDeliveryOpen] = useState(false)
 
@@ -244,6 +246,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                 {canTabPayments && <TabsTrigger value="payments">Payments</TabsTrigger>}
                 {canTabReturns && <TabsTrigger value="returns">Returns {soReturns.length > 0 && `(${soReturns.length})`}</TabsTrigger>}
                 {canTabActivity && <TabsTrigger value="activity">Activity</TabsTrigger>}
+                {canTabChat && <TabsTrigger value="chat">Discussion</TabsTrigger>}
                 {canTabInvoice && <TabsTrigger value="invoice">Invoice</TabsTrigger>}
                 {current && current.currency && current.currency !== 'QAR' && canTabExchange && (
                   <TabsTrigger value="exchange">Exchange</TabsTrigger>
@@ -563,6 +566,11 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               {/* ── Activity ─────────────────────────────────────── */}
               <TabsContent value="activity" className="flex-1 overflow-y-auto">
                 <ActivityTimeline logs={activityLogs?.rows ?? []} />
+              </TabsContent>
+
+              {/* ── Discussion (internal chat) ───────────────────── */}
+              <TabsContent value="chat" className="flex-1 overflow-y-auto">
+                <OrderChatPanel kind="so" orderId={current?.id ?? null} />
               </TabsContent>
 
               {/* ── Invoice ──────────────────────────────────────── */}
