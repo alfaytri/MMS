@@ -455,6 +455,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         permissions: [
           { key: 'follow_ups.request', label: 'Request Follow-up', description: 'Submit a follow-up request from the field after completing a job' },
           { key: 'follow_ups.confirm', label: 'Confirm Follow-up', description: 'Confirm or reject team-leader follow-up requests and schedule the follow-up order' },
+          { key: 'backwork.create', label: 'Create Backwork', description: 'Create a backwork (redo) order from a completed order' },
         ],
       },
       {
