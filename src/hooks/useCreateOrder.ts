@@ -42,8 +42,6 @@ const INITIAL_DRAFT: OrderDraft = {
   visitEndDate: null,
   mode: 'normal',
   assignments: [],
-  voucherCode: '',
-  voucherDiscount: 0,
   notes: '',
   arrivalPhone: '',
   attachments: [],
@@ -299,7 +297,7 @@ export function useCreateOrder(options?: { kind?: OrderKind }) {
         ? draft.orderId
         : await generateIdForKind(draft.mode)
       // Emergency orders bill each service's emergency_price (fallback base).
-      const totalAmount = draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0) - draft.voucherDiscount
+      const totalAmount = draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0)
 
       const servicesPayload = draft.services.map((s) => ({
         service_id: s.serviceId,

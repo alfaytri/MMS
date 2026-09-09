@@ -116,8 +116,6 @@ export interface OrderDraft {
   visitEndDate: string | null
   mode: OrderMode
   assignments: TeamAssignmentDraft[]
-  voucherCode: string
-  voucherDiscount: number
   notes: string
   arrivalPhone: string          // phone to call on arrival
   attachments: OrderAttachment[] // uploaded file/image URLs

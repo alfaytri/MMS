@@ -131,8 +131,6 @@ export function useEditOrder(orderId: string) {
       // as such) instead of silently reverting to Normal on save.
       mode: (order as typeof order & { is_emergency?: boolean | null }).is_emergency ? 'emergency' : 'normal',
       assignments,
-      voucherCode: '',
-      voucherDiscount: 0,
       notes: order.notes ?? '',
       arrivalPhone: order.arrival_phone ?? '',
       attachments: [],
@@ -289,7 +287,7 @@ export function useEditOrder(orderId: string) {
       }))
 
       const totalAmount =
-        draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0) - draft.voucherDiscount
+        draft.services.reduce((sum, s) => sum + effectiveUnitPrice(s, draft.mode) * s.qty, 0)
 
       // Single atomic call — updates the order and replaces all children in one
       // transaction (no more partial-failure gutting), and logs the real editor

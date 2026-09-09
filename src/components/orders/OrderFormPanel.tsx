@@ -406,22 +406,6 @@ export function OrderFormPanel({
           />
         </div>
 
-        <div className="mx-5 border-t border-slate-100" />
-
-        {/* ── Voucher Code ── */}
-        <div className="px-5 py-4 space-y-2.5">
-          <SectionLabel>Voucher Code</SectionLabel>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Enter code…"
-              value={draft.voucherCode}
-              onChange={(e) => onUpdate({ voucherCode: e.target.value })}
-              className="h-10 flex-1 uppercase text-sm tracking-widest"
-            />
-            <Button variant="outline" size="sm" className="h-10 px-4 text-xs font-semibold">Apply</Button>
-          </div>
-        </div>
-
         {/* ── Total ── */}
         {draft.services.length > 0 && (
           <div className="mx-5 mb-5 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 px-4 py-3 flex items-center justify-between">
