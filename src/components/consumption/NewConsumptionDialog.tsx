@@ -26,7 +26,6 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { WhItemPicker, type PickerItem } from '@/components/purchase/wh/WhItemPicker'
 import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
-import { useItemBranchesByVariant } from '@/hooks/useItemBranchesByVariant'
 import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useCustodyLocations } from '@/hooks/useCustodyLocations'
@@ -329,8 +328,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   // it works regardless of which columns warehouse_stock_summary carries.
   const stockVariantIds = useMemo(() => sourceStock.map((s) => s.brand_variant_id), [sourceStock])
   const variantMeta = useVariantItemMeta(stockVariantIds)
-  // Branch (division) per stock variant, shown under each line in the confirm step.
-  const { data: branchMap } = useItemBranchesByVariant(stockVariantIds)
 
   // Dedupe by brand_variant_id — the picker is gated on a chosen sub (so stock is
   // normally single-sub), but stay defensive against a variant appearing in more
@@ -1288,9 +1285,6 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               >
                 <div className="min-w-0 flex-1">
                   <ItemLabel meta={variantMeta.get(l.id)} name={l.name} nameClassName="truncate font-medium" />
-                  {branchMap?.get(l.id)?.length
-                    ? <div className="mt-0.5 text-[10px] text-muted-foreground">Branch: {branchMap.get(l.id)!.join(', ')}</div>
-                    : null}
                   {l.highShare && (
                     <div className="mt-0.5 flex items-center gap-1 text-[10px] text-warning-foreground">
                       <AlertTriangle className="h-3 w-3 shrink-0" />

@@ -23,7 +23,6 @@ import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useWarehouseStock } from '@/hooks/useWarehouseOperations'
 import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
-import { useItemBranchesByVariant } from '@/hooks/useItemBranchesByVariant'
 import { useToolUnitItemMeta } from '@/hooks/useToolUnitCategoryPaths'
 import { ItemLabel } from '@/components/shared/ItemLabel'
 import { useCustodyLocations, type CustodyLocationRow } from '@/hooks/useCustodyLocations'
@@ -341,8 +340,6 @@ function CustodyCard({
 
   // Category breadcrumb above each held item name.
   const variantMeta = useVariantItemMeta(stockRows.map((r) => r.brand_variant_id))
-  // Branch (division) each held item is stocked in, shown under its name.
-  const { data: branchMap } = useItemBranchesByVariant(stockRows.map((r) => r.brand_variant_id))
   // …and above each assigned tool name (tools resolve via their unit id).
   const toolMeta = useToolUnitItemMeta(toolUnits.map((t) => t.unit_id))
 
@@ -523,9 +520,6 @@ function CustodyCard({
                   <div className="min-w-0">
                     <ItemLabel meta={variantMeta.get(r.brand_variant_id)} name={r.item_name} nameClassName="font-medium break-words" />
                     {r.brand && <div className="text-[10px] text-muted-foreground break-words">{r.brand}{r.sku ? ` · ${r.sku}` : ''}</div>}
-                    {branchMap?.get(r.brand_variant_id)?.length
-                      ? <div className="text-[10px] text-muted-foreground break-words">Branch: {branchMap.get(r.brand_variant_id)!.join(', ')}</div>
-                      : null}
                   </div>
                   <div className="flex items-baseline gap-1.5 tabular-nums text-[11px] shrink-0 sm:flex-col sm:items-end sm:gap-0 sm:text-right">
                     <span className="text-foreground">{r.qty} {r.unit}</span>

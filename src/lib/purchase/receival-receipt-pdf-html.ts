@@ -13,8 +13,6 @@ export interface ReceivalReceiptItem {
   itemName:    string
   itemNameAr?: string | null
   sku:         string | null
-  /** Company division(s) this item is stocked in, shown under the name. */
-  branches?:   string[]
   qtyReceived: number
   unitCost:    number
   isFree:      boolean
@@ -91,7 +89,6 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
           <div class="item-name">${esc(item.itemName)}</div>
           ${item.itemNameAr ? `<div class="item-name-ar">${esc(item.itemNameAr)}</div>` : ''}
           ${item.sku ? `<div class="item-sku">${esc(item.sku)}</div>` : ''}
-          ${item.branches && item.branches.length ? `<div class="item-branch">Branch: ${esc(item.branches.join(', '))}</div>` : ''}
         </td>
         <td class="cell-num">${fmtQty(item.qtyReceived)}</td>
         <td class="cell-num">${item.isFree ? '<span class="muted">—</span>' : fmtMoney(item.unitCost)}</td>
@@ -127,10 +124,6 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
   .purchased-tag {
     display: inline-block; font-size: 8px; padding: 0.5mm 2mm;
     background: #f3f4f6; color: #6b7280; border-radius: 2px;
-  }
-  table.lines td.cell-item .item-branch {
-    font-family: 'IBMPlexSans', sans-serif; font-size: 8px;
-    color: var(--muted); margin-top: 1px;
   }
 
   .notes-block {

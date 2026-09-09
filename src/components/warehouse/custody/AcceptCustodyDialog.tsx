@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useAcceptCustodyAssign, useCustodyTransferItems } from '@/hooks/useCustodyMoves'
-import { useItemBranchesByVariant } from '@/hooks/useItemBranchesByVariant'
 
 type Disposition = 'writeoff' | 'restock'
 
@@ -39,8 +38,6 @@ export function AcceptCustodyDialog({
   // which makes the init effect below re-fire endlessly. useMemo keeps the same
   // array identity until `data` itself changes.
   const items = useMemo(() => data ?? [], [data])
-  // Branch (division) each dispatched item is stocked in, shown under its name.
-  const { data: branchMap } = useItemBranchesByVariant(items.map((i) => i.brand_variant_id))
   const accept = useAcceptCustodyAssign()
   const [received, setReceived]       = useState<Record<string, string>>({})
   const [disposition, setDisposition] = useState<Record<string, Disposition>>({})
@@ -120,9 +117,6 @@ export function AcceptCustodyDialog({
                   <div className="min-w-0">
                     <div className="text-xs font-medium truncate">{i.item_name}</div>
                     {i.sku && <div className="text-[10px] text-muted-foreground truncate">{i.sku}</div>}
-                    {branchMap?.get(i.brand_variant_id)?.length
-                      ? <div className="text-[10px] text-muted-foreground truncate">Branch: {branchMap.get(i.brand_variant_id)!.join(', ')}</div>
-                      : null}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Input
