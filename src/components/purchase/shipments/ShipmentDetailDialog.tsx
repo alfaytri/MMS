@@ -22,6 +22,8 @@ import {
   type ShipmentMode, type ShipmentStatus, type ScheduleLeg, type ScheduleRevisionType, type ShipmentEvent, type ShipmentLine,
 } from '@/hooks/useShipments'
 import { legHistory } from '@/lib/shipments/schedule'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 
 const MODE_META: Record<ShipmentMode, { icon: typeof Plane; label: string }> = {
   air: { icon: Plane, label: 'Air' }, sea: { icon: Ship, label: 'Sea' },
@@ -145,6 +147,10 @@ function SyncBar({ shipmentId, trackingNumber, lastSyncMin, syncError }: { shipm
 function PoSection({ lines, shipmentId }: { lines: ShipmentLine[]; shipmentId: string }) {
   const updateQty = useUpdateShipmentLineQty()
   const removeLine = useRemoveShipmentLine()
+  // Full category tree (tag › category › … › leaf) + brand + origin per line's
+  // variant, resolved once for the whole list — same app-wide ItemLabel used on
+  // the PO / receival / custody surfaces.
+  const variantMeta = useVariantItemMeta(lines.map((l) => l.brand_variant_id).filter((x): x is string => !!x))
   const groups = useMemo(() => {
     const m = new Map<string, { po_number: string; supplier_name: string | null; lines: ShipmentLine[] }>()
     for (const l of lines) {
@@ -169,7 +175,10 @@ function PoSection({ lines, shipmentId }: { lines: ShipmentLine[]; shipmentId: s
               </div>
               {g.lines.map((l) => (
                 <div key={l.id} className="grid grid-cols-[1fr_auto] items-center gap-2 px-3 py-1.5 border-b last:border-b-0 text-sm">
-                  <div className="min-w-0">{l.item_name}{l.sku && <span className="text-[11px] text-muted-foreground font-mono ml-1.5">· {l.sku}</span>}</div>
+                  <ItemLabel
+                    meta={l.brand_variant_id ? variantMeta.get(l.brand_variant_id) : undefined}
+                    name={<>{l.item_name}{l.sku && <span className="text-[11px] text-muted-foreground font-mono ml-1.5">· {l.sku}</span>}</>}
+                  />
                   <div className="flex items-center gap-2">
                     <Input type="number" min={1} defaultValue={l.qty}
                       onBlur={(e) => { const q = Math.max(1, Number(e.target.value) || 1); if (q !== l.qty) updateQty.mutate({ id: l.id, qty: q, shipment_id: shipmentId }) }}
