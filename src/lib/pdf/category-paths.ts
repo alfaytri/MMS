@@ -19,6 +19,19 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 /** Breadcrumb separator shown between category levels. */
 export const CATEGORY_SEP = ' › '
 
+/**
+ * Product-type tag prefixed to the breadcrumb so the PDF path matches the
+ * on-screen ItemLabel (e.g. "Consumables › Refrigerants › R410A"). Mirrors
+ * CATEGORY_TYPE_LABELS / breadcrumbWithType in src/hooks/useInventoryTree.ts —
+ * kept inline so this server-side PDF helper needn't import a React-Query hook.
+ */
+const CATEGORY_TYPE_LABELS: Record<string, string> = {
+  'products':    'Products',
+  'spare-parts': 'Spare Parts',
+  'consumables': 'Consumables',
+  'tools':       'Tools',
+}
+
 export interface CategoryLineInfo {
   /** Full path "root › … › leaf", or null when the item has no category. */
   category_path: string | null
@@ -65,11 +78,11 @@ export async function fetchCategoryInfoByBrandVariant(
   // walking parents with N round-trips, and lets us memoise per leaf.
   const { data: cats } = await client
     .from('inventory_categories')
-    .select('id, name_en, parent_id')
+    .select('id, name_en, parent_id, type')
     .limit(20000)
-  const catById = new Map<string, { name: string; parent: string | null }>()
-  for (const c of (cats ?? []) as Array<{ id: string; name_en: string; parent_id: string | null }>) {
-    catById.set(c.id, { name: c.name_en, parent: c.parent_id })
+  const catById = new Map<string, { name: string; parent: string | null; type: string | null }>()
+  for (const c of (cats ?? []) as Array<{ id: string; name_en: string; parent_id: string | null; type: string | null }>) {
+    catById.set(c.id, { name: c.name_en, parent: c.parent_id, type: c.type })
   }
 
   const pathCache = new Map<string, string>()
@@ -92,10 +105,14 @@ export async function fetchCategoryInfoByBrandVariant(
 
   const out = new Map<string, CategoryLineInfo>()
   for (const [bv, v] of bvInfo) {
-    out.set(bv, {
-      category_path: v.catId ? pathFor(v.catId) || null : null,
-      catalog_name: v.catalog,
-    })
+    const crumb = v.catId ? pathFor(v.catId) || null : null
+    // Prefix the product-type tag (from the leaf category's type) so the PDF
+    // path reads "Consumables › Refrigerants › R410A", matching on-screen.
+    const tag = v.catId ? (CATEGORY_TYPE_LABELS[catById.get(v.catId)?.type ?? ''] ?? null) : null
+    const category_path = tag
+      ? (crumb ? `${tag}${CATEGORY_SEP}${crumb}` : tag)
+      : crumb
+    out.set(bv, { category_path, catalog_name: v.catalog })
   }
   return out
 }
