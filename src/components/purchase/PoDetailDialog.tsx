@@ -48,6 +48,7 @@ import { useActivityLog } from '@/hooks/useActivityLog'
 import { useMyApprovalRoles } from '@/hooks/usePOApprovals'
 import { usePoEditRequest } from '@/hooks/usePoEditRequests'
 import { useDivisions } from '@/hooks/useDivisions'
+import { useItemBranchesByVariant } from '@/hooks/useItemBranchesByVariant'
 import { EditRequestBanner } from './EditRequestBanner'
 import { RequestEditDialog } from './RequestEditDialog'
 import { RfqQuotesTab } from './RfqQuotesTab'
@@ -100,6 +101,10 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
 
   const { data: fullPO, isLoading, isError } = usePurchaseOrder(open ? resolvedId : null)
   const { data: divisions = [] } = useDivisions()
+  // Branch (division) each ordered item is stocked in, shown under its name.
+  const { data: branchMap } = useItemBranchesByVariant(
+    (fullPO?.po_line_items ?? []).map((li) => li.brand_variant_id),
+  )
   const isMultiDivPO = (fullPO?.division_ids?.length ?? 0) > 1
   const divisionShort = (id: string | null) => {
     if (!id) return null
@@ -503,6 +508,9 @@ export function PoDetailDialog({ open, onOpenChange, po, poId, onEdit }: Props) 
                                       <span className="text-xs text-muted-foreground">— {brandOrigin}</span>
                                     )}
                                   </div>
+                                  {li.brand_variant_id && branchMap?.get(li.brand_variant_id)?.length
+                                    ? <div className="text-[11px] text-muted-foreground">Branch: {branchMap.get(li.brand_variant_id)!.join(', ')}</div>
+                                    : null}
                                 </div>
                               </TableCell>
                               <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{li.sku ?? '—'}</TableCell>
