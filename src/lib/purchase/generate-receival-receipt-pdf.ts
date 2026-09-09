@@ -3,6 +3,8 @@ import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
 import { htmlToPdfBuffer } from '@/lib/pdf/html-to-pdf'
 import { fetchArabicNamesByBrandVariant } from '@/lib/pdf/arabic-names'
+import { fetchCategoryInfoByBrandVariant } from '@/lib/pdf/category-paths'
+import { variantPickerLabel, GENERIC_VARIANT_LABEL } from '@/lib/inventory/variantPickerLabel'
 import {
   buildReceivalReceiptHtml,
   type ReceivalReceiptItem,
@@ -37,6 +39,11 @@ interface ReceivalRow {
     unit_cost:         number
     is_free:           boolean | null
     brand_variant_id:  string | null
+    inventory_item_brand_variants: {
+      brand:         string | null
+      brands:        { name: string | null } | null
+      country_codes: { name: string | null } | null
+    } | null
   }> | null
   purchase_orders:  { po_number: string; supplier_name: string; division_id: string | null; currency: string | null } | null
   warehouses:       { name: string } | null
@@ -54,7 +61,8 @@ export async function generateReceivalReceiptPdf(
     .select(`
       id, receival_number, po_id, warehouse_id, date, notes, received_by_name,
       receipt_pdf_url,
-      receival_items(id, item_name, sku, qty_received, unit_cost, is_free, brand_variant_id),
+      receival_items(id, item_name, sku, qty_received, unit_cost, is_free, brand_variant_id,
+        inventory_item_brand_variants(brand, brands(name), country_codes(name))),
       purchase_orders!receivals_po_id_fkey(po_number, supplier_name, division_id, currency),
       warehouses!receivals_warehouse_id_fkey(name)
     `)
@@ -76,15 +84,32 @@ export async function generateReceivalReceiptPdf(
   }
 
   const rawItems = rcv.receival_items ?? []
-  const arMap = await fetchArabicNamesByBrandVariant(supabase, rawItems.map((r) => r.brand_variant_id))
-  const items: ReceivalReceiptItem[] = rawItems.map(ri => ({
-    itemName:    ri.item_name,
-    itemNameAr:  ri.brand_variant_id ? arMap.get(ri.brand_variant_id) ?? null : null,
-    sku:         ri.sku,
-    qtyReceived: ri.qty_received,
-    unitCost:    ri.unit_cost,
-    isFree:      ri.is_free === true,
-  }))
+  const [arMap, catMap] = await Promise.all([
+    fetchArabicNamesByBrandVariant(supabase, rawItems.map((r) => r.brand_variant_id)),
+    fetchCategoryInfoByBrandVariant(supabase, rawItems.map((r) => r.brand_variant_id)),
+  ])
+  const items: ReceivalReceiptItem[] = rawItems.map(ri => {
+    const bvRaw = ri.inventory_item_brand_variants
+    const bv = Array.isArray(bvRaw) ? bvRaw[0] : bvRaw
+    // "Brand · Origin" resolved the same way the on-screen ItemLabel does; the
+    // "Generic" placeholder brand is dropped so plain lines stay uncluttered.
+    const vlabel = variantPickerLabel({
+      brand_name:   bv?.brands?.name ?? null,
+      brand:        bv?.brand ?? null,
+      country_name: bv?.country_codes?.name ?? null,
+    })
+    return {
+      itemName:     ri.item_name,
+      itemNameAr:   ri.brand_variant_id ? arMap.get(ri.brand_variant_id) ?? null : null,
+      sku:          ri.sku,
+      categoryPath: ri.brand_variant_id ? catMap.get(ri.brand_variant_id)?.category_path ?? null : null,
+      brand:        vlabel.primary === GENERIC_VARIANT_LABEL ? null : vlabel.primary,
+      origin:       vlabel.origin ?? null,
+      qtyReceived:  ri.qty_received,
+      unitCost:     ri.unit_cost,
+      isFree:       ri.is_free === true,
+    }
+  })
 
   const [brand, fonts] = await Promise.all([
     resolveBrand(opts?.divisionId ?? rcv.purchase_orders?.division_id, supabase),

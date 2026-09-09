@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { useAcceptCustodyAssign, useCustodyTransferItems } from '@/hooks/useCustodyMoves'
+import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
+import { ItemLabel } from '@/components/shared/ItemLabel'
 
 type Disposition = 'writeoff' | 'restock'
 
@@ -38,6 +40,8 @@ export function AcceptCustodyDialog({
   // which makes the init effect below re-fire endlessly. useMemo keeps the same
   // array identity until `data` itself changes.
   const items = useMemo(() => data ?? [], [data])
+  // Category tree + brand + origin above each dispatched item name.
+  const variantMeta = useVariantItemMeta(items.map((i) => i.brand_variant_id))
   const accept = useAcceptCustodyAssign()
   const [received, setReceived]       = useState<Record<string, string>>({})
   const [disposition, setDisposition] = useState<Record<string, Disposition>>({})
@@ -115,7 +119,7 @@ export function AcceptCustodyDialog({
               <div key={i.id} className={`rounded-md border p-2.5 ${cardClass}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-xs font-medium truncate">{i.item_name}</div>
+                    <ItemLabel meta={variantMeta.get(i.brand_variant_id)} name={i.item_name} nameClassName="text-xs font-medium truncate" />
                     {i.sku && <div className="text-[10px] text-muted-foreground truncate">{i.sku}</div>}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">

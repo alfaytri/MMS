@@ -12,6 +12,11 @@ export interface ReceivalReceiptItem {
   itemName:    string
   itemNameAr?: string | null
   sku:         string | null
+  /** Category tree "Type › Category › … › Item", shown above the name. */
+  categoryPath?: string | null
+  /** Brand + origin, shown under the name (matches the on-screen ItemLabel). */
+  brand?:      string | null
+  origin?:     string | null
   qtyReceived: number
   unitCost:    number
   isFree:      boolean
@@ -85,9 +90,12 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
       <tr>
         <td class="cell-num">${rowIdx}</td>
         <td class="cell-item">
+          ${item.categoryPath ? `<div class="item-cat">${esc(item.categoryPath)}</div>` : ''}
           <div class="item-name">${esc(item.itemName)}</div>
           ${item.itemNameAr ? `<div class="item-name-ar">${esc(item.itemNameAr)}</div>` : ''}
           ${item.sku ? `<div class="item-sku">${esc(item.sku)}</div>` : ''}
+          ${item.brand ? `<div class="item-sku">${esc(item.brand)}</div>` : ''}
+          ${item.origin ? `<div class="item-sku">${esc(item.origin)}</div>` : ''}
         </td>
         <td class="cell-num">${fmtQty(item.qtyReceived)}</td>
         <td class="cell-num">${item.isFree ? '<span class="muted">—</span>' : fmtMoney(item.unitCost)}</td>
@@ -118,6 +126,10 @@ export function buildReceivalReceiptHtml(input: BuildReceivalReceiptHtmlInput): 
   .purchased-tag {
     display: inline-block; font-size: 8px; padding: 0.5mm 2mm;
     background: #f3f4f6; color: #6b7280; border-radius: 2px;
+  }
+  table.lines td.cell-item .item-cat {
+    font-family: 'IBMPlexSans', sans-serif; font-size: 8px;
+    color: var(--muted); margin-bottom: 0.5mm;
   }
 
   .notes-block {
