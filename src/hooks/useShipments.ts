@@ -53,6 +53,7 @@ export type ShipmentLine = {
   supplier_name: string | null
   item_name: string
   sku: string | null
+  brand_variant_id: string | null
   po_qty: number
 }
 
@@ -108,6 +109,7 @@ async function looseRpc(fn: string, args: Record<string, unknown>): Promise<Loos
 
 type RawPoLine = {
   id: string; po_id: string; item_name: string; sku: string | null; qty: number
+  brand_variant_id: string | null
   purchase_orders: { po_number: string; supplier_name: string | null } | null
 }
 type RawShipmentLine = { id: string; qty: number; po_line_items: RawPoLine | null }
@@ -121,7 +123,7 @@ type RawShipment = {
 
 const SHIPMENT_SELECT =
   'id, shipment_number, tracking_number, mode, carrier, status, etd, eta, etd_actual, eta_actual, events, archived, is_syncing, last_synced_at, sync_error, created_at, ' +
-  'shipment_line_items( id, qty, po_line_items( id, po_id, item_name, sku, qty, purchase_orders( po_number, supplier_name ) ) )'
+  'shipment_line_items( id, qty, po_line_items( id, po_id, item_name, sku, qty, brand_variant_id, purchase_orders( po_number, supplier_name ) ) )'
 
 function mapShipment(r: RawShipment): Shipment {
   const posMap = new Map<string, ShipmentPoSummary>()
@@ -187,7 +189,7 @@ export function useShipmentDetail(id: string | null) {
         return [{
           id: sli.id, po_line_item_id: pli.id, qty: sli.qty, po_id: pli.po_id,
           po_number: pli.purchase_orders?.po_number ?? '—', supplier_name: pli.purchase_orders?.supplier_name ?? null,
-          item_name: pli.item_name, sku: pli.sku, po_qty: pli.qty,
+          item_name: pli.item_name, sku: pli.sku, brand_variant_id: pli.brand_variant_id, po_qty: pli.qty,
         }]
       })
       const { data: revData, error: revErr } = (await looseFrom('shipment_schedule_revisions')
