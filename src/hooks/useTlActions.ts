@@ -52,7 +52,12 @@ export function useCompleteVisit() {
       }
 
       const damage = data.damageReport?.noted
-        ? { noted: true, description: data.damageReport.description ?? null, photo_urls: damagePhotoUrls }
+        ? {
+            noted:             true,
+            description:       data.damageReport.description ?? null,
+            photo_urls:        damagePhotoUrls,
+            customer_notified: data.damageReport.customerNotified ?? false,
+          }
         : null
 
       const { data: id, error } = await supabase.rpc('complete_visit' as never, {
@@ -125,7 +130,7 @@ export function useCreateTlInvoice() {
 
 export type VisitCompletion = {
   service_statuses: Record<string, 'done' | 'skipped' | 'issue'> | null
-  damage_report:    { noted?: boolean; description?: string | null; photo_urls?: string[] } | null
+  damage_report:    { noted?: boolean; description?: string | null; photo_urls?: string[]; customer_notified?: boolean } | null
   notes:            string | null
   qc_scores:        Record<string, number> | null
   photo_urls:       string[] | null

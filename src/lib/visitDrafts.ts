@@ -50,6 +50,11 @@ export async function getDraftSignature(visitId: string): Promise<Blob | null> {
   return (await db.get('signatures', visitId)) ?? null
 }
 
+export async function clearDraftSignature(visitId: string): Promise<void> {
+  const db = await getDb()
+  await db.delete('signatures', visitId)
+}
+
 export async function clearDraft(visitId: string): Promise<void> {
   const db = await getDb()
   await Promise.all([

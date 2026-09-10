@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -129,7 +129,12 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
       serviceStatuses: statuses,
       inventoryUsage: {},
       photos,
-      damageReport: { noted: damages.length > 0, description: damages.map((d) => d.description).join('\n') },
+      damageReport: {
+        noted:            damages.length > 0,
+        description:      damages.map((d) => d.description).join('\n'),
+        photos:           damages.flatMap((d) => d.photos),
+        customerNotified: damages.some((d) => d.customerNotified),
+      },
       addedServices: addedServices.length > 0 ? addedServices : undefined,
       signature: signature ?? undefined,
     }
@@ -249,12 +254,11 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
                     </div>
 
                     <div className="space-y-1">
-                      <Label htmlFor="fu-date" className="text-xs font-semibold">Date</Label>
-                      <Input
-                        id="fu-date"
-                        type="date"
+                      <Label className="text-xs font-semibold">Date</Label>
+                      <DatePicker
                         value={followUpDate}
-                        onChange={(e) => { setFollowUpDate(e.target.value); setFollowUpConflict(null) }}
+                        onChange={(v) => { setFollowUpDate(v); setFollowUpConflict(null) }}
+                        placeholder="Pick a date"
                         className="h-11 bg-white"
                       />
                     </div>

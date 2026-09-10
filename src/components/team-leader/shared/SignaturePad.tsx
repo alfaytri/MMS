@@ -6,7 +6,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Eraser, CheckCircle2 } from 'lucide-react'
-import { saveDraftSignature, getDraftSignature } from '@/lib/visitDrafts'
+import { saveDraftSignature, getDraftSignature, clearDraftSignature } from '@/lib/visitDrafts'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -72,13 +72,18 @@ export function SignaturePad({ visitId, value, onChange }: Props) {
 
   function onPointerUp() { drawing.current = false }
 
-  function clearCanvas() {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    getCtx()?.clearRect(0, 0, canvas.width, canvas.height)
+  function resetSignature() {
+    // Reset state regardless of whether the <canvas> is currently mounted. In
+    // the confirmed/preview view the canvas is NOT rendered, so the previous
+    // canvas-gated guard made "Re-sign" a silent no-op (it returned early
+    // before clearing state). Revoke the old preview URL + drop the persisted
+    // draft so it can't re-hydrate.
+    setPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
     setConfirmed(false)
-    setPreview(null)
     onChange(null)
+    void clearDraftSignature(visitId)
+    const canvas = canvasRef.current
+    if (canvas) getCtx()?.clearRect(0, 0, canvas.width, canvas.height)
   }
 
   async function confirm() {
@@ -99,7 +104,7 @@ export function SignaturePad({ visitId, value, onChange }: Props) {
         <p className="text-sm font-medium">Customer Signature</p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={preview} alt="signature" className="w-full max-h-32 object-contain border rounded-md bg-white" />
-        <Button type="button" variant="ghost" size="sm" onClick={clearCanvas} className="gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={resetSignature} className="gap-2">
           <Eraser className="h-3.5 w-3.5" /> Re-sign
         </Button>
       </div>
@@ -121,7 +126,7 @@ export function SignaturePad({ visitId, value, onChange }: Props) {
         onPointerLeave={onPointerUp}
       />
       <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={clearCanvas} className="gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={resetSignature} className="gap-2">
           <Eraser className="h-3.5 w-3.5" /> Clear
         </Button>
         <Button type="button" size="sm" onClick={confirm} className="gap-2 flex-1 min-h-11">

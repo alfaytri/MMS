@@ -104,7 +104,7 @@ export interface OrderCompletionData {
   serviceStatuses: Record<string, 'done' | 'skipped' | 'issue'>
   inventoryUsage: Record<string, InventoryUsageRecord[]>
   photos: Blob[]
-  damageReport: { noted: boolean; description?: string; photos?: Blob[] }
+  damageReport: { noted: boolean; description?: string; photos?: Blob[]; customerNotified?: boolean }
   signature?: Blob
   qcScores?: Record<string, number>
   addedServices?: AddedBillableService[]

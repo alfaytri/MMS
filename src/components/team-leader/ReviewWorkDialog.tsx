@@ -86,9 +86,24 @@ export function ReviewWorkDialog({ visit, open, onOpenChange }: Props) {
                 <p className="text-sm"><span className="text-muted-foreground">Notes: </span>{completion.notes}</p>
               )}
               {completion.damage_report?.noted && (
-                <p className="text-sm text-amber-700">
-                  Damage noted{completion.damage_report.description ? `: ${completion.damage_report.description}` : ''}
-                </p>
+                <div className="space-y-1.5">
+                  <p className="text-sm text-amber-700">
+                    Damage noted{completion.damage_report.description ? `: ${completion.damage_report.description}` : ''}
+                    {completion.damage_report.customer_notified && (
+                      <Badge variant="outline" className="ml-2 text-[10px] border-amber-300 text-amber-700">
+                        Customer notified
+                      </Badge>
+                    )}
+                  </p>
+                  {(completion.damage_report.photo_urls?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {completion.damage_report.photo_urls!.map((u, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={i} src={u} alt="damage photo" className="h-16 w-16 rounded object-cover border border-amber-200" />
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               {(completion.photo_urls?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-2">
