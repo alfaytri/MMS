@@ -6,7 +6,8 @@ import { ChevronDown, ChevronRight, Eye } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { useNotificationConfig, type NotificationConfigRow } from '@/hooks/useNotificationConfig'
 import { useWatiTemplates } from '@/hooks/useWatiTemplates'
 import type { PreviewItem } from './TemplatePreviewDialog'
@@ -76,13 +77,15 @@ export function FixedNotificationsSection({ onPreview }: FixedNotificationsSecti
               </div>
 
               {/* Template — assign a WATI template (load-bearing: read at send time) */}
-              <div className="w-[180px] px-2 py-2">
+              <div className="w-[180px] min-w-0 px-2 py-2">
                 <Select
-                  value={item.templateName || undefined}
+                  value={item.templateName || ''}
                   onValueChange={(v) => { if (v && v !== '__none') setTemplate(item.templateSlug, v) }}
                 >
-                  <SelectTrigger className="h-8 w-full text-xs">
-                    <SelectValue placeholder="Assign…" />
+                  <SelectTrigger className="h-auto min-h-8 w-full min-w-0 items-center whitespace-normal py-1 text-xs">
+                    <span className={cn('min-w-0 flex-1 whitespace-normal break-words text-left leading-tight', !item.templateName && 'text-muted-foreground')}>
+                      {item.templateName || 'Assign…'}
+                    </span>
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
                     {templateNames.length === 0 && !item.templateName && (
