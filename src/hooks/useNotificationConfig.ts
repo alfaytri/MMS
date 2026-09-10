@@ -27,6 +27,7 @@ export type UseNotificationConfigReturn = {
   loading: boolean
   error: string | null
   toggleActive: (id: string, isActive: boolean) => Promise<boolean>
+  setTemplate: (templateSlug: string, watiTemplateName: string) => Promise<boolean>
 }
 
 // Query key is now managed by queryKeys factory
@@ -169,10 +170,35 @@ export function useNotificationConfig(): UseNotificationConfigReturn {
     }
   }
 
+  // Assign a WATI template to a message by updating its notification_templates row.
+  const setTemplateMutation = useMutation({
+    mutationFn: async ({ templateSlug, watiTemplateName }: { templateSlug: string; watiTemplateName: string }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('notification_templates')
+        .update({ wati_template_name: watiTemplateName })
+        .eq('slug', templateSlug)
+      if (error) throw error
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: QUERY_KEY }) },
+  })
+
+  const setTemplate = async (templateSlug: string, watiTemplateName: string): Promise<boolean> => {
+    try {
+      await setTemplateMutation.mutateAsync({ templateSlug, watiTemplateName })
+      toast.success('Template assigned')
+      return true
+    } catch {
+      toast.error('Failed to assign template')
+      return false
+    }
+  }
+
   return {
     grouped,
     loading: isLoading,
     error: error ? (error as Error).message : null,
     toggleActive,
+    setTemplate,
   }
 }

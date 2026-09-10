@@ -1093,6 +1093,21 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 
 ## Notifications
 
+### Send WhatsApp Template Notification (config-driven)
+
+- **Module:** Notifications / WhatsApp (WATI)
+- **Status:** Active
+- **Trigger surface(s):** any automated WhatsApp send. **Booking confirmation** ([`/api/notifications/send-booking-confirmations`](src/app/api/notifications/send-booking-confirmations/route.ts) — immediate on order create ≤2 days out + a daily cron). **Order invoice** ([`/api/notifications/send-invoice`](src/app/api/notifications/send-invoice/route.ts) — fired fire-and-forget from `TlInvoiceDialog` on every invoice create; also mints a Dibsy pay link for the pending balance).
+- **Primary helper:** [`sendWatiTemplate({ slug, phone, params, pdfUrl, renderedText })`](src/lib/notifications/sendWatiTemplate.ts) — THE single WATI send path. Admin hooks: [`useNotificationConfig`](src/hooks/useNotificationConfig.ts) (`setTemplate`) + [`useWatiTemplates`](src/hooks/useWatiTemplates.ts).
+- **RPC(s):** none. WATI is reached via the `api-wati` Supabase Edge Function (direct Node→WATI is silently filtered — see [wati-template-sending-rule.md](docs/reference/wati-template-sending-rule.md)).
+- **Ledger writes:** `chat_conversations` + `chat_messages` (Contact Centre visibility; the chat row is inserted BEFORE the send for webhook dedup). Template assignment writes `notification_templates.wati_template_name`.
+- **Config (load-bearing):** the WATI template for each message is READ from `notification_config[slug]` → `notification_templates.wati_template_name`, assigned in **Services → Notifications** (`FixedNotificationsSection` Template picker) — never hardcoded. Unassigned or inactive → the helper skips (no send).
+- **Dialog / component:** [`FixedNotificationsSection`](src/components/services/FixedNotificationsSection.tsx) admin picker → Contact Centre thread.
+- **Guards / preconditions:** authenticated user (immediate) or `x-cron-secret` (cron); phone normalised to digits; NAMED params + English values (WATI rejects positional / Arabic values — the rendered chat text may be Arabic).
+- **Related flows:** [[Create Order Invoice (from a completed visit)]].
+- **Docs / plans:** [wati-template-sending-rule.md](docs/reference/wati-template-sending-rule.md); migration `20261072000000_seed_notification_config_booking_invoice.sql` (seeds `booking_confirmation` + `order_invoice` config/template rows + restores the config→template FK the embed needs).
+- **Notes:** Adding a new WhatsApp message = seed a `notification_config` + `notification_templates` row, assign its template in the admin, and call `sendWatiTemplate({ slug })` — no new send code. Slugs so far: `booking_confirmation`, `order_invoice`.
+
 ### Mark Notification Read / Actioned / Bulk-Actioned
 - **Trigger:** bell menu
 - **Hooks:** [`useMarkNotificationRead`, `useMarkNotificationActioned`, `useMarkAllNotificationsActioned`](src/hooks/useNotifications.ts)

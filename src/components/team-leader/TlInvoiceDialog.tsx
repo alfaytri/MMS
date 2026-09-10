@@ -125,18 +125,26 @@ export function TlInvoiceDialog({ visit, addedServices, profileId, onDone, onClo
         createdBy: profileId,
       })
 
-      // Warm the invoice PDF in the background (fire-and-forget).
+      // Fire-and-forget: warm the PDF, then WhatsApp the invoice to the customer.
+      // The send goes through the central helper, which reads the assigned WATI
+      // template from notification_config — a no-op if it's unassigned/inactive.
       void (async () => {
         try {
           const { data: sess } = await supabase.auth.getSession()
           const token = sess.session?.access_token
           if (!token) return
+          // Warm the PDF first so the WhatsApp document header has a URL to use.
           await fetch(`/api/orders/invoices/${invoiceId}/pdf`, {
             method:  'POST',
             headers: { Authorization: `Bearer ${token}` },
           })
+          await fetch('/api/notifications/send-invoice', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body:    JSON.stringify({ invoiceId }),
+          })
         } catch (e) {
-          console.warn('[TlInvoiceDialog] pdf warm-up failed', e)
+          console.warn('[TlInvoiceDialog] post-create pdf/whatsapp failed', e)
         }
       })()
 

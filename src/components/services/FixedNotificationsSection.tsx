@@ -6,7 +6,9 @@ import { ChevronDown, ChevronRight, Eye } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useNotificationConfig, type NotificationConfigRow } from '@/hooks/useNotificationConfig'
+import { useWatiTemplates } from '@/hooks/useWatiTemplates'
 import type { PreviewItem } from './TemplatePreviewDialog'
 
 interface FixedNotificationsSectionProps {
@@ -14,7 +16,9 @@ interface FixedNotificationsSectionProps {
 }
 
 export function FixedNotificationsSection({ onPreview }: FixedNotificationsSectionProps) {
-  const { grouped, loading, error, toggleActive } = useNotificationConfig()
+  const { grouped, loading, error, toggleActive, setTemplate } = useNotificationConfig()
+  const { data: watiTemplates = [] } = useWatiTemplates()
+  const templateNames = watiTemplates.map((t) => t.elementName)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   if (loading) {
@@ -71,9 +75,27 @@ export function FixedNotificationsSection({ onPreview }: FixedNotificationsSecti
                 )}
               </div>
 
-              {/* Template */}
+              {/* Template — assign a WATI template (load-bearing: read at send time) */}
               <div className="w-[180px] px-2 py-2">
-                <div className="text-xs text-foreground truncate">{item.templateName}</div>
+                <Select
+                  value={item.templateName || undefined}
+                  onValueChange={(v) => { if (v && v !== '__none') setTemplate(item.templateSlug, v) }}
+                >
+                  <SelectTrigger className="h-8 w-full text-xs">
+                    <SelectValue placeholder="Assign…" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {templateNames.length === 0 && !item.templateName && (
+                      <SelectItem value="__none" disabled>No WATI templates</SelectItem>
+                    )}
+                    {item.templateName && !templateNames.includes(item.templateName) && (
+                      <SelectItem value={item.templateName}>{item.templateName}</SelectItem>
+                    )}
+                    {templateNames.map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {item.mediaType && item.mediaType !== 'none' && (
                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 mt-0.5">
                     {item.mediaType}
