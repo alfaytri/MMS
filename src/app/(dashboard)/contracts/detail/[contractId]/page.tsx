@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { useContractDetail } from '@/hooks/useContractDetail'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { useUpdateContract } from '@/hooks/useUpdateContract'
 import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import {
@@ -30,6 +31,7 @@ import { AddContractServiceDialog } from '@/components/contracts/AddContractServ
 import { PaymentScheduleSection } from '@/components/contracts/PaymentScheduleSection'
 import { ContractTermsSection } from '@/components/contracts/ContractTermsSection'
 import { VisitSummarySection } from '@/components/contracts/VisitSummarySection'
+import { ContractInvoicesSection } from '@/components/contracts/ContractInvoicesSection'
 import { ServiceScheduleSection } from '@/components/contracts/ServiceScheduleSection'
 import { SignedDocUploadBanner } from '@/components/contracts/SignedDocUploadBanner'
 import { STATUS_CONFIG, QUOTATION_STATUSES } from '@/types/contracts'
@@ -47,9 +49,10 @@ export default function ContractDetailPage() {
   const updateContract = useUpdateContract()
 
   const {
-    contract, services: loadedServices, visits, payments,
-    milestones: loadedMilestones, isLoading, createTentativeVisits, recordPayment,
+    contract, services: loadedServices, visits,
+    milestones: loadedMilestones, isLoading, createTentativeVisits,
   } = useContractDetail(contractId)
+  const canManageContracts = useHasPermission('contracts.live.manage')
 
   // Determine phase
   const isQuotation = contract
@@ -217,15 +220,6 @@ export default function ContractDetailPage() {
       toast.success(`${pendingVisits.length} visits generated`)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to generate visits')
-    }
-  }
-
-  async function handleRecordPayment(paymentId: string) {
-    try {
-      await recordPayment.mutateAsync(paymentId)
-      toast.success('Payment recorded')
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to record payment')
     }
   }
 
@@ -531,52 +525,15 @@ export default function ContractDetailPage() {
         </SectionCard>
       )}
 
-      {/* Payment info (live phase) */}
-      {!isQuotation && payments.length > 0 && (
-        <SectionCard title="Payments">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="py-2 pr-4 font-medium">Due Date</th>
-                  <th className="py-2 pr-4 font-medium text-right">Amount</th>
-                  <th className="py-2 pr-4 font-medium">Status</th>
-                  <th className="py-2 pr-4 font-medium text-right"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((p) => (
-                  <tr key={p.id} className="border-b border-dashed">
-                    <td className="py-2 pr-4">{p.due_date}</td>
-                    <td className="py-2 pr-4 text-right">{p.amount.toLocaleString('en-QA')} QAR</td>
-                    <td className="py-2 pr-4">
-                      <Badge className={
-                        p.status === 'paid'
-                          ? 'bg-green-100 text-green-700'
-                          : p.status === 'overdue'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-yellow-100 text-yellow-700'
-                      }>
-                        {p.status}
-                      </Badge>
-                    </td>
-                    <td className="py-2 pr-4 text-right">
-                      {p.status !== 'paid' && contract.status !== 'cancelled' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRecordPayment(p.id)}
-                          disabled={recordPayment.isPending}
-                        >
-                          Mark Paid
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Invoices (live phase) — full contract invoices, 1:1 with the payment
+          schedule; replaces the old bare "Payments" table. */}
+      {!isQuotation && (
+        <SectionCard title="Invoices">
+          <ContractInvoicesSection
+            contractId={contractId}
+            canManage={canManageContracts}
+            locked={contract.status === 'cancelled' || contract.status === 'completed'}
+          />
         </SectionCard>
       )}
 

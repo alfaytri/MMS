@@ -110,6 +110,44 @@ export interface ContractPayment {
   status: 'paid' | 'pending' | 'overdue';
 }
 
+// ——— Contract invoice (1:1 with a contract_payments schedule row) ———
+export interface ContractInvoiceLine {
+  id: string;
+  name: string;
+  qty: number;
+  unit_price: number;
+  total: number;
+  sort_order: number;
+}
+export interface ContractInvoicePayment {
+  id: string;
+  amount: number;
+  method_slug: string | null;
+  method_name: string | null;
+  paid_at: string;
+  registered_by_name: string | null;
+  notes: string | null;
+}
+export interface ContractInvoice {
+  id: string;
+  invoice_number: string;
+  contract_id: string;
+  contract_payment_id: string;
+  customer_name: string;
+  customer_phone: string | null;
+  due_date: string | null;
+  subtotal: number;
+  discount_amount: number;
+  total_amount: number;
+  paid_amount: number;
+  payment_status: 'unpaid' | 'partial' | 'paid';
+  pdf_url: string | null;
+  sent_at: string | null;
+  created_at: string;
+  lines: ContractInvoiceLine[];
+  payments: ContractInvoicePayment[];
+}
+
 // ——— Pending visit ———
 export interface PendingVisit {
   temp_id: string;

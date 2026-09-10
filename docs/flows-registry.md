@@ -817,6 +817,21 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Docs / plans:** migration `supabase/migrations/20261070000000_tl_invoice_spare_parts_and_split_payments.sql`. Part B (auto-send WATI invoice template on a pending balance) — planned, not yet built.
 - **Notes:** Two invoice tables coexist — order invoices are `tl_invoices` (query these for `/invoices` and Pending Payments), sales invoices are `public.invoices` / `so_invoices`. Spare Parts is a lump external pass-through (parts bought for the job, not inventory-linked). Batch 2 (planned): skipped→require-note / issue→require-photo enforcement, re-sign fix, team-notes + damage-photo persistence.
 
+### Contract Invoices (auto-generate from schedule + collect)
+
+- **Module:** Contracts / Finance
+- **Status:** Active (Phase 1 — DB + contract-page section). Phase 2 planned: PDF + live `/pay` portal + Dibsy + `contract_invoice` WhatsApp (records up-front, WhatsApp/Dibsy minted per invoice on its due date + a manual Send).
+- **Trigger surface(s):** Auto-generated on contract **activation** (`rpc_activate_contract` → `generate_contract_invoices`). On `/contracts/detail/[contractId]` the **Invoices** section (replaces the old bare "Payments" schedule table) lists them; **Record Payment** per unpaid/partial invoice; **Generate invoices from schedule** button backfills contracts activated before this feature.
+- **Primary hook(s):** [`useContractInvoices` / `useGenerateContractInvoices` / `useRecordContractInvoicePayment`](src/hooks/useContractInvoices.ts)
+- **RPC(s):** `public.generate_contract_invoices(p_contract_id)` — SECURITY DEFINER, permission-gated (`contracts.activate` | `contracts.live.manage`), idempotent (one invoice per `contract_payments` row lacking one; installment itemized across services by term-weight, last line absorbs rounding). `public.rpc_record_contract_invoice_payment(p_invoice_id, p_amount, p_method_slug, p_notes, p_user_id, p_user_name)` — SECURITY DEFINER, `contracts.live.manage`, overpayment-guarded.
+- **Ledger writes:** `contract_invoices` (1:1 `contract_payment_id`; `invoice_number` `CINV/YYYY/MM/####` via `contract_invoice_seq`) + `contract_invoice_lines`; one `contract_invoice_payments` row per collection.
+- **Downstream side-effects:** `sync_contract_invoice_paid_amount` trigger derives `paid_amount`/`payment_status`. **Bidirectional reconciliation:** paying an invoice → `reconcile_contract_payment_from_invoice` flips its `contract_payments.status` to `paid` + recomputes `contracts.paid_amount`; marking a schedule row paid via legacy `rpc_record_contract_payment` → `sync_contract_invoice_from_payment` auto-fully-pays the linked invoice (both guarded against trigger recursion). Invalidates `contractInvoices.byContract` + `contracts.detail`.
+- **Dialog / component:** [`ContractInvoicesSection`](src/components/contracts/ContractInvoicesSection.tsx) (list + inline Record-Payment dialog).
+- **Guards / preconditions:** contract live (non-quotation); money actions require `contracts.live.manage`; hidden once cancelled/completed. RLS: SELECT to `authenticated` only (no anon); every write path is a SECURITY DEFINER RPC.
+- **Related flows:** [[Create Order Invoice (from a completed visit)]] (distinct — `tl_invoices` from order visits; contract visits never create `tl_invoices`).
+- **Docs / plans:** migration `supabase/migrations/20261073000000_contract_invoices.sql`.
+- **Notes:** Contract invoices are the **payment schedule expressed as invoices** — 1:1 with `contract_payments`, total = the installment. Contract *visits* (`contract_visits`) still never create an invoice; billing is this schedule. Phase 2 reuses the order-invoice `/pay/[invoiceId]` portal + Dibsy + the config-driven `sendWatiTemplate({slug:'contract_invoice'})`.
+
 ---
 
 ## Payments

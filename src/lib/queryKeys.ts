@@ -632,6 +632,12 @@ export const queryKeys = {
     summary: ['tl-invoices', 'summary'] as const,
   },
 
+  /* ── Contract Invoices ────────────────────────────────── */
+  contractInvoices: {
+    all: ['contract-invoices'] as const,
+    byContract: (contractId: Nullable) => ['contract-invoices', contractId] as const,
+  },
+
   /* ── Subscription Packages ────────────────────────────── */
   subscriptionPackages: {
     all: ['subscription_packages'] as const,
