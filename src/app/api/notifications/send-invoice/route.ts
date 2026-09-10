@@ -57,11 +57,13 @@ export async function POST(req: NextRequest) {
     catch (e) { console.warn('[send-invoice] pdf generation failed', invoiceId, e) }
   }
 
-  // 2. Dibsy pay link for the pending balance (best-effort — reuse an existing one).
-  let payLink = inv.dibsy_checkout_url ?? ''
-  if (pending > 0 && !payLink) {
+  // 2. Ensure a Dibsy checkout exists on the invoice (the live pay portal uses it
+  //    to actually collect payment), then hand the customer the LIVE portal link
+  //    — `/pay/[invoiceId]` reads the invoice's CURRENT balance and updates as
+  //    payments are made, unlike a fixed-amount Dibsy checkout snapshot.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mms.alfaytri.com'
+  if (pending > 0 && !inv.dibsy_checkout_url) {
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mms.alfaytri.com'
       const payment = await createDibsyPayment({
         amount:      { value: pending.toFixed(2), currency: 'QAR' },
         description: `Invoice ${inv.invoice_number}`,
@@ -75,12 +77,13 @@ export async function POST(req: NextRequest) {
           customer_name:  inv.customer_name ?? '',
         },
       })
-      payLink = payment.checkoutUrl
       await supabase.from('tl_invoices')
         .update({ dibsy_payment_id: payment.id, dibsy_checkout_url: payment.checkoutUrl })
         .eq('id', inv.id)
     } catch (e) { console.warn('[send-invoice] dibsy link failed', invoiceId, e) }
   }
+  // Live, self-updating payment page (not the fixed Dibsy checkout URL).
+  const payLink = pending > 0 ? `${appUrl}/pay/${inv.id}` : ''
 
   // 3. Send via the central helper (reads the assigned template from config).
   const renderedText = [
