@@ -27,6 +27,7 @@ export type TlInvoice = {
   customer_name: string
   customer_phone: string | null
   subtotal: number
+  spare_parts_amount: number
   discount_amount: number
   total_amount: number
   paid_amount: number
@@ -91,7 +92,7 @@ export function useTlInvoiceByVisit(visitId: string | null | undefined) {
         .select(`
           id, invoice_number, order_id, visit_id,
           customer_name, customer_phone,
-          subtotal, discount_amount, total_amount, paid_amount,
+          subtotal, spare_parts_amount, discount_amount, total_amount, paid_amount,
           payment_status, payment_method_id, notes,
           created_by, created_at,
           payment_methods:payment_method_id(name),
@@ -114,6 +115,7 @@ export function useTlInvoiceByVisit(visitId: string | null | undefined) {
         customer_name:       row.customer_name,
         customer_phone:      row.customer_phone,
         subtotal:            Number(row.subtotal ?? 0),
+        spare_parts_amount:  Number(row.spare_parts_amount ?? 0),
         discount_amount:     Number(row.discount_amount ?? 0),
         total_amount:        Number(row.total_amount ?? 0),
         paid_amount:         Number(row.paid_amount ?? 0),
@@ -148,7 +150,7 @@ export function useTlInvoices(filters: TlInvoiceFilters = {}) {
         .select(`
           id, invoice_number, order_id, visit_id,
           customer_name, customer_phone,
-          subtotal, discount_amount, total_amount, paid_amount,
+          subtotal, spare_parts_amount, discount_amount, total_amount, paid_amount,
           payment_status, payment_method_id, notes,
           created_by, created_at,
           payment_methods:payment_method_id(name),
@@ -187,6 +189,7 @@ export function useTlInvoices(filters: TlInvoiceFilters = {}) {
         customer_name:       row.customer_name,
         customer_phone:      row.customer_phone,
         subtotal:            Number(row.subtotal ?? 0),
+        spare_parts_amount:  Number(row.spare_parts_amount ?? 0),
         discount_amount:     Number(row.discount_amount ?? 0),
         total_amount:        Number(row.total_amount ?? 0),
         paid_amount:         Number(row.paid_amount ?? 0),

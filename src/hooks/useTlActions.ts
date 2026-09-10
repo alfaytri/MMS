@@ -86,26 +86,33 @@ export function useCreateTlInvoice() {
     mutationFn: async (input: {
       visit: TlVisit
       lines: InvoiceLine[]
+      spareParts: number
       discount: number
-      paymentMethodId: string
+      paidCash: number
+      paidPos: number
       notes: string
       createdBy: string
-      markPaid: boolean
     }): Promise<{ id: string; invoice_number: string }> => {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('create_tl_invoice' as never, {
-        p_visit_id:          input.visit.id,
-        p_order_id:          input.visit.order_id ?? null,
-        p_customer_name:     input.visit.customer_name,
-        p_customer_phone:    input.visit.customer_phone ?? null,
-        p_lines:             input.lines,
-        p_discount:          input.discount,
-        p_payment_method_id: input.paymentMethodId || null,
-        p_notes:             input.notes || null,
-        p_created_by:        input.createdBy,
-        p_mark_paid:         input.markPaid,
+        p_visit_id:       input.visit.id,
+        p_order_id:       input.visit.order_id ?? null,
+        p_customer_name:  input.visit.customer_name,
+        p_customer_phone: input.visit.customer_phone ?? null,
+        p_lines:          input.lines,
+        p_spare_parts:    input.spareParts,
+        p_discount:       input.discount,
+        p_paid_cash:      input.paidCash,
+        p_paid_pos:       input.paidPos,
+        p_notes:          input.notes || null,
+        p_created_by:     input.createdBy,
       } as never)
-      if (error) throw error
+      if (error) {
+        // PostgrestError is not an Error subclass — concat the real fields so
+        // the dialog shows the server message (e.g. invoice_exists / paid_exceeds_net).
+        const e = error as { message?: string; details?: string; hint?: string }
+        throw new Error([e.message, e.details, e.hint].filter(Boolean).join(' — ') || 'create_tl_invoice failed')
+      }
       const row = (data as unknown as { id: string; invoice_number: string }[])?.[0]
       if (!row) throw new Error('Invoice creation returned no row')
       return row

@@ -22,7 +22,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { clearDraft } from '@/lib/visitDrafts'
-import type { TlVisit, OrderCompletionData, AddedBillableService } from '@/types/team-leader'
+import type { TlVisit, OrderCompletionData, AddedBillableService, VisitType } from '@/types/team-leader'
+
+// Visit types that produce an invoice (mirrors INVOICEABLE_TYPES in TlOrderCard).
+// Assessment/QC/site-visit completions are not billed here.
+const INVOICEABLE_VISIT_TYPES: ReadonlySet<VisitType> = new Set<VisitType>([
+  'order', 'backwork', 'follow-up',
+])
 
 export default function TeamLeaderPage() {
   const { data: identity, isLoading: identityLoading } = useTeamLeaderIdentity()
@@ -140,11 +146,21 @@ export default function TeamLeaderPage() {
 
     await clearDraft(visitId)
     handleComplete(visitId)
-    toast.success(
-      data.visitType === 'qc'
-        ? 'QC recorded'
-        : 'Job completed — create the invoice from the card when ready',
-    )
+
+    // Chain straight into invoicing for a billable, last-team completion — no
+    // separate "create the invoice from the card" trip. The card's Create
+    // Invoice action stays as a fallback if the operator closes this dialog.
+    const otherTeams = (visit.team_ids ?? []).filter((t) => t !== visit.team_id)
+    const isLastTeam = otherTeams.length === 0
+
+    if (data.visitType === 'qc') {
+      toast.success('QC recorded')
+    } else if (isLastTeam && INVOICEABLE_VISIT_TYPES.has(visit.type) && !visit.has_invoice) {
+      toast.success('Job completed — enter the invoice')
+      setInvoiceVisit({ visit, addedServices: data.addedServices ?? [] })
+    } else {
+      toast.success('Job completed')
+    }
   }
 
   // Separate step: create the invoice for an already-completed job. Reads any

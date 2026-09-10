@@ -785,6 +785,25 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 
 ---
 
+## Team-Leader Order Invoices
+
+### Create Order Invoice (from a completed visit)
+
+- **Module:** Orders / Team Leader
+- **Status:** Active
+- **Trigger surface(s):** `/team-leader` → completed order card. Opens **automatically right after "Complete & Invoice"** for a billable, last-team completion (`TeamLeaderPage.handleDialogComplete` → `setInvoiceVisit`); also reachable as a fallback via the card's **Create Invoice** button (`TlOrderCard.onCreateInvoice` → `handleCreateInvoice`).
+- **Primary hook(s):** [`useCreateTlInvoice`](src/hooks/useTlActions.ts)
+- **RPC(s):** `public.create_tl_invoice(p_visit_id, p_order_id, p_customer_name, p_customer_phone, p_lines, p_spare_parts, p_discount, p_paid_cash, p_paid_pos, p_notes, p_created_by)` — SECURITY DEFINER; recomputes services subtotal from `p_lines`, `NET = services + spare − clamp(discount)`, validates `cash + pos ≤ NET`, enforces one-invoice-per-visit.
+- **Ledger writes:** `tl_invoices` (incl. `spare_parts_amount`) + `tl_invoice_lines`; one `tl_invoice_payments` row per non-zero payment box against the fixed `cash` / `pos` payment_methods. Invoice `payment_method_id` is set only for a single-method payment, else NULL (split).
+- **Downstream side-effects:** `tl_invoice_payments_sync` trigger derives `tl_invoices.paid_amount` + `payment_status` (unpaid/partial/paid); invoice PDF warmed (fire-and-forget `POST /api/orders/invoices/[id]/pdf` → `tl-invoice-pdfs` bucket → `pdf_url`); any pending balance surfaces on `/orders/pending-payments`. Invalidates `queryKeys.teamLeader.orders(team_id)`.
+- **Dialog / component:** [`TlInvoiceDialog`](src/components/team-leader/TlInvoiceDialog.tsx) (Spare Parts / Discount / Paid Cash / Paid POS + live NET/PENDING). Read-back in [`ReviewWorkDialog`](src/components/team-leader/ReviewWorkDialog.tsx) via [`useTlInvoiceByVisit`](src/hooks/useTlInvoices.ts).
+- **Guards / preconditions:** completed visit of an invoiceable type (`order` / `backwork` / `follow-up`), last team, no existing invoice (`visit.has_invoice`). Server: one-invoice-per-visit (`invoice_exists`), `paid_exceeds_net`, line qty > 0.
+- **Related flows:** [[Generate Invoice from SO]] (distinct — sales `so_invoices`, not order `tl_invoices`).
+- **Docs / plans:** migration `supabase/migrations/20261070000000_tl_invoice_spare_parts_and_split_payments.sql`. Part B (auto-send WATI invoice template on a pending balance) — planned, not yet built.
+- **Notes:** Two invoice tables coexist — order invoices are `tl_invoices` (query these for `/invoices` and Pending Payments), sales invoices are `public.invoices` / `so_invoices`. Spare Parts is a lump external pass-through (parts bought for the job, not inventory-linked). Batch 2 (planned): skipped→require-note / issue→require-photo enforcement, re-sign fix, team-notes + damage-photo persistence.
+
+---
+
 ## Payments
 
 ### Record Customer Payment

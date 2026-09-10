@@ -55,6 +55,7 @@ interface InvoiceRow {
   customer_name:    string
   customer_phone:   string | null
   subtotal:         number | null
+  spare_parts_amount: number | null
   discount_amount:  number | null
   total_amount:     number | null
   paid_amount:      number | null
@@ -89,7 +90,7 @@ export async function generateTlInvoicePdf(
     .select(`
       id, invoice_number, order_id, visit_id, created_at,
       customer_name, customer_phone,
-      subtotal, discount_amount, total_amount, paid_amount,
+      subtotal, spare_parts_amount, discount_amount, total_amount, paid_amount,
       payment_status, pdf_url,
       tl_invoice_lines(id, name, qty, unit_price, total),
       tl_invoice_payments(
@@ -120,6 +121,7 @@ export async function generateTlInvoicePdf(
   const paid      = Number(inv.paid_amount  ?? 0)
   const remaining = Math.max(0, total - paid)
   const subtotal  = Number(inv.subtotal ?? 0)
+  const sparePart = Number(inv.spare_parts_amount ?? 0)
   const discount  = Number(inv.discount_amount ?? 0)
 
   // Look up Arabic name + unit for each line by matching the line name
@@ -198,6 +200,7 @@ export async function generateTlInvoicePdf(
     customerPhone: inv.customer_phone ? formatPhoneForDisplay(inv.customer_phone) : '',
     lines,
     subtotal,
+    sparePartCost: sparePart,
     discount,
     total,
     paid,

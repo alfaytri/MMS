@@ -152,6 +152,12 @@ export function ReviewWorkDialog({ visit, open, onOpenChange }: Props) {
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="tabular-nums">{formatCurrency(invoice.subtotal)}</span>
                   </div>
+                  {invoice.spare_parts_amount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Spare Parts</span>
+                      <span className="tabular-nums">+ {formatCurrency(invoice.spare_parts_amount)}</span>
+                    </div>
+                  )}
                   {invoice.discount_amount > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Discount</span>
