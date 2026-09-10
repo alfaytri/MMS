@@ -832,6 +832,21 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Docs / plans:** migration `supabase/migrations/20261073000000_contract_invoices.sql`.
 - **Notes:** Contract invoices are the **payment schedule expressed as invoices** — 1:1 with `contract_payments`, total = the installment. Contract *visits* (`contract_visits`) still never create an invoice; billing is this schedule. Phase 2 reuses the order-invoice `/pay/[invoiceId]` portal + Dibsy + the config-driven `sendWatiTemplate({slug:'contract_invoice'})`.
 
+### Contract PDFs (invoice + document/quotation)
+
+- **Module:** Contracts / Finance
+- **Status:** Active
+- **Trigger surface(s):** **Invoice PDF** — per-invoice **PDF** button in the contract detail page's Invoices section ([`ContractInvoicesSection`](src/components/contracts/ContractInvoicesSection.tsx)) → `GET /api/contracts/invoices/[id]/pdf`. **Contract/quotation document PDF** — **PDF** button in the contract detail page header → `GET /api/contracts/[id]/pdf`.
+- **Primary hook(s):** none — plain `<a href>` to the GET routes (302 → the stored PDF).
+- **RPC(s):** none.
+- **Ledger writes:** Invoice PDF caches its public URL on `contract_invoices.pdf_url`. The contract document PDF is generated on-demand (no cache column — always current).
+- **Downstream side-effects:** Uploads to the public buckets `contract-invoice-pdfs` / `contract-pdfs` (migration `20261076000000`). The invoice PDF **reuses the order-invoice template** (`buildTlInvoiceHtml`) verbatim; the contract document PDF is a new template ([`contract-pdf-html`](src/lib/contracts/contract-pdf-html.ts)) matching the shared brand header/footer + BASE_CSS.
+- **Dialog / component:** [`generate-contract-invoice-pdf`](src/lib/contracts/generate-contract-invoice-pdf.ts) + [`generate-contract-pdf`](src/lib/contracts/generate-contract-pdf.ts) (both via the shared `htmlToPdfBuffer` / `resolveBrand` / `loadPdfFonts` pipeline, service-role on the server).
+- **Guards / preconditions:** GET routes use the service-role client; buckets are public-read and the storage key is the row's invoice/contract number (not user input). POST variants require a Bearer JWT.
+- **Related flows:** [[Contract Invoices (auto-generate from schedule + collect)]]; the invoice PDF mirrors [[Create Order Invoice (from a completed visit)]].
+- **Docs / plans:** migration `supabase/migrations/20261076000000_contract_pdf_buckets.sql`.
+- **Notes:** Fills the one module that had NO generated PDFs. Contract document PDF v1 shows customer + priced services + schedule + totals + notes; **Terms & Conditions rendering is a follow-up** (`contracts.terms_snapshot` needs shaping). Phase 2 remaining after this: the live `/pay` portal + Dibsy + the `contract_invoice` WhatsApp (which will attach this invoice PDF).
+
 ### Schedule Contract Visit (team + from→to on the calendar)
 
 - **Module:** Contracts / Calendar

@@ -132,11 +132,21 @@ export function ContractInvoicesSection({ contractId, canManage, locked = false 
                     </Badge>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    {canManage && !locked && inv.payment_status !== 'paid' && (
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPayTarget(inv)}>
-                        Record Payment
-                      </Button>
-                    )}
+                    <div className="flex items-center justify-end gap-1.5">
+                      <a
+                        href={`/api/contracts/invoices/${inv.id}/pdf`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs text-foreground hover:bg-muted"
+                        title="Open invoice PDF"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> PDF
+                      </a>
+                      {canManage && !locked && inv.payment_status !== 'paid' && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPayTarget(inv)}>
+                          Record Payment
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )
