@@ -3,12 +3,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { logActivity } from '@/lib/logActivity'
-import type { ScheduleDate } from '@/types/contracts'
+import type { ScheduleDate, ScheduleService } from '@/types/contracts'
 import { queryKeys } from '@/lib/queryKeys'
+
+/** Fallback block length when a service carries no default duration. */
+export const DEFAULT_DURATION_HOURS = 2
 
 export function useContractSchedule(contractId: string | undefined) {
   const supabase = createClient()
   const queryClient = useQueryClient()
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.contracts.schedule(contractId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.contracts.detail(contractId) })
+    // A placed visit is live on the real /calendar (calendar_visits view) — refresh it.
+    queryClient.invalidateQueries({ queryKey: queryKeys.calendar.visitsAll })
+  }
 
   const scheduleQuery = useQuery<ScheduleDate[]>({
     queryKey: queryKeys.contracts.schedule(contractId),
@@ -17,96 +27,103 @@ export function useContractSchedule(contractId: string | undefined) {
       const { data, error } = await supabase
         .from('contract_visits')
         .select(`
-          id, scheduled_date, service_name, team_id, completed,
+          id, scheduled_date, service_name, team_id, completed, start_time, end_time,
           teams(name_en),
-          contract_services(building_node_id, service_path, divisions)
+          contract_services(service_path, divisions, quantity, service_id)
         `)
         .eq('contract_id', contractId)
         .eq('completed', false)
         .order('scheduled_date')
-
       if (error) throw error
 
-      const dateMap = new Map<string, ScheduleDate>()
-      type VisitRow = typeof data extends (infer R)[] | null ? R : never
-      for (const visit of data || []) {
-        const date = visit.scheduled_date
-        if (!dateMap.has(date)) {
-          dateMap.set(date, { date, services: [], allAssigned: true })
+      const rows = (data ?? []) as unknown as Array<{
+        id: string; scheduled_date: string; service_name: string
+        team_id: string | null; start_time: string | null; end_time: string | null
+        teams: { name_en: string } | null
+        contract_services: {
+          service_path?: string[] | null; divisions?: string[] | null
+          quantity?: number | null; service_id?: string | null
+        } | null
+      }>
+
+      // Per-service default duration (hours) from the services master, if set.
+      const serviceIds = Array.from(
+        new Set(rows.map((r) => r.contract_services?.service_id).filter(Boolean) as string[]),
+      )
+      const durationMap = new Map<string, number>()
+      if (serviceIds.length > 0) {
+        const { data: svc } = await supabase.from('services').select('id, duration').in('id', serviceIds)
+        for (const s of (svc ?? []) as Array<{ id: string; duration: number | null }>) {
+          if (s.duration && Number(s.duration) > 0) durationMap.set(s.id, Number(s.duration))
         }
-        const entry = dateMap.get(date)!
-        const v = visit as VisitRow & {
-          contract_services: { service_path?: string[] | null; divisions?: string[] | null } | null
-          teams: { name_en: string } | null
-        }
-        const svc = {
-          visitId: visit.id,
-          serviceName: visit.service_name,
-          location: v.contract_services?.service_path?.slice(-2, -1)?.[0] || '',
-          division: v.contract_services?.divisions?.[0] || '',
-          teamId: visit.team_id,
-          teamName: v.teams?.name_en || null,
-          timeSlot: null,
-        }
-        entry.services.push(svc)
-        if (!visit.team_id) entry.allAssigned = false
       }
 
+      const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : null)
+      const dateMap = new Map<string, ScheduleDate>()
+      for (const v of rows) {
+        if (!dateMap.has(v.scheduled_date)) {
+          dateMap.set(v.scheduled_date, { date: v.scheduled_date, services: [], allAssigned: true })
+        }
+        const entry = dateMap.get(v.scheduled_date)!
+        const cs = v.contract_services
+        const svc: ScheduleService = {
+          visitId: v.id,
+          serviceName: v.service_name,
+          location: cs?.service_path?.slice(-2, -1)?.[0] || '',
+          division: cs?.divisions?.[0] || '',
+          teamId: v.team_id,
+          teamName: v.teams?.name_en || null,
+          startTime: hhmm(v.start_time),
+          endTime: hhmm(v.end_time),
+          qty: Number(cs?.quantity ?? 1),
+          defaultDurationHours:
+            (cs?.service_id && durationMap.get(cs.service_id)) || DEFAULT_DURATION_HOURS,
+        }
+        entry.services.push(svc)
+        // "Assigned" now means placed on the calendar (team AND a time).
+        if (!v.team_id || !v.start_time) entry.allAssigned = false
+      }
       return Array.from(dateMap.values())
     },
     enabled: !!contractId,
   })
 
-  const assignTeam = useMutation({
+  // Place a visit: team + from→to block. start/end are 'HH:MM'.
+  const scheduleVisit = useMutation({
     mutationFn: async ({
-      visitId,
-      teamId,
-    }: {
-      visitId: string
-      teamId: string
-    }) => {
+      visitId, teamId, startTime, endTime,
+    }: { visitId: string; teamId: string; startTime: string; endTime: string }) => {
       const { error } = await supabase
         .from('contract_visits')
-        .update({ team_id: teamId })
+        .update({ team_id: teamId, start_time: startTime, end_time: endTime } as never)
         .eq('id', visitId)
-      if (error) throw error
-
+      if (error) throw new Error([error.code, error.message, error.details, error.hint].filter(Boolean).join(' — ') || 'Failed to schedule visit')
       await logActivity({
-        action: 'visit_team_assigned',
+        action: 'contract_visit_scheduled',
         module: 'contracts',
         entity_id: contractId || '',
-        details: `Team assigned to visit`,
+        details: `Visit scheduled ${startTime}–${endTime}`,
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.contracts.schedule(contractId),
-      })
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.contracts.detail(contractId),
-      })
-    },
+    onSuccess: invalidate,
   })
 
-  const unassignTeam = useMutation({
+  // Remove a visit from the schedule (back to the unassigned pool).
+  const clearSchedule = useMutation({
     mutationFn: async (visitId: string) => {
       const { error } = await supabase
         .from('contract_visits')
-        .update({ team_id: null })
+        .update({ team_id: null, start_time: null, end_time: null } as never)
         .eq('id', visitId)
-      if (error) throw error
+      if (error) throw new Error([error.code, error.message, error.details, error.hint].filter(Boolean).join(' — ') || 'Failed to clear schedule')
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.contracts.schedule(contractId),
-      })
-    },
+    onSuccess: invalidate,
   })
 
   return {
     scheduleDates: scheduleQuery.data || [],
     isLoading: scheduleQuery.isLoading,
-    assignTeam,
-    unassignTeam,
+    scheduleVisit,
+    clearSchedule,
   }
 }

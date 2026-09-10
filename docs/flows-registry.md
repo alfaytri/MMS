@@ -832,6 +832,21 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 - **Docs / plans:** migration `supabase/migrations/20261073000000_contract_invoices.sql`.
 - **Notes:** Contract invoices are the **payment schedule expressed as invoices** — 1:1 with `contract_payments`, total = the installment. Contract *visits* (`contract_visits`) still never create an invoice; billing is this schedule. Phase 2 reuses the order-invoice `/pay/[invoiceId]` portal + Dibsy + the config-driven `sendWatiTemplate({slug:'contract_invoice'})`.
 
+### Schedule Contract Visit (team + from→to on the calendar)
+
+- **Module:** Contracts / Calendar
+- **Status:** Active
+- **Trigger surface(s):** Contract detail page (`/contracts/detail/[contractId]`) → **Team Scheduling** section. Drag an unassigned service onto a Team×Hour cell (or tap-a-team on mobile) to place it; click a placed block to edit its **from→to** or remove it. The placed visit also appears on the global `/calendar` (Team × time), coloured as a Contract Visit.
+- **Primary hook(s):** [`useContractSchedule`](src/hooks/useContractSchedule.ts) — `scheduleVisit` (team + start/end) + `clearSchedule`.
+- **RPC(s):** none — direct `contract_visits` UPDATE (`team_id`, `start_time`, `end_time`) under the table's existing division-scoped RLS.
+- **Ledger writes:** `contract_visits.team_id` / `start_time` / `end_time`. No money.
+- **Downstream side-effects:** The `calendar_visits` VIEW's contract branch now emits real `start_time`/`end_time` (was hardcoded NULL), so a placed visit shows on `/calendar` at its time. Invalidates `contracts.schedule`, `contracts.detail`, and `calendar.visitsAll`. Per-service default block length comes from `services.duration` (hours; fallback 2h), overridable per visit via the from→to editor.
+- **Dialog / component:** [`ServiceScheduleSection`](src/components/contracts/ServiceScheduleSection.tsx) (dnd-kit Team×Hour grid + spanning blocks + from→to editor dialog).
+- **Guards / preconditions:** contract live (non-quotation) with generated visits; only teams whose `division.slug` is in the contract's `divisions` are shown. The old fake "Push to Calendar" toast is retired — a visit is live on the calendar the moment it has a team + time.
+- **Related flows:** [[Contract Invoices (auto-generate from schedule + collect)]]; the `calendar_visits` view also feeds order/site-visit/follow-up rows (orders/site-visits derive times from `time_slot`+`duration`).
+- **Docs / plans:** migration `supabase/migrations/20261074000000_contract_visit_scheduling_times.sql`.
+- **Notes:** Contract visits carry a real from→to (`start_time`/`end_time`) mirroring how orders carry `time_slot`+`duration`. A hard team double-booking guard (overlap exclusion) is a follow-up; exposing `services.duration` in the service editor (to set the per-service default) is a small follow-up (currently unset → 2h).
+
 ---
 
 ## Payments

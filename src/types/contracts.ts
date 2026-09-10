@@ -368,7 +368,14 @@ export interface ScheduleService {
   division: string;
   teamId: string | null;
   teamName: string | null;
-  timeSlot: string | null;
+  /** Scheduled from-time 'HH:MM' (null until placed). */
+  startTime: string | null;
+  /** Scheduled to-time 'HH:MM' (null until placed). */
+  endTime: string | null;
+  /** contract_services.quantity — shown on the chip/block. */
+  qty: number;
+  /** Per-service default block length in hours (services.duration, fallback 2). */
+  defaultDurationHours: number;
 }
 
 // ——— Status display config ———
