@@ -43,12 +43,26 @@ export function useCompleteVisit() {
       const { visit, data, profileId, teamId } = input
       const supabase = createClient()
 
-      const photoUrls      = await uploadBlobs(supabase, visit.id, data.photos ?? [], 'photo')
+      const photoUrls       = await uploadBlobs(supabase, visit.id, data.photos ?? [], 'photo')
       const damagePhotoUrls = await uploadBlobs(supabase, visit.id, data.damageReport?.photos ?? [], 'damage')
+      const teamPhotoUrls   = await uploadBlobs(supabase, visit.id, data.teamPhotos ?? [], 'team-note')
       let signatureUrl: string | null = null
       if (data.signature) {
         const [u] = await uploadBlobs(supabase, visit.id, [data.signature], 'signature')
         signatureUrl = u ?? null
+      }
+
+      // Per-service detail — kept only for Skipped (reason) / Issue (photos)
+      // services; each Issue service's photos are uploaded here.
+      const statuses = data.serviceStatuses ?? {}
+      const serviceStatusDetails: Record<string, { reason: string | null; photo_urls: string[] }> = {}
+      for (const [serviceId, detail] of Object.entries(data.serviceDetails ?? {})) {
+        const st = statuses[serviceId]
+        if (st !== 'skipped' && st !== 'issue') continue
+        const urls = detail.photos && detail.photos.length > 0
+          ? await uploadBlobs(supabase, visit.id, detail.photos, `issue-${serviceId}`)
+          : []
+        serviceStatusDetails[serviceId] = { reason: detail.reason?.trim() || null, photo_urls: urls }
       }
 
       const damage = data.damageReport?.noted
@@ -61,18 +75,20 @@ export function useCompleteVisit() {
         : null
 
       const { data: id, error } = await supabase.rpc('complete_visit' as never, {
-        p_visit_id:         visit.id,
-        p_source_id:        visit.source_id,
-        p_source_type:      visit.source_type,
-        p_completed_by:     profileId,
-        p_service_statuses: data.serviceStatuses ?? {},
-        p_damage:           damage,
-        p_notes:            null,
-        p_qc_scores:        data.qcScores ?? null,
-        p_photo_urls:       photoUrls,
-        p_signature_url:    signatureUrl,
-        p_team_id:          teamId,
-        p_added_services:   data.addedServices ?? null,
+        p_visit_id:               visit.id,
+        p_source_id:              visit.source_id,
+        p_source_type:            visit.source_type,
+        p_completed_by:           profileId,
+        p_service_statuses:       data.serviceStatuses ?? {},
+        p_damage:                 damage,
+        p_notes:                  data.teamNotes ?? null,
+        p_qc_scores:              data.qcScores ?? null,
+        p_photo_urls:             photoUrls,
+        p_signature_url:          signatureUrl,
+        p_team_id:                teamId,
+        p_added_services:         data.addedServices ?? null,
+        p_service_status_details: serviceStatusDetails,
+        p_team_note_photos:       teamPhotoUrls,
       } as never)
       if (error) throw error
       return id as unknown as string
@@ -135,6 +151,8 @@ export type VisitCompletion = {
   qc_scores:        Record<string, number> | null
   photo_urls:       string[] | null
   signature_url:    string | null
+  service_status_details: Record<string, { reason?: string | null; photo_urls?: string[] }> | null
+  team_note_photos: string[] | null
   completed_at:     string | null
 }
 
@@ -148,7 +166,7 @@ export function useVisitCompletion(visitId: string | null) {
       const supabase = createClient()
       const { data } = await supabase
         .from('visit_completions' as never)
-        .select('service_statuses, damage_report, notes, qc_scores, photo_urls, signature_url, completed_at')
+        .select('service_statuses, damage_report, notes, qc_scores, photo_urls, signature_url, service_status_details, team_note_photos, completed_at')
         .eq('visit_id' as never, visitId as never)
         .maybeSingle()
       return (data as unknown as VisitCompletion) ?? null

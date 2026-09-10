@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import { X, Users, Info, AlertTriangle, Plus, Check } from 'lucide-react'
 import { toast } from 'sonner'
-import { ServiceStatusList } from '../shared/ServiceStatusList'
+import { ServiceStatusList, type ServiceDetail } from '../shared/ServiceStatusList'
 import { PhotoCapture } from '../shared/PhotoCapture'
 import { SignaturePad } from '../shared/SignaturePad'
 import { DamageReportDialog } from '../shared/DamageReportDialog'
@@ -68,6 +68,12 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
   const followUpMut = useCreateFollowUpRequest()
   const [addedServices, setAddedServices] = useState<AddedBillableService[]>([])
   const [signature, setSignature] = useState<Blob | null>(null)
+  const [serviceDetails, setServiceDetails] = useState<Record<string, ServiceDetail>>({})
+
+  // Merge a per-service detail patch (reason / photos) into state.
+  function patchServiceDetail(id: string, patch: ServiceDetail) {
+    setServiceDetails((p) => ({ ...p, [id]: { ...p[id], ...patch } }))
+  }
 
   function toggleFollowUpService(id: string) {
     setFollowUpServices((prev) => {
@@ -117,6 +123,17 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
   const otherTeams = (visit.team_ids ?? []).filter((t) => t !== visit.team_id)
   const isLastTeam = otherTeams.length === 0
 
+  // Enforcement (block + per-service): a Skipped service needs a typed reason,
+  // an Issue service needs at least one photo — required before completing.
+  const enforcementMissing = allServices.reduce<string[]>((acc, svc) => {
+    const st = statuses[svc.id]
+    const d  = serviceDetails[svc.id]
+    if (st === 'skipped' && !(d?.reason ?? '').trim())     acc.push(`“${svc.name}” — add a skip reason`)
+    if (st === 'issue'   && (d?.photos?.length ?? 0) === 0) acc.push(`“${svc.name}” — add an issue photo`)
+    return acc
+  }, [])
+  const canComplete = enforcementMissing.length === 0
+
   const headerTitle = visit.order_id
     ? `${visit.order_id} — Normal Order`
     : 'Normal Order'
@@ -137,6 +154,9 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
       },
       addedServices: addedServices.length > 0 ? addedServices : undefined,
       signature: signature ?? undefined,
+      teamNotes: teamNotes.trim() || undefined,
+      teamPhotos: teamPhotos.length > 0 ? teamPhotos : undefined,
+      serviceDetails: Object.keys(serviceDetails).length > 0 ? serviceDetails : undefined,
     }
     onComplete(visit.id, data)
   }
@@ -162,6 +182,9 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
                   services={allServices}
                   statuses={statuses}
                   onChange={(id, s) => setStatuses((p) => ({ ...p, [id]: s }))}
+                  visitId={visit.id}
+                  details={serviceDetails}
+                  onDetailChange={patchServiceDetail}
                 />
 
                 {addedServices.length > 0 && (
@@ -361,6 +384,17 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
                 <span>Another team will complete invoicing for this order.</span>
               </div>
             )}
+            {!canComplete && (
+              <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-xs text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-medium">Add the required details before completing:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {enforcementMissing.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 min-h-11" onClick={onClose}>Cancel</Button>
               <Button
@@ -369,6 +403,7 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
                   isLastTeam ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
                 )}
                 onClick={handleSubmit}
+                disabled={!canComplete}
               >
                 {isLastTeam ? 'Complete & Invoice' : 'Mark Complete — Other Team Will Invoice'}
               </Button>

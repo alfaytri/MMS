@@ -82,8 +82,47 @@ export function ReviewWorkDialog({ visit, open, onOpenChange }: Props) {
                   })}
                 </div>
               )}
+              {completion.service_status_details && Object.keys(completion.service_status_details).length > 0 && (
+                <div className="space-y-2">
+                  {(visit?.services ?? []).map((s) => {
+                    const d = completion.service_status_details?.[s.id]
+                    if (!d || (!(d.reason ?? '').trim() && (d.photo_urls?.length ?? 0) === 0)) return null
+                    const st = completion.service_statuses?.[s.id]
+                    return (
+                      <div key={s.id} className="rounded-md border bg-muted/30 p-2 space-y-1">
+                        <p className="text-xs font-medium">
+                          {(s.name.split('/').pop() ?? s.name)}
+                          {st && <span className="ml-1.5 text-muted-foreground capitalize">· {st}</span>}
+                        </p>
+                        {(d.reason ?? '').trim() && (
+                          <p className="text-xs text-muted-foreground">Reason: {d.reason}</p>
+                        )}
+                        {(d.photo_urls?.length ?? 0) > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {d.photo_urls!.map((u, i) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img key={i} src={u} alt="issue photo" className="h-16 w-16 rounded object-cover border" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               {completion.notes && (
                 <p className="text-sm"><span className="text-muted-foreground">Notes: </span>{completion.notes}</p>
+              )}
+              {(completion.team_note_photos?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">Team note photos</div>
+                  <div className="flex flex-wrap gap-2">
+                    {completion.team_note_photos!.map((u, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={u} alt="team note photo" className="h-16 w-16 rounded object-cover border" />
+                    ))}
+                  </div>
+                </div>
               )}
               {completion.damage_report?.noted && (
                 <div className="space-y-1.5">

@@ -787,6 +787,21 @@ Compact rows (5 fields: **Trigger** · **Hook** · **RPC(s)** · **Writes / side
 
 ## Team-Leader Order Invoices
 
+### Complete Visit (team-leader field capture)
+
+- **Module:** Orders / Team Leader
+- **Status:** Active
+- **Trigger surface(s):** `/team-leader` → in-progress order card → completion dialog → **Complete & Invoice**.
+- **Primary hook(s):** [`useCompleteVisit`](src/hooks/useTlActions.ts) — uploads photos / signature / per-service issue photos / team-note photos to the `visit-completions` bucket, then calls the RPC.
+- **RPC(s):** `public.complete_visit(…, p_service_status_details jsonb, p_team_note_photos text[])` — SECURITY DEFINER; optimistic-locks the source (`orders` / `site_visits` / `contract_visits`) to `completed` (first team wins; same team may re-edit) then upserts `visit_completions`.
+- **Ledger writes:** source status → `completed`; `visit_completions` (service_statuses, **service_status_details**, damage_report, notes, qc_scores, photo_urls, signature_url, **team_note_photos**, added_services).
+- **Downstream side-effects:** invalidates `queryKeys.teamLeader.orders(teamId)`; for a billable last-team completion the invoice opens inline (see [[Create Order Invoice (from a completed visit)]]).
+- **Dialog / component:** [`NormalOrderDialog`](src/components/team-leader/dialogs/NormalOrderDialog.tsx) (+ Backwork/FollowUp/SiteVisit/Contract/QC variants via `OrderDetailDispatch`); read-back in [`ReviewWorkDialog`](src/components/team-leader/ReviewWorkDialog.tsx) via `useVisitCompletion`.
+- **Guards / preconditions:** **block + per-service enforcement** (NormalOrderDialog) — a Skipped service needs a typed reason, an Issue service needs ≥1 photo; Complete & Invoice is disabled until met. Also captures the customer signature (re-sign fixed), pre-existing damage (photos + Customer-Notified), and team-notes text/photos.
+- **Related flows:** [[Create Order Invoice (from a completed visit)]].
+- **Docs / plans:** migrations `20261071000000_visit_completion_service_details_and_team_photos.sql` (2b) + `20260902130000_tl_completion_and_invoice.sql` (base).
+- **Notes:** Enforcement is scoped to `NormalOrderDialog` for now — other completion dialogs pass no per-service detail props (`ServiceStatusList`'s enforcement props are optional) and behave unchanged. `service_status_details` is keyed by order_service_id and persisted only for skipped/issue services.
+
 ### Create Order Invoice (from a completed visit)
 
 - **Module:** Orders / Team Leader

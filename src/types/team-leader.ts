@@ -108,6 +108,12 @@ export interface OrderCompletionData {
   signature?: Blob
   qcScores?: Record<string, number>
   addedServices?: AddedBillableService[]
+  // Team notes free text + attached photos (browser Blobs).
+  teamNotes?: string
+  teamPhotos?: Blob[]
+  // Per-service completion detail keyed by service id: a Skipped service carries
+  // a required `reason`, an Issue service carries required `photos`.
+  serviceDetails?: Record<string, { reason?: string; photos?: Blob[] }>
 }
 
 export interface TlTeamOption {
