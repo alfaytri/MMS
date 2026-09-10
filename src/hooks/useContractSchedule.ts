@@ -46,15 +46,16 @@ export function useContractSchedule(contractId: string | undefined) {
         } | null
       }>
 
-      // Per-service default duration (hours) from the services master, if set.
+      // Per-service default duration from the services master. NOTE: services.duration
+      // is stored in MINUTES (the service editor labels it "Duration (minutes)").
       const serviceIds = Array.from(
         new Set(rows.map((r) => r.contract_services?.service_id).filter(Boolean) as string[]),
       )
-      const durationMap = new Map<string, number>()
+      const durationMinMap = new Map<string, number>()
       if (serviceIds.length > 0) {
         const { data: svc } = await supabase.from('services').select('id, duration').in('id', serviceIds)
         for (const s of (svc ?? []) as Array<{ id: string; duration: number | null }>) {
-          if (s.duration && Number(s.duration) > 0) durationMap.set(s.id, Number(s.duration))
+          if (s.duration && Number(s.duration) > 0) durationMinMap.set(s.id, Number(s.duration))
         }
       }
 
@@ -76,8 +77,11 @@ export function useContractSchedule(contractId: string | undefined) {
           startTime: hhmm(v.start_time),
           endTime: hhmm(v.end_time),
           qty: Number(cs?.quantity ?? 1),
-          defaultDurationHours:
-            (cs?.service_id && durationMap.get(cs.service_id)) || DEFAULT_DURATION_HOURS,
+          // minutes → whole-hour blocks for the hour-based grid (fallback 2h).
+          defaultDurationHours: (() => {
+            const min = cs?.service_id ? durationMinMap.get(cs.service_id) : undefined
+            return min ? Math.max(1, Math.ceil(min / 60)) : DEFAULT_DURATION_HOURS
+          })(),
         }
         entry.services.push(svc)
         // "Assigned" now means placed on the calendar (team AND a time).
@@ -97,7 +101,11 @@ export function useContractSchedule(contractId: string | undefined) {
         .from('contract_visits')
         .update({ team_id: teamId, start_time: startTime, end_time: endTime } as never)
         .eq('id', visitId)
-      if (error) throw new Error([error.code, error.message, error.details, error.hint].filter(Boolean).join(' — ') || 'Failed to schedule visit')
+      if (error) {
+        if (error.code === '23P01') throw new Error('That team is already booked during this time on this date — pick a different time or team.')
+        if (error.code === '23514') throw new Error('End time must be after the start time.')
+        throw new Error([error.code, error.message, error.details, error.hint].filter(Boolean).join(' — ') || 'Failed to schedule visit')
+      }
       await logActivity({
         action: 'contract_visit_scheduled',
         module: 'contracts',
