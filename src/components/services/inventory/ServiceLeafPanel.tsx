@@ -7,14 +7,18 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   useAddServiceInventoryLink,
+  useAddServiceInventoryLinksBatch,
   useDeleteServiceInventoryLink,
   useUpdateServiceInventoryLink,
+  useSetServiceNoInventoryNeeded,
   useAllBrandVariantsGrouped,
 } from '@/hooks/useInventory'
 import type { ServiceInventoryLinkFull } from './serviceInventoryHelpers'
 import { InventoryColumnPicker } from './InventoryColumnPicker'
+import { InventoryMultiPicker } from './InventoryMultiPicker'
 
 export { InventoryColumnPicker }
 
@@ -26,6 +30,7 @@ interface LeafPanelProps {
   breadcrumb: string
   links: ServiceInventoryLinkFull[]
   warranty: number | null
+  noInventoryNeeded: boolean
   onClose: () => void
 }
 
@@ -35,11 +40,16 @@ export function ServiceLeafPanel({
   breadcrumb,
   links,
   warranty,
+  noInventoryNeeded,
   onClose,
 }: LeafPanelProps) {
   const addLink = useAddServiceInventoryLink()
+  const addBatch = useAddServiceInventoryLinksBatch()
   const deleteLink = useDeleteServiceInventoryLink()
   const updateLink = useUpdateServiceInventoryLink()
+  const setNoItems = useSetServiceNoInventoryNeeded()
+
+  const hasAnyLink = links.length > 0
 
   const { data: allVariants = [] } = useAllBrandVariantsGrouped(true)
 
@@ -56,20 +66,16 @@ export function ServiceLeafPanel({
   const requiredSupplyLinks = supplyLinks.filter((l) => l.group_label === null)
   const optionSupplyLinks = supplyLinks.filter((l) => l.group_label !== null)
 
-  // Picker open state
-  const [supplyPickerOpen, setSupplyPickerOpen] = useState(false)
-  const [consumablePickerOpen, setConsumablePickerOpen] = useState(false)
+  // Multi-select pickers — the primary "add many" flow for supply + consumables
+  const [supplyMultiOpen, setSupplyMultiOpen] = useState(false)
+  const [consumableMultiOpen, setConsumableMultiOpen] = useState(false)
 
-  // Supply add flow
+  // Column picker — kept only for the specialised select-one "option" flow
+  const [supplyPickerOpen, setSupplyPickerOpen] = useState(false)
   const [addingSupply, setAddingSupply] = useState(false)
-  const [supplyPendingMode, setSupplyPendingMode] = useState<'required' | 'option'>('required')
+  const [supplyPendingMode, setSupplyPendingMode] = useState<'required' | 'option'>('option')
   const [supplyPendingVariantId, setSupplyPendingVariantId] = useState<string | null>(null)
   const [supplyPendingQty, setSupplyPendingQty] = useState(1)
-
-  // Consumable add flow
-  const [addingConsumable, setAddingConsumable] = useState(false)
-  const [pendingVariantId, setPendingVariantId] = useState<string | null>(null)
-  const [pendingQty, setPendingQty] = useState(1)
 
   function openSupplyPicker(mode: 'required' | 'option') {
     setSupplyPendingMode(mode)
@@ -123,36 +129,37 @@ export function ServiceLeafPanel({
     })
   }
 
-  function handleConsumablePicked(variantId: string) {
-    setPendingVariantId(variantId)
-    setAddingConsumable(true)
-  }
-
-  function handleAddConsumable() {
-    if (!pendingVariantId) return
-    addLink.mutate(
-      {
+  function handleAddSupplyBatch(rows: { variantId: string; quantity: number }[]) {
+    addBatch.mutate(
+      rows.map((r) => ({
         service_id: serviceId,
-        brand_variant_id: pendingVariantId,
-        link_type: 'consumable',
-        quantity: pendingQty,
-        warranty_months: 0,
-      },
+        brand_variant_id: r.variantId,
+        link_type: 'supply' as const,
+        quantity: r.quantity,
+        warranty_months: warranty ?? 0,
+        group_label: null,
+      })),
       {
-        onSuccess: () => {
-          setAddingConsumable(false)
-          setPendingVariantId(null)
-          setPendingQty(1)
-        },
+        onSuccess: () => setSupplyMultiOpen(false),
         onError: (err) => toast.error(err.message),
       },
     )
   }
 
-  function handleCancelConsumable() {
-    setAddingConsumable(false)
-    setPendingVariantId(null)
-    setPendingQty(1)
+  function handleAddConsumableBatch(rows: { variantId: string; quantity: number }[]) {
+    addBatch.mutate(
+      rows.map((r) => ({
+        service_id: serviceId,
+        brand_variant_id: r.variantId,
+        link_type: 'consumable' as const,
+        quantity: r.quantity,
+        warranty_months: 0,
+      })),
+      {
+        onSuccess: () => setConsumableMultiOpen(false),
+        onError: (err) => toast.error(err.message),
+      },
+    )
   }
 
   function handleRemove(id: string) {
@@ -170,10 +177,6 @@ export function ServiceLeafPanel({
 
   const supplyPendingVariant = supplyPendingVariantId
     ? allVariants.find((v) => v.variantId === supplyPendingVariantId)
-    : null
-
-  const pendingVariant = pendingVariantId
-    ? allVariants.find((v) => v.variantId === pendingVariantId)
     : null
 
   // ── Shared card for a supply link row ────────────────────────────────────────
@@ -269,6 +272,40 @@ export function ServiceLeafPanel({
         {/* ── Body ── */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
+          {/* No-items-needed toggle */}
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-xs font-medium">No items needed</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {hasAnyLink
+                  ? 'Remove linked items to mark this as needing none.'
+                  : 'Mark this reviewed service as requiring no inventory.'}
+              </p>
+            </div>
+            <Switch
+              checked={noInventoryNeeded}
+              disabled={hasAnyLink || setNoItems.isPending}
+              onCheckedChange={(v) =>
+                setNoItems.mutate(
+                  { serviceId, value: v },
+                  { onError: (err) => toast.error(err.message) },
+                )
+              }
+            />
+          </div>
+
+          {noInventoryNeeded ? (
+            <div className="rounded-md border border-dashed border-border py-10 text-center">
+              <p className="text-xs text-muted-foreground">
+                No inventory items needed for this service.
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Turn off “No items needed” to link items.
+              </p>
+            </div>
+          ) : (
+          <>
+
           {/* Supply item */}
           <section>
             <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase mb-2">
@@ -351,7 +388,7 @@ export function ServiceLeafPanel({
               {!addingSupply && (
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5">
                   <button
-                    onClick={() => openSupplyPicker('required')}
+                    onClick={() => setSupplyMultiOpen(true)}
                     className={cn(
                       'flex items-center gap-1.5 text-xs text-muted-foreground',
                       'hover:text-foreground transition-colors py-1 px-1',
@@ -423,76 +460,55 @@ export function ServiceLeafPanel({
                 </div>
               ))}
 
-              {addingConsumable && pendingVariant && (
-                <div className="rounded-md border border-border p-2.5 space-y-2">
-                  <p className="text-xs font-medium truncate">
-                    {pendingVariant.brand} · {pendingVariant.itemName}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0.01}
-                      step={0.01}
-                      value={pendingQty}
-                      onChange={(e) => setPendingQty(Number(e.target.value))}
-                      className="h-7 w-20 text-xs"
-                      aria-label="Quantity"
-                      autoFocus
-                    />
-                    <span className="text-[10px] text-muted-foreground">qty</span>
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs flex-1"
-                      onClick={handleAddConsumable}
-                      disabled={addLink.isPending}
-                    >
-                      {addLink.isPending ? '…' : 'Add'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs px-2"
-                      onClick={handleCancelConsumable}
-                      aria-label="Cancel"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {!addingConsumable && (
-                <button
-                  onClick={() => setConsumablePickerOpen(true)}
-                  className={cn(
-                    'flex items-center gap-1.5 text-xs text-muted-foreground',
-                    'hover:text-foreground transition-colors py-1 px-1',
-                  )}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add consumable
-                </button>
-              )}
+              <button
+                onClick={() => setConsumableMultiOpen(true)}
+                className={cn(
+                  'flex items-center gap-1.5 text-xs text-muted-foreground',
+                  'hover:text-foreground transition-colors py-1 px-1',
+                )}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add consumable
+              </button>
             </div>
           </section>
+
+          </>
+          )}
         </div>
       </div>
 
       {/* ── Pickers (rendered outside the panel div to avoid clipping) ── */}
+
+      {/* Multi-select — add several supply items at once */}
+      <InventoryMultiPicker
+        open={supplyMultiOpen}
+        onOpenChange={setSupplyMultiOpen}
+        allVariants={allVariants}
+        onAdd={handleAddSupplyBatch}
+        title="Add supply items"
+        linkedVariantIds={linkedVariantIds}
+        isAdding={addBatch.isPending}
+      />
+
+      {/* Multi-select — add several consumables at once */}
+      <InventoryMultiPicker
+        open={consumableMultiOpen}
+        onOpenChange={setConsumableMultiOpen}
+        allVariants={allVariants}
+        onAdd={handleAddConsumableBatch}
+        title="Add consumables"
+        linkedVariantIds={linkedVariantIds}
+        isAdding={addBatch.isPending}
+      />
+
+      {/* Column picker — specialised select-one "option" flow */}
       <InventoryColumnPicker
         open={supplyPickerOpen}
         onOpenChange={setSupplyPickerOpen}
         allVariants={allVariants}
         onSelect={handleSupplyPicked}
-        title={supplyPendingMode === 'option' ? 'Add Option (Select One)' : 'Set Supply Item'}
-        linkedVariantIds={linkedVariantIds}
-      />
-      <InventoryColumnPicker
-        open={consumablePickerOpen}
-        onOpenChange={setConsumablePickerOpen}
-        allVariants={allVariants}
-        onSelect={handleConsumablePicked}
-        title="Add Consumable"
+        title="Add Option (Select One)"
         linkedVariantIds={linkedVariantIds}
       />
     </>

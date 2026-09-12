@@ -6,12 +6,16 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ServiceNode } from './serviceInventoryHelpers'
 
+type LeafStatus = 'linked' | 'noitems' | 'needs'
+type FilterKey = LeafStatus | 'all'
+
 interface Props {
   allServices: ServiceNode[]
   treeMap: Map<string | null, ServiceNode[]>
   leafIdSet: Set<string>
   breadcrumbMap: Map<string, string>
   hasSupplySet: Set<string>
+  noItemsSet: Set<string>
   activeId: string | null
   checkedIds: Set<string>
   onActivate: (id: string) => void
@@ -24,12 +28,14 @@ export function ServiceLinksMasterList({
   leafIdSet,
   breadcrumbMap,
   hasSupplySet,
+  noItemsSet,
   activeId,
   checkedIds,
   onActivate,
   onToggleCheck,
 }: Props) {
   const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<FilterKey>('all')
   const [focusedIdx, setFocusedIdx] = useState(0)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const searchRef = useRef<HTMLInputElement>(null)
@@ -108,31 +114,54 @@ export function ServiceLinksMasterList({
 
   const trimmed = query.trim().toLowerCase()
 
-  // Flat filtered list for search mode
-  const filteredLeaves = useMemo(
-    () =>
-      trimmed
-        ? leafServices.filter((s) => {
-            const name = s.name_en.toLowerCase()
-            const breadcrumb = (breadcrumbMap.get(s.id) ?? '').toLowerCase()
-            return name.includes(trimmed) || breadcrumb.includes(trimmed)
-          })
-        : leafServices,
-    [leafServices, breadcrumbMap, trimmed],
-  )
+  // Status of a single leaf: green (linked) > grey (no items needed) > amber (needs supply)
+  const statusOf = (id: string): LeafStatus =>
+    hasSupplySet.has(id) ? 'linked' : noItemsSet.has(id) ? 'noitems' : 'needs'
+
+  // Global queue sizes — shown on the filter chips, independent of the search text
+  const counts = useMemo(() => {
+    let linked = 0, noitems = 0, needs = 0
+    for (const s of leafServices) {
+      if (hasSupplySet.has(s.id)) linked++
+      else if (noItemsSet.has(s.id)) noitems++
+      else needs++
+    }
+    return { linked, noitems, needs, all: leafServices.length }
+  }, [leafServices, hasSupplySet, noItemsSet])
+
+  // Flat list — used whenever a status filter is active or a search is typed.
+  // Apply the status filter first, then narrow by the search text.
+  const filteredLeaves = useMemo(() => {
+    let out = leafServices
+    if (filter !== 'all') {
+      out = out.filter((s) => {
+        const st: LeafStatus = hasSupplySet.has(s.id)
+          ? 'linked'
+          : noItemsSet.has(s.id)
+            ? 'noitems'
+            : 'needs'
+        return st === filter
+      })
+    }
+    if (trimmed) {
+      out = out.filter((s) => {
+        const name = s.name_en.toLowerCase()
+        const breadcrumb = (breadcrumbMap.get(s.id) ?? '').toLowerCase()
+        return name.includes(trimmed) || breadcrumb.includes(trimmed)
+      })
+    }
+    return out
+  }, [leafServices, breadcrumbMap, trimmed, filter, hasSupplySet, noItemsSet])
+
+  // Flat list whenever searching or a specific status filter is active;
+  // the browsable tree only makes sense for the unfiltered "All" view.
+  const flatMode = trimmed.length > 0 || filter !== 'all'
 
   // O(1) index lookup for keyboard focus state
   const idxMap = useMemo(
     () => new Map(filteredLeaves.map((s, i) => [s.id, i])),
     [filteredLeaves],
   )
-
-  // Stat bar — reflects current search filter
-  const filteredLinkedCount = useMemo(
-    () => filteredLeaves.filter((s) => hasSupplySet.has(s.id)).length,
-    [filteredLeaves, hasSupplySet],
-  )
-  const filteredNoSupplyCount = filteredLeaves.length - filteredLinkedCount
 
   // Global expand/collapse all
   const allExpanded = allBranchIds.size > 0 && [...allBranchIds].every((id) => expandedIds.has(id))
@@ -227,8 +256,8 @@ export function ServiceLinksMasterList({
     const breadcrumb = breadcrumbMap.get(service.id) ?? ''
     const isActive = activeId === service.id
     const isChecked = checkedIds.has(service.id)
-    const hasSupply = hasSupplySet.has(service.id)
-    const isFocused = trimmed && focusedIdx === flatIdx
+    const status = statusOf(service.id)
+    const isFocused = flatMode && focusedIdx === flatIdx
 
     let rowCls =
       'group relative flex items-start gap-2 px-3 py-2 cursor-pointer select-none border-l-[3px] transition-colors'
@@ -261,9 +290,9 @@ export function ServiceLinksMasterList({
           />
         </div>
 
-        {/* Text — breadcrumb only shown in search mode */}
+        {/* Text — breadcrumb only shown in flat (search/filter) mode */}
         <div className="flex-1 min-w-0">
-          {trimmed && (() => {
+          {flatMode && (() => {
             const parentCrumb = breadcrumb.split(' › ').slice(0, -1).join(' › ')
             return parentCrumb ? (
               <p className="text-xs text-muted-foreground leading-tight truncate">
@@ -276,11 +305,23 @@ export function ServiceLinksMasterList({
           </p>
         </div>
 
-        {/* Status dot */}
+        {/* Status dot — green linked · grey no-items · amber needs supply */}
         <div className="mt-1 shrink-0">
           <span
-            className={`inline-block w-2 h-2 rounded-full ${hasSupply ? 'bg-green-500' : 'bg-amber-400'}`}
-            title={hasSupply ? 'Supply linked' : 'No supply'}
+            className={`inline-block w-2 h-2 rounded-full ${
+              status === 'linked'
+                ? 'bg-green-500'
+                : status === 'noitems'
+                  ? 'bg-gray-300'
+                  : 'bg-amber-400'
+            }`}
+            title={
+              status === 'linked'
+                ? 'Supply linked'
+                : status === 'noitems'
+                  ? 'No items needed'
+                  : 'Needs supply'
+            }
           />
         </div>
       </div>
@@ -356,10 +397,17 @@ export function ServiceLinksMasterList({
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const CHIPS: { key: FilterKey; label: string; count: number; dot: string }[] = [
+    { key: 'needs', label: 'Needs supply', count: counts.needs, dot: 'bg-amber-400' },
+    { key: 'linked', label: 'Linked', count: counts.linked, dot: 'bg-green-500' },
+    { key: 'noitems', label: 'No items', count: counts.noitems, dot: 'bg-gray-300' },
+    { key: 'all', label: 'All', count: counts.all, dot: '' },
+  ]
+
   return (
     <div className="flex flex-col h-full border-r">
-      {/* Search bar */}
-      <div className="p-3 border-b sticky top-0 bg-background z-20">
+      {/* Search bar + filter chips */}
+      <div className="p-3 pb-2 border-b sticky top-0 bg-background z-20 space-y-2">
         <Input
           ref={searchRef}
           placeholder={`Search ${totalCount} services…`}
@@ -368,18 +416,45 @@ export function ServiceLinksMasterList({
           onKeyDown={handleSearchKeyDown}
           className="h-9"
         />
+
+        {/* Filter chips — status queues */}
+        <div className="flex items-center gap-1.5 overflow-x-auto -mx-0.5 px-0.5 pb-0.5">
+          {CHIPS.map((chip) => {
+            const active = filter === chip.key
+            return (
+              <button
+                key={chip.key}
+                onClick={() => { setFilter(chip.key); setFocusedIdx(0) }}
+                className={[
+                  'flex items-center gap-1.5 shrink-0 rounded-full border px-2.5 py-1 text-xs transition-colors',
+                  active
+                    ? 'border-primary bg-primary/10 text-foreground font-medium'
+                    : 'border-border text-muted-foreground hover:bg-muted/50',
+                ].join(' ')}
+              >
+                {chip.dot && (
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${chip.dot}`} />
+                )}
+                {chip.label}
+                <span className={active ? 'text-foreground' : 'text-muted-foreground/70'}>
+                  {chip.count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Stat bar — with global expand/collapse all */}
+      {/* Count / expand-collapse line */}
       <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground border-b bg-muted/30 shrink-0">
         <span>
-          <span className="font-medium text-foreground">{filteredLeaves.length}</span> services
-          {' · '}
-          <span className="text-success font-medium">{filteredLinkedCount}</span> linked
-          {' · '}
-          <span className="text-amber-500 font-medium">{filteredNoSupplyCount}</span> no supply
+          {flatMode ? (
+            <>Showing <span className="font-medium text-foreground">{filteredLeaves.length}</span></>
+          ) : (
+            <><span className="font-medium text-foreground">{counts.all}</span> services</>
+          )}
         </span>
-        {!trimmed && (
+        {!flatMode && allBranchIds.size > 0 && (
           <button
             onClick={allExpanded ? collapseAll : expandAll}
             className="ml-auto shrink-0 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
@@ -395,12 +470,16 @@ export function ServiceLinksMasterList({
         className="flex-1 overflow-y-auto"
         role="listbox"
         tabIndex={0}
-        onKeyDown={trimmed ? handleKeyDown : undefined}
+        onKeyDown={flatMode ? handleKeyDown : undefined}
       >
-        {trimmed ? (
+        {flatMode ? (
           filteredLeaves.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground text-center">
-              No services match &quot;{query}&quot;
+              {trimmed ? (
+                <>No services match &quot;{query}&quot;</>
+              ) : (
+                'No services in this filter'
+              )}
             </p>
           ) : (
             filteredLeaves.map((s, i) => renderRow(s, i))

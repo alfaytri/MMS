@@ -9176,6 +9176,7 @@ export type Database = {
           legacy_service_id: string | null
           name_ar: string | null
           name_en: string
+          no_inventory_needed: boolean
           parent_id: string | null
           photo_requirement: string | null
           price: number | null
@@ -9218,6 +9219,7 @@ export type Database = {
           legacy_service_id?: string | null
           name_ar?: string | null
           name_en: string
+          no_inventory_needed?: boolean
           parent_id?: string | null
           photo_requirement?: string | null
           price?: number | null
@@ -9260,6 +9262,7 @@ export type Database = {
           legacy_service_id?: string | null
           name_ar?: string | null
           name_en?: string
+          no_inventory_needed?: boolean
           parent_id?: string | null
           photo_requirement?: string | null
           price?: number | null

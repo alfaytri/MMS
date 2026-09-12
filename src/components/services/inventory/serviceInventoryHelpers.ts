@@ -21,6 +21,7 @@ export interface ServiceNode {
   parent_id: string | null
   tree_type: string | null
   warranty?: number | null
+  no_inventory_needed?: boolean
 }
 
 export interface ServiceInventoryLinkFull {

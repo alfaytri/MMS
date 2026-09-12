@@ -1223,13 +1223,34 @@ export function useServicesForLinks(enabled = true) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('services')
-        .select('id, name_en, parent_id, tree_type, warranty')
+        .select('id, name_en, parent_id, tree_type, warranty, no_inventory_needed')
         .is('deleted_at', null)
         .order('sort_order', { ascending: true })
       if (error) throw error
       return (data ?? []) as ServiceNode[]
     },
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * Toggle a service's "no inventory needed" flag — lets a reviewed leaf that
+ * genuinely requires no items sit as grey (done) rather than amber (pending).
+ */
+export function useSetServiceNoInventoryNeeded() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { serviceId: string; value: boolean }>({
+    mutationFn: async ({ serviceId, value }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('services')
+        .update({ no_inventory_needed: value })
+        .eq('id', serviceId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.servicesForLinks })
+    },
   })
 }
 
@@ -1286,6 +1307,34 @@ export function useAddServiceInventoryLink() {
       const { error } = await supabase
         .from('service_inventory')
         .insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.serviceLinksAll })
+    },
+  })
+}
+
+/** Insert several variant links onto ONE service in a single round-trip. */
+export function useAddServiceInventoryLinksBatch() {
+  const qc = useQueryClient()
+  return useMutation<
+    void,
+    Error,
+    Array<{
+      service_id: string
+      brand_variant_id: string
+      link_type: LinkType
+      quantity: number
+      warranty_months: number
+      group_label?: string | null
+      is_default?: boolean
+    }>
+  >({
+    mutationFn: async (rows) => {
+      if (rows.length === 0) return
+      const supabase = createClient()
+      const { error } = await supabase.from('service_inventory').insert(rows)
       if (error) throw error
     },
     onSuccess: () => {

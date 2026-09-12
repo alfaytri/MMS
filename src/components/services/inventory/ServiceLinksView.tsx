@@ -62,6 +62,17 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
     [allLinks, leafIdSet],
   )
 
+  // Leaves explicitly marked as needing no inventory (reviewed → grey, not amber)
+  const noItemsSet = useMemo(
+    () =>
+      new Set(
+        allServices
+          .filter(s => s.no_inventory_needed && leafIdSet.has(s.id))
+          .map(s => s.id),
+      ),
+    [allServices, leafIdSet],
+  )
+
   const _linkedCount = hasSupplySet.size
 
   const rightPanelMode: 'zero' | 'single' | 'bulk' =
@@ -106,6 +117,7 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
           leafIdSet={leafIdSet}
           breadcrumbMap={breadcrumbs}
           hasSupplySet={hasSupplySet}
+          noItemsSet={noItemsSet}
           activeId={activeId}
           checkedIds={checkedIds}
           onActivate={setActiveId}
@@ -139,6 +151,7 @@ export function ServiceLinksView({ enabled }: { enabled: boolean }) {
               breadcrumb={breadcrumbs.get(activeService.id) ?? ''}
               links={activeLinks}
               warranty={activeService.warranty ?? null}
+              noInventoryNeeded={activeService.no_inventory_needed ?? false}
               onClose={() => setActiveId(null)}
             />
           )}
