@@ -3,14 +3,16 @@
 import { useState } from 'react'
 import { ItemsListView } from './inventory/ItemsListView'
 import { ToolsAssetsView } from './inventory/ToolsAssetsView'
+import { ServiceLinksView } from './inventory/ServiceLinksView'
 
-type SubTab = 'products' | 'spare-parts' | 'consumables' | 'tools'
+type SubTab = 'products' | 'spare-parts' | 'consumables' | 'tools' | 'service-links'
 
 const TABS: { key: SubTab; label: string }[] = [
   { key: 'products', label: 'Products (Installation)' },
   { key: 'spare-parts', label: 'Spare Parts (Sales)' },
   { key: 'consumables', label: 'Consumables (Internal)' },
   { key: 'tools', label: 'Tools & Assets' },
+  { key: 'service-links', label: 'Service Links' },
 ]
 
 interface InventoryTabProps {
@@ -55,6 +57,9 @@ export function InventoryTab({ enabled }: InventoryTabProps) {
         )}
         {activeTab === 'tools' && (
           <ToolsAssetsView enabled={enabled} />
+        )}
+        {activeTab === 'service-links' && (
+          <ServiceLinksView enabled={enabled} />
         )}
       </div>
     </div>
