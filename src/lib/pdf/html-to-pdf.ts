@@ -57,10 +57,21 @@ function findLocalChromiumExecutable(): string {
 
 export async function launchPdfBrowser(): Promise<Browser> {
   if (isServerlessEnv()) {
-    const chromium = (await import('@sparticuz/chromium')).default
+    // chromium-min ships WITHOUT the ~67 MB Chromium binary, so each serverless
+    // function bundle stays tiny (keeps Vercel Functions Storage from ballooning
+    // across deployments). The binary is fetched once per cold start from the
+    // brotli pack below and cached in /tmp for warm invocations.
+    //
+    // Self-hosted on Supabase Storage (public "assets" bucket). The pack URL MUST
+    // match the installed @sparticuz/chromium-min version (149.0.0); override
+    // CHROMIUM_PACK_URL when this build gets its own env/host, or if the version bumps.
+    const chromium = (await import('@sparticuz/chromium-min')).default
+    const packUrl =
+      process.env.CHROMIUM_PACK_URL ??
+      'https://optishfnnctrhffpoywg.supabase.co/storage/v1/object/public/assets/chromium-v149.0.0-pack.x64.tar'
     return puppeteer.launch({
       args:           chromium.args,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(packUrl),
       headless:       true,
     })
   }
