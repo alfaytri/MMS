@@ -26,7 +26,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@sentry/nextjs": "^10.70.0",
-    "@sparticuz/chromium": "^149.0.0",
+    "@sparticuz/chromium-min": "149.0.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.2",
     "@tanstack/react-query": "^5.99.0",
