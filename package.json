@@ -2,6 +2,13 @@
   "name": "mms",
   "version": "0.1.0",
   "private": true,
+  "allowScripts": {
+    "@sentry/cli@2.58.6": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.11.1": true,
+    "core-js@3.49.0": false,
+    "msw@2.13.3": false
+  },
   "scripts": {
     "dev": "next dev",
     "tunnel": "\"C:\\Users\\IT\\AppData\\Local\\Microsoft\\WinGet\\Links\\ngrok.exe\" http --domain=freight-tinsmith-flashcard.ngrok-free.dev 3000",
