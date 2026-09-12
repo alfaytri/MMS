@@ -1,0 +1,17 @@
+# .vercelignore — controls what `vercel deploy` (CLI) uploads.
+# Made explicit (not just the landmines) because a .vercelignore can take
+# precedence over .gitignore for CLI deploys, so secrets/deps are re-listed here.
+
+# Build artifacts & dependencies — Vercel reinstalls + rebuilds remotely
+node_modules
+.next
+
+# Local secret env files — Vercel injects env vars from the project settings
+.env*.local
+
+# Local-only QA / dev files that must NEVER ship to any environment
+src/app/api/dev-login
+src/app/api/wati/send-reaction
+skill-observations
+DESIGN.md
+docs/Inventory Counts
