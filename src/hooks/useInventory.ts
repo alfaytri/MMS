@@ -1078,6 +1078,64 @@ export function useInventoryItemsFlat(enabled = true) {
   })
 }
 
+// ─── Guarded delete (ported from warehouse; RPC migration 20261079) ───────────
+
+export function useDeleteInventoryItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_items').select('name_en').eq('id', id).maybeSingle()
+      const { error } = await supabase.rpc('rpc_delete_inventory_item' as never, { p_item_id: id } as never)
+      if (error) throw error
+      const name = (old as { name_en?: string } | null)?.name_en ?? null
+      void logActivity({
+        action: 'Item Deleted',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'item',
+        severity: 'warning',
+        old_data: { name },
+        new_data: null,
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+    },
+  })
+}
+
+export function useDeleteInventoryCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (categoryId: string) => {
+      const supabase = createClient()
+      const { data: cat } = await supabase
+        .from('inventory_categories').select('name_en').eq('id', categoryId).maybeSingle()
+      const { error } = await supabase.rpc('rpc_delete_inventory_category' as never, { p_category_id: categoryId } as never)
+      if (error) throw error
+      const catName = (cat as { name_en?: string } | null)?.name_en ?? null
+      void logActivity({
+        action: 'Category Deleted',
+        module: 'inventory',
+        entity_id: categoryId,
+        entity_type: 'category',
+        severity: 'warning',
+        old_data: { name: catName },
+        new_data: null,
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categories })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.categoriesTree })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+    },
+  })
+}
+
 // ─── Cascade archive category ─────────────────────────────────────────────────
 
 export function useArchiveInventoryCategory() {
