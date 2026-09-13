@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { useWatch, type UseFormReturn } from 'react-hook-form'
-import { Upload, X, ImageIcon } from 'lucide-react'
+import { Upload, X, ImageIcon, Check, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,10 @@ import { Label } from '@/components/ui/label'
 import {
   FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useDivisions } from '@/hooks/useDivisions'
 import type { ServiceFormValues } from './ServiceEditSections'
@@ -126,20 +131,15 @@ export function StatusSection({ form }: { form: UseFormReturn<ServiceFormValues>
     <FormField control={form.control} name="status" render={({ field }) => (
       <FormItem>
         <FormLabel>Status</FormLabel>
-        <div className="flex gap-2 mt-1.5">
-          {(['active', 'inactive'] as const).map((v) => (
-            <Button
-              key={v}
-              type="button"
-              size="sm"
-              variant={field.value === v ? 'default' : 'outline'}
-              className="h-8 text-[11px] capitalize flex-1"
-              onClick={() => field.onChange(v)}
-            >
-              {v.charAt(0).toUpperCase() + v.slice(1)}
-            </Button>
-          ))}
-        </div>
+        <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
+          <SelectTrigger className="mt-1.5 h-9 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
         <FormMessage />
       </FormItem>
     )} />
@@ -156,6 +156,7 @@ interface DivisionSectionProps {
 
 export function DivisionSection({ form, mode, hasParent }: DivisionSectionProps) {
   const { data: divisions = [] } = useDivisions()
+  const [open, setOpen] = useState(false)
   const inherited = mode === 'new' && hasParent
   const selected = (useWatch({ control: form.control, name: 'division' }) ?? []) as string[]
 
@@ -167,28 +168,53 @@ export function DivisionSection({ form, mode, hasParent }: DivisionSectionProps)
     form.setValue('division', next, { shouldDirty: true, shouldValidate: true })
   }
 
+  const selectedLabels = divisions
+    .filter((d) => selected.includes(d.slug))
+    .map((d) => d.short_name ?? d.name)
+
   return (
     <FormField control={form.control} name="division" render={() => (
-      <FormItem>
+      <FormItem className="flex flex-col">
         <FormLabel>Division <span className="text-destructive">*</span></FormLabel>
-        <div className="flex flex-wrap gap-1.5 mt-1.5">
-          {divisions.map((d) => (
-            <button
-              key={d.slug}
-              type="button"
-              disabled={inherited}
-              onClick={() => toggle(d.slug)}
-              className={cn(
-                'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] border transition-colors',
-                selected.includes(d.slug)
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-transparent text-foreground hover:bg-muted',
-              )}
-            >
-              {d.short_name ?? d.name}
-            </button>
-          ))}
-        </div>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            disabled={inherited}
+            className="mt-1.5 inline-flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm font-normal shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            render={(props) => (
+              <button type="button" role="combobox" aria-expanded={open} {...props} />
+            )}
+          >
+            <span className={cn('truncate', selectedLabels.length === 0 && 'text-muted-foreground')}>
+              {selectedLabels.length > 0 ? selectedLabels.join(', ') : 'Select divisions'}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 p-1">
+            {divisions.length === 0 ? (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">No divisions</p>
+            ) : (
+              divisions.map((d) => {
+                const isSel = selected.includes(d.slug)
+                return (
+                  <button
+                    key={d.slug}
+                    type="button"
+                    onClick={() => toggle(d.slug)}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                  >
+                    <span className={cn(
+                      'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                      isSel ? 'border-primary bg-primary' : 'border-input',
+                    )}>
+                      {isSel && <Check className="h-3 w-3 text-primary-foreground" />}
+                    </span>
+                    {d.short_name ?? d.name}
+                  </button>
+                )
+              })
+            )}
+          </PopoverContent>
+        </Popover>
         {inherited && (
           <p className="text-[11px] text-muted-foreground mt-1">Inherited from parent service</p>
         )}

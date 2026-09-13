@@ -17,6 +17,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
 import { Form } from '@/components/ui/form'
@@ -170,7 +173,6 @@ export function ServiceEditDialog({
         photo_requirement: type !== 'contract' ? values.photo_requirement : null,
         instructions: false,
         reminder_days: values.has_reminders ? values.reminder_days : null,
-        inventory_items: values.has_inventory ? (values.inventory_items_list as ServiceFormValues['inventory_items_list']) : null,
         qc_checklist: type !== 'contract' ? values.qc_checklist : null,
         spare_parts: type !== 'contract' ? values.spare_parts : null,
         service_type: type !== 'contract' ? values.service_type : null,
@@ -224,41 +226,27 @@ export function ServiceEditDialog({
               <fieldset disabled={readOnly} className={cn(readOnly && 'opacity-70 pointer-events-none')}>
 
                 <div className="space-y-5">
-                  {/* Node type toggle */}
+                  {/* Node type */}
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Node Type</label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={isCategory ? 'default' : 'outline'}
-                        className={cn(
-                          'h-9 text-xs flex-1 gap-1.5',
-                          isCategory
-                            ? 'bg-slate-700 text-white border-slate-700 hover:bg-slate-800'
-                            : 'border-border text-muted-foreground hover:bg-muted',
-                        )}
-                        onClick={() => setIsCategory(true)}
-                      >
-                        <FolderOpen className="h-3.5 w-3.5" />
-                        Category / Heading
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={!isCategory ? 'default' : 'outline'}
-                        className={cn(
-                          'h-9 text-xs flex-1 gap-1.5',
-                          !isCategory
-                            ? 'bg-primary text-white border-primary hover:bg-primary/90'
-                            : 'border-border text-muted-foreground hover:bg-muted',
-                        )}
-                        onClick={() => setIsCategory(false)}
-                      >
-                        <Wrench className="h-3.5 w-3.5" />
-                        Service Item
-                      </Button>
-                    </div>
+                    <Select
+                      value={isCategory ? 'category' : 'service'}
+                      onValueChange={(v) => setIsCategory(v === 'category')}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="service">
+                          <Wrench className="h-3.5 w-3.5" />
+                          Service Item
+                        </SelectItem>
+                        <SelectItem value="category">
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          Category / Heading
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                     {isCategory && (
                       <p className="text-[11px] text-muted-foreground">
                         Categories are headings that group child services. Pricing and detail fields are hidden.

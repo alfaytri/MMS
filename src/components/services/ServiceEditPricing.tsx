@@ -7,6 +7,9 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { ServiceFormValues } from './ServiceEditSections'
 
@@ -233,6 +236,17 @@ export function PricingSection({ form, type }: PricingSectionProps) {
 
 // ─── Duration & Warranty ───────────────────────────────────────────────────────
 
+// Duration presets — 30-min steps up to 5 hours. Stored value stays in minutes.
+const DURATION_STEPS = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300]
+
+function formatDuration(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h === 0) return `${m}min`
+  if (m === 0) return `${h}hr`
+  return `${h}:${String(m).padStart(2, '0')}hr`
+}
+
 export function DurationWarrantySection({ form }: { form: UseFormReturn<ServiceFormValues> }) {
   return (
     <div className="space-y-3">
@@ -240,18 +254,32 @@ export function DurationWarrantySection({ form }: { form: UseFormReturn<ServiceF
         Duration &amp; Warranty
       </h4>
       <div className="grid grid-cols-2 gap-3">
-        <FormField control={form.control} name="duration" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Duration (minutes)</FormLabel>
-            <FormControl>
-              <Input
-                type="number" {...field}
-                value={field.value ?? ''}
-                onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)}
-              />
-            </FormControl>
-          </FormItem>
-        )} />
+        <FormField control={form.control} name="duration" render={({ field }) => {
+          const current = field.value ?? null
+          // Keep any off-grid legacy value selectable so editing never loses it
+          const steps = current != null && !DURATION_STEPS.includes(current)
+            ? [current, ...DURATION_STEPS].sort((a, b) => a - b)
+            : DURATION_STEPS
+          return (
+            <FormItem>
+              <FormLabel>Duration</FormLabel>
+              <Select
+                value={current == null ? 'none' : String(current)}
+                onValueChange={(v) => field.onChange(v === 'none' ? null : Number(v))}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Not set" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not set</SelectItem>
+                  {steps.map((min) => (
+                    <SelectItem key={min} value={String(min)}>{formatDuration(min)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )
+        }} />
         <FormField control={form.control} name="warranty" render={({ field }) => (
           <FormItem>
             <FormLabel>Warranty (months)</FormLabel>

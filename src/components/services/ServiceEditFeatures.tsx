@@ -208,15 +208,10 @@ export function FeatureFieldsSection({
   treeData = [],
   currentServiceId,
 }: FeatureFieldsSectionProps) {
-  const { fields: inventoryFields, append: appendItem, remove: removeItem } = useFieldArray({
-    control: form.control,
-    name: 'inventory_items_list',
-  })
   const { fields: qcFields, append: appendQc, remove: removeQc } = useFieldArray({
     control: form.control,
     name: 'qc_items',
   })
-  const hasInventory = useWatch({ control: form.control, name: 'has_inventory' })
   const hasReminders = useWatch({ control: form.control, name: 'has_reminders' })
   const serviceType = useWatch({ control: form.control, name: 'service_type' })
   const componentEntries = (useWatch({ control: form.control, name: 'component_service_ids' }) ?? []) as ComponentEntry[]
@@ -253,44 +248,6 @@ export function FeatureFieldsSection({
           <FormControl><Switch checked={field.value ?? false} onCheckedChange={field.onChange} /></FormControl>
         </FormItem>
       )} />
-
-      {/* Inventory */}
-      <div className="space-y-2">
-        <FormField control={form.control} name="has_inventory" render={({ field }) => (
-          <FormItem className="flex items-center justify-between">
-            <FormLabel className="text-sm font-normal">Inventory Items</FormLabel>
-            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-          </FormItem>
-        )} />
-        {hasInventory && (
-          <div className="ml-4 space-y-2 border-l-2 border-border pl-3">
-            {inventoryFields.map((f, idx) => (
-              <div key={f.id} className="flex gap-2 items-end">
-                <FormField control={form.control} name={`inventory_items_list.${idx}.name`} render={({ field }) => (
-                  <FormItem className="flex-1">
-                    {idx === 0 && <FormLabel className="text-xs">Item Name</FormLabel>}
-                    <FormControl><Input className="h-8 text-xs" {...field} /></FormControl>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={`inventory_items_list.${idx}.qty`} render={({ field }) => (
-                  <FormItem className="w-20">
-                    {idx === 0 && <FormLabel className="text-xs">Qty</FormLabel>}
-                    <FormControl><Input type="number" className="h-8 text-xs" {...field} /></FormControl>
-                  </FormItem>
-                )} />
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8"
-                  onClick={() => removeItem(idx)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" className="h-7 text-[11px] gap-1"
-              onClick={() => appendItem({ name: '', qty: 1 })}>
-              <Plus className="h-3 w-3" />Add Item
-            </Button>
-          </div>
-        )}
-      </div>
 
       {/* Reminders */}
       <div className="space-y-2">

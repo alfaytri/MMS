@@ -33,10 +33,6 @@ export const serviceSchema = z.object({
   // Photo requirement
   photo_requirement: z.enum(['none', 'before', 'after', 'both', 'optional']),
   // Feature toggles
-  has_inventory: z.boolean(),
-  inventory_items_list: z.array(
-    z.object({ name: z.string().min(1), qty: z.coerce.number().min(0) }),
-  ),
   has_reminders: z.boolean(),
   reminder_days: z.coerce.number().nullable(),
   qc_checklist: z.boolean(),
@@ -81,12 +77,6 @@ export function toDefaults(
     invoice_text_en: node?.invoice_text_en ?? null,
     invoice_text_ar: node?.invoice_text_ar ?? null,
     photo_requirement: (node?.photo_requirement as ServiceFormValues['photo_requirement']) ?? 'none',
-    has_inventory: Array.isArray(node?.inventory_items)
-      ? (node.inventory_items as unknown[]).length > 0
-      : !!node?.inventory_items,
-    inventory_items_list: Array.isArray(node?.inventory_items)
-      ? (node.inventory_items as Array<{ name: string; qty: number }>)
-      : [],
     has_reminders: node?.reminder_days != null,
     reminder_days: node?.reminder_days ?? null,
     qc_checklist: node?.qc_checklist ?? false,
