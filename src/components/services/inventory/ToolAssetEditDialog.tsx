@@ -8,6 +8,9 @@ import { GuardedDialog, type GuardedFormDialogHandle } from '@/components/shared
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Users, ChevronDown, ChevronRight } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BrandCombobox } from './BrandCombobox'
 import {
@@ -18,6 +21,8 @@ import {
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
 import { useBrands } from '@/hooks/useBrands'
+import { useItemEffectiveDivisions, useSetItemDivisions } from '@/hooks/useItemDivisions'
+import { computeDivisionRows } from '@/lib/inventory/divisionRows'
 import { useDivisions, useAllDivisions, type Division } from '@/hooks/useDivisions'
 
 type ItemProps = {
@@ -38,29 +43,79 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId, 
   const [nameAr, setNameAr] = useState('')
   const guardRef = useRef<GuardedFormDialogHandle>(null)
 
+  // Item-level division assignment — the same control normal items + bulk tools
+  // have (ItemEditDialog). Serialized tools also pick up divisions from their
+  // units; this lets you assign one directly (so it shows in a division even
+  // with no units yet).
+  const { data: divisions = [] } = useDivisions()
+  const { data: effDivs } = useItemEffectiveDivisions(open ? (item?.id ?? null) : null)
+  const setItemDivisions = useSetItemDivisions()
+  const [assignedDivisionIds, setAssignedDivisionIds] = useState<string[]>([])
+  const [assignOpen, setAssignOpen] = useState(true)
+
   useEffect(() => {
     if (open) { setNameEn(item?.name_en ?? ''); setNameAr(item?.name_ar ?? '') }
   }, [open, item])
 
+  // Seed the explicit division set ONCE per open so a later refetch doesn't
+  // clobber in-progress ticks. Inherited (category) divisions render locked and
+  // never enter this array.
+  const assignedSeededRef = useRef(false)
+  useEffect(() => {
+    if (!open) { assignedSeededRef.current = false; return }
+    if (assignedSeededRef.current) return
+    if (effDivs !== undefined) {
+      setAssignedDivisionIds(effDivs.explicit)
+      assignedSeededRef.current = true
+    } else if (!item) {
+      setAssignedDivisionIds([])
+      assignedSeededRef.current = true
+    }
+  }, [open, effDivs, item])
+
+  const divisionsChanged =
+    JSON.stringify(assignedDivisionIds.slice().sort()) !==
+    JSON.stringify((effDivs?.explicit ?? []).slice().sort())
+
   const isDirty =
     nameEn !== (item?.name_en ?? '') ||
-    nameAr !== (item?.name_ar ?? '')
+    nameAr !== (item?.name_ar ?? '') ||
+    (isEdit ? (effDivs !== undefined && divisionsChanged) : assignedDivisionIds.length > 0)
 
-  function handleSave(e: React.FormEvent) {
+  const divisionRows = computeDivisionRows(divisions.map((d) => d.id), {
+    editableIds: assignedDivisionIds,
+    lockedIds: effDivs?.inherited ?? [],
+  })
+  const checkedDivisionCount = divisionRows.filter((row) => row.checked).length
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!nameEn.trim()) { toast.error('Name (EN) is required'); return }
     const payload = { name_en: nameEn.trim(), name_ar: nameAr.trim() || null }
-    if (isEdit && item) {
-      update.mutate({ id: item.id, ...payload }, {
-        onSuccess: () => { toast.success('Tool updated'); guardRef.current?.closeAfterSubmit() },
-        onError: (err) => toast.error(humanizeDbError(err)),
-      })
-    } else {
-      if (!categoryId) { toast.error('Category is required to create a tool'); return }
-      create.mutate({ ...payload, category_id: categoryId, tool_tracking_mode: trackingMode ?? null }, {
-        onSuccess: () => { toast.success('Tool created'); guardRef.current?.closeAfterSubmit() },
-        onError: (err) => toast.error(humanizeDbError(err)),
-      })
+    try {
+      let itemId: string
+      if (isEdit && item) {
+        await update.mutateAsync({ id: item.id, ...payload })
+        itemId = item.id
+      } else {
+        if (!categoryId) { toast.error('Category is required to create a tool'); return }
+        itemId = await create.mutateAsync({
+          ...payload, category_id: categoryId, tool_tracking_mode: trackingMode ?? null,
+        })
+      }
+      // Persist explicit division assignments (same rule as ItemEditDialog): on
+      // edit only when changed + loaded; on create whatever was picked.
+      if (isEdit && item) {
+        if (effDivs !== undefined && divisionsChanged) {
+          await setItemDivisions.mutateAsync({ itemId, divisionIds: assignedDivisionIds })
+        }
+      } else if (assignedDivisionIds.length > 0) {
+        await setItemDivisions.mutateAsync({ itemId, divisionIds: assignedDivisionIds })
+      }
+      toast.success(isEdit ? 'Tool updated' : 'Tool created')
+      guardRef.current?.closeAfterSubmit()
+    } catch (err) {
+      toast.error(humanizeDbError(err))
     }
   }
 
@@ -78,11 +133,76 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId, 
               <Label htmlFor="tool-name-ar">Name (Arabic)</Label>
               <Input id="tool-name-ar" value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" className="h-10" />
             </div>
+
+            {/* Assigned divisions */}
+            <div className="rounded-md border border-dashed border-border">
+              <button
+                type="button"
+                onClick={() => setAssignOpen((v) => !v)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors rounded-md"
+              >
+                {assignOpen
+                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium">Assigned divisions</span>
+                {checkedDivisionCount > 0 && (
+                  <Badge variant="outline" className="ml-auto text-[10px] h-4 px-1.5">
+                    Assigned to {checkedDivisionCount}
+                  </Badge>
+                )}
+              </button>
+              {assignOpen && (
+                <div className="px-3 pb-3 pt-1 space-y-2">
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Divisions that hold and work with this tool. Assign at least one so it shows in that division&apos;s filter — serialized tools also pick up divisions from their units.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {divisionRows.map((row) => {
+                      const div = divisions.find((d) => d.id === row.id)
+                      if (!div) return null
+                      return (
+                        <label
+                          key={row.id}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-md border border-transparent min-h-9 ${
+                            row.locked ? 'opacity-70' : 'hover:border-border hover:bg-muted/30 cursor-pointer'
+                          }`}
+                        >
+                          <Checkbox
+                            checked={row.checked}
+                            disabled={row.locked}
+                            onCheckedChange={(v) => {
+                              setAssignedDivisionIds((cur) =>
+                                v ? [...cur, row.id] : cur.filter((id) => id !== row.id),
+                              )
+                            }}
+                          />
+                          <span className="text-xs flex-1 truncate">
+                            {div.name}
+                            {div.short_name && (
+                              <span className="text-[10px] text-muted-foreground"> · {div.short_name}</span>
+                            )}
+                            {row.locked && (
+                              <span className="text-[10px] text-muted-foreground"> · from category</span>
+                            )}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {!divisionRows.some((row) => row.checked) && (
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Not assigned to any division yet.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter className="pt-4 mt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={() => guardRef.current?.requestClose()}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending || update.isPending}>
-              {create.isPending || update.isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create'}
+            <Button type="submit" disabled={create.isPending || update.isPending || setItemDivisions.isPending}>
+              {create.isPending || update.isPending || setItemDivisions.isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create'}
             </Button>
           </DialogFooter>
         </form>
