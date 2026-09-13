@@ -2,10 +2,12 @@
 
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowRightLeft, ChevronRight, ChevronDown, Eye, Pencil, Archive, Package, Plus, FolderPlus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { InventoryRemoveDialog } from './InventoryRemoveDialog'
 import { CategoryEditDialog } from './CategoryEditDialog'
 import { ItemEditDialog } from './ItemEditDialog'
 import { ToolAssetItemEditDialog, ToolAssetUnitEditDialog } from './ToolAssetEditDialog'
@@ -17,7 +19,8 @@ import { useToolPerDivisionModes, type ToolDivisionMode } from '@/hooks/useToolP
 import { BulkToolStockProvider, type BulkToolStockBatch } from '@/components/shared/BulkToolStockContext'
 import { useBulkToolStockBatch } from '@/hooks/useBulkToolStockBatch'
 import {
-  useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory, useUpdateSortOrders,
+  useInventoryItemsByCategory, useToolAssetUnits, useArchiveInventoryCategory,
+  useDeleteInventoryCategory, useDeleteInventoryItem, useUpdateSortOrders,
   useAutoGenerateToolSerials,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
@@ -178,6 +181,8 @@ function ToolUnitRows({ itemId, itemSku }: { itemId: string; itemSku?: string | 
 function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const deleteItem = useDeleteInventoryItem()
 
   // Serial-unit count for the INFO column (bulk tools show on-hand qty; a
   // serialized tool's "quantity" is how many physical units are tracked).
@@ -219,11 +224,29 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
             <Button variant="ghost" size="icon" aria-label="Edit tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
             </Button>
+            <Button variant="ghost" size="icon" aria-label="Delete tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </td>
       </tr>
       {expanded && <ToolUnitRows itemId={item.id} itemSku={item.sku} />}
       <ToolAssetItemEditDialog open={editOpen} onOpenChange={setEditOpen} item={item} />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="item"
+        name={item.name_en}
+        blockingUnits={0}
+        isPending={deleteItem.isPending}
+        onConfirm={() =>
+          deleteItem.mutate(item.id, {
+            onSuccess: () => { toast.success('Tool deleted'); setDeleteOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
     </>
   )
 }
@@ -235,6 +258,8 @@ function ToolItemRow({ item, depth }: { item: InventoryItem; depth: number }) {
 function PerDivisionToolItemRow({ item, depth, divisions }: { item: InventoryItem; depth: number; divisions: ToolDivisionMode[] }) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const deleteItem = useDeleteInventoryItem()
   const indent = 12 + (depth + 1) * 20
   const stockLabel = (d: ToolDivisionMode) =>
     d.effective_mode === 'bulk'
@@ -271,6 +296,9 @@ function PerDivisionToolItemRow({ item, depth, divisions }: { item: InventoryIte
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" aria-label="Edit tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Delete tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-3 w-3" />
             </Button>
           </div>
         </td>
@@ -315,6 +343,21 @@ function PerDivisionToolItemRow({ item, depth, divisions }: { item: InventoryIte
         </>
       )}
       <ItemEditDialog open={editOpen} onOpenChange={setEditOpen} categoryId={item.category_id} categoryType="tools" item={item} />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="item"
+        name={item.name_en}
+        blockingUnits={0}
+        isPending={deleteItem.isPending}
+        onConfirm={() =>
+          deleteItem.mutate(item.id, {
+            onSuccess: () => { toast.success('Tool deleted'); setDeleteOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
     </>
   )
 }
@@ -340,6 +383,11 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   const [editOpen, setEditOpen] = useState(false)
   const [dialogReadOnly, setDialogReadOnly] = useState(false)
   const [addItemOpen, setAddItemOpen] = useState(false)
+  // Which mode the "+ Add Tool" chooser will create (default = category mode).
+  const [addMode, setAddMode] = useState<'bulk' | 'serialized'>(
+    node.tool_tracking_mode === 'bulk' ? 'bulk' : 'serialized',
+  )
+  const [addChooserOpen, setAddChooserOpen] = useState(false)
   // Brief highlight on reorder (transition-based, see CategoryRow).
   const [flashing, setFlashing] = useState(false)
   function flashMove(fn: () => void) {
@@ -349,7 +397,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
   }
   const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const archiveCategory = useArchiveInventoryCategory()
+  const deleteCategory = useDeleteInventoryCategory()
   const updateChildCategoryOrder = useUpdateSortOrders('inventory_categories')
 
   const isLeaf = node.children.length === 0
@@ -364,11 +414,30 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
     [toolItems, filterItemIds],
   )
 
-  // Batched variants + on-hand for bulk-tool rows — one variants query + one
-  // stock query per expanded bulk category, replacing BulkToolItemRow's per-row
-  // N+1. Distributed via BulkToolStockProvider (only the bulk branch below).
-  const isBulk = node.tool_tracking_mode === 'bulk'
-  const bulkItemIds = useMemo(() => (isBulk ? visibleItems.map((i) => i.id) : []), [isBulk, visibleItems])
+  // Per-(item,division) mode overrides for this category's items (Phase 2).
+  // Items present here have a per-division mode split and render ONCE via
+  // PerDivisionToolItemRow; all others use the normal path below (which now
+  // honours each item's own tracking mode, so ONE category can mix bulk and
+  // serialized tools).
+  const { data: perDivModes } = useToolPerDivisionModes(expanded ? node.id : null)
+
+  const categoryMode: 'bulk' | 'serialized' = node.tool_tracking_mode === 'bulk' ? 'bulk' : 'serialized'
+  // Effective mode of a regular item = its own item-level override, else the
+  // category default.
+  const effectiveMode = (it: InventoryItem): 'bulk' | 'serialized' =>
+    ((it.tool_tracking_mode as 'bulk' | 'serialized' | null) ?? categoryMode)
+
+  // Batched variants + on-hand for the bulk tool rows — one variants query +
+  // one stock query for all of them (N+1 fix). Keyed off each item's effective
+  // mode so a bulk tool inside a serialized category is still batched.
+  const bulkItemIds = useMemo(
+    () =>
+      visibleItems
+        .filter((it) => !perDivModes?.has(it.id) && effectiveMode(it) === 'bulk')
+        .map((it) => it.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleItems, perDivModes, categoryMode],
+  )
   const { data: bulkStock } = useBulkToolStockBatch(expanded ? bulkItemIds : [], showArchived)
   const bulkStockValue = useMemo<BulkToolStockBatch>(
     () => ({
@@ -377,11 +446,6 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
     }),
     [bulkStock],
   )
-
-  // Per-(item,division) mode overrides for this category's items (Phase 2).
-  // Items present here have a per-division mode split and render ONCE via
-  // PerDivisionToolItemRow; all others use the normal category-mode path below.
-  const { data: perDivModes } = useToolPerDivisionModes(expanded ? node.id : null)
 
   const indent = 12 + depth * 20
   const depthStyle = categoryDepthStyle(depth)
@@ -441,9 +505,29 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
             <Button variant="ghost" size="icon" aria-label="Add subcategory" className="h-6 w-6 hidden sm:inline-flex" title="Add Subcategory" onClick={() => setAddSubcategoryOpen(true)}>
               <FolderPlus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Add tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Tool/Asset" onClick={() => setAddItemOpen(true)}>
-              <Plus className="h-3 w-3" />
-            </Button>
+            <Popover open={addChooserOpen} onOpenChange={setAddChooserOpen}>
+              <PopoverTrigger
+                render={(props) => (
+                  <Button variant="ghost" size="icon" aria-label="Add tool/asset" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="Add Tool/Asset" {...props}>
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
+              />
+              <PopoverContent align="end" className="w-44 p-1">
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Add tool as</p>
+                {(['serialized', 'bulk'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => { setAddMode(m); setAddChooserOpen(false); setAddItemOpen(true) }}
+                    className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+                  >
+                    <span className="capitalize">{m}</span>
+                    {m === categoryMode && <span className="text-[10px] text-muted-foreground">default</span>}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
             <Button variant="ghost" size="icon" aria-label="View category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0" title="View" onClick={() => { setDialogReadOnly(true); setEditOpen(true) }}>
               <Eye className="h-3 w-3" />
             </Button>
@@ -452,6 +536,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
             </Button>
             <Button variant="ghost" size="icon" aria-label="Archive category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)}>
               <Archive className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Delete category" className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-3 w-3" />
             </Button>
           </div>
         </td>
@@ -477,18 +564,20 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         // category-mode path (bulk qty rows or serialized unit rows).
         const perDivItems = perDivModes ? visibleItems.filter((it) => perDivModes.has(it.id)) : []
         const regularItems = perDivModes ? visibleItems.filter((it) => !perDivModes.has(it.id)) : visibleItems
+        // Split by each item's effective mode so one category can show both.
+        const bulkRegular = regularItems.filter((it) => effectiveMode(it) === 'bulk')
+        const serializedRegular = regularItems.filter((it) => effectiveMode(it) === 'serialized')
         return (
           <>
             {perDivItems.map((item) => (
               <PerDivisionToolItemRow key={item.id} item={item} depth={depth} divisions={perDivModes!.get(item.id)!} />
             ))}
-            {isBulk
-              ? (
-                <BulkToolStockProvider value={bulkStockValue}>
-                  {regularItems.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
-                </BulkToolStockProvider>
-              )
-              : regularItems.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)}
+            {bulkRegular.length > 0 && (
+              <BulkToolStockProvider value={bulkStockValue}>
+                {bulkRegular.map((item) => <BulkToolItemRow key={item.id} item={item} depth={depth} showArchived={showArchived} />)}
+              </BulkToolStockProvider>
+            )}
+            {serializedRegular.map((item) => <ToolItemRow key={item.id} item={item} depth={depth} />)}
           </>
         )
       })()}
@@ -503,9 +592,9 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
 
       <CategoryEditDialog open={editOpen} onOpenChange={setEditOpen} categoryType="tools" category={node} readOnly={dialogReadOnly} />
       <CategoryEditDialog open={addSubcategoryOpen} onOpenChange={setAddSubcategoryOpen} categoryType="tools" parentId={node.id} />
-      {node.tool_tracking_mode === 'bulk'
-        ? <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType="tools" />
-        : <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} />}
+      {addMode === 'bulk'
+        ? <ItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} categoryType="tools" trackingMode={addMode !== categoryMode ? addMode : null} />
+        : <ToolAssetItemEditDialog open={addItemOpen} onOpenChange={setAddItemOpen} categoryId={node.id} trackingMode={addMode !== categoryMode ? addMode : null} />}
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
@@ -516,6 +605,21 @@ export function ToolCategoryRow({ node, showArchived, canMoveUp, canMoveDown, on
         onConfirm={() =>
           archiveCategory.mutate(node.id, {
             onSuccess: () => { toast.success('Category archived'); setArchiveOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="category"
+        name={node.name_en}
+        blockingUnits={0}
+        isPending={deleteCategory.isPending}
+        onConfirm={() =>
+          deleteCategory.mutate(node.id, {
+            onSuccess: () => { toast.success('Category deleted'); setDeleteOpen(false) },
             onError: (err) => toast.error(humanizeDbError(err)),
           })
         }

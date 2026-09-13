@@ -4436,6 +4436,7 @@ export type Database = {
           sort_order: number
           specification: string | null
           status: string
+          tool_tracking_mode: Database["public"]["Enums"]["tool_tracking_mode"] | null
           total_stock: number | null
           unit: string
           updated_at: string | null
@@ -4458,6 +4459,7 @@ export type Database = {
           sort_order?: number
           specification?: string | null
           status?: string
+          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"] | null
           total_stock?: number | null
           unit: string
           updated_at?: string | null
@@ -4480,6 +4482,7 @@ export type Database = {
           sort_order?: number
           specification?: string | null
           status?: string
+          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"] | null
           total_stock?: number | null
           unit?: string
           updated_at?: string | null
