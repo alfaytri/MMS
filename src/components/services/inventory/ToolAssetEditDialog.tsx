@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { BrandCombobox } from './BrandCombobox'
 import {
   useCreateToolItem, useUpdateInventoryItem,
   useCreateToolAssetUnit, useUpdateToolAssetUnit,
@@ -16,6 +17,7 @@ import {
   useStaffProfiles,
   type InventoryItem, type ToolAssetUnit,
 } from '@/hooks/useInventory'
+import { useBrands } from '@/hooks/useBrands'
 import { useDivisions, useAllDivisions, type Division } from '@/hooks/useDivisions'
 
 type ItemProps = {
@@ -23,9 +25,12 @@ type ItemProps = {
   onOpenChange: (v: boolean) => void
   item?: InventoryItem | null
   categoryId?: string | null
+  /** Item-level tracking mode to stamp on the new tool (lets it differ from
+   *  its category). Omit / null = inherit the category default. */
+  trackingMode?: 'bulk' | 'serialized' | null
 }
 
-export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }: ItemProps) {
+export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId, trackingMode }: ItemProps) {
   const isEdit = !!item
   const create = useCreateToolItem()
   const update = useUpdateInventoryItem()
@@ -52,7 +57,7 @@ export function ToolAssetItemEditDialog({ open, onOpenChange, item, categoryId }
       })
     } else {
       if (!categoryId) { toast.error('Category is required to create a tool'); return }
-      create.mutate({ ...payload, category_id: categoryId }, {
+      create.mutate({ ...payload, category_id: categoryId, tool_tracking_mode: trackingMode ?? null }, {
         onSuccess: () => { toast.success('Tool created'); guardRef.current?.closeAfterSubmit() },
         onError: (err) => toast.error(humanizeDbError(err)),
       })
@@ -119,6 +124,7 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
   const { data: staffProfiles = [] } = useStaffProfiles()
   const { data: divisions = [] } = useDivisions()
   const { data: allDivisions = [] } = useAllDivisions()
+  const { data: brands = [] } = useBrands()
   const { data: existingUnits = [] } = useToolAssetUnits(!isEdit && open ? itemId : null)
   const [serial, setSerial] = useState('')
   const [brand, setBrand] = useState('')
@@ -218,7 +224,12 @@ export function ToolAssetUnitEditDialog({ open, onOpenChange, itemId, itemSku, u
             </div>
             <div className="space-y-1">
               <Label htmlFor="tool-brand">Brand *</Label>
-              <Input id="tool-brand" value={brand} onChange={(e) => setBrand(e.target.value)} className="h-10" />
+              <BrandCombobox
+                id="tool-brand"
+                value={brands.find((b) => b.name === brand)?.id ?? null}
+                onChange={(b) => setBrand(b?.name ?? '')}
+                allowNone={false}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="tool-unit-cost">Unit Cost (QAR)</Label>

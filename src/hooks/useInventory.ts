@@ -191,7 +191,12 @@ export function useItemTeamItemContext(categoryId: string | null, itemId: string
 export function useCreateToolItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { name_en: string; name_ar?: string | null; category_id: string }) => {
+    mutationFn: async (payload: {
+      name_en: string
+      name_ar?: string | null
+      category_id: string
+      tool_tracking_mode?: 'bulk' | 'serialized' | null
+    }) => {
       const supabase = createClient()
       const { data, error } = await supabase.rpc('create_tool_item_with_default_variant', {
         p_name_en:     payload.name_en,
@@ -200,6 +205,15 @@ export function useCreateToolItem() {
       })
       if (error) throw error
       const newItemId = data as unknown as string
+      // Item-level mode override (NULL = inherit category); only set when the
+      // caller chose a mode that differs from the category default.
+      if (payload.tool_tracking_mode) {
+        const { error: modeErr } = await supabase
+          .from('inventory_items')
+          .update({ tool_tracking_mode: payload.tool_tracking_mode })
+          .eq('id', newItemId)
+        if (modeErr) throw modeErr
+      }
       void logActivity({
         action:      'Tool Created',
         module:      'inventory',
@@ -212,6 +226,7 @@ export function useCreateToolItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.items })
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.itemsByCategory })
+      queryClient.invalidateQueries({ queryKey: ['item-divisions-by-stock'] })
     },
   })
 }
@@ -917,6 +932,11 @@ export function useCreateToolAssetUnit() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+      // A unit's division_id is a source for the tools division filter
+      // (rpc_item_divisions_by_stock clause d). Refresh that map too, or the
+      // tool won't appear/disappear under the division until the 5-min cache
+      // expires — the bug normal inventory avoids via useSetItemDivisions.
+      qc.invalidateQueries({ queryKey: ['item-divisions-by-stock'] })
     },
   })
 }
@@ -947,6 +967,11 @@ export function useUpdateToolAssetUnit() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+      // A unit's division_id is a source for the tools division filter
+      // (rpc_item_divisions_by_stock clause d). Refresh that map too, or the
+      // tool won't appear/disappear under the division until the 5-min cache
+      // expires — the bug normal inventory avoids via useSetItemDivisions.
+      qc.invalidateQueries({ queryKey: ['item-divisions-by-stock'] })
     },
   })
 }
@@ -978,6 +1003,11 @@ export function useConfirmToolSerial() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+      // A unit's division_id is a source for the tools division filter
+      // (rpc_item_divisions_by_stock clause d). Refresh that map too, or the
+      // tool won't appear/disappear under the division until the 5-min cache
+      // expires — the bug normal inventory avoids via useSetItemDivisions.
+      qc.invalidateQueries({ queryKey: ['item-divisions-by-stock'] })
     },
   })
 }
@@ -1039,6 +1069,11 @@ export function useAutoGenerateToolSerials() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+      // A unit's division_id is a source for the tools division filter
+      // (rpc_item_divisions_by_stock clause d). Refresh that map too, or the
+      // tool won't appear/disappear under the division until the 5-min cache
+      // expires — the bug normal inventory avoids via useSetItemDivisions.
+      qc.invalidateQueries({ queryKey: ['item-divisions-by-stock'] })
     },
   })
 }
@@ -1064,6 +1099,11 @@ export function useTransferToolUnit() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory.toolAssetUnits(v.item_id) })
+      // A unit's division_id is a source for the tools division filter
+      // (rpc_item_divisions_by_stock clause d). Refresh that map too, or the
+      // tool won't appear/disappear under the division until the 5-min cache
+      // expires — the bug normal inventory avoids via useSetItemDivisions.
+      qc.invalidateQueries({ queryKey: ['item-divisions-by-stock'] })
       void logActivity({
         action:      'Tool Unit Transferred',
         module:      'inventory',

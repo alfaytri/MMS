@@ -34,9 +34,12 @@ type Props = {
   categoryId: string
   categoryType: string
   item?: InventoryItem | null
+  /** Tools only: item-level tracking mode to stamp on a newly created tool
+   *  (lets a tool differ from its category). Omit / null = inherit category. */
+  trackingMode?: 'bulk' | 'serialized' | null
 }
 
-export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, item }: Props) {
+export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, item, trackingMode }: Props) {
   const isEdit = !!item
   const create = useCreateInventoryItem()
   const update = useUpdateInventoryItem()
@@ -249,7 +252,11 @@ export function ItemEditDialog({ open, onOpenChange, categoryId, categoryType, i
         await update.mutateAsync({ id: item.id, ...payload })
         itemId = item.id
       } else {
-        const data = await create.mutateAsync({ ...payload, category_id: categoryId })
+        const data = await create.mutateAsync({
+          ...payload,
+          category_id: categoryId,
+          ...(trackingMode ? { tool_tracking_mode: trackingMode } : {}),
+        })
         itemId = data.id
       }
       if (attrValues.length > 0) {

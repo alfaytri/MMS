@@ -1,14 +1,17 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronRight, ChevronDown, Pencil, Plus } from 'lucide-react'
+import { ChevronRight, ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { humanizeDbError } from '@/lib/dbErrors'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table'
 import { BrandGroupRow } from './BrandGroupRow'
 import { VARIANT_COLUMN_COUNT } from './OriginVariantRow'
 import { ItemEditDialog } from './ItemEditDialog'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
-import { useInventoryBrandVariants, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
+import { InventoryRemoveDialog } from './InventoryRemoveDialog'
+import { useInventoryBrandVariants, useDeleteInventoryItem, type InventoryItem, type BrandVariant } from '@/hooks/useInventory'
 import { useVariantStockByDivision } from '@/hooks/useVariantStockByDivision'
 import { useBulkToolStockContext } from '@/components/shared/BulkToolStockContext'
 import { ToolModeDot } from '@/components/warehouse/tools-assets/ToolBadges'
@@ -54,7 +57,9 @@ type Props = {
 export function BulkToolItemRow({ item, depth, showArchived }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [addVariantOpen, setAddVariantOpen] = useState(false)
+  const deleteItem = useDeleteInventoryItem()
   // Prefer the batched provider (one variants + one stock query per expanded
   // category — see ToolCategoryRow). A caller with no provider falls back to its
   // own per-item queries; when the provider is present NEITHER fires — the N+1 fix.
@@ -126,6 +131,15 @@ export function BulkToolItemRow({ item, depth, showArchived }: Props) {
             >
               <Pencil className="h-3 w-3" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Delete tool/asset"
+              className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </td>
       </tr>
@@ -182,6 +196,21 @@ export function BulkToolItemRow({ item, depth, showArchived }: Props) {
 
       <ItemEditDialog open={editOpen} onOpenChange={setEditOpen} categoryId={item.category_id} categoryType="tools" item={item} />
       <BrandVariantEditDialog open={addVariantOpen} onOpenChange={setAddVariantOpen} itemId={item.id} />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="item"
+        name={item.name_en}
+        blockingUnits={0}
+        isPending={deleteItem.isPending}
+        onConfirm={() =>
+          deleteItem.mutate(item.id, {
+            onSuccess: () => { toast.success('Tool deleted'); setDeleteOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
     </>
   )
 }
