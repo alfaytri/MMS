@@ -681,6 +681,35 @@ export function useArchiveInventoryBrandVariant() {
   })
 }
 
+// Hard-delete a single variant — guarded RPC refuses unless empty (qty = 0)
+// AND never-transacted (else "Archive it instead").
+export function useDeleteInventoryBrandVariant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient()
+      const { data: old } = await supabase
+        .from('inventory_item_brand_variants').select('brand').eq('id', id).maybeSingle()
+      const { error } = await supabase.rpc('rpc_delete_inventory_variant' as never, { p_variant_id: id } as never)
+      if (error) throw error
+      const brand = (old as { brand?: string } | null)?.brand ?? null
+      void logActivity({
+        action: 'Brand Variant Deleted',
+        module: 'inventory',
+        entity_id: id,
+        entity_type: 'brand_variant',
+        severity: 'warning',
+        old_data: { name: brand },
+        new_data: null,
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.brandVariantsV2 })
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.itemVariantsBatch })
+    },
+  })
+}
+
 // ─── FIFO layers ──────────────────────────────────────────────────────────────
 
 export function useFifoLayers(brandVariantId: string | null, enabled = true) {

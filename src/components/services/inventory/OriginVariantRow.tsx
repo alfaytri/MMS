@@ -2,15 +2,17 @@
 
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useState } from 'react'
-import { ChevronRight, ChevronDown, Pencil, Archive, PackagePlus } from 'lucide-react'
+import { ChevronRight, ChevronDown, Pencil, Archive, PackagePlus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { FifoLayersTable } from './FifoLayersTable'
 import { BrandVariantEditDialog } from './BrandVariantEditDialog'
+import { InventoryRemoveDialog } from './InventoryRemoveDialog'
 import { InventoryReceivalDialog } from '@/components/inventory/InventoryReceivalDialog'
-import { useArchiveInventoryBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
+import { useArchiveInventoryBrandVariant, useDeleteInventoryBrandVariant, useVariantWarehouseStock, type BrandVariant } from '@/hooks/useInventory'
+import { variantStockUnits } from '@/lib/inventory/stockUnits'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCanCreateInventoryReceivals } from '@/hooks/useInventoryReceivals'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
@@ -142,8 +144,11 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
   const [fifoOpen, setFifoOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [invReceivalOpen, setInvReceivalOpen] = useState(false)
   const archive = useArchiveInventoryBrandVariant()
+  const del = useDeleteInventoryBrandVariant()
+  const blockingUnits = variantStockUnits(variant)
   const { data: canCreateInvRcv = false } = useCanCreateInventoryReceivals()
 
   const stockLevel = variant.stock_level ?? 0
@@ -243,6 +248,15 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
             >
               <Archive className="h-3 w-3" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 min-h-11 min-w-11 md:min-h-0 md:min-w-0 text-muted-foreground hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+              aria-label="Delete variant"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </TableCell>
       </TableRow>
@@ -302,6 +316,9 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-destructive" onClick={() => setArchiveOpen(true)} aria-label="Archive variant">
                 <Archive className="h-4 w-4" />
               </Button>
+              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-destructive" onClick={() => setDeleteOpen(true)} aria-label="Delete variant">
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </TableCell>
@@ -335,6 +352,21 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
         onConfirm={() =>
           archive.mutate(variant.id, {
             onSuccess: () => { toast.success('Variant archived'); setArchiveOpen(false) },
+            onError: (err) => toast.error(humanizeDbError(err)),
+          })
+        }
+      />
+      <InventoryRemoveDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        action="delete"
+        entity="variant"
+        name={fullLabel}
+        blockingUnits={blockingUnits}
+        isPending={del.isPending}
+        onConfirm={() =>
+          del.mutate(variant.id, {
+            onSuccess: () => { toast.success('Variant deleted'); setDeleteOpen(false) },
             onError: (err) => toast.error(humanizeDbError(err)),
           })
         }
