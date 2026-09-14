@@ -200,6 +200,19 @@ export const NAV_ITEMS: NavEntry[] = [
       },
     ],
   },
+  {
+    label: 'Quality Control',
+    icon: 'ClipboardCheck',
+    permission: ['qc.analyst', 'qc.manager'],
+    groups: [
+      {
+        items: [
+          { label: 'My Inspections', href: '/qc/inspections', icon: 'ClipboardList', permission: ['qc.analyst', 'qc.manager'] },
+          { label: 'QC Review',      href: '/qc/review',       icon: 'ShieldCheck',  permission: 'qc.manager' },
+        ],
+      },
+    ],
+  },
 ]
 
 /**

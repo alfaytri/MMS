@@ -95,6 +95,10 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/warehouse/damaged-stock',  permission: ['damaged_stock.on_hand.view', 'damaged_stock.out_for_repair.view'] },
   { pathPrefix: '/warehouse/picture-transfer', permission: 'warehouse.transfer.simple' },
 
+  // ── Quality Control ──────────────────────────────────────────────────────
+  { pathPrefix: '/qc/review',      permission: 'qc.manager' },
+  { pathPrefix: '/qc/inspections', permission: ['qc.analyst', 'qc.manager'] },
+
   // ── Teams / Map / Calendar / Team Leader ──────────────────────────────
   { pathPrefix: '/map',         permission: 'teams.map.view' },
   { pathPrefix: '/calendar',    permission: 'calendar.view' },

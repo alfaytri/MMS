@@ -192,6 +192,16 @@ template from `/api/wati/templates`.
    services.
 7. Confirmation/Invoice messages **replace** the PDF send (not in addition) — confirm.
 
+## A2 build — resolved decisions (2026-09-14, from user)
+- **Hard gate (confirmed).** A QC-triggered order is HELD (not booked) until the QA inspects and the Ops Manager books it. Held via `orders.status='pending-approval'` (reused; no new enum value) disambiguated by a new `orders.qc_inspection_id`; final booking (`status='scheduled'`) happens only when no gate remains (shared `_maybe_book_order` helper called by both the QC Ops-book and the risk `approve_order_request`).
+- **Inject in `create_order_with_dates`** after `order_team_assignments`, alongside the existing customer-risk gate (`20260930001200`). Extend the return contract with a `qc_pending` flag.
+- **Member/leader change = snapshot.** New table `order_team_snapshots(order_id, team_id, leader_id, member_ids[])` written for EVERY order at creation; `new_leader`/`new_member` = diff vs the team's previous order snapshot (so they score from the first order after ship onward).
+- **Customer complaint = order customer notes.** New table `order_customer_notes(order_id, note, created_by, created_at)` + an "Add note" affordance on the order card (OrderDetailDialog). `customer_complaint` fires when the order OR its parent order has ≥1 customer note.
+- **Fully derivable now:** backwork (`orders.type='backwork'`), new_service (team↔service history via `order_team_assignments`+`order_services`), new_team (team has no prior orders), team_score_watch (team has a current/immediately-prior backwork).
+- **`qc_inspections` built clean** (per this design); the orphan legacy QC tables (`qc_schedule`, `qc_inspection_results`, `qc_team_scores`, `qc_checklists`) are left untouched — flag for later cleanup.
+- **QA assignment:** round-robin over `recipients_for_permission('qc.analyst')` within the order's division, balanced by open-inspection count, manual Ops override.
+- **Booking the QC visit** reuses the `qc` visit type: an `order` with `type='qc'` on an `is_qc` team → shows in `calendar_visits`; QA completes via `complete_visit` → `visit_completions.qc_scores`.
+
 ## Phasing (build order)
 - **A1** point-rules config + admin screen (needs the upload).
 - **A2** pre-booking gate + QA/Ops queues + assignment.

@@ -10,8 +10,10 @@ import { format } from 'date-fns'
 import { CheckCircle, RotateCcw, XCircle, Pencil, ExternalLink, MessageSquare, Truck, FileText, FileDown } from 'lucide-react'
 import { useOrderDetail } from '@/hooks/useOrderDetail'
 import { useOrderActions, canTransition } from '@/hooks/useOrderActions'
+import { useOrderCustomerNotes, useAddOrderCustomerNote } from '@/hooks/useOrderCustomerNotes'
 import { OrderCancelDialog } from './OrderCancelDialog'
 import { createClient } from '@/lib/supabase/client'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import type { OrderStatus, ConfirmationStatus } from '@/types/orders'
 import { cn } from '@/lib/utils'
@@ -46,9 +48,41 @@ interface Props {
 export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [pdfPending, setPdfPending] = useState(false)
+  const [newNote, setNewNote] = useState('')
   const { data: order, isLoading } = useOrderDetail(orderId)
   const { confirmManually, rollback, cancel } = useOrderActions(orderId)
+  const { data: custNotes = [] } = useOrderCustomerNotes(orderId)
+  const addNote = useAddOrderCustomerNote()
   const router = useRouter()
+
+  const { data: qcInsp } = useQuery<{ status: string; points: number } | null>({
+    queryKey: ['order-qc-inspection', orderId],
+    enabled: !!orderId,
+    queryFn: async () => {
+      if (!orderId) return null
+      const supabase = createClient()
+      // qc_inspections isn't in the generated types yet (migration 20261084) — cast.
+      const { data } = (await supabase
+        .from('qc_inspections' as never)
+        .select('status, points')
+        .eq('order_id' as never, orderId as never)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()) as unknown as { data: { status: string; points: number } | null }
+      return data ?? null
+    },
+  })
+
+  async function handleAddNote() {
+    if (!orderId || !newNote.trim()) return
+    try {
+      await addNote.mutateAsync({ orderId, note: newNote.trim() })
+      setNewNote('')
+      toast.success('Customer note added')
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to add note')
+    }
+  }
 
   async function openConfirmationPdf() {
     if (!orderId) return
@@ -178,6 +212,11 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                   )}>
                     {order.status}
                   </span>
+                  {qcInsp && (
+                    <span className="rounded-full bg-indigo-100 text-indigo-700 px-2.5 py-0.5 text-xs font-semibold">
+                      QC {qcInsp.points} · {qcInsp.status.replace(/_/g, ' ')}
+                    </span>
+                  )}
                   {dateLabel && (
                     <span className="rounded-full bg-muted text-muted-foreground px-2.5 py-0.5 text-xs font-medium">
                       {isMultiDay ? dateLabel : `Visit: ${dateLabel}`}
@@ -312,6 +351,12 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                     Follow-up &amp; Backwork
                   </TabsTrigger>
                   <TabsTrigger
+                    value="notes"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-foreground text-muted-foreground px-3 py-1.5 text-sm font-medium"
+                  >
+                    Customer Notes{custNotes.length > 0 ? ` (${custNotes.length})` : ''}
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="logs"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-500 data-[state=active]:text-foreground text-muted-foreground px-3 py-1.5 text-sm font-medium"
                   >
@@ -427,6 +472,41 @@ export function OrderDetailDialog({ orderId, open, onOpenChange }: Props) {
                           <div key={f.id} className="rounded-lg border bg-card p-2 text-xs flex items-center justify-between gap-2">
                             <span className="truncate">{f.order_id} · {f.scheduled_date ?? '—'} · {f.status}</span>
                             <span className="text-muted-foreground shrink-0">{f.total_amount ?? 0} QAR</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Customer Notes — call-centre complaint log; a note here flags a QC complaint */}
+                  <TabsContent value="notes" className="mt-0 space-y-3">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-amber-800">
+                      Logging a customer note flags this order as a <span className="font-semibold">customer complaint</span> for QC scoring.
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Textarea
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        rows={2}
+                        placeholder="Log a customer complaint or request about this order…"
+                        className="flex-1"
+                      />
+                      <Button onClick={handleAddNote} disabled={addNote.isPending || !newNote.trim()}>
+                        Add
+                      </Button>
+                    </div>
+                    {custNotes.length === 0 ? (
+                      <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+                        No customer notes
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {custNotes.map((n) => (
+                          <div key={n.id} className="rounded-lg border bg-card p-2.5">
+                            <p className="text-sm text-foreground whitespace-pre-wrap">{n.note}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {n.created_by_name ?? 'Unknown'} · {format(new Date(n.created_at), 'd MMM yyyy, HH:mm')}
+                            </p>
                           </div>
                         ))}
                       </div>
