@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-12
 **Branch:** full-build/admin-misc
-**Status:** DRAFT — awaiting review + point-rules upload from user
+**Status:** Part A FINALIZED (2026-09-14) — point rules + trigger logic received; ready to build. Part B still draft.
 
 ---
 
@@ -40,20 +40,56 @@ but share the WATI send layer.
 
 ---
 
-## Open input (user will supply)
+## Finalized QC decisions (2026-09-14, from user)
 
-**Point rules table.** The user will upload the definitive list of *what earns points and how
-many*. The design treats this as **configurable data**, not hardcoded. Expected shape per rule:
+### Team quality score — NEW ("how good is this team, out of 10")
+- Per team: starts at **10**, **−1 per backwork**, **floors at 0**.
+- **Recovers +1** for each later order the team completes with **no backwork** (climbs back toward 10).
+- **Resets to 10** when a team **member or leader changes**.
+- It's the team's standing rating AND feeds QC scoring (the "team score watch" factor below).
 
-| field | meaning | example |
-|-------|---------|---------|
-| `match_kind` | what the rule matches on | `service`, `order_type`, `item_kind`, `service_category` |
-| `match_value` | the value to match | a service id, `backwork`, `new_service`, `product` |
-| `points` | points added when matched | `5` |
-| `stage` | which stage it applies to | `pre_booking`, `post_completion`, `both` |
+### QC point rules — **summed** per order → the order's QC score
+| Scenario | Points |
+|----------|--------|
+| New member in team | 1 |
+| New leader | 2 |
+| New service (team hasn't done it before) | 4 |
+| Backwork | 5 |
+| Customer complaint | 5 |
+| New team (new to the service **or** newly created) | 7 |
+| Team score watch (team is post-backwork — applies to the backwork order **and its next order**) | 3 |
 
-Plus two knobs: **trigger threshold** (points ≥ N → QC required) and the **dedup rule**
-("one QC per site per day"). Values TBD from the upload.
+Rules are **editable in-app** (admin screen); the uploaded set is the initial seed.
+
+### Trigger + capacity
+- **Threshold** (configurable, editable in-app): QC score **≥ threshold** → the order is a QC candidate.
+- **Capacity:** a configurable **max QCs per day** (editable in-app — reflects how many QC teams you
+  have, ~1–3 each; can vary per weekday if needed). Candidates are booked **highest-score first**;
+  **overflow rolls to the next available day**.
+
+### Timing — before / along-with / after the team's visit (per scenario)
+- Each scenario has a configurable timing (before / along / after).
+- The **highest-point scenario sets the QC timing**. **Backwork is top priority** — if present it wins
+  (QC rides with the backwork). E.g. plain new-service → QC *along with* the team; any backwork → QC on
+  the backwork's timing.
+
+### Same-site dedup — configurable setting
+- A setting decides whether two orders for the **same customer + site on the same day** share **one QC**
+  or get **one QC each**. The operator's selection governs.
+
+### Roles
+- **`qc.analyst`** (QC team — inspects/scores) and **`qc.manager`** (Ops Manager — reviews, then books
+  pre-booking / signs off post-completion).
+
+### Reuse (not rebuilt)
+- QC uses the existing **`qc` visit type** + `visit_completions` scoring + the team-scheduling calendar.
+  The new build is the **auto point-scoring + auto-booking engine**, the team score, the queues, and the
+  admin — not a new calendar/visit system.
+
+### Minor assumptions (proceeding unless corrected)
+- Team score floors at 0. "New leader/new member" = changed since the team's last order. "Customer
+  complaint" = a flag raised on the order/customer. Default threshold seeded at a sensible value,
+  editable in-app.
 
 ---
 
