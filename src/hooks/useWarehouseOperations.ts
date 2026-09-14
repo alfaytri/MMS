@@ -431,9 +431,10 @@ export function useStockMovements({
   })
 }
 
-export function useWarehouseStock(warehouseId?: string, subContainerId?: string | null) {
+export function useWarehouseStock(warehouseId?: string, subContainerId?: string | null, enabled = true) {
   return useQuery({
     queryKey: queryKeys.warehouseOps.warehouseStock(warehouseId ?? null, subContainerId ?? null),
+    enabled,
     queryFn: async () => {
       const supabase = createClient()
       let q = supabase
