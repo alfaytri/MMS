@@ -709,6 +709,15 @@ export const NAV_TREE: TreeNode[] = [
         ],
       },
       {
+        id: 'ops-qc',
+        label: 'Quality Control',
+        icon: ClipboardCheck,
+        permissions: [
+          { key: 'qc.analyst', label: 'QC Analyst', description: 'A QC team member — receives assigned QC inspections and records the findings / scores on site.' },
+          { key: 'qc.manager', label: 'QC Manager (Ops)', description: 'Reviews the analyst’s QC inspection, then books the order (pre-booking) or signs it off (post-completion). Also manages the QC point rules + thresholds.' },
+        ],
+      },
+      {
         id: 'ops-consumption',
         label: 'Consumption',
         icon: Flame,

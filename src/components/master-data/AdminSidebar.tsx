@@ -27,6 +27,7 @@ import {
   Wrench,
   Hash,
   AlertTriangle,
+  ClipboardCheck,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -71,6 +72,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'PO Approval Bands', href: '/master-data/admin/approval-settings',  icon: CheckSquare, permission: 'purchase.approvals.chain.manage' },
       { label: 'Approval Workflows', href: '/master-data/admin/approval-workflows', icon: Workflow,    permission: 'master_data.admin.view' },
       { label: 'Customer Risk Colors', href: '/master-data/admin/customer-risk',   icon: AlertTriangle, permission: 'master_data.admin.view' },
+      { label: 'QC Rules',             href: '/master-data/admin/qc-rules',         icon: ClipboardCheck, permission: ['master_data.admin.view', 'qc.manager'] },
     ],
   },
 ]

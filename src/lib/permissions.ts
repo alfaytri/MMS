@@ -412,6 +412,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Quality Control',
+        permissions: [
+          { key: 'qc.analyst', label: 'QC Analyst', description: 'A QC team member — receives assigned QC inspections and records findings / scores.' },
+          { key: 'qc.manager', label: 'QC Manager (Ops)', description: 'Reviews QC inspections, books the order (pre-booking) or signs off (post-completion), and manages the QC rules + thresholds.' },
+        ],
+      },
+      {
         label: 'Consumption',
         permissions: [
           { key: 'consumption.view',            label: 'View Consumption',            description: 'Access the consumption entries list and detail dialog' },
