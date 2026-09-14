@@ -337,3 +337,82 @@ export function useCustodyTransferItems(transferId: string | null) {
     staleTime: 30 * 1000,
   })
 }
+
+// ─── 8. Read — a team/place's full custody transfer history ───────────────
+// Every custody transfer that touches this sub — incoming assigns (to_sub)
+// and outgoing returns / hand-outs (from_sub) — across the whole lifecycle
+// (pending → in_transit → received, plus rejected / cancelled). Powers the
+// "Show transfers" history expander on each Custody card so an operator can
+// track every WT-… without leaving the page. Lazy: only runs when expanded.
+export type SubCustodyTransfer = {
+  transfer_id:      string
+  transfer_number:  string
+  status:           string
+  transfer_kind:    string | null
+  direction:        'in' | 'out'
+  counterparty:     string | null   // label of the OTHER endpoint
+  item_count:       number
+  total_qty:        number
+  created_at:       string | null
+  dispatched_at:    string | null
+  received_at:      string | null
+}
+
+export function useCustodyTransfersForSub(subId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['custody-transfers-for-sub', subId],
+    enabled: !!subId && enabled,
+    queryFn: async (): Promise<SubCustodyTransfer[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('warehouse_transfers')
+        .select(`
+          id, transfer_number, status, transfer_kind,
+          from_warehouse_id, from_sub_container_id, to_sub_container_id,
+          created_at, dispatched_at, received_at,
+          from_warehouse:from_warehouse_id(name),
+          to_warehouse:to_warehouse_id(name),
+          from_sub:from_sub_container_id(name),
+          to_sub:to_sub_container_id(name),
+          warehouse_transfer_items(id, requested_qty, dispatched_qty)
+        `)
+        .in('transfer_kind', ['custody_assign', 'custody_return', 'custody_transfer'])
+        .or(`to_sub_container_id.eq.${subId},from_sub_container_id.eq.${subId}`)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return (data ?? []).map((row) => {
+        const r = row as unknown as {
+          id: string; transfer_number: string; status: string; transfer_kind: string | null
+          from_sub_container_id: string | null; to_sub_container_id: string | null
+          created_at: string | null; dispatched_at: string | null; received_at: string | null
+          from_warehouse: { name: string | null } | null
+          to_warehouse: { name: string | null } | null
+          from_sub: { name: string | null } | null
+          to_sub: { name: string | null } | null
+          warehouse_transfer_items: Array<{ requested_qty: number | null; dispatched_qty: number | null }>
+        }
+        const items = r.warehouse_transfer_items ?? []
+        const direction: 'in' | 'out' = r.to_sub_container_id === subId ? 'in' : 'out'
+        const counterparty = direction === 'in'
+          ? (r.from_sub?.name ?? r.from_warehouse?.name ?? null)
+          : (r.to_sub?.name ?? r.to_warehouse?.name ?? null)
+        return {
+          transfer_id:     r.id,
+          transfer_number: r.transfer_number,
+          status:          r.status,
+          transfer_kind:   r.transfer_kind,
+          direction,
+          counterparty,
+          item_count:      items.length,
+          // Prefer the dispatched qty once known; fall back to requested for pending.
+          total_qty:       items.reduce((s, i) => s + (i.dispatched_qty ?? i.requested_qty ?? 0), 0),
+          created_at:      r.created_at,
+          dispatched_at:   r.dispatched_at,
+          received_at:     r.received_at,
+        }
+      })
+    },
+    staleTime: 30 * 1000,
+  })
+}

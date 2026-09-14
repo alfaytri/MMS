@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { toast } from 'sonner'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 import {
   ArrowRightLeft, ChevronDown, ChevronRight, HandCoins, Inbox, Package, PackageCheck,
@@ -18,6 +17,7 @@ import { CustodyAssignDialog } from '@/components/warehouse/custody/CustodyAssig
 import { CustodyReturnDialog } from '@/components/warehouse/custody/CustodyReturnDialog'
 import { CustodyTransferDialog } from '@/components/warehouse/custody/CustodyTransferDialog'
 import { AcceptCustodyDialog } from '@/components/warehouse/custody/AcceptCustodyDialog'
+import { DispatchCustodyDialog } from '@/components/warehouse/custody/DispatchCustodyDialog'
 import { NewConsumptionDialog } from '@/components/consumption/NewConsumptionDialog'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useWarehouses } from '@/hooks/useWarehouses'
@@ -30,7 +30,7 @@ import { useCurrentUserProfile } from '@/hooks/useProfiles'
 import { usePermissions, useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
 import {
   usePendingCustodyAssigns,
-  useDispatchCustodyAssign,
+  useCustodyTransfersForSub,
   type PendingCustodyAssign,
 } from '@/hooks/useCustodyMoves'
 import { useAssignedToolUnits, type ToolUnitSearchRow } from '@/hooks/useToolUnitHistory'
@@ -45,6 +45,17 @@ const QAR = new Intl.NumberFormat('en-QA', {
 
 // Natural/numeric collation so "Team 2" sorts before "Team 10" (not lexicographic).
 const LOCATION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+const TX_DATE = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+
+// Status → chip label + colour for the per-team transfer history expander.
+const TRANSFER_STATUS_META: Record<string, { label: string; cls: string }> = {
+  pending:    { label: 'Awaiting dispatch', cls: 'border-amber-500/40 text-amber-700 bg-amber-500/10' },
+  in_transit: { label: 'In transit',        cls: 'border-blue-500/40 text-blue-700 bg-blue-500/10' },
+  received:   { label: 'Received',           cls: 'border-green-500/40 text-green-700 bg-green-500/10' },
+  rejected:   { label: 'Rejected',           cls: 'border-red-500/40 text-red-700 bg-red-500/10' },
+  cancelled:  { label: 'Cancelled',          cls: 'border-muted-foreground/30 text-muted-foreground bg-muted' },
+}
 
 // ─── Page ───────────────────────────────────────────────────────────────
 
@@ -333,8 +344,10 @@ function CustodyCard({
   const { data: profile } = useCurrentUserProfile()
   const { data: perms }   = usePermissions()
   const canSeeCost        = useHasPermission('custody.cost.view')
-  const dispatch          = useDispatchCustodyAssign()
   const [acceptRow, setAcceptRow] = useState<PendingCustodyAssign | null>(null)
+  const [dispatchRow, setDispatchRow] = useState<PendingCustodyAssign | null>(null)
+  const [transfersExpanded, setTransfersExpanded] = useState(false)
+  const { data: subTransfers = [] } = useCustodyTransfersForSub(sub.id, transfersExpanded)
 
   const canCreateConsumption = useCanCreateConsumptionFor('custody')
 
@@ -376,19 +389,6 @@ function CustodyCard({
 
   const totalValue = stockRows.reduce((sum, r) => sum + (r.total_value ?? 0), 0)
   const totalQty   = stockRows.reduce((sum, r) => sum + (r.qty ?? 0), 0)
-
-  async function handleDispatch(transfer: PendingCustodyAssign) {
-    try {
-      await dispatch.mutateAsync({
-        transfer_id:               transfer.transfer_id,
-        dispatched_by_profile_id:  profile?.id ?? null,
-        dispatched_by_name:        profile?.full_name ?? null,
-      })
-      toast.success(`Dispatched ${transfer.transfer_number} — awaiting ${sub.responsible_person_name ?? 'custodian'} to accept`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to dispatch custody request')
-    }
-  }
 
   return (
     <div className="rounded-lg border bg-card shadow-sm flex flex-col min-h-[10rem] min-w-0 overflow-hidden">
@@ -473,8 +473,7 @@ function CustodyCard({
                     size="sm"
                     variant="secondary"
                     className="h-11 sm:h-6 text-[10px] gap-1 w-full sm:w-auto justify-center shrink-0"
-                    onClick={() => handleDispatch(p)}
-                    disabled={dispatch.isPending}
+                    onClick={() => setDispatchRow(p)}
                   >
                     <Truck className="h-3 w-3" />
                     Dispatch
@@ -573,6 +572,45 @@ function CustodyCard({
         </>
       )}
 
+      {/* Transfers history — every custody transfer that has touched this team
+          (incoming assigns + outgoing returns / hand-outs), across all statuses,
+          so the operator can track a WT-… lifecycle without leaving the page. */}
+      <>
+        <button
+          type="button"
+          onClick={() => setTransfersExpanded((e) => !e)}
+          className="flex items-center gap-1 px-4 py-1.5 text-[11px] text-muted-foreground hover:text-foreground border-t border-b border-dashed transition-colors"
+        >
+          {transfersExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          <ArrowRightLeft className="h-3 w-3 shrink-0" />
+          {transfersExpanded ? 'Hide transfers' : 'Show transfers'}
+        </button>
+        {transfersExpanded && (
+          <div className="px-4 py-2 space-y-2 max-h-48 overflow-y-auto">
+            {subTransfers.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground py-2 text-center">No transfers yet.</p>
+            ) : subTransfers.map((t) => {
+              const meta = TRANSFER_STATUS_META[t.status] ?? { label: t.status, cls: 'border-muted-foreground/30 text-muted-foreground bg-muted' }
+              const when = t.received_at ?? t.dispatched_at ?? t.created_at
+              return (
+                <div key={t.transfer_id} className="flex flex-col gap-0.5 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-medium break-all">{t.transfer_number}</span>
+                    <Badge variant="outline" className={`text-[9px] h-4 px-1 font-normal shrink-0 ${meta.cls}`}>
+                      {meta.label}
+                    </Badge>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground break-words">
+                    {t.direction === 'in' ? 'From' : 'To'} {t.counterparty ?? '—'} · {t.item_count} item{t.item_count === 1 ? '' : 's'} · {t.total_qty} units
+                    {when ? ` · ${TX_DATE.format(new Date(when))}` : ''}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </>
+
       {/* Actions — hidden entirely when the caller can't do any of them. Wraps to
           2-per-row on phones (up to four actions) and sits in one row on sm+. */}
       {(canRequest || canTransfer || canReturn || canConsume) && (
@@ -665,6 +703,16 @@ function CustodyCard({
         transferNumber={acceptRow?.transfer_number ?? null}
         destSubName={sub.name}
         sourceWarehouseName={acceptRow?.from_warehouse_name ?? null}
+      />
+      <DispatchCustodyDialog
+        open={!!dispatchRow}
+        onOpenChange={(o) => { if (!o) setDispatchRow(null) }}
+        transferId={dispatchRow?.transfer_id ?? null}
+        transferNumber={dispatchRow?.transfer_number ?? null}
+        destSubName={sub.name}
+        sourceLabel={dispatchRow ? (dispatchRow.from_warehouse_kind === 'custody' && dispatchRow.from_sub_container_name ? dispatchRow.from_sub_container_name : dispatchRow.from_warehouse_name) : null}
+        fromWarehouseId={dispatchRow?.from_warehouse_id ?? null}
+        fromSubContainerId={dispatchRow?.from_sub_container_id ?? null}
       />
     </div>
   )
