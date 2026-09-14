@@ -35,6 +35,7 @@ import {
   type PendingCustodyAssign,
   type SubCustodyTransfer,
 } from '@/hooks/useCustodyMoves'
+import { shortenSubContainerName } from '@/hooks/useWarehouseSubContainers'
 import { useAssignedToolUnits, type ToolUnitSearchRow } from '@/hooks/useToolUnitHistory'
 import { ToolConditionBadge } from '@/components/warehouse/tools-assets/ToolBadges'
 import type { Warehouse } from '@/hooks/useWarehouses'
@@ -715,6 +716,13 @@ function TransferHistoryRow({ t }: { t: SubCustodyTransfer }) {
   const variantMeta = useVariantItemMeta(items.map((i) => i.brand_variant_id))
   const meta = TRANSFER_STATUS_META[t.status] ?? { label: t.status, cls: 'border-muted-foreground/30 text-muted-foreground bg-muted' }
   const when = t.received_at ?? t.dispatched_at ?? t.created_at
+  // Show container (warehouse) + sub-container of the other endpoint; the sub
+  // name often embeds the warehouse, so shorten it against the warehouse name.
+  const locParts = [
+    t.counterparty_wh,
+    t.counterparty_sub ? shortenSubContainerName(t.counterparty_sub, t.counterparty_wh ?? '') : null,
+  ].filter(Boolean)
+  const locLabel = locParts.join(' · ') || '—'
 
   return (
     <div className="rounded-md border border-dashed">
@@ -734,7 +742,7 @@ function TransferHistoryRow({ t }: { t: SubCustodyTransfer }) {
             </Badge>
           </div>
           <div className="text-[10px] text-muted-foreground break-words">
-            {t.direction === 'in' ? 'From' : 'To'} {t.counterparty ?? '—'} · {t.item_count} item{t.item_count === 1 ? '' : 's'} · {t.total_qty} units
+            {t.direction === 'in' ? 'From' : 'To'} {locLabel} · {t.item_count} item{t.item_count === 1 ? '' : 's'} · {t.total_qty} units
             {when ? ` · ${TX_DATE.format(new Date(when))}` : ''}
           </div>
         </div>

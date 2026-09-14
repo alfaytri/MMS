@@ -350,7 +350,8 @@ export type SubCustodyTransfer = {
   status:           string
   transfer_kind:    string | null
   direction:        'in' | 'out'
-  counterparty:     string | null   // label of the OTHER endpoint
+  counterparty_wh:  string | null   // the OTHER endpoint's warehouse (container)
+  counterparty_sub: string | null   // the OTHER endpoint's sub-container
   item_count:       number
   total_qty:        number
   created_at:       string | null
@@ -394,16 +395,18 @@ export function useCustodyTransfersForSub(subId: string | null, enabled = true) 
         }
         const items = r.warehouse_transfer_items ?? []
         const direction: 'in' | 'out' = r.to_sub_container_id === subId ? 'in' : 'out'
-        const counterparty = direction === 'in'
-          ? (r.from_sub?.name ?? r.from_warehouse?.name ?? null)
-          : (r.to_sub?.name ?? r.to_warehouse?.name ?? null)
+        // Show BOTH the warehouse (container) and the sub-container of the other
+        // endpoint — the source for an incoming assign, the dest for an outgoing.
+        const counterparty_wh  = direction === 'in' ? (r.from_warehouse?.name ?? null) : (r.to_warehouse?.name ?? null)
+        const counterparty_sub = direction === 'in' ? (r.from_sub?.name ?? null)       : (r.to_sub?.name ?? null)
         return {
           transfer_id:     r.id,
           transfer_number: r.transfer_number,
           status:          r.status,
           transfer_kind:   r.transfer_kind,
           direction,
-          counterparty,
+          counterparty_wh,
+          counterparty_sub,
           item_count:      items.length,
           // Prefer the dispatched qty once known; fall back to requested for pending.
           total_qty:       items.reduce((s, i) => s + (i.dispatched_qty ?? i.requested_qty ?? 0), 0),

@@ -1,7 +1,7 @@
 'use client'
 
 import { humanizeDbError } from '@/lib/dbErrors'
-import React, { useMemo, useState, useCallback, useEffect } from 'react'
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { ArrowRight, CheckCircle2, XCircle, Truck, PackageCheck, Ban, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { WarehouseReportButton } from './WarehouseReportButton'
 import { Badge } from '@/components/ui/badge'
@@ -313,14 +313,32 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
     )
   }
 
+  // Status filter — Pending (pending + in transit) vs Completed (received) vs All.
+  // Client-side over the loaded set; cancelled/rejected show only under "All".
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all')
+  const filteredTransfers = useMemo(() => {
+    if (statusFilter === 'pending') return scopedTransfers.filter((t) => t.status === 'pending' || t.status === 'in_transit')
+    if (statusFilter === 'completed') return scopedTransfers.filter((t) => t.status === 'received')
+    return scopedTransfers
+  }, [scopedTransfers, statusFilter])
+
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
-  const totalPages = Math.max(1, Math.ceil(scopedTransfers.length / PAGE_SIZE))
-  useEffect(() => { setPage(1) }, [scopedTransfers.length])
+  const totalPages = Math.max(1, Math.ceil(filteredTransfers.length / PAGE_SIZE))
+  useEffect(() => { setPage(1) }, [statusFilter, scopedTransfers.length])
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
-    return scopedTransfers.slice(start, start + PAGE_SIZE)
-  }, [scopedTransfers, page])
+    return filteredTransfers.slice(start, start + PAGE_SIZE)
+  }, [filteredTransfers, page])
+
+  // Jump to the top of the list on page change — the pager sits at the bottom,
+  // so without this the next page opens still scrolled down (user complaint).
+  const listTopRef = useRef<HTMLDivElement>(null)
+  const didMountRef = useRef(false)
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return }
+    listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [page])
 
   /* ── Empty state ───────────────────────────────────────────────────────── */
 
@@ -337,11 +355,26 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
   return (
     <>
       <div className="p-4 md:p-6 space-y-3">
+        <div ref={listTopRef} className="scroll-mt-4" />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-semibold">Transfers</h3>
           <div className="flex-shrink-0">
             <WarehouseReportButton reportType="transfers" label="Report" />
           </div>
+        </div>
+        {/* Status filter — Pending vs Completed vs All */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([['all', 'All'], ['pending', 'Pending'], ['completed', 'Completed']] as const).map(([val, label]) => (
+            <Button
+              key={val}
+              size="sm"
+              variant={statusFilter === val ? 'default' : 'outline'}
+              className="h-7 min-h-11 sm:min-h-0 text-[11px] px-2.5"
+              onClick={() => setStatusFilter(val)}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
         {paged.map((t, i) => {
           const showDispatch = canDispatch(t)
@@ -520,9 +553,12 @@ export const WhTransfersTab = React.memo(function WhTransfersTab({ warehouses, c
             </div>
           )
         })}
-        {scopedTransfers.length > 0 && totalPages > 1 && (
+        {paged.length === 0 && (
+          <p className="text-xs text-muted-foreground py-6 text-center">No {statusFilter} transfers.</p>
+        )}
+        {filteredTransfers.length > 0 && totalPages > 1 && (
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-            <span>{scopedTransfers.length} transfer{scopedTransfers.length !== 1 ? 's' : ''}</span>
+            <span>{filteredTransfers.length} transfer{filteredTransfers.length !== 1 ? 's' : ''}</span>
             <div className="flex items-center gap-1.5">
               <Button variant="outline" size="sm" className="h-7 w-7 p-0 min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
                 <ChevronLeft className="h-3.5 w-3.5" />
