@@ -31,7 +31,9 @@ import { usePermissions, useCanCreateConsumptionFor, useHasPermission } from '@/
 import {
   usePendingCustodyAssigns,
   useCustodyTransfersForSub,
+  useCustodyTransferItems,
   type PendingCustodyAssign,
+  type SubCustodyTransfer,
 } from '@/hooks/useCustodyMoves'
 import { useAssignedToolUnits, type ToolUnitSearchRow } from '@/hooks/useToolUnitHistory'
 import { ToolConditionBadge } from '@/components/warehouse/tools-assets/ToolBadges'
@@ -589,24 +591,9 @@ function CustodyCard({
           <div className="px-4 py-2 space-y-2 max-h-48 overflow-y-auto">
             {subTransfers.length === 0 ? (
               <p className="text-[11px] text-muted-foreground py-2 text-center">No transfers yet.</p>
-            ) : subTransfers.map((t) => {
-              const meta = TRANSFER_STATUS_META[t.status] ?? { label: t.status, cls: 'border-muted-foreground/30 text-muted-foreground bg-muted' }
-              const when = t.received_at ?? t.dispatched_at ?? t.created_at
-              return (
-                <div key={t.transfer_id} className="flex flex-col gap-0.5 text-[11px]">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-medium break-all">{t.transfer_number}</span>
-                    <Badge variant="outline" className={`text-[9px] h-4 px-1 font-normal shrink-0 ${meta.cls}`}>
-                      {meta.label}
-                    </Badge>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground break-words">
-                    {t.direction === 'in' ? 'From' : 'To'} {t.counterparty ?? '—'} · {t.item_count} item{t.item_count === 1 ? '' : 's'} · {t.total_qty} units
-                    {when ? ` · ${TX_DATE.format(new Date(when))}` : ''}
-                  </div>
-                </div>
-              )
-            })}
+            ) : subTransfers.map((t) => (
+              <TransferHistoryRow key={t.transfer_id} t={t} />
+            ))}
           </div>
         )}
       </>
@@ -714,6 +701,61 @@ function CustodyCard({
         fromWarehouseId={dispatchRow?.from_warehouse_id ?? null}
         fromSubContainerId={dispatchRow?.from_sub_container_id ?? null}
       />
+    </div>
+  )
+}
+
+// ─── Transfer history row ─────────────────────────────────────────────────
+// One row in a team's "Show transfers" log. Collapsed: WT number + status +
+// summary. Tap to expand its line items (name · qty), fetched on demand so
+// opening the log doesn't pull every transfer's items up front.
+function TransferHistoryRow({ t }: { t: SubCustodyTransfer }) {
+  const [open, setOpen] = useState(false)
+  const { data: items = [], isLoading } = useCustodyTransferItems(open ? t.transfer_id : null)
+  const variantMeta = useVariantItemMeta(items.map((i) => i.brand_variant_id))
+  const meta = TRANSFER_STATUS_META[t.status] ?? { label: t.status, cls: 'border-muted-foreground/30 text-muted-foreground bg-muted' }
+  const when = t.received_at ?? t.dispatched_at ?? t.created_at
+
+  return (
+    <div className="rounded-md border border-dashed">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full text-left px-2 py-1.5 flex items-start gap-1.5 hover:bg-muted/30 transition-colors"
+      >
+        {open
+          ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+          : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-medium break-all text-[11px]">{t.transfer_number}</span>
+            <Badge variant="outline" className={`text-[9px] h-4 px-1 font-normal shrink-0 ${meta.cls}`}>
+              {meta.label}
+            </Badge>
+          </div>
+          <div className="text-[10px] text-muted-foreground break-words">
+            {t.direction === 'in' ? 'From' : 'To'} {t.counterparty ?? '—'} · {t.item_count} item{t.item_count === 1 ? '' : 's'} · {t.total_qty} units
+            {when ? ` · ${TX_DATE.format(new Date(when))}` : ''}
+          </div>
+        </div>
+      </button>
+      {open && (
+        <div className="px-2 pb-2 pl-6 space-y-1">
+          {isLoading ? (
+            <p className="text-[10px] text-muted-foreground py-1">Loading items…</p>
+          ) : items.length === 0 ? (
+            <p className="text-[10px] text-muted-foreground py-1">No items on this transfer.</p>
+          ) : items.map((i) => (
+            <div key={i.id} className="flex items-start justify-between gap-2 text-[10px]">
+              <div className="min-w-0">
+                <ItemLabel meta={variantMeta.get(i.brand_variant_id)} name={i.item_name} nameClassName="text-[10px] font-medium break-words" />
+                {i.sku && <div className="text-[9px] text-muted-foreground break-words">{i.sku}</div>}
+              </div>
+              <span className="tabular-nums text-muted-foreground shrink-0">{i.dispatched_qty}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
