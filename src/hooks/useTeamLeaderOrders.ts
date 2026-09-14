@@ -2,7 +2,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
-import type { TlVisit, TlService, VisitStatus, VisitType } from '@/types/team-leader'
+import type { TlVisit, TlService, VisitStatus, VisitType, QcItem } from '@/types/team-leader'
+import { buildQcScorers } from '@/lib/qc/scorers'
 import { queryKeys } from '@/lib/queryKeys'
 
 export function useTeamLeaderOrders(teamId: string | null | undefined) {
@@ -21,17 +22,20 @@ export function useTeamLeaderOrders(teamId: string | null | undefined) {
       if (error) throw error
 
       return (data ?? []).map((row): TlVisit => {
-        const services: TlService[] = Array.isArray(row.services_json)
-          ? row.services_json.filter(Boolean).map((_s) => {
-              const s = _s as Record<string, unknown>
-              return {
-                id: s.id as string,
-                name: (s.name as string) ?? 'Service',
-                unit_price: (s.unit_price as number) ?? 0,
-                qty: (s.qty as number) ?? 1,
-              }
-            })
+        const rawServices: Record<string, unknown>[] = Array.isArray(row.services_json)
+          ? (row.services_json.filter(Boolean) as Record<string, unknown>[])
           : []
+
+        const services: TlService[] = rawServices.map((s) => ({
+          id: s.id as string,
+          name: (s.name as string) ?? 'Service',
+          unit_price: (s.unit_price as number) ?? 0,
+          qty: (s.qty as number) ?? 1,
+        }))
+
+        // Per-item QC scorers (A3c): undefined when no service has a checklist,
+        // so the QC dialog falls back to a flat 0–10 per service.
+        const qc_items: QcItem[] | undefined = buildQcScorers(rawServices)
 
         return {
           id: row.id,
@@ -53,6 +57,7 @@ export function useTeamLeaderOrders(teamId: string | null | undefined) {
           other_teams_names: row.other_teams_names ?? [],
           notes: row.notes ?? null,
           has_invoice: row.has_invoice === true,
+          qc_items,
         }
       })
     },

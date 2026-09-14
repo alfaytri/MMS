@@ -12,8 +12,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import {
-  useQcInspections, useSubmitQcInspection, type QcInspection,
+  useQcInspections, useSubmitQcInspection, useOrderQcScorers, type QcInspection,
 } from '@/hooks/useQcInspections'
 
 function PointsBadge({ points }: { points: number }) {
@@ -42,14 +43,32 @@ export default function QcInspectionsPage() {
   const submit = useSubmitQcInspection()
   const [target, setTarget] = useState<QcInspection | null>(null)
   const [findings, setFindings] = useState('')
+  const [scores, setScores] = useState<Record<string, number>>({})
+
+  // Post-completion inspections score the finished work per checklist item.
+  const isPost = target?.stage === 'post_completion'
+  const { data: scorers = [] } = useOrderQcScorers(isPost ? target?.order_id ?? null : null)
+  const scoreTotal = Object.values(scores).reduce((a, b) => a + b, 0)
+  const scoreMax = scorers.reduce((a, s) => a + s.maxScore, 0)
+
+  function openTarget(i: QcInspection) {
+    setTarget(i)
+    setFindings(i.findings ?? '')
+    setScores({})
+  }
 
   async function handleSubmit() {
     if (!target) return
     try {
-      await submit.mutateAsync({ inspectionId: target.id, findings: findings.trim() || undefined })
+      await submit.mutateAsync({
+        inspectionId: target.id,
+        findings: findings.trim() || undefined,
+        scores: isPost && Object.keys(scores).length > 0 ? scores : undefined,
+      })
       toast.success(`Inspection for ${target.order_number ?? 'order'} submitted for review`)
       setTarget(null)
       setFindings('')
+      setScores({})
     } catch (e) {
       toast.error((e as Error).message || 'Failed to submit')
     }
@@ -93,7 +112,7 @@ export default function QcInspectionsPage() {
               </div>
 
               <div className="pt-1 border-t">
-                <Button className="w-full gap-1.5" onClick={() => { setTarget(i); setFindings(i.findings ?? '') }}>
+                <Button className="w-full gap-1.5" onClick={() => openTarget(i)}>
                   Record findings &amp; submit
                 </Button>
               </div>
@@ -107,9 +126,47 @@ export default function QcInspectionsPage() {
           <DialogHeader>
             <DialogTitle>Inspection — {target?.order_number}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 py-2">
+          <div className="space-y-3 py-2">
+            {isPost && scorers.length > 0 && (
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Quality score</p>
+                  <Badge variant="outline" className="text-xs">{scoreTotal}/{scoreMax}</Badge>
+                </div>
+                {scorers.map((item) => {
+                  const current = scores[item.serviceId] ?? 0
+                  return (
+                    <div key={item.serviceId} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm">{item.serviceName}</p>
+                        <span className="text-xs text-muted-foreground">{current}/{item.maxScore}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {Array.from({ length: item.maxScore }, (_, k) => {
+                          const dot = k + 1
+                          const active = current >= dot
+                          const dpct = Math.round((dot / item.maxScore) * 100)
+                          const color = active
+                            ? (dpct >= 80 ? 'bg-green-500' : dpct >= 50 ? 'bg-amber-500' : 'bg-red-500')
+                            : 'bg-muted'
+                          return (
+                            <button
+                              key={dot}
+                              type="button"
+                              aria-label={`${item.serviceName} score ${dot}`}
+                              className={cn('h-7 flex-1 rounded-md transition-colors', color)}
+                              onClick={() => setScores((p) => ({ ...p, [item.serviceId]: dot === current ? 0 : dot }))}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
-              Record what you found on site. This goes to the Operations Manager to book or reject.
+              Record what you found. This goes to the Operations Manager to review.
             </p>
             <Textarea
               value={findings}

@@ -4,6 +4,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { queryKeys } from '@/lib/queryKeys'
+import type { QcItem } from '@/types/team-leader'
+import { buildQcScorersOrFlat } from '@/lib/qc/scorers'
 
 export type QcScope = 'mine' | 'review' | 'open'
 
@@ -45,6 +47,25 @@ export function useQcInspections(scope: QcScope) {
       const { data, error } = await supabase.rpc('get_qc_inspections' as never, { p_scope: scope } as never)
       if (error) throw error
       return (data ?? []) as unknown as QcInspection[]
+    },
+  })
+}
+
+/** Per-item QC scorers for an order (post-completion inspection scoring). */
+export function useOrderQcScorers(orderId: string | null) {
+  return useQuery<QcItem[]>({
+    queryKey: ['order-qc-scorers', orderId],
+    enabled: !!orderId,
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data } = (await supabase
+        .from('order_services')
+        .select('id, name, service_id, services:service_id(qc_items)')
+        .eq('order_id', orderId as string)) as unknown as {
+          data: Array<{ id: string; name: string | null; services: { qc_items: unknown } | null }> | null
+        }
+      const raw = (data ?? []).map((r) => ({ id: r.id, name: r.name ?? 'Service', qc_items: r.services?.qc_items }))
+      return buildQcScorersOrFlat(raw)
     },
   })
 }
