@@ -146,6 +146,20 @@ export default function QcRulesPage() {
                     <span className="block text-[11px] text-muted-foreground">Multiple orders, same customer + site.</span>
                   </label>
                 </div>
+                <div className="flex items-center justify-between gap-4 border-t px-4 py-3">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-medium">Auto-create backwork on rework</span>
+                    <span className="block text-xs text-muted-foreground">
+                      ON: flagging a post-completion QC for rework creates the redo order automatically.
+                      OFF: the call centre books the redo.
+                    </span>
+                  </div>
+                  <Switch
+                    checked={config.auto_backwork_on_rework}
+                    onCheckedChange={(v) => setConfig({ ...config, auto_backwork_on_rework: v })}
+                    aria-label="Auto-create backwork on rework"
+                  />
+                </div>
               </div>
             )}
           </>

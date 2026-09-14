@@ -13,22 +13,38 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import {
-  useQcInspections, useBookQcInspection, useRejectQcInspection, type QcInspection,
+  useQcInspections, useBookQcInspection, useRejectQcInspection, useFlagQcRework, type QcInspection,
 } from '@/hooks/useQcInspections'
 
 export default function QcReviewPage() {
   const { data: inspections = [], isLoading } = useQcInspections('review')
   const book = useBookQcInspection()
   const reject = useRejectQcInspection()
+  const rework = useFlagQcRework()
   const [rejectTarget, setRejectTarget] = useState<QcInspection | null>(null)
+  const [reworkTarget, setReworkTarget] = useState<QcInspection | null>(null)
   const [reason, setReason] = useState('')
+  const [reworkNote, setReworkNote] = useState('')
 
   async function handleBook(i: QcInspection) {
+    const isPost = i.stage === 'post_completion'
     try {
       await book.mutateAsync({ inspectionId: i.id })
-      toast.success(`${i.order_number ?? 'Order'} booked — QC passed`)
+      toast.success(isPost ? `${i.order_number ?? 'Order'} signed off — QC passed` : `${i.order_number ?? 'Order'} booked — QC passed`)
     } catch (e) {
-      toast.error((e as Error).message || 'Failed to book')
+      toast.error((e as Error).message || 'Failed')
+    }
+  }
+
+  async function handleRework() {
+    if (!reworkTarget) return
+    try {
+      await rework.mutateAsync({ inspectionId: reworkTarget.id, notes: reworkNote.trim() || undefined })
+      toast.success(`${reworkTarget.order_number ?? 'Order'} flagged for rework`)
+      setReworkTarget(null)
+      setReworkNote('')
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to flag')
     }
   }
 
@@ -50,8 +66,8 @@ export default function QcReviewPage() {
       <div>
         <h1 className="text-2xl 2xl:text-3xl font-bold">QC Review</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Inspections the Quality Analyst has completed. Book to schedule the held order, or reject to
-          cancel it and free the slot.
+          Inspections the Quality Analyst has completed. Pre-booking: book to schedule the held order,
+          or reject to cancel it. Post-completion: sign off, or flag for rework.
         </p>
       </div>
 
@@ -71,9 +87,14 @@ export default function QcReviewPage() {
                   <p className="font-mono font-semibold">{i.order_number ?? '—'}</p>
                   <p className="text-sm text-muted-foreground truncate">{i.customer_name ?? 'Unknown customer'}</p>
                 </div>
-                <Badge className="gap-1 bg-indigo-600 text-white shrink-0">
-                  <ClipboardCheck className="h-3 w-3" /> QC {i.points}
-                </Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    {i.stage === 'post_completion' ? 'post-completion' : 'pre-booking'}
+                  </span>
+                  <Badge className="gap-1 bg-indigo-600 text-white">
+                    <ClipboardCheck className="h-3 w-3" /> QC {i.points}
+                  </Badge>
+                </div>
               </div>
 
               {i.breakdown?.length > 0 && (
@@ -101,15 +122,25 @@ export default function QcReviewPage() {
               <div className="flex gap-2 pt-1 border-t">
                 <Button className="flex-1 gap-1.5" onClick={() => handleBook(i)} disabled={book.isPending}>
                   {book.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Book order
+                  {i.stage === 'post_completion' ? 'Sign off' : 'Book order'}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
-                  onClick={() => { setRejectTarget(i); setReason('') }}
-                >
-                  Reject
-                </Button>
+                {i.stage === 'post_completion' ? (
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                    onClick={() => { setReworkTarget(i); setReworkNote('') }}
+                  >
+                    Flag for rework
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
+                    onClick={() => { setRejectTarget(i); setReason('') }}
+                  >
+                    Reject
+                  </Button>
+                )}
               </div>
             </Card>
           ))}
@@ -141,6 +172,37 @@ export default function QcReviewPage() {
             >
               {reject.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
               Reject &amp; cancel order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reworkTarget} onOpenChange={(v) => { if (!v) setReworkTarget(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Flag for rework — {reworkTarget?.order_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <p className="text-sm text-muted-foreground">
+              Records this job as needing rework. If auto-backwork is enabled in QC settings it also
+              creates the redo order now; otherwise the call centre books the redo. Add a note (optional):
+            </p>
+            <Textarea
+              value={reworkNote}
+              onChange={(e) => setReworkNote(e.target.value)}
+              placeholder="e.g. Drain left leaking — needs to be resealed"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReworkTarget(null)}>Cancel</Button>
+            <Button
+              className="bg-amber-600 text-white hover:bg-amber-700"
+              onClick={handleRework}
+              disabled={rework.isPending}
+            >
+              {rework.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              Flag for rework
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -23,6 +23,9 @@ export type QcConfig = {
   threshold: number
   max_qc_per_day: number
   same_site_mode: 'combine' | 'separate'
+  // When ON, flagging a post-completion QC for rework auto-creates the backwork
+  // redo order; when OFF (default) the call centre books the redo. (A3)
+  auto_backwork_on_rework: boolean
 }
 
 export const QC_TIMING_LABELS: Record<QcTiming, string> = {
@@ -33,7 +36,7 @@ export const QC_TIMING_LABELS: Record<QcTiming, string> = {
 
 const RULES_KEY = ['qc_point_rules'] as const
 const CONFIG_KEY = ['app_settings', 'qc_config'] as const
-export const DEFAULT_QC_CONFIG: QcConfig = { threshold: 5, max_qc_per_day: 3, same_site_mode: 'combine' }
+export const DEFAULT_QC_CONFIG: QcConfig = { threshold: 5, max_qc_per_day: 3, same_site_mode: 'combine', auto_backwork_on_rework: false }
 
 // ─── Point rules ────────────────────────────────────────────────────────────
 export function useQcPointRules() {
@@ -87,6 +90,7 @@ export function useQcConfig() {
         threshold:      Math.max(1, num(v.threshold, DEFAULT_QC_CONFIG.threshold)),
         max_qc_per_day: Math.max(1, num(v.max_qc_per_day, DEFAULT_QC_CONFIG.max_qc_per_day)),
         same_site_mode: v.same_site_mode === 'separate' ? 'separate' : 'combine',
+        auto_backwork_on_rework: v.auto_backwork_on_rework === true,
       }
     },
   })

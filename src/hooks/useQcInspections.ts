@@ -101,6 +101,18 @@ export function useRejectQcInspection() {
   )
 }
 
+export function useFlagQcRework() {
+  return useQcMutation<{ inspectionId: string; notes?: string }>(
+    async (supabase, { inspectionId, notes }) => {
+      const { error } = await supabase.rpc(
+        'rpc_qc_flag_rework' as never,
+        { p_inspection_id: inspectionId, p_notes: notes ?? null } as never,
+      )
+      if (error) throw error
+    },
+  )
+}
+
 export function useReassignQcInspection() {
   return useQcMutation<{ inspectionId: string; analystId: string }>(
     async (supabase, { inspectionId, analystId }) => {
