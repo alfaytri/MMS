@@ -21,8 +21,13 @@ const SUPA_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 export type WatiParam = { name: string; value: string }
 
 export interface SendWatiTemplateArgs {
-  /** notification_config.slug — the message type (e.g. 'order_invoice'). */
+  /** notification_config.slug — the message type (e.g. 'order_invoice'). Also
+   *  used for the chat log / broadcast name even when templateOverride is set. */
   slug: string
+  /** Bypass the notification_config lookup and use this WATI template directly
+   *  (for reminders, whose template is chosen per reminder_template, not per
+   *  a global notification_config slug). */
+  templateOverride?: { watiTemplateName: string; mediaType?: string } | null
   /** Customer phone in any format; normalised to digits with a 974 prefix. */
   phone: string
   /** NAMED body parameter values matching the template's placeholders. */
@@ -76,7 +81,9 @@ async function resolveTemplate(admin: SupabaseClient, slug: string): Promise<
 export async function sendWatiTemplate(args: SendWatiTemplateArgs): Promise<SendWatiTemplateResult> {
   const admin = createClient(SUPA_URL, SUPA_KEY)
 
-  const cfg = await resolveTemplate(admin, args.slug)
+  const cfg = args.templateOverride
+    ? { active: true, watiTemplateName: (args.templateOverride.watiTemplateName ?? '').trim() || null, mediaType: args.templateOverride.mediaType ?? 'none' }
+    : await resolveTemplate(admin, args.slug)
   if (!cfg)          return { skipped: 'config-missing' }
   if (!cfg.active)   return { skipped: 'inactive' }
   if (!cfg.watiTemplateName) return { skipped: 'unassigned' }

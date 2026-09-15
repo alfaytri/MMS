@@ -28,6 +28,7 @@ import {
   Hash,
   AlertTriangle,
   ClipboardCheck,
+  Bell,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -73,6 +74,7 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Approval Workflows', href: '/master-data/admin/approval-workflows', icon: Workflow,    permission: 'master_data.admin.view' },
       { label: 'Customer Risk Colors', href: '/master-data/admin/customer-risk',   icon: AlertTriangle, permission: 'master_data.admin.view' },
       { label: 'QC Rules',             href: '/master-data/admin/qc-rules',         icon: ClipboardCheck, permission: ['master_data.admin.view', 'qc.manager'] },
+      { label: 'Service Reminders',    href: '/master-data/admin/reminders',        icon: Bell,        permission: 'master_data.admin.view' },
     ],
   },
 ]
