@@ -241,7 +241,7 @@ interface UffizioEnvelope {
   success?: boolean
   status?: { code?: number; description?: string }
   data?: { token?: string } | UffizioVehicleData[]
-  root?: { VehicleData?: UffizioVehicleData[] } | UffizioVehicleData[]
+  root?: { VehicleData?: UffizioVehicleData[]; error?: string } | UffizioVehicleData[]
   VehicleData?: UffizioVehicleData[]
 }
 
@@ -295,6 +295,15 @@ async function fetchLiveRows(token: string): Promise<UffizioEnvelope> {
 const isInvalidToken = (j: UffizioEnvelope): boolean =>
   j?.result === 0 && /invalid token/i.test(String(j?.message ?? ''))
 
+/** Returns an error message if the envelope signals failure (both known shapes), else null. */
+function envelopeError(j: UffizioEnvelope): string | null {
+  if (j?.result === 0) return String(j.message ?? 'request failed').trim()
+  if (j?.success === false) return String(j.status?.description ?? j.message ?? 'request failed').trim()
+  const root = j?.root // rate limit comes back as { root: { error: "…one minute one call." } }
+  if (root && !Array.isArray(root) && typeof root.error === 'string') return root.error.trim()
+  return null
+}
+
 /**
  * Whole fleet's live data, normalised. Cached 120s to respect the per-company rate
  * limit; on a transient upstream error the last good snapshot is served if we have one.
@@ -315,14 +324,26 @@ export async function getLiveData(): Promise<OptimumFleetVehicle[]> {
       token = await getAccessToken(true)
       json = await fetchLiveRows(token)
     }
-    if (json.result === 0) {
-      throw new Error(`Optimum Fleet API: ${String(json.message ?? 'request failed').trim()}`)
+    const err = envelopeError(json)       // rate limit / other upstream failure
+    if (err) {
+      if (_fleet) return _fleet.data      // serve the last good snapshot through any hiccup
+      // Cold cache + the 1-call-per-minute throttle: degrade to empty rather than
+      // erroring; the next poll (or the 120s cache once primed) recovers on its own.
+      if (/limit|frequent|one minute/i.test(err)) return []
+      throw new Error(`Optimum Fleet API: ${err}`)
     }
+
     const data = extractRows(json)
       .map(mapLiveDataToVehicle)
       .filter((v): v is OptimumFleetVehicle => v !== null)
-    _fleet = { at: now, data }
-    return data
+
+    // Only cache a non-empty snapshot — never let a transient empty response
+    // poison a good cache or persist emptiness for the full TTL.
+    if (data.length > 0) {
+      _fleet = { at: now, data }
+      return data
+    }
+    return _fleet ? _fleet.data : []
   } catch (err) {
     if (_fleet) return _fleet.data       // serve stale snapshot on transient failure
     throw err
