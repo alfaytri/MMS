@@ -8,6 +8,37 @@ their real vehicles instead of (or alongside) the current Traccar feed.
 
 ---
 
+## 0. CONFIRMED CONTRACT + PHASE-1 STATUS (2026-09-16 — live probe of avl.optimumfleet.net)
+
+Live-probing the instance settled §9's open questions and **overrides the auth
+assumptions in §1/§3/§4 below:**
+
+- **Base path = `/tracking`** (query style: `?token=getLiveData&format=json`). The old
+  `/webservice` + user/pass API replies **"API Deprecated: … deprecated due to security
+  reasons"** on this instance, and `generateAccessToken`/`getAccessToken` with user/pass
+  return "Invalid parameter". `/tracking/getLiveData` path-style = 404.
+- **Auth = `auth-code` HTTP header** carrying the Access Code (no token round-trip; the
+  Access Code *is* the auth-code). With `Authorization` instead it errors "auth-code is not
+  set in header"; with a bogus code it passes the header check and returns code 143
+  "Token not exist". **So `OPTIMUMFLEET_USER`/`_PASS` do not work here — only
+  `OPTIMUMFLEET_ACCESS_CODE`.**
+- **Where the user gets the Access Code:** Trakzee → **Settings → General** → (Admin/
+  Reseller/Company account) → double-click the account → **User Settings → API Access
+  Code → Generate Access Code → Save** (Admin/Reseller/Company level only).
+- Request adds `&Tformat=UTC`; the client parses Uffizio `Datetime` as UTC.
+
+**Phase 1 BUILT (2026-09-16), pending only the live Access Code for the smoke test:**
+`src/lib/optimumfleet.ts` (client + `mapLiveDataToVehicle` + `toTraccarPosition`/
+`toVehicleMapData` adapters; 21 unit tests in `optimumfleet.mapping.test.ts`),
+`src/app/api/optimumfleet/positions/route.ts` (auth-gated, 120s cache), `useOptimumFleet.ts`,
+`queryKeys.optimumfleet`, and the `/map` provider switch (`NEXT_PUBLIC_TRACKING_PROVIDER=
+optimumfleet`, default `traccar`). To light up: user adds `OPTIMUMFLEET_ACCESS_CODE` +
+`NEXT_PUBLIC_TRACKING_PROVIDER=optimumfleet` to `.env.local`, restart dev. The documented
+`root.VehicleData[]` shape drives the mapper; verify/adjust field names against the first
+real `/tracking` response.
+
+---
+
 ## 1. What the platform is (investigation result)
 
 - **Optimum Fleet = Trakzee, by Uffizio** — a white-labeled commercial telematics

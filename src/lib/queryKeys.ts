@@ -669,6 +669,11 @@ export const queryKeys = {
     geofences: ['traccar-geofences'] as const,
   },
 
+  /* ── Optimum Fleet (Trakzee / Uffizio GPS) ────────────── */
+  optimumfleet: {
+    positions: ['optimumfleet-positions'] as const,
+  },
+
   /* ── Brand Groups ─────────────────────────────────────── */
   brandGroups: {
     all: ['brand-groups'] as const,

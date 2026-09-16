@@ -8,6 +8,7 @@ import { useTeamLocations } from '@/hooks/useTeamLocations'
 import { useOrderLocations } from '@/hooks/useOrderLocations'
 import { useVehicles } from '@/hooks/useTeams'
 import { useTraccarPositions, useTraccarGeofences, useTraccarHistory } from '@/hooks/useTraccar'
+import { useOptimumFleetPositions } from '@/hooks/useOptimumFleet'
 import { parseTraccarId } from '@/lib/traccar'
 import { MapSidebar } from '@/components/map/MapSidebar'
 import { Button } from '@/components/ui/button'
@@ -84,10 +85,16 @@ export default function MapPage() {
 
   const { data: orders = [] } = useOrderLocations({ dateFrom, dateTo })
 
-  // Vehicle tracking data
+  // ── Vehicle tracking — provider switch (Traccar ↔ Optimum Fleet) ──────────
+  // Flip the whole /map fleet feed with NEXT_PUBLIC_TRACKING_PROVIDER=optimumfleet
+  // (default: traccar). Phase 1 sources live positions fleet-direct from Optimum
+  // Fleet; route history + geofences stay on Traccar (Phase 2/3).
+  const isOptimumFleet = process.env.NEXT_PUBLIC_TRACKING_PROVIDER === 'optimumfleet'
+
   const { data: allVehicles = [] } = useVehicles()
 
-  const trackedVehicles: VehicleMapData[] = useMemo(() => {
+  // Traccar path: our team-vehicles that carry a linked device id.
+  const traccarVehicles: VehicleMapData[] = useMemo(() => {
     return allVehicles
       .filter(v => v.traccar_device_id)
       .map(v => ({
@@ -100,11 +107,20 @@ export default function MapPage() {
   }, [allVehicles])
 
   const traccarDeviceIds = useMemo(
-    () => trackedVehicles.map(v => v.traccarDeviceId),
-    [trackedVehicles]
+    () => (isOptimumFleet ? [] : traccarVehicles.map(v => v.traccarDeviceId)),
+    [isOptimumFleet, traccarVehicles]
   )
 
-  const { data: vehiclePositions = [] } = useTraccarPositions(traccarDeviceIds)
+  const { data: traccarPositions = [] } = useTraccarPositions(traccarDeviceIds)
+  const { data: optimumFleet } = useOptimumFleetPositions(isOptimumFleet)
+
+  // Feed the shared marker layer / sidebar from whichever provider is active.
+  const trackedVehicles: VehicleMapData[] = isOptimumFleet
+    ? (optimumFleet?.vehicles ?? [])
+    : traccarVehicles
+  const vehiclePositions = isOptimumFleet
+    ? (optimumFleet?.positions ?? [])
+    : traccarPositions
 
   const { data: historyPositions = [] } = useTraccarHistory(
     historyState?.traccarDeviceId ?? null,
