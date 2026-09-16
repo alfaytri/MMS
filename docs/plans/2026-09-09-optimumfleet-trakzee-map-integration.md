@@ -8,34 +8,35 @@ their real vehicles instead of (or alongside) the current Traccar feed.
 
 ---
 
-## 0. CONFIRMED CONTRACT + PHASE-1 STATUS (2026-09-16 — live probe of avl.optimumfleet.net)
+## 0. CONFIRMED WORKING CONTRACT + PHASE-1 STATUS (2026-09-16 — verified live, 24 vehicles)
 
-Live-probing the instance settled §9's open questions and **overrides the auth
-assumptions in §1/§3/§4 below:**
+Verified end-to-end against the live tenant. **This supersedes the auth/endpoint assumptions
+in §1/§3/§4** — the working path is Optimum Solutions' documented **2-step `/webservice`
+flow**, NOT the `/tracking` header API and NOT the UI "API Access Code" JWT:
 
-- **Base path = `/tracking`** (query style: `?token=getLiveData&format=json`). The old
-  `/webservice` + user/pass API replies **"API Deprecated: … deprecated due to security
-  reasons"** on this instance, and `generateAccessToken`/`getAccessToken` with user/pass
-  return "Invalid parameter". `/tracking/getLiveData` path-style = 404.
-- **Auth = `auth-code` HTTP header** carrying the Access Code (no token round-trip; the
-  Access Code *is* the auth-code). With `Authorization` instead it errors "auth-code is not
-  set in header"; with a bogus code it passes the header check and returns code 143
-  "Token not exist". **So `OPTIMUMFLEET_USER`/`_PASS` do not work here — only
-  `OPTIMUMFLEET_ACCESS_CODE`.**
-- **Where the user gets the Access Code:** Trakzee → **Settings → General** → (Admin/
-  Reseller/Company account) → double-click the account → **User Settings → API Access
-  Code → Generate Access Code → Save** (Admin/Reseller/Company level only).
-- Request adds `&Tformat=UTC`; the client parses Uffizio `Datetime` as UTC.
+- **Step 1 — token:** `POST {BASE}/webservice?token=generateAccessToken` + JSON body
+  `{"username":<login>,"password":<pass>}` → `{"result":1,"data":{"token":<TOKEN>}}`.
+- **Step 2 — fleet:** `POST {BASE}/webservice?token=getTokenBaseLiveData&ProjectId=37`
+  (37 = AVL Premium), headers `auth-code:<TOKEN>` + `Content-Type: application/json`,
+  body `{"company_names":"ALFAYTRI"}` (**≥1 of company_names/vehicle_nos/imei_nos is
+  MANDATORY** — an empty body returns nothing) → `{"root":{"VehicleData":[…]}}`.
+- **Credentials = the account username/password** (`OPTIMUMFLEET_USER`/`_PASS`, the ORIGINAL
+  creds). The UI "API Access Code" (a JWT) is for the `/tracking` API, whose methods
+  (`getLiveData`, `getUserVehicleLiveData`, `getTokenBaseLiveData`, …) ALL return code 128
+  "Given method is not available" for this package — a dead end. Ref: Optimum Solutions
+  "Get Token Base Live Data" manual (`D:\AVL`).
+- **Timezone:** `Datetime`/`GPSActualTime` are tenant-local (Qatar UTC+3), normalised to UTC
+  on parse (`OPTIMUMFLEET_TZ_OFFSET_MIN`, default 180). Rate limit ≈ 1 req/2 min per company
+  → client caches 120s + serves stale on transient error.
 
-**Phase 1 BUILT (2026-09-16), pending only the live Access Code for the smoke test:**
-`src/lib/optimumfleet.ts` (client + `mapLiveDataToVehicle` + `toTraccarPosition`/
-`toVehicleMapData` adapters; 21 unit tests in `optimumfleet.mapping.test.ts`),
-`src/app/api/optimumfleet/positions/route.ts` (auth-gated, 120s cache), `useOptimumFleet.ts`,
-`queryKeys.optimumfleet`, and the `/map` provider switch (`NEXT_PUBLIC_TRACKING_PROVIDER=
-optimumfleet`, default `traccar`). To light up: user adds `OPTIMUMFLEET_ACCESS_CODE` +
-`NEXT_PUBLIC_TRACKING_PROVIDER=optimumfleet` to `.env.local`, restart dev. The documented
-`root.VehicleData[]` shape drives the mapper; verify/adjust field names against the first
-real `/tracking` response.
+**Phase 1 BUILT + LIVE-VERIFIED (2026-09-16):** `GET /api/optimumfleet/positions` returned
+24 mapped vehicles (5 moving) through the real client. Files: `src/lib/optimumfleet.ts`
+(2-step client, token+data cache, `mapLiveDataToVehicle` + `toTraccarPosition`/`toVehicleMapData`
+adapters; 22 unit tests), `src/app/api/optimumfleet/positions/route.ts`, `useOptimumFleet.ts`,
+`queryKeys.optimumfleet`, `/map` provider switch. **To show on the map:** add
+`NEXT_PUBLIC_TRACKING_PROVIDER=optimumfleet` to `.env.local` (keep `OPTIMUMFLEET_USER`/`_PASS`/
+`_BASE_URL`) and restart dev. Optional env: `OPTIMUMFLEET_COMPANY` (default ALFAYTRI),
+`OPTIMUMFLEET_PROJECT_ID` (default 37).
 
 ---
 

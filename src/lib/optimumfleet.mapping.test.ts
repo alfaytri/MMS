@@ -68,6 +68,9 @@ describe('parseUffizioDate', () => {
     expect(parseUffizioDate(null)).toBeNull()
     expect(parseUffizioDate('not a date')).toBeNull()
   })
+  it('applies a tenant offset (Qatar UTC+3 → subtract 180min) to reach UTC', () => {
+    expect(parseUffizioDate('16-09-2026 15:37:30', 180)).toBe('2026-09-16T12:37:30.000Z')
+  })
 })
 
 describe('hashImei', () => {
@@ -99,7 +102,8 @@ describe('mapLiveDataToVehicle', () => {
     expect(v.status).toBe('moving')
     expect(v.motion).toBe(true)
     expect(v.ignition).toBe(true)
-    expect(v.lastUpdate).toBe('2026-09-16T08:30:00.000Z')
+    // Datetime is tenant-local (Qatar UTC+3); 08:30 local → 05:30 UTC.
+    expect(v.lastUpdate).toBe('2026-09-16T05:30:00.000Z')
     expect(v.driver).toBe('Ahmed Khan')
     expect(v.location).toBe('Doha, Qatar')
     expect(v.odometer).toBe(10450)
@@ -174,7 +178,7 @@ describe('adapters to the map contract', () => {
     expect(p.course).toBe(270)
     expect(p.attributes.motion).toBe(true)
     expect(p.attributes.ignition).toBe(true)
-    expect(p.deviceTime).toBe('2026-09-16T08:30:00.000Z')
+    expect(p.deviceTime).toBe('2026-09-16T05:30:00.000Z')
   })
 
   it('zeroes position speed for an offline vehicle with a stale non-zero Speed', () => {
