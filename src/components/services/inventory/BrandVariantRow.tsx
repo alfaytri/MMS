@@ -157,7 +157,7 @@ export function BrandVariantRow({ variant, itemId, itemName, canMoveUp, canMoveD
           {canSeePricing ? (variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—') : '—'}
         </TableCell>
         <TableCell className="text-right hidden md:table-cell">
-          {canSeePricing ? (variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—') : '—'}
+          {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}
         </TableCell>
         <TableCell className="text-right">
           {reservedQty > 0 ? (
