@@ -15,6 +15,7 @@ import { useArchiveInventoryBrandVariant, useDeleteInventoryBrandVariant, useVar
 import { variantStockUnits } from '@/lib/inventory/stockUnits'
 import { useWarehouses } from '@/hooks/useWarehouses'
 import { useCanCreateInventoryReceivals } from '@/hooks/useInventoryReceivals'
+import { useHasPermission } from '@/hooks/usePermissions'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { formatCurrency } from '@/lib/utils/formatters'
 
@@ -150,6 +151,9 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
   const del = useDeleteInventoryBrandVariant()
   const blockingUnits = variantStockUnits(variant)
   const { data: canCreateInvRcv = false } = useCanCreateInventoryReceivals()
+  // Cost gate — AVG COST is money, hidden without inventory-pricing view.
+  // SELLING PRICE stays visible (staff quote it) — matches BrandVariantRow.
+  const canSeePricing = useHasPermission('inventory.pricing.view')
 
   const stockLevel = variant.stock_level ?? 0
   const reservedQty = variant.reserved_qty ?? 0
@@ -180,7 +184,7 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
         </TableCell>
         <TableCell className="font-mono text-[11px] hidden sm:table-cell">{variant.code ?? '—'}</TableCell>
         <TableCell className="text-right hidden md:table-cell">
-          {variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—'}
+          {canSeePricing ? (variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—') : '—'}
         </TableCell>
         <TableCell className="text-right">
           {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}
@@ -300,7 +304,7 @@ export function OriginVariantRow({ variant, itemId, itemName }: Props) {
               </div>
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                 <span>Sell: {variant.selling_price != null ? formatCurrency(variant.selling_price, 'QAR') : '—'}</span>
-                <span>Avg: {variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—'}</span>
+                <span>Avg: {canSeePricing ? (variant.average_cost != null ? formatCurrency(variant.average_cost, 'QAR') : '—') : '—'}</span>
                 {variant.code && <span>Code: {variant.code}</span>}
               </div>
             </button>

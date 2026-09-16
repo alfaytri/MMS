@@ -58,7 +58,7 @@ export const NAV_TREE: TreeNode[] = [
             label: 'Inventory Pricing',
             icon: Package,
             permissions: [
-              { key: 'inventory.pricing.view',   label: 'View Inventory Pricing',   description: 'View cost and selling prices on variants' },
+              { key: 'inventory.pricing.view',   label: 'View Item Cost',           description: 'View item cost — average cost & cost layers (selling price is always shown)' },
               { key: 'inventory.pricing.manage', label: 'Manage Inventory Pricing', description: 'Change cost/selling price on variants (kept behind Accounting)' },
             ],
           },
