@@ -16,6 +16,9 @@ import { cn } from '@/lib/utils'
 import {
   useQcInspections, useSubmitQcInspection, useOrderQcScorers, type QcInspection,
 } from '@/hooks/useQcInspections'
+import { PhotoCapture } from '@/components/team-leader/shared/PhotoCapture'
+import { createClient } from '@/lib/supabase/client'
+import { uploadBlobs } from '@/lib/storage/uploadBlobs'
 
 function PointsBadge({ points }: { points: number }) {
   return (
@@ -44,6 +47,7 @@ export default function QcInspectionsPage() {
   const [target, setTarget] = useState<QcInspection | null>(null)
   const [findings, setFindings] = useState('')
   const [scores, setScores] = useState<Record<string, number>>({})
+  const [photos, setPhotos] = useState<Blob[]>([])
 
   // Post-completion inspections score the finished work per checklist item.
   const isPost = target?.stage === 'post_completion'
@@ -55,20 +59,26 @@ export default function QcInspectionsPage() {
     setTarget(i)
     setFindings(i.findings ?? '')
     setScores({})
+    setPhotos([])
   }
 
   async function handleSubmit() {
     if (!target) return
     try {
+      const photoUrls = photos.length > 0
+        ? await uploadBlobs(createClient(), `qc/${target.id}`, photos, 'qc')
+        : undefined
       await submit.mutateAsync({
         inspectionId: target.id,
         findings: findings.trim() || undefined,
         scores: isPost && Object.keys(scores).length > 0 ? scores : undefined,
+        photoUrls,
       })
       toast.success(`Inspection for ${target.order_number ?? 'order'} submitted for review`)
       setTarget(null)
       setFindings('')
       setScores({})
+      setPhotos([])
     } catch (e) {
       toast.error((e as Error).message || 'Failed to submit')
     }
@@ -174,6 +184,7 @@ export default function QcInspectionsPage() {
               placeholder="e.g. Site accessible, correct unit confirmed, no rework needed"
               rows={4}
             />
+            {target && <PhotoCapture visitId={target.id} label="Photos" photos={photos} onChange={setPhotos} />}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTarget(null)}>Cancel</Button>

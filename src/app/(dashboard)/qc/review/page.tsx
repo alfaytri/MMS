@@ -113,6 +113,17 @@ export default function QcReviewPage() {
                 </p>
               )}
 
+              {i.photo_urls?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {i.photo_urls.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" title="Open photo">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="QC photo" className="h-16 w-16 rounded border object-cover" />
+                    </a>
+                  ))}
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 {i.analyst_name && <span className="inline-flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> {i.analyst_name}</span>}
                 {i.scheduled_date && <span>· Visit {format(new Date(i.scheduled_date), 'dd MMM yyyy')}</span>}

@@ -28,6 +28,7 @@ export interface QcInspection {
   analyst_id: string | null
   findings: string | null
   reject_reason: string | null
+  photo_urls: string[]
   created_at: string
   decided_at: string | null
   order_number: string | null
@@ -87,11 +88,11 @@ function useQcMutation<TVars>(
 }
 
 export function useSubmitQcInspection() {
-  return useQcMutation<{ inspectionId: string; findings?: string; scores?: unknown }>(
-    async (supabase, { inspectionId, findings, scores }) => {
+  return useQcMutation<{ inspectionId: string; findings?: string; scores?: unknown; photoUrls?: string[] }>(
+    async (supabase, { inspectionId, findings, scores, photoUrls }) => {
       const { error } = await supabase.rpc(
         'rpc_qc_submit_inspection' as never,
-        { p_inspection_id: inspectionId, p_findings: findings ?? null, p_scores: scores ?? null } as never,
+        { p_inspection_id: inspectionId, p_findings: findings ?? null, p_scores: scores ?? null, p_photo_urls: photoUrls ?? null } as never,
       )
       if (error) throw error
     },
