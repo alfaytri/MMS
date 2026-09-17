@@ -32,8 +32,39 @@ import { useDivisions } from '@/hooks/useDivisions'
 import { useRoles, useApprovalRoleCoverage } from '@/hooks/useRoles'
 import { useWorkflowSteps } from '@/hooks/useWorkflowSteps'
 
-type TierForm = { min_amount: string; max_amount: string; roles: string[] }
-const EMPTY_FORM: TierForm = { min_amount: '', max_amount: '', roles: [] }
+type TierForm = { min_amount: string; max_amount: string; roles: string[]; role_match: 'all' | 'any' }
+const EMPTY_FORM: TierForm = { min_amount: '', max_amount: '', roles: [], role_match: 'all' }
+
+// Per-band approval mode: any one of the required roles, or all of them.
+function ModeToggle({ value, onChange, disabled }: {
+  value: 'all' | 'any'
+  onChange: (v: 'all' | 'any') => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="inline-flex rounded-md border overflow-hidden" role="group" aria-label="Approval mode">
+      {(['any', 'all'] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(m)}
+          className={cn(
+            'px-2.5 py-1 text-[11px] transition-colors',
+            m === 'all' && 'border-l',
+            value === m
+              ? 'bg-foreground text-background'
+              : 'bg-transparent text-muted-foreground hover:text-foreground',
+            disabled && 'opacity-50 cursor-not-allowed',
+          )}
+          aria-pressed={value === m}
+        >
+          {m === 'any' ? 'Any one' : 'All'}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 const FALLBACK_ROLE_COLOR = 'bg-muted text-muted-foreground border-border'
 
@@ -152,7 +183,7 @@ export function ApprovalChainsTab() {
       return
     }
     upsertTier.mutate(
-      { chain_id: chainId, rank: nextRank(chainId), min_amount, max_amount: parseTierForm(tierForm).max_amount, required_roles: tierForm.roles },
+      { chain_id: chainId, rank: nextRank(chainId), min_amount, max_amount: parseTierForm(tierForm).max_amount, required_roles: tierForm.roles, role_match: tierForm.role_match },
       {
         onSuccess: () => { setAddingTierFor(null); setTierForm(EMPTY_FORM); toast.success('Tier added') },
         onError: (e) => toast.error(humanizeDbError(e)),
@@ -168,6 +199,7 @@ export function ApprovalChainsTab() {
         min_amount: String(tier.min_amount),
         max_amount: tier.max_amount ? String(tier.max_amount) : '',
         roles: tier.required_roles as string[],
+        role_match: tier.role_match ?? 'all',
       },
     })
   }
@@ -190,6 +222,7 @@ export function ApprovalChainsTab() {
         min_amount,
         max_amount: parseTierForm(editingTier.form).max_amount,
         required_roles: editingTier.form.roles,
+        role_match: editingTier.form.role_match,
       },
       {
         onSuccess: () => { setEditingTier(null); toast.success('Tier updated') },
@@ -300,6 +333,7 @@ export function ApprovalChainsTab() {
                   <TableHead>Min Amount (QAR)</TableHead>
                   <TableHead>Max Amount (QAR)</TableHead>
                   <TableHead>Required Roles</TableHead>
+                  <TableHead>Approval mode</TableHead>
                   {isAdmin && <TableHead className="w-20" />}
                 </TableRow>
               </TableHeader>
@@ -346,6 +380,12 @@ export function ApprovalChainsTab() {
                                 s ? { ...s, form: { ...s.form, roles: toggleRoleIn(s.form.roles, name) } } : s,
                               )}
                               size="sm"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <ModeToggle
+                              value={editingTier!.form.role_match}
+                              onChange={(v) => setEditingTier((s) => s ? { ...s, form: { ...s.form, role_match: v } } : s)}
                             />
                           </TableCell>
                           <TableCell>
@@ -403,6 +443,20 @@ export function ApprovalChainsTab() {
                               </span>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {tier.required_roles.length >= 2 ? (
+                            <span className={cn(
+                              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                              tier.role_match === 'any'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-muted text-muted-foreground border-border',
+                            )}>
+                              {tier.role_match === 'any' ? 'Any one' : 'All must'}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">— one role</span>
+                          )}
                         </TableCell>
                         {isAdmin && (
                           <TableCell>
@@ -671,6 +725,21 @@ function NewTierCard({
           coveredRoles={coveredRoles}
           onToggle={toggleRole}
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium text-muted-foreground inline-flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Approval mode
+        </Label>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ModeToggle value={form.role_match} onChange={(v) => patch('role_match', v)} />
+          <span className="text-[11px] text-muted-foreground">
+            {form.role_match === 'any'
+              ? 'Any one of the selected roles can approve this band'
+              : 'Every selected role must approve this band'}
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 pt-1">

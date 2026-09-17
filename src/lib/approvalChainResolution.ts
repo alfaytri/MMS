@@ -20,6 +20,7 @@ export type ApprovalChainTier = {
   min_amount: number
   max_amount: number | null
   required_roles: string[]      // role names (custom_roles.name)
+  role_match: 'all' | 'any'     // 'all' = every role must approve; 'any' = the first one to approve satisfies the band
   deleted_at: string | null
 }
 
