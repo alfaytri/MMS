@@ -444,8 +444,10 @@ export type Database = {
           division_id: string | null
           id: string
           landed_cost_id: string | null
+          milestone_code_id: string | null
           milestone_id: string | null
           notes: string | null
+          project_id: string | null
           qty: number
           sale_delivery_id: string | null
           sale_order_id: string | null
@@ -468,8 +470,10 @@ export type Database = {
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
+          project_id?: string | null
           qty: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
@@ -492,8 +496,10 @@ export type Database = {
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
+          project_id?: string | null
           qty?: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
@@ -574,10 +580,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cogs_entries_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cogs_entries_milestone_id_fkey"
             columns: ["milestone_id"]
             isOneToOne: false
             referencedRelation: "project_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -856,10 +876,12 @@ export type Database = {
           division_id: string | null
           id: string
           is_team_item: boolean
+          milestone_code_id: string | null
           milestone_id: string | null
           notes: string | null
           posted_at: string | null
           posted_by: string | null
+          project_id: string | null
           source_sub_container_id: string
           source_warehouse_id: string
           status: string
@@ -880,10 +902,12 @@ export type Database = {
           division_id?: string | null
           id?: string
           is_team_item?: boolean
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
+          project_id?: string | null
           source_sub_container_id: string
           source_warehouse_id: string
           status?: string
@@ -904,10 +928,12 @@ export type Database = {
           division_id?: string | null
           id?: string
           is_team_item?: boolean
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
+          project_id?: string | null
           source_sub_container_id?: string
           source_warehouse_id?: string
           status?: string
@@ -970,6 +996,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "consumption_entries_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "consumption_entries_milestone_id_fkey"
             columns: ["milestone_id"]
             isOneToOne: false
@@ -981,6 +1014,13 @@ export type Database = {
             columns: ["posted_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -1891,26 +1931,53 @@ export type Database = {
       disciplines: {
         Row: {
           created_at: string
+          created_by: string | null
+          division_id: string
           id: string
           is_active: boolean
           name: string
+          prefix: string | null
           sort_order: number
+          updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
+          division_id: string
           id?: string
           is_active?: boolean
           name: string
+          prefix?: string | null
           sort_order?: number
+          updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
+          division_id?: string
           id?: string
           is_active?: boolean
           name?: string
+          prefix?: string | null
           sort_order?: number
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "disciplines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disciplines_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exchange_rate_change_log: {
         Row: {
@@ -3373,6 +3440,60 @@ export type Database = {
           },
         ]
       }
+      milestone_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discipline_id: string
+          grp: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discipline_id: string
+          grp?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discipline_id?: string
+          grp?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milestone_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milestone_codes_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           actioned_at: string | null
@@ -4372,38 +4493,102 @@ export type Database = {
           },
         ]
       }
-      project_milestones: {
+      project_milestone_codes: {
         Row: {
           created_at: string
           created_by: string | null
-          discipline_id: string | null
           id: string
-          is_active: boolean
-          label: string
-          sort_order: number
-          sub_container_id: string
-          updated_at: string
+          milestone_code_id: string
+          milestone_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
-          discipline_id?: string | null
           id?: string
-          is_active?: boolean
-          label: string
-          sort_order?: number
-          sub_container_id: string
-          updated_at?: string
+          milestone_code_id: string
+          milestone_id: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          id?: string
+          milestone_code_id?: string
+          milestone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_milestone_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestone_codes_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestone_codes_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "project_milestones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_milestones: {
+        Row: {
+          amount: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discipline_id: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          milestone_no: number | null
+          name: string | null
+          project_id: string | null
+          sort_order: number
+          status: string | null
+          sub_container_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
           discipline_id?: string | null
           id?: string
           is_active?: boolean
-          label?: string
+          label?: string | null
+          milestone_no?: number | null
+          name?: string | null
+          project_id?: string | null
           sort_order?: number
-          sub_container_id?: string
+          status?: string | null
+          sub_container_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discipline_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          milestone_no?: number | null
+          name?: string | null
+          project_id?: string | null
+          sort_order?: number
+          status?: string | null
+          sub_container_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4419,6 +4604,13 @@ export type Database = {
             columns: ["discipline_id"]
             isOneToOne: false
             referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -4439,38 +4631,59 @@ export type Database = {
       }
       projects: {
         Row: {
+          completion_date: string | null
           created_at: string
           created_by: string | null
+          customer_id: string | null
           division_id: string
+          expected_completion_date: string | null
           id: string
           is_active: boolean
           name: string
+          pin: string | null
           project_number: string
           responsible_person_profile_id: string | null
+          site_address: string | null
+          start_date: string | null
+          status: string
           updated_at: string
           warehouse_id: string
         }
         Insert: {
+          completion_date?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           division_id: string
+          expected_completion_date?: string | null
           id?: string
           is_active?: boolean
           name: string
+          pin?: string | null
           project_number: string
           responsible_person_profile_id?: string | null
+          site_address?: string | null
+          start_date?: string | null
+          status?: string
           updated_at?: string
           warehouse_id: string
         }
         Update: {
+          completion_date?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           division_id?: string
+          expected_completion_date?: string | null
           id?: string
           is_active?: boolean
           name?: string
+          pin?: string | null
           project_number?: string
           responsible_person_profile_id?: string | null
+          site_address?: string | null
+          start_date?: string | null
+          status?: string
           updated_at?: string
           warehouse_id?: string
         }
@@ -4480,6 +4693,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
@@ -8607,11 +8834,17 @@ export type Database = {
       }
       create_project: {
         Args: {
+          p_customer_id?: string
           p_discipline_ids: string[]
           p_division_id: string
+          p_expected_completion_date?: string
           p_name: string
+          p_pin?: string
           p_project_number: string
           p_responsible_person_profile_id?: string
+          p_site_address?: string
+          p_start_date?: string
+          p_status?: string
           p_warehouse_id: string
         }
         Returns: string
@@ -9532,8 +9765,10 @@ export type Database = {
           p_consumer_type: string
           p_discipline_id?: string
           p_lines: Json
+          p_milestone_code_id?: string
           p_milestone_id?: string
           p_notes: string
+          p_project_id?: string
           p_source_sub_container_id: string
           p_source_warehouse_id: string
         }
@@ -9940,8 +10175,20 @@ export type Database = {
         Args: { p_notes?: string; p_unit_id: string }
         Returns: undefined
       }
+      rpc_set_discipline_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
       rpc_set_item_divisions: {
         Args: { p_division_ids: string[]; p_item_id: string }
+        Returns: undefined
+      }
+      rpc_set_milestone_code_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
+      rpc_set_project_milestone_codes: {
+        Args: { p_code_ids: string[]; p_milestone_id: string }
         Returns: undefined
       }
       rpc_set_tool_lifecycle_type: {
@@ -9978,6 +10225,40 @@ export type Database = {
       rpc_update_inventory_sort_orders: {
         Args: { p_updates: Json }
         Returns: undefined
+      }
+      rpc_upsert_discipline: {
+        Args: {
+          p_division_id: string
+          p_id: string
+          p_name: string
+          p_prefix?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      rpc_upsert_milestone_code: {
+        Args: {
+          p_code: string
+          p_description?: string
+          p_discipline_id: string
+          p_grp?: string
+          p_id: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      rpc_upsert_project_milestone: {
+        Args: {
+          p_amount?: number
+          p_description?: string
+          p_discipline_id: string
+          p_id: string
+          p_milestone_no: number
+          p_name: string
+          p_project_id: string
+          p_status?: string
+        }
+        Returns: string
       }
       rpc_upsert_warehouse_sub_container: {
         Args: {
