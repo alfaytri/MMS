@@ -38,7 +38,7 @@ export function useProjectMilestones(
       const supabase = createClient()
       const { data, error } = await supabase
         .from('project_milestones')
-        .select('id, project_id, discipline_id, milestone_no, name, description, amount, status, is_active, created_by, created_at, updated_at')
+        .select('id, project_id, discipline_id, milestone_no, name, label, description, amount, status, is_active, created_by, created_at, updated_at')
         .eq('project_id', projectId!)
         .eq('discipline_id', disciplineId!)
         .eq('is_active', true)
