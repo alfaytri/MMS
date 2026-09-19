@@ -276,7 +276,9 @@ export function useCreateConsumption() {
       source_sub_container_id:     string
       consumer_type:               ConsumerType
       consumer_sub_container_id?:  string | null
+      project_id?:                 string | null
       milestone_id?:               string | null
+      milestone_code_id?:          string | null
       discipline_id?:              string | null
       code?:                       string | null
       notes?:                      string | null
@@ -284,17 +286,23 @@ export function useCreateConsumption() {
       lines:                       PostConsumptionLine[]
     }) => {
       const supabase = createClient()
-      // The RPC accepts NULL for the consumer sub / milestone / discipline /
-      // code / notes params (no NOT NULL constraint), but Supabase's generated
-      // types mark them non-nullable, so cast the args object (same pattern used
-      // across the custody RPC hooks). p_code is required server-side only for
-      // project spend (a discipline is tagged); the dialog enforces that too.
+      // The RPC accepts NULL for the consumer sub / project / milestone /
+      // milestone code / discipline / code / notes params (no NOT NULL
+      // constraint), but Supabase's generated types mark them non-nullable, so
+      // cast the args object (same pattern used across the custody RPC hooks).
+      // p_code is required server-side only for project spend (a discipline is
+      // tagged); the dialog enforces that too. `p_project_id` /
+      // `p_milestone_code_id` are the MEP additions (12-arg RPC) — stored and
+      // validated when provided, not hard-required (backward-compatible per
+      // the T7 ruling), so plain non-project consumption keeps posting as-is.
       const rpcArgs = {
         p_source_warehouse_id:       payload.source_warehouse_id,
         p_source_sub_container_id:   payload.source_sub_container_id,
         p_consumer_type:             payload.consumer_type,
         p_consumer_sub_container_id: payload.consumer_sub_container_id ?? null,
+        p_project_id:                payload.project_id ?? null,
         p_milestone_id:              payload.milestone_id ?? null,
+        p_milestone_code_id:         payload.milestone_code_id ?? null,
         p_discipline_id:             payload.discipline_id ?? null,
         p_code:                      payload.code ?? null,
         p_notes:                     payload.notes ?? null,
