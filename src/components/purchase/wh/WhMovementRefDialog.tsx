@@ -118,7 +118,7 @@ interface ConsumptionData {
     projects: { project_number: string; name: string | null } | null
   } | null
   source: { name: string | null } | null
-  milestone: { label: string } | null
+  milestone: { name: string | null; milestone_no: number | null; label: string | null } | null
   items: Array<{ brand_variant_id: string | null; item_name: string | null; sku: string | null; qty: number; unit_cost: number | null }>
 }
 
@@ -275,7 +275,7 @@ function useRefDetail(referenceType: string, referenceId: string, enabled: boole
               ? supabase.from('warehouse_sub_containers').select('name').eq('id', ce.source_sub_container_id).maybeSingle()
               : Promise.resolve({ data: null } as const),
             ce.milestone_id
-              ? supabase.from('project_milestones').select('label').eq('id', ce.milestone_id).maybeSingle()
+              ? supabase.from('project_milestones').select('name, milestone_no, label').eq('id', ce.milestone_id).maybeSingle()
               : Promise.resolve({ data: null } as const),
             supabase.from('inventory_stock_movements')
               .select('brand_variant_id, item_name, sku, qty, unit_cost')
@@ -792,6 +792,15 @@ function ConsumptionView({ data, variantMeta }: { data: ConsumptionData; variant
   const consumerLabel = data.consumer?.projects
     ? `${data.consumer.projects.project_number}${data.consumer.disciplines ? ' · ' + data.consumer.disciplines.name : ''}`
     : (data.consumer?.name ?? (data.consumer_type === 'internal' ? 'Internal' : '—'))
+  // project_milestones.label is NULL for every new-model milestone (20260919010450 /
+  // now 20261096000000 dropped the NOT NULL; rpc_upsert_project_milestone never sets
+  // it) — name/milestone_no are the canonical fields now. Mirrors the fallback in
+  // NewConsumptionDialog's milestoneDisplay(), with '—' (this dialog's own convention
+  // for missing values) as the last resort instead of that helper's 'Unassigned'.
+  const milestoneLabel = data.milestone?.name
+    ?? (data.milestone?.milestone_no != null ? `#${data.milestone.milestone_no}` : null)
+    ?? data.milestone?.label
+    ?? '—'
   const totalQty = items.reduce((s, i) => s + Math.abs(i.qty ?? 0), 0)
 
   return (
@@ -818,7 +827,7 @@ function ConsumptionView({ data, variantMeta }: { data: ConsumptionData; variant
 
         <div className="grid grid-cols-2 gap-4">
           <MetaRow icon={<Boxes className="h-3.5 w-3.5 text-muted-foreground" />} label={isProject ? 'Project · Discipline' : 'Consumer'} value={consumerLabel} />
-          <MetaRow icon={<Flag className="h-3.5 w-3.5 text-muted-foreground" />} label="Milestone" value={data.milestone?.label ?? '—'} />
+          <MetaRow icon={<Flag className="h-3.5 w-3.5 text-muted-foreground" />} label="Milestone" value={milestoneLabel} />
           <MetaRow icon={<Warehouse className="h-3.5 w-3.5 text-muted-foreground" />} label="Source" value={data.source?.name ?? '—'} />
           <MetaRow icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />} label="Date" value={data.date ? format(new Date(data.date), 'dd MMM yyyy') : '—'} />
         </div>

@@ -190,6 +190,16 @@ begin
         raise exception 'rpc_post_consumption: milestone_code % is not in milestone %', p_milestone_code_id, p_milestone_id;
       end if;
     end if;
+  else
+    -- Non-pool consumer (internal, or custody to a non-project sub-container): a
+    -- direct RPC caller cannot stamp a project/milestone-code tag here — only a
+    -- project-pool consumption may be attributed to a project. Without this, a
+    -- caller bypassing the UI could pollute rpc_report_project_consumption with
+    -- rows that were never actually project spend. discipline_id/milestone_id
+    -- need no equivalent guard here — they already RAISE above for non-project
+    -- consumers when supplied.
+    p_project_id := null;
+    p_milestone_code_id := null;
   end if;
 
   -- Team-item routing: derive whether this consumption is of team-held items and
