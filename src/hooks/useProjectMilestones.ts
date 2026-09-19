@@ -53,16 +53,26 @@ export function useProjectMilestones(
 
 export type PoolDiscipline = { discipline_id: string; discipline_name: string }
 
+export type PoolDisciplinesResult = {
+  /** The pool sub-container's own `project_id` (null for a non-project custody sub). */
+  projectId: string | null
+  disciplines: PoolDiscipline[]
+}
+
 /**
- * Active discipline tags for the project that owns a given pool sub-container.
- * Powers the Discipline picker in NewConsumptionDialog when the consumer is a
- * project pool; returns [] (picker hidden) for a non-project custody sub.
+ * Resolves a pool sub-container's project id + its active discipline tags in
+ * one shot. Powers the Discipline picker in NewConsumptionDialog when the
+ * consumer is a project pool (and, via `projectId`, the
+ * `useProjectMilestones(projectId, disciplineId)` call downstream of it —
+ * milestones are keyed by project_id, not sub_container_id, since the MEP
+ * reshape). Returns `{ projectId: null, disciplines: [] }` (pickers hidden)
+ * for a non-project custody sub.
  */
 export function usePoolDisciplines(subContainerId: string | null | undefined) {
   return useQuery({
     queryKey: ['pool-disciplines', subContainerId],
     enabled: !!subContainerId,
-    queryFn: async (): Promise<PoolDiscipline[]> => {
+    queryFn: async (): Promise<PoolDisciplinesResult> => {
       const supabase = createClient()
       const { data: sub, error: subErr } = await supabase
         .from('warehouse_sub_containers')
@@ -70,8 +80,8 @@ export function usePoolDisciplines(subContainerId: string | null | undefined) {
         .eq('id', subContainerId!)
         .maybeSingle()
       if (subErr) throw wrapDbError(subErr, 'Failed to resolve project')
-      const projectId = (sub as { project_id: string | null } | null)?.project_id
-      if (!projectId) return []
+      const projectId = (sub as { project_id: string | null } | null)?.project_id ?? null
+      if (!projectId) return { projectId: null, disciplines: [] }
       const { data, error } = await supabase
         .from('project_disciplines')
         .select('discipline_id, disciplines(name)')
@@ -79,13 +89,14 @@ export function usePoolDisciplines(subContainerId: string | null | undefined) {
         .eq('is_active', true)
         .limit(200)
       if (error) throw wrapDbError(error, 'Failed to load project disciplines')
-      return (data ?? [])
+      const disciplines = (data ?? [])
         .map((r) => ({
           discipline_id: (r as { discipline_id: string }).discipline_id,
           discipline_name:
             (r as unknown as { disciplines?: { name: string } | null }).disciplines?.name ?? 'Unknown discipline',
         }))
         .sort((a, b) => a.discipline_name.localeCompare(b.discipline_name))
+      return { projectId, disciplines }
     },
     staleTime: 60 * 1000,
   })
