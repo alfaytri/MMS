@@ -34,6 +34,9 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/master-data/suppliers',          permission: 'master_data.suppliers.view' },
   { pathPrefix: '/master-data/inventory',          permission: 'inventory.catalog.view' },
   { pathPrefix: '/master-data/credit-groups',      permission: 'master_data.admin.view' },
+  // MEP master data (disciplines + milestone codes) — manage-only, same
+  // permission area as the Warehouse → Projects tab's inline gating.
+  { pathPrefix: '/master-data/mep',                permission: 'warehouse.projects.manage' },
 
   // ── Orders ─────────────────────────────────────────────────────────────
   { pathPrefix: '/orders/create-follow-up', permission: 'follow_ups.confirm' },
