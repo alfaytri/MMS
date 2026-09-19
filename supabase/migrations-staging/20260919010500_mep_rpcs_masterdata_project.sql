@@ -3,21 +3,9 @@
 -- plus create_project extended with customer/site/pin/status/dates.
 -- All SECURITY DEFINER, gated on warehouse.projects.manage.
 -- rpc_post_consumption is a separate file (Task 7, 20260919010510).
+-- Prerequisite: project_milestones.label must already be nullable — see
+-- 20260919010450_mep_project_milestones_label_nullable.sql (applies first).
 BEGIN;
-
--- Prerequisite schema fix: project_milestones.label is a vestigial NOT NULL
--- text column from the pre-reshape (sub_container_id, discipline_id, label)
--- design. The 20260919010300 reshape added `name` and backfilled it from
--- `label`, and dropped every UNIQUE constraint that referenced `label`, but
--- left the NOT NULL in place (flagged in that task's review as a deferred
--- minor: "label stays NOT NULL/unused — deprecate in a later task"). This
--- task's rpc_upsert_project_milestone (brief-verbatim body below) inserts by
--- `name`, never `label`, so without this fix every insert fails with a
--- not-null violation (confirmed live on staging). The old add_project_milestone
--- RPC (untouched, still used by the pre-Task-6 MilestoneManager UI) keeps
--- populating `label` explicitly on its own insert path, so this is purely
--- additive — it only relaxes a constraint, never touches existing rows.
-ALTER TABLE public.project_milestones ALTER COLUMN label DROP NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.rpc_upsert_discipline(
   p_id uuid, p_division_id uuid, p_name text, p_prefix text DEFAULT NULL, p_sort_order int DEFAULT 0)
@@ -94,7 +82,7 @@ BEGIN
   ELSE
     UPDATE public.project_milestones SET milestone_no=p_milestone_no, name=btrim(p_name),
            description=nullif(btrim(p_description),''), amount=p_amount, status=p_status, updated_at=now()
-     WHERE id=p_id RETURNING id INTO v_id;
+     WHERE id=p_id AND project_id=p_project_id AND discipline_id=p_discipline_id RETURNING id INTO v_id;
     IF v_id IS NULL THEN RAISE EXCEPTION 'Milestone % not found', p_id; END IF;
   END IF;
   RETURN v_id;
