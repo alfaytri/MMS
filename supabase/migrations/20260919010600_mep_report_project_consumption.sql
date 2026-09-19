@@ -35,15 +35,33 @@
 --    COALESCE(ic.name_en || ' · ' || ii.name_en, ii.name_en, '(item removed)')
 --    — same category-qualification intent as the live same_name_merge fix,
 --    minus its stray leading " · " when the category is missing.
---  - dropped the `c.consumer_sub_container_id IS NOT NULL` filter: project
---    attribution no longer requires a consumer sub-container, so a
---    project-tagged consumption with no pool sub-container (internal +
---    project tag) is no longer silently excluded from the report. Team rows
---    are unaffected (a plain internal, non-project consumption has both
---    project_id and consumer_sub_container_id NULL and will surface as a
---    consumer_kind='team' row with NULL consumer_id/consumer_name — flagged
---    in the task report as a minor, brief-specified behavior change, not a
---    defect introduced here).
+--  - the `c.consumer_sub_container_id IS NOT NULL` filter is KEPT (see "Fix
+--    round 1" below) — first-pass Task 8 dropped it, which surfaced exactly
+--    one real internal/untagged consumption as a junk NULL-consumer 'team'
+--    row; the coordinator ruled to restore the original 20261016 exclusion.
+--
+-- Fix round 1 (coordinator ruling on the Task 8 report's flagged concern):
+-- restore `AND c.consumer_sub_container_id IS NOT NULL` in the WHERE clause,
+-- matching the live/20261016 behavior, so plain internal (no-consumer)
+-- consumptions go back to being excluded instead of surfacing as a
+-- NULL-consumer 'team' row. Every PROJECT consumption that is routed through
+-- a project-pool sub-container (consumer_sub_container_id = the pool,
+-- project_id = the pool's project — the shape `rpc_post_consumption` produces
+-- whenever consumer_type='custody', which is the only UI-reachable path today)
+-- keeps a NOT NULL consumer_sub_container_id and is therefore unaffected, as
+-- is every existing TEAM row. NOTE (transparency, not a re-litigation of the
+-- ruling): `rpc_post_consumption` also has one already-shipped,
+-- already-reviewed (Task 7) code path where consumer_type='internal' can
+-- still carry an explicit p_project_id straight through to
+-- cogs_entries.project_id with consumer_sub_container_id left NULL (Task 7's
+-- own "deferred minor": no validation for internal+project, UI-gated, not
+-- wired up by any shipped frontend yet, and zero committed rows in this shape
+-- exist on staging today). This filter now excludes that shape too, not just
+-- the plain-untagged case — i.e. it is stricter than "only drop the junk
+-- rows," it also drops any future internal+project-tagged row unless/until
+-- that path is either wired through a pool or this filter is revisited.
+-- Flagged for the record per the coordinator's own request to report outputs;
+-- not fixed here beyond what was asked.
 BEGIN;
 
 DROP FUNCTION IF EXISTS public.rpc_report_project_consumption(date, date, uuid[]);
@@ -76,6 +94,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $function$
   LEFT JOIN public.inventory_items                   ii   ON ii.id   = biv.item_id
   LEFT JOIN public.inventory_categories              ic   ON ic.id   = ii.category_id
   WHERE c.source_type='consumption' AND c.date BETWEEN p_from AND p_to
+    AND c.consumer_sub_container_id IS NOT NULL
     AND public.is_division_visible(c.consumer_division_id)
     AND (p_division_ids IS NULL OR c.consumer_division_id = ANY(p_division_ids))
   GROUP BY 1,2,3,4,5,6,7,8,9,10
