@@ -127,6 +127,13 @@ begin
     end if;
   end if;
 
+  -- Resolve the consumer pool's project (if any) up front. Both the milestone
+  -- guard and the project-attribution block below key off this. NULL when the
+  -- consumer isn't a project pool (including consumer_type=internal, where
+  -- p_consumer_sub_container_id was already nulled above).
+  select project_id into v_pool_project
+    from public.warehouse_sub_containers where id = p_consumer_sub_container_id;
+
   -- Discipline guard (project spend): a discipline tags a consumption booked to
   -- a PROJECT pool sub-container. If given, the consumer must be a project
   -- sub-container and the discipline must belong to that project.
@@ -148,25 +155,26 @@ begin
     end if;
   end if;
 
-  -- Milestone guard: a milestone is a cost tag under a (consumer sub-container,
-  -- discipline) the spend report groups by. It requires a custody consumer and,
-  -- when scoped to a discipline, a matching p_discipline_id.
+  -- Milestone guard: a milestone is a cost tag under a (consumer project,
+  -- discipline) the spend report groups by. It requires the consumer to
+  -- resolve to a project pool and, when scoped to a discipline, a matching
+  -- p_discipline_id. Keyed off v_pool_project (not sub_container_id) because
+  -- new-model milestones (rpc_upsert_project_milestone) carry project_id +
+  -- discipline_id and leave sub_container_id NULL.
   if p_milestone_id is not null then
-    if p_consumer_sub_container_id is null
+    if v_pool_project is null
        or not exists (
              select 1 from public.project_milestones pm
              where pm.id = p_milestone_id
-               and pm.sub_container_id = p_consumer_sub_container_id
+               and pm.project_id = v_pool_project
                and pm.discipline_id is not distinct from p_discipline_id
            )
     then
-      raise exception 'rpc_post_consumption: milestone % does not belong to consumer % / discipline %', p_milestone_id, p_consumer_sub_container_id, p_discipline_id;
+      raise exception 'rpc_post_consumption: milestone % does not belong to consumer project % / discipline %', p_milestone_id, v_pool_project, p_discipline_id;
     end if;
   end if;
 
   -- Project attribution: when the consumer is a project pool, derive/validate the project.
-  select project_id into v_pool_project
-    from public.warehouse_sub_containers where id = p_consumer_sub_container_id;
   if v_pool_project is not null then
     if p_project_id is null then p_project_id := v_pool_project; end if;
     if p_project_id <> v_pool_project then
