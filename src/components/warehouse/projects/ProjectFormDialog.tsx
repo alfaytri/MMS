@@ -120,6 +120,26 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
   const selectedDivisionId = form.watch('division_id')
   const { data: disciplines = [] } = useDisciplines(selectedDivisionId || undefined)
 
+  // FIX (review round 1, F1): picked disciplines are UUIDs scoped to whatever
+  // division was selected when they were checked. Without this, switching
+  // divisions mid-form only resets the checkbox UI (a fresh `disciplines`
+  // list renders) while `discipline_ids` silently keeps the OLD division's
+  // uuids — the zod rule is just `min(1)`, so that stale array still passes
+  // validation and would submit division-mismatched discipline ids.
+  //
+  // `prevDivisionIdRef` starts `undefined` so the very first render (mount,
+  // or the open-transition's `''` reset) never clears anything — only a
+  // change AWAY FROM a previously-real division value does.
+  const prevDivisionIdRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const prev = prevDivisionIdRef.current
+    prevDivisionIdRef.current = selectedDivisionId
+    if (prev !== undefined && prev !== selectedDivisionId) {
+      form.setValue('discipline_ids', [], { shouldValidate: true })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDivisionId])
+
   // Full reset happens ONLY on the false→true open transition — resetting on
   // every dependency change (division/custody-warehouse data fetch as soon as
   // the tab mounts, and can resolve AFTER the dialog is already open) would

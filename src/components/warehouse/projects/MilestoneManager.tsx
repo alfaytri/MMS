@@ -123,6 +123,14 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
           project_id: projectId,
           discipline_id: disciplineId,
         })
+        // FIX (review round 1, F2): `setMilestoneCodes`'s own onSuccess only
+        // invalidates the 'project-milestone-codes' bucket for a PRE-EXISTING
+        // milestone id. This is a brand-new milestone — the freshly-mounted
+        // `MilestoneRow` for it calls `useProjectMilestoneCodes(id)` for the
+        // first time right as (or just before) this write lands, so it can
+        // cache an empty result before the codes finish writing. Invalidate
+        // this milestone's specific key directly so the chips actually show.
+        qc.invalidateQueries({ queryKey: ['project-milestone-codes', id] })
       }
       toast.success(`Milestone ${milestoneName.trim()} added`)
       setShowAddForm(false)

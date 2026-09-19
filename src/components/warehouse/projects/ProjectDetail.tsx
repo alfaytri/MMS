@@ -114,7 +114,12 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
   const setRp = useSetProjectResponsiblePerson()
   const { data: users = [] } = useAllProfiles()
 
-  const { data: consumptionRows = [], isLoading: spendLoading } = useProjectConsumptionReport(SPEND_FILTERS, !!project)
+  const {
+    data: consumptionRows = [],
+    isLoading: spendLoading,
+    isError: spendIsError,
+    error: spendError,
+  } = useProjectConsumptionReport(SPEND_FILTERS, !!project)
 
   const [pickedDisciplineId, setPickedDisciplineId] = useState('')
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false)
@@ -175,15 +180,17 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
   )
 
   // Spend card — this project's rows from the shared project-consumption
-  // report. `consumer_kind`/`consumer_id`/`project_number` identify the
-  // consumer; matched on EITHER id or number since the report's `consumer_id`
-  // semantics aren't guaranteed identical to `projects.id` from this side.
+  // report. `consumer_kind`/`consumer_id` identify the consumer.
+  //
+  // FIX (review round 1, F3): previously also matched on
+  // `project_number === project.project_number` as an OR-fallback.
+  // `project_number` is only unique PER DIVISION (`UNIQUE(division_id,
+  // project_number)`), so that fallback could pull a different division's
+  // same-numbered project's spend into this card — a cross-division data
+  // leak. `consumer_id` is the project's own uuid and needs no fallback.
   const projectSpendRows = useMemo(() => {
     if (!project) return []
-    return consumptionRows.filter(
-      (r) => r.consumer_kind === 'project'
-        && (r.consumer_id === project.id || r.project_number === project.project_number),
-    )
+    return consumptionRows.filter((r) => r.consumer_kind === 'project' && r.consumer_id === project.id)
   }, [consumptionRows, project])
   const spendTotal = useMemo(
     () => projectSpendRows.reduce((sum, r) => sum + (r.total_cost ?? 0), 0),
@@ -278,6 +285,16 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
                 {stockIsError && (
                   <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
                     {String((stockError as { message?: string } | null)?.message ?? 'Failed to load stock — the item lists below may be incomplete.')}
+                  </div>
+                )}
+
+                {/* FIX (review round 1, F4): a fetch error previously rendered
+                    as an empty Spend card ("no consumption yet") — misleading
+                    for a financial figure. Surface it like the stock/disciplines
+                    error banners above/below instead. */}
+                {spendIsError && (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
+                    {String((spendError as { message?: string } | null)?.message ?? 'Failed to load spend — the Spend card below may be incomplete.')}
                   </div>
                 )}
 
