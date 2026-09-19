@@ -3,7 +3,7 @@
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Layers, Lock, Package, Plus, User } from 'lucide-react'
+import { Layers, Lock, Package, Plus, Receipt, Send, User } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -33,11 +33,16 @@ import {
 } from '@/components/ui/select'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MilestoneManager } from '@/components/warehouse/projects/MilestoneManager'
+import { CustodyAssignDialog } from '@/components/warehouse/custody/CustodyAssignDialog'
+import { ReportGroupedTable } from '@/components/reports/ReportGroupedTable'
+import { type ReportColumn } from '@/lib/reports/reportColumns'
 import { useDisciplines } from '@/hooks/useDisciplines'
 import { useDivisions } from '@/hooks/useDivisions'
 import { useAllProfiles } from '@/hooks/useProfiles'
 import { useHasManagePermission } from '@/hooks/usePermissions'
 import { useWarehouseStock, type WarehouseStockItem } from '@/hooks/useWarehouseOperations'
+import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
+import { useProjectConsumptionReport, type ProjectConsumptionRow } from '@/hooks/reports/useProjectConsumptionReport'
 import {
   useAddProjectDiscipline,
   useCloseProject,
@@ -60,15 +65,37 @@ interface Props {
   onOpenChange: (open: boolean) => void
 }
 
+// Static "all history, all divisions" filter for the project spend card — the
+// card has no date/division picker of its own (out of scope here), so it
+// always shows the project's cumulative spend to date. Module-level constant
+// (not useMemo) since it never varies.
+const SPEND_FILTERS = { start: '', end: '', divisionIds: [] as string[], warehouseIds: [] as string[] }
+
+// Milestone/Code/Item/Date/Qty/Total Cost — mirrors `projectColumns` in
+// reports/project-consumption/page.tsx minus the Discipline column, which
+// becomes this card's groupBy band instead of a repeated column.
+const spendColumns: ReportColumn<ProjectConsumptionRow>[] = [
+  { header: 'Milestone',  accessor: (r) => r.milestone_label,  format: 'text' },
+  { header: 'Code',       accessor: (r) => r.code ?? '—',      format: 'text' },
+  { header: 'Item',       accessor: (r) => r.item_name ?? '—', format: 'text', wrap: true },
+  { header: 'Date',       accessor: (r) => r.consumed_on,      format: 'text' },
+  { header: 'Qty',        accessor: (r) => r.qty,              format: 'number',   total: true },
+  { header: 'Total Cost', accessor: (r) => r.total_cost,       format: 'currency', total: true },
+]
+
 export function ProjectDetail({ project, open, onOpenChange }: Props) {
   const canManage = useHasManagePermission('warehouse.projects')
   const { data: divisions = [] } = useDivisions()
+  // CARRY-FORWARD FIX: scope the add-discipline picker to the PROJECT's own
+  // division, not the caller's ambient active division (a super-viewer or a
+  // multi-division user browsing "All" could otherwise be offered another
+  // division's disciplines here).
   const {
     data: disciplines = [],
     isLoading: disciplinesLoading,
     isError: disciplinesIsError,
     error: disciplinesError,
-  } = useDisciplines()
+  } = useDisciplines(project?.division_id)
   // One fetch for the whole warehouse, filtered per discipline bucket below —
   // mirrors CustodyTab's `useWarehouseStock(warehouseId, null)` + client-side
   // `stock.filter(s => s.sub_container_id === sub.id)` pattern, instead of
@@ -79,14 +106,20 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
     isError: stockIsError,
     error: stockError,
   } = useWarehouseStock(project?.warehouse_id, null)
+  // Sub-container rows for this project's warehouse — used only to resolve
+  // the pool's real display name for the "Issue stock" dialog's header.
+  const { data: subContainers = [] } = useWarehouseSubContainers(project?.warehouse_id)
   const addDiscipline = useAddProjectDiscipline()
   const closeProject = useCloseProject()
   const setRp = useSetProjectResponsiblePerson()
   const { data: users = [] } = useAllProfiles()
 
+  const { data: consumptionRows = [], isLoading: spendLoading } = useProjectConsumptionReport(SPEND_FILTERS, !!project)
+
   const [pickedDisciplineId, setPickedDisciplineId] = useState('')
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
+  const [issueStockOpen, setIssueStockOpen] = useState(false)
 
   // Defensively close if the caller opened us with an id that no longer
   // resolves (e.g. the division filter changed under the dialog) — avoids
@@ -102,6 +135,7 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
     setPickedDisciplineId('')
     setCloseError(null)
     setConfirmCloseOpen(false)
+    setIssueStockOpen(false)
   }, [open, project?.id])
 
   const divisionLabel = useMemo(() => {
@@ -131,6 +165,30 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
     [stock, project?.poolSubContainerId],
   )
   const activeDisciplines = useMemo(() => project?.disciplines.filter((d) => d.is_active) ?? [], [project])
+
+  // Real sub-container name for the pool — falls back to the project number
+  // if the sub-container list hasn't resolved yet (dialog header display only;
+  // never used for the actual destSubId passed to the custody dialog).
+  const poolName = useMemo(
+    () => subContainers.find((s) => s.id === project?.poolSubContainerId)?.name ?? project?.project_number ?? '',
+    [subContainers, project],
+  )
+
+  // Spend card — this project's rows from the shared project-consumption
+  // report. `consumer_kind`/`consumer_id`/`project_number` identify the
+  // consumer; matched on EITHER id or number since the report's `consumer_id`
+  // semantics aren't guaranteed identical to `projects.id` from this side.
+  const projectSpendRows = useMemo(() => {
+    if (!project) return []
+    return consumptionRows.filter(
+      (r) => r.consumer_kind === 'project'
+        && (r.consumer_id === project.id || r.project_number === project.project_number),
+    )
+  }, [consumptionRows, project])
+  const spendTotal = useMemo(
+    () => projectSpendRows.reduce((sum, r) => sum + (r.total_cost ?? 0), 0),
+    [projectSpendRows],
+  )
 
   // Single-option pre-select, mirroring ProjectFormDialog's division/
   // warehouse selects. Re-fires whenever the remaining set shrinks (e.g.
@@ -299,7 +357,16 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
                 )}
 
                 {/* The project's single stock pool. */}
-                <ProjectStockCard stockRows={poolStock} stockLoading={stockLoading} totalValue={project.totalValue} />
+                <ProjectStockCard
+                  stockRows={poolStock}
+                  stockLoading={stockLoading}
+                  totalValue={project.totalValue}
+                  canIssueStock={canManage && project.is_active && !!project.poolSubContainerId}
+                  onIssueStock={() => setIssueStockOpen(true)}
+                />
+
+                {/* This project's consumption spend, grouped by discipline. */}
+                <ProjectSpendCard rows={projectSpendRows} isLoading={spendLoading} totalValue={spendTotal} />
 
                 {/* Disciplines are spend tags; each carries its own milestones. */}
                 {activeDisciplines.length === 0 ? (
@@ -317,6 +384,7 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
                     {activeDisciplines.map((d) => (
                       <DisciplineCard
                         key={d.discipline_id}
+                        projectId={project.id}
                         discipline={d}
                         poolSubContainerId={project.poolSubContainerId}
                         canManage={canManage}
@@ -376,6 +444,19 @@ export function ProjectDetail({ project, open, onOpenChange }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* "Issue stock to project" — reuses the existing custody Assign dialog
+          (the same one custody/page.tsx opens as its "Request" action),
+          pre-targeted at this project's pool sub-container as the destination. */}
+      {project?.poolSubContainerId && (
+        <CustodyAssignDialog
+          open={issueStockOpen}
+          onOpenChange={setIssueStockOpen}
+          destSubId={project.poolSubContainerId}
+          destSubName={poolName || project.project_number}
+          destKindLabel="Project"
+        />
+      )}
     </>
   )
 }
@@ -388,10 +469,14 @@ function ProjectStockCard({
   stockRows,
   stockLoading,
   totalValue,
+  canIssueStock,
+  onIssueStock,
 }: {
   stockRows: WarehouseStockItem[]
   stockLoading: boolean
   totalValue: number
+  canIssueStock: boolean
+  onIssueStock: () => void
 }) {
   const totalQty = stockRows.reduce((sum, r) => sum + (r.qty ?? 0), 0)
 
@@ -450,6 +535,60 @@ function ProjectStockCard({
           </div>
         )}
       </div>
+
+      {/* Mirrors the custody card's action footer (custody/page.tsx) — same
+          border-t/bg-muted/30 footer bar, same ghost-button + icon convention. */}
+      {canIssueStock && (
+        <div className="flex items-center justify-end px-3 py-2 border-t bg-muted/30">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-11 sm:h-7 gap-1.5 text-[11px]"
+            onClick={onIssueStock}
+          >
+            <Send className="h-3.5 w-3.5" />
+            Issue stock to project
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Project spend card ─────────────────────────────────────────────────
+// This project's rows from the shared project-consumption report, grouped by
+// discipline (milestone/code/item are shown as columns within each band —
+// the rows already carry those tags). Reuses `ReportGroupedTable` exactly as
+// reports/project-consumption/page.tsx does for its own "Projects" section,
+// just grouped by discipline instead of by consumer (we're already scoped to
+// one project here).
+function ProjectSpendCard({
+  rows,
+  isLoading,
+  totalValue,
+}: {
+  rows: ProjectConsumptionRow[]
+  isLoading: boolean
+  totalValue: number
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2 px-0.5">
+        <div className="flex items-center gap-1.5">
+          <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="font-semibold text-sm">Spend</span>
+        </div>
+        <span className="text-sm font-semibold tabular-nums">{formatValue(totalValue)}</span>
+      </div>
+      <ReportGroupedTable
+        columns={spendColumns}
+        rows={rows}
+        groupBy={(r) => r.discipline_name ?? 'No discipline'}
+        isLoading={isLoading}
+        grandTotalLabel="Total spend"
+        emptyText="No consumption recorded for this project yet."
+      />
     </div>
   )
 }
@@ -458,10 +597,12 @@ function ProjectStockCard({
 // A discipline no longer holds stock — it's a spend category. The card just
 // names it and hosts its milestones (the cost tags used when consuming).
 function DisciplineCard({
+  projectId,
   discipline,
   poolSubContainerId,
   canManage,
 }: {
+  projectId: string
   discipline: ProjectDisciplineTag
   poolSubContainerId: string | null
   canManage: boolean
@@ -474,6 +615,7 @@ function DisciplineCard({
       </div>
       {poolSubContainerId ? (
         <MilestoneManager
+          projectId={projectId}
           subContainerId={poolSubContainerId}
           disciplineId={discipline.discipline_id}
           canManage={canManage}
