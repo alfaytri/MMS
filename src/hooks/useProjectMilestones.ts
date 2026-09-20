@@ -222,7 +222,16 @@ export function useUpsertProjectMilestone() {
         p_amount: payload.amount ?? undefined,
         p_status: payload.status ?? undefined,
       })
-      if (error) throw wrapDbError(error, 'Failed to save milestone')
+      if (error) {
+        // The unique index (project_id, discipline_id, milestone_no) counts
+        // CLOSED milestones too, but the suggested number is computed over the
+        // active list only — so a number freed by closing a milestone can still
+        // collide. Surface that instead of a raw 23505.
+        if (error.code === '23505') {
+          throw new Error('That milestone number is already used in this discipline (possibly by a closed milestone). Pick a different number.')
+        }
+        throw wrapDbError(error, 'Failed to save milestone')
+      }
       return data as string
     },
     onSuccess: (_data, payload) => {

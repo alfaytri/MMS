@@ -259,7 +259,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     if (consumerSub && !locationsForSelection.some((l) => l.id === consumerSub)) setConsumerSub('')
   }, [sourceLocked, locationsForSelection, consumerSub])
 
-  // ── Discipline + Milestone + Milestone Code (required project spend tags) ─
+  // ── Discipline + Milestone (required) + Milestone Code (optional) spend tags ─
   // All three key off consumerSub (the CONSUMER project pool), not the source.
   // A project pool carries disciplines; picking one scopes the milestone list
   // (mirrors rpc_post_consumption's p_discipline_id / p_milestone_id /
@@ -535,11 +535,14 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const srcSubResolved      = eligibleSrcSubs.length > 0 && (eligibleSrcSubs.length === 1 || !!srcSubId)
   const post                = useCreateConsumption()
 
-  // A project-pool consumer REQUIRES a discipline + milestone + one bundled
-  // milestone code — spend must be attributed. (Non-project custody / internal
-  // have no disciplines → not required.)
+  // A project-pool consumer requires a discipline + milestone so spend is
+  // attributed. The milestone CODE is OPTIONAL: the backend never requires it
+  // (rpc_post_consumption validates a code only when one is supplied), and a
+  // milestone may legitimately have no bundled codes — forcing one would strand
+  // an operator who lacks the permission to bundle codes. (Non-project custody /
+  // internal have no disciplines → not required at all.)
   const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
-  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId && !!milestoneCodeId)
+  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId)
   // Custody consumption is a sale — the invoice/order/project ref (Notes) is mandatory.
   const notesSatisfied = consumerType !== 'custody' || notes.trim().length > 0
 
@@ -981,14 +984,14 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">Milestone Code *</Label>
+              <Label className="text-[10px] text-muted-foreground">Milestone Code (optional)</Label>
               {!milestoneId ? (
                 <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] italic text-muted-foreground">
                   Pick a milestone first
                 </div>
               ) : milestoneCodes.length === 0 ? (
-                <div className="h-9 flex items-center rounded-md border border-warning/40 bg-warning/10 px-2.5 text-[11px] italic text-warning-foreground">
-                  No codes bundled — add one to this milestone first
+                <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] italic text-muted-foreground">
+                  No codes bundled — optional, you can post without one
                 </div>
               ) : (
                 <Select value={milestoneCodeId} onValueChange={(v) => setMilestoneCodeId(v)}>
