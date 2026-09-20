@@ -177,17 +177,17 @@ export function AddressFinder({
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Zone</label>
               <Input inputMode="numeric" placeholder="55" value={zone} disabled={disabled}
-                onChange={(e) => updatePlate({ zone: e.target.value.replace(/\D/g, '') })} className="h-8 text-xs" />
+                onChange={(e) => updatePlate({ zone: e.target.value.match(/\d+/)?.[0] ?? '' })} className="h-8 text-xs" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Street</label>
               <Input inputMode="numeric" placeholder="185" value={street} disabled={disabled}
-                onChange={(e) => updatePlate({ street: e.target.value.replace(/\D/g, '') })} className="h-8 text-xs" />
+                onChange={(e) => updatePlate({ street: e.target.value.match(/\d+/)?.[0] ?? '' })} className="h-8 text-xs" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Building</label>
               <Input inputMode="numeric" placeholder="19" value={building} disabled={disabled}
-                onChange={(e) => updatePlate({ building: e.target.value.replace(/\D/g, '') })} className="h-8 text-xs" />
+                onChange={(e) => updatePlate({ building: e.target.value.match(/\d+/)?.[0] ?? '' })} className="h-8 text-xs" />
             </div>
           </div>
           <div className="flex items-center gap-2">
