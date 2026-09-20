@@ -53,6 +53,7 @@ export function useCustomerList() {
         .from('customers')
         .select('id, name')
         .eq('is_active', true)
+        .eq('is_sales_customer', true)
         .order('name')
         .limit(500)
       if (error) throw error

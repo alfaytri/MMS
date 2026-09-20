@@ -1719,6 +1719,50 @@ export type Database = {
           },
         ]
       }
+      customer_addresses: {
+        Row: {
+          address: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          is_primary: boolean
+          label: string | null
+          latitude: number | null
+          longitude: number | null
+          map_link: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          map_link?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          map_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           block_reason: string | null
@@ -1730,6 +1774,7 @@ export type Database = {
             | null
           id: string
           is_active: boolean
+          is_sales_customer: boolean
           name: string
           name_ar: string | null
           updated_at: string | null
@@ -1744,6 +1789,7 @@ export type Database = {
             | null
           id?: string
           is_active?: boolean
+          is_sales_customer?: boolean
           name: string
           name_ar?: string | null
           updated_at?: string | null
@@ -1758,6 +1804,7 @@ export type Database = {
             | null
           id?: string
           is_active?: boolean
+          is_sales_customer?: boolean
           name?: string
           name_ar?: string | null
           updated_at?: string | null
@@ -10279,6 +10326,10 @@ export type Database = {
         Args: { p_customer_id: string; p_docs: Json }
         Returns: undefined
       }
+      save_customer_addresses: {
+        Args: { p_addresses: Json; p_customer_id: string }
+        Returns: undefined
+      }
       save_customer_phones: {
         Args: { p_customer_id: string; p_phones: Json }
         Returns: undefined
@@ -10316,6 +10367,7 @@ export type Database = {
           p_offset?: number
           p_only_active?: boolean
           p_query?: string
+          p_sales_only?: boolean
         }
         Returns: Json
       }

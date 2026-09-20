@@ -139,7 +139,7 @@ export const queryKeys = {
   /* ── Customers (legacy) ───────────────────────────────── */
   customers: {
     all: ['customers'] as const,
-    search: (search: Nullable) => ['customers', search] as const,
+    search: (search: Nullable, salesOnly?: boolean) => ['customers', search, salesOnly ?? false] as const,
     allCustomers: ['all-customers'] as const,
     allCustomersSearch: (search: string, page: number) =>
       ['all-customers', search, page] as const,
