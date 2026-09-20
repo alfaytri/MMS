@@ -61,6 +61,43 @@ function seedPhoneRows(source: Customer['phones'] | null | undefined): PhoneRow[
   return rows
 }
 
+type AddrRow = { key: string; label: string; value: AddressValue; is_primary: boolean }
+type LoadedAddress = {
+  label: string | null; address: string | null
+  latitude: number | null; longitude: number | null
+  map_link: string | null; is_primary: boolean
+}
+
+function newAddrRow(is_primary: boolean): AddrRow {
+  return { key: `addr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, label: '', value: EMPTY_ADDRESS, is_primary }
+}
+
+// A Google Maps link derived from coordinates — populated after a blue-plate
+// verify or a pasted coordinate pair, so every located address is openable.
+function mapLinkFor(v: AddressValue): string | null {
+  return v.latitude != null && v.longitude != null
+    ? `https://www.google.com/maps?q=${v.latitude},${v.longitude}`
+    : null
+}
+
+function seedAddrRows(source: LoadedAddress[] | null | undefined): AddrRow[] {
+  const rows: AddrRow[] = (source ?? []).map((a, i) => ({
+    key: `addr-seed-${i}`,
+    label: a.label ?? '',
+    value: { address: a.address ?? '', latitude: a.latitude ?? null, longitude: a.longitude ?? null },
+    is_primary: a.is_primary,
+  }))
+  if (rows.length > 0 && !rows.some((r) => r.is_primary)) rows[0].is_primary = true
+  return rows
+}
+
+// Stable serialization of the address rows, for dirty-tracking.
+function serAddrs(rows: AddrRow[]): string {
+  return JSON.stringify(rows.map((a) => ({
+    l: a.label.trim(), a: a.value.address.trim(), la: a.value.latitude, lo: a.value.longitude, p: a.is_primary,
+  })))
+}
+
 export function CustomerDialog({
   mode, open, onOpenChange, groups, customer, onCreated,
 }: CustomerDialogProps) {
@@ -78,7 +115,8 @@ export function CustomerDialog({
   const [establishmentIdDoc, setEstablishmentIdDoc] = useState<UploadedDoc | null>(null)
   const [signedFormDoc, setSignedFormDoc]       = useState<UploadedDoc | null>(null)
   const [uploading, setUploading]       = useState<Slot | null>(null)
-  const [addressValue, setAddressValue] = useState<AddressValue>(EMPTY_ADDRESS)
+  const [addresses, setAddresses] = useState<AddrRow[]>([])
+  const addressesBaselineRef = useRef<string>('[]')
 
   // Track pending/ uploads made in THIS dialog session so we can sweep them
   // on cancel. `submittedRef` distinguishes close-after-submit (paths are
@@ -119,19 +157,23 @@ export function CustomerDialog({
       setCrDoc(crPath ? { path: crPath, name: displayNameFromPath(crPath, 'cr') } : null)
       setEstablishmentIdDoc(esPath ? { path: esPath, name: displayNameFromPath(esPath, 'establishment') } : null)
       setSignedFormDoc(sgPath ? { path: sgPath, name: displayNameFromPath(sgPath, 'signed') } : null)
-      // Blue Plate / coordinates aren't returned by search_customers — load them directly.
-      setAddressValue(EMPTY_ADDRESS)
+      // Addresses live in customer_addresses (many per customer) — load directly.
+      setAddresses([]); addressesBaselineRef.current = '[]'
       void (async () => {
-        const { data } = await createClient().from('customers').select('*').eq('id', customer.id).maybeSingle()
-        const row = data as unknown as { address?: string | null; latitude?: number | null; longitude?: number | null } | null
-        setAddressValue({ address: row?.address ?? '', latitude: row?.latitude ?? null, longitude: row?.longitude ?? null })
+        const { data } = await createClient()
+          .from('customer_addresses')
+          .select('label, address, latitude, longitude, map_link, is_primary')
+          .eq('customer_id', customer.id)
+          .order('is_primary', { ascending: false })
+        const seeded = seedAddrRows((data ?? []) as unknown as LoadedAddress[])
+        setAddresses(seeded); addressesBaselineRef.current = serAddrs(seeded)
       })()
     } else if (!isEdit) {
       setName(''); setPhones([newPhoneRow(true)]); setEmail('')
       // New customers default to cash — a credit group must be picked to promote.
       setCustomerType('cash'); setEntityType('individual'); setGroupId('')
       setCrDoc(null); setEstablishmentIdDoc(null); setSignedFormDoc(null)
-      setAddressValue(EMPTY_ADDRESS)
+      setAddresses([]); addressesBaselineRef.current = '[]'
     }
     setUploading(null)
     // Form fields are (re)initialised only when the dialog opens or the target
@@ -166,6 +208,43 @@ export function CustomerDialog({
 
   function setPrimary(key: string) {
     setPhones((prev) => prev.map((p) => ({ ...p, is_primary: p.key === key })))
+  }
+
+  function addAddress() {
+    setAddresses((prev) => [...prev, newAddrRow(prev.length === 0)])
+  }
+  function updateAddress(key: string, patch: Partial<AddrRow>) {
+    setAddresses((prev) => prev.map((a) => (a.key === key ? { ...a, ...patch } : a)))
+  }
+  function removeAddress(key: string) {
+    setAddresses((prev) => {
+      const next = prev.filter((a) => a.key !== key)
+      if (next.length > 0 && !next.some((a) => a.is_primary)) next[0].is_primary = true
+      return next
+    })
+  }
+  function setPrimaryAddress(key: string) {
+    setAddresses((prev) => prev.map((a) => ({ ...a, is_primary: a.key === key })))
+  }
+  // Payload for save_customer_addresses: drop empty rows, force exactly one primary.
+  function buildAddressesPayload() {
+    const cleaned = addresses
+      .filter((a) => a.value.address.trim() !== '' || a.value.latitude != null)
+      .map((a) => ({
+        label:      a.label.trim() || null,
+        address:    a.value.address.trim() || null,
+        latitude:   a.value.latitude,
+        longitude:  a.value.longitude,
+        map_link:   mapLinkFor(a.value),
+        is_primary: a.is_primary,
+      }))
+    let seenPrimary = false
+    for (const a of cleaned) {
+      if (a.is_primary && !seenPrimary) seenPrimary = true
+      else a.is_primary = false
+    }
+    if (cleaned.length > 0 && !seenPrimary) cleaned[0].is_primary = true
+    return cleaned
   }
 
   async function uploadDoc(file: File, slot: Slot): Promise<UploadedDoc | null> {
@@ -291,9 +370,7 @@ export function CustomerDialog({
             phones:                 phonesPayload,
             email:                  email.trim() || null,
             entity_type:            entityType,
-            address:                addressValue.address.trim() || null,
-            latitude:               addressValue.latitude,
-            longitude:              addressValue.longitude,
+            addresses:              buildAddressesPayload(),
             // customer_type is derived server-side from credit_group_id.
             // routeGroupViaApproval keeps the current group until approval
             // lands; otherwise clear it when saving as cash.
@@ -360,9 +437,7 @@ export function CustomerDialog({
         phones:                 phonesPayload,
         email:                  email.trim() || null,
         entity_type:            entityType,
-        address:                addressValue.address.trim() || null,
-        latitude:               addressValue.latitude,
-        longitude:              addressValue.longitude,
+        addresses:              buildAddressesPayload(),
         // customer_type is derived — leave credit_group_id NULL when the
         // group still needs approval OR the user picked cash.
         credit_group_id:        newGroupNeedsApproval
@@ -500,7 +575,8 @@ export function CustomerDialog({
         (findDoc('establishment_id') ?? null) !== (establishmentIdDoc?.path ?? null) ||
         (findDoc('signed_credit_form') ?? null) !== (signedFormDoc?.path ?? null) ||
         phones.some((p) => p.digits.trim() !== '') && JSON.stringify(phones.map((p) => ({ p: `${p.countryCode}${p.digits.trim()}`, pr: p.is_primary }))) !==
-          JSON.stringify(seedPhoneRows(customer.phones).map((p) => ({ p: `${p.countryCode}${p.digits.trim()}`, pr: p.is_primary })))
+          JSON.stringify(seedPhoneRows(customer.phones).map((p) => ({ p: `${p.countryCode}${p.digits.trim()}`, pr: p.is_primary }))) ||
+        serAddrs(addresses) !== addressesBaselineRef.current
       )
     : (
         name.trim() !== '' ||
@@ -509,7 +585,8 @@ export function CustomerDialog({
         crDoc !== null ||
         establishmentIdDoc !== null ||
         signedFormDoc !== null ||
-        phones.some((p) => p.digits.trim() !== '')
+        phones.some((p) => p.digits.trim() !== '') ||
+        addresses.length > 0
       )
 
   const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
@@ -610,8 +687,66 @@ export function CustomerDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Address (Blue Plate / coordinates)</Label>
-            <AddressFinder value={addressValue} onChange={setAddressValue} />
+            <div className="flex items-center justify-between">
+              <Label>Addresses</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addAddress}
+                className="h-7 gap-1 text-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add address
+              </Button>
+            </div>
+            {addresses.length === 0 ? (
+              <p className="text-xs text-muted-foreground border rounded-md px-3 py-2.5">
+                No addresses yet (optional). Add one as a Blue Plate or Google coordinates.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {addresses.map((a) => (
+                  <div key={a.key} className="rounded-md border p-2.5 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setPrimaryAddress(a.key)}
+                        title={a.is_primary ? 'Primary address' : 'Set as primary'}
+                        className={cn(
+                          'h-8 w-8 shrink-0 rounded-md border flex items-center justify-center transition-colors',
+                          a.is_primary
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border text-muted-foreground hover:bg-muted/50'
+                        )}
+                      >
+                        <Star className={cn('h-3.5 w-3.5', a.is_primary && 'fill-current')} />
+                      </button>
+                      <Input
+                        placeholder="Label (e.g. Site, Office)"
+                        value={a.label}
+                        onChange={(e) => updateAddress(a.key, { label: e.target.value })}
+                        className="h-8 flex-1 text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground"
+                        onClick={() => removeAddress(a.key)}
+                        title="Remove address"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <AddressFinder value={a.value} onChange={(v) => updateAddress(a.key, { value: v })} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              Tap the star to set the primary address. Each is a Blue Plate or Google coordinates; a Maps link is saved automatically.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

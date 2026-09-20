@@ -4,7 +4,7 @@ import { logActivity } from '@/lib/logActivity'
 import { queryKeys } from '@/lib/queryKeys'
 import { recipientsForNotification, sendNotifications } from '@/lib/notify'
 import { humanizeDbError } from '@/lib/dbErrors'
-import type { Database } from '@/types/database.types'
+import type { Database, Json } from '@/types/database.types'
 import { invalidateInventoryStockViews } from '@/lib/queryInvalidation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -152,6 +152,15 @@ export type CustomerPhone = {
   is_primary: boolean
 }
 
+export type CustomerAddress = {
+  label:      string | null
+  address:    string | null
+  latitude:   number | null
+  longitude:  number | null
+  map_link:   string | null
+  is_primary: boolean
+}
+
 export type Customer = {
   id:                  string
   name:                string
@@ -170,11 +179,9 @@ export type Customer = {
   cr_url?:                  string | null
   establishment_id_url?:    string | null
   signed_credit_form_url?:  string | null
-  // Blue Plate / coordinates (migration 20261008000000). Not returned by
-  // search_customers — CustomerDialog loads these directly on edit.
-  address?:                 string | null
-  latitude?:                number | null
-  longitude?:               number | null
+  // Addresses live in customer_addresses (many per customer). Not returned by
+  // search_customers — CustomerDialog loads them directly on edit.
+  addresses?:               CustomerAddress[]
 }
 
 export type SOLineItemDraft = {
@@ -333,14 +340,12 @@ export function useCreateCustomer() {
       email: string | null
       credit_group_id?: string | null
       entity_type?: 'individual' | 'business'
-      address?: string | null
-      latitude?: number | null
-      longitude?: number | null
+      addresses?: CustomerAddress[]
     }) => {
       const supabase = createClient()
-      const { phones, ...customerFields } = payload
-      // address/latitude/longitude (migration 20261008000000) aren't in the stale
-      // generated Insert type — cast so they pass the type check; runtime sends them.
+      const { phones, addresses, ...customerFields } = payload
+      // customerFields is name/email/entity_type/credit_group_id; cast to the
+      // generated Insert type. Addresses save separately via the RPC below.
       const row = { ...customerFields } as unknown as Database['public']['Tables']['customers']['Insert']
       const { data, error } = await supabase
         .from('customers')
@@ -359,6 +364,16 @@ export function useCreateCustomer() {
         throw new Error(phoneErr.message.includes('already assigned') || phoneErr.message.includes('23505')
           ? phoneErr.message.replace(/^ERROR:\s*/i, '')
           : phoneErr.message)
+      }
+
+      // Addresses (optional) live in customer_addresses — save via RPC.
+      const { error: addrErr } = await supabase.rpc('save_customer_addresses', {
+        p_customer_id: data.id,
+        p_addresses: (addresses ?? []) as unknown as Json,
+      })
+      if (addrErr) {
+        await supabase.from('customers').delete().eq('id', data.id)
+        throw new Error(humanizeDbError(addrErr, 'save customer addresses'))
       }
 
       const primary = phones.find((p) => p.is_primary) ?? phones[0]
@@ -389,9 +404,7 @@ export function useUpdateCustomer() {
         email?:                  string | null
         entity_type?:            'individual' | 'business'
         credit_group_id?:        string | null
-        address?:                string | null
-        latitude?:               number | null
-        longitude?:              number | null
+        addresses?:              CustomerAddress[]
       }
       // Old values for audit diff; only fields present here are checked
       previous: {
@@ -406,10 +419,9 @@ export function useUpdateCustomer() {
     }) => {
       const supabase = createClient()
 
-      // Phones live on customer_phones; strip out of the customers update.
-      // address/latitude/longitude (migration 20261008000000) aren't in the stale
-      // generated Update type — cast so they pass the type check; runtime sends them.
-      const { phones: newPhones, ...customerPatch } = args.patch
+      // Phones + addresses live in their own tables; strip them from the
+      // customers update. customerPatch is name/email/entity_type/credit_group_id.
+      const { phones: newPhones, addresses: newAddresses, ...customerPatch } = args.patch
       const update = { ...customerPatch } as unknown as Database['public']['Tables']['customers']['Update']
 
       const { data, error } = await supabase
@@ -437,6 +449,15 @@ export function useUpdateCustomer() {
               : phoneErr.message)
           }
         }
+      }
+
+      // Sync addresses via RPC when provided (optional; empty clears them).
+      if (newAddresses !== undefined) {
+        const { error: addrErr } = await supabase.rpc('save_customer_addresses', {
+          p_customer_id: args.id,
+          p_addresses: (newAddresses ?? []) as unknown as Json,
+        })
+        if (addrErr) throw new Error(humanizeDbError(addrErr, 'save customer addresses'))
       }
 
       // Build a diff for the audit log — only include fields that actually changed.

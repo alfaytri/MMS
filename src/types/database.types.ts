@@ -1679,6 +1679,50 @@ export type Database = {
           },
         ]
       }
+      customer_addresses: {
+        Row: {
+          address: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          is_primary: boolean
+          label: string | null
+          latitude: number | null
+          longitude: number | null
+          map_link: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          map_link?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          map_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           block_reason: string | null
@@ -9995,6 +10039,10 @@ export type Database = {
       }
       save_customer_credit_docs: {
         Args: { p_customer_id: string; p_docs: Json }
+        Returns: undefined
+      }
+      save_customer_addresses: {
+        Args: { p_addresses: Json; p_customer_id: string }
         Returns: undefined
       }
       save_customer_phones: {
