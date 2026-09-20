@@ -134,7 +134,11 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     const prev = prevDivisionIdRef.current
     prevDivisionIdRef.current = selectedDivisionId
-    if (prev !== undefined && prev !== selectedDivisionId) {
+    // Only clear when moving AWAY FROM a previously-real division. `prev === ''`
+    // is the open-time seed ('' → real default); resetting+validating there would
+    // set the "pick a discipline" error before the user has touched the form (and
+    // toggleDiscipline wouldn't clear it — see its shouldValidate below).
+    if (prev !== undefined && prev !== '' && prev !== selectedDivisionId) {
       form.setValue('discipline_ids', [], { shouldValidate: true })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,7 +196,9 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
     form.setValue(
       'discipline_ids',
       checked ? Array.from(new Set([...current, id])) : current.filter((d) => d !== id),
-      { shouldDirty: true },
+      // shouldValidate so picking a discipline immediately clears any lingering
+      // "pick at least one" error (and un-picking the last one re-shows it).
+      { shouldDirty: true, shouldValidate: true },
     )
   }
 
