@@ -127,11 +127,12 @@ export type CreateProjectPayload = {
   discipline_ids: string[]
   responsible_person_profile_id: string | null
   // MEP skeleton additions — all optional, passed through to the extended
-  // (12-arg) `create_project` RPC. Omitting them leaves the DB column at its
-  // default (customer_id/site_address/pin/dates NULL, status its DEFAULT).
+  // (13-arg) `create_project` RPC. Omitting them leaves the DB column at its
+  // default (customer_id/site_address/site coords/dates NULL, status its DEFAULT).
   customer_id?: string | null
   site_address?: string | null
-  pin?: string | null
+  site_latitude?: number | null
+  site_longitude?: number | null
   status?: string | null
   start_date?: string | null
   expected_completion_date?: string | null
@@ -158,7 +159,8 @@ export function useCreateProject() {
         p_responsible_person_profile_id: payload.responsible_person_profile_id ?? undefined,
         p_customer_id: payload.customer_id ?? undefined,
         p_site_address: payload.site_address ?? undefined,
-        p_pin: payload.pin ?? undefined,
+        p_site_latitude: payload.site_latitude ?? undefined,
+        p_site_longitude: payload.site_longitude ?? undefined,
         p_status: payload.status ?? undefined,
         p_start_date: payload.start_date ?? undefined,
         p_expected_completion_date: payload.expected_completion_date ?? undefined,

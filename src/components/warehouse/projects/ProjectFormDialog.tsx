@@ -50,6 +50,7 @@ import { useCustodyWarehouses } from '@/hooks/useCustodyLocations'
 import { useAllProfiles } from '@/hooks/useProfiles'
 import { useCustomers } from '@/hooks/useSaleOrders'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
+import { AddressFinder } from '@/components/shared/AddressFinder'
 
 const schema = z.object({
   project_number: z.string().min(1, 'Project number is required').max(60),
@@ -62,7 +63,8 @@ const schema = z.object({
   // '' sentinel = no customer linked (customer_id is nullable on `projects`).
   customer_id: z.string(),
   site_address: z.string().max(500),
-  pin: z.string().max(60),
+  site_latitude: z.number().nullable(),
+  site_longitude: z.number().nullable(),
   status: z.enum(['active', 'on_hold', 'completed', 'cancelled']),
   start_date: z.string(),
   expected_completion_date: z.string(),
@@ -105,7 +107,8 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
       responsible_person_id: '',
       customer_id: '',
       site_address: '',
-      pin: '',
+      site_latitude: null,
+      site_longitude: null,
       status: 'active',
       start_date: '',
       expected_completion_date: '',
@@ -171,7 +174,8 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
         responsible_person_id: '',
         customer_id: '',
         site_address: '',
-        pin: '',
+        site_latitude: null,
+        site_longitude: null,
         status: 'active',
         start_date: '',
         expected_completion_date: '',
@@ -214,7 +218,8 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
         responsible_person_profile_id: responsible,
         customer_id: values.customer_id || null,
         site_address: values.site_address.trim() || null,
-        pin: values.pin.trim() || null,
+        site_latitude: values.site_latitude,
+        site_longitude: values.site_longitude,
         status: values.status,
         start_date: values.start_date || null,
         expected_completion_date: values.expected_completion_date || null,
@@ -392,22 +397,23 @@ export function ProjectFormDialog({ open, onOpenChange }: Props) {
                   <FormItem>
                     <FormLabel>Site address</FormLabel>
                     <FormControl>
-                      <Input placeholder="Optional" className="h-11 sm:h-9" {...field} />
+                      <AddressFinder
+                        value={{
+                          address: field.value,
+                          latitude: form.watch('site_latitude'),
+                          longitude: form.watch('site_longitude'),
+                        }}
+                        onChange={(v) => {
+                          field.onChange(v.address)
+                          form.setValue('site_latitude', v.latitude, { shouldDirty: true })
+                          form.setValue('site_longitude', v.longitude, { shouldDirty: true })
+                        }}
+                        disabled={isPending}
+                      />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="pin"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>PIN</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Optional" className="h-11 sm:h-9" {...field} />
-                    </FormControl>
+                    <p className="text-[10px] text-muted-foreground">
+                      Enter the Blue Plate (Zone / Street / Building) or paste Google coordinates / a Maps link.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -4640,10 +4640,11 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
-          pin: string | null
           project_number: string
           responsible_person_profile_id: string | null
           site_address: string | null
+          site_latitude: number | null
+          site_longitude: number | null
           start_date: string | null
           status: string
           updated_at: string
@@ -4659,10 +4660,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          pin?: string | null
           project_number: string
           responsible_person_profile_id?: string | null
           site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           start_date?: string | null
           status?: string
           updated_at?: string
@@ -4678,10 +4680,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
-          pin?: string | null
           project_number?: string
           responsible_person_profile_id?: string | null
           site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           start_date?: string | null
           status?: string
           updated_at?: string
@@ -8839,10 +8842,11 @@ export type Database = {
           p_division_id: string
           p_expected_completion_date?: string
           p_name: string
-          p_pin?: string
           p_project_number: string
           p_responsible_person_profile_id?: string
           p_site_address?: string
+          p_site_latitude?: number
+          p_site_longitude?: number
           p_start_date?: string
           p_status?: string
           p_warehouse_id: string
