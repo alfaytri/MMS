@@ -1690,6 +1690,7 @@ export type Database = {
             | null
           id: string
           is_active: boolean
+          is_sales_customer: boolean
           name: string
           name_ar: string | null
           updated_at: string | null
@@ -1704,6 +1705,7 @@ export type Database = {
             | null
           id?: string
           is_active?: boolean
+          is_sales_customer?: boolean
           name: string
           name_ar?: string | null
           updated_at?: string | null
@@ -1718,6 +1720,7 @@ export type Database = {
             | null
           id?: string
           is_active?: boolean
+          is_sales_customer?: boolean
           name?: string
           name_ar?: string | null
           updated_at?: string | null
@@ -10031,6 +10034,7 @@ export type Database = {
           p_offset?: number
           p_only_active?: boolean
           p_query?: string
+          p_sales_only?: boolean
         }
         Returns: Json
       }
