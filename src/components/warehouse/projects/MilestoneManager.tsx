@@ -4,7 +4,7 @@ import { humanizeDbError } from '@/lib/dbErrors'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Flag, Lock, Plus } from 'lucide-react'
+import { Flag, Lock, Pencil, Plus } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,7 @@ import {
   useUpsertProjectMilestone,
   useSetMilestoneCodes,
   type ProjectMilestone,
+  type ProjectMilestoneCode,
 } from '@/hooks/useProjectMilestones'
 import { useMilestoneCodes } from '@/hooks/useMilestoneCodes'
 
@@ -69,30 +70,53 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
   const setMilestoneCodes = useSetMilestoneCodes()
   const closeMilestone = useCloseMilestone()
 
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [formMode, setFormMode] = useState<'closed' | 'add' | 'edit'>('closed')
+  const [editId, setEditId] = useState<string | null>(null)
   const [milestoneNo, setMilestoneNo] = useState('')
-  const [milestoneName, setMilestoneName] = useState('')
   const [milestoneDescription, setMilestoneDescription] = useState('')
   const [milestoneAmount, setMilestoneAmount] = useState('')
   const [selectedCodeIds, setSelectedCodeIds] = useState<string[]>([])
   const [closeTarget, setCloseTarget] = useState<ProjectMilestone | null>(null)
 
   // Friendly next-number suggestion (max over the currently-visible active
-  // list + 1) — a convenience default only; unlike the legacy `label`, this
-  // schema has no uniqueness constraint forcing an exact max-over-all count,
-  // so the user can always edit it.
+  // list + 1). The number drives everything: the display name is ALWAYS
+  // "milestone N" and the short report code is ALWAYS "mN" (both derived,
+  // never free-typed), so milestones read 1,2,3… / m1,m2,m3… by convention.
   const nextMilestoneNo = useMemo(
     () => milestones.reduce((max, m) => Math.max(max, m.milestone_no ?? 0), 0) + 1,
     [milestones],
   )
 
+  const parsedNo = parseInt(milestoneNo, 10)
+  const validNo = Number.isInteger(parsedNo) && parsedNo > 0
+  const derivedName = validNo ? `milestone ${parsedNo}` : ''
+  const derivedShort = validNo ? `m${parsedNo}` : ''
+
   function openAddForm() {
+    setEditId(null)
     setMilestoneNo(String(nextMilestoneNo))
-    setMilestoneName('')
     setMilestoneDescription('')
     setMilestoneAmount('')
     setSelectedCodeIds([])
-    setShowAddForm(true)
+    setFormMode('add')
+  }
+
+  // Re-open the form pre-filled from an existing milestone (its number,
+  // description, amount, AND its currently-bundled codes). The save path reuses
+  // the row id so the upsert UPDATES it, and re-bundles codes as a full replace
+  // — closing the "can't edit / can't re-bundle after creation" gap.
+  function openEditForm(m: ProjectMilestone, codes: ProjectMilestoneCode[]) {
+    setEditId(m.id)
+    setMilestoneNo(m.milestone_no != null ? String(m.milestone_no) : '')
+    setMilestoneDescription(m.description ?? '')
+    setMilestoneAmount(m.amount != null ? String(m.amount) : '')
+    setSelectedCodeIds(codes.map((c) => c.code_id))
+    setFormMode('edit')
+  }
+
+  function closeForm() {
+    setFormMode('closed')
+    setEditId(null)
   }
 
   function toggleCode(id: string, checked: boolean) {
@@ -100,40 +124,40 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
   }
 
   const isSaving = upsertMilestone.isPending || setMilestoneCodes.isPending
-  const parsedNo = parseInt(milestoneNo, 10)
-  const canSave = milestoneName.trim() !== '' && Number.isInteger(parsedNo) && parsedNo > 0
+  const canSave = validNo
 
   async function handleSaveMilestone() {
     if (!canSave || isSaving) return
-    const id = crypto.randomUUID()
+    const isEdit = formMode === 'edit' && !!editId
+    const id = editId ?? crypto.randomUUID()
     try {
       await upsertMilestone.mutateAsync({
         id,
         project_id: projectId,
         discipline_id: disciplineId,
         milestone_no: parsedNo,
-        name: milestoneName.trim(),
+        name: `milestone ${parsedNo}`, // locked to the number (mN short code derives from it)
         description: milestoneDescription.trim() || null,
         amount: milestoneAmount.trim() ? Number(milestoneAmount) : null,
       })
-      if (selectedCodeIds.length > 0) {
+      // Editing must persist code REMOVALS too (full replace), so always write
+      // when editing; on a fresh add only write when a code was picked (a new
+      // milestone has none, so an empty replace would be a wasted call).
+      if (isEdit || selectedCodeIds.length > 0) {
         await setMilestoneCodes.mutateAsync({
           milestone_id: id,
           code_ids: selectedCodeIds,
           project_id: projectId,
           discipline_id: disciplineId,
         })
-        // FIX (review round 1, F2): `setMilestoneCodes`'s own onSuccess only
-        // invalidates the 'project-milestone-codes' bucket for a PRE-EXISTING
-        // milestone id. This is a brand-new milestone — the freshly-mounted
-        // `MilestoneRow` for it calls `useProjectMilestoneCodes(id)` for the
-        // first time right as (or just before) this write lands, so it can
-        // cache an empty result before the codes finish writing. Invalidate
-        // this milestone's specific key directly so the chips actually show.
+        // A brand-new milestone's freshly-mounted `MilestoneRow` queries its
+        // codes right as (or just before) this write lands and can cache an
+        // empty result first; invalidate its specific key so the chips show
+        // (review round 1, F2). Harmless on the edit path too.
         qc.invalidateQueries({ queryKey: ['project-milestone-codes', id] })
       }
-      toast.success(`Milestone ${milestoneName.trim()} added`)
-      setShowAddForm(false)
+      toast.success(isEdit ? `Milestone ${parsedNo} updated` : `Milestone ${parsedNo} added`)
+      closeForm()
     } catch (e) {
       toast.error(humanizeDbError(e))
     }
@@ -184,6 +208,7 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
               milestone={m}
               canManage={canManage}
               disabled={closeMilestone.isPending}
+              onRequestEdit={openEditForm}
               onRequestClose={setCloseTarget}
             />
           ))}
@@ -191,8 +216,11 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
       )}
 
       {canManage && (
-        showAddForm ? (
+        formMode !== 'closed' ? (
           <div className="rounded-md border border-dashed p-3 space-y-2.5">
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {formMode === 'edit' ? 'Edit milestone' : 'New milestone'}
+            </p>
             <div className="grid grid-cols-[5rem_1fr] gap-2">
               <div className="space-y-1">
                 <label className="text-[10px] text-muted-foreground">No. *</label>
@@ -205,13 +233,13 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground">Name *</label>
-                <Input
-                  className="h-9 text-xs"
-                  placeholder="e.g. First Fix"
-                  value={milestoneName}
-                  onChange={(e) => setMilestoneName(e.target.value)}
-                />
+                <label className="text-[10px] text-muted-foreground">Name</label>
+                <div className="h-9 flex items-center gap-2 rounded-md border bg-muted/40 px-2.5">
+                  <span className="text-xs font-medium truncate">{derivedName || '—'}</span>
+                  {derivedShort && (
+                    <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-mono shrink-0">{derivedShort}</Badge>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -271,7 +299,7 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
                 disabled={!canSave || isSaving}
                 onClick={handleSaveMilestone}
               >
-                {isSaving ? 'Saving…' : 'Save milestone'}
+                {isSaving ? 'Saving…' : formMode === 'edit' ? 'Update milestone' : 'Save milestone'}
               </Button>
               <Button
                 type="button"
@@ -279,7 +307,7 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
                 variant="outline"
                 className="h-11 sm:h-7 flex-1 sm:flex-none"
                 disabled={isSaving}
-                onClick={() => setShowAddForm(false)}
+                onClick={closeForm}
               >
                 Cancel
               </Button>
@@ -326,11 +354,12 @@ export function MilestoneManager({ projectId, subContainerId, disciplineId, canM
 // (one query per milestone) is called once per component instance rather than
 // inside a .map() loop, which would break the Rules of Hooks.
 function MilestoneRow({
-  milestone, canManage, disabled, onRequestClose,
+  milestone, canManage, disabled, onRequestEdit, onRequestClose,
 }: {
   milestone: ProjectMilestone
   canManage: boolean
   disabled: boolean
+  onRequestEdit: (m: ProjectMilestone, codes: ProjectMilestoneCode[]) => void
   onRequestClose: (m: ProjectMilestone) => void
 }) {
   const { data: codes = [] } = useProjectMilestoneCodes(milestone.id)
@@ -338,28 +367,43 @@ function MilestoneRow({
   return (
     <div className="rounded-md border bg-background px-2.5 py-1.5 space-y-1">
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex items-baseline gap-1.5">
-          <span className="text-[10px] text-muted-foreground shrink-0">#{milestone.milestone_no}</span>
+        <div className="min-w-0 flex items-center gap-1.5">
+          {milestone.milestone_no != null && (
+            <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-mono shrink-0">m{milestone.milestone_no}</Badge>
+          )}
           <span className="truncate text-xs font-medium">{milestone.name}</span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {milestone.amount != null && (
-            <span className="text-[10px] text-muted-foreground tabular-nums">
+            <span className="text-[10px] text-muted-foreground tabular-nums mr-1">
               {formatAmount(Number(milestone.amount))}
             </span>
           )}
           {canManage && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-11 w-11 sm:h-7 sm:w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
-              disabled={disabled}
-              onClick={() => onRequestClose(milestone)}
-              aria-label={`Close milestone ${milestone.name}`}
-            >
-              <Lock className="h-3.5 w-3.5" />
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-11 w-11 sm:h-7 sm:w-7 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+                disabled={disabled}
+                onClick={() => onRequestEdit(milestone, codes)}
+                aria-label={`Edit ${milestone.name}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-11 w-11 sm:h-7 sm:w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                disabled={disabled}
+                onClick={() => onRequestClose(milestone)}
+                aria-label={`Close ${milestone.name}`}
+              >
+                <Lock className="h-3.5 w-3.5" />
+              </Button>
+            </>
           )}
         </div>
       </div>

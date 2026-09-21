@@ -27,6 +27,10 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/master-data/admin/repair-vendors',         permission: 'master_data.warehouses.manage' },
   { pathPrefix: '/master-data/admin/approval-settings',      permission: 'purchase.approvals.chain.manage' },
   { pathPrefix: '/master-data/admin/credit-group-approvals', permission: 'master_data.customers.view' },
+  // MEP master data (disciplines + milestone codes) — manage-only, same permission
+  // area as the Warehouse → Projects tab's inline gating. Overrides the base
+  // /master-data/admin (master_data.admin.view) so project managers reach it.
+  { pathPrefix: '/master-data/admin/mep',                    permission: 'warehouse.projects.manage' },
   { pathPrefix: '/master-data/services/approvals', permission: 'master_data.services.approve' },
   { pathPrefix: '/master-data/services',           permission: 'master_data.services.view' },
   { pathPrefix: '/master-data/service-customers',  permission: 'master_data.service_customers.view' },
@@ -34,9 +38,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/master-data/suppliers',          permission: 'master_data.suppliers.view' },
   { pathPrefix: '/master-data/inventory',          permission: 'inventory.catalog.view' },
   { pathPrefix: '/master-data/credit-groups',      permission: 'master_data.admin.view' },
-  // MEP master data (disciplines + milestone codes) — manage-only, same
-  // permission area as the Warehouse → Projects tab's inline gating.
-  { pathPrefix: '/master-data/mep',                permission: 'warehouse.projects.manage' },
 
   // ── Orders ─────────────────────────────────────────────────────────────
   { pathPrefix: '/orders/create-follow-up', permission: 'follow_ups.confirm' },

@@ -535,14 +535,14 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const srcSubResolved      = eligibleSrcSubs.length > 0 && (eligibleSrcSubs.length === 1 || !!srcSubId)
   const post                = useCreateConsumption()
 
-  // A project-pool consumer requires a discipline + milestone so spend is
-  // attributed. The milestone CODE is OPTIONAL: the backend never requires it
-  // (rpc_post_consumption validates a code only when one is supplied), and a
-  // milestone may legitimately have no bundled codes — forcing one would strand
-  // an operator who lacks the permission to bundle codes. (Non-project custody /
-  // internal have no disciplines → not required at all.)
+  // A project-pool consumer requires the full spend tag: discipline + milestone
+  // + a bundled milestone CODE. The code is REQUIRED (spend is tracked at the
+  // code, per the MEP model) — a milestone with no bundled codes can't be
+  // consumed against until codes are added to it. (Non-project custody / internal
+  // have no disciplines → not required at all.) The backend still accepts a null
+  // code for other flows; this is a UI-level requirement.
   const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
-  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId)
+  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId && !!milestoneCodeId)
   // Custody consumption is a sale — the invoice/order/project ref (Notes) is mandatory.
   const notesSatisfied = consumerType !== 'custody' || notes.trim().length > 0
 
@@ -984,14 +984,14 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">Milestone Code (optional)</Label>
+              <Label className="text-[10px] text-muted-foreground">Milestone Code *</Label>
               {!milestoneId ? (
                 <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] italic text-muted-foreground">
                   Pick a milestone first
                 </div>
               ) : milestoneCodes.length === 0 ? (
-                <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] italic text-muted-foreground">
-                  No codes bundled — optional, you can post without one
+                <div className="h-9 flex items-center rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 text-[11px] text-amber-600 dark:text-amber-400">
+                  No codes bundled — add one to this milestone first
                 </div>
               ) : (
                 <Select value={milestoneCodeId} onValueChange={(v) => setMilestoneCodeId(v)}>

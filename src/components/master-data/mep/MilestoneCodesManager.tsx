@@ -68,16 +68,24 @@ import {
  * Self-contained — the MEP tabs page just renders it.
  */
 export function MilestoneCodesManager() {
-  const { activeDivisionId, availableDivisions } = useActiveDivision()
+  const { activeDivisionId, availableDivisions, viewDivisionIds } = useActiveDivision()
+  // Follow the top "All Divisions" picker: show only the divisions in the view
+  // set (an empty set means "All", so fall back to every available division).
+  const visibleDivisions = useMemo(
+    () => (viewDivisionIds.size === 0
+      ? availableDivisions
+      : availableDivisions.filter((d) => viewDivisionIds.has(d.id))),
+    [availableDivisions, viewDivisionIds],
+  )
   const [selectedDivisionId, setSelectedDivisionId] = useState('')
   useEffect(() => {
-    if (selectedDivisionId && availableDivisions.some((d) => d.id === selectedDivisionId)) return
+    if (selectedDivisionId && visibleDivisions.some((d) => d.id === selectedDivisionId)) return
     const fallback =
-      activeDivisionId && availableDivisions.some((d) => d.id === activeDivisionId)
+      activeDivisionId && visibleDivisions.some((d) => d.id === activeDivisionId)
         ? activeDivisionId
-        : (availableDivisions[0]?.id ?? '')
+        : (visibleDivisions[0]?.id ?? '')
     if (fallback) setSelectedDivisionId(fallback)
-  }, [availableDivisions, activeDivisionId, selectedDivisionId])
+  }, [visibleDivisions, activeDivisionId, selectedDivisionId])
 
   const canManage = useHasManagePermission('warehouse.projects')
 
@@ -135,17 +143,17 @@ export function MilestoneCodesManager() {
         }
       />
 
-      {availableDivisions.length === 0 ? (
+      {visibleDivisions.length === 0 ? (
         <p className="text-xs text-muted-foreground py-8 text-center">No divisions available.</p>
       ) : (
         <>
-          {availableDivisions.length > 1 && (
+          {visibleDivisions.length > 1 && (
             <Tabs
               value={selectedDivisionId}
               onValueChange={(v) => { setSelectedDivisionId(v); setSelectedDisciplineId('') }}
             >
               <TabsList className="self-start">
-                {availableDivisions.map((d) => (
+                {visibleDivisions.map((d) => (
                   <TabsTrigger key={d.id} value={d.id}>
                     {d.short_name || d.name}
                   </TabsTrigger>
@@ -173,7 +181,7 @@ export function MilestoneCodesManager() {
               {disciplinesLoading
                 ? 'Loading disciplines…'
                 : disciplines.length === 0
-                  ? 'No disciplines in this division yet — add one under Master Data → MEP → Disciplines first.'
+                  ? 'No disciplines in this division yet — add one under Admin → MEP → Disciplines first.'
                   : 'Select a discipline to view its milestone codes.'}
             </p>
           ) : isLoading ? (
