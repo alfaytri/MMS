@@ -3487,6 +3487,42 @@ export type Database = {
           },
         ]
       }
+      milestone_code_disciplines: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          discipline_id: string
+          milestone_code_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          discipline_id: string
+          milestone_code_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          discipline_id?: string
+          milestone_code_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milestone_code_disciplines_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milestone_code_disciplines_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       milestone_codes: {
         Row: {
           code: string
@@ -10287,11 +10323,27 @@ export type Database = {
         }
         Returns: string
       }
+      rpc_milestone_codes_for_discipline: {
+        Args: { p_discipline_id: string }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discipline_id: string
+          grp: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+        }[]
+      }
       rpc_upsert_milestone_code: {
         Args: {
           p_code: string
           p_description?: string
           p_discipline_id: string
+          p_extra_discipline_ids?: string[]
           p_grp?: string
           p_id: string
           p_sort_order?: number

@@ -31,14 +31,14 @@ export function useMilestoneCodes(disciplineId: string | null | undefined) {
     enabled: !!disciplineId,
     queryFn: async (): Promise<MilestoneCode[]> => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('milestone_codes')
-        .select('id, discipline_id, code, grp, description, sort_order, is_active, created_at')
-        .eq('discipline_id', disciplineId!)
-        .eq('is_active', true)
-        .order('sort_order')
-        .order('code')
-        .limit(500)
+      // Home codes for this discipline PLUS codes shared into it from another
+      // discipline (via milestone_code_disciplines). The RPC returns full
+      // milestone_codes rows already ordered by sort_order, code; a row whose
+      // `discipline_id` !== the requested discipline is a shared-in code (its
+      // `discipline_id` is that code's home discipline).
+      const { data, error } = await supabase.rpc('rpc_milestone_codes_for_discipline', {
+        p_discipline_id: disciplineId!,
+      })
       if (error) throw wrapDbError(error, 'Failed to load milestone codes')
       return (data ?? []) as MilestoneCode[]
     },
@@ -59,6 +59,8 @@ export type UpsertMilestoneCodePayload = {
   grp?: string | null
   description?: string | null
   sort_order?: number
+  /** Extra disciplines this code is ALSO available in (beyond its home). Full replace. */
+  extra_discipline_ids?: string[]
 }
 
 /**
@@ -78,16 +80,42 @@ export function useUpsertMilestoneCode() {
         p_grp: payload.grp ?? undefined,
         p_description: payload.description ?? undefined,
         p_sort_order: payload.sort_order,
+        p_extra_discipline_ids: payload.extra_discipline_ids ?? [],
       })
       if (error) throw wrapDbError(error, 'Failed to save milestone code')
       return data as string
     },
-    onSuccess: () => {
+    onSuccess: (_data, payload) => {
       // Prefix-matches every `byDiscipline(...)` entry too (TanStack Query
       // invalidates by key prefix), so a plain `.all` invalidation is enough
-      // even though we don't always know the affected discipline here.
+      // even though we don't always know the affected discipline here. Also
+      // refresh this code's shared-discipline set (edit-form default).
       qc.invalidateQueries({ queryKey: queryKeys.milestoneCodes.all })
+      qc.invalidateQueries({ queryKey: ['milestone-code-disciplines', payload.id] })
     },
+  })
+}
+
+/**
+ * The EXTRA disciplines a milestone code is shared into (beyond its home
+ * discipline) — powers the "Also available in" multi-select's default selection
+ * when editing a code.
+ */
+export function useMilestoneCodeDisciplines(codeId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['milestone-code-disciplines', codeId ?? null],
+    enabled: !!codeId,
+    queryFn: async (): Promise<string[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('milestone_code_disciplines')
+        .select('discipline_id')
+        .eq('milestone_code_id', codeId!)
+        .limit(100)
+      if (error) throw wrapDbError(error, 'Failed to load code disciplines')
+      return (data ?? []).map((r) => (r as { discipline_id: string }).discipline_id)
+    },
+    staleTime: 60 * 1000,
   })
 }
 

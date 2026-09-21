@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   GuardedFormDialog,
   type GuardedFormDialogHandle,
@@ -53,6 +54,7 @@ import { useHasManagePermission } from '@/hooks/usePermissions'
 import { useDisciplines } from '@/hooks/useDisciplines'
 import {
   useMilestoneCodes,
+  useMilestoneCodeDisciplines,
   useUpsertMilestoneCode,
   useSetMilestoneCodeActive,
   type MilestoneCode,
@@ -118,6 +120,7 @@ export function MilestoneCodesManager() {
       code: values.code,
       grp: values.grp,
       description: values.description,
+      extra_discipline_ids: values.extra_discipline_ids,
     })
   }
 
@@ -193,7 +196,13 @@ export function MilestoneCodesManager() {
             </p>
           ) : (
             <div className="space-y-2.5">
-              {codes.map((c, i) => (
+              {codes.map((c, i) => {
+                // A code whose home discipline isn't the one being viewed is
+                // shared-in (via milestone_code_disciplines). It's read-only
+                // here — managed from its home discipline.
+                const isShared = c.discipline_id !== selectedDisciplineId
+                const homeName = disciplines.find((d) => d.id === c.discipline_id)?.name
+                return (
                 <Card key={c.id} className={cn(c.is_active ? undefined : 'opacity-60', STAGGER_IN)} style={staggerDelay(i)}>
                   <CardHeader className="py-3">
                     <div className="flex items-start gap-3 min-w-0">
@@ -206,6 +215,11 @@ export function MilestoneCodesManager() {
                           {c.grp && (
                             <Badge variant="outline" className="text-[10px] h-4 px-1.5 shrink-0">{c.grp}</Badge>
                           )}
+                          {isShared && (
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                              Shared{homeName ? ` · ${homeName}` : ''}
+                            </Badge>
+                          )}
                           {!c.is_active && (
                             <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">Inactive</Badge>
                           )}
@@ -214,7 +228,7 @@ export function MilestoneCodesManager() {
                           <p className="mt-1 text-xs text-muted-foreground truncate">{c.description}</p>
                         )}
                       </div>
-                      {canManage && (
+                      {canManage && !isShared && (
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
@@ -236,7 +250,8 @@ export function MilestoneCodesManager() {
                     </div>
                   </CardHeader>
                 </Card>
-              ))}
+                )
+              })}
             </div>
           )}
         </>
@@ -247,6 +262,9 @@ export function MilestoneCodesManager() {
           open={dialogOpen}
           onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditing(null) }}
           disciplineName={selectedDiscipline?.name ?? ''}
+          otherDisciplines={disciplines
+            .filter((d) => d.id !== selectedDisciplineId)
+            .map((d) => ({ id: d.id, name: d.name }))}
           row={editing}
           isPending={upsert.isPending}
           onSubmit={handleSubmit}
@@ -267,12 +285,15 @@ interface MilestoneCodeSubmitValues {
   code: string
   grp?: string | null
   description?: string | null
+  extra_discipline_ids: string[]
 }
 
 interface MilestoneCodeFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   disciplineName: string
+  /** The division's OTHER disciplines — the "Also available in" options. */
+  otherDisciplines: { id: string; name: string }[]
   row?: MilestoneCode | null
   isPending: boolean
   onSubmit: (values: MilestoneCodeSubmitValues) => Promise<void>
@@ -286,7 +307,7 @@ interface MilestoneCodeFormDialogProps {
  * `CustodyLocationFormDialog`.
  */
 function MilestoneCodeFormDialog({
-  open, onOpenChange, disciplineName, row, isPending, onSubmit,
+  open, onOpenChange, disciplineName, otherDisciplines, row, isPending, onSubmit,
 }: MilestoneCodeFormDialogProps) {
   const isEditing = !!row
   const guardRef = useRef<GuardedFormDialogHandle>(null)
@@ -295,6 +316,11 @@ function MilestoneCodeFormDialog({
     resolver: zodResolver(milestoneCodeSchema),
     defaultValues: { code: '', grp: '', description: '' },
   })
+
+  // "Also available in": the extra disciplines this code is shared into. When
+  // editing, seed from the code's current links; when adding, start empty.
+  const { data: currentExtras } = useMilestoneCodeDisciplines(open && row ? row.id : null)
+  const [extraIds, setExtraIds] = useState<string[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -306,12 +332,23 @@ function MilestoneCodeFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, row?.id, form])
 
+  useEffect(() => {
+    if (!open) return
+    setExtraIds(row ? (currentExtras ?? []) : [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, row?.id, currentExtras])
+
+  function toggleExtra(id: string, checked: boolean) {
+    setExtraIds((prev) => (checked ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id)))
+  }
+
   async function submit(values: MilestoneCodeFormValues) {
     try {
       await onSubmit({
         code: values.code,
         grp: values.grp || null,
         description: values.description || null,
+        extra_discipline_ids: extraIds,
       })
       toast.success(isEditing ? 'Milestone code updated' : 'Milestone code created')
       guardRef.current?.closeAfterSubmit()
@@ -369,6 +406,28 @@ function MilestoneCodeFormDialog({
                 </FormItem>
               )}
             />
+            {otherDisciplines.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Also available in</p>
+                <div className="rounded-md border divide-y max-h-40 overflow-y-auto">
+                  {otherDisciplines.map((d) => (
+                    <label
+                      key={d.id}
+                      className="flex items-center gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-accent/30"
+                    >
+                      <Checkbox
+                        checked={extraIds.includes(d.id)}
+                        onCheckedChange={(chk) => toggleExtra(d.id, chk === true)}
+                      />
+                      <span className="truncate">{d.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  The same code, shared into these disciplines too.
+                </p>
+              </div>
+            )}
             <DialogFooter className="pt-2">
               <Button
                 type="button"
