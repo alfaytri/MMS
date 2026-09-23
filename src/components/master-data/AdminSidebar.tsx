@@ -157,13 +157,19 @@ export function AdminSidebar() {
   const pathname = usePathname()
   const { data: permData } = usePermissions()
   const userPerms = permData?.permissions ?? []
+  // System admins (is_system_admin role, or the `system.admin` key) bypass
+  // per-item permission checks — same rule useHasPermission + route access use.
+  // Without this a system-admin whose role carries the flag but not the explicit
+  // admin permission keys sees an EMPTY admin sidebar while still reaching every
+  // admin page (the inconsistency this fixes).
+  const isSystemAdmin = permData?.isSystemAdmin ?? false
   const [open, setOpen] = useState(false)
 
   const visibleSections = ADMIN_SECTIONS
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => item.comingSoon || canAccess(item.permission, userPerms)
+        (item) => item.comingSoon || isSystemAdmin || canAccess(item.permission, userPerms)
       ),
     }))
     .filter((section) => section.items.length > 0)
