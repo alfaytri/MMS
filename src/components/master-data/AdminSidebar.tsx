@@ -29,6 +29,8 @@ import {
   AlertTriangle,
   ClipboardCheck,
   Bell,
+  HardHat,
+  Milestone,
 } from 'lucide-react'
 
 type SidebarItem = {
@@ -52,6 +54,13 @@ const ADMIN_SECTIONS: SidebarSection[] = [
       { label: 'Warehouses',            href: '/master-data/admin/warehouses', icon: Warehouse, permission: 'master_data.warehouses.manage' },
       { label: 'Custody Locations',     href: '/master-data/admin/custody',        icon: Users2,  permission: 'master_data.warehouses.manage' },
       { label: 'Repair Vendors',        href: '/master-data/admin/repair-vendors', icon: Wrench,  permission: 'master_data.warehouses.manage' },
+    ],
+  },
+  {
+    label: 'MEP',
+    items: [
+      { label: 'Disciplines',     href: '/master-data/admin/mep/disciplines',     icon: HardHat,   permission: 'warehouse.projects.manage' },
+      { label: 'Milestone Codes', href: '/master-data/admin/mep/milestone-codes', icon: Milestone, permission: 'warehouse.projects.manage' },
     ],
   },
   {
