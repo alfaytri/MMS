@@ -149,6 +149,7 @@ export type Customer = {
   entity_type:         'individual' | 'business' | null
   is_blocked:          boolean
   is_active:           boolean
+  is_sales_customer:   boolean
   credit_group_id:     string | null
   credit_group_name?:  string | null
   credit_group_limit?: number | null
@@ -233,9 +234,10 @@ export function hasNegativeMargin(lineItems: { unit_price: number; avg_cost: num
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
-export function useCustomers(search?: string) {
+export function useCustomers(search?: string, opts?: { salesOnly?: boolean }) {
+  const salesOnly = opts?.salesOnly ?? false
   return useQuery({
-    queryKey: queryKeys.customers.search(search),
+    queryKey: queryKeys.customers.search(search, salesOnly),
     queryFn: async () => {
       const supabase = createClient()
       const { data: payload, error } = await supabase.rpc('search_customers', {
@@ -243,6 +245,7 @@ export function useCustomers(search?: string) {
         p_only_active: true,
         p_limit:       50,
         p_offset:      0,
+        p_sales_only:  salesOnly,
       })
       if (error) throw error
       const data = (payload as { rows?: unknown[] } | null)?.rows ?? []

@@ -186,7 +186,7 @@ export default function SaleOrdersPage() {
   const [detailSO, setDetailSO] = useState<SaleOrder | null>(null)
   const [cancelTarget, setCancelTarget] = useState<SaleOrder | null>(null)
 
-  const { data: customers } = useCustomers()
+  const { data: customers } = useCustomers(undefined, { salesOnly: true })
 
   const confirmSO = useConfirmSO()
   const cancelSO = useCancelSO()

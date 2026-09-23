@@ -100,7 +100,7 @@ export default function CreateSOPage() {
   const [discountLabel, setDiscountLabel]   = useState('')
   const [isPriceLoading, setIsPriceLoading] = useState(false)
 
-  const { data: customers } = useCustomers(customerSearch || undefined)
+  const { data: customers } = useCustomers(customerSearch || undefined, { salesOnly: true })
   const { data: creditInfo } = useCustomerCredit(customerId || null)
 
   const subtotal       = calcSOSubtotal(lineItems)
