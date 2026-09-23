@@ -730,6 +730,12 @@ export const queryKeys = {
   /* ── Virtual Warehouse Projects (Phase 1) ─────────────── */
   disciplines: {
     all: ['disciplines'] as const,
+    // Read RLS is division-scoped (MEP Task 1) — keyed separately per division
+    // so an explicit-division caller (e.g. a project form) can't collide with
+    // an ambient-active-division caller (e.g. a master-data manager) sharing
+    // the bare `.all` cache entry. Invalidating `.all` still invalidates every
+    // `byDivision(...)` entry too (TanStack Query prefix match).
+    byDivision: (divisionId: Nullable) => ['disciplines', divisionId ?? 'all'] as const,
   },
   projects: {
     all: ['projects'] as const,
@@ -738,6 +744,16 @@ export const queryKeys = {
   },
   projectMilestones: {
     bySub: (subId: Nullable) => ['project-milestones', subId ?? null] as const,
+    // MEP reshape — milestones are now keyed by (project_id, discipline_id)
+    // instead of sub_container_id. Kept as a separate key (not a replacement
+    // of `bySub`) so the still-live legacy pool-model mutations keep working.
+    byProjectDiscipline: (projectId: Nullable, disciplineId: Nullable) =>
+      ['project-milestones', 'by-project', projectId ?? null, disciplineId ?? null] as const,
+  },
+  /* ── MEP Milestone Codes (discipline-scoped code catalog) ─ */
+  milestoneCodes: {
+    all: ['milestone-codes'] as const,
+    byDiscipline: (disciplineId: string) => ['milestone-codes', disciplineId] as const,
   },
 
   /* ── Damaged Stock (Phase 9.6–9.7) ────────────────────── */
