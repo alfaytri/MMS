@@ -589,6 +589,41 @@ export type Database = {
           },
         ]
       }
+      cc_handling_events: {
+        Row: {
+          agent_name: string | null
+          auth_user_id: string | null
+          conversation_id: string
+          id: string
+          opened_at: string
+          profile_id: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          auth_user_id?: string | null
+          conversation_id: string
+          id?: string
+          opened_at?: string
+          profile_id?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          auth_user_id?: string | null
+          conversation_id?: string
+          id?: string
+          opened_at?: string
+          profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_handling_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversations: {
         Row: {
           assigned_agent: string | null
@@ -812,8 +847,10 @@ export type Database = {
           division_id: string | null
           id: string
           landed_cost_id: string | null
+          milestone_code_id: string | null
           milestone_id: string | null
           notes: string | null
+          project_id: string | null
           qty: number
           sale_delivery_id: string | null
           sale_order_id: string | null
@@ -836,8 +873,10 @@ export type Database = {
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
+          project_id?: string | null
           qty: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
@@ -860,8 +899,10 @@ export type Database = {
           division_id?: string | null
           id?: string
           landed_cost_id?: string | null
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
+          project_id?: string | null
           qty?: number
           sale_delivery_id?: string | null
           sale_order_id?: string | null
@@ -956,10 +997,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cogs_entries_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cogs_entries_milestone_id_fkey"
             columns: ["milestone_id"]
             isOneToOne: false
             referencedRelation: "project_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cogs_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -1248,10 +1303,12 @@ export type Database = {
           division_id: string | null
           id: string
           is_team_item: boolean
+          milestone_code_id: string | null
           milestone_id: string | null
           notes: string | null
           posted_at: string | null
           posted_by: string | null
+          project_id: string | null
           source_sub_container_id: string
           source_warehouse_id: string
           status: string
@@ -1272,10 +1329,12 @@ export type Database = {
           division_id?: string | null
           id?: string
           is_team_item?: boolean
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
+          project_id?: string | null
           source_sub_container_id: string
           source_warehouse_id: string
           status?: string
@@ -1296,10 +1355,12 @@ export type Database = {
           division_id?: string | null
           id?: string
           is_team_item?: boolean
+          milestone_code_id?: string | null
           milestone_id?: string | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
+          project_id?: string | null
           source_sub_container_id?: string
           source_warehouse_id?: string
           status?: string
@@ -1369,6 +1430,13 @@ export type Database = {
             referencedColumns: ["division_id"]
           },
           {
+            foreignKeyName: "consumption_entries_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "consumption_entries_milestone_id_fkey"
             columns: ["milestone_id"]
             isOneToOne: false
@@ -1380,6 +1448,13 @@ export type Database = {
             columns: ["posted_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consumption_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -1476,6 +1551,182 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      contract_invoice_lines: {
+        Row: {
+          contract_invoice_id: string
+          id: string
+          name: string
+          qty: number
+          sort_order: number
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          contract_invoice_id: string
+          id?: string
+          name: string
+          qty?: number
+          sort_order?: number
+          total?: number
+          unit_price?: number
+        }
+        Update: {
+          contract_invoice_id?: string
+          id?: string
+          name?: string
+          qty?: number
+          sort_order?: number
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_invoice_lines_contract_invoice_id_fkey"
+            columns: ["contract_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "contract_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_invoice_payments: {
+        Row: {
+          amount: number
+          contract_invoice_id: string
+          created_at: string
+          id: string
+          method_slug: string | null
+          notes: string | null
+          paid_at: string
+          payment_method_id: string | null
+          registered_by: string | null
+          registered_by_name: string | null
+        }
+        Insert: {
+          amount: number
+          contract_invoice_id: string
+          created_at?: string
+          id?: string
+          method_slug?: string | null
+          notes?: string | null
+          paid_at?: string
+          payment_method_id?: string | null
+          registered_by?: string | null
+          registered_by_name?: string | null
+        }
+        Update: {
+          amount?: number
+          contract_invoice_id?: string
+          created_at?: string
+          id?: string
+          method_slug?: string | null
+          notes?: string | null
+          paid_at?: string
+          payment_method_id?: string | null
+          registered_by?: string | null
+          registered_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_invoice_payments_contract_invoice_id_fkey"
+            columns: ["contract_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "contract_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_invoice_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_invoices: {
+        Row: {
+          contract_id: string
+          contract_payment_id: string
+          created_at: string | null
+          created_by: string | null
+          customer_name: string
+          customer_phone: string | null
+          dibsy_checkout_url: string | null
+          dibsy_payment_id: string | null
+          discount_amount: number
+          due_date: string | null
+          id: string
+          invoice_number: string
+          notes: string | null
+          paid_amount: number
+          payment_status: string
+          pdf_url: string | null
+          sent_at: string | null
+          subtotal: number
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          contract_id: string
+          contract_payment_id: string
+          created_at?: string | null
+          created_by?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
+          discount_amount?: number
+          due_date?: string | null
+          id?: string
+          invoice_number: string
+          notes?: string | null
+          paid_amount?: number
+          payment_status?: string
+          pdf_url?: string | null
+          sent_at?: string | null
+          subtotal?: number
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Update: {
+          contract_id?: string
+          contract_payment_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          dibsy_checkout_url?: string | null
+          dibsy_payment_id?: string | null
+          discount_amount?: number
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          notes?: string | null
+          paid_amount?: number
+          payment_status?: string
+          pdf_url?: string | null
+          sent_at?: string | null
+          subtotal?: number
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_invoices_contract_payment_id_fkey"
+            columns: ["contract_payment_id"]
+            isOneToOne: true
+            referencedRelation: "contract_payments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contract_milestones: {
         Row: {
@@ -1671,9 +1922,11 @@ export type Database = {
           contract_id: string
           contract_service_id: string | null
           created_at: string | null
+          end_time: string | null
           id: string
           scheduled_date: string
           service_name: string
+          start_time: string | null
           team_id: string | null
         }
         Insert: {
@@ -1681,9 +1934,11 @@ export type Database = {
           contract_id: string
           contract_service_id?: string | null
           created_at?: string | null
+          end_time?: string | null
           id?: string
           scheduled_date: string
           service_name: string
+          start_time?: string | null
           team_id?: string | null
         }
         Update: {
@@ -1691,9 +1946,11 @@ export type Database = {
           contract_id?: string
           contract_service_id?: string | null
           created_at?: string | null
+          end_time?: string | null
           id?: string
           scheduled_date?: string
           service_name?: string
+          start_time?: string | null
           team_id?: string | null
         }
         Relationships: [
@@ -2722,6 +2979,7 @@ export type Database = {
       }
       customers: {
         Row: {
+          address: string | null
           block_reason: string | null
           created_at: string | null
           credit_group_id: string | null
@@ -2731,11 +2989,15 @@ export type Database = {
             | null
           id: string
           is_active: boolean
+          is_sales_customer: boolean
+          latitude: number | null
+          longitude: number | null
           name: string
           name_ar: string | null
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
           block_reason?: string | null
           created_at?: string | null
           credit_group_id?: string | null
@@ -2745,11 +3007,15 @@ export type Database = {
             | null
           id?: string
           is_active?: boolean
+          is_sales_customer?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name: string
           name_ar?: string | null
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
           block_reason?: string | null
           created_at?: string | null
           credit_group_id?: string | null
@@ -2759,6 +3025,9 @@ export type Database = {
             | null
           id?: string
           is_active?: boolean
+          is_sales_customer?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           name_ar?: string | null
           updated_at?: string | null
@@ -2932,26 +3201,60 @@ export type Database = {
       disciplines: {
         Row: {
           created_at: string
+          created_by: string | null
+          division_id: string
           id: string
           is_active: boolean
           name: string
+          prefix: string | null
           sort_order: number
+          updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
+          division_id: string
           id?: string
           is_active?: boolean
           name: string
+          prefix?: string | null
           sort_order?: number
+          updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
+          division_id?: string
           id?: string
           is_active?: boolean
           name?: string
+          prefix?: string | null
           sort_order?: number
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "disciplines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disciplines_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disciplines_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+        ]
       }
       document_terms: {
         Row: {
@@ -3673,6 +3976,56 @@ export type Database = {
           },
         ]
       }
+      inventory_category_divisions: {
+        Row: {
+          category_id: string
+          created_at: string
+          created_by: string | null
+          division_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          division_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          division_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_category_divisions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_category_divisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_category_divisions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_category_divisions_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
+        ]
+      }
       inventory_check_approvals: {
         Row: {
           action_at: string | null
@@ -4365,6 +4718,9 @@ export type Database = {
           created_by: string | null
           division_id: string
           item_id: string
+          tool_tracking_mode:
+            | Database["public"]["Enums"]["tool_tracking_mode"]
+            | null
         }
         Insert: {
           category_id?: string | null
@@ -4372,6 +4728,9 @@ export type Database = {
           created_by?: string | null
           division_id: string
           item_id: string
+          tool_tracking_mode?:
+            | Database["public"]["Enums"]["tool_tracking_mode"]
+            | null
         }
         Update: {
           category_id?: string | null
@@ -4379,6 +4738,9 @@ export type Database = {
           created_by?: string | null
           division_id?: string
           item_id?: string
+          tool_tracking_mode?:
+            | Database["public"]["Enums"]["tool_tracking_mode"]
+            | null
         }
         Relationships: [
           {
@@ -4436,7 +4798,9 @@ export type Database = {
           sort_order: number
           specification: string | null
           status: string
-          tool_tracking_mode: Database["public"]["Enums"]["tool_tracking_mode"] | null
+          tool_tracking_mode:
+            | Database["public"]["Enums"]["tool_tracking_mode"]
+            | null
           total_stock: number | null
           unit: string
           updated_at: string | null
@@ -4459,7 +4823,9 @@ export type Database = {
           sort_order?: number
           specification?: string | null
           status?: string
-          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"] | null
+          tool_tracking_mode?:
+            | Database["public"]["Enums"]["tool_tracking_mode"]
+            | null
           total_stock?: number | null
           unit: string
           updated_at?: string | null
@@ -4482,7 +4848,9 @@ export type Database = {
           sort_order?: number
           specification?: string | null
           status?: string
-          tool_tracking_mode?: Database["public"]["Enums"]["tool_tracking_mode"] | null
+          tool_tracking_mode?:
+            | Database["public"]["Enums"]["tool_tracking_mode"]
+            | null
           total_stock?: number | null
           unit?: string
           updated_at?: string | null
@@ -5077,6 +5445,103 @@ export type Database = {
           },
         ]
       }
+      milestone_code_disciplines: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          discipline_id: string
+          milestone_code_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          discipline_id: string
+          milestone_code_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          discipline_id?: string
+          milestone_code_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milestone_code_disciplines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milestone_code_disciplines_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milestone_code_disciplines_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      milestone_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discipline_id: string
+          grp: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discipline_id: string
+          grp?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discipline_id?: string
+          grp?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milestone_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "milestone_codes_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_config: {
         Row: {
           category: Database["public"]["Enums"]["notification_category"]
@@ -5145,6 +5610,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_config_template_slug_fkey"
+            columns: ["template_slug"]
+            isOneToOne: false
+            referencedRelation: "notification_templates"
+            referencedColumns: ["slug"]
           },
         ]
       }
@@ -5253,6 +5725,134 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_chat_attachments: {
+        Row: {
+          file_name: string
+          id: string
+          message_id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_key: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          file_name: string
+          id?: string
+          message_id: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          file_name?: string
+          id?: string
+          message_id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_key?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_chat_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "order_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_chat_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_chat_messages: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          body: string
+          created_at: string
+          id: string
+          order_id: string
+          order_kind: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          order_id: string
+          order_kind: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          order_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_chat_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_customer_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          note: string
+          order_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          note: string
+          order_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          note?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_customer_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_customer_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -5610,6 +6210,41 @@ export type Database = {
           },
         ]
       }
+      order_team_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          leader_id: string | null
+          member_ids: string[]
+          order_id: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leader_id?: string | null
+          member_ids?: string[]
+          order_id: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leader_id?: string | null
+          member_ids?: string[]
+          order_id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_team_snapshots_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_visit_dates: {
         Row: {
           from_time: string | null
@@ -5671,6 +6306,7 @@ export type Database = {
           notes: string | null
           order_id: string
           parent_order_id: string | null
+          qc_inspection_id: string | null
           scheduled_date: string
           scheduled_end_date: string | null
           scheduled_time: string | null
@@ -5706,6 +6342,7 @@ export type Database = {
           notes?: string | null
           order_id: string
           parent_order_id?: string | null
+          qc_inspection_id?: string | null
           scheduled_date: string
           scheduled_end_date?: string | null
           scheduled_time?: string | null
@@ -5741,6 +6378,7 @@ export type Database = {
           notes?: string | null
           order_id?: string
           parent_order_id?: string | null
+          qc_inspection_id?: string | null
           scheduled_date?: string
           scheduled_end_date?: string | null
           scheduled_time?: string | null
@@ -5799,6 +6437,13 @@ export type Database = {
             columns: ["parent_order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_qc_inspection_id_fkey"
+            columns: ["qc_inspection_id"]
+            isOneToOne: false
+            referencedRelation: "qc_inspections"
             referencedColumns: ["id"]
           },
           {
@@ -6776,38 +7421,102 @@ export type Database = {
           },
         ]
       }
-      project_milestones: {
+      project_milestone_codes: {
         Row: {
           created_at: string
           created_by: string | null
-          discipline_id: string | null
           id: string
-          is_active: boolean
-          label: string
-          sort_order: number
-          sub_container_id: string
-          updated_at: string
+          milestone_code_id: string
+          milestone_id: string
         }
         Insert: {
           created_at?: string
           created_by?: string | null
-          discipline_id?: string | null
           id?: string
-          is_active?: boolean
-          label: string
-          sort_order?: number
-          sub_container_id: string
-          updated_at?: string
+          milestone_code_id: string
+          milestone_id: string
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          id?: string
+          milestone_code_id?: string
+          milestone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_milestone_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestone_codes_milestone_code_id_fkey"
+            columns: ["milestone_code_id"]
+            isOneToOne: false
+            referencedRelation: "milestone_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestone_codes_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "project_milestones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_milestones: {
+        Row: {
+          amount: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discipline_id: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          milestone_no: number | null
+          name: string | null
+          project_id: string | null
+          sort_order: number
+          status: string | null
+          sub_container_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
           discipline_id?: string | null
           id?: string
           is_active?: boolean
-          label?: string
+          label?: string | null
+          milestone_no?: number | null
+          name?: string | null
+          project_id?: string | null
           sort_order?: number
-          sub_container_id?: string
+          status?: string | null
+          sub_container_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discipline_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          milestone_no?: number | null
+          name?: string | null
+          project_id?: string | null
+          sort_order?: number
+          status?: string | null
+          sub_container_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6823,6 +7532,13 @@ export type Database = {
             columns: ["discipline_id"]
             isOneToOne: false
             referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_milestones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -6843,38 +7559,62 @@ export type Database = {
       }
       projects: {
         Row: {
+          completion_date: string | null
           created_at: string
           created_by: string | null
+          customer_id: string | null
           division_id: string
+          expected_completion_date: string | null
           id: string
           is_active: boolean
           name: string
           project_number: string
           responsible_person_profile_id: string | null
+          site_address: string | null
+          site_latitude: number | null
+          site_longitude: number | null
+          start_date: string | null
+          status: string
           updated_at: string
           warehouse_id: string
         }
         Insert: {
+          completion_date?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           division_id: string
+          expected_completion_date?: string | null
           id?: string
           is_active?: boolean
           name: string
           project_number: string
           responsible_person_profile_id?: string | null
+          site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
+          start_date?: string | null
+          status?: string
           updated_at?: string
           warehouse_id: string
         }
         Update: {
+          completion_date?: string | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           division_id?: string
+          expected_completion_date?: string | null
           id?: string
           is_active?: boolean
           name?: string
           project_number?: string
           responsible_person_profile_id?: string | null
+          site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
+          start_date?: string | null
+          status?: string
           updated_at?: string
           warehouse_id?: string
         }
@@ -6884,6 +7624,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_credit_summary"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {
@@ -7364,6 +8118,137 @@ export type Database = {
             referencedColumns: ["team_id"]
           },
         ]
+      }
+      qc_inspections: {
+        Row: {
+          analyst_id: string | null
+          breakdown: Json
+          created_at: string
+          decided_at: string | null
+          findings: string | null
+          id: string
+          inspection_date: string | null
+          order_id: string
+          photo_urls: string[]
+          points: number
+          qc_order_id: string | null
+          reject_reason: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          scores: Json | null
+          site_key: string | null
+          stage: string
+          status: string
+          timing: string
+        }
+        Insert: {
+          analyst_id?: string | null
+          breakdown?: Json
+          created_at?: string
+          decided_at?: string | null
+          findings?: string | null
+          id?: string
+          inspection_date?: string | null
+          order_id: string
+          photo_urls?: string[]
+          points?: number
+          qc_order_id?: string | null
+          reject_reason?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          scores?: Json | null
+          site_key?: string | null
+          stage?: string
+          status?: string
+          timing?: string
+        }
+        Update: {
+          analyst_id?: string | null
+          breakdown?: Json
+          created_at?: string
+          decided_at?: string | null
+          findings?: string | null
+          id?: string
+          inspection_date?: string | null
+          order_id?: string
+          photo_urls?: string[]
+          points?: number
+          qc_order_id?: string | null
+          reject_reason?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          scores?: Json | null
+          site_key?: string | null
+          stage?: string
+          status?: string
+          timing?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_inspections_analyst_id_fkey"
+            columns: ["analyst_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_inspections_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_inspections_qc_order_id_fkey"
+            columns: ["qc_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qc_inspections_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qc_point_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          points: number
+          scenario: string
+          sort_order: number
+          timing: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          points?: number
+          scenario: string
+          sort_order?: number
+          timing?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          points?: number
+          scenario?: string
+          sort_order?: number
+          timing?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       qc_schedule: {
         Row: {
@@ -7849,6 +8734,83 @@ export type Database = {
         }
         Relationships: []
       }
+      reminder_sends: {
+        Row: {
+          detail: string | null
+          id: string
+          reminder_template_id: string | null
+          sent_at: string
+          service_customer_id: string | null
+          service_id: string | null
+          status: string
+          to_number: string | null
+          wati_msg_id: string | null
+        }
+        Insert: {
+          detail?: string | null
+          id?: string
+          reminder_template_id?: string | null
+          sent_at?: string
+          service_customer_id?: string | null
+          service_id?: string | null
+          status?: string
+          to_number?: string | null
+          wati_msg_id?: string | null
+        }
+        Update: {
+          detail?: string | null
+          id?: string
+          reminder_template_id?: string | null
+          sent_at?: string
+          service_customer_id?: string | null
+          service_id?: string | null
+          status?: string
+          to_number?: string | null
+          wati_msg_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_sends_reminder_template_id_fkey"
+            columns: ["reminder_template_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          interval_months: number
+          name: string
+          param_names: Json
+          updated_at: string
+          wati_template_name: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          interval_months?: number
+          name: string
+          param_names?: Json
+          updated_at?: string
+          wati_template_name?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          interval_months?: number
+          name?: string
+          param_names?: Json
+          updated_at?: string
+          wati_template_name?: string | null
+        }
+        Relationships: []
+      }
       reminders: {
         Row: {
           category_id: string
@@ -8112,6 +9074,7 @@ export type Database = {
           brand_variant_id: string | null
           condition: string | null
           condition_notes: string | null
+          consumption_line_id: string | null
           created_at: string | null
           id: string
           item_name: string
@@ -8125,6 +9088,7 @@ export type Database = {
           brand_variant_id?: string | null
           condition?: string | null
           condition_notes?: string | null
+          consumption_line_id?: string | null
           created_at?: string | null
           id?: string
           item_name?: string
@@ -8138,6 +9102,7 @@ export type Database = {
           brand_variant_id?: string | null
           condition?: string | null
           condition_notes?: string | null
+          consumption_line_id?: string | null
           created_at?: string | null
           id?: string
           item_name?: string
@@ -8153,6 +9118,13 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_lines_consumption_line_id_fkey"
+            columns: ["consumption_line_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_lines"
             referencedColumns: ["id"]
           },
           {
@@ -9188,6 +10160,7 @@ export type Database = {
           qc_checklist: boolean | null
           qc_items: Json | null
           reminder_days: number | null
+          reminder_template_id: string | null
           service_type: Database["public"]["Enums"]["service_type"] | null
           sort_order: number | null
           spare_parts: boolean | null
@@ -9231,6 +10204,7 @@ export type Database = {
           qc_checklist?: boolean | null
           qc_items?: Json | null
           reminder_days?: number | null
+          reminder_template_id?: string | null
           service_type?: Database["public"]["Enums"]["service_type"] | null
           sort_order?: number | null
           spare_parts?: boolean | null
@@ -9274,6 +10248,7 @@ export type Database = {
           qc_checklist?: boolean | null
           qc_items?: Json | null
           reminder_days?: number | null
+          reminder_template_id?: string | null
           service_type?: Database["public"]["Enums"]["service_type"] | null
           sort_order?: number | null
           spare_parts?: boolean | null
@@ -9290,6 +10265,93 @@ export type Database = {
             referencedRelation: "services"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "services_reminder_template_id_fkey"
+            columns: ["reminder_template_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_line_items: {
+        Row: {
+          created_at: string
+          id: string
+          po_line_item_id: string
+          qty: number
+          shipment_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          po_line_item_id: string
+          qty: number
+          shipment_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          po_line_item_id?: string
+          qty?: number
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_line_items_po_line_item_id_fkey"
+            columns: ["po_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "po_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_line_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_schedule_revisions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date_value: string
+          id: string
+          leg: Database["public"]["Enums"]["shipment_schedule_leg"]
+          reason: string | null
+          revision_type: Database["public"]["Enums"]["shipment_schedule_revision_type"]
+          shipment_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date_value: string
+          id?: string
+          leg: Database["public"]["Enums"]["shipment_schedule_leg"]
+          reason?: string | null
+          revision_type: Database["public"]["Enums"]["shipment_schedule_revision_type"]
+          shipment_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date_value?: string
+          id?: string
+          leg?: Database["public"]["Enums"]["shipment_schedule_leg"]
+          reason?: string | null
+          revision_type?: Database["public"]["Enums"]["shipment_schedule_revision_type"]
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_schedule_revisions_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
         ]
       }
       shipments: {
@@ -9300,18 +10362,21 @@ export type Database = {
           created_at: string | null
           destination: string | null
           eta: string | null
+          eta_actual: string | null
           etd: string | null
+          etd_actual: string | null
           events: Json | null
           id: string
           is_syncing: boolean
           last_synced_at: string | null
           mode: Database["public"]["Enums"]["shipment_mode"]
           origin: string | null
-          po_id: string
+          po_id: string | null
           receival_id: string | null
+          shipment_number: string
           status: Database["public"]["Enums"]["shipment_status"] | null
           sync_error: string | null
-          tracking_number: string
+          tracking_number: string | null
           updated_at: string | null
         }
         Insert: {
@@ -9321,18 +10386,21 @@ export type Database = {
           created_at?: string | null
           destination?: string | null
           eta?: string | null
+          eta_actual?: string | null
           etd?: string | null
+          etd_actual?: string | null
           events?: Json | null
           id?: string
           is_syncing?: boolean
           last_synced_at?: string | null
           mode: Database["public"]["Enums"]["shipment_mode"]
           origin?: string | null
-          po_id: string
+          po_id?: string | null
           receival_id?: string | null
+          shipment_number: string
           status?: Database["public"]["Enums"]["shipment_status"] | null
           sync_error?: string | null
-          tracking_number: string
+          tracking_number?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -9342,18 +10410,21 @@ export type Database = {
           created_at?: string | null
           destination?: string | null
           eta?: string | null
+          eta_actual?: string | null
           etd?: string | null
+          etd_actual?: string | null
           events?: Json | null
           id?: string
           is_syncing?: boolean
           last_synced_at?: string | null
           mode?: Database["public"]["Enums"]["shipment_mode"]
           origin?: string | null
-          po_id?: string
+          po_id?: string | null
           receival_id?: string | null
+          shipment_number?: string
           status?: Database["public"]["Enums"]["shipment_status"] | null
           sync_error?: string | null
-          tracking_number?: string
+          tracking_number?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -9911,6 +10982,7 @@ export type Database = {
           source_pile: string
           status: string
           sub_container_id: string
+          tool_unit_id: string | null
           updated_at: string
           warehouse_id: string
         }
@@ -9932,6 +11004,7 @@ export type Database = {
           source_pile?: string
           status?: string
           sub_container_id: string
+          tool_unit_id?: string | null
           updated_at?: string
           warehouse_id: string
         }
@@ -9953,6 +11026,7 @@ export type Database = {
           source_pile?: string
           status?: string
           sub_container_id?: string
+          tool_unit_id?: string | null
           updated_at?: string
           warehouse_id?: string
         }
@@ -9997,6 +11071,13 @@ export type Database = {
             columns: ["sub_container_id"]
             isOneToOne: false
             referencedRelation: "warehouse_sub_containers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_tool_unit_id_fkey"
+            columns: ["tool_unit_id"]
+            isOneToOne: false
+            referencedRelation: "tool_asset_units"
             referencedColumns: ["id"]
           },
           {
@@ -10439,6 +11520,7 @@ export type Database = {
           name_ar: string | null
           name_en: string
           phone: string | null
+          quality_score: number
           schedule_id: string | null
           site_visit_order: boolean
           site_visit_quotation: boolean
@@ -10460,6 +11542,7 @@ export type Database = {
           name_ar?: string | null
           name_en?: string
           phone?: string | null
+          quality_score?: number
           schedule_id?: string | null
           site_visit_order?: boolean
           site_visit_quotation?: boolean
@@ -10481,6 +11564,7 @@ export type Database = {
           name_ar?: string | null
           name_en?: string
           phone?: string | null
+          quality_score?: number
           schedule_id?: string | null
           site_visit_order?: boolean
           site_visit_quotation?: boolean
@@ -10643,6 +11727,7 @@ export type Database = {
           payment_method_id: string | null
           payment_status: string
           pdf_url: string | null
+          spare_parts_amount: number
           subtotal: number
           total_amount: number
           updated_at: string | null
@@ -10664,6 +11749,7 @@ export type Database = {
           payment_method_id?: string | null
           payment_status?: string
           pdf_url?: string | null
+          spare_parts_amount?: number
           subtotal?: number
           total_amount?: number
           updated_at?: string | null
@@ -10685,6 +11771,7 @@ export type Database = {
           payment_method_id?: string | null
           payment_status?: string
           pdf_url?: string | null
+          spare_parts_amount?: number
           subtotal?: number
           total_amount?: number
           updated_at?: string | null
@@ -10821,6 +11908,7 @@ export type Database = {
           is_placeholder: boolean
           item_id: string | null
           lifecycle_type: Database["public"]["Enums"]["tool_lifecycle_type"]
+          pending_scrap: boolean
           receival_item_id: string | null
           serial_number: string | null
           status: Database["public"]["Enums"]["tool_status"] | null
@@ -10838,6 +11926,7 @@ export type Database = {
           is_placeholder?: boolean
           item_id?: string | null
           lifecycle_type?: Database["public"]["Enums"]["tool_lifecycle_type"]
+          pending_scrap?: boolean
           receival_item_id?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["tool_status"] | null
@@ -10855,6 +11944,7 @@ export type Database = {
           is_placeholder?: boolean
           item_id?: string | null
           lifecycle_type?: Database["public"]["Enums"]["tool_lifecycle_type"]
+          pending_scrap?: boolean
           receival_item_id?: string | null
           serial_number?: string | null
           status?: Database["public"]["Enums"]["tool_status"] | null
@@ -11183,6 +12273,36 @@ export type Database = {
           },
         ]
       }
+      units: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          name_ar: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          name_ar?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          name_ar?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_company_divisions: {
         Row: {
           created_at: string
@@ -11411,6 +12531,74 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_team_monthly_overtime"
             referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      visit_completions: {
+        Row: {
+          added_services: Json | null
+          completed_at: string
+          completed_by: string | null
+          created_at: string
+          damage_report: Json | null
+          id: string
+          notes: string | null
+          photo_urls: string[]
+          qc_scores: Json | null
+          service_status_details: Json
+          service_statuses: Json
+          signature_url: string | null
+          source_id: string | null
+          source_type: string | null
+          team_id: string | null
+          team_note_photos: string[]
+          visit_id: string
+        }
+        Insert: {
+          added_services?: Json | null
+          completed_at?: string
+          completed_by?: string | null
+          created_at?: string
+          damage_report?: Json | null
+          id?: string
+          notes?: string | null
+          photo_urls?: string[]
+          qc_scores?: Json | null
+          service_status_details?: Json
+          service_statuses?: Json
+          signature_url?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          team_id?: string | null
+          team_note_photos?: string[]
+          visit_id: string
+        }
+        Update: {
+          added_services?: Json | null
+          completed_at?: string
+          completed_by?: string | null
+          created_at?: string
+          damage_report?: Json | null
+          id?: string
+          notes?: string | null
+          photo_urls?: string[]
+          qc_scores?: Json | null
+          service_status_details?: Json
+          service_statuses?: Json
+          signature_url?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          team_id?: string | null
+          team_note_photos?: string[]
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_completions_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -11924,6 +13112,20 @@ export type Database = {
             referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "wsc_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wsc_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       warehouse_transfer_items: {
@@ -12217,9 +13419,12 @@ export type Database = {
           created_at: string | null
           id: string
           is_project_warehouse: boolean
+          is_team_warehouse: boolean
           is_virtual: boolean
           item_count: number | null
+          latitude: number | null
           location: string | null
+          longitude: number | null
           name: string
           repair_vendor_id: string | null
           total_value: number | null
@@ -12232,9 +13437,12 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_project_warehouse?: boolean
+          is_team_warehouse?: boolean
           is_virtual?: boolean
           item_count?: number | null
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           name: string
           repair_vendor_id?: string | null
           total_value?: number | null
@@ -12247,9 +13455,12 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_project_warehouse?: boolean
+          is_team_warehouse?: boolean
           is_virtual?: boolean
           item_count?: number | null
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           name?: string
           repair_vendor_id?: string | null
           total_value?: number | null
@@ -12505,9 +13716,11 @@ export type Database = {
       warranty_records: {
         Row: {
           brand_variant_id: string | null
+          consumption_id: string | null
+          consumption_line_id: string | null
           coverage_type_snapshot: string
           created_at: string
-          customer_id: string
+          customer_id: string | null
           division_id: string
           duration_months_snapshot: number
           end_date: string
@@ -12518,8 +13731,8 @@ export type Database = {
           policy_id: string
           policy_name_snapshot: string
           qty: number
-          sale_delivery_line_id: string
-          sale_order_id: string
+          sale_delivery_line_id: string | null
+          sale_order_id: string | null
           sku: string | null
           source_type: Database["public"]["Enums"]["warranty_source_type"]
           start_date: string
@@ -12531,9 +13744,11 @@ export type Database = {
         }
         Insert: {
           brand_variant_id?: string | null
+          consumption_id?: string | null
+          consumption_line_id?: string | null
           coverage_type_snapshot: string
           created_at?: string
-          customer_id: string
+          customer_id?: string | null
           division_id: string
           duration_months_snapshot: number
           end_date: string
@@ -12544,8 +13759,8 @@ export type Database = {
           policy_id: string
           policy_name_snapshot: string
           qty: number
-          sale_delivery_line_id: string
-          sale_order_id: string
+          sale_delivery_line_id?: string | null
+          sale_order_id?: string | null
           sku?: string | null
           source_type?: Database["public"]["Enums"]["warranty_source_type"]
           start_date: string
@@ -12557,9 +13772,11 @@ export type Database = {
         }
         Update: {
           brand_variant_id?: string | null
+          consumption_id?: string | null
+          consumption_line_id?: string | null
           coverage_type_snapshot?: string
           created_at?: string
-          customer_id?: string
+          customer_id?: string | null
           division_id?: string
           duration_months_snapshot?: number
           end_date?: string
@@ -12570,8 +13787,8 @@ export type Database = {
           policy_id?: string
           policy_name_snapshot?: string
           qty?: number
-          sale_delivery_line_id?: string
-          sale_order_id?: string
+          sale_delivery_line_id?: string | null
+          sale_order_id?: string | null
           sku?: string | null
           source_type?: Database["public"]["Enums"]["warranty_source_type"]
           start_date?: string
@@ -12587,6 +13804,20 @@ export type Database = {
             columns: ["brand_variant_id"]
             isOneToOne: false
             referencedRelation: "inventory_item_brand_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_consumption_id_fkey"
+            columns: ["consumption_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_records_consumption_line_id_fkey"
+            columns: ["consumption_line_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_lines"
             referencedColumns: ["id"]
           },
           {
@@ -13273,6 +14504,8 @@ export type Database = {
       }
       warehouse_sub_container_totals: {
         Row: {
+          division_id: string | null
+          division_name: string | null
           item_count: number | null
           sub_container_id: string | null
           sub_container_is_active: boolean | null
@@ -13282,6 +14515,20 @@ export type Database = {
           warehouse_id: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "warehouse_sub_containers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "company_divisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_sub_containers_division_id_fkey"
+            columns: ["division_id"]
+            isOneToOne: false
+            referencedRelation: "v_team_monthly_overtime"
+            referencedColumns: ["division_id"]
+          },
           {
             foreignKeyName: "warehouse_sub_containers_warehouse_id_fkey"
             columns: ["warehouse_id"]
@@ -13454,11 +14701,23 @@ export type Database = {
       }
     }
     Functions: {
+      _apply_post_completion_qc: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
+      _apply_qc_gate: { Args: { p_order_id: string }; Returns: boolean }
       _auth_can_create_catalog: { Args: never; Returns: boolean }
       _auth_can_write_catalog: { Args: never; Returns: boolean }
+      _auth_has_cc_access: { Args: never; Returns: boolean }
+      _auth_has_cc_monitoring: { Args: never; Returns: boolean }
       _auth_user_has_permission: {
         Args: { p_permission: string }
         Returns: boolean
+      }
+      _bill_qar_factor: { Args: { p_bill_id: string }; Returns: number }
+      _bump_team_quality_score: {
+        Args: { p_delta: number; p_team_id: string }
+        Returns: undefined
       }
       _consume_damaged_stock_fifo: {
         Args: {
@@ -13481,6 +14740,26 @@ export type Database = {
         }[]
       }
       _current_user_data_id: { Args: never; Returns: string }
+      _emit_send_for_repair_transfer: {
+        Args: {
+          p_brand_variant_id: string
+          p_disposition_id: string
+          p_expected_return_date: string
+          p_from_sub_container_id: string
+          p_item_name: string
+          p_movement_notes: string
+          p_notes: string
+          p_qty: number
+          p_repair_vendor_id: string
+          p_sku: string
+          p_to_sub_container_id: string
+          p_to_warehouse_id: string
+          p_uid: string
+          p_unit_cost: number
+          p_warehouse_id: string
+        }
+        Returns: string
+      }
       _find_or_create_sub_container: {
         Args: { p_division_id: string; p_warehouse_id: string }
         Returns: string
@@ -13493,6 +14772,16 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: boolean
       }
+      _inv_category_stock_units: {
+        Args: { p_category_id: string }
+        Returns: number
+      }
+      _inv_item_stock_units: { Args: { p_item_id: string }; Returns: number }
+      _inv_variant_stock_units: {
+        Args: { p_variant_id: string }
+        Returns: number
+      }
+      _maybe_book_order: { Args: { p_order_id: string }; Returns: undefined }
       _maybe_close_return: { Args: { p_return_id: string }; Returns: undefined }
       _po_division_weights: {
         Args: { p_po_id: string }
@@ -13531,6 +14820,10 @@ export type Database = {
       _return_resolution_status: {
         Args: { p_return_id: string }
         Returns: Database["public"]["Enums"]["return_status"]
+      }
+      _reverse_sale_cogs_for_return: {
+        Args: { p_brand_variant_id: string; p_qty: number; p_return_id: string }
+        Returns: number
       }
       _user_can_create_catalog: { Args: { p_uid: string }; Returns: boolean }
       _user_can_edit_catalog: { Args: { p_uid: string }; Returns: boolean }
@@ -13667,6 +14960,10 @@ export type Database = {
         Args: { p_approval_id: string; p_comment?: string }
         Returns: undefined
       }
+      approve_order_request: {
+        Args: { p_comment?: string; p_request_id: string }
+        Returns: undefined
+      }
       approve_receival_inventory: {
         Args: { p_action: string; p_receival_id: string }
         Returns: string
@@ -13680,6 +14977,7 @@ export type Database = {
         Args: { p_adjustment_id: string; p_approved_by: string }
         Returns: undefined
       }
+      archive_team: { Args: { p_team_id: string }; Returns: undefined }
       archive_workflow_step: {
         Args: { p_profile_id: string; p_step_id: string }
         Returns: undefined
@@ -13718,6 +15016,10 @@ export type Database = {
         Args: { p_has_damage_or_writeoff?: boolean; p_has_variance?: boolean }
         Returns: Json
       }
+      build_order_approval_chain: {
+        Args: { p_order_id: string; p_payload?: Json }
+        Returns: undefined
+      }
       build_sales_approval_chain: {
         Args: {
           p_approval_type: Database["public"]["Enums"]["approval_type"]
@@ -13742,6 +15044,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      cc_conversation_transcript: {
+        Args: { p_conversation_id: string }
+        Returns: {
+          agent_name: string
+          attachments: Json
+          created_at: string
+          delivery_status: string
+          from_type: string
+          id: string
+          message_kind: string
+          reactions: Json
+          text: string
+        }[]
+      }
       cc_dedup_insert_message: {
         Args: {
           p_agent_name: string
@@ -13758,6 +15074,22 @@ export type Database = {
           p_wati_id: string
         }
         Returns: string
+      }
+      cc_monitoring_feed: {
+        Args: { p_limit?: number }
+        Returns: {
+          agent_messages: number
+          conversation_id: string
+          customer_messages: number
+          customer_name: string
+          handlers: Json
+          last_handler: string
+          last_message_at: string
+          media_messages: number
+          provider: string
+          total_messages: number
+          wati_phone: string
+        }[]
       }
       check_is_division_manager: {
         Args: { p_profile_id: string }
@@ -13791,7 +15123,62 @@ export type Database = {
             }
             Returns: undefined
           }
+      complete_visit: {
+        Args: {
+          p_added_services?: Json
+          p_completed_by: string
+          p_damage?: Json
+          p_notes?: string
+          p_photo_urls?: string[]
+          p_qc_scores?: Json
+          p_service_status_details?: Json
+          p_service_statuses?: Json
+          p_signature_url?: string
+          p_source_id: string
+          p_source_type: string
+          p_team_id?: string
+          p_team_note_photos?: string[]
+          p_visit_id: string
+        }
+        Returns: string
+      }
       confirm_sale_order: { Args: { p_so_id: string }; Returns: Json }
+      contract_board_summary: {
+        Args: never
+        Returns: {
+          agent_name: string
+          area_count: number
+          cancel_reason: string
+          cancelled_date: string
+          completed_visits: number
+          contract_id: string
+          current_period_unpaid: number
+          customer_name: string
+          derived_status: string
+          divisions: string[]
+          end_date: string
+          has_signed_doc: boolean
+          id: string
+          monthly_value: number
+          next_due_date: string
+          overdue_unpaid: boolean
+          paid_amount: number
+          payment_schedule: string
+          phone: string
+          services_summary: string
+          site_name: string
+          start_date: string
+          stored_status: string
+          total_payments: number
+          total_value: number
+          total_visits: number
+          upcoming_visits: Json
+        }[]
+      }
+      contract_period_count: {
+        Args: { p_end: string; p_freq: string; p_start: string }
+        Returns: number
+      }
       create_and_approve_receival:
         | {
             Args: {
@@ -13849,6 +15236,18 @@ export type Database = {
       create_customer_with_phone: {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
+      }
+      create_employee: {
+        Args: {
+          p_avatar_url: string
+          p_division_id: string
+          p_join_date: string
+          p_name: string
+          p_nationality: string
+          p_phone: string
+          p_service_ids: string[]
+        }
+        Returns: string
       }
       create_inventory_receival:
         | {
@@ -13948,6 +15347,7 @@ export type Database = {
           p_attachments: Json
           p_created_by?: string
           p_division: string
+          p_is_emergency?: boolean
           p_notes: string
           p_order_id: string
           p_scheduled_date: string
@@ -13958,15 +15358,25 @@ export type Database = {
           p_type: string
           p_visit_dates: Json
         }
-        Returns: string
+        Returns: {
+          order_id: string
+          pending_approval: boolean
+        }[]
       }
       create_project: {
         Args: {
+          p_customer_id?: string
           p_discipline_ids: string[]
           p_division_id: string
+          p_expected_completion_date?: string
           p_name: string
           p_project_number: string
           p_responsible_person_profile_id?: string
+          p_site_address?: string
+          p_site_latitude?: number
+          p_site_longitude?: number
+          p_start_date?: string
+          p_status?: string
           p_warehouse_id: string
         }
         Returns: string
@@ -14021,6 +15431,46 @@ export type Database = {
         Args: { p_link_phone?: string; p_name: string; p_phone: string }
         Returns: Json
       }
+      create_shipment: {
+        Args: {
+          p_carrier?: string
+          p_etd_original?: string
+          p_etd_reason?: string
+          p_lines?: Json
+          p_mode: string
+          p_tracking_number?: string
+        }
+        Returns: {
+          archived: boolean | null
+          carrier: string | null
+          carrier_code: string | null
+          created_at: string | null
+          destination: string | null
+          eta: string | null
+          eta_actual: string | null
+          etd: string | null
+          etd_actual: string | null
+          events: Json | null
+          id: string
+          is_syncing: boolean
+          last_synced_at: string | null
+          mode: Database["public"]["Enums"]["shipment_mode"]
+          origin: string | null
+          po_id: string | null
+          receival_id: string | null
+          shipment_number: string
+          status: Database["public"]["Enums"]["shipment_status"] | null
+          sync_error: string | null
+          tracking_number: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shipments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_site_visit: {
         Args: {
           p_address: string
@@ -14068,6 +15518,25 @@ export type Database = {
             }
             Returns: string
           }
+      create_tl_invoice: {
+        Args: {
+          p_created_by?: string
+          p_customer_name: string
+          p_customer_phone: string
+          p_discount?: number
+          p_lines: Json
+          p_notes?: string
+          p_order_id: string
+          p_paid_cash?: number
+          p_paid_pos?: number
+          p_spare_parts?: number
+          p_visit_id: string
+        }
+        Returns: {
+          id: string
+          invoice_number: string
+        }[]
+      }
       create_tool_item_with_default_variant: {
         Args: { p_category_id: string; p_name_ar: string; p_name_en: string }
         Returns: string
@@ -14099,6 +15568,10 @@ export type Database = {
             }
             Returns: string
           }
+      create_warranty_records_for_consumption: {
+        Args: { p_consumption_id: string }
+        Returns: number
+      }
       create_warranty_records_for_delivery: {
         Args: { p_delivery_id: string }
         Returns: number
@@ -14139,6 +15612,12 @@ export type Database = {
               unit_cost: number
             }[]
           }
+      delete_schedule: { Args: { p_schedule_id: string }; Returns: undefined }
+      delete_warehouse: { Args: { p_warehouse_id: string }; Returns: undefined }
+      delete_workflow_step: {
+        Args: { p_profile_id: string; p_step_id: string }
+        Returns: undefined
+      }
       detach_payment_from_invoice: {
         Args: { p_invoice_id: string; p_payment_id: string }
         Returns: undefined
@@ -14149,6 +15628,22 @@ export type Database = {
           p_dispatched_by_name: string
           p_dispatched_by_profile_id: string
           p_transfer_id: string
+        }
+        Returns: undefined
+      }
+      edit_order_with_dates: {
+        Args: {
+          p_address: string
+          p_arrival_phone: string
+          p_assignments: Json
+          p_division: string
+          p_is_emergency: boolean
+          p_notes: string
+          p_order_id: string
+          p_scheduled_date: string
+          p_services: Json
+          p_total_amount: number
+          p_visit_dates: Json
         }
         Returns: undefined
       }
@@ -14176,6 +15671,10 @@ export type Database = {
         Returns: string
       }
       generate_contract_id: { Args: never; Returns: string }
+      generate_contract_invoices: {
+        Args: { p_contract_id: string }
+        Returns: number
+      }
       generate_invoice_from_so: { Args: { p_so_id: string }; Returns: Json }
       generate_order_quotation_id: { Args: never; Returns: string }
       generate_quotation_number: { Args: never; Returns: string }
@@ -14235,12 +15734,22 @@ export type Database = {
           responsible_person_name: string
           responsible_person_phone: string
           responsible_person_profile_id: string
+          team_id: string
+          team_name: string
           updated_at: string
           warehouse_id: string
           warehouse_name: string
         }[]
       }
       get_customer_pending_balances: { Args: never; Returns: Json }
+      get_customer_pending_summary: {
+        Args: { p_customer_id: string }
+        Returns: {
+          invoice_count: number
+          oldest_pending_date: string
+          total_pending: number
+        }[]
+      }
       get_date_team_availability: {
         Args: { p_dates: string[]; p_from_time: string; p_to_time: string }
         Returns: {
@@ -14248,21 +15757,54 @@ export type Database = {
           visit_date: string
         }[]
       }
-      get_dead_stock_report: {
+      get_dead_stock_report:
+        | {
+            Args: never
+            Returns: {
+              average_cost: number
+              brand: string
+              brand_variant_id: string
+              category_name: string
+              days_idle: number
+              item_name: string
+              last_movement_date: string
+              last_movement_source: string
+              sku: string
+              status: string
+              stock_level: number
+              total_value: number
+            }[]
+          }
+        | {
+            Args: { p_division_ids?: string[] }
+            Returns: {
+              average_cost: number
+              brand: string
+              brand_variant_id: string
+              category_name: string
+              days_idle: number
+              item_name: string
+              last_movement_date: string
+              last_movement_source: string
+              sku: string
+              status: string
+              stock_level: number
+              total_value: number
+            }[]
+          }
+      get_due_reminders: {
         Args: never
         Returns: {
-          average_cost: number
-          brand: string
-          brand_variant_id: string
-          category_name: string
-          days_idle: number
-          item_name: string
-          last_movement_date: string
-          last_movement_source: string
-          sku: string
-          status: string
-          stock_level: number
-          total_value: number
+          customer_name: string
+          interval_months: number
+          last_service_date: string
+          param_names: Json
+          phone: string
+          reminder_template_id: string
+          service_customer_id: string
+          service_id: string
+          service_name: string
+          wati_template_name: string
         }[]
       }
       get_effective_attributes: {
@@ -14317,6 +15859,8 @@ export type Database = {
         }[]
       }
       get_payment_summary: { Args: never; Returns: Json }
+      get_pending_order_approvals: { Args: never; Returns: Json }
+      get_qc_inspections: { Args: { p_scope?: string }; Returns: Json }
       get_repair_bucket: {
         Args: { p_division_ids?: string[] }
         Returns: {
@@ -14329,6 +15873,7 @@ export type Database = {
           item_name: string
           last_inspected_at: string
           lifecycle_type: string
+          pending_scrap: boolean
           serial_number: string
           unit_id: string
         }[]
@@ -14347,6 +15892,15 @@ export type Database = {
           lc_adjustment_count: number
           lc_adjustments_total: number
           sold_at_sale_total: number
+        }[]
+      }
+      get_sub_container_division_map: {
+        Args: never
+        Returns: {
+          division_id: string
+          is_active: boolean
+          sub_container_id: string
+          warehouse_id: string
         }[]
       }
       get_team_leader_visits: {
@@ -14411,6 +15965,7 @@ export type Database = {
           team_name: string
         }[]
       }
+      get_tl_pending_by_customer: { Args: never; Returns: Json }
       get_tool_check_session_progress: {
         Args: { p_session_id: string }
         Returns: {
@@ -14428,6 +15983,18 @@ export type Database = {
           lifecycle_type: string
           serial_number: string
           session_initiated_at: string
+        }[]
+      }
+      get_tool_item_division_modes: {
+        Args: { p_category_id: string }
+        Returns: {
+          bulk_qty: number
+          division_id: string
+          division_name: string
+          effective_mode: Database["public"]["Enums"]["tool_tracking_mode"]
+          item_id: string
+          item_name: string
+          unit_count: number
         }[]
       }
       get_tool_unit_timeline: {
@@ -14503,6 +16070,7 @@ export type Database = {
         Args: { p_profile_id: string; p_warehouse_id: string }
         Returns: boolean
       }
+      is_shipment_visible: { Args: { p_shipment_id: string }; Returns: boolean }
       is_sub_container_rp: {
         Args: { p_profile_id: string; p_sub_container_id: string }
         Returns: boolean
@@ -14525,11 +16093,15 @@ export type Database = {
       }
       mark_overdue_bills: { Args: never; Returns: undefined }
       mark_overdue_invoices: { Args: never; Returns: undefined }
+      next_backwork_order_id: { Args: never; Returns: string }
       next_delivery_number: { Args: never; Returns: string }
+      next_emergency_order_id: { Args: never; Returns: string }
       next_follow_up_order_id: { Args: never; Returns: string }
       next_follow_up_request_number: { Args: never; Returns: string }
+      next_order_id: { Args: never; Returns: string }
       next_po_number: { Args: never; Returns: string }
       next_so_number: { Args: never; Returns: string }
+      next_visit_id: { Args: never; Returns: string }
       next_warranty_claim_number: {
         Args: { p_division_id: string }
         Returns: string
@@ -14552,6 +16124,14 @@ export type Database = {
           p_step_id: string
         }
         Returns: Json
+      }
+      qc_score_order: {
+        Args: { p_order_id: string }
+        Returns: {
+          breakdown: Json
+          points: number
+          timing: string
+        }[]
       }
       recalc_average_cost: { Args: { p_bv_id: string }; Returns: undefined }
       recalculate_ar_invoice_payment_status: {
@@ -14583,6 +16163,10 @@ export type Database = {
       }
       reject_credit_group_change: {
         Args: { p_approval_id: string; p_reason: string }
+        Returns: undefined
+      }
+      reject_order_request: {
+        Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
       reject_sales_request: {
@@ -14644,12 +16228,33 @@ export type Database = {
         }
         Returns: undefined
       }
+      rpc_activate_contract: {
+        Args: {
+          p_contract_id: string
+          p_payments: Json
+          p_user_id: string
+          p_user_name: string
+        }
+        Returns: string
+      }
+      rpc_add_order_customer_note: {
+        Args: { p_note: string; p_order_id: string }
+        Returns: string
+      }
       rpc_apply_debit_note_to_bill: {
         Args: { p_amount?: number; p_bill_id?: string; p_debit_note_id: string }
         Returns: string
       }
       rpc_archive_inventory_category: {
         Args: { p_category_id: string }
+        Returns: undefined
+      }
+      rpc_archive_inventory_item: {
+        Args: { p_item_id: string }
+        Returns: undefined
+      }
+      rpc_archive_inventory_variant: {
+        Args: { p_variant_id: string }
         Returns: undefined
       }
       rpc_assess_warranty_claim: {
@@ -14669,6 +16274,15 @@ export type Database = {
         Args: { p_consumption_id: string }
         Returns: undefined
       }
+      rpc_cancel_contract: {
+        Args: {
+          p_contract_id: string
+          p_reason: string
+          p_user_id: string
+          p_user_name: string
+        }
+        Returns: undefined
+      }
       rpc_cancel_po_return_dispatch: {
         Args: { p_return_id: string }
         Returns: undefined
@@ -14680,6 +16294,11 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_cascade_category_units_division: {
+        Args: { p_category_id: string; p_division_id: string }
+        Returns: Json
+      }
+      rpc_category_divisions: { Args: { p_category_id: string }; Returns: Json }
       rpc_clear_po_approval_steps: {
         Args: { p_only_pending?: boolean; p_po_id: string }
         Returns: undefined
@@ -14781,6 +16400,10 @@ export type Database = {
         Args: { p_customer_id: string }
         Returns: Json
       }
+      rpc_deactivate_team_custody: {
+        Args: { p_team_id: string }
+        Returns: undefined
+      }
       rpc_decide_consumption_edit: {
         Args: { p_comment?: string; p_decision: string; p_request_id: string }
         Returns: undefined
@@ -14828,6 +16451,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      rpc_delete_inventory_category: {
+        Args: { p_category_id: string }
+        Returns: Json
+      }
+      rpc_delete_inventory_item: { Args: { p_item_id: string }; Returns: Json }
+      rpc_delete_inventory_variant: {
+        Args: { p_variant_id: string }
+        Returns: Json
       }
       rpc_delete_supplier_payment: {
         Args: { p_payment_id: string }
@@ -14998,6 +16630,7 @@ export type Database = {
         Returns: undefined
       }
       rpc_financial_dashboard: { Args: never; Returns: Json }
+      rpc_import_inventory_stock: { Args: { p_rows: Json }; Returns: Json }
       rpc_initiate_tool_check_session: {
         Args: { p_division_id: string }
         Returns: string
@@ -15009,6 +16642,31 @@ export type Database = {
           division_ids: string[]
           item_id: string
         }[]
+      }
+      rpc_item_effective_divisions: {
+        Args: { p_item_id: string }
+        Returns: Json
+      }
+      rpc_milestone_codes_for_discipline: {
+        Args: { p_discipline_id: string }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discipline_id: string
+          grp: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "milestone_codes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       rpc_move_tool_unit_to_team: {
         Args: { p_notes?: string; p_to_team_id: string; p_unit_id: string }
@@ -15032,12 +16690,18 @@ export type Database = {
           p_consumer_type: string
           p_discipline_id?: string
           p_lines: Json
+          p_milestone_code_id?: string
           p_milestone_id?: string
           p_notes: string
+          p_project_id?: string
           p_source_sub_container_id: string
           p_source_warehouse_id: string
         }
         Returns: string
+      }
+      rpc_process_consumption_return_restock: {
+        Args: { p_return_id: string }
+        Returns: undefined
       }
       rpc_process_po_return_dispatch: {
         Args: { p_return_id: string }
@@ -15055,6 +16719,10 @@ export type Database = {
         Args: { p_end_date: string; p_start_date: string }
         Returns: Json
       }
+      rpc_provision_team_custody: {
+        Args: { p_team_id: string }
+        Returns: string
+      }
       rpc_purchase_aging_report: {
         Args: never
         Returns: {
@@ -15069,8 +16737,48 @@ export type Database = {
           total_outstanding: number
         }[]
       }
+      rpc_qc_book_inspection: {
+        Args: { p_comment?: string; p_inspection_id: string }
+        Returns: undefined
+      }
+      rpc_qc_flag_rework: {
+        Args: { p_inspection_id: string; p_notes?: string }
+        Returns: undefined
+      }
+      rpc_qc_reassign_inspection: {
+        Args: { p_analyst_id: string; p_inspection_id: string }
+        Returns: undefined
+      }
+      rpc_qc_reject_inspection: {
+        Args: { p_inspection_id: string; p_reason: string }
+        Returns: undefined
+      }
+      rpc_qc_submit_inspection: {
+        Args: {
+          p_findings?: string
+          p_inspection_id: string
+          p_photo_urls?: string[]
+          p_scores?: Json
+        }
+        Returns: undefined
+      }
       rpc_recompute_document_fx: {
         Args: { p_document_id: string; p_document_type: string }
+        Returns: undefined
+      }
+      rpc_record_contract_invoice_payment: {
+        Args: {
+          p_amount: number
+          p_invoice_id: string
+          p_method_slug?: string
+          p_notes?: string
+          p_user_id?: string
+          p_user_name?: string
+        }
+        Returns: undefined
+      }
+      rpc_record_contract_payment: {
+        Args: { p_payment_id: string; p_user_id: string; p_user_name: string }
         Returns: undefined
       }
       rpc_record_inventory_disposition: {
@@ -15440,8 +17148,24 @@ export type Database = {
         Args: { p_notes?: string; p_unit_id: string }
         Returns: undefined
       }
+      rpc_set_category_divisions: {
+        Args: { p_category_id: string; p_division_ids: string[] }
+        Returns: undefined
+      }
+      rpc_set_discipline_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
       rpc_set_item_divisions: {
         Args: { p_division_ids: string[]; p_item_id: string }
+        Returns: undefined
+      }
+      rpc_set_milestone_code_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
+      rpc_set_project_milestone_codes: {
+        Args: { p_code_ids: string[]; p_milestone_id: string }
         Returns: undefined
       }
       rpc_set_tool_lifecycle_type: {
@@ -15483,6 +17207,41 @@ export type Database = {
         Args: { p_updates: Json }
         Returns: undefined
       }
+      rpc_upsert_discipline: {
+        Args: {
+          p_division_id: string
+          p_id: string
+          p_name: string
+          p_prefix?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      rpc_upsert_milestone_code: {
+        Args: {
+          p_code: string
+          p_description?: string
+          p_discipline_id: string
+          p_extra_discipline_ids?: string[]
+          p_grp?: string
+          p_id: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      rpc_upsert_project_milestone: {
+        Args: {
+          p_amount?: number
+          p_description?: string
+          p_discipline_id: string
+          p_id: string
+          p_milestone_no: number
+          p_name: string
+          p_project_id: string
+          p_status?: string
+        }
+        Returns: string
+      }
       rpc_upsert_warehouse_sub_container: {
         Args: {
           p_division_id?: string
@@ -15490,6 +17249,7 @@ export type Database = {
           p_is_active?: boolean
           p_name: string
           p_responsible_person_profile_id?: string
+          p_team_id?: string
           p_warehouse_id: string
         }
         Returns: string
@@ -15589,6 +17349,7 @@ export type Database = {
           p_offset?: number
           p_only_active?: boolean
           p_query?: string
+          p_sales_only?: boolean
         }
         Returns: Json
       }
@@ -15681,6 +17442,10 @@ export type Database = {
         Args: { p_assignment_id: string; p_new_team_id: string }
         Returns: Json
       }
+      sync_shipment_schedule_cache: {
+        Args: { p_shipment_id: string }
+        Returns: undefined
+      }
       sync_team_active_schedule: {
         Args: { p_team_id: string }
         Returns: undefined
@@ -15688,6 +17453,14 @@ export type Database = {
       toggle_workflow_step: {
         Args: { p_active: boolean; p_step_id: string }
         Returns: undefined
+      }
+      tool_bulk_items_in_division: {
+        Args: { p_division_id: string }
+        Returns: string[]
+      }
+      tool_effective_mode: {
+        Args: { p_division_id: string; p_item_id: string }
+        Returns: Database["public"]["Enums"]["tool_tracking_mode"]
       }
       update_pending_service_change: {
         Args: { p_new_changes: Json; p_request_id: string }
@@ -15736,7 +17509,7 @@ export type Database = {
       address_type: "blue-plate" | "google-coords"
       approval_source_type: "sale_order" | "order"
       approval_status: "pending" | "approved" | "rejected"
-      approval_type: "margin" | "credit"
+      approval_type: "margin" | "credit" | "service_order"
       audit_severity: "info" | "warning" | "error" | "critical"
       campaign_status: "active" | "scheduled" | "expired" | "disabled"
       confirmation_status:
@@ -15933,6 +17706,8 @@ export type Database = {
       service_status: "active" | "inactive"
       service_type: "standard" | "configurable"
       shipment_mode: "air" | "sea" | "land" | "manual"
+      shipment_schedule_leg: "etd" | "eta"
+      shipment_schedule_revision_type: "original" | "updated" | "actual"
       shipment_status:
         | "booked"
         | "in_transit"
@@ -16010,12 +17785,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16039,11 +17814,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16064,11 +17839,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16089,11 +17864,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16106,11 +17881,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -16128,7 +17903,7 @@ export const Constants = {
       address_type: ["blue-plate", "google-coords"],
       approval_source_type: ["sale_order", "order"],
       approval_status: ["pending", "approved", "rejected"],
-      approval_type: ["margin", "credit"],
+      approval_type: ["margin", "credit", "service_order"],
       audit_severity: ["info", "warning", "error", "critical"],
       campaign_status: ["active", "scheduled", "expired", "disabled"],
       confirmation_status: [
@@ -16346,6 +18121,8 @@ export const Constants = {
       service_status: ["active", "inactive"],
       service_type: ["standard", "configurable"],
       shipment_mode: ["air", "sea", "land", "manual"],
+      shipment_schedule_leg: ["etd", "eta"],
+      shipment_schedule_revision_type: ["original", "updated", "actual"],
       shipment_status: [
         "booked",
         "in_transit",
