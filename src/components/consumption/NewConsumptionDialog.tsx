@@ -37,7 +37,7 @@ import {
   removeConsumptionAttachment,
   type ConsumerType,
 } from '@/hooks/useConsumption'
-import { useProjectMilestones, usePoolDisciplines } from '@/hooks/useProjectMilestones'
+import { useProjectMilestones, usePoolDisciplines, useProjectMilestoneCodes } from '@/hooks/useProjectMilestones'
 import { useCanCreateConsumptionFor, useHasPermission } from '@/hooks/usePermissions'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useDirtyDialogGuard } from '@/hooks/useDirtyDialogGuard'
@@ -91,6 +91,20 @@ const parseQty = (s: string): number => parseInt(s, 10)
 
 // Natural/numeric collation so "Team 2" sorts before "Team 10" in the picker.
 const LOC_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+/**
+ * Display text for a project_milestones row. The Task-4 MEP reshape added
+ * `name` + `milestone_no` as the canonical fields and dropped the NOT NULL off
+ * the old `label` column (20260919010450) — `rpc_upsert_project_milestone`
+ * (the only path MilestoneManager writes through) never sets `label`, so every
+ * milestone created post-reshape has `name` set and `label` null. Mirrors
+ * rpc_report_project_consumption's own `COALESCE(pm.name, pm.milestone_no::text,
+ * 'Unassigned')`, with the legacy `label` kept as a last-resort fallback for any
+ * pre-reshape row that only ever had that field populated.
+ */
+function milestoneDisplay(m: { name: string | null; milestone_no: number | null; label: string | null }): string {
+  return m.name ?? (m.milestone_no != null ? `#${m.milestone_no}` : null) ?? m.label ?? 'Unassigned'
+}
 
 // ─── Dialog ─────────────────────────────────────────────────────────────
 
@@ -245,14 +259,19 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     if (consumerSub && !locationsForSelection.some((l) => l.id === consumerSub)) setConsumerSub('')
   }, [sourceLocked, locationsForSelection, consumerSub])
 
-  // ── Discipline + Milestone (optional project spend tags) ──────────────
-  // Both tie to consumerSub (the CONSUMER project pool), not the source. A
-  // project pool carries disciplines; picking one scopes the milestone list
-  // and tags the spend (mirrors rpc_post_consumption's p_discipline_id /
-  // p_milestone_id guards). A non-project custody sub has neither → both
-  // pickers stay hidden.
+  // ── Discipline + Milestone (required) + Milestone Code (optional) spend tags ─
+  // All three key off consumerSub (the CONSUMER project pool), not the source.
+  // A project pool carries disciplines; picking one scopes the milestone list
+  // (mirrors rpc_post_consumption's p_discipline_id / p_milestone_id /
+  // p_milestone_code_id guards), and picking a milestone scopes its bundled
+  // milestone-code catalog. A non-project custody sub has none of these → the
+  // whole block stays hidden.
   const consumerPool = consumerType === 'custody' && consumerSub ? consumerSub : null
-  const { data: poolDisciplines = [] } = usePoolDisciplines(consumerPool)
+  // usePoolDisciplines resolves the pool's own project_id AND its disciplines in
+  // one query — reused here for project_id instead of a second lookup.
+  const { data: poolData } = usePoolDisciplines(consumerPool)
+  const poolProjectId = poolData?.projectId ?? null
+  const poolDisciplines = useMemo(() => poolData?.disciplines ?? [], [poolData])
   // null = unselected. Base UI Select renders BLANK for a sentinel string that
   // matches no item (never falling back to the placeholder), so the unselected
   // state must be null for the "Select …" placeholder to show.
@@ -261,27 +280,29 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     () => (consumerType === 'custody' && disciplineId ? disciplineId : null),
     [consumerType, disciplineId],
   )
-  // Milestones only load once a discipline is picked — a milestone belongs to
-  // a (pool, discipline), so an unscoped list would mix disciplines.
-  const { data: milestones = [] } = useProjectMilestones(
-    resolvedDisciplineId ? consumerPool : null,
-    resolvedDisciplineId,
-  )
+  // Milestones are keyed by (project_id, discipline_id) — NOT the pool
+  // sub-container id (that old signature is stale post-MEP-reshape) — and only
+  // load once both are known.
+  const { data: milestones = [] } = useProjectMilestones(poolProjectId, resolvedDisciplineId)
   const [milestoneId, setMilestoneId] = useState<string | null>(null)
-  // Free-text project code (a cost / WO / drawing ref). Required for a
-  // project-pool consumer; independent of discipline, so it survives a discipline
-  // change — only a new consumer/type clears it.
-  const [code, setCode] = useState('')
-  // Reset the discipline (+ code) when the consumer/type changes; reset the
-  // milestone when the discipline (or consumer/type) changes — a tag picked for a
-  // previous discipline must never carry over.
+  // A milestone's bundled codes — the operator picks exactly ONE per
+  // consumption (the backend validates a single p_milestone_code_id against
+  // this bundle via project_milestone_codes).
+  const { data: milestoneCodes = [] } = useProjectMilestoneCodes(milestoneId)
+  const [milestoneCodeId, setMilestoneCodeId] = useState<string | null>(null)
+  // Reset the discipline when the consumer/type changes; reset the milestone
+  // when the discipline (or consumer/type) changes; reset the code when the
+  // milestone (or anything upstream) changes — a tag picked for a previous
+  // level must never carry over.
   useEffect(() => {
     setDisciplineId(null)
-    setCode('')
   }, [consumerSub, consumerType])
   useEffect(() => {
     setMilestoneId(null)
   }, [consumerSub, consumerType, disciplineId])
+  useEffect(() => {
+    setMilestoneCodeId(null)
+  }, [consumerSub, consumerType, disciplineId, milestoneId])
 
   // ── Lines
   const [rows, setRows] = useState<LineRow[]>([{ brand_variant_id: '', qty: '' }])
@@ -372,7 +393,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     (!presetSource && (srcWhId !== '' || srcSubId !== null)) ||
     rows.some((r) => r.brand_variant_id !== '' || r.qty !== '') ||
     notes.trim() !== '' ||
-    code.trim() !== '' ||
+    milestoneCodeId !== null ||
     attachments.length > 0
 
   const { guardedOnOpenChange, confirmDialog } = useDirtyDialogGuard({
@@ -429,7 +450,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
       setCustodyDivId('')
       setDisciplineId(null)
       setMilestoneId(null)
-      setCode('')
+      setMilestoneCodeId(null)
       setRows([{ brand_variant_id: '', qty: '' }])
       setOpenPickerIdx(null)
       setNotes('')
@@ -514,10 +535,14 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
   const srcSubResolved      = eligibleSrcSubs.length > 0 && (eligibleSrcSubs.length === 1 || !!srcSubId)
   const post                = useCreateConsumption()
 
-  // A project-pool consumer REQUIRES a discipline + milestone — spend must be
-  // attributed. (Non-project custody / internal have no disciplines → not required.)
+  // A project-pool consumer requires the full spend tag: discipline + milestone
+  // + a bundled milestone CODE. The code is REQUIRED (spend is tracked at the
+  // code, per the MEP model) — a milestone with no bundled codes can't be
+  // consumed against until codes are added to it. (Non-project custody / internal
+  // have no disciplines → not required at all.) The backend still accepts a null
+  // code for other flows; this is a UI-level requirement.
   const projectTagsRequired  = consumerType === 'custody' && !!consumerSub && poolDisciplines.length > 0
-  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId && code.trim() !== '')
+  const projectTagsSatisfied = !projectTagsRequired || (!!resolvedDisciplineId && !!milestoneId && !!milestoneCodeId)
   // Custody consumption is a sale — the invoice/order/project ref (Notes) is mandatory.
   const notesSatisfied = consumerType !== 'custody' || notes.trim().length > 0
 
@@ -546,21 +571,37 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
     () => (consumerType === 'custody' && resolvedDisciplineId && milestoneId ? milestoneId : null),
     [consumerType, resolvedDisciplineId, milestoneId],
   )
-  // Code is a project-spend tag only — collapses to null for non-project consumers.
-  const resolvedCode = useMemo(
-    () => (projectTagsRequired ? (code.trim() || null) : null),
-    [projectTagsRequired, code],
+  // The bundled milestone code is a project-spend tag only — collapses to null
+  // once its milestone is unresolved (mirrors resolvedMilestoneId's own chain).
+  const resolvedMilestoneCodeId = useMemo(
+    () => (resolvedMilestoneId && milestoneCodeId ? milestoneCodeId : null),
+    [resolvedMilestoneId, milestoneCodeId],
+  )
+  // The consumer pool's own project — sent alongside the tags so the RPC's
+  // derive/validate step always sees an explicit, already-correct p_project_id
+  // (it would otherwise derive the same value itself, but passing it matches
+  // what the backend now expects from a MEP-aware caller).
+  const resolvedProjectId = useMemo(
+    () => (consumerType === 'custody' && poolProjectId ? poolProjectId : null),
+    [consumerType, poolProjectId],
   )
   // Separate display-only lookup for the confirmation modal summary — a
   // `.find()` here is fine (unlike a Select trigger's rendered value) since
   // it's a one-off read surface, not a controlled component's display value.
   const selectedMilestoneLabel = useMemo(
-    () => (resolvedMilestoneId ? milestones.find((m) => m.id === resolvedMilestoneId)?.label ?? null : null),
+    () => {
+      const m = resolvedMilestoneId ? milestones.find((x) => x.id === resolvedMilestoneId) : null
+      return m ? milestoneDisplay(m) : null
+    },
     [resolvedMilestoneId, milestones],
   )
   const selectedDisciplineLabel = useMemo(
     () => (resolvedDisciplineId ? poolDisciplines.find((d) => d.discipline_id === resolvedDisciplineId)?.discipline_name ?? null : null),
     [resolvedDisciplineId, poolDisciplines],
+  )
+  const selectedMilestoneCodeLabel = useMemo(
+    () => (resolvedMilestoneCodeId ? milestoneCodes.find((c) => c.code_id === resolvedMilestoneCodeId)?.code ?? null : null),
+    [resolvedMilestoneCodeId, milestoneCodes],
   )
 
   const srcWhName = useMemo(
@@ -642,9 +683,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
         source_sub_container_id:   srcSubId,
         consumer_type:             consumerType,
         consumer_sub_container_id: consumerType === 'custody' ? consumerSub : null,
+        project_id:                resolvedProjectId,
         milestone_id:              resolvedMilestoneId,
+        milestone_code_id:         resolvedMilestoneCodeId,
         discipline_id:             resolvedDisciplineId,
-        code:                      resolvedCode,
         notes:                     notes.trim() || null,
         attachments:               attachments,
         lines,
@@ -896,10 +938,11 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
           </div>
           </>)}
 
-          {/* Project spend tags — Discipline + Milestone, side by side and
-              REQUIRED for a project-pool consumer (spend must be attributed).
-              Rendered OUTSIDE the source/consumer split so they also show when
-              opened from a custody card (sourceLocked = fixed project pool). */}
+          {/* Project spend tags — Discipline → Milestone → Milestone Code, a
+              cascade REQUIRED for a project-pool consumer (spend must be
+              attributed with exactly one bundled code). Rendered OUTSIDE the
+              source/consumer split so they also show when opened from a
+              custody card (sourceLocked = fixed project pool). */}
           {projectTagsRequired && (
             <div className="space-y-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
@@ -933,7 +976,7 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                     </SelectTrigger>
                     <SelectContent className="max-h-60 overflow-y-auto">
                       {milestones.map((m) => (
-                        <SelectItem key={m.id} value={m.id} className="text-xs">{m.label}</SelectItem>
+                        <SelectItem key={m.id} value={m.id} className="text-xs">{milestoneDisplay(m)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -941,13 +984,29 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">Code *</Label>
-              <Input
-                className="h-9 text-xs"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                maxLength={64}
-              />
+              <Label className="text-[10px] text-muted-foreground">Milestone Code *</Label>
+              {!milestoneId ? (
+                <div className="h-9 flex items-center rounded-md border bg-muted/20 px-2.5 text-[11px] italic text-muted-foreground">
+                  Pick a milestone first
+                </div>
+              ) : milestoneCodes.length === 0 ? (
+                <div className="h-9 flex items-center rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 text-[11px] text-amber-600 dark:text-amber-400">
+                  No codes bundled — add one to this milestone first
+                </div>
+              ) : (
+                <Select value={milestoneCodeId} onValueChange={(v) => setMilestoneCodeId(v)}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select code" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {milestoneCodes.map((c) => (
+                      <SelectItem key={c.code_id} value={c.code_id} className="text-xs">
+                        {c.code}{c.grp ? ` — ${c.grp}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             </div>
           )}
@@ -1256,10 +1315,10 @@ export function NewConsumptionDialog({ open, onOpenChange, presetSource, restric
                 <span className="font-medium text-right truncate min-w-0">{selectedMilestoneLabel}</span>
               </div>
             )}
-            {resolvedCode && (
+            {selectedMilestoneCodeLabel && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground shrink-0">Code</span>
-                <span className="font-medium text-right truncate min-w-0">{resolvedCode}</span>
+                <span className="font-medium text-right truncate min-w-0">{selectedMilestoneCodeLabel}</span>
               </div>
             )}
           </div>
