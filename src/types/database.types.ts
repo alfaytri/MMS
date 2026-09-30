@@ -14709,7 +14709,6 @@ export type Database = {
       _auth_can_create_catalog: { Args: never; Returns: boolean }
       _auth_can_write_catalog: { Args: never; Returns: boolean }
       _auth_has_cc_access: { Args: never; Returns: boolean }
-      _auth_has_cc_monitoring: { Args: never; Returns: boolean }
       _auth_user_has_permission: {
         Args: { p_permission: string }
         Returns: boolean
@@ -15044,20 +15043,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      cc_conversation_transcript: {
-        Args: { p_conversation_id: string }
-        Returns: {
-          agent_name: string
-          attachments: Json
-          created_at: string
-          delivery_status: string
-          from_type: string
-          id: string
-          message_kind: string
-          reactions: Json
-          text: string
-        }[]
-      }
       cc_dedup_insert_message: {
         Args: {
           p_agent_name: string
@@ -15074,22 +15059,6 @@ export type Database = {
           p_wati_id: string
         }
         Returns: string
-      }
-      cc_monitoring_feed: {
-        Args: { p_limit?: number }
-        Returns: {
-          agent_messages: number
-          conversation_id: string
-          customer_messages: number
-          customer_name: string
-          handlers: Json
-          last_handler: string
-          last_message_at: string
-          media_messages: number
-          provider: string
-          total_messages: number
-          wati_phone: string
-        }[]
       }
       check_is_division_manager: {
         Args: { p_profile_id: string }
