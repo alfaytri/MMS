@@ -85,8 +85,15 @@ export function WhTransferDialog({ warehouses, currentProfile, children }: Props
   const { viewDivisionIds } = useActiveDivision()
   const { data: whDivisionSets } = useWarehouseDivisionSets()
   const visibleWarehouses = useMemo(() => {
-    if (viewDivisionIds.size === 0) return warehouses
-    return warehouses.filter((w) => {
+    // Custody stock (vans, teams, project / client sites) never moves through the
+    // generic transfer — it has dedicated flows on the Custody page (Assign /
+    // Transfer / Return) that carry the accept step + FIFO/cost semantics. So
+    // custody-kind warehouses are excluded from BOTH ends here. (The server also
+    // rejects a custody SOURCE in create_transfer_v2; warehouse -> custody stays
+    // allowed there for the Picture Transfer surface.)
+    const base = warehouses.filter((w) => w.warehouse_kind !== 'custody')
+    if (viewDivisionIds.size === 0) return base
+    return base.filter((w) => {
       const divs = whDivisionSets?.get(w.id)
       if (!divs) return false
       for (const d of viewDivisionIds) if (divs.has(d)) return true
