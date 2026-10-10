@@ -777,11 +777,12 @@ export function useCancelPO() {
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient()
-      const { error } = await supabase
-        .from('purchase_orders')
-        .update({ status: 'cancelled' })
-        .eq('id', id)
-      if (error) throw error
+      // Money-path cancel (mirror of rpc_cancel_sale_order): voids the PO's
+      // bill(s) and, for anything already paid, opens a supplier-refund debit
+      // note. Blocks server-side if goods were received (reverse the receival
+      // first). Cast: rpc not in generated types until the next gen-types run.
+      const { error } = await supabase.rpc('rpc_cancel_purchase_order' as never, { p_po_id: id } as never)
+      if (error) throw new Error(formatPgError(error))
 
       const cancelPerformer = await resolveMyName()
       await logPOActivity({ poId: id, action: 'PO Cancelled', performerName: cancelPerformer, severity: 'warning' })
@@ -789,6 +790,9 @@ export function useCancelPO() {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.supplierBills.byPo(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.creditNotes.debitNotes })
     },
   })
 }

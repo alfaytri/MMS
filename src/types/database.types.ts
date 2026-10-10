@@ -10585,7 +10585,7 @@ export type Database = {
         | "brand_manager"
         | "owner"
       inventory_type: "products" | "spare-parts" | "consumables" | "tools"
-      invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue"
+      invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue" | "void"
       invoice_source: "sale_order" | "contract" | "quotation"
       invoice_status:
         | "draft"
@@ -10933,7 +10933,7 @@ export const Constants = {
         "owner",
       ],
       inventory_type: ["products", "spare-parts", "consumables", "tools"],
-      invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue"],
+      invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue", "void"],
       invoice_source: ["sale_order", "contract", "quotation"],
       invoice_status: [
         "draft",

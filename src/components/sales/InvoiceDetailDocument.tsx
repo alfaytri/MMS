@@ -37,6 +37,7 @@ const PAY_STATUS_COLORS: Record<string, string> = {
 function getWatermark(inv: ArInvoice): { text: string; colorClass: string } | null {
   if (inv.payment_status === 'paid')    return { text: 'PAID',    colorClass: 'text-green-400' }
   if (inv.payment_status === 'overdue') return { text: 'OVERDUE', colorClass: 'text-red-400'   }
+  if ((inv.payment_status as string) === 'void' || (inv.payment_status as string) === 'cancelled') return { text: 'CANCELLED', colorClass: 'text-muted-foreground' }
   return null
 }
 

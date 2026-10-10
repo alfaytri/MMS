@@ -158,6 +158,7 @@ export function useVoidInvoice() {
         .from('so_invoices')
         .update({
           status: 'void',
+          payment_status: 'void',
           notes: [payload.reason, payload.notes].filter(Boolean).join(' — '),
         })
         .eq('id', payload.invoiceId)

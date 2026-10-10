@@ -54,7 +54,7 @@ async function runInvoiceOverdue(supabase: Admin): Promise<number> {
     .from('so_invoices')
     .select('id, invoice_id, due_date, total_amount, paid_amount')
     .lt('due_date', today)
-    .neq('payment_status', 'paid')
+    .not('payment_status', 'in', '(paid,void)')
     .not('status', 'in', '(cancelled,void)')
     .limit(500)
   if (!invoices?.length) return 0
@@ -122,7 +122,7 @@ async function runSupplierBillDue(supabase: Admin): Promise<number> {
     .from('bills')
     .select('id, bill_number, due_date, total_amount, paid_amount')
     .lte('due_date', soon)
-    .neq('payment_status', 'paid')
+    .not('payment_status', 'in', '(paid,void)')
     .limit(500)
   if (!bills?.length) return 0
 
