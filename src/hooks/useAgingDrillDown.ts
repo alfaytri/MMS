@@ -50,7 +50,7 @@ export function useAgingDrillDown(
         .from('bills')
         .select('id, bill_number, purchase_order_id, issued_date, due_date, total_amount, paid_amount, payment_status')
         .eq('supplier_id', supplierId!)
-        .neq('payment_status', 'paid')
+        .not('payment_status', 'in', '(paid,void)')
         .order('due_date', { ascending: true })
         .limit(100)
 

@@ -17553,7 +17553,7 @@ export type Database = {
         | "pending_approval"
         | "approved"
         | "rejected"
-      invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue"
+      invoice_payment_status: "unpaid" | "partially_paid" | "paid" | "overdue" | "void"
       invoice_source: "sale_order" | "contract" | "quotation"
       invoice_status:
         | "draft"
@@ -17956,7 +17956,7 @@ export const Constants = {
         "approved",
         "rejected",
       ],
-      invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue"],
+      invoice_payment_status: ["unpaid", "partially_paid", "paid", "overdue", "void"],
       invoice_source: ["sale_order", "contract", "quotation"],
       invoice_status: [
         "draft",

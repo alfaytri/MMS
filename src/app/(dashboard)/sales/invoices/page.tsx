@@ -21,6 +21,8 @@ const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = 
   partially_paid: { label: 'Partially paid', className: 'bg-amber-100 text-amber-700' },
   paid:           { label: 'Paid',           className: 'bg-green-100 text-green-700' },
   overdue:        { label: 'Overdue',        className: 'bg-red-100 text-red-700' },
+  void:           { label: 'Cancelled',      className: 'bg-muted text-muted-foreground line-through' },
+  cancelled:      { label: 'Cancelled',      className: 'bg-muted text-muted-foreground line-through' },
 }
 
 const PAYMENT_FILTERS: { value: '' | 'unpaid' | 'partially_paid' | 'paid' | 'overdue'; label: string }[] = [

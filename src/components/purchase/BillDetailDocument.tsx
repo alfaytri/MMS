@@ -35,6 +35,7 @@ const PAY_STATUS_COLORS: Record<string, string> = {
 function getWatermark(bill: BillViewModel['bill']): { text: string; colorClass: string } | null {
   if (bill.payment_status === 'paid') return { text: 'PAID', colorClass: 'text-green-400' }
   if (bill.payment_status === 'overdue') return { text: 'OVERDUE', colorClass: 'text-red-400' }
+  if ((bill.payment_status as string) === 'void' || (bill.payment_status as string) === 'cancelled') return { text: 'CANCELLED', colorClass: 'text-muted-foreground' }
   return null
 }
 
