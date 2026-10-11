@@ -122,6 +122,18 @@ export type SaleOrder = {
   customer_phone?:          string
 }
 
+/**
+ * True when the SO has ever shipped stock (any delivered unit). Such SOs can't
+ * take the money-path cancel (`rpc_cancel_sale_order` rejects shipped stock) —
+ * they route to the "Cancel & Return Everything" flow (Phase 2), which returns
+ * the goods then finalizes the cancel. Reads the summary (shipped_qty survives
+ * even after everything is returned, so a fully-returned-but-not-cancelled SO
+ * still routes correctly).
+ */
+export function soHasShipped(so: Pick<SaleOrder, 'sale_order_lines_summary'> | null | undefined): boolean {
+  return (so?.sale_order_lines_summary ?? []).some((s) => (s.shipped_qty ?? 0) > 0)
+}
+
 export type SalePayment = {
   id: string
   amount: number

@@ -28,9 +28,12 @@ import {
   useSaleOrder,
   useSOPayments,
   useCancelSO,
+  useSoCancelPreview,
+  soHasShipped,
   type SaleOrder,
   type SaleDelivery,
 } from '@/hooks/useSaleOrders'
+import { CreateReturnDialog } from '@/components/sales/CreateReturnDialog'
 import { useCancelDelivery, useCompleteDelivery, useUpdateDelivery, useCreateReplacementDelivery, useRecordInventoryDisposition } from '@/hooks/useSaleDeliveries'
 import { useWarehouseStockByItems } from '@/hooks/useWarehouseOperations'
 import { useWarehouseSubContainers } from '@/hooks/useWarehouseSubContainers'
@@ -122,6 +125,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
 
   const cancelSO = useCancelSO()
   const [cancelSOOpen, setCancelSOOpen] = useState(false)
+  const [cancelReturnOpen, setCancelReturnOpen] = useState(false)
   const cancelDelivery = useCancelDelivery()
   const completeDelivery = useCompleteDelivery()
   const updateDelivery = useUpdateDelivery()
@@ -142,6 +146,7 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const { data: unresolvedReturns = [] } = useUnresolvedReturns(open ? (so?.id ?? null) : null)
   const createReplacement = useCreateReplacementDelivery()
   const recordDisposition = useRecordInventoryDisposition()
+  const cancelPreview = useSoCancelPreview(cancelSOOpen ? (so?.id ?? null) : null)
 
   const current = fullSO ?? so
 
@@ -164,7 +169,11 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
   const canDeliver = current && ['confirmed', 'partial_delivery'].includes(current.status)
   const canConfirm = current?.status === 'quotation'
   const canEdit = current?.status === 'quotation'
-  const canCancel = current && ['quotation', 'confirmed'].includes(current.status)
+  // Cancel is offered for any live SO (incl. invoiced/delivered). Shipped SOs
+  // route to "Cancel & Return Everything" (Phase 2 — returns the goods then
+  // finalizes the cancel); un-shipped SOs use the money-path cancel RPC.
+  const canCancel = current && !['cancelled', 'closed'].includes(current.status)
+  const isShipped = soHasShipped(current)
 
   const totalPaid = (payments ?? []).reduce((s, p) => s + (p.amount_qar ?? p.amount), 0)
   const paymentStatus: 'paid' | 'partial' | 'unpaid' =
@@ -587,9 +596,9 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
                   size="sm"
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   disabled={cancelSO.isPending}
-                  onClick={() => setCancelSOOpen(true)}
+                  onClick={() => (isShipped ? setCancelReturnOpen(true) : setCancelSOOpen(true))}
                 >
-                  {cancelSO.isPending ? 'Cancelling…' : 'Cancel SO'}
+                  {cancelSO.isPending ? 'Cancelling…' : isShipped ? 'Cancel & Return Everything' : 'Cancel SO'}
                 </Button>
               )}
               {canConfirm && onConfirm && (
@@ -795,6 +804,15 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {cancelPreview.data?.invoiceNumber ? (
+            cancelPreview.data.paidAmount > 0 ? (
+              <p className="px-6 text-sm text-amber-700">
+                This also voids {cancelPreview.data.invoiceNumber} and opens a {formatCurrency(cancelPreview.data.paidAmount, current?.currency ?? 'QAR')} refund credit note to settle.
+              </p>
+            ) : (
+              <p className="px-6 text-sm text-muted-foreground">This also voids {cancelPreview.data.invoiceNumber} (unpaid) — no refund.</p>
+            )
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>Keep Order</AlertDialogCancel>
             <AlertDialogAction
@@ -803,8 +821,10 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
               onClick={() => {
                 if (!current) return
                 cancelSO.mutate(current.id, {
-                  onSuccess: () => {
-                    toast.success('Sale order cancelled')
+                  onSuccess: (res) => {
+                    toast.success(res.refund_amount > 0
+                      ? `Sale order cancelled — refund credit note ${res.refund_credit_note} opened`
+                      : 'Sale order cancelled')
                     setCancelSOOpen(false)
                     onOpenChange(false)
                   },
@@ -817,6 +837,19 @@ export function SoDetailDialog({ open, onOpenChange, so, onEdit, onConfirm }: So
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Cancel & Return Everything (shipped SOs) — pre-filled return that
+          finalizes the SO cancel on restock. */}
+      {current && cancelReturnOpen && (
+        <CreateReturnDialog
+          open
+          cancelMode
+          onOpenChange={(o) => { if (!o) setCancelReturnOpen(false) }}
+          so={current}
+          fullSO={fullSO ?? null}
+          existingReturns={soReturns}
+        />
+      )}
 
       {/* Delivery form (used when SO has no division and the operator must pick a sub-container) */}
       {formDeliveryId && (() => {

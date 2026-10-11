@@ -15,7 +15,8 @@ import {
 } from '@/components/shared/GuardedFormDialog'
 import { useCreateSaleReturn, useSaleDeliveryLinesForSo, type ReturnLineCondition, type SaleReturn, type DeliveryLineForReturn } from '@/hooks/useSaleReturns'
 import { useReturnReasons, useAddReturnReason } from '@/hooks/useReturnReasons'
-import type { SaleOrder } from '@/hooks/useSaleOrders'
+import { useSoCancelPreview, type SaleOrder } from '@/hooks/useSaleOrders'
+import { formatCurrency } from '@/lib/utils/formatters'
 import { STAGGER_IN, staggerDelay } from '@/lib/motion'
 
 type Mode = 'direct' | 'inspection'
@@ -33,12 +34,19 @@ interface Props {
   so: SaleOrder
   fullSO: SaleOrder | null
   existingReturns: SaleReturn[]
+  /**
+   * Phase 2 "Cancel & Return Everything": pre-fill every returnable line at full
+   * qty as good, tag the return as cancels_sale_order, and show the cancel
+   * consequence. On restock the SO auto-cancels (invoice voided + refund CN).
+   */
+  cancelMode?: boolean
 }
 
-export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, existingReturns: _existingReturns }: Props) {
+export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, existingReturns: _existingReturns, cancelMode = false }: Props) {
   void _fullSO
   void _existingReturns
   const [mode, setMode] = useState<Mode>('direct')
+  const cancelPreview = useSoCancelPreview(open && cancelMode ? so.id : null)
   const [returnDate, setReturnDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [returnReason, setReturnReason] = useState('')
   const [customReason, setCustomReason] = useState('')
@@ -69,14 +77,17 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
         const existing = prevByKey.get(c.sale_delivery_line_id)
         return {
           ...c,
-          good_qty:        existing?.good_qty ?? 0,
+          // Cancel-mode pre-fills every line at full returnable qty as good so the
+          // operator confirms/adjusts rather than types each row (they can still
+          // move units to damaged or switch to inspection).
+          good_qty:        existing?.good_qty ?? (cancelMode ? c.returnable_qty : 0),
           damaged_qty:     existing?.damaged_qty ?? 0,
           inspection_qty:  existing?.inspection_qty ?? 0,
           condition_notes: existing?.condition_notes ?? '',
         }
       })
     })
-  }, [open, availableCandidates])
+  }, [open, availableCandidates, cancelMode])
 
   // Reset dialog state on close. Wrapper decides when close actually fires
   // (with prompt if dirty); this runs afterwards to clean up for the next open.
@@ -172,12 +183,15 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
         items,
         restock_warehouse_id: null,
         notes: returnNotes || null,
+        cancels_sale_order: cancelMode,
       },
       {
         onSuccess: () => {
-          toast.success(mode === 'inspection'
-            ? 'Return created — awaiting inspection'
-            : 'Return created')
+          toast.success(cancelMode
+            ? 'Cancel-return created — restock it to cancel the order'
+            : mode === 'inspection'
+              ? 'Return created — awaiting inspection'
+              : 'Return created')
           guardRef.current?.closeAfterSubmit()
         },
         onError: (err) => toast.error(humanizeDbError(err)),
@@ -189,10 +203,24 @@ export function CreateReturnDialog({ open, onOpenChange, so, fullSO: _fullSO, ex
     <GuardedDialog open={open} onOpenChange={handleOpenChange} isDirty={isDirty} ref={guardRef}>
       <DialogContent className="w-full max-w-full rounded-none sm:max-w-2xl sm:rounded-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Create Return — {so.so_number}</DialogTitle>
+          <DialogTitle>{cancelMode ? 'Cancel & Return Everything' : 'Create Return'} — {so.so_number}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
+          {cancelMode && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-xs text-foreground space-y-1">
+              <p className="font-semibold text-destructive">This cancels {so.so_number}.</p>
+              <p className="text-muted-foreground">
+                Every delivered item is pre-filled below to be returned (adjust good/damaged or
+                switch to inspection as needed). When you restock this return, stock goes back and{' '}
+                {cancelPreview.data?.invoiceNumber ? (
+                  cancelPreview.data.paidAmount > 0
+                    ? <>{cancelPreview.data.invoiceNumber} is voided and a {formatCurrency(cancelPreview.data.paidAmount, so.currency ?? 'QAR')} refund credit note is opened.</>
+                    : <>{cancelPreview.data.invoiceNumber} is voided (unpaid — no refund).</>
+                ) : <>the sale order is cancelled.</>}
+              </p>
+            </div>
+          )}
           {/* Mode toggle */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Return Type</label>

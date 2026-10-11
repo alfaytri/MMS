@@ -25,7 +25,9 @@ import {
   useSaleOrders,
   useConfirmSO,
   useCancelSO,
+  useSoCancelPreview,
   useCustomers,
+  soHasShipped,
   type SaleOrder,
   type SOStatus,
 } from '@/hooks/useSaleOrders'
@@ -190,6 +192,7 @@ export default function SaleOrdersPage() {
 
   const confirmSO = useConfirmSO()
   const cancelSO = useCancelSO()
+  const cancelPreview = useSoCancelPreview(cancelTarget?.id ?? null)
   const { data: paidMap } = useSOPaymentTotals()
 
   const { availableDivisions, isSuperViewer } = useActiveDivision()
@@ -261,6 +264,13 @@ export default function SaleOrdersPage() {
   }
 
   function handleCancel(so: SaleOrder) {
+    // Shipped SOs can't take the money-path cancel — they must return the goods
+    // first. Open the detail view where "Cancel & Return Everything" lives.
+    if (soHasShipped(so)) {
+      setDetailSO(so)
+      toast.info(`${so.so_number} has shipped — use "Cancel & Return Everything" in the order.`)
+      return
+    }
     // Unify with the SO detail view's styled confirm (Tier 4 — was window.confirm).
     setCancelTarget(so)
   }
@@ -268,7 +278,11 @@ export default function SaleOrdersPage() {
     const so = cancelTarget
     if (!so) return
     cancelSO.mutate(so.id, {
-      onSuccess: () => toast.success(`${so.so_number} cancelled`),
+      onSuccess: (res) => toast.success(
+        res.refund_amount > 0
+          ? `${so.so_number} cancelled — refund credit note ${res.refund_credit_note} opened`
+          : `${so.so_number} cancelled`,
+      ),
       onError: (e) => toast.error(humanizeDbError(e)),
     })
     setCancelTarget(null)
@@ -430,7 +444,7 @@ export default function SaleOrdersPage() {
                       className="text-destructive focus:text-destructive"
                       onClick={() => handleCancel(so)}
                     >
-                      Cancel SO
+                      {soHasShipped(so) ? 'Cancel & Return…' : 'Cancel SO'}
                     </DropdownMenuItem>
                   </>
                 )}
@@ -671,6 +685,15 @@ export default function SaleOrdersPage() {
               The sale order will remain visible with a <span className="font-semibold text-foreground">Cancelled</span> status. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {cancelPreview.data?.invoiceNumber ? (
+            cancelPreview.data.paidAmount > 0 ? (
+              <p className="px-6 text-sm text-amber-700">
+                This also voids {cancelPreview.data.invoiceNumber} and opens a {formatCurrency(cancelPreview.data.paidAmount, 'QAR')} refund credit note to settle.
+              </p>
+            ) : (
+              <p className="px-6 text-sm text-muted-foreground">This also voids {cancelPreview.data.invoiceNumber} (unpaid) — no refund.</p>
+            )
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>Keep order</AlertDialogCancel>
             <AlertDialogAction onClick={confirmCancel} disabled={cancelSO.isPending}>
