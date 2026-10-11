@@ -177,6 +177,12 @@ describe('SyncWorker thread Broadcast → Dexie', () => {
   })
 })
 
+// The drain tests set `w.isRunning = true` and call `drainOnce()` directly
+// instead of `w.start()`. start() fires its own immediate `void drainOnce()`
+// AND a 1s interval; either would race the test's awaited drain — claiming the
+// row (→ in_flight) and processing it un-awaited — so assertions would read a
+// half-processed row. Driving drainOnce in isolation makes the drain outcome
+// deterministic.
 describe('SyncWorker drain (text)', () => {
   beforeEach(async () => {
     vi.useRealTimers()
@@ -215,7 +221,7 @@ describe('SyncWorker drain (text)', () => {
       localMessageId: 'msg-x',
     })
 
-    w.start()
+    w.isRunning = true // drive drainOnce in isolation — see note on the describe block
     await w.drainOnce()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/wati/send-session', expect.objectContaining({ method: 'POST' }))
@@ -236,7 +242,7 @@ describe('SyncWorker drain (text)', () => {
       localMessageId: 'msg-y',
     })
 
-    w.start()
+    w.isRunning = true // drive drainOnce in isolation — see note on the describe block
     await w.drainOnce()
 
     const row = await getDb('test').pendingWrites.get(pwId)
@@ -255,7 +261,7 @@ describe('SyncWorker drain (text)', () => {
     })
     await getDb('test').pendingWrites.update(pwId, { retryCount: q.MAX_RETRIES })
 
-    w.start()
+    w.isRunning = true // drive drainOnce in isolation — see note on the describe block
     await w.drainOnce()
 
     const row = await getDb('test').pendingWrites.get(pwId)
@@ -274,14 +280,24 @@ describe('SyncWorker drain (file)', () => {
   it('uploads to Storage first, then patches Dexie with the public URL, then sends', async () => {
     const upload = vi.fn().mockResolvedValue({ data: { path: 'c1/msg-f.pdf' }, error: null })
     const getPublicUrl = vi.fn().mockReturnValue({ data: { publicUrl: 'https://x.test/c1/msg-f.pdf' } })
-    const invoke = vi.fn().mockResolvedValue({
-      data: { message: { whatsappMessageId: 'WAMID-F' } }, error: null,
-    })
+    // File sends go through the local /api/wati/send-file route (direct WATI),
+    // NOT the api-wati Edge Function (it 403s on user JWTs). The route returns
+    // WATI's raw response, from which we read .message.whatsappMessageId.
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ message: { whatsappMessageId: 'WAMID-F' } }) })
+    vi.stubGlobal('fetch', fetchMock)
 
+    // Chainable supabase stub so pushFullMessage + the external_id update resolve.
+    const chain = {
+      update: vi.fn().mockReturnThis(),
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      or: vi.fn().mockResolvedValue({ error: null }),
+    }
     const supa = {
       ...mkSupabaseStub(),
       storage: { from: () => ({ upload, getPublicUrl }) },
-      functions: { invoke },
+      from: vi.fn(() => chain),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any
 
@@ -305,18 +321,18 @@ describe('SyncWorker drain (file)', () => {
       fileRef: 'ref-f',
     })
 
-    w.start()
+    w.isRunning = true // drive drainOnce in isolation — see note on the describe block
     await w.drainOnce()
 
     expect(upload).toHaveBeenCalledWith(expect.stringContaining('c1/msg-f.pdf'), file, expect.objectContaining({ contentType: 'application/pdf' }))
-    expect(invoke).toHaveBeenCalledWith('api-wati', expect.objectContaining({
-      body: expect.objectContaining({ action: 'send_file', message_id: 'msg-f' }),
-    }))
+    expect(fetchMock).toHaveBeenCalledWith('/api/wati/send-file', expect.objectContaining({ method: 'POST' }))
     expect(await getDb('test').pendingWrites.get(pwId)).toBeUndefined()
     expect(w.fileMap.has('ref-f')).toBe(false)
     const m = await getDb('test').messages.get('msg-f')
     expect(m?.attachments?.[0].url).toBe('https://x.test/c1/msg-f.pdf')
+    expect(m?.external_id).toBe('wati_WAMID-F')
     expect(m?.delivery_status).toBe('sent')
+    vi.unstubAllGlobals()
   })
 
   it('marks terminal failure with file-lost when fileMap has no ref (post-reload)', async () => {
@@ -330,7 +346,7 @@ describe('SyncWorker drain (file)', () => {
       localMessageId: 'msg-g',
       fileRef: 'lost-ref',
     })
-    w.start()
+    w.isRunning = true // drive drainOnce in isolation — see note on the describe block
     await w.drainOnce()
 
     const row = await getDb('test').pendingWrites.get(pwId)

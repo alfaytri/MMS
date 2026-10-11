@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { ChatListV2 } from '../ChatListV2'
 import type { ChatConversation } from '@/types/contact-center'
 
@@ -33,9 +35,15 @@ function props() {
   } as unknown as Parameters<typeof ChatListV2>[0]
 }
 
+// ChatListV2 uses useFollowUpRequests (TanStack Query), so renders need a client.
+function renderWithClient(ui: ReactNode) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
+
 describe('ChatListV2 search', () => {
   it('clears the search input when the active tab changes', () => {
-    render(<ChatListV2 {...props()} />)
+    renderWithClient(<ChatListV2 {...props()} />)
     const input = screen.getByPlaceholderText(/search by name/i) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Alice' } })
     expect(input.value).toBe('Alice')
@@ -45,14 +53,14 @@ describe('ChatListV2 search', () => {
   })
 
   it('renders "no matches for X" when a search yields nothing', () => {
-    render(<ChatListV2 {...props()} />)
+    renderWithClient(<ChatListV2 {...props()} />)
     const input = screen.getByPlaceholderText(/search by name/i) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'zzz-not-found' } })
     expect(screen.getByText(/no matches for "zzz-not-found"/i)).toBeInTheDocument()
   })
 
   it('renders the Tasks placeholder copy on the Tasks tab', () => {
-    render(<ChatListV2 {...props()} />)
+    renderWithClient(<ChatListV2 {...props()} />)
     fireEvent.click(screen.getByRole('tab', { name: /tasks/i }))
     expect(screen.getByText(/tasks coming soon/i)).toBeInTheDocument()
   })

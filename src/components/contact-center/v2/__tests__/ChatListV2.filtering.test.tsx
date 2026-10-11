@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { ChatListV2 } from '../ChatListV2'
 import type { ChatConversation } from '@/types/contact-center'
 import type { TeamSlim } from '@/hooks/contact-center/local/useTeamPhones'
@@ -12,10 +14,13 @@ beforeEach(() => localStorage.clear())
 
 const TEAM_PHONE = '+97412345678'
 
+// customer_name mirrors how useLiveConversations delivers rows to ChatListV2:
+// `wati_contact_name ?? service_customer.name ?? null`. ConversationRow displays
+// customer_name, so fixtures must set it (not just wati_contact_name) to be real.
 const conversations: ChatConversation[] = [
   {
     id: 'c1', customer_id: null, conversation_type: null,
-    wati_phone: '+97499990001', wati_contact_name: 'Customer A',
+    wati_phone: '+97499990001', wati_contact_name: 'Customer A', customer_name: 'Customer A',
     last_message: 'Hi', last_message_at: '2026-06-14T10:00:00Z',
     last_message_from_type: 'customer', unanswered_dismissed_at: null,
     unread_count: 1, assigned_agent: null, is_opened: false,
@@ -23,7 +28,7 @@ const conversations: ChatConversation[] = [
   },
   {
     id: 'c2', customer_id: null, conversation_type: null,
-    wati_phone: '+97499990002', wati_contact_name: 'Customer B',
+    wati_phone: '+97499990002', wati_contact_name: 'Customer B', customer_name: 'Customer B',
     last_message: 'Sure', last_message_at: '2026-06-14T11:00:00Z',
     last_message_from_type: 'agent', unanswered_dismissed_at: null,
     unread_count: 0, assigned_agent: 'Omar', is_opened: true,
@@ -31,7 +36,7 @@ const conversations: ChatConversation[] = [
   },
   {
     id: 'c3', customer_id: null, conversation_type: 'team',
-    wati_phone: TEAM_PHONE, wati_contact_name: 'Team 1',
+    wati_phone: TEAM_PHONE, wati_contact_name: 'Team 1', customer_name: 'Team 1',
     last_message: 'Heading out', last_message_at: '2026-06-14T09:00:00Z',
     last_message_from_type: 'customer', unanswered_dismissed_at: null,
     unread_count: 0, assigned_agent: null, is_opened: true,
@@ -39,7 +44,7 @@ const conversations: ChatConversation[] = [
   },
   {
     id: 'c4', customer_id: null, conversation_type: null,
-    wati_phone: '+97499990004', wati_contact_name: 'Customer D',
+    wati_phone: '+97499990004', wati_contact_name: 'Customer D', customer_name: 'Customer D',
     last_message: 'Thanks!', last_message_at: '2026-06-14T08:00:00Z',
     last_message_from_type: 'customer', unanswered_dismissed_at: '2026-06-14T08:01:00Z',
     unread_count: 0, assigned_agent: null, is_opened: true,
@@ -71,9 +76,15 @@ function baseProps() {
   }
 }
 
+// ChatListV2 uses useFollowUpRequests (TanStack Query), so renders need a client.
+function renderWithClient(ui: ReactNode) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
+
 describe('ChatListV2 filtering', () => {
   it('ALL shows customer + agent-last chats but hides team chats', () => {
-    render(<ChatListV2 {...baseProps()} />)
+    renderWithClient(<ChatListV2 {...baseProps()} />)
     expect(screen.getByText('Customer A')).toBeInTheDocument()
     expect(screen.getByText('Customer B')).toBeInTheDocument()
     expect(screen.getByText('Customer D')).toBeInTheDocument()
@@ -81,7 +92,7 @@ describe('ChatListV2 filtering', () => {
   })
 
   it('Unanswered keeps customer-last, hides agent-last and dismissed', () => {
-    render(<ChatListV2 {...baseProps()} />)
+    renderWithClient(<ChatListV2 {...baseProps()} />)
     fireEvent.click(screen.getByRole('tab', { name: /unanswered/i }))
     expect(screen.getByText('Customer A')).toBeInTheDocument()
     expect(screen.queryByText('Customer B')).not.toBeInTheDocument()
@@ -89,14 +100,14 @@ describe('ChatListV2 filtering', () => {
   })
 
   it('Teams shows the team grouped under its division', () => {
-    render(<ChatListV2 {...baseProps()} />)
+    renderWithClient(<ChatListV2 {...baseProps()} />)
     fireEvent.click(screen.getByRole('tab', { name: /teams/i }))
     expect(screen.getByText('Kitchen')).toBeInTheDocument()
     expect(screen.getByText('Team 1')).toBeInTheDocument()
   })
 
   it('Tab counts reflect the buckets', () => {
-    render(<ChatListV2 {...baseProps()} />)
+    renderWithClient(<ChatListV2 {...baseProps()} />)
     const allTab        = screen.getByRole('tab', { name: /all/i })
     const unansweredTab = screen.getByRole('tab', { name: /unanswered/i })
     const teamsTab      = screen.getByRole('tab', { name: /teams/i })
