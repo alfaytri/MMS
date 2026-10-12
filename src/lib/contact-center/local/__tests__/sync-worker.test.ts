@@ -354,3 +354,67 @@ describe('SyncWorker drain (file)', () => {
     expect(row?.lastError).toMatch(/file lost/i)
   })
 })
+
+describe('SyncWorker drain (reaction)', () => {
+  beforeEach(async () => {
+    vi.useRealTimers()
+    await getDb('test').pendingWrites.clear()
+    await getDb('test').messages.clear()
+  })
+
+  const putAgentMsg = (id: string, externalId: string | null) =>
+    getDb('test').messages.put({
+      id, conversation_id: 'c1', from_type: 'agent',
+      source: 'whatsapp_api', message_kind: 'message', message_type: 'text',
+      text: 'hi', agent_name: null, attachments: null, reactions: [],
+      delivery_status: 'sent', external_id: externalId,
+      reply_to_external_id: null, sent_by_profile_id: null, phone_id: null,
+      deleted_at: null, revoked_at: null, created_at: '2026-06-09T12:00:00Z', _localOnly: false,
+    })
+
+  it('sends a wati reaction via /api/wati/send-reaction (strips the wati_ prefix)', async () => {
+    // Was supabase.functions.invoke('api-wati', {action:'send_reaction'}) — the
+    // Edge Function 403s on user JWTs, so every client reaction silently failed.
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) })
+    vi.stubGlobal('fetch', fetchMock)
+    const w = new SyncWorker(getDb('test'), mkSupabaseStub(), 'wati')
+
+    await putAgentMsg('msg-r', 'wati_wamid.ABC')
+    const pwId = await q.enqueue(getDb('test'), {
+      kind: 'react',
+      payload: { messageId: 'msg-r', emoji: '👍', phone: '+97411111111', provider: 'wati' },
+      localMessageId: 'msg-r',
+    })
+
+    w.isRunning = true
+    await w.drainOnce()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/wati/send-reaction', expect.objectContaining({ method: 'POST' }))
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      emoji: '👍', waId: '+97411111111', messageId: 'wamid.ABC',
+    })
+    expect(await getDb('test').pendingWrites.get(pwId)).toBeUndefined()
+    vi.unstubAllGlobals()
+  })
+
+  it('marks terminal (no retry) when the message has no external_id', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const w = new SyncWorker(getDb('test'), mkSupabaseStub(), 'wati')
+
+    await putAgentMsg('msg-n', null)
+    const pwId = await q.enqueue(getDb('test'), {
+      kind: 'react',
+      payload: { messageId: 'msg-n', emoji: '👍', phone: '+974', provider: 'wati' },
+      localMessageId: 'msg-n',
+    })
+
+    w.isRunning = true
+    await w.drainOnce()
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    const row = await getDb('test').pendingWrites.get(pwId)
+    expect(row?.status).toBe('failed')
+    vi.unstubAllGlobals()
+  })
+})

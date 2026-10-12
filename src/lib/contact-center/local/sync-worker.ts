@@ -493,25 +493,23 @@ export class SyncWorker {
     // on 4xx made the pending_write look successful when WHAPI/WATI actually
     // rejected, so the customer's WhatsApp never saw the agent reaction.
     if (p.provider === 'wati') {
-      const res = await this.supabase.functions.invoke('api-wati', {
-        body: { action: 'send_reaction', phone: p.phone, emoji: p.emoji, message_id: externalId },
+      // Send via the local /api/wati/send-reaction route (direct WATI) — the
+      // api-wati Edge Function 403s on user JWTs, so client sends can't invoke it
+      // (the same reason text/file/template sends were moved local). messageId is
+      // our stored external_id (the wamid, possibly wati_-prefixed); the route
+      // resolves it to WATI's internal numeric id, which sendReaction requires.
+      const res = await fetch('/api/wati/send-reaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji: p.emoji, waId: p.phone, messageId: externalId.replace(/^wati_/, '') }),
       })
-      // Two failure shapes: transport-level (res.error from the SDK) and
-      // application-level (the function returned {error: ...} per wati() helper).
-      const appErr = (res.data as { error?: string; detail?: string } | null)?.error
-      if (res.error || appErr) {
-        const detail = (res.data as { detail?: string } | null)?.detail ?? ''
-        const msgText = `api-wati send_reaction failed: ${res.error?.message ?? appErr} ${detail}`.trim()
-        // Dump the full payload — when the edge function tries multiple body
-        // shapes the `attempts` array is the diagnostic gold.
-        console.warn('[sync-worker:react:wati]', {
-          messageId: externalId,
-          emoji: p.emoji,
-          err: msgText,
-          data: res.data,
-        })
-        if (typeof appErr === 'string' && /4\d\d/.test(appErr)) throw new TerminalError(msgText)
-        throw new Error(msgText)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        const errMsg = (data as { error?: string }).error ?? `wati send-reaction ${res.status}`
+        console.warn('[sync-worker:react:wati]', { messageId: externalId, emoji: p.emoji, status: res.status, err: errMsg })
+        // 4xx = WATI/route rejected (bad id, no Team-Inbox access, etc.) — don't burn retries.
+        if (res.status >= 400 && res.status < 500) throw new TerminalError(errMsg)
+        throw new Error(errMsg)
       }
     } else {
       const res = await fetch('/api/whapi/send-reaction', {
