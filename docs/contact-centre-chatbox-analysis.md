@@ -24,7 +24,7 @@ It is **not** a direct/personal WhatsApp connection. It is the **WhatsApp Busine
 ### 🔴 Broken / likely-broken
 | # | Issue | Evidence |
 |---|-------|----------|
-| 1 | **Reactions likely broken** — `SyncWorker.sendReaction` still calls `supabase.functions.invoke('api-wati', {action:'send_reaction'})`, the edge function that 403s on user JWTs (the reason all other sends were moved local). A local `/api/wati/send-reaction` route exists but is **not wired** to the worker. | `sync-worker.ts` (sendReaction); `api/wati/send-reaction/route.ts` unused |
+| 1 | ✅ **FIXED 2026-10-12 (commit 380443b1).** ~~**Reactions likely broken** — `SyncWorker.sendReaction` still calls `supabase.functions.invoke('api-wati', {action:'send_reaction'})`, the edge function that 403s on user JWTs (the reason all other sends were moved local). A local `/api/wati/send-reaction` route exists but is **not wired** to the worker.~~ Now wired; route resolves wamid→numeric id. (Live WATI confirmation still pending.) | `sync-worker.ts` (sendReaction); `api/wati/send-reaction/route.ts` |
 | 2 | ✅ **FIXED 2026-10-11 (commit 291f0d3e).** ~~**12 failing tests** on the two most critical components.~~ `sync-worker.test.ts` 5/13 fail (drain/retry/terminal-failure race with `start()`'s internal drain + one stale test still asserting `api-wati`); `ChatListV2.{filtering,search}.test.tsx` 7/7 fail ("No QueryClient set" — `useFollowUpRequests` added, tests lack a `QueryClientProvider`). Mostly stale, but the outbound backbone + chat list have **no green coverage**. | `src/lib/contact-center/local/__tests__/`, `src/components/contact-center/v2/__tests__/` |
 | 3 | **Retry backoff is dead code** — `RETRY_BACKOFF_MS = [1s,2s,5s,15s,60s]` is defined but never referenced; a transient failure is requeued to `status:'queued'` and retried on the next 1s tick → effectively **no backoff**. | `sync-worker.ts` |
 
@@ -66,7 +66,7 @@ The one WATI number/token; the webhook endpoint (if unreachable, inbound falls b
 
 ## Recommended fix order
 1. ✅ **DONE (291f0d3e)** — **Fix/refresh the 12 tests** (send-queue + chat list coverage): added a `QueryClientProvider` for `ChatListV2`; updated the file-send test to `/api/wati/send-file`; decoupled drain tests from `start()`'s internal drain (drive `drainOnce()` with `isRunning=true`); set `customer_name` on filtering fixtures to match the real row shape.
-2. **Reactions:** point `SyncWorker.sendReaction` at the local `/api/wati/send-reaction` route.
+2. ✅ **DONE (380443b1)** — **Reactions:** `SyncWorker.sendReaction` (wati) now POSTs the local `/api/wati/send-reaction` route; the route resolves the wamid→WATI numeric id. Live confirmation (a real reaction in the dev app) still pending.
 3. **Wire up `RETRY_BACKOFF_MS`** so transient failures actually back off.
 4. **Persist queued file blobs** (IndexedDB) + consider a server-side outbox for sends that must not be lost.
 5. **Add assignment/locking** (or restore a monitoring reader) to prevent double-handling on the shared number.
