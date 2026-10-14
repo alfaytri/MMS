@@ -84,7 +84,7 @@ export default function ApprovalsPage() {
     const steps = po.po_approvals ?? []
     const maxIter = Math.max(...steps.map((s) => s.iteration ?? 1), 1)
     return steps.some(
-      (s) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIter && myRoles.includes(s.role),
+      (s) => s.status === 'pending' && s.is_active && !s.superseded && (s.iteration ?? 1) === maxIter && myRoles.includes(s.role),
     )
   }
   const pendingList = pending ?? []
@@ -94,7 +94,7 @@ export default function ApprovalsPage() {
   function openDialog(po: PurchaseOrder) {
     const allSteps = po.po_approvals ?? []
     const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
-    const activePending = (s: POApprovalStep) => s.status === 'pending' && s.is_active && (s.iteration ?? 1) === maxIteration
+    const activePending = (s: POApprovalStep) => s.status === 'pending' && s.is_active && !s.superseded && (s.iteration ?? 1) === maxIteration
     const matchingSteps = (allSteps as POApprovalStep[])
       .filter((s) => activePending(s) && myRoles.includes(s.role))
     // No matching role: fall back to the first pending step so an Owner viewing
@@ -190,7 +190,7 @@ export default function ApprovalsPage() {
               const allSteps = po.po_approvals ?? []
               const maxIteration = Math.max(...allSteps.map((s) => s.iteration ?? 1), 1)
               const currentSteps = allSteps.filter((s) => (s.iteration ?? 1) === maxIteration)
-              const pendingSteps = currentSteps.filter((s) => s.status === 'pending' && s.is_active)
+              const pendingSteps = currentSteps.filter((s) => s.status === 'pending' && s.is_active && !s.superseded)
               const showPrev = showPrevIterations[po.id]
               return (
                 <div key={po.id} className={cn('rounded-lg border p-4 space-y-3', STAGGER_IN)} style={staggerDelay(i)}>
