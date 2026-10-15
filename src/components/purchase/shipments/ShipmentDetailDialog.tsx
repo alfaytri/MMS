@@ -22,9 +22,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import {
   useShipmentDetail, useUpdateShipmentStatus, useDeleteShipment, useAddScheduleRevision,
-  useAddShipmentEvent, useUpdateShipmentLineQty, useRemoveShipmentLine,
-  type ShipmentMode, type ShipmentStatus, type ScheduleLeg, type ScheduleRevisionType, type ShipmentEvent, type ShipmentLine,
+  useAddShipmentEvent, useUpdateShipmentLineQty, useRemoveShipmentLine, useAddShipmentLines,
+  type ShipmentMode, type ShipmentStatus, type ScheduleLeg, type ScheduleRevisionType, type ShipmentEvent, type ShipmentLine, type PlannedForecastLine,
 } from '@/hooks/useShipments'
+import { createClient } from '@/lib/supabase/client'
 import { legHistory } from '@/lib/shipments/schedule'
 import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
 import { ItemLabel } from '@/components/shared/ItemLabel'
@@ -34,6 +35,7 @@ const MODE_META: Record<ShipmentMode, { icon: typeof Plane; label: string }> = {
   land: { icon: Truck, label: 'Land' }, manual: { icon: PenLine, label: 'Manual' },
 }
 const STATUS_META: Record<ShipmentStatus, { label: string; cls: string }> = {
+  planned: { label: 'Planned', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
   booked: { label: 'Booked', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
   in_transit: { label: 'In transit', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
   customs: { label: 'Customs', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
@@ -90,6 +92,7 @@ export function ShipmentDetailDialog({ shipmentId, onClose }: { shipmentId: stri
               </div>
               <Separator />
               <div className="px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
+                {data.plannedForecasts.length > 0 && <PlannedForecastSection plannedForecasts={data.plannedForecasts} shipmentId={s.id} status={s.status} />}
                 <PoSection lines={data.lines} shipmentId={s.id} />
                 <ScheduleSection shipmentId={s.id} etd={s.etd} eta={s.eta} etdActual={s.etd_actual} etaActual={s.eta_actual} revisions={data.revisions} />
                 <EventsSection shipmentId={s.id} events={s.events} />
@@ -163,6 +166,50 @@ function SyncBar({ shipmentId, trackingNumber, lastSyncMin, syncError }: { shipm
       {lastSyncMin !== null ? `Synced ${lastSyncMin}m ago` : 'Never synced'}
       {syncError === 'quota_exceeded' && <span className="text-yellow-700">· monthly limit reached</span>}
       <button onClick={sync} disabled={syncing} className="ml-1 text-primary font-medium hover:underline disabled:opacity-50">{syncing ? 'Syncing…' : 'Sync now'}</button>
+    </div>
+  )
+}
+
+function PlannedForecastSection({ plannedForecasts, shipmentId, status }: { plannedForecasts: PlannedForecastLine[]; shipmentId: string; status: ShipmentStatus }) {
+  const addLines = useAddShipmentLines()
+  const updateStatus = useUpdateShipmentStatus()
+  const [busyPo, setBusyPo] = useState<string | null>(null)
+
+  async function addPoLines(poId: string) {
+    setBusyPo(poId)
+    try {
+      const { data, error } = await createClient().from('po_line_items').select('id, qty').eq('po_id', poId)
+      if (error) throw error
+      const lines = (data ?? []).map((l) => ({ po_line_item_id: l.id as string, qty: (l.qty as number) ?? 1 }))
+      if (!lines.length) { toast.error('That PO has no line items'); return }
+      await addLines.mutateAsync({ shipment_id: shipmentId, lines })
+      if (status === 'planned') await updateStatus.mutateAsync({ id: shipmentId, status: 'booked' })
+      toast.success('PO lines added to the shipment')
+    } catch (e) { toast.error(humanizeDbError(e)) } finally { setBusyPo(null) }
+  }
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-2">Planned items <span className="ml-1 text-xs font-normal text-muted-foreground">from forecast · {plannedForecasts.length}</span></h3>
+      <div className="space-y-2">
+        {plannedForecasts.map((f) => (
+          <div key={f.id} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+            <span className="font-mono text-[11px] text-muted-foreground">{f.forecast_number}</span>
+            <span className="font-medium truncate">{f.item_name ?? '—'}</span>
+            <span className="text-xs text-muted-foreground">×{f.qty}</span>
+            <span className="ml-auto flex items-center gap-2">
+              {f.po_id ? (
+                <>
+                  {f.po_number && <span className="font-mono text-[11px] text-muted-foreground">{f.po_number}</span>}
+                  <Button variant="outline" size="sm" className="h-7" disabled={busyPo === f.po_id} onClick={() => addPoLines(f.po_id!)}>
+                    {busyPo === f.po_id ? 'Adding…' : 'Add PO lines'}
+                  </Button>
+                </>
+              ) : <span className="text-[11px] text-amber-600">awaiting PO</span>}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

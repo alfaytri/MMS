@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { MoreHorizontal, Pencil, FilePlus, Link2, XCircle } from 'lucide-react'
+import { MoreHorizontal, Pencil, FilePlus, Link2, XCircle, Ship } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
@@ -20,6 +20,7 @@ import { formatDate } from '@/lib/utils/formatters'
 import { humanizeDbError } from '@/lib/dbErrors'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { usePurchaseForecasts, useCancelForecast, type PurchaseForecast, type Engagement, type ForecastStatus } from '@/hooks/usePurchaseForecasts'
+import { useCreatePlannedShipment } from '@/hooks/useShipments'
 import { ForecastDialog } from '@/components/purchase/forecast/ForecastDialog'
 import { AttachPoDialog } from '@/components/purchase/forecast/AttachPoDialog'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -58,6 +59,7 @@ export default function ForecastPage() {
   const [attachFor, setAttachFor] = useState<string | null>(null)
   const [cancelTarget, setCancelTarget] = useState<PurchaseForecast | null>(null)
   const cancelForecast = useCancelForecast()
+  const createPlanned = useCreatePlannedShipment()
 
   function openNew() { setEditing(null); setDialogOpen(true) }
   function openEdit(f: PurchaseForecast) { setEditing(f); setDialogOpen(true) }
@@ -73,6 +75,7 @@ export default function ForecastPage() {
           <DropdownMenuItem onClick={() => openEdit(f)}><Pencil className="h-3.5 w-3.5 mr-2" /> Edit</DropdownMenuItem>
           {isOpen && <DropdownMenuItem onClick={() => router.push(`/purchase/create-po?forecast=${f.id}`)}><FilePlus className="h-3.5 w-3.5 mr-2" /> Convert to PO</DropdownMenuItem>}
           {isOpen && <DropdownMenuItem onClick={() => setAttachFor(f.id)}><Link2 className="h-3.5 w-3.5 mr-2" /> Attach PO</DropdownMenuItem>}
+          {isOpen && !f.shipment_id && <DropdownMenuItem onClick={() => createPlanned.mutate({ mode: 'sea', forecastIds: [f.id] }, { onSuccess: () => { toast.success('Planned shipment created'); router.push('/purchase/shipments') }, onError: (e) => toast.error(humanizeDbError(e)) })}><Ship className="h-3.5 w-3.5 mr-2" /> Create planned shipment</DropdownMenuItem>}
           {isOpen && <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setCancelTarget(f)}><XCircle className="h-3.5 w-3.5 mr-2" /> Cancel</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>

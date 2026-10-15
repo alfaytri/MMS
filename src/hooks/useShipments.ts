@@ -6,7 +6,7 @@ import { notifyOwnerAndKey } from '@/lib/notify'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ShipmentMode = 'air' | 'sea' | 'land' | 'manual'
-export type ShipmentStatus = 'booked' | 'in_transit' | 'customs' | 'delivered' | 'delayed'
+export type ShipmentStatus = 'planned' | 'booked' | 'in_transit' | 'customs' | 'delivered' | 'delayed'
 export type ScheduleLeg = 'etd' | 'eta'
 export type ScheduleRevisionType = 'original' | 'updated' | 'actual'
 
@@ -66,7 +66,17 @@ export type ScheduleRevision = {
   created_at: string
 }
 
-export type ShipmentDetail = { shipment: Shipment; lines: ShipmentLine[]; revisions: ScheduleRevision[] }
+export type PlannedForecastLine = {
+  id: string
+  forecast_number: string
+  item_name: string | null
+  qty: number
+  supplier_name: string | null
+  po_id: string | null
+  po_number: string | null
+}
+
+export type ShipmentDetail = { shipment: Shipment; lines: ShipmentLine[]; revisions: ScheduleRevision[]; plannedForecasts: PlannedForecastLine[] }
 
 export type CreateShipmentPayload = {
   mode: ShipmentMode
@@ -197,7 +207,15 @@ export function useShipmentDetail(id: string | null) {
         .eq('shipment_id', id!)
         .order('created_at', { ascending: true })) as LooseResult
       if (revErr) throw new Error(revErr.message)
-      return { shipment, lines, revisions: (revData as ScheduleRevision[]) ?? [] }
+      // Plan-ahead: forecast lines attached to this (planned) shipment, excluding cancelled.
+      const { data: fcData } = (await looseFrom('purchase_forecasts')
+        .select('id, forecast_number, item_name, qty, supplier_name, po_id, status, purchase_orders(po_number)')
+        .eq('shipment_id', id!)) as LooseResult
+      type RawFc = { id: string; forecast_number: string; item_name: string | null; qty: number; supplier_name: string | null; po_id: string | null; status: string; purchase_orders: { po_number: string } | null }
+      const plannedForecasts: PlannedForecastLine[] = ((fcData as RawFc[]) ?? [])
+        .filter((f) => f.status !== 'cancelled')
+        .map((f) => ({ id: f.id, forecast_number: f.forecast_number, item_name: f.item_name, qty: f.qty, supplier_name: f.supplier_name, po_id: f.po_id, po_number: f.purchase_orders?.po_number ?? null }))
+      return { shipment, lines, revisions: (revData as ScheduleRevision[]) ?? [], plannedForecasts }
     },
   })
 }
@@ -263,6 +281,20 @@ export function useCreateShipment() {
       return data as Shipment
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.shipments.all }),
+  })
+}
+
+export function useCreatePlannedShipment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ mode, forecastIds, tracking, carrier }: { mode: ShipmentMode; forecastIds: string[]; tracking?: string | null; carrier?: string | null }): Promise<string> => {
+      const { data, error } = await looseRpc('rpc_create_planned_shipment', {
+        p_mode: mode, p_forecast_ids: forecastIds, p_tracking: tracking || null, p_carrier: carrier || null,
+      })
+      if (error) throw new Error(error.message)
+      return data as string
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.shipments.all }); qc.invalidateQueries({ queryKey: queryKeys.forecasts.all }) },
   })
 }
 

@@ -20,6 +20,7 @@ import type { ShipmentMode, ShipmentStatus } from '@/hooks/useShipments'
 
 const MODE_ICON: Record<ShipmentMode, typeof Plane> = { air: Plane, sea: Ship, land: Truck, manual: PenLine }
 const STATUS_META: Record<ShipmentStatus, { label: string; cls: string }> = {
+  planned: { label: 'Planned', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
   booked: { label: 'Booked', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
   in_transit: { label: 'In transit', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
   customs: { label: 'Customs', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },

@@ -27,6 +27,7 @@ function fdate(s: string | null): string {
 const qar = (n: number | null | undefined) => n == null ? '—' : `QAR ${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
 
 const STATUS: Record<ShipmentStatus, { label: string; bg: string; fg: string }> = {
+  planned: { label: 'Planned', bg: '#edf0f2', fg: '#6b7885' },
   booked: { label: 'Booked', bg: '#e5eef6', fg: '#28618f' },
   in_transit: { label: 'In transit', bg: '#fbeedd', fg: '#b45309' },
   customs: { label: 'Customs', bg: '#fbeedd', fg: '#b45309' },

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plane, Ship, Truck, PenLine, Eye, Package, RefreshCw, Clock, CheckCircle2, AlertTriangle, FileText } from 'lucide-react'
+import { Plane, Ship, Truck, PenLine, Eye, Package, RefreshCw, Clock, CheckCircle2, AlertTriangle, FileText, CalendarClock } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
@@ -23,6 +23,7 @@ const MODE_META: Record<ShipmentMode, { icon: typeof Plane; label: string; color
   manual: { icon: PenLine, label: 'Manual', color: 'text-slate-500' },
 }
 const STATUS_META: Record<ShipmentStatus, { label: string; cls: string; icon: typeof Package }> = {
+  planned: { label: 'Planned', cls: 'bg-slate-100 text-slate-600 border-slate-200', icon: CalendarClock },
   booked: { label: 'Booked', cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: Package },
   in_transit: { label: 'In transit', cls: 'bg-orange-50 text-orange-700 border-orange-200', icon: RefreshCw },
   customs: { label: 'Customs', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: Clock },
