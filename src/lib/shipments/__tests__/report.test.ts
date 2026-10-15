@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { computeDelay, summarize, milestones, type ReportShipment } from '../report'
+import { computeDelay, summarize, milestones, forecastsDue, type ReportShipment } from '../report'
 import { buildShipmentReportHtml } from '../shipment-report-html'
+
+const FC = (planned: string | null) => ({
+  forecast_number: 'FC-1', item_name: 'X', qty: 1, supplier_name: null,
+  engagement: 'not_started', currency: 'QAR', est_value: null,
+  planned_order_date: planned, needed_by_date: null,
+})
 
 const sampleShipment: ReportShipment = {
   id: 's1', shipment_number: 'SHP-00001', status: 'in_transit', mode: 'sea', carrier: 'Maersk',
@@ -80,6 +86,24 @@ describe('milestones', () => {
   })
 })
 
+describe('forecastsDue', () => {
+  it('flags lines with a planned order date on/before today+N; ignores null dates', () => {
+    const now = new Date(2026, 9, 15)
+    const due = forecastsDue([FC('2026-10-20'), FC('2026-12-01'), FC(null)], 30, now)
+    expect(due.map((d) => d.planned_order_date)).toEqual(['2026-10-20'])
+    expect(due[0].dueSoon).toBe(true)
+    expect(due[0].daysToOrder).toBe(5)
+  })
+  it('treats a null planned date as not due (no NaN)', () => {
+    expect(forecastsDue([FC(null)], 30, new Date(2026, 9, 15))).toEqual([])
+  })
+  it('includes past-due (negative days) lines, sorted by planned date', () => {
+    const due = forecastsDue([FC('2026-10-20'), FC('2026-10-01')], 30, new Date(2026, 9, 15))
+    expect(due.map((d) => d.planned_order_date)).toEqual(['2026-10-01', '2026-10-20'])
+    expect(due[0].daysToOrder).toBe(-14)
+  })
+})
+
 describe('buildShipmentReportHtml', () => {
   it('renders a self-contained document with the shipment, PO and KPIs', () => {
     const html = buildShipmentReportHtml({ shipments: [sampleShipment], generatedAt: '2026-10-15T00:00:00Z' })
@@ -89,6 +113,15 @@ describe('buildShipmentReportHtml', () => {
     expect(html).toContain('Euroinox 40/50 M')
     expect(html).toContain('Port congestion')
     expect(html).toContain('QAR 15,625')
+  })
+  it('renders the forecast sections when forecasts are supplied', () => {
+    const html = buildShipmentReportHtml({
+      shipments: [], generatedAt: '2026-10-15T00:00:00Z',
+      forecasts: [{ forecast_number: 'FC-00007', item_name: 'K 30/70 M', qty: 5, supplier_name: 'Safetech', engagement: 'negotiating', currency: 'QAR', est_value: 2275, planned_order_date: '2030-01-01', needed_by_date: null }],
+    })
+    expect(html).toContain('Upcoming purchase forecast')
+    expect(html).toContain('FC-00007')
+    expect(html).toContain('Negotiating')
   })
   it('handles an empty report without throwing', () => {
     const html = buildShipmentReportHtml({ shipments: [] })

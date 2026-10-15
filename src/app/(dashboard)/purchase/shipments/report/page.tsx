@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils/formatters'
 import { createClient } from '@/lib/supabase/client'
 import { useShipmentReport } from '@/hooks/useShipmentReport'
-import { milestones, summarize, type ReportShipment } from '@/lib/shipments/report'
+import { milestones, summarize, forecastsDue, type ReportShipment, type ReportForecast } from '@/lib/shipments/report'
+import { usePurchaseForecasts, type Engagement, type PurchaseForecast } from '@/hooks/usePurchaseForecasts'
 import type { ShipmentMode, ShipmentStatus } from '@/hooks/useShipments'
 
 const MODE_ICON: Record<ShipmentMode, typeof Plane> = { air: Plane, sea: Ship, land: Truck, manual: PenLine }
@@ -26,6 +27,10 @@ const STATUS_META: Record<ShipmentStatus, { label: string; cls: string }> = {
   delayed: { label: 'Delayed', cls: 'bg-red-50 text-red-700 border-red-200' },
 }
 const qar = (n: number | null | undefined) => n == null ? '—' : `QAR ${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+const ENGAGEMENT_LABEL: Record<Engagement, string> = {
+  not_started: 'Not started', in_discussion: 'In discussion', quotation_received: 'Quotation received',
+  negotiating: 'Negotiating', ready_to_order: 'Ready to order', on_hold: 'On hold',
+}
 
 export default function ShipmentReportPage() {
   const { data: shipments, isLoading } = useShipmentReport()
@@ -36,6 +41,8 @@ export default function ShipmentReportPage() {
 
   const all = useMemo(() => shipments ?? [], [shipments])
   const kpis = useMemo(() => summarize(all), [all])
+  const { data: openForecasts = [] } = usePurchaseForecasts({ status: 'open' })
+  const dueForecasts = useMemo(() => forecastsDue(openForecasts), [openForecasts])
 
   const list = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -57,7 +64,7 @@ export default function ShipmentReportPage() {
       const res = await fetch('/api/purchase/shipments/report/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-        body: JSON.stringify({ shipments: all, generatedAt: new Date().toISOString() }),
+        body: JSON.stringify({ shipments: all, forecasts: openForecasts, generatedAt: new Date().toISOString() }),
       })
       if (!res.ok) { toast.error('Could not generate the PDF'); return }
       const blob = await res.blob()
@@ -81,13 +88,15 @@ export default function ShipmentReportPage() {
       ) : (
         <>
           {/* KPI summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
             <Kpi n={kpis.shipments} label="Shipments" />
             <Kpi n={kpis.pos} label="Purchase orders" />
             <Kpi n={kpis.delivered} label="Delivered" tone="ok" />
             <Kpi n={kpis.delayed} label="Delayed / overdue" tone={kpis.delayed > 0 ? 'warn' : undefined} />
             <Kpi text={qar(kpis.valueQar)} label="Total PO value" />
             <Kpi text={qar(kpis.balanceQar)} label="Balance outstanding" tone={kpis.balanceQar > 0 ? 'warn' : undefined} />
+            <Kpi n={openForecasts.length} label="Upcoming purchases" />
+            <Kpi n={dueForecasts.length} label="To order ≤ 30 days" tone={dueForecasts.length > 0 ? 'warn' : undefined} />
           </div>
 
           {/* Filters */}
@@ -112,6 +121,9 @@ export default function ShipmentReportPage() {
           ) : (
             <div className="space-y-4">{list.map((s) => <ShipmentCard key={s.id} s={s} />)}</div>
           )}
+
+          {/* Forecast sections */}
+          <ForecastSections due={dueForecasts} all={openForecasts} />
         </>
       )}
     </PageWrapper>
@@ -123,6 +135,54 @@ function Kpi({ n, text, label, tone }: { n?: number; text?: string; label: strin
     <div className="rounded-lg border bg-card p-3.5">
       <div className={cn('font-mono font-bold', text ? 'text-base pt-1' : 'text-2xl', tone === 'ok' && 'text-green-600', tone === 'warn' && 'text-amber-600')}>{text ?? n}</div>
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-0.5">{label}</div>
+    </div>
+  )
+}
+
+function ForecastSections({ due, all }: { due: ReportForecast[]; all: PurchaseForecast[] }) {
+  if (all.length === 0) return null
+  return (
+    <div className="space-y-4 pt-2">
+      {due.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4">
+          <h3 className="text-sm font-semibold text-amber-800">⚑ For review — {due.length} to order within 30 days</h3>
+          <div className="mt-1 divide-y divide-amber-200/60">
+            {due.map((f) => (
+              <div key={f.forecast_number} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2 text-sm">
+                <span className="font-mono font-semibold">{f.forecast_number}</span>
+                <span className="font-medium">{f.item_name ?? '—'} <span className="text-muted-foreground font-normal">×{f.qty}</span></span>
+                {f.supplier_name && <span className="text-muted-foreground">· {f.supplier_name}</span>}
+                <span className="ml-auto font-mono text-xs font-semibold text-amber-700">
+                  {f.daysToOrder != null && f.daysToOrder < 0 ? `order ${-f.daysToOrder}d overdue` : f.daysToOrder === 0 ? 'order today' : `order in ${f.daysToOrder}d`} · {f.planned_order_date ? formatDate(f.planned_order_date) : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <section className="rounded-xl border bg-card overflow-hidden">
+        <div className="px-5 pt-4 pb-2"><h3 className="text-sm font-semibold">Upcoming purchase forecast <span className="ml-1 text-xs font-normal text-muted-foreground">{all.length} planned</span></h3></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="text-[10px] uppercase tracking-wide text-muted-foreground text-left border-b">
+              <th className="px-5 py-2 font-medium">Ref</th><th className="py-2 font-medium">Item</th><th className="py-2 font-medium">Supplier</th><th className="py-2 font-medium">Engagement</th><th className="py-2 font-medium text-right">Est. value</th><th className="py-2 font-medium">Planned order</th><th className="px-5 py-2 font-medium">Needed by</th>
+            </tr></thead>
+            <tbody>
+              {all.map((f) => (
+                <tr key={f.id} className="border-b last:border-0">
+                  <td className="px-5 py-2 font-mono whitespace-nowrap">{f.forecast_number}</td>
+                  <td className="py-2">{f.item_name ?? '—'} <span className="text-muted-foreground">×{f.qty}</span></td>
+                  <td className="py-2 text-muted-foreground">{f.supplier_name ?? '—'}</td>
+                  <td className="py-2">{ENGAGEMENT_LABEL[f.engagement]}</td>
+                  <td className="py-2 text-right tabular-nums">{f.est_value == null ? '—' : `${f.currency} ${f.est_value.toLocaleString('en-US')}`}</td>
+                  <td className="py-2 tabular-nums whitespace-nowrap">{f.planned_order_date ? formatDate(f.planned_order_date) : '—'}</td>
+                  <td className="px-5 py-2 tabular-nums whitespace-nowrap">{f.needed_by_date ? formatDate(f.needed_by_date) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   )
 }

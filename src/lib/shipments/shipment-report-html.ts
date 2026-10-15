@@ -1,5 +1,16 @@
-import { milestones, summarize, type ReportShipment } from './report'
+import { milestones, summarize, forecastsDue, type ReportShipment } from './report'
 import type { ShipmentStatus } from '@/hooks/useShipments'
+
+// Minimal forecast row shape (avoids importing the client hook into this server module).
+type ForecastRow = {
+  forecast_number: string; item_name: string | null; qty: number; supplier_name: string | null
+  engagement: string; currency: string; est_value: number | null
+  planned_order_date: string | null; needed_by_date: string | null
+}
+const ENG_LABEL: Record<string, string> = {
+  not_started: 'Not started', in_discussion: 'In discussion', quotation_received: 'Quotation received',
+  negotiating: 'Negotiating', ready_to_order: 'Ready to order', on_hold: 'On hold',
+}
 
 // Self-contained HTML for the shipment report PDF (rendered by html-to-pdf, which
 // loads with no network — all styles inline). Mirrors the on-screen report and
@@ -67,8 +78,25 @@ function card(s: ReportShipment): string {
   </section>`
 }
 
-export function buildShipmentReportHtml(payload: { shipments: ReportShipment[]; generatedAt?: string }): string {
+function forecastHtml(forecasts: ForecastRow[], due: ReturnType<typeof forecastsDue>): string {
+  if (!forecasts.length) return ''
+  const countdown = (d: number | null) => d == null ? '' : d < 0 ? `${-d}d overdue` : d === 0 ? 'order today' : `in ${d}d`
+  const review = due.length ? `
+    <div class="review"><h3>&#9873; For review &mdash; ${due.length} to order within 30 days</h3>
+    ${due.map((f) => `<div class="frow"><span class="mono b">${esc(f.forecast_number)}</span><span>${esc(f.item_name ?? '—')} &times;${esc(f.qty)}${f.supplier_name ? ' &middot; ' + esc(f.supplier_name) : ''}</span><span class="due">${countdown(f.daysToOrder)} &middot; ${fdate(f.planned_order_date)}</span></div>`).join('')}</div>` : ''
+  const rows = forecasts.map((f) => `<tr>
+    <td class="mono">${esc(f.forecast_number)}</td><td>${esc(f.item_name ?? '—')} &times;${esc(f.qty)}</td><td>${esc(f.supplier_name ?? '—')}</td>
+    <td>${esc(ENG_LABEL[f.engagement] ?? f.engagement)}</td><td class="r">${f.est_value == null ? '—' : esc(f.currency + ' ' + f.est_value.toLocaleString('en-US'))}</td>
+    <td class="mono">${fdate(f.planned_order_date)}</td><td class="mono">${fdate(f.needed_by_date)}</td></tr>`).join('')
+  return `${review}
+    <h2 class="sect">Upcoming purchase forecast &mdash; ${forecasts.length} planned</h2>
+    <table class="fc"><thead><tr><th>Ref</th><th>Item</th><th>Supplier</th><th>Engagement</th><th class="r">Est. value</th><th>Planned order</th><th>Needed by</th></tr></thead><tbody>${rows}</tbody></table>`
+}
+
+export function buildShipmentReportHtml(payload: { shipments: ReportShipment[]; forecasts?: ForecastRow[]; generatedAt?: string }): string {
   const ships = payload.shipments ?? []
+  const forecasts = payload.forecasts ?? []
+  const due = forecastsDue(forecasts)
   const k = summarize(ships)
   const genDate = fdate((payload.generatedAt ?? new Date().toISOString()).slice(0, 10))
   const kpi = (n: string | number, l: string) => `<div class="kpi"><div class="n">${esc(n)}</div><div class="l">${esc(l)}</div></div>`
@@ -94,13 +122,20 @@ export function buildShipmentReportHtml(payload: { shipments: ReportShipment[]; 
   .reason{margin:0 14px 10px;padding:7px 11px;border-left:3px solid #d97706;background:#fbeedd;border-radius:0 5px 5px 0;font-size:11.5px} .reason b{color:#b45309}
   table.pos{width:100%;border-collapse:collapse;font-size:11px} table.pos th{background:#f2f5f7;color:#4a5866;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:6px 14px;border-top:1px solid #d7dde2}
   table.pos td{padding:7px 14px;border-top:1px solid #eceff2;vertical-align:top} .sub{font-size:10px;color:#6b7885} .due{color:#b45309;font-weight:700} .paid{color:#1f7a4d}
-  .empty{color:#6b7885;text-align:center} @page{size:A4;margin:14mm}
+  .empty{color:#6b7885;text-align:center}
+  .review{border:1px solid #e8c893;border-left:4px solid #d97706;border-radius:8px;background:#fdf6ec;padding:10px 14px;margin:16px 0 10px;break-inside:avoid} .review h3{margin:0 0 4px;font-size:13px;color:#b45309}
+  .frow{display:flex;gap:10px;padding:5px 0;border-top:1px dashed #e8d9bf;font-size:11.5px} .frow:first-of-type{border-top:0} .frow .due{margin-left:auto;font-family:"Consolas",monospace;font-weight:700;color:#b45309}
+  h2.sect{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#4a5866;margin:16px 0 8px;border-bottom:1px solid #d7dde2;padding-bottom:5px}
+  table.fc{width:100%;border-collapse:collapse;font-size:11px} table.fc th{background:#f2f5f7;color:#4a5866;text-align:left;font-size:9px;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid #d7dde2} table.fc td{padding:6px 10px;border-bottom:1px solid #eceff2}
+  @page{size:A4;margin:14mm}
   </style></head><body>
   <div class="hdr"><h1>Shipment Report</h1><div class="d">Generated ${esc(genDate)}</div></div>
   <div class="summary">
     ${kpi(k.shipments, 'Shipments')}${kpi(k.pos, 'Purchase orders')}${kpi(k.delivered, 'Delivered')}
     ${kpi(k.delayed, 'Delayed / overdue')}${kpi(qar(k.valueQar), 'Total PO value')}${kpi(qar(k.balanceQar), 'Balance outstanding')}
+    ${kpi(forecasts.length, 'Upcoming purchases')}${kpi(due.length, 'To order <= 30 days')}
   </div>
   ${ships.length ? ships.map(card).join('') : '<div class="empty" style="padding:48px">No shipments to report.</div>'}
+  ${forecastHtml(forecasts, due)}
   </body></html>`
 }

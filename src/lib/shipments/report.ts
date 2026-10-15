@@ -99,6 +99,44 @@ export function milestones(s: ReportShipment): Milestone[] {
   ]
 }
 
+// ─── Forecast report shaping (shared by page + PDF) ────────────────────────────
+
+export type ReportForecast = {
+  forecast_number: string
+  item_name: string | null
+  qty: number
+  supplier_name: string | null
+  engagement: string
+  currency: string
+  est_value: number | null
+  planned_order_date: string | null
+  needed_by_date: string | null
+  daysToOrder: number | null
+  dueSoon: boolean
+}
+
+/**
+ * Forecast lines due to be ordered within `withinDays` of today — i.e. the
+ * planned order date is today+N or earlier (past-due included). Lines with no
+ * planned order date are never "due" (no NaN). Sorted earliest-planned first.
+ */
+export function forecastsDue(
+  forecasts: Omit<ReportForecast, 'daysToOrder' | 'dueSoon'>[],
+  withinDays = 30,
+  now?: Date,
+): ReportForecast[] {
+  const nowD = now ?? new Date()
+  const today = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate())
+  return forecasts
+    .map((f) => {
+      const d = parseDay(f.planned_order_date)
+      const daysToOrder = d ? dayDiff(d, today) : null
+      return { ...f, daysToOrder, dueSoon: daysToOrder != null && daysToOrder <= withinDays }
+    })
+    .filter((f) => f.dueSoon)
+    .sort((a, b) => (a.planned_order_date ?? '').localeCompare(b.planned_order_date ?? ''))
+}
+
 export type ReportKpis = {
   shipments: number
   pos: number
