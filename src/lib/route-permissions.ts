@@ -62,6 +62,7 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/purchase/approval-settings', permission: 'purchase.approvals.chain.manage' },
   { pathPrefix: '/purchase/approvals',         permission: 'purchase.approvals.view' },
   { pathPrefix: '/purchase/shipments',         permission: 'purchase.shipments.view' },
+  { pathPrefix: '/purchase/forecast',          permission: 'purchase.forecast.view' },
   { pathPrefix: '/purchase/receivals',         permission: 'purchase.receivals.view' },
   { pathPrefix: '/purchase/landed-costs',      permission: 'purchase.landed_costs.view' },
   { pathPrefix: '/purchase/bills',             permission: 'purchase.bills.view' },
