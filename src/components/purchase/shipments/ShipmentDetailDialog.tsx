@@ -12,6 +12,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils/formatters'
 import { useQueryClient } from '@tanstack/react-query'
@@ -102,15 +106,34 @@ export function ShipmentDetailDialog({ shipmentId, onClose }: { shipmentId: stri
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive"
-                  onClick={() => del.mutate(s.id, {
-                    onSuccess: () => {
-                      if (s.tracking_number) fetch('/api/shipments/deregister-tracking', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracking_number: s.tracking_number }) }).catch(() => {})
-                      toast.success('Deleted'); onClose()
-                    }, onError: (e) => toast.error(humanizeDbError(e)),
-                  })}>
-                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete shipment {s.shipment_number}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This permanently removes the shipment and its ETD/ETA schedule history, and unlinks its PO lines — they become available to add to another shipment. It does not affect received goods or stock.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => del.mutate(s.id, {
+                          onSuccess: () => {
+                            if (s.tracking_number) fetch('/api/shipments/deregister-tracking', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tracking_number: s.tracking_number }) }).catch(() => {})
+                            toast.success('Deleted'); onClose()
+                          }, onError: (e) => toast.error(humanizeDbError(e)),
+                        })}>
+                        Delete shipment
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </>
           )
