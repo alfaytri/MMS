@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Plane, Ship, Truck, PenLine, Eye, Package, RefreshCw, Clock, CheckCircle2, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+import { Plane, Ship, Truck, PenLine, Eye, Package, RefreshCw, Clock, CheckCircle2, AlertTriangle, FileText } from 'lucide-react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageWrapper } from '@/components/shared/PageWrapper'
 import { SearchInput } from '@/components/shared/SearchInput'
@@ -111,6 +112,9 @@ export default function ShipmentsPage() {
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <SearchInput value={search} onChange={setSearch} placeholder="Search shipment #, tracking, PO…" />
+        <Link href="/purchase/shipments/report" className="sm:ml-auto w-full sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto"><FileText className="h-4 w-4 mr-1.5" /> Report</Button>
+        </Link>
       </div>
 
       {isLoading ? (
