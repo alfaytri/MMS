@@ -72,6 +72,18 @@ export function usePurchaseForecasts(filters?: { status?: ForecastStatus; engage
   })
 }
 
+export function useForecast(id: string | null) {
+  return useQuery({
+    queryKey: ['purchase-forecasts', 'one', id],
+    enabled: !!id,
+    queryFn: async (): Promise<PurchaseForecast | null> => {
+      const { data, error } = (await looseFrom('purchase_forecasts').select('*').eq('id', id!).maybeSingle()) as LooseResult
+      if (error) throw new Error(error.message)
+      return (data as PurchaseForecast) ?? null
+    },
+  })
+}
+
 export function useCreateForecast() {
   const qc = useQueryClient()
   return useMutation({
