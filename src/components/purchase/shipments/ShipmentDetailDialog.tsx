@@ -92,7 +92,7 @@ export function ShipmentDetailDialog({ shipmentId, onClose }: { shipmentId: stri
               </div>
               <Separator />
               <div className="px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
-                {data.plannedForecasts.length > 0 && <PlannedForecastSection plannedForecasts={data.plannedForecasts} shipmentId={s.id} status={s.status} />}
+                {data.plannedForecasts.length > 0 && <PlannedForecastSection plannedForecasts={data.plannedForecasts} shipmentId={s.id} status={s.status} existingLineIds={new Set(data.lines.map((l) => l.po_line_item_id))} />}
                 <PoSection lines={data.lines} shipmentId={s.id} />
                 <ScheduleSection shipmentId={s.id} etd={s.etd} eta={s.eta} etdActual={s.etd_actual} etaActual={s.eta_actual} revisions={data.revisions} />
                 <EventsSection shipmentId={s.id} events={s.events} />
@@ -170,7 +170,7 @@ function SyncBar({ shipmentId, trackingNumber, lastSyncMin, syncError }: { shipm
   )
 }
 
-function PlannedForecastSection({ plannedForecasts, shipmentId, status }: { plannedForecasts: PlannedForecastLine[]; shipmentId: string; status: ShipmentStatus }) {
+function PlannedForecastSection({ plannedForecasts, shipmentId, status, existingLineIds }: { plannedForecasts: PlannedForecastLine[]; shipmentId: string; status: ShipmentStatus; existingLineIds: Set<string> }) {
   const addLines = useAddShipmentLines()
   const updateStatus = useUpdateShipmentStatus()
   const [busyPo, setBusyPo] = useState<string | null>(null)
@@ -180,8 +180,12 @@ function PlannedForecastSection({ plannedForecasts, shipmentId, status }: { plan
     try {
       const { data, error } = await createClient().from('po_line_items').select('id, qty').eq('po_id', poId)
       if (error) throw error
-      const lines = (data ?? []).map((l) => ({ po_line_item_id: l.id as string, qty: (l.qty as number) ?? 1 }))
-      if (!lines.length) { toast.error('That PO has no line items'); return }
+      // Skip lines already on this shipment — shipment_line_items has
+      // UNIQUE(shipment_id, po_line_item_id), so a re-add would fail the whole insert.
+      const lines = (data ?? [])
+        .filter((l) => !existingLineIds.has(l.id as string))
+        .map((l) => ({ po_line_item_id: l.id as string, qty: (l.qty as number) ?? 1 }))
+      if (!lines.length) { toast.message('Those PO lines are already on this shipment'); return }
       await addLines.mutateAsync({ shipment_id: shipmentId, lines })
       if (status === 'planned') await updateStatus.mutateAsync({ id: shipmentId, status: 'booked' })
       toast.success('PO lines added to the shipment')

@@ -224,8 +224,11 @@ export default function CreatePOPage() {
       : { ...base, po_type: poType }
     setPendingAction(poType)
     createPO.mutate(payload, {
-      onSuccess: (po) => {
-        if (forecastId) forecastLink.mutate({ forecastId, poId: po.id })
+      onSuccess: async (po) => {
+        if (forecastId) {
+          try { await forecastLink.mutateAsync({ forecastId, poId: po.id }) }
+          catch (e) { toast.error('PO created, but linking the forecast failed: ' + humanizeDbError(e)) }
+        }
         toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders')
       },
       onError: (err) => { setPendingAction(null); toast.error(humanizeDbError(err)) },
@@ -236,8 +239,11 @@ export default function CreatePOPage() {
     if (!validate({ requirePayment: true })) return
     setPendingAction('submit')
     createPO.mutate(buildPayload(), {
-      onSuccess: (po) => {
-        if (forecastId) forecastLink.mutate({ forecastId, poId: po.id })
+      onSuccess: async (po) => {
+        if (forecastId) {
+          try { await forecastLink.mutateAsync({ forecastId, poId: po.id }) }
+          catch (e) { toast.error('PO created, but linking the forecast failed: ' + humanizeDbError(e)) }
+        }
         submitForApproval.mutate(
           { id: po.id },
           {
