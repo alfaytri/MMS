@@ -1,7 +1,7 @@
 'use client'
 
 import { humanizeDbError } from '@/lib/dbErrors'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Plus, Save, CheckCircle2, Building2,
@@ -31,6 +31,8 @@ import { useCurrencies } from '@/hooks/useCurrencies'
 import { useUserDivisionScope } from '@/hooks/useUserDivisionScope'
 import { useActiveDivision } from '@/components/providers/DivisionProvider'
 import { useCompanies } from '@/hooks/useCompanies'
+import { useForecast, useLinkForecastPo } from '@/hooks/usePurchaseForecasts'
+import { useAllBrandVariantsGrouped } from '@/hooks/useInventory'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -56,6 +58,16 @@ export default function CreatePOPage() {
   const isMultiDivision = divisions.length > 1
   const [divisionId, setDivisionId] = useState<string>('')
 
+  // Convert-to-PO: when ?forecast=<id> is present, prefill supplier/division/
+  // currency + one line from the forecast, and link the forecast on save.
+  // Read from window (not useSearchParams) to avoid the Suspense-boundary build gate.
+  const [forecastId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('forecast') : null)
+  const { data: forecastSeed } = useForecast(forecastId)
+  const { data: fcVariants = [] } = useAllBrandVariantsGrouped(!!forecastId)
+  const forecastLink = useLinkForecastPo()
+  const forecastPrefilled = useRef(false)
+
   // Mirror the profile-menu division switcher: whenever the active division
   // changes (or on first load), sync this form's Division field. Falls back
   // to the sole in-scope division when the user has just one.
@@ -68,6 +80,28 @@ export default function CreatePOPage() {
       setDivisionId(divisions[0].id)
     }
   }, [divisions, divisionId, activeDivisionId])
+
+  // Prefill once from the forecast (Convert to PO), after it + the variant
+  // catalog (for the line's item-type) have loaded.
+  useEffect(() => {
+    if (forecastPrefilled.current || !forecastSeed) return
+    if (forecastSeed.brand_variant_id && fcVariants.length === 0) return
+    forecastPrefilled.current = true
+    if (forecastSeed.division_id) setDivisionId(forecastSeed.division_id)
+    if (forecastSeed.supplier_id) { setSupplierId(forecastSeed.supplier_id); setSupplierName(forecastSeed.supplier_name ?? '') }
+    if (forecastSeed.currency) setCurrency(forecastSeed.currency)
+    if (forecastSeed.brand_variant_id) {
+      const v = fcVariants.find((x) => x.variantId === forecastSeed.brand_variant_id)
+      const lt = (['products', 'spare-parts', 'consumables', 'tools'] as const).find((t) => t === v?.catType) ?? 'spare-parts'
+      setLineItems([{
+        _key: crypto.randomUUID(), line_type: lt,
+        item_name: forecastSeed.item_name ?? v?.itemName ?? '', sku: forecastSeed.sku ?? v?.itemSku ?? '',
+        qty: forecastSeed.qty, unit: 'pcs', unit_price: 0, total_price: 0,
+        brand_variant_id: forecastSeed.brand_variant_id, free_qty: 0, show_specification: false,
+        division_id: forecastSeed.division_id,
+      }])
+    }
+  }, [forecastSeed, fcVariants])
 
   const [supplierId, setSupplierId] = useState('')
   const [supplierName, setSupplierName] = useState('')
@@ -190,7 +224,13 @@ export default function CreatePOPage() {
       : { ...base, po_type: poType }
     setPendingAction(poType)
     createPO.mutate(payload, {
-      onSuccess: () => { toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders') },
+      onSuccess: async (po) => {
+        if (forecastId) {
+          try { await forecastLink.mutateAsync({ forecastId, poId: po.id }) }
+          catch (e) { toast.error('PO created, but linking the forecast failed: ' + humanizeDbError(e)) }
+        }
+        toast.success(poType === 'rfq' ? 'Saved as RFQ' : 'Saved as Draft'); router.push('/purchase/orders')
+      },
       onError: (err) => { setPendingAction(null); toast.error(humanizeDbError(err)) },
     })
   }
@@ -199,7 +239,11 @@ export default function CreatePOPage() {
     if (!validate({ requirePayment: true })) return
     setPendingAction('submit')
     createPO.mutate(buildPayload(), {
-      onSuccess: (po) => {
+      onSuccess: async (po) => {
+        if (forecastId) {
+          try { await forecastLink.mutateAsync({ forecastId, poId: po.id }) }
+          catch (e) { toast.error('PO created, but linking the forecast failed: ' + humanizeDbError(e)) }
+        }
         submitForApproval.mutate(
           { id: po.id },
           {
