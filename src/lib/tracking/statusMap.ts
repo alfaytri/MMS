@@ -1,6 +1,7 @@
 import type { ShipmentStatus } from '@/hooks/useShipments'
 
 export const STATUS_WEIGHTS: Record<ShipmentStatus, number> = {
+  planned:    0,
   booked:     1,
   in_transit: 2,
   customs:    3.0,

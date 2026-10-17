@@ -211,6 +211,12 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
+        label: 'Forecast',
+        permissions: [
+          { key: 'purchase.forecast.view', label: 'View Forecast', description: 'View and manage the purchase forecast pipeline' },
+        ],
+      },
+      {
         label: 'Receivals',
         permissions: [
           { key: 'purchase.receivals.view',   label: 'View Receivals',   description: 'Access receival records and goods inward' },

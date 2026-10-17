@@ -108,7 +108,7 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'LOGISTICS & REPORTS',
         items: [
-          { label: 'Shipments',         href: '/purchase/shipments',    icon: 'Ship',       permission: 'purchase.shipments.view' },
+          { label: 'Shipments & Forecast', href: '/purchase/shipments',    icon: 'Ship',       permission: 'purchase.shipments.view' },
           { label: 'Landed Costs',      href: '/purchase/landed-costs', icon: 'Calculator', permission: 'purchase.landed_costs.view' },
           { label: 'Dead Stock Report', href: '/purchase/dead-stock',   icon: 'BarChart3',  permission: 'purchase.dead_stock.view' },
         ],
