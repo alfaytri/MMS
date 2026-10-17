@@ -108,6 +108,8 @@ export type POApprovalStep = {
   iteration: number
   force_approved: boolean
   force_comment: string | null
+  tier_match?: 'all' | 'any'   // snapshot of the band's approval mode
+  superseded?: boolean         // an 'any' band sibling made moot once another role approved
 }
 
 export type PurchaseOrder = {

@@ -9,7 +9,7 @@ import {
 } from './approvalChainResolution'
 
 function tier(rank: number, minAmount: number, roles: string[]): ApprovalChainTier {
-  return { id: `t${rank}`, chain_id: 'c1', rank, min_amount: minAmount, max_amount: null, required_roles: roles, deleted_at: null }
+  return { id: `t${rank}`, chain_id: 'c1', rank, min_amount: minAmount, max_amount: null, required_roles: roles, role_match: 'all', deleted_at: null }
 }
 
 function assign(profileId: string, role: string, divisionId: string | null = null): ApprovalRoleAssignmentRow {

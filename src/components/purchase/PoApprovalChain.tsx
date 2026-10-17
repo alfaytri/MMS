@@ -1,4 +1,4 @@
-import { Check, X, AlertTriangle } from 'lucide-react'
+import { Check, X, AlertTriangle, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { POApprovalStep } from '@/hooks/usePurchaseOrders'
 
@@ -28,20 +28,23 @@ export function PoApprovalChain({ steps, showIteration }: { steps: POApprovalSte
               <div key={step.id} className="flex items-center gap-0.5">
                 {idx > 0 && <div className="h-px w-1.5 bg-muted-foreground/20" />}
                 <div
-                  title={`${step.role}: ${step.status}${step.force_approved ? ' (force-approved)' : ''}`}
+                  title={`${step.role}: ${step.superseded ? 'not required (any-one band)' : step.status}${step.force_approved ? ' (force-approved)' : ''}`}
                   className={cn(
                     'flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold relative',
                     step.status === 'approved' && 'border-success bg-success/10 text-success',
                     step.status === 'rejected' && 'border-destructive bg-destructive/10 text-destructive',
                     step.status === 'cancelled' && 'border-muted-foreground/20 bg-muted/50 text-muted-foreground/40',
-                    step.status === 'pending' && step.is_active && 'border-primary/40 bg-primary/5 text-primary animate-pulse',
-                    step.status === 'pending' && !step.is_active && 'border-muted-foreground/20 bg-muted text-muted-foreground/50',
+                    step.superseded && 'border-muted-foreground/20 bg-muted/40 text-muted-foreground/40',
+                    step.status === 'pending' && step.is_active && !step.superseded && 'border-primary/40 bg-primary/5 text-primary animate-pulse',
+                    step.status === 'pending' && !step.is_active && !step.superseded && 'border-muted-foreground/20 bg-muted text-muted-foreground/50',
                   )}
                 >
                   {step.status === 'approved' ? (
                     <Check className="h-3 w-3" />
                   ) : step.status === 'rejected' ? (
                     <X className="h-3 w-3" />
+                  ) : step.superseded ? (
+                    <Minus className="h-3 w-3" />
                   ) : (
                     <span>{ROLE_LABELS[step.role] ?? '?'}</span>
                   )}

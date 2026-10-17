@@ -24,7 +24,8 @@ export function useApprovalChains() {
         .is('archived_at', null)
         .order('created_at', { ascending: true })
       if (error) throw error
-      return data as (ApprovalChain & { divisions: { name: string; short_name: string | null } | null })[]
+      // role_match is a real column but not yet in generated types → cast via unknown.
+      return data as unknown as (ApprovalChain & { divisions: { name: string; short_name: string | null } | null })[]
     },
     staleTime: 60 * 1000,
   })
@@ -44,7 +45,7 @@ export function useChainForDivision(divisionId: string | null | undefined) {
           .eq('is_active', true)
           .maybeSingle()
         if (error) throw error
-        if (data) return data as ApprovalChain
+        if (data) return data as unknown as ApprovalChain
       }
       // Fall back to company default
       const { data, error } = await supabase
@@ -54,7 +55,7 @@ export function useChainForDivision(divisionId: string | null | undefined) {
         .eq('is_active', true)
         .maybeSingle()
       if (error) throw error
-      return data as ApprovalChain | null
+      return data as unknown as ApprovalChain | null
     },
     enabled: divisionId !== undefined,
     staleTime: 60 * 1000,
@@ -94,6 +95,7 @@ export function useUpsertApprovalChainTier() {
       min_amount: number
       max_amount: number | null
       required_roles: string[]
+      role_match: 'all' | 'any'
     }) => {
       const supabase = createClient()
       if (payload.id) {
@@ -103,7 +105,8 @@ export function useUpsertApprovalChainTier() {
             min_amount: payload.min_amount,
             max_amount: payload.max_amount,
             required_roles: payload.required_roles,
-          }).eq('id', payload.id).select().single()
+            role_match: payload.role_match,
+          } as never).eq('id', payload.id).select().single()
         if (error) throw error
         return data
       }
@@ -114,7 +117,8 @@ export function useUpsertApprovalChainTier() {
           min_amount: payload.min_amount,
           max_amount: payload.max_amount,
           required_roles: payload.required_roles,
-        }).select().single()
+          role_match: payload.role_match,
+        } as never).select().single()
       if (error) throw error
       return data
     },

@@ -62,6 +62,7 @@ export function usePendingApprovals() {
           (s) =>
             s.status === 'pending' &&
             s.is_active === true &&
+            !s.superseded &&
             s.iteration === maxIteration &&
             roles.includes(s.role),
         )
