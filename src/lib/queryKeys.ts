@@ -495,6 +495,14 @@ export const queryKeys = {
     shippedByLine: (poLineIds: string[]) => ['shipments', 'shipped-by-line', [...poLineIds].sort()] as const,
   },
 
+  /* ── Purchase Forecasts ───────────────────────────────── */
+  forecasts: {
+    all: ['purchase-forecasts'] as const,
+    list: (filters?: { status?: string; engagement?: string; search?: string }) =>
+      ['purchase-forecasts', filters ?? {}] as const,
+    report: ['purchase-forecasts', 'report'] as const,
+  },
+
   /* ── Site Visits ──────────────────────────────────────── */
   siteVisits: {
     all: ['site-visits'] as const,
