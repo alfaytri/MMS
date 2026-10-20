@@ -145,6 +145,7 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         items: [
           { label: 'View Invoices',    href: '/invoices',                  icon: 'FileText', permission: 'invoices.view' },
+          { label: 'All Invoices',     href: '/invoices/all',              icon: 'Receipt',  permission: 'invoices.view' },
         ],
       },
     ],
