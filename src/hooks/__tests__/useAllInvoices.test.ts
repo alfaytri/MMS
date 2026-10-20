@@ -35,13 +35,19 @@ vi.mock('@/lib/supabase/client', () => ({
 import {
   ALL_INVOICES_LIMIT,
   DETAIL_TABLE_FOR_TYPE,
+  httpUrl,
   invoiceKind,
+  payLinkFor,
   remainingAmount,
   useAllInvoices,
   type AllInvoicesFilters,
 } from '../useAllInvoices'
 
 const callsTo = (method: string) => mock.calls.filter((c) => c.method === method).map((c) => c.args)
+
+// Every query is for customer invoices only: the hub table is shared with the
+// supplier_bills (AP) view.
+const AR = ['direction', 'ar']
 
 function makeWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -69,22 +75,23 @@ describe('useAllInvoices - the query it builds', () => {
 
     expect(mock.from).toHaveBeenCalledWith('invoices')
     const [columns] = callsTo('select')[0] as [string]
-    const selected = new Set(columns.split(',').map((c) => c.trim()))
-    for (const col of [
+    const selected = columns.split(',').map((c) => c.trim())
+    // The exact set: a missing column breaks the page, an extra one is wasted egress.
+    const expected = [
       'id', 'invoice_id', 'detail_table', 'detail_id', 'customer_name',
       'total_amount', 'paid_amount', 'payment_status', 'dispatch_status',
       'dibsy_checkout_url', 'pdf_url', 'sent_at', 'created_at',
-    ]) {
-      expect(selected.has(col), `select list is missing ${col}`).toBe(true)
-    }
+    ]
+    expect([...selected].sort()).toEqual([...expected].sort())
   })
 
-  it('with no filters applies no constraint, orders newest first and caps the page', async () => {
+  it('with no filters asks for customer invoices only, newest first with a stable tie-break, capped', async () => {
     await run({})
 
-    expect(callsTo('eq')).toEqual([])
+    expect(callsTo('eq')).toEqual([AR])
     expect(callsTo('or')).toEqual([])
-    expect(callsTo('order')).toEqual([['created_at', { ascending: false }]])
+    // id breaks created_at ties, so which rows make the cap is deterministic.
+    expect(callsTo('order')).toEqual([['created_at', { ascending: false }], ['id']])
     expect(callsTo('limit')).toEqual([[ALL_INVOICES_LIMIT]])
   })
 
@@ -100,13 +107,13 @@ describe('useAllInvoices - the query it builds', () => {
   ] as const)('type=%s filters detail_table to %s', async (type, detailTable) => {
     await run({ type })
 
-    expect(callsTo('eq')).toEqual([['detail_table', detailTable]])
+    expect(callsTo('eq')).toEqual([AR, ['detail_table', detailTable]])
   })
 
   it('status filters payment_status', async () => {
     await run({ status: 'partially_paid' })
 
-    expect(callsTo('eq')).toEqual([['payment_status', 'partially_paid']])
+    expect(callsTo('eq')).toEqual([AR, ['payment_status', 'partially_paid']])
   })
 
   it('q searches invoice_id and customer_name case-insensitively, as a substring', async () => {
@@ -143,9 +150,10 @@ describe('useAllInvoices - the query it builds', () => {
     await run({ type: 'sales', status: 'overdue', q: 'x' })
 
     const eqs = callsTo('eq')
-    expect(eqs).toHaveLength(2)
+    expect(eqs).toHaveLength(3)
     expect(eqs).toEqual(
       expect.arrayContaining([
+        AR,
         ['detail_table', 'so_invoices'],
         ['payment_status', 'overdue'],
       ]),
@@ -154,8 +162,8 @@ describe('useAllInvoices - the query it builds', () => {
   })
 
   it.each([
-    ['type', { type: 'service' }, { type: 'contract' }, 'eq', [['detail_table', 'contract_invoices']]],
-    ['status', { status: 'paid' }, { status: 'overdue' }, 'eq', [['payment_status', 'overdue']]],
+    ['type', { type: 'service' }, { type: 'contract' }, 'eq', [AR, ['detail_table', 'contract_invoices']]],
+    ['status', { status: 'paid' }, { status: 'overdue' }, 'eq', [AR, ['payment_status', 'overdue']]],
     ['search', { q: 'ali' }, { q: 'bob' }, 'or', [['invoice_id.ilike."%bob%",customer_name.ilike."%bob%"']]],
   ] as const)('re-queries when the %s changes', async (_name, first, second, method, expected) => {
     const { result, rerender } = renderHook((f: AllInvoicesFilters) => useAllInvoices(f), {
@@ -305,6 +313,75 @@ describe('remainingAmount', () => {
   it('rounds to the fils so float noise cannot leave a phantom balance or a negative', () => {
     expect(remainingAmount(0.3, 0.1 + 0.2)).toBe(0)
     expect(remainingAmount(100.1, 100)).toBe(0.1)
+  })
+})
+
+describe('httpUrl', () => {
+  it('passes plain http and https URLs through unchanged (the scheme is case-insensitive)', () => {
+    expect(httpUrl('https://checkout.example.com/pay/abc')).toBe('https://checkout.example.com/pay/abc')
+    expect(httpUrl('http://example.com/a.pdf')).toBe('http://example.com/a.pdf')
+    expect(httpUrl('HTTPS://EXAMPLE.COM/A')).toBe('HTTPS://EXAMPLE.COM/A')
+  })
+
+  it.each([
+    'javascript:alert(1)',
+    'JaVaScRiPt:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+    'file:///etc/passwd',
+    'ftp://example.com/a.pdf',
+    '//evil.example/a.pdf',
+    '/relative/a.pdf',
+    'https:/example.com',
+    'https:example.com',
+    'httpsx://example.com',
+    ' https://example.com',
+    '\nhttps://example.com',
+    'not a url',
+    '',
+  ])('drops %j', (url) => {
+    expect(httpUrl(url)).toBeNull()
+  })
+
+  it('drops null and undefined', () => {
+    expect(httpUrl(null)).toBeNull()
+    expect(httpUrl(undefined)).toBeNull()
+  })
+})
+
+describe('payLinkFor', () => {
+  const owed = {
+    dibsy_checkout_url: 'https://pay.example/abc',
+    payment_status: 'unpaid',
+    total_amount: 100,
+    paid_amount: 0,
+  }
+
+  it('returns the checkout link while money is still owed', () => {
+    expect(payLinkFor(owed)).toBe('https://pay.example/abc')
+    expect(payLinkFor({ ...owed, payment_status: 'partially_paid', paid_amount: 40 })).toBe('https://pay.example/abc')
+    expect(payLinkFor({ ...owed, payment_status: 'overdue' })).toBe('https://pay.example/abc')
+  })
+
+  it('treats an unknown status that still has a balance as owed', () => {
+    expect(payLinkFor({ ...owed, payment_status: 'on_hold' })).toBe('https://pay.example/abc')
+  })
+
+  it('hides it once the invoice is paid or void, whatever the amounts say', () => {
+    expect(payLinkFor({ ...owed, payment_status: 'paid' })).toBeNull()
+    expect(payLinkFor({ ...owed, payment_status: 'void' })).toBeNull()
+  })
+
+  it('hides it when nothing is left to pay, even if the status is stale', () => {
+    expect(payLinkFor({ ...owed, paid_amount: 100 })).toBeNull() // settled, status still unpaid
+    expect(payLinkFor({ ...owed, paid_amount: 150 })).toBeNull() // overpaid
+    expect(payLinkFor({ ...owed, total_amount: 0 })).toBeNull()
+    expect(payLinkFor({ ...owed, paid_amount: 99.999 })).toBeNull() // sub-fils remainder rounds to 0
+  })
+
+  it('drops a link that is absent or not plain http(s)', () => {
+    expect(payLinkFor({ ...owed, dibsy_checkout_url: null })).toBeNull()
+    expect(payLinkFor({ ...owed, dibsy_checkout_url: 'javascript:alert(1)' })).toBeNull()
   })
 })
 

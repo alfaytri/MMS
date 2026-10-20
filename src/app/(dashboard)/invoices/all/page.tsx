@@ -11,7 +11,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  ALL_INVOICES_LIMIT, invoiceKind, remainingAmount, useAllInvoices,
+  ALL_INVOICES_LIMIT, httpUrl, invoiceKind, payLinkFor, remainingAmount, useAllInvoices,
   type AllInvoiceRow,
 } from '@/hooks/useAllInvoices'
 import { humanizeDbError } from '@/lib/dbErrors'
@@ -105,6 +105,8 @@ function PaymentBadge({ status }: { status: string }) {
 }
 
 function SendBadge({ status, sentAt }: { status: string; sentAt: string | null }) {
+  // A backfilled row is 'sent' with no sent_at: nothing says it actually went out, so don't claim it.
+  if (status === 'sent' && !sentAt) return <Dash />
   const meta: BadgeMeta = SEND_STATUS_META[status] ?? { label: status, variant: 'inactive' }
   return (
     <StatusBadge variant={meta.variant}>
@@ -200,21 +202,25 @@ const COLUMNS: ColumnDef<AllInvoiceRow>[] = [
   {
     id: 'pay-link',
     header: () => header('Pay link'),
+    // Only while money is owed, and only a plain http(s) URL (see payLinkFor / httpUrl).
     cell: ({ row }) => (
-      <DocLink href={row.original.dibsy_checkout_url} label="Pay link" icon={CreditCard} invoiceId={row.original.invoice_id} />
+      <DocLink href={payLinkFor(row.original)} label="Pay link" icon={CreditCard} invoiceId={row.original.invoice_id} />
     ),
   },
   {
     id: 'pdf',
     header: () => header('PDF'),
-    cell: ({ row }) => <DocLink href={row.original.pdf_url} label="PDF" icon={FileText} invoiceId={row.original.invoice_id} />,
+    cell: ({ row }) => <DocLink href={httpUrl(row.original.pdf_url)} label="PDF" icon={FileText} invoiceId={row.original.invoice_id} />,
   },
 ]
 
+// Three columns only hold a 7-digit amount ("QAR 1,234,567.50") from about 410px up
+// (measured), so below 420px the figures stack as label / value rows instead of
+// overflowing or overlapping.
 function Labeled({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div>
-      <div className="text-right text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+    <div className="flex items-baseline justify-between gap-2 min-[420px]:block">
+      <div className="text-xs uppercase tracking-wide text-muted-foreground min-[420px]:text-right">{label}</div>
       {children}
     </div>
   )
@@ -234,7 +240,7 @@ function MobileCard({ invoice }: { invoice: AllInvoiceRow }) {
         </div>
         <PaymentBadge status={invoice.payment_status} />
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-1 min-[420px]:grid-cols-3 min-[420px]:gap-2">
         <Labeled label="Total"><Money value={invoice.total_amount} /></Labeled>
         <Labeled label="Paid"><Money value={invoice.paid_amount} /></Labeled>
         <Labeled label="Remaining"><Remaining row={invoice} /></Labeled>
@@ -242,8 +248,8 @@ function MobileCard({ invoice }: { invoice: AllInvoiceRow }) {
       <div className="flex flex-wrap items-center justify-between gap-x-4">
         <SendBadge status={invoice.dispatch_status} sentAt={invoice.sent_at} />
         <div className="flex items-center gap-4">
-          <DocLink href={invoice.dibsy_checkout_url} label="Pay link" icon={CreditCard} invoiceId={invoice.invoice_id} labelled />
-          <DocLink href={invoice.pdf_url} label="PDF" icon={FileText} invoiceId={invoice.invoice_id} labelled />
+          <DocLink href={payLinkFor(invoice)} label="Pay link" icon={CreditCard} invoiceId={invoice.invoice_id} labelled />
+          <DocLink href={httpUrl(invoice.pdf_url)} label="PDF" icon={FileText} invoiceId={invoice.invoice_id} labelled />
         </div>
       </div>
     </div>
@@ -277,7 +283,7 @@ export default function AllInvoicesPage() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <SearchInput value={q} onChange={setQ} placeholder="Search invoice # or customer…" />
         <ChipGroup label="Type" value={type} options={TYPE_OPTIONS} onChange={setType} />
-        <ChipGroup label="Status" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+        <ChipGroup label="Payment" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
       </div>
 
       <div className="space-y-2">

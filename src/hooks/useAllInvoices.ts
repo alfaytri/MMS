@@ -80,6 +80,28 @@ export function remainingAmount(total: number, paid: number): number {
   return Math.max(0, Math.round((total - paid) * 100) / 100)
 }
 
+/**
+ * `url` if it is plainly http(s), else null. Hub URLs are rendered as links, and the
+ * source tables are not fully locked down yet, so treat them as untrusted: a
+ * `javascript:` / `data:` / relative value must never become an href.
+ */
+export function httpUrl(url: string | null | undefined): string | null {
+  return url && /^https?:\/\//i.test(url) ? url : null
+}
+
+/**
+ * The pay link to show for a row, or null. Only while money is still owed: a paid or
+ * void invoice (or one with nothing left to pay) must not show a forwardable checkout
+ * link, even though the hub keeps the URL.
+ */
+export function payLinkFor(
+  row: Pick<AllInvoiceRow, 'dibsy_checkout_url' | 'payment_status' | 'total_amount' | 'paid_amount'>,
+): string | null {
+  if (row.payment_status === 'paid' || row.payment_status === 'void') return null
+  if (remainingAmount(row.total_amount, row.paid_amount) <= 0) return null
+  return httpUrl(row.dibsy_checkout_url)
+}
+
 type LooseError = { code?: string; message: string; details?: string; hint?: string }
 type LooseResult = { data: unknown; error: LooseError | null }
 interface LooseQuery extends PromiseLike<LooseResult> {
@@ -118,7 +140,8 @@ export function useAllInvoices({ type, status, q }: AllInvoicesFilters = {}) {
   return useQuery({
     queryKey: ['all-invoices', { type, status, q: term }],
     queryFn: async (): Promise<AllInvoiceRow[]> => {
-      let query = hubTable().select(LIST_COLUMNS)
+      // Customer invoices only: the hub table is shared with the supplier_bills (AP) view.
+      let query = hubTable().select(LIST_COLUMNS).eq('direction', 'ar')
       if (type) query = query.eq('detail_table', DETAIL_TABLE_FOR_TYPE[type])
       if (status) query = query.eq('payment_status', status)
       if (term) {
@@ -126,8 +149,10 @@ export function useAllInvoices({ type, status, q }: AllInvoicesFilters = {}) {
         query = query.or(`invoice_id.ilike.${pattern},customer_name.ilike.${pattern}`)
       }
 
+      // id breaks created_at ties, so which rows make the cap is deterministic.
       const { data, error } = await query
         .order('created_at', { ascending: false })
+        .order('id')
         .limit(ALL_INVOICES_LIMIT)
       if (error) throw error
 
