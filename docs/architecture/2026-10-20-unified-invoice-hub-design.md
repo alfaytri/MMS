@@ -66,9 +66,9 @@ Everything generic — creating the Dibsy link, sending over WhatsApp, marking p
 
 1. **Source of truth for accounting — `so_invoices` stays canonical.** AR reporting, payments, and balances keep reading `so_invoices` (and `tl_`/`contract_` for their types). The hub is the unified read + payment/send spine, not the accounting ledger. Lowest risk; no reports repoint.
 2. **Send model — fully automatic.** On invoice create, the hub row triggers: generate PDF → create Dibsy pay link → send both to the customer over WhatsApp (WATI) → stamp `sent_at`. No manual Send button. Idempotent — never double-send; reuse an existing link.
-3. **Dibsy link timing — default, pending billing confirmation.** Create the Dibsy payment when the hub row is created, for **unpaid, customer-facing** invoices only; reuse an existing link; skip zero-balance. ⚠️ *Still to confirm:* if Dibsy bills per payment object, defer link creation to the auto-send moment instead (still automatic) — confirm their pricing before relying on create-time generation.
+3. **Dibsy link timing — create on every invoice.** The Dibsy payment is created when the hub row is created, for every customer-facing invoice (per-object billing accepted). Reuse an existing link so re-runs never duplicate it; skip zero-balance invoices.
 4. **Scope — customer-facing invoices.** In: sales (`so_invoices`), service/emergency (`tl_invoices`), contract (`contract_invoices`), subscription. Out: supplier/AP invoices and anything not sent to a paying customer.
-5. **Emergency/service invoices — `tl_invoices`, field-created.** The team leader creates/sends them in the field; auto-send carries the PDF + pay link to the customer's WhatsApp.
+5. **All service work → `tl_invoices`, field-created.** Every service the teams perform — emergency and routine alike — is invoiced as a `tl_invoice`, because the field teams are the ones doing the work and raising the invoice. The team leader creates/sends it in the field; auto-send carries the PDF + pay link to the customer's WhatsApp. (`so_invoices` = product sales; `contract_invoices` = contracts; subscriptions separate.)
 
 ## What's left to the builder
 
