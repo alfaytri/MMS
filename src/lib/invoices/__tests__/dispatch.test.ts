@@ -631,4 +631,120 @@ describe('dispatchInvoice', () => {
       error: 'SUPABASE_SERVICE_ROLE_KEY is not set',
     })
   })
+
+  // ── Hardening tests proposed in review (each kills a mutant the first 37 tests let through) ──
+
+  it.each([
+    ['one dirham, QAR 0.01', 100.01, 100, '0.01'],
+    ['half a riyal', 100.5, 100, '0.50'],
+    ['float noise in the remainder (2.3 - 2)', 2.3, 2, '0.30'],
+  ])('(c) still dispatches a tiny positive balance: %s', async (_label, total, paid, expected) => {
+    seedHub({ total_amount: total, paid_amount: paid })
+
+    const result = await dispatchInvoice(HUB_ID)
+
+    expect(result.status).toBe('sent')
+    expect(vi.mocked(createDibsyPayment).mock.calls[0][0].amount).toEqual({ value: expected, currency: 'QAR' })
+  })
+
+  it('(b) a row sent before the hub existed (backfill shape: sent, no sent_at, no link) is left alone', async () => {
+    const hub = seedHub({ dispatch_status: 'sent', sent_at: null, dibsy_payment_id: null, dibsy_checkout_url: null, pdf_url: null })
+
+    const result = await dispatchInvoice(HUB_ID)
+
+    expect(result).toEqual({ status: 'sent' })
+    expect(createDibsyPayment).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(renderPdf).not.toHaveBeenCalled()
+    expect(hub.sent_at).toBeNull()
+  })
+
+  it.each(['sent', 'partially_paid', 'overdue', null])('dispatches a sales invoice whose status is %s (only draft is held back)', async (status) => {
+    seedHub({ detail_table: 'so_invoices', detail_id: 'so-invoice-1', invoice_id: 'INV-00001' })
+    db.tables.so_invoices.push({ id: 'so-invoice-1', status })
+
+    expect((await dispatchInvoice(HUB_ID)).status).toBe('sent')
+  })
+
+  it('a WATI 200 that carries an error field is a failure', async () => {
+    const hub = seedHub()
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, text: async () => JSON.stringify({ error: 'invalid number' }) })
+
+    const result = await dispatchInvoice(HUB_ID)
+
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('WATI')
+    expect(hub.dispatch_status).toBe('failed')
+    expect(db.tables.chat_messages).toHaveLength(0)
+  })
+
+  it("appends to the customer's existing Contact Centre conversation instead of opening a second one", async () => {
+    seedHub()
+    db.tables.chat_conversations.push({ id: 'conv-existing', wati_phone: '+97455512345', last_message: 'hi' })
+
+    await dispatchInvoice(HUB_ID)
+
+    expect(db.tables.chat_conversations).toHaveLength(1)
+    expect(String(db.tables.chat_conversations[0].last_message)).toContain(PAYMENT.checkoutUrl)
+    expect(db.tables.chat_messages).toHaveLength(1)
+    expect(db.tables.chat_messages[0].conversation_id).toBe('conv-existing')
+    expect(String(db.tables.chat_messages[0].text)).toContain('Amount: 70.00 QAR') // the REMAINING balance, not the total
+  })
+
+  describe('a hub write that fails mid-flight', () => {
+    /** The in-memory fake never errors on its own: make hub UPDATEs matching `when` resolve with a DB error. */
+    function failHubUpdate(when: (values: Row) => boolean, message = 'connection reset') {
+      const realFrom = db.from.bind(db)
+      db.from = (table: string) => {
+        const q = realFrom(table) as unknown as { update: (v: Row) => unknown; then: unknown }
+        if (table === 'invoices') {
+          const realUpdate = q.update.bind(q)
+          q.update = (values: Row) => {
+            const chain = realUpdate(values)
+            if (when(values)) q.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: null, error: { message } }).then(res)
+            return chain
+          }
+        }
+        return q as never
+      }
+    }
+
+    it('PDF-url write fails: failed before any pay link or message exists', async () => {
+      const hub = seedHub()
+      failHubUpdate((v) => 'pdf_url' in v)
+
+      const result = await dispatchInvoice(HUB_ID)
+
+      expect(result.status).toBe('failed')
+      expect(result.error).toContain('could not update hub invoice')
+      expect(hub.dispatch_status).toBe('failed')
+      expect(createDibsyPayment).not.toHaveBeenCalled()
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('link-store write fails: failed, and the customer is not sent a link the row does not know about', async () => {
+      const hub = seedHub()
+      failHubUpdate((v) => 'dibsy_checkout_url' in v)
+
+      const result = await dispatchInvoice(HUB_ID)
+
+      expect(result.status).toBe('failed')
+      expect(result.error).toContain('could not store the Dibsy link')
+      expect(result.error).toContain('connection reset') // the real DB error, not the generic lost-race message
+      expect(hub).toMatchObject({ dispatch_status: 'failed', dibsy_checkout_url: null })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('final sent-write fails after WhatsApp went out: reported failed and recorded, never claimed sent', async () => {
+      const hub = seedHub()
+      failHubUpdate((v) => v.dispatch_status === 'sent')
+
+      const result = await dispatchInvoice(HUB_ID)
+
+      expect(result.status).toBe('failed')
+      expect(hub).toMatchObject({ dispatch_status: 'failed', sent_at: null })
+      expect(String(hub.dispatch_error)).toContain('could not update hub invoice')
+      expect(fetchMock).toHaveBeenCalledTimes(1) // at-least-once, as documented: the retry will message again
+    })
+  })
 })
