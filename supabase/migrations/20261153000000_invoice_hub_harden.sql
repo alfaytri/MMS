@@ -7,7 +7,9 @@
 -- hub tasks), so this is low-risk schema work. It adds:
 --   • PRIMARY KEY (id) + UNIQUE INDEX (detail_table, detail_id) — the upsert key the sync triggers use
 --   • detail_table / detail_id — which per-type detail row (so_invoices / tl_invoices /
---     contract_invoices + that row's id) a hub row mirrors
+--     contract_invoices + that row's id) a hub row mirrors; all-or-nothing (CHECK invoices_hub_detail_both)
+--   • legacy source / source_id / invoice_type made optional — hub rows synced from a detail
+--     table don't carry those so_invoices-era values
 --   • btree indexes on the columns the hub is filtered / joined / webhook-looked-up by
 --   • dispatch tracking: sent_at, dispatch_status (CHECK whitelist), dispatch_error
 --   • denormalised customer_name / customer_phone — the service and contract detail tables
@@ -21,8 +23,9 @@
 -- skipped by CREATE INDEX IF NOT EXISTS, leaving the hub without that index. Every
 -- hub-owned relation therefore carries an `invoices_hub_` / `idx_invoices_hub_` prefix.
 --
--- Re-runnable: columns/indexes use IF NOT EXISTS; the CHECK and the policy are dropped then
--- re-added; the PK is guarded by a catalog check; the superseded unique key is DROPped IF EXISTS.
+-- Re-runnable: columns/indexes use IF NOT EXISTS; the CHECKs and the policy are dropped then
+-- re-added; DROP NOT NULL is idempotent; the PK is guarded by a catalog check; the superseded
+-- unique key is DROPped IF EXISTS.
 --
 -- Existing callers are unaffected: the Dibsy routes and the public /pay page use the
 -- service-role client (bypasses RLS); the one browser reader (Contact Centre orders
@@ -48,15 +51,35 @@ ALTER TABLE public.invoices
 
 -- ── Detail-row key columns ──
 -- Which per-type detail row this hub row mirrors: detail_table = 'so_invoices' |
--- 'tl_invoices' | 'contract_invoices' (open-ended on purpose — no CHECK whitelist, so a new
--- invoicing module needs no schema change) and detail_id = that row's id (all three are uuid).
--- Both nullable: a row without a detail key is simply never matched by the key below.
+-- 'tl_invoices' | 'contract_invoices' (open-ended on purpose — no whitelist on the value, so a
+-- new invoicing module needs no schema change) and detail_id = that row's id (all three are uuid).
+-- Nullable, so a row can exist without a detail key (it is then simply never matched by the key
+-- below) — but all-or-nothing: a half-filled key is rejected, because NULLs are distinct in the
+-- unique index and a half key would silently dodge de-duplication.
 -- The existing `source` (invoice_source enum: sale_order / contract / quotation) and
 -- `invoice_type` (invoice_type enum: cash / credit) columns are shared with so_invoices /
 -- supplier_bills and keep that meaning — they are deliberately NOT used as the detail key.
 ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS detail_table text,
   ADD COLUMN IF NOT EXISTS detail_id    uuid;
+
+ALTER TABLE public.invoices DROP CONSTRAINT IF EXISTS invoices_hub_detail_both;
+ALTER TABLE public.invoices
+  ADD CONSTRAINT invoices_hub_detail_both
+  CHECK ((detail_table IS NULL AND detail_id IS NULL)
+      OR (detail_table IS NOT NULL AND detail_id IS NOT NULL));
+
+-- ── Legacy columns made optional ──
+-- source / source_id / invoice_type are the so_invoices-era origin and cash/credit columns. Hub
+-- rows synced from a detail table don't carry those values (the detail key above replaces them),
+-- so they must be allowed to be NULL. Safe: the hub is empty and its only dependent, the
+-- supplier_bills view, just SELECTs them. DROP NOT NULL is idempotent. NOTE: invoice_type keeps
+-- its DEFAULT 'credit' — an INSERT that omits the column still gets 'credit'; write NULL
+-- explicitly to leave it empty.
+ALTER TABLE public.invoices
+  ALTER COLUMN source       DROP NOT NULL,
+  ALTER COLUMN source_id    DROP NOT NULL,
+  ALTER COLUMN invoice_type DROP NOT NULL;
 
 -- ── Keys ──
 -- id is uuid NOT NULL DEFAULT gen_random_uuid(), so the PK is safe on a populated table
