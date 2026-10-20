@@ -9,8 +9,14 @@
 // template via the central sendWatiTemplate helper (which reads the ASSIGNED WATI
 // template from notification_config — nothing hardcoded here). Best-effort: it
 // never blocks invoice creation. Returns { ok } | { skipped } | { error }.
+//
+// Hub hand-off: the unified-invoice-hub dispatch cron (api/cron/dispatch-invoices) sends this
+// same template for every hub row (public.invoices) still `pending`. So after a SUCCESSFUL send
+// this route marks the invoice's hub row `sent` and the cron skips it - the customer gets one
+// invoice message, not two. A skipped or failed send leaves the row `pending`, so the cron can
+// still deliver it (e.g. once the template is assigned).
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { generateTlInvoicePdf } from '@/lib/orders/generate-tl-invoice-pdf'
 import { createDibsyPayment } from '@/lib/dibsy'
 import { sendWatiTemplate } from '@/lib/notifications/sendWatiTemplate'
@@ -21,6 +27,40 @@ const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const fmt = (n: number) => n.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// The hub's newer columns (detail_table, dispatch_status, sent_at, ...) are not in the generated
+// Database types (known drift - see src/lib/invoices/types.ts), so `invoices` is reached through a
+// loose handle, the same way src/lib/invoices/dispatch.ts and the dispatch cron do.
+interface LooseHubQuery extends PromiseLike<{ error: { message: string } | null }> {
+  update(values: Record<string, unknown>): LooseHubQuery
+  eq(column: string, value: unknown): LooseHubQuery
+  neq(column: string, value: unknown): LooseHubQuery
+}
+
+/**
+ * Tell the invoice hub this TL invoice has already been WhatsApp'd, so the dispatch cron (which only
+ * picks up `dispatch_status = 'pending'` rows) does not send it a second time.
+ *
+ * Guarded with `dispatch_status <> 'sent'`: a row that is already sent (the cron got there first, or
+ * this route ran twice) is left alone, so `sent_at` stays the time of the first send. Any other state
+ * (pending / failed / skipped) becomes `sent` - the customer has now been messaged.
+ *
+ * Best-effort: the invoice message has already gone out, so a failure here is logged and swallowed;
+ * it must never turn a delivered invoice into an error response.
+ */
+async function markHubInvoiceSent(supabase: SupabaseClient, tlInvoiceId: string): Promise<void> {
+  try {
+    const hub = (supabase as unknown as { from(table: string): LooseHubQuery }).from('invoices')
+    const { error } = await hub
+      .update({ dispatch_status: 'sent', sent_at: new Date().toISOString() })
+      .eq('detail_table', 'tl_invoices')
+      .eq('detail_id', tlInvoiceId)
+      .neq('dispatch_status', 'sent')
+    if (error) console.warn('[send-invoice] could not mark the hub invoice sent', tlInvoiceId, error.message)
+  } catch (e) {
+    console.warn('[send-invoice] could not mark the hub invoice sent', tlInvoiceId, e)
+  }
+}
 
 export async function POST(req: NextRequest) {
   const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
@@ -112,6 +152,10 @@ export async function POST(req: NextRequest) {
       { name: 'pay_link',       value: payLink || '-' },
     ],
   })
+
+  // 4. Hand-off to the hub - ONLY after a real, successful send. A skip (e.g. template not assigned) or
+  //    a failure leaves the hub row `pending`, so the dispatch cron can still deliver it later.
+  if ('ok' in result && result.ok === true) await markHubInvoiceSent(supabase, inv.id)
 
   return NextResponse.json(result)
 }
