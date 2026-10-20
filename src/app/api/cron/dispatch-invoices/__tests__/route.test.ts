@@ -138,24 +138,40 @@ const contractRow = (o: Row = {}) =>
 const salesRow = (o: Row = {}) =>
   hubRow({ id: 'hub-so-1', detail_table: 'so_invoices', detail_id: 'so-detail-1', invoice_id: 'INV-00042', ...o })
 
-function call(handler: typeof GET, opts: { headers?: Record<string, string>; dryRun?: boolean } = {}) {
+/** `dryRun: true` is shorthand for `?dryRun=1`; `query` is a raw query string (e.g. '?dryRun=true') for spelling tests. */
+function call(
+  handler: typeof GET,
+  opts: { headers?: Record<string, string>; dryRun?: boolean; query?: string } = {},
+) {
   const method = handler === GET ? 'GET' : 'POST'
-  return handler(new Request(opts.dryRun ? `${URL_BASE}?dryRun=1` : URL_BASE, { method, headers: opts.headers }))
+  const query = opts.query ?? (opts.dryRun ? '?dryRun=1' : '')
+  return handler(new Request(`${URL_BASE}${query}`, { method, headers: opts.headers }))
 }
 
 const dispatchedIds = () => vi.mocked(dispatchInvoice).mock.calls.map(([id]) => id)
 
+/** Open or close the env half of the gate (INVOICE_DISPATCH_ENABLED); `undefined` removes the variable. */
+function setEnvGate(value: string | undefined) {
+  if (value === undefined) delete process.env.INVOICE_DISPATCH_ENABLED
+  else process.env.INVOICE_DISPATCH_ENABLED = value
+}
+
 const ORIG_SECRET = process.env.CRON_SECRET
+const ORIG_ENV_GATE = process.env.INVOICE_DISPATCH_ENABLED
 
 beforeEach(() => {
   vi.resetAllMocks()
   process.env.CRON_SECRET = SECRET
+  // The env half of the gate is open by default so the "enabled" tests below still dispatch;
+  // the tests that exercise it turn it off themselves.
+  setEnvGate('true')
   vi.mocked(dispatchInvoice).mockResolvedValue({ status: 'sent' })
 })
 
 afterEach(() => {
   if (ORIG_SECRET === undefined) delete process.env.CRON_SECRET
   else process.env.CRON_SECRET = ORIG_SECRET
+  setEnvGate(ORIG_ENV_GATE)
 })
 
 // ─── Tests ──────────────────────────────────────────────────────────────────────
@@ -207,7 +223,8 @@ describe('cron: dispatch-invoices', () => {
     })
   })
 
-  describe('safety gate (default OFF)', () => {
+  describe('safety gates (default OFF; the config row AND the env var must both be open)', () => {
+    // These cases run with INVOICE_DISPATCH_ENABLED='true' (see beforeEach), so each one isolates the config half.
     const offCases: Array<[string, Partial<World>]> = [
       ['there is no config row', {}],
       ['the config is empty', { config: {} }],
@@ -235,6 +252,30 @@ describe('cron: dispatch-invoices', () => {
       expect(await res.json()).toMatchObject({ ok: false, error: expect.stringContaining('connection reset') })
       expect(dispatchInvoice).not.toHaveBeenCalled()
     })
+
+    // The env half: a variable nothing inside the app (no database row) can change. The config row says
+    // `enabled: true` in every case below, so the env var is the only thing between the cron and a send.
+    // Only the exact string 'true' opens it - every near miss keeps the cron off.
+    const envOffCases: Array<[string, string | undefined]> = [
+      ['unset', undefined],
+      ['"false"', 'false'],
+      ['"1"', '1'],
+      ['"TRUE" (wrong case)', 'TRUE'],
+      ['"true " (trailing space)', 'true '],
+    ]
+
+    it.each(envOffCases)(
+      'stays off with the config enabled but INVOICE_DISPATCH_ENABLED %s - reports the backlog, dispatches nothing',
+      async (_label, envValue) => {
+        setEnvGate(envValue)
+        useAdmin({ config: { enabled: true }, hub: [tlRow(), contractRow()] })
+
+        const res = await call(POST, { headers: AUTH })
+        expect(res.status).toBe(200)
+        expect(await res.json()).toEqual({ ok: true, skipped: 'disabled', pending_count: 2 })
+        expect(dispatchInvoice).not.toHaveBeenCalled()
+      },
+    )
   })
 
   describe('enabled run', () => {
@@ -349,19 +390,22 @@ describe('cron: dispatch-invoices', () => {
     })
   })
 
-  describe('?dryRun=1', () => {
+  describe('?dryRun', () => {
     it.each([true, false])(
-      'lists the pending rows and dispatches nothing (enabled: %s)',
+      'lists the pending rows and dispatches nothing (config enabled: %s)',
       async (enabled) => {
         useAdmin({ config: { enabled }, hub: [tlRow(), contractRow(), salesRow()] })
 
         const res = await call(POST, { headers: AUTH, dryRun: true })
         expect(res.status).toBe(200)
-        // Exact shape: only id / detail_table / invoice_id / customer_name per row (no phone, no pay link).
+        // Exact shape: the gate flags (env is open here, so `enabled` follows the config), then only
+        // id / detail_table / invoice_id / customer_name per row (no phone, no pay link).
         expect(await res.json()).toEqual({
           ok: true,
           mode: 'dryRun',
           enabled,
+          config_enabled: enabled,
+          env_enabled: true,
           pending_count: 2,
           pending: [
             { id: 'hub-tl-1', detail_table: 'tl_invoices', invoice_id: 'SINV_2026_10_0001', customer_name: 'Acme Trading' },
@@ -371,6 +415,54 @@ describe('cron: dispatch-invoices', () => {
         expect(dispatchInvoice).not.toHaveBeenCalled()
       },
     )
+
+    // `enabled` is the AND of the two halves, and the body names each half so an operator can see which gate is closed.
+    type GateFlags = { enabled: boolean; config_enabled: boolean; env_enabled: boolean }
+    const gateCases: Array<[string, boolean, string | undefined, GateFlags]> = [
+      ['config on, env on', true, 'true', { enabled: true, config_enabled: true, env_enabled: true }],
+      ['config on, env unset', true, undefined, { enabled: false, config_enabled: true, env_enabled: false }],
+      ['config on, env "false"', true, 'false', { enabled: false, config_enabled: true, env_enabled: false }],
+      ['config off, env on', false, 'true', { enabled: false, config_enabled: false, env_enabled: true }],
+      ['config off, env unset', false, undefined, { enabled: false, config_enabled: false, env_enabled: false }],
+    ]
+
+    it.each(gateCases)('reports which gate is closed (%s)', async (_label, configEnabled, envValue, expected) => {
+      setEnvGate(envValue)
+      useAdmin({ config: { enabled: configEnabled }, hub: [tlRow()] })
+
+      const res = await call(POST, { headers: AUTH, dryRun: true })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ mode: 'dryRun', ...expected })
+      expect(dispatchInvoice).not.toHaveBeenCalled()
+    })
+
+    // S-1: a `dryRun` param that is present is a dry run, whatever its value, so a mistyped value can never
+    // turn into a real send. Both gates are open (config enabled + env 'true') and two rows are pending, so a
+    // misread spelling would show up as dispatched rows.
+    it.each([
+      ['?dryRun=true'],
+      ['?dryRun'],
+      ['?dryRun='],
+      ['?dryRun=0'],
+      ['?dryRun=false'],
+      ['?limit=5&dryRun=yes'],
+    ])('treats %s as a dry run: lists the backlog, dispatches nothing even with both gates open', async (query) => {
+      useAdmin({ config: { enabled: true }, hub: [tlRow(), contractRow()] })
+
+      const res = await call(POST, { headers: AUTH, query })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ ok: true, mode: 'dryRun', enabled: true, pending_count: 2 })
+      expect(dispatchInvoice).not.toHaveBeenCalled()
+    })
+
+    it('only the ABSENCE of dryRun dispatches: an unrelated query string still sends', async () => {
+      useAdmin({ config: { enabled: true }, hub: [tlRow(), contractRow()] })
+
+      const res = await call(POST, { headers: AUTH, query: '?source=scheduler' })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ ok: true, enabled: true, processed: 2, sent: 2 })
+      expect(dispatchedIds()).toEqual(['hub-tl-1', 'hub-ct-1'])
+    })
 
     it('is still behind the secret', async () => {
       useAdmin({ config: { enabled: true }, hub: [tlRow()] })

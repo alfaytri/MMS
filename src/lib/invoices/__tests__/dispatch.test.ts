@@ -174,6 +174,8 @@ describe('dispatchInvoice', () => {
     process.env.WATI_API_URL = 'https://wati.test/' // trailing slash is stripped, as in create-tl-invoice
     process.env.WATI_API_TOKEN = 'wati-token'
     process.env.NEXT_PUBLIC_APP_URL = 'https://app.test'
+    // The dev redirect is off unless a test turns it on - even if the developer's shell has it set.
+    delete process.env.INVOICE_DISPATCH_TEST_NUMBER
 
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -557,6 +559,95 @@ describe('dispatchInvoice', () => {
     expect(result.status).toBe('sent') // retrying would send the customer a duplicate
     expect(hub.dispatch_status).toBe('sent')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  // ── The dev test-number redirect (INVOICE_DISPATCH_TEST_NUMBER) ──────────────────
+  // With the variable set, every WhatsApp goes to that number instead of the customer's, so a dev
+  // live-send test can never reach a real customer. It changes WHERE a message goes, never WHETHER one is sent.
+
+  describe('dev test-number redirect (INVOICE_DISPATCH_TEST_NUMBER)', () => {
+    const TEST_NUMBER = '+974 7770 0001' // formatted on purpose: only its digits are used
+    const TEST_DIGITS = '97477700001'
+    const CUSTOMER_DIGITS = '97455512345' // hubRow's customer_phone is '+97455512345'
+    const watiUrl = (digits: string) => `https://wati.test/api/v2/sendTemplateMessage?whatsappNumber=${digits}`
+
+    it('WhatsApps the test number (digits only) instead of the customer', async () => {
+      process.env.INVOICE_DISPATCH_TEST_NUMBER = TEST_NUMBER
+      const hub = seedHub()
+
+      const result = await dispatchInvoice(HUB_ID)
+
+      expect(result).toEqual({ status: 'sent', checkoutUrl: PAYMENT.checkoutUrl })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0][0]).toBe(watiUrl(TEST_DIGITS)) // and not the customer's number
+      expect(hub.dispatch_status).toBe('sent')
+    })
+
+    it("logs the message in the test number's Contact Centre conversation, never the customer's", async () => {
+      process.env.INVOICE_DISPATCH_TEST_NUMBER = TEST_NUMBER
+      seedHub()
+
+      await dispatchInvoice(HUB_ID)
+
+      // The customer never received it, so their conversation must not show a message they did not get.
+      expect(db.tables.chat_conversations.map((c) => c.wati_phone)).toEqual([`+${TEST_DIGITS}`])
+      expect(db.tables.chat_messages).toHaveLength(1)
+    })
+
+    it('warns that a dev redirect happened and names the hub invoice, without writing either number to the log', async () => {
+      process.env.INVOICE_DISPATCH_TEST_NUMBER = TEST_NUMBER
+      seedHub()
+
+      await dispatchInvoice(HUB_ID)
+
+      const warned = vi.mocked(console.warn).mock.calls.map((args) => args.join(' ')).join('\n')
+      expect(warned).toMatch(/redirect/i)
+      expect(warned).toMatch(/overrid/i)
+      expect(warned).toContain(HUB_ID)
+      expect(warned).not.toContain(CUSTOMER_DIGITS)
+      expect(warned).not.toContain(TEST_DIGITS)
+    })
+
+    it.each([
+      ['unset', undefined],
+      ['empty', ''],
+    ])('is off when the variable is %s: the customer is messaged and nothing is warned', async (_label, value) => {
+      if (value === undefined) delete process.env.INVOICE_DISPATCH_TEST_NUMBER
+      else process.env.INVOICE_DISPATCH_TEST_NUMBER = value
+      seedHub()
+
+      await dispatchInvoice(HUB_ID)
+
+      expect(fetchMock.mock.calls[0][0]).toBe(watiUrl(CUSTOMER_DIGITS))
+      expect(console.warn).not.toHaveBeenCalled()
+    })
+
+    it.each(['not a number', '+', '   '])(
+      'fails closed when the variable is set to %j (no digits): nothing is sent, and it never falls back to the customer',
+      async (value) => {
+        process.env.INVOICE_DISPATCH_TEST_NUMBER = value
+        const hub = seedHub()
+
+        const result = await dispatchInvoice(HUB_ID)
+
+        expect(result.status).toBe('failed')
+        expect(result.error).toContain('INVOICE_DISPATCH_TEST_NUMBER')
+        expect(hub.dispatch_status).toBe('failed')
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(db.tables.chat_messages).toHaveLength(0)
+      },
+    )
+
+    it('only redirects a message that would have been sent: a row with no customer phone still sends nothing', async () => {
+      process.env.INVOICE_DISPATCH_TEST_NUMBER = TEST_NUMBER
+      const hub = seedHub({ customer_phone: null })
+
+      const result = await dispatchInvoice(HUB_ID)
+
+      expect(result).toEqual({ status: 'sent', checkoutUrl: PAYMENT.checkoutUrl })
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(hub.dispatch_status).toBe('sent')
+    })
   })
 
   // ── Guards ──────────────────────────────────────────────────────────────────

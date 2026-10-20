@@ -9,18 +9,27 @@
 // a PDF and calls Dibsy + WATI. dispatchInvoice never throws; it records a failure
 // on the hub row (dispatch_error) and returns { status: 'failed' }.
 //
-// SAFETY GATE - default OFF (the opposite of reminders): app_settings key
-// `invoice_dispatch_config` -> { enabled?: boolean }. Nothing is dispatched unless
-// `enabled === true` exactly; a missing row or any other value keeps it off, and a
-// config that cannot be read fails the run (500) rather than guessing.
+// SAFETY GATES - default OFF (the opposite of reminders). A real dispatch needs BOTH:
+//   1. app_settings key `invoice_dispatch_config` -> { enabled?: boolean }, with
+//      `enabled === true` exactly. A missing row or any other value keeps it off, and a
+//      config that cannot be read fails the run (500) rather than guessing. Writing the
+//      row is admin-only (migration 20261156), but an admin is still inside the app.
+//   2. env INVOICE_DISPATCH_ENABLED === 'true' exactly. It lives outside the database,
+//      so nothing in the app can flip it; only whoever controls the deployment can.
+// Any `?dryRun` param, whatever its value, is a dry run: only its ABSENCE dispatches, so
+// a mistyped `?dryRun=true` can never become a real send.
 //
-// NOT registered in vercel.json, on purpose - manual invoke only. It stays
-// unscheduled (and its gate off) until the invoice initiative's tl_invoices
-// write-lockdown task has landed (until then tl_invoices is writable by any
-// authenticated user and syncs into the hub, so an enabled cron could be made to
-// message arbitrary numbers) and the live-send test has passed. Invoke it with the secret:
+// NOT registered in vercel.json, on purpose - manual invoke only. The tl_invoices
+// write-lockdown has landed (direct writes are denied), but create_tl_invoice still has
+// no caller authorization: any authenticated user can mint a TL invoice for any phone,
+// and it syncs into the hub, so an enabled cron could be made to message arbitrary
+// numbers. The real pre-send protection is therefore the env gate above plus the
+// INVOICE_DISPATCH_TEST_NUMBER redirect in dispatchInvoice (dev: every WhatsApp goes to
+// that number only). The cron stays unscheduled, and off, until the live-send test has
+// passed. Invoke it with the secret:
 //   POST /api/cron/dispatch-invoices            (x-cron-secret: <CRON_SECRET>)  -> dispatch
 //   POST /api/cron/dispatch-invoices?dryRun=1   -> list what is pending, send nothing
+//                                                  (the body shows each gate: config_enabled, env_enabled)
 // Only 'pending' rows are picked up: a 'failed' row is deliberately not retried
 // here (it needs a manual retry), so a permanently failing row cannot hot-loop.
 // Don't run two invocations at once: dispatchInvoice has no claim step, so two
@@ -72,10 +81,12 @@ async function handle(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
-  const dryRun = new URL(req.url).searchParams.get('dryRun') === '1'
+  // Any `dryRun` param is a dry run, whatever its value: only its ABSENCE dispatches.
+  const dryRun = new URL(req.url).searchParams.has('dryRun')
   const admin = createAdminClient()
 
-  // Safety gate: OFF unless the config says `enabled: true` (strictly boolean true).
+  // Safety gates, both OFF unless open: the config row says `enabled: true` (strictly boolean
+  // true) AND the env var is exactly 'true' - a second key the app cannot turn from inside.
   const { data: cfgRow, error: cfgError } = await admin
     .from('app_settings')
     .select('value')
@@ -87,7 +98,9 @@ async function handle(req: Request) {
       { status: 500 },
     )
   }
-  const enabled = (cfgRow?.value as { enabled?: unknown } | null | undefined)?.enabled === true
+  const configEnabled = (cfgRow?.value as { enabled?: unknown } | null | undefined)?.enabled === true
+  const envEnabled = process.env.INVOICE_DISPATCH_ENABLED === 'true'
+  const enabled = configEnabled && envEnabled
 
   const { data, error } = await hubTable(admin)
     .select('id, detail_table, detail_id, invoice_id, customer_name')
@@ -100,7 +113,8 @@ async function handle(req: Request) {
 
   if (dryRun) {
     return NextResponse.json({
-      ok: true, mode: 'dryRun', enabled, pending_count: pending.length,
+      ok: true, mode: 'dryRun', enabled, config_enabled: configEnabled, env_enabled: envEnabled,
+      pending_count: pending.length,
       pending: pending.map((r) => ({
         id: r.id, detail_table: r.detail_table, invoice_id: r.invoice_id, customer_name: r.customer_name,
       })),

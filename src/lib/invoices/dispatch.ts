@@ -34,6 +34,13 @@
  *     accepted the message, the row is recorded as failed and a retry re-sends
  *     (again with the same link).
  *
+ * Dev safety net - INVOICE_DISPATCH_TEST_NUMBER: when set, every WhatsApp goes to that
+ * number instead of the customer's (and is logged to Contact Centre under that number),
+ * so a dev live-send test cannot reach a real customer. It changes where a message goes,
+ * never whether one is sent: a row with no customer phone still sends nothing. A value
+ * with no digits in it fails the dispatch rather than falling back to the customer.
+ * Unset or empty means no redirect.
+ *
  * Failure semantics: any thrown error is caught, recorded on the row as
  * `dispatch_status='failed'` + `dispatch_error`, and returned as
  * `{ status: 'failed' }`; `dispatchInvoice` itself never throws. Unlike
@@ -140,8 +147,10 @@ async function run(admin: AdminClient, hubId: string): Promise<DispatchResult> {
   const checkoutUrl = await ensureCheckoutUrl(admin, row, remaining)
 
   // (c) WhatsApp. No phone is not a failure: the PDF and link still exist.
-  const phoneDigits = (row.customer_phone ?? '').replace(/\D/g, '')
-  if (phoneDigits) {
+  const customerDigits = (row.customer_phone ?? '').replace(/\D/g, '')
+  if (customerDigits) {
+    // Dev safety net: with INVOICE_DISPATCH_TEST_NUMBER set, the message goes there, not to the customer.
+    const phoneDigits = testNumberDigits(hubId) ?? customerDigits
     await sendPaymentMessage(admin, {
       hubId,
       phoneDigits,
@@ -161,6 +170,28 @@ async function run(admin: AdminClient, hubId: string): Promise<DispatchResult> {
     dispatch_error: null,
   })
   return { status: 'sent', checkoutUrl }
+}
+
+/**
+ * The dev redirect target (digits only), or null when the redirect is off (the variable is
+ * unset or empty). A value with no digits in it throws: that is a misconfiguration, and
+ * falling back to the customer's own number would defeat the point of the redirect. The
+ * warning names the hub invoice only - never either phone number.
+ */
+function testNumberDigits(hubId: string): string | null {
+  const configured = process.env.INVOICE_DISPATCH_TEST_NUMBER
+  if (!configured) return null
+  const digits = configured.replace(/\D/g, '')
+  if (!digits) {
+    throw new Error(
+      "INVOICE_DISPATCH_TEST_NUMBER is set but has no digits - refusing to fall back to the customer's number",
+    )
+  }
+  console.warn(
+    "[dispatch-invoice] DEV REDIRECT - INVOICE_DISPATCH_TEST_NUMBER is set, so the customer's real number was overridden for hub invoice",
+    hubId,
+  )
+  return digits
 }
 
 // ─── Hub reads / writes ─────────────────────────────────────────────────────────
