@@ -71,10 +71,12 @@ const round2 = (n: number) => Math.round(n * 100) / 100
  *   - Every write is ABSOLUTE (paid_amount = what the hub row had + this payment's amount, computed once
  *     from the row read above; never `paid_amount += amount` in SQL) and GUARDED to rows that are not yet
  *     paid / void, so of two concurrent deliveries one updates a row and the other matches zero rows.
- *   - Detail first, hub second: a failure before the detail write leaves everything untouched, and a failure
- *     after it is converged by the retry (the sync trigger has already mirrored the hub, or the gate / the
- *     guarded writes finish the job). Writing the hub first would let that retry hit the gate and never
- *     reach the detail row - and the next detail write would then revert the hub.
+ *   - Detail first, hub second: a failure before the detail write leaves everything untouched. On a FULL
+ *     settle a failure after it is converged by the retry with no double-count (the sync trigger has already
+ *     mirrored the hub, or the gate / the guarded writes finish the job). On a PARTIAL settle the retry is
+ *     NOT safe: the redundant hub write re-adds this payment's amount (see the Known limit below). Writing
+ *     the hub first would let that retry hit the gate and never reach the detail row - and the next detail
+ *     write would then revert the hub.
  *
  * The amount comes from the payment, not the invoice: the link was minted for the remaining balance at the
  * time, but a superseded link stays payable, so what was actually received is what is recorded. Anything
@@ -130,7 +132,10 @@ async function settleHubInvoice(hubId: string, payment: DibsyPayment, dibsyPayme
 
   // 1. The detail row (canonical).
   const { detail_table: detailTable, detail_id: detailId } = hub
-  const detail = detailTable ? HUB_DETAIL_TABLES[detailTable] : undefined
+  const detail =
+    detailTable && Object.prototype.hasOwnProperty.call(HUB_DETAIL_TABLES, detailTable)
+      ? HUB_DETAIL_TABLES[detailTable]
+      : undefined
   if (detailTable && detailId && detail) {
     const patch: Record<string, unknown> = {
       payment_status: paidInFull ? 'paid' : detail.partialStatus,

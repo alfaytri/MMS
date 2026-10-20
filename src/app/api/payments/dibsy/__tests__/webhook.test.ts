@@ -343,6 +343,17 @@ describe('dibsy webhook', () => {
       expect(world.tables.tl_invoices[0]).toMatchObject({ paid_amount: 100, payment_status: 'paid' })
     })
 
+    it.each([[true], [false]])(
+      'a partial payment on top of an earlier partial accumulates on hub and detail (20 + 30 of 100 -> 50) (sync trigger %s)',
+      async (syncTrigger) => {
+        const { world } = worldFor(DETAILS[0], { paid_amount: 20, payment_status: 'partially_paid' }, { paid_amount: 20, payment_status: 'partial' }, { syncTrigger })
+        hubPayment(amountOf('30.00'))
+        await deliver()
+        expect(world.tables.invoices[0]).toMatchObject({ paid_amount: 50, payment_status: 'partially_paid' })
+        expect(world.tables.tl_invoices[0]).toMatchObject({ paid_amount: 50, payment_status: 'partial' })
+      },
+    )
+
     it('records an overpayment as paid, with the actual money received', async () => {
       // The link was minted for 100; QAR 40 was then recorded by hand, and the customer still paid the link.
       const { world } = worldFor(DETAILS[0], { paid_amount: 40, payment_status: 'partially_paid' }, { paid_amount: 40, payment_status: 'partial' })
