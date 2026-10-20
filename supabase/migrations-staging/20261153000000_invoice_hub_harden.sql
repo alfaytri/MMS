@@ -5,7 +5,9 @@
 -- 36 columns, NO primary key, NO indexes, RLS OFF. No DB function or trigger reads or writes
 -- it yet (the sync triggers, backfill, dispatch cron and webhook settlement arrive in later
 -- hub tasks), so this is low-risk schema work. It adds:
---   • PRIMARY KEY (id) + UNIQUE (source, source_id) — the upsert key the sync triggers use
+--   • PRIMARY KEY (id) + UNIQUE INDEX (detail_table, detail_id) — the upsert key the sync triggers use
+--   • detail_table / detail_id — which per-type detail row (so_invoices / tl_invoices /
+--     contract_invoices + that row's id) a hub row mirrors
 --   • btree indexes on the columns the hub is filtered / joined / webhook-looked-up by
 --   • dispatch tracking: sent_at, dispatch_status (CHECK whitelist), dispatch_error
 --   • denormalised customer_name / customer_phone — the service and contract detail tables
@@ -20,7 +22,7 @@
 -- hub-owned relation therefore carries an `invoices_hub_` / `idx_invoices_hub_` prefix.
 --
 -- Re-runnable: columns/indexes use IF NOT EXISTS; the CHECK and the policy are dropped then
--- re-added; the PK / UNIQUE are guarded by catalog checks.
+-- re-added; the PK is guarded by a catalog check; the superseded unique key is DROPped IF EXISTS.
 --
 -- Existing callers are unaffected: the Dibsy routes and the public /pay page use the
 -- service-role client (bypasses RLS); the one browser reader (Contact Centre orders
@@ -44,6 +46,18 @@ ALTER TABLE public.invoices
   ADD CONSTRAINT invoices_dispatch_status_check
   CHECK (dispatch_status IN ('pending', 'sent', 'failed', 'skipped'));
 
+-- ── Detail-row key columns ──
+-- Which per-type detail row this hub row mirrors: detail_table = 'so_invoices' |
+-- 'tl_invoices' | 'contract_invoices' (open-ended on purpose — no CHECK whitelist, so a new
+-- invoicing module needs no schema change) and detail_id = that row's id (all three are uuid).
+-- Both nullable: a row without a detail key is simply never matched by the key below.
+-- The existing `source` (invoice_source enum: sale_order / contract / quotation) and
+-- `invoice_type` (invoice_type enum: cash / credit) columns are shared with so_invoices /
+-- supplier_bills and keep that meaning — they are deliberately NOT used as the detail key.
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS detail_table text,
+  ADD COLUMN IF NOT EXISTS detail_id    uuid;
+
 -- ── Keys ──
 -- id is uuid NOT NULL DEFAULT gen_random_uuid(), so the PK is safe on a populated table
 -- too (a duplicate id would abort this transaction cleanly). Guard on "any PK exists"
@@ -58,18 +72,15 @@ BEGIN
   END IF;
 END $$;
 
--- (source, source_id) identifies the detail row a hub row mirrors; both are NOT NULL, so
--- uniqueness is fully enforced and the sync triggers can upsert with ON CONFLICT (source, source_id).
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'public.invoices'::regclass AND conname = 'invoices_hub_source_source_id_key'
-  ) THEN
-    ALTER TABLE public.invoices
-      ADD CONSTRAINT invoices_hub_source_source_id_key UNIQUE (source, source_id);
-  END IF;
-END $$;
+-- (detail_table, detail_id) is the hub's upsert key: the sync triggers use
+-- ON CONFLICT (detail_table, detail_id). A plain (non-partial) unique index so that column-list
+-- inference works; NULLs are distinct, so rows without a detail key never collide.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_hub_detail ON public.invoices (detail_table, detail_id);
+
+-- Superseded key: an earlier revision of this migration (already applied to the dev DB) keyed
+-- the hub by UNIQUE (source, source_id). `source` is an enum that cannot carry the detail table
+-- name (see above), so that constraint is dropped; this is a no-op on a DB that never had it.
+ALTER TABLE public.invoices DROP CONSTRAINT IF EXISTS invoices_hub_source_source_id_key;
 
 -- ── Indexes ──
 CREATE INDEX IF NOT EXISTS idx_invoices_hub_customer_id      ON public.invoices (customer_id);
