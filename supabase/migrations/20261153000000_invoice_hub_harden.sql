@@ -2,9 +2,9 @@
 -- Design: docs/architecture/2026-10-20-unified-invoice-hub-design.md
 --
 -- public.invoices was created as the intended unified invoice hub but never hardened:
--- 36 columns, NO primary key, NO indexes, RLS OFF. Nothing in the DB reads or writes it yet
--- (the sync triggers, backfill, dispatch cron and webhook settlement arrive in later hub
--- tasks), so this is low-risk schema work. It adds:
+-- 36 columns, NO primary key, NO indexes, RLS OFF. No DB function or trigger reads or writes
+-- it yet (the sync triggers, backfill, dispatch cron and webhook settlement arrive in later
+-- hub tasks), so this is low-risk schema work. It adds:
 --   • PRIMARY KEY (id) + UNIQUE (source, source_id) — the upsert key the sync triggers use
 --   • btree indexes on the columns the hub is filtered / joined / webhook-looked-up by
 --   • dispatch tracking: sent_at, dispatch_status (CHECK whitelist), dispatch_error
@@ -24,7 +24,9 @@
 --
 -- Existing callers are unaffected: the Dibsy routes and the public /pay page use the
 -- service-role client (bypasses RLS); the one browser reader (Contact Centre orders
--- lazyFetch) runs as an authenticated user.
+-- lazyFetch) runs as an authenticated user. The only DB object built on this table is the
+-- supplier_bills view (security_invoker, direction = 'ap'); it has no readers or writers
+-- today, and through it `anon` now loses the access it incidentally had (RLS was off).
 
 BEGIN;
 
