@@ -1,8 +1,9 @@
 // Dispatch of pending hub invoices - Unified Invoice Hub, Task 6.
 //
 // Picks up the customer-facing rows of the hub (`public.invoices`) that are waiting
-// to go out - dispatch_status = 'pending' and detail_table in ('tl_invoices',
-// 'contract_invoices') - and runs each through the shared dispatchInvoice
+// to go out - dispatch_status = 'pending' and detail_table in DISPATCHABLE_DETAIL_TABLES
+// (the invoice-type registry's `dispatchable` types, src/lib/invoices/registry.ts; in v1
+// tl_invoices and contract_invoices) - and runs each through the shared dispatchInvoice
 // orchestrator (PDF -> Dibsy pay link -> WATI WhatsApp -> stamp 'sent'). The sales
 // type (so_invoices) is deliberately NOT picked up in v1: a separate business rule
 // gates it. Rows are dispatched one at a time, oldest first - each dispatch renders
@@ -37,12 +38,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { dispatchInvoice } from '@/lib/invoices/dispatch'
+// The hub types this cron dispatches (see the header for why sales is absent) come from the
+// registry, not a list kept here: a route file may only export handlers, and a second copy of
+// the types would drift the moment a new one is registered.
+import { DISPATCHABLE_DETAIL_TABLES } from '@/lib/invoices/registry'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-// The hub types this cron dispatches in v1 (see the header for why sales is absent).
-const DISPATCHABLE_DETAIL_TABLES = ['tl_invoices', 'contract_invoices'] as const
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET

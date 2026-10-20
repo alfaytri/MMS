@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { DETAIL_TABLE_FOR_TYPE } from '@/lib/invoices/registry'
 import { kindForDetailTable, type HubInvoice, type InvoiceType } from '@/lib/invoices/types'
 
 /**
@@ -49,13 +50,11 @@ export const ALL_INVOICES_LIMIT = 200
 
 /**
  * Reverse of `kindForDetailTable`: the hub `detail_table` each invoice type lives
- * in. A new `InvoiceType` fails to compile here until it is mapped.
+ * in. Derived from the invoice-type registry (`@/lib/invoices/registry`), so a new
+ * type needs no edit here; re-exported for the callers that already import it from
+ * this hook.
  */
-export const DETAIL_TABLE_FOR_TYPE: Record<InvoiceType, string> = {
-  service: 'tl_invoices',
-  sales: 'so_invoices',
-  contract: 'contract_invoices',
-}
+export { DETAIL_TABLE_FOR_TYPE }
 
 /**
  * Business line of a hub row, or null for a legacy row with no detail key (or a

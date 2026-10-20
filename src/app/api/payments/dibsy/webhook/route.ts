@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDibsyPayment, dibsyStatusToSubscriptionStatus, type DibsyPayment } from '@/lib/dibsy'
 import { verifyHmacSignature } from '@/lib/webhooks/verify'
+import { HUB_DETAIL_TABLES } from '@/lib/invoices/registry'
 
 // Dibsy webhook payload: {"resource":"payment","id":"pt_..."}
 // Status and metadata must be fetched from the Dibsy API.
@@ -43,22 +44,19 @@ interface HubRow {
   detail_id: string | null
 }
 
-/**
- * The detail tables a hub row can mirror. Each spells "partially paid" its own way (tl_/contract_invoices
- * keep a text status CHECKed to unpaid | partial | paid; so_invoices uses the hub's enum) and so_invoices
- * has no updated_at column. A new invoicing module adds one line here.
- */
-const HUB_DETAIL_TABLES: Record<string, { partialStatus: string; hasUpdatedAt: boolean }> = {
-  tl_invoices:       { partialStatus: 'partial', hasUpdatedAt: true },
-  contract_invoices: { partialStatus: 'partial', hasUpdatedAt: true },
-  // TODO: full AR-ledger reconciliation when so_invoices hub-dispatch is enabled. so_invoices.paid_amount is
-  // DERIVED from the payments ledger (invoice_recompute_paid_fn), and this direct write is not a payments row,
-  // so the next payment event on that invoice recomputes it without this card payment. The ledger path - a
-  // payments row (CPAY- id, method / method_id, customer) attached via attach_payment_to_invoice - needs
-  // values this webhook has no source for, so it is not guessed at here. Sales invoices are not dispatched
-  // in v1 (the cron selects tl_ / contract_invoices only), so this entry is defensive.
-  so_invoices:       { partialStatus: 'partially_paid', hasUpdatedAt: false },
-}
+// The detail tables a hub row can mirror, and how each is settled (its own spelling of "partially paid", and
+// whether it has an updated_at column), come from the invoice-type registry: HUB_DETAIL_TABLES in
+// src/lib/invoices/registry.ts. A new invoicing module is one registry entry, not a line here. A route file may
+// only export handlers, so the table cannot live in this file - and a second copy kept here would drift the
+// moment a type is registered (the hub settled, its detail row not).
+//
+// TODO (so_invoices): full AR-ledger reconciliation when so_invoices hub-dispatch is enabled. so_invoices.paid_amount
+// is DERIVED from the payments ledger (invoice_recompute_paid_fn), and this direct write is not a payments row,
+// so the next payment event on that invoice recomputes it without this card payment. The ledger path - a
+// payments row (CPAY- id, method / method_id, customer) attached via attach_payment_to_invoice - needs
+// values this webhook has no source for, so it is not guessed at here. Sales invoices are not dispatched
+// in v1 (the cron selects only the registry's dispatchable types, which leave so_invoices out), so the
+// so_invoices settle entry is defensive.
 
 /** Round to the fils, as dispatch does, so float noise (0.1 + 0.2) can never leave an invoice a fil short. */
 const round2 = (n: number) => Math.round(n * 100) / 100

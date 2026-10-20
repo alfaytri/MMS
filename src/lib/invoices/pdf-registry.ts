@@ -13,8 +13,10 @@
  * on the detail row when there is one (no `force`), so a second call does not
  * re-render.
  *
- * To register a new invoice kind, add it to `InvoiceType` and give it a
- * generator below; the `Record` makes the compiler enforce the pairing.
+ * To register a new invoice kind, add it to INVOICE_TYPE_REGISTRY (see
+ * `@/lib/invoices/registry`, the single source of truth) and give it a
+ * generator below; the `Record` makes the compiler enforce the pairing, and
+ * `__tests__/type-registry-consistency.test.ts` fails if one is missing.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'

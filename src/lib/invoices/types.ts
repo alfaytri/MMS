@@ -3,25 +3,18 @@
  *
  * The hub mirrors the per-business-line detail tables and is keyed on
  * (detail_table, detail_id). The business-line "kind" is NOT stored on the hub;
- * it is derived from `detail_table` by `kindForDetailTable` below.
+ * it is derived from `detail_table` by `kindForDetailTable`.
+ *
+ * The list of invoice types itself (`InvoiceType`, `kindForDetailTable` and every other
+ * per-type table) lives in `./registry`, the single source of truth - see its header for
+ * how to add a type. They are re-exported here so existing importers keep working.
  *
  * Kept free of server-only imports so client components (the All-Invoices
  * page) can use it.
  */
 
-/** Business line an invoice belongs to. Derived from the hub row's `detail_table`. */
-export type InvoiceType = 'sales' | 'service' | 'contract'
-
-/** Maps a hub row's `detail_table` to its business-line kind. */
-export function kindForDetailTable(detailTable: string): InvoiceType {
-  switch (detailTable) {
-    case 'so_invoices':       return 'sales'
-    case 'tl_invoices':       return 'service'
-    case 'contract_invoices': return 'contract'
-    default:
-      throw new Error('unknown detail_table: ' + detailTable)
-  }
-}
+export { kindForDetailTable } from './registry'
+export type { InvoiceType } from './registry'
 
 /**
  * One row of `public.invoices` as the dispatch orchestrator and the
@@ -38,7 +31,7 @@ export function kindForDetailTable(detailTable: string): InvoiceType {
  */
 export interface HubInvoice {
   id: string
-  /** Detail table this row mirrors (`so_invoices` | `tl_invoices` | `contract_invoices`); null only for legacy rows with no detail key. */
+  /** Detail table this row mirrors (one of `KNOWN_DETAIL_TABLES` in `./registry`); null only for legacy rows with no detail key. */
   detail_table: string | null
   /** Primary key of the mirrored detail row; null exactly when `detail_table` is null. */
   detail_id: string | null

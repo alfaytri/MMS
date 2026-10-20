@@ -2,6 +2,7 @@ import { createElement, type ReactNode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ALL_INVOICE_TYPES } from '@/lib/invoices/registry'
 import { kindForDetailTable, type InvoiceType } from '@/lib/invoices/types'
 import { matchRequiredPermission } from '@/lib/route-permissions'
 
@@ -273,7 +274,9 @@ describe('useAllInvoices - the result', () => {
 
 describe('DETAIL_TABLE_FOR_TYPE', () => {
   it('is the exact reverse of kindForDetailTable for every invoice type', () => {
-    const types: InvoiceType[] = ['service', 'sales', 'contract']
+    // Every registered type rather than a hard-coded list, so a new type needs no edit here. The explicit v1
+    // values are pinned in lib/invoices/__tests__/type-registry-consistency.test.ts.
+    const types: InvoiceType[] = [...ALL_INVOICE_TYPES]
     expect(Object.keys(DETAIL_TABLE_FOR_TYPE).sort()).toEqual([...types].sort())
     for (const type of types) {
       expect(kindForDetailTable(DETAIL_TABLE_FOR_TYPE[type])).toBe(type)
