@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDibsyPayment, dibsyStatusToSubscriptionStatus, type DibsyPayment } from '@/lib/dibsy'
 import { verifyHmacSignature } from '@/lib/webhooks/verify'
-import { HUB_DETAIL_TABLES } from '@/lib/invoices/registry'
+import { HUB_DETAIL_TABLES, INVOICE_TYPE_REGISTRY } from '@/lib/invoices/registry'
 
 // Dibsy webhook payload: {"resource":"payment","id":"pt_..."}
 // Status and metadata must be fetched from the Dibsy API.
@@ -31,7 +31,8 @@ interface LooseQuery extends PromiseLike<LooseResult> {
   neq(column: string, value: unknown): LooseQuery
   maybeSingle(): PromiseLike<LooseResult>
 }
-function looseFrom(admin: ReturnType<typeof createAdminClient>, table: string): LooseQuery {
+type AdminClient = ReturnType<typeof createAdminClient>
+function looseFrom(admin: AdminClient, table: string): LooseQuery {
   return (admin as unknown as { from(table: string): LooseQuery }).from(table)
 }
 
@@ -50,16 +51,229 @@ interface HubRow {
 // only export handlers, so the table cannot live in this file - and a second copy kept here would drift the
 // moment a type is registered (the hub settled, its detail row not).
 //
-// TODO (so_invoices): full AR-ledger reconciliation when so_invoices hub-dispatch is enabled. so_invoices.paid_amount
-// is DERIVED from the payments ledger (invoice_recompute_paid_fn), and this direct write is not a payments row,
-// so the next payment event on that invoice recomputes it without this card payment. The ledger path - a
-// payments row (CPAY- id, method / method_id, customer) attached via attach_payment_to_invoice - needs
-// values this webhook has no source for, so it is not guessed at here. Sales invoices are not dispatched
-// in v1 (the cron selects only the registry's dispatchable types, which leave so_invoices out), so the
-// so_invoices settle entry is defensive.
+// Sales invoices (so_invoices) are the one type settled WITHOUT writing the detail row. so_invoices.paid_amount and
+// payment_status are DERIVED from the AR payments ledger: every INSERT / UPDATE / DELETE on public.payments
+// recomputes them (trg_invoice_recompute_paid, payments_recalc_ar_status), so a paid_amount / payment_status
+// written here would be overwritten by the next payment event on that invoice and would never reach the AR
+// reports. A paid sales link is therefore recorded as what it is - a card receipt in the ledger
+// (recordSalesCardPayment) - and the database moves the invoice, and sync_invoice_hub mirrors it onto the hub row.
+// (Sales invoices are not dispatched in v1 - the cron selects only the registry's dispatchable types, which leave
+// so_invoices out - so this path is dormant until sales is enabled; it is covered by unit tests only.)
 
 /** Round to the fils, as dispatch does, so float noise (0.1 + 0.2) can never leave an invoice a fil short. */
 const round2 = (n: number) => Math.round(n * 100) / 100
+
+// ─── Sales invoices: the AR payments ledger ─────────────────────────────────────────
+
+/** The one detail table settled through the ledger instead of a status write: the registry's sales type (so_invoices). */
+const SALES_DETAIL_TABLE: string = INVOICE_TYPE_REGISTRY.sales.detailTable
+
+/**
+ * `payments.method` has to be an existing `payment_methods.slug`: the table is admin-managed data and the
+ * sync_payment_method_id trigger refuses any other value. 'pos' is the card method every environment has (the
+ * fresh-DB bootstrap seeds cash + pos, and the Team Leader invoice's two payment boxes are bound to exactly those
+ * two slugs - migration 20261070); there is no 'card' or 'dibsy' method. The AR paid totals ignore the method (the
+ * cash report reads it through payment_methods.is_cash_equivalent, false for pos; the customer statement only prints
+ * it), so this is a label: the one constant to change if the business adds a dedicated online-card method.
+ */
+const SALES_CARD_PAYMENT_METHOD = 'pos'
+
+/** Customer receipts are numbered CPAY-00001, CPAY-00002, ... by the app's own writers; there is no sequence. */
+const CPAY_PREFIX = 'CPAY-'
+/** Attempts at a free CPAY number before giving up (the 500 then makes Dibsy re-deliver). */
+const MAX_CPAY_ATTEMPTS = 3
+
+/**
+ * The business date a receipt carries: today in Qatar (UTC+3). `toISOString()` would be the previous day between
+ * 00:00 and 03:00 local, which puts a night-time card payment in the wrong day of the cash report.
+ */
+function qatarToday(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+/**
+ * The next CPAY- id, by max + 1 like useCreateCustomerPayment and rpc_redeem_credit_note. Returns null (already
+ * logged) when it cannot be worked out - a failed read, or a highest id with no number after the prefix - so a
+ * "CPAY-NaN" can never be written.
+ */
+async function nextCpayId(admin: AdminClient): Promise<string | null> {
+  const { data, error } = await admin
+    .from('payments')
+    .select('payment_id')
+    .ilike('payment_id', `${CPAY_PREFIX}%`)
+    .order('payment_id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error('[dibsy/webhook] CPAY numbering read failed', error)
+    return null
+  }
+  const last = data?.payment_id ? parseInt(data.payment_id.slice(CPAY_PREFIX.length), 10) : 0
+  if (!Number.isFinite(last)) {
+    console.error(`[dibsy/webhook] cannot number the next receipt: the highest payment id ${String(data?.payment_id)} has no number after "${CPAY_PREFIX}"`)
+    return null
+  }
+  return `${CPAY_PREFIX}${String(last + 1).padStart(5, '0')}`
+}
+
+/**
+ * A delivery that finds its receipt already in the ledger is a re-delivery. The invoice row is canonical and
+ * sync_invoice_hub mirrors it onto the hub in the same transaction as the receipt, so normally the hub is level
+ * with the invoice and NOTHING is written (and never `hub + amount`: this payment is already in both). Where the
+ * mirror did not happen - the sync trigger absent, or a first delivery that failed after recording the receipt - the
+ * hub is brought up to the invoice's own paid amount and status here, so the retry converges as it does for the other
+ * types. Only UP, and guarded like every hub write: it can neither pull a hub row backwards nor touch one that is
+ * already paid / void.
+ */
+async function catchUpHubToInvoice(
+  admin: AdminClient,
+  hubId: string,
+  hub: HubRow,
+  invoice: { paid_amount: number | null; payment_status: string },
+): Promise<NextResponse> {
+  const invoicePaid = Number(invoice.paid_amount ?? 0)
+  if (invoicePaid > Number(hub.paid_amount ?? 0)) {
+    const { error } = await looseFrom(admin, 'invoices')
+      .update({ paid_amount: invoicePaid, payment_status: invoice.payment_status, updated_at: new Date().toISOString() })
+      .eq('id', hubId)
+      .neq('payment_status', 'paid')
+      .neq('payment_status', 'void')
+    if (error) {
+      console.error('[dibsy/webhook] hub invoice update failed', error)
+      return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
+    }
+    console.log(`[dibsy/webhook] hub invoice ${hubId} brought up to its sales invoice (${invoicePaid} QAR paid, ${invoice.payment_status})`)
+  }
+  return NextResponse.json({ ok: true })
+}
+
+/**
+ * Record a PAID Dibsy payment against a sales invoice (so_invoices) as a card receipt in the AR payments ledger.
+ *
+ * Why not write the invoice, as for tl_ / contract_invoices: so_invoices.paid_amount / payment_status are derived
+ * from `payments` (see the header), so a direct write is overwritten by the next payment event on that invoice.
+ *
+ * The row, verified against the live trigger chain on `payments`:
+ *   - source_type 'invoice' + source_id <so_invoices.id>: the canonical post-invoice form. The sale-order payment
+ *     dialog writes source_type 'sale_order' and a BEFORE INSERT trigger re-points it at the SO's invoice (see
+ *     useSOPayments); this is that result, written directly, so it needs neither the SO nor that redirect. The
+ *     sync trigger then fills invoice_id, the AFTER INSERT recompute moves the invoice, and sync_invoice_hub mirrors
+ *     it onto the hub. attach_payment_to_invoice is NOT used: it refuses a receipt that is already linked, and this
+ *     one is linked from the moment it exists.
+ *   - invoice_id is deliberately NOT sent: an explicit one arms trg_payments_cap_invoice_paid, which raises on
+ *     over-allocation. This money has already been received, so it is recorded in full (the caller warns about an
+ *     overpayment, as for the other types) instead of being refused into a 500 / re-delivery loop. (That trigger
+ *     fires before trg_payments_sync_invoice_id fills invoice_id, so it does not see this row; should that order
+ *     ever change, an overpayment would fail loudly with a 500 rather than be recorded.)
+ *   - status 'completed': the gateway has captured the money. It is what the other server-side AR writer
+ *     (rpc_redeem_credit_note) writes, and the only status get_payment_summary() counts (the paid-total recompute
+ *     counts every status; the other reports count completed / pending / processing).
+ *   - amount / amount_qar the QAR amount, currency 'QAR', exchange_rate 1 (any other currency is refused below).
+ *   - customer_id the invoice's customer (the cash report joins on it); reference the Dibsy payment id, which is
+ *     both the audit trail and the idempotency key; method: see SALES_CARD_PAYMENT_METHOD.
+ *
+ * Idempotency (Dibsy re-delivers, and a 500 makes it do so on purpose): right before every insert the ledger is
+ * searched for a receipt whose `reference` is this Dibsy id - ANY row, a soft-deleted one included, because finance
+ * deleted it on purpose and a re-delivery must not bring it back - and if one exists no second receipt is written:
+ * the delivery is acked (after catchUpHubToInvoice, which writes only if the hub is behind the invoice). There is no
+ * unique key on `reference`, so two truly concurrent deliveries are held apart by UNIQUE (payment_id) instead: both
+ * read the same max + 1, the database refuses one insert (23505), and its retry finds the winner by the reference.
+ * Known limit: if an unrelated receipt commits between the two deliveries' numbering reads, AND their duplicate
+ * checks both precede both inserts, the numbers differ and both insert; closing that for good needs a unique index on
+ * payments(reference), i.e. a migration.
+ *
+ * Returns a NextResponse when the delivery is finished here (acked without applying, or failed with a 500 for Dibsy
+ * to retry), or null when the receipt was recorded - or there is no invoice to record it on - and the caller goes on
+ * to settle the hub row.
+ */
+async function recordSalesCardPayment(
+  admin: AdminClient,
+  soInvoiceId: string,
+  hubId: string,
+  hub: HubRow,
+  payment: DibsyPayment,
+  amount: number,
+  dibsyPaymentId: string,
+): Promise<NextResponse | null> {
+  // The receipt is written as QAR / rate 1; recording another currency's amount as QAR would corrupt the ledger.
+  const currency = payment.amount?.currency
+  if (currency !== 'QAR') {
+    console.error(`[dibsy/webhook] paid payment ${dibsyPaymentId} for sales invoice ${soInvoiceId} (hub ${hubId}) is in ${String(currency)}, not QAR - NOT applied, needs a manual reconcile`)
+    return NextResponse.json({ ok: true })
+  }
+
+  const { data: invoice, error: invoiceErr } = await admin
+    .from('so_invoices')
+    .select('customer_id, payment_status, paid_amount')
+    .eq('id', soInvoiceId)
+    .maybeSingle()
+  if (invoiceErr) {
+    console.error('[dibsy/webhook] so_invoices fetch failed', invoiceErr)
+    return NextResponse.json({ error: 'Invoice fetch failed' }, { status: 500 })
+  }
+  if (!invoice) {
+    console.warn(`[dibsy/webhook] so_invoices ${soInvoiceId} not found - no receipt recorded for payment ${dibsyPaymentId}; settling the hub row only (hub invoice ${hubId})`)
+    return null
+  }
+  // The detail row is the authority on 'void', even when the hub row has not caught up: the ledger recompute
+  // would turn a void invoice back into paid / partially_paid.
+  if (invoice.payment_status === 'void') {
+    console.error(`[dibsy/webhook] sales invoice ${soInvoiceId} is void but paid payment ${dibsyPaymentId} arrived - NOT applied, needs a manual refund / reconcile`)
+    return NextResponse.json({ ok: true })
+  }
+
+  for (let attempt = 1; attempt <= MAX_CPAY_ATTEMPTS; attempt++) {
+    const paymentNo = await nextCpayId(admin)
+    if (!paymentNo) return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
+
+    // The duplicate check comes AFTER the numbering read and right before the insert, so the window in which a
+    // concurrent delivery of this payment can slip in unseen is a single round trip.
+    const { data: recorded, error: recordedErr } = await admin
+      .from('payments')
+      .select('id')
+      .eq('reference', dibsyPaymentId)
+      .limit(1)
+    if (recordedErr) {
+      console.error('[dibsy/webhook] ledger lookup failed', recordedErr)
+      return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
+    }
+    if (recorded && recorded.length > 0) {
+      console.log(`[dibsy/webhook] payment ${dibsyPaymentId} is already in the AR ledger - not recorded again (a re-delivery, or a concurrent delivery that got there first)`)
+      return catchUpHubToInvoice(admin, hubId, hub, invoice)
+    }
+
+    const { error: insertErr } = await admin.from('payments').insert({
+      payment_id: paymentNo,
+      source_type: 'invoice',
+      source_id: soInvoiceId,
+      customer_id: invoice.customer_id,
+      direction: 'incoming',
+      amount,
+      amount_qar: amount,
+      currency: 'QAR',
+      exchange_rate: 1,
+      method: SALES_CARD_PAYMENT_METHOD,
+      status: 'completed',
+      date: qatarToday(),
+      reference: dibsyPaymentId,
+      notes: 'Card payment received through the Dibsy payment link',
+    })
+    if (!insertErr) {
+      console.log(`[dibsy/webhook] sales invoice ${soInvoiceId} ← ${paymentNo}: ${amount} QAR card receipt recorded in the AR ledger (payment ${dibsyPaymentId})`)
+      return null
+    }
+    if (insertErr.code === '23505' && attempt < MAX_CPAY_ATTEMPTS) {
+      console.warn(`[dibsy/webhook] ${paymentNo} was taken by a concurrent writer - retrying with a fresh number (attempt ${attempt} of ${MAX_CPAY_ATTEMPTS})`)
+      continue
+    }
+    console.error('[dibsy/webhook] payments insert failed', insertErr)
+    return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
+  }
+  // Unreachable: the last attempt always returns above.
+  return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
+}
 
 /**
  * Settle a hub invoice from a PAID Dibsy payment: record the actual amount on the detail row and the hub.
@@ -80,9 +294,15 @@ const round2 = (n: number) => Math.round(n * 100) / 100
  * time, but a superseded link stays payable, so what was actually received is what is recorded. Anything
  * short of the total is 'partially_paid'.
  *
- * Known limit: a re-delivery after a PARTIAL settle is not recognised (the row is still open, so the
- * amount would be added again). Telling deliveries apart needs a per-payment ledger / unique key, i.e. a
- * schema change; a hub link covers the full remaining balance, so a partial settle is the abnormal path.
+ * A sales invoice's "detail write" is its ledger receipt (recordSalesCardPayment), in the same order - detail
+ * first, hub second - and the receipt carries the Dibsy id, so for sales a re-delivery IS recognised, after a
+ * partial settle too: the receipt is found, nothing is added again, and the hub is only caught up to the invoice
+ * if the sync trigger had not already mirrored it (catchUpHubToInvoice).
+ *
+ * Known limit (every other type): a re-delivery after a PARTIAL settle is not recognised (the row is still
+ * open, so the amount would be added again). Telling deliveries apart needs a per-payment ledger / unique
+ * key, i.e. a schema change; a hub link covers the full remaining balance, so a partial settle is the
+ * abnormal path.
  */
 async function settleHubInvoice(hubId: string, payment: DibsyPayment, dibsyPaymentId: string): Promise<NextResponse> {
   const admin = createAdminClient()
@@ -119,6 +339,16 @@ async function settleHubInvoice(hubId: string, payment: DibsyPayment, dibsyPayme
     return NextResponse.json({ ok: true })
   }
 
+  // A sales invoice is settled through the AR ledger instead of by writing its row (see recordSalesCardPayment).
+  // That call also recognises a re-delivery, so it runs BEFORE the arithmetic below: a re-delivered part payment
+  // must neither be added to the hub again nor re-warned about as an overpayment.
+  const { detail_table: detailTable, detail_id: detailId } = hub
+  const ledgerInvoiceId = detailTable === SALES_DETAIL_TABLE && detailId ? detailId : null
+  if (ledgerInvoiceId) {
+    const finished = await recordSalesCardPayment(admin, ledgerInvoiceId, hubId, hub, payment, amount, dibsyPaymentId)
+    if (finished) return finished
+  }
+
   const total = round2(Number(hub.total_amount ?? 0))
   const newPaid = round2(Number(hub.paid_amount ?? 0) + amount)
   const paidInFull = newPaid >= total
@@ -128,13 +358,12 @@ async function settleHubInvoice(hubId: string, payment: DibsyPayment, dibsyPayme
     console.warn(`[dibsy/webhook] hub invoice ${hubId} overpaid by ${round2(newPaid - total)} QAR after payment ${dibsyPaymentId} - needs a refund / credit`)
   }
 
-  // 1. The detail row (canonical).
-  const { detail_table: detailTable, detail_id: detailId } = hub
+  // 1. The detail row (canonical) - for a sales invoice that is the ledger receipt recorded above, not a row write.
   const detail =
     detailTable && Object.prototype.hasOwnProperty.call(HUB_DETAIL_TABLES, detailTable)
       ? HUB_DETAIL_TABLES[detailTable]
       : undefined
-  if (detailTable && detailId && detail) {
+  if (!ledgerInvoiceId && detailTable && detailId && detail) {
     const patch: Record<string, unknown> = {
       payment_status: paidInFull ? 'paid' : detail.partialStatus,
       paid_amount: newPaid, // not just the status - see the note at the top of this section
@@ -157,7 +386,7 @@ async function settleHubInvoice(hubId: string, payment: DibsyPayment, dibsyPayme
       // row). Neither stops the hub being brought up to date below.
       console.warn(`[dibsy/webhook] ${detailTable} ${detailId} not updated (already settled or missing) while settling hub invoice ${hubId}`)
     }
-  } else {
+  } else if (!ledgerInvoiceId) {
     console.warn(`[dibsy/webhook] hub invoice ${hubId} has no detail sync for ${String(detailTable)} - settling the hub row only`)
   }
 
