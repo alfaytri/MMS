@@ -39,7 +39,7 @@
 - Create: `supabase/migrations-staging/20261153000000_invoice_hub_harden.sql` (identical)
 
 **Interfaces:**
-- Produces: table `public.invoices` with a PRIMARY KEY on `id`, a unique key on `(source, source_id)`, indexes on `customer_id, invoice_type, payment_status, dibsy_payment_id, sale_order_id, division, created_at`, new columns `sent_at timestamptz`, `dispatch_status text NOT NULL DEFAULT 'pending'` (CHECK in `('pending','sent','failed','skipped')`), `dispatch_error text`, `customer_name text`, `customer_phone text` (denormalized — the service/contract detail tables carry only text customer fields, and dispatch must read the phone generically from the hub), and RLS enabled with an authenticated-only policy.
+- Produces: table `public.invoices` with a PRIMARY KEY on `id` (named `invoices_hub_pkey` — `so_invoices` already owns `invoices_pkey`), indexes (`idx_invoices_hub_*`) on `customer_id, invoice_type, payment_status, dibsy_payment_id, sale_order_id, division, created_at`, new columns `sent_at timestamptz`, `dispatch_status text NOT NULL DEFAULT 'pending'` (CHECK in `('pending','sent','failed','skipped')`), `dispatch_error text`, `customer_name text`, `customer_phone text`, `detail_table text`, `detail_id uuid`, a UNIQUE INDEX on `(detail_table, detail_id)` (the hub's detail key), and RLS enabled with an authenticated-only policy. NOTE: the pre-existing `invoice_type` (enum `cash`/`credit` = payment type) and `source` (enum `sale_order`/`contract`/`quotation` = source document) are legacy columns and are NOT the hub key; the business-line kind is derived from `detail_table` in code. The legacy `source`/`source_id`/`invoice_type` are made nullable (DROP NOT NULL) so hub rows need not carry them, and a CHECK `invoices_hub_detail_both` enforces that `(detail_table, detail_id)` are both-null or both-set.
 
 - [ ] **Step 1: Write the migration**
 
@@ -66,11 +66,11 @@ git commit -m "feat(invoices): hub hardening — PK, indexes, RLS, dispatch colu
 
 **Interfaces:**
 - Consumes: the hub columns from Task 1.
-- Produces: trigger function `public.sync_invoice_hub()` and `AFTER INSERT OR UPDATE` triggers on `so_invoices`, `tl_invoices`, `contract_invoices`. Each upserts one `invoices` row keyed by `(source, source_id)` where `source` is the detail table name and `source_id` is the detail row id; sets `invoice_type`, `customer_name` + `customer_phone` (for `so_invoices`: resolve from `customer_id` via `customer_phones`; for `tl_`/`contract_invoices`: copy their `customer_name`/`customer_phone` text columns), `subtotal/discount_amount/total_amount/paid_amount`, `payment_status`, `pdf_url`, `invoice_id`/number, `division`. On a NEW row it sets `dispatch_status='pending'`; on UPDATE it leaves `dispatch_status` unless `total_amount` changed and the row is unpaid, in which case it clears the Dibsy link and re-sets `dispatch_status='pending'`.
+- Produces: trigger function `public.sync_invoice_hub()` and `AFTER INSERT OR UPDATE` triggers on `so_invoices`, `tl_invoices`, `contract_invoices`. Each upserts one `invoices` row keyed by `(detail_table, detail_id)` — `detail_table` = the per-type table name, `detail_id` = `NEW.id` — via `ON CONFLICT (detail_table, detail_id)`. It sets `direction='ar'`; `customer_name` + `customer_phone` (for `so_invoices`: resolve from `customer_id` via `customer_phones`; for `tl_`/`contract_invoices`: copy their `customer_name`/`customer_phone` text columns); `subtotal/discount_amount/total_amount/paid_amount`, `payment_status`, `pdf_url`, `invoice_id`/number, `division`; and copies `dibsy_payment_id`/`dibsy_checkout_url` from the detail row when present (`tl_`/`contract_invoices` have them) so the hub reuses an existing link rather than minting a second one. It explicitly sets the legacy `source`/`source_id`/`invoice_type` columns to NULL (so the `invoice_type` default `'credit'` never leaks onto a hub row), and the function raises an exception if `detail_table` or `detail_id` would be NULL (the key must always be set). On a NEW row it sets `dispatch_status='pending'`; on UPDATE it leaves `dispatch_status` unless `total_amount` changed and the row is unpaid, in which case it clears `dibsy_payment_id`/`dibsy_checkout_url` and re-sets `dispatch_status='pending'`. The function is `SECURITY DEFINER` with `SET search_path = public`. This migration ALSO tightens the hub RLS (safe now that the DEFINER trigger does the writes): drop Task 1's `invoices_rw FOR ALL` policy, add `invoices_hub_select FOR SELECT TO authenticated USING (true)`, and `REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.invoices FROM authenticated` — hub writes now come only from the SECURITY DEFINER trigger and service-role callers (webhook/cron/pay page). This is the write-access gate the Task 1 review flagged, and it must be in place before Task 6's cron is enabled.
 
 - [ ] **Step 1: Write the failing test (SQL, rolled back)**
 
-A `DO` block that inserts one `tl_invoices` row, then `RAISE EXCEPTION 'CHECK %', (select jsonb_build_object('type', invoice_type, 'total', total_amount, 'dispatch', dispatch_status) from invoices where source='tl_invoices' and source_id = <new id>)` to capture the synced hub row while rolling back. Expected captured: `invoice_type='service'`, `total` equal to the detail's `total_amount`, `dispatch='pending'`.
+A `DO` block that inserts one `tl_invoices` row, then `RAISE EXCEPTION 'CHECK %', (select jsonb_build_object('dt', detail_table, 'total', total_amount, 'dir', direction, 'dispatch', dispatch_status) from invoices where detail_table='tl_invoices' and detail_id = <new id>)` to capture the synced hub row while rolling back. Expected captured: `dt='tl_invoices'`, `total` equal to the detail's `total_amount`, `dir='ar'`, `dispatch='pending'`.
 
 - [ ] **Step 2: Run it against the dev DB to verify the hub row is missing**
 
@@ -78,11 +78,11 @@ Run the DO block before creating the trigger. Expected: the SELECT finds no hub 
 
 - [ ] **Step 3: Write the trigger function + triggers**
 
-The per-table column mapping is the decision — include the full `sync_invoice_hub()` body with a branch per `TG_TABLE_NAME` mapping that table's columns into the hub's common columns, and the three `CREATE TRIGGER` statements. `invoice_type` values: `so_invoices→'sales'`, `tl_invoices→'service'`, `contract_invoices→'contract'`.
+The per-table column mapping is the decision — include the full `sync_invoice_hub()` body with a branch per `TG_TABLE_NAME` mapping that table's columns into the hub's common columns, setting `detail_table = TG_TABLE_NAME`, `detail_id = NEW.id`, `direction = 'ar'`, plus the three `CREATE TRIGGER` statements. The business-line kind (sales/service/contract) is NOT stored — it is derived from `detail_table` in code (Task 4). Do not set the legacy `invoice_type`/`source` enums.
 
 - [ ] **Step 4: Apply and re-run the capture**
 
-Run the migration, then the Step-1 DO block. Expected: captured `invoice_type='service'`, matching total, `dispatch='pending'`.
+Run the migration, then the Step-1 DO block. Expected: captured `dt='tl_invoices'`, matching total, `dir='ar'`, `dispatch='pending'`.
 
 - [ ] **Step 5: Commit**
 
@@ -104,7 +104,7 @@ git commit -m "feat(invoices): detail->hub sync triggers"
 
 - [ ] **Step 1: Write the backfill**
 
-Three `INSERT INTO invoices (...) SELECT ... FROM <detail> d WHERE NOT EXISTS (SELECT 1 FROM invoices i WHERE i.source='<detail>' AND i.source_id=d.id)`, using the same column mapping as the trigger, with `dispatch_status='sent'`.
+Three `INSERT INTO invoices (...) SELECT ... FROM <detail> d WHERE NOT EXISTS (SELECT 1 FROM invoices i WHERE i.detail_table='<detail>' AND i.detail_id=d.id)`, using the same column mapping as the trigger (sets `detail_table`, `detail_id`, `direction='ar'`), with `dispatch_status='sent'`.
 
 - [ ] **Step 2: Apply and verify counts**
 
@@ -127,7 +127,7 @@ git commit -m "feat(invoices): backfill hub from existing detail tables"
 - Test: `src/lib/invoices/__tests__/pdf-registry.test.ts`
 
 **Interfaces:**
-- Produces: `type InvoiceType = 'sales' | 'service' | 'contract'` (in `types.ts`); `pdfRendererFor(type: InvoiceType): (sourceId: string) => Promise<string>` returning the stored `pdf_url`, dispatching to the existing generators (`generate-invoice-pdf` for sales, `generate-tl-invoice-pdf` for service, `generate-contract-invoice-pdf` for contract). Unknown type throws `Error('no PDF renderer for <type>')`. (Subscriptions are deferred from the hub in this phase — see Global Constraints — so they are not an `InvoiceType` here; they fold in later via the extension contract: add a `customer_subscriptions` trigger + a renderer.)
+- Produces (in `types.ts`): `type InvoiceType = 'sales' | 'service' | 'contract'`; `kindForDetailTable(detailTable: string): InvoiceType` mapping `so_invoices→'sales'`, `tl_invoices→'service'`, `contract_invoices→'contract'` (throws `Error('unknown detail_table <x>')` otherwise — this is how the hub's business-line kind is derived, since it is not stored). In `pdf-registry.ts`: `pdfRendererFor(type: InvoiceType): (detailId: string) => Promise<string>` returning the stored `pdf_url`, dispatching to the existing generators (`generate-invoice-pdf` for sales, `generate-tl-invoice-pdf` for service, `generate-contract-invoice-pdf` for contract). Unknown type throws `Error('no PDF renderer for <type>')`. First regenerate `src/types/database.types.ts` from the dev DB (the hub columns changed) and verify the generators' real signatures, adapting the wrappers to `(detailId) => Promise<pdf_url>`. (Subscriptions are deferred from the hub this phase — see Global Constraints — not an `InvoiceType` here; they fold in later via the extension contract: a `customer_subscriptions` trigger + a renderer.)
 
 - [ ] **Step 1: Write the failing test**
 
@@ -153,7 +153,7 @@ A `Record<InvoiceType, renderer>` mapping to the existing generators; throw on a
 
 **Interfaces:**
 - Consumes: `pdfRendererFor` (Task 4); `createDibsyPayment` (`src/lib/dibsy.ts`); the hub columns (Task 1).
-- Produces: `dispatchInvoice(hubId: string): Promise<{ status: 'sent' | 'skipped' | 'failed'; checkoutUrl?: string; error?: string }>`. Loads the hub row via the admin client. **Skip** (`dispatch_status='skipped'`) if `total_amount - paid_amount <= 0`. **No-op** returning `sent` if already `dispatch_status='sent'`. Otherwise: ensure `pdf_url` (call the renderer if null); ensure the Dibsy link (reuse `dibsy_checkout_url` if present and the amount is unchanged, else `createDibsyPayment` with `metadata.hub_invoice_id=hubId`, `redirectUrl=/pay/{hubId}`, `webhookUrl=/api/payments/dibsy/webhook`, store `dibsy_payment_id`+`dibsy_checkout_url`); send the WATI template to the hub row's `customer_phone` (reusing the `create-tl-invoice` send + `chat_messages` log pattern) — if no phone, skip the WhatsApp and log; set `dispatch_status='sent'`, `sent_at=now()`. On any thrown error set `dispatch_status='failed'`, `dispatch_error=<msg>`, and return `failed`.
+- Produces: `dispatchInvoice(hubId: string): Promise<{ status: 'sent' | 'skipped' | 'failed'; checkoutUrl?: string; error?: string }>`. Loads the hub row via the admin client. **Skip** (`dispatch_status='skipped'`) if `total_amount - paid_amount <= 0`. **No-op** returning `sent` if already `dispatch_status='sent'`. Otherwise: ensure `pdf_url` (if null, call `pdfRendererFor(kindForDetailTable(row.detail_table))(row.detail_id)` and store the returned url); ensure the Dibsy link (reuse `dibsy_checkout_url` if present and the amount is unchanged, else `createDibsyPayment` with `metadata.hub_invoice_id=hubId`, `redirectUrl=/pay/{hubId}`, `webhookUrl=/api/payments/dibsy/webhook`, store `dibsy_payment_id`+`dibsy_checkout_url`); send the WATI template to the hub row's `customer_phone` (reusing the `create-tl-invoice` send + `chat_messages` log pattern) — if no phone, skip the WhatsApp and log; set `dispatch_status='sent'`, `sent_at=now()`. On any thrown error set `dispatch_status='failed'`, `dispatch_error=<msg>`, and return `failed`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -178,7 +178,7 @@ With the Supabase admin client, `createDibsyPayment`, and the WATI `fetch` mocke
 
 **Interfaces:**
 - Consumes: `dispatchInvoice` (Task 5).
-- Produces: `GET`/`POST` handler that selects hub rows with `dispatch_status='pending'` and `invoice_type <> 'purchase'` (customer-facing only), calls `dispatchInvoice` for each, and returns `{ processed, sent, skipped, failed }`. Auth: the project's existing cron-secret guard (match the other `/api/cron/*` routes).
+- Produces: `GET`/`POST` handler that selects hub rows with `dispatch_status='pending'` and `detail_table IS NOT NULL` (hub-managed customer-facing rows only), calls `dispatchInvoice` for each, and returns `{ processed, sent, skipped, failed }`. Auth: the project's existing cron-secret guard (match the other `/api/cron/*` routes).
 
 - [ ] **Step 1: Write the failing test** — with `dispatchInvoice` mocked and two pending rows, the handler returns `processed: 2` and calls `dispatchInvoice` with each id.
 
@@ -200,7 +200,7 @@ With the Supabase admin client, `createDibsyPayment`, and the WATI `fetch` mocke
 
 **Interfaces:**
 - Consumes: the hub columns (Task 1).
-- Produces: a new webhook branch — when `payment.metadata.hub_invoice_id` is present and `payment.status='paid'`, update the hub row's `paid_amount` and `payment_status` (`paid` when `paid_amount >= total_amount`, else `partially_paid`), then sync the paid status to the detail row named by `source`/`source_id` (and, for `source='so_invoices'`, call the existing AR payment-status RPC so accounting stays correct). The existing `tl_invoice_id` / `batch_id` / `subscription_id` / `invoice_id` branches stay for back-compat.
+- Produces: a new webhook branch — when `payment.metadata.hub_invoice_id` is present and `payment.status='paid'`, update the hub row's `paid_amount` and `payment_status` (`paid` when `paid_amount >= total_amount`, else `partially_paid`), then sync the paid status to the detail row named by `detail_table`/`detail_id` (and, for `detail_table='so_invoices'`, call the existing AR payment-status RPC so accounting stays correct). The existing `tl_invoice_id` / `batch_id` / `subscription_id` / `invoice_id` branches stay for back-compat.
 
 - [ ] **Step 1: Write the failing test** — a `paid` webhook with `metadata.hub_invoice_id` for a hub row (total 100) → hub `payment_status='paid'`, `paid_amount=100`, and the detail row's `payment_status` updated. Mock `getDibsyPayment` + the admin client.
 
@@ -224,9 +224,9 @@ With the Supabase admin client, `createDibsyPayment`, and the WATI `fetch` mocke
 
 **Interfaces:**
 - Consumes: the hub table.
-- Produces: `useAllInvoices(filters: { type?: InvoiceType; status?: string; q?: string })` returning hub rows (`invoice_id`, `invoice_type`, customer, `total_amount`, `paid_amount`, `payment_status`, `dibsy_checkout_url`, `pdf_url`, `sent_at`); a page listing them with type/status filters and search, each row linking to its pay link + PDF.
+- Produces: `useAllInvoices(filters: { type?: InvoiceType; status?: string; q?: string })` returning hub rows (`invoice_id`, `detail_table`, customer, `total_amount`, `paid_amount`, `payment_status`, `dibsy_checkout_url`, `pdf_url`, `sent_at`); the `type` filter maps to `detail_table` via a reverse of `kindForDetailTable` (service→`tl_invoices`, sales→`so_invoices`, contract→`contract_invoices`), and the page derives the displayed kind via `kindForDetailTable(row.detail_table)`. A page listing them with type/status filters and search, each row linking to its pay link + PDF.
 
-- [ ] **Step 1: Write the failing test** — `useAllInvoices({ type: 'service' })` issues a select on `invoices` filtered to `invoice_type='service'`. Mock the Supabase client; assert the query shape.
+- [ ] **Step 1: Write the failing test** — `useAllInvoices({ type: 'service' })` issues a select on `invoices` filtered to `detail_table='tl_invoices'`. Mock the Supabase client; assert the query shape.
 
 - [ ] **Step 2: Run to verify failure** — `npx vitest run src/hooks/__tests__/useAllInvoices.test.ts` → FAIL.
 
