@@ -260,6 +260,16 @@ function PoBlock({ po }: { po: ReportShipment['pos'][number] }) {
           </div>
         </div>
       </div>
+      {po.comments.length > 0 && (
+        <div className="px-5 pb-3 pl-10 space-y-1.5">
+          {po.comments.map((c, i) => (
+            <div key={i} className="rounded-md border border-l-[3px] border-l-primary bg-muted/30 px-3 py-2 text-xs">
+              <div className="whitespace-pre-wrap break-words">{c.comment}</div>
+              <div className="text-[10px] text-muted-foreground mt-1 font-mono">— {c.by ?? 'Unknown'} · {formatDate(c.at)}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {open && (
         <div className="px-5 pb-3 pl-10">
           <table className="w-full text-xs">

@@ -65,7 +65,7 @@ export function ForecastDialog({ open, onOpenChange, forecast }: { open: boolean
 
   const pickerItems: PickerItem[] = useMemo(() => variants.map((v) => ({
     id: v.variantId, name: v.itemName, brand: v.brand, sku: v.itemSku || null,
-    category: v.catName, type: v.catType, countryName: v.countryName, imageUrl: v.imageUrl,
+    category: v.catName, categoryId: v.catId, type: v.catType, countryName: v.countryName, imageUrl: v.imageUrl,
   })), [variants])
   const selectedName = variantId ? (itemName ?? pickerItems.find((p) => p.id === variantId)?.name ?? '—') : null
 

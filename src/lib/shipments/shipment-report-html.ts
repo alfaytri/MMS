@@ -52,7 +52,8 @@ function card(s: ReportShipment): string {
     </div>`).join('')
   const reason = s.delay.isDelayed && s.delayReason
     ? `<div class="reason"><b>Delay reason — ${esc(s.delayReason)}</b></div>` : ''
-  const pos = s.pos.map((p) => `
+  const pos = s.pos.map((p) => {
+    const main = `
     <tr class="po">
       <td><span class="mono b">${esc(p.po_number)}</span>${p.supplier_name ? `<div class="sub">${esc(p.supplier_name)}</div>` : ''}</td>
       <td>${p.items.map((it) => `${esc(it.name)} <span class="sub">×${it.qty}/${it.po_qty}</span>`).join('<br>')}</td>
@@ -60,7 +61,13 @@ function card(s: ReportShipment): string {
       <td class="mono">${p.approved ? fdate(p.approved) : 'pending'}</td>
       <td class="mono r">${qar(p.value_qar)}</td>
       <td class="mono r ${(p.balance_qar ?? 0) > 0 ? 'due' : 'paid'}">${p.balance_qar == null ? '—' : p.balance_qar > 0 ? `${qar(p.balance_qar)} due` : 'paid'}</td>
-    </tr>`).join('')
+    </tr>`
+    const notes = p.comments.length ? `
+    <tr class="ponotes"><td colspan="6">
+      ${p.comments.map((c) => `<div class="note"><div class="nt">${esc(c.comment)}</div><div class="nm">&mdash; ${esc(c.by ?? 'Unknown')} &middot; ${fdate(c.at)}</div></div>`).join('')}
+    </td></tr>` : ''
+    return main + notes
+  }).join('')
   return `
   <section class="ship">
     <div class="head">
@@ -123,6 +130,9 @@ export function buildShipmentReportHtml(payload: { shipments: ReportShipment[]; 
   .reason{margin:0 14px 10px;padding:7px 11px;border-left:3px solid #d97706;background:#fbeedd;border-radius:0 5px 5px 0;font-size:11.5px} .reason b{color:#b45309}
   table.pos{width:100%;border-collapse:collapse;font-size:11px} table.pos th{background:#f2f5f7;color:#4a5866;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:6px 14px;border-top:1px solid #d7dde2}
   table.pos td{padding:7px 14px;border-top:1px solid #eceff2;vertical-align:top} .sub{font-size:10px;color:#6b7885} .due{color:#b45309;font-weight:700} .paid{color:#1f7a4d}
+  table.pos tr.ponotes td{border-top:0;padding:0 14px 8px}
+  .note{border:1px solid #dbe3ea;border-left:3px solid #0f5e73;background:#f6f9fb;border-radius:0 6px 6px 0;padding:6px 9px;margin-top:6px} .note:first-child{margin-top:0}
+  .note .nt{white-space:pre-wrap;color:#1c2733;font-size:11px} .note .nm{font-size:9.5px;color:#6b7885;margin-top:3px;font-family:"Consolas",monospace}
   .empty{color:#6b7885;text-align:center}
   .review{border:1px solid #e8c893;border-left:4px solid #d97706;border-radius:8px;background:#fdf6ec;padding:10px 14px;margin:16px 0 10px;break-inside:avoid} .review h3{margin:0 0 4px;font-size:13px;color:#b45309}
   .frow{display:flex;gap:10px;padding:5px 0;border-top:1px dashed #e8d9bf;font-size:11.5px} .frow:first-of-type{border-top:0} .frow .due{margin-left:auto;font-family:"Consolas",monospace;font-weight:700;color:#b45309}

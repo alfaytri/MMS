@@ -78,7 +78,16 @@ export type PlannedForecastLine = {
   po_number: string | null
 }
 
-export type ShipmentDetail = { shipment: Shipment; lines: ShipmentLine[]; revisions: ScheduleRevision[]; plannedForecasts: PlannedForecastLine[] }
+export type ShipmentPoComment = {
+  id: string
+  po_id: string
+  comment: string
+  created_by: string | null
+  created_by_name: string | null
+  created_at: string
+}
+
+export type ShipmentDetail = { shipment: Shipment; lines: ShipmentLine[]; revisions: ScheduleRevision[]; plannedForecasts: PlannedForecastLine[]; poComments: ShipmentPoComment[] }
 
 export type CreateShipmentPayload = {
   mode: ShipmentMode
@@ -217,7 +226,14 @@ export function useShipmentDetail(id: string | null) {
       const plannedForecasts: PlannedForecastLine[] = ((fcData as RawFc[]) ?? [])
         .filter((f) => f.status !== 'cancelled')
         .map((f) => ({ id: f.id, forecast_number: f.forecast_number, item_name: f.item_name, qty: f.qty, supplier_name: f.supplier_name, po_id: f.po_id, po_number: f.purchase_orders?.po_number ?? null }))
-      return { shipment, lines, revisions: (revData as ScheduleRevision[]) ?? [], plannedForecasts }
+      // Per-PO comment log (newest first) — grouped by po_id in the UI / report.
+      const { data: cmtData, error: cmtErr } = (await looseFrom('shipment_po_comments')
+        .select('id, po_id, comment, created_by, created_by_name, created_at')
+        .eq('shipment_id', id!)
+        .order('created_at', { ascending: false })) as LooseResult
+      if (cmtErr) throw new Error(cmtErr.message)
+      const poComments = (cmtData as ShipmentPoComment[]) ?? []
+      return { shipment, lines, revisions: (revData as ScheduleRevision[]) ?? [], plannedForecasts, poComments }
     },
   })
 }
@@ -232,7 +248,10 @@ export function useShippablePurchaseOrders(search: string) {
       let q = supabase
         .from('purchase_orders')
         .select('id, po_number, supplier_name, created_at, status')
-        .in('status', ['approved', 'partially_received'])
+        // approved + partially_received are the normal "still to ship" POs; 'received'
+        // is included so an already-received PO can be attached to a shipment purely
+        // to keep a record (and per-PO comments) against it.
+        .in('status', ['approved', 'partially_received', 'received'])
         .order('created_at', { ascending: false })
         .limit(50)
       const s = search.trim()
@@ -409,5 +428,41 @@ export function useDeleteShipment() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.shipments.all }),
+  })
+}
+
+// ─── Per-PO comment log ──────────────────────────────────────────────────────────
+// A card per entry (text + who + when), keyed by (shipment, po). created_by is the
+// author's auth id (for the author-only delete policy); created_by_name is the
+// display name denormalised at write time so the PDF prints it without a join.
+
+export function useAddPoComment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ shipment_id, po_id, comment, created_by_name }: { shipment_id: string; po_id: string; comment: string; created_by_name?: string | null }) => {
+      const { data: { user } } = await createClient().auth.getUser()
+      const { error } = (await looseFrom('shipment_po_comments').insert({
+        shipment_id, po_id, comment: comment.trim(), created_by: user?.id ?? null, created_by_name: created_by_name ?? null,
+      })) as LooseResult
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: queryKeys.shipments.detail(v.shipment_id) })
+      qc.invalidateQueries({ queryKey: ['shipment-report'] })
+    },
+  })
+}
+
+export function useDeletePoComment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; shipment_id: string }) => {
+      const { error } = (await looseFrom('shipment_po_comments').delete().eq('id', id)) as LooseResult
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: queryKeys.shipments.detail(v.shipment_id) })
+      qc.invalidateQueries({ queryKey: ['shipment-report'] })
+    },
   })
 }

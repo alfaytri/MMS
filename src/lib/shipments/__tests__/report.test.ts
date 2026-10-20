@@ -15,6 +15,7 @@ const sampleShipment: ReportShipment = {
   pos: [{
     po_id: 'p1', po_number: 'PO-2026-10-006', supplier_name: 'Safetech', requested: '2026-09-20', approved: '2026-09-25',
     value_qar: 15625, balance_qar: 5000, items: [{ name: 'Euroinox 40/50 M', sku: 'CEN-EUR-001', qty: 10, po_qty: 10 }],
+    comments: [],
   }],
 }
 
@@ -126,5 +127,14 @@ describe('buildShipmentReportHtml', () => {
   it('handles an empty report without throwing', () => {
     const html = buildShipmentReportHtml({ shipments: [] })
     expect(html).toContain('No shipments to report')
+  })
+  it('prints per-PO comment cards (text + author) when present', () => {
+    const withComment: ReportShipment = {
+      ...sampleShipment,
+      pos: [{ ...sampleShipment.pos[0], comments: [{ comment: 'Awaiting original BL from supplier', by: 'Mohammed', at: '2026-10-12T09:00:00Z' }] }],
+    }
+    const html = buildShipmentReportHtml({ shipments: [withComment], generatedAt: '2026-10-15T00:00:00Z' })
+    expect(html).toContain('Awaiting original BL from supplier')
+    expect(html).toContain('Mohammed')
   })
 })

@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Package } from 'lucide-react'
+import { Package, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ItemPhoto } from '@/components/shared/ItemPhoto'
 import { variantPickerLabel } from '@/lib/inventory/variantPickerLabel'
 import { searchRank } from '@/lib/inventory/searchRank'
 import { cn } from '@/lib/utils'
+import { useAllCategoriesFlat, buildTree, allDescendantIds, breadcrumb, type InventoryTreeNode } from '@/hooks/useInventoryTree'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,10 @@ export interface PickerItem {
   countryName?: string | null
   sku: string | null
   category: string | null
+  /** Leaf category id (inventory_categories.id). When supplied, the picker's
+   *  left column becomes the real expandable inventory tree (parent → child →
+   *  items) instead of a flat leaf list. Falls back to the flat list otherwise. */
+  categoryId?: string | null
   /** Full category breadcrumb ("Root > … > Leaf") for the item's leaf category.
    *  When present the header shows the whole classification tree instead of the
    *  flattened leaf `category`. Resolved via useVariantCategoryPaths. */
@@ -47,6 +52,8 @@ interface Props {
   fill?: boolean
 }
 
+type ItemGroup = { cat: string; name: string; variants: PickerItem[] }
+
 // ─── Dest Stock Badge ───────────────────────────────────────────────────────────
 
 function DestBadge({ destQty, reorderPoint }: { destQty: number | undefined; reorderPoint: number }) {
@@ -67,6 +74,7 @@ const TYPE_ORDER: string[] = ['products', 'spare-parts', 'consumables', 'tools']
 const TYPE_LABEL: Record<string, string> = {
   'products': 'Products', 'spare-parts': 'Spare Parts', 'consumables': 'Consumables', 'tools': 'Tools',
 }
+const UNCAT = '__uncat'
 
 export function WhItemPicker({
   items,
@@ -80,6 +88,10 @@ export function WhItemPicker({
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('__all')
   const [typeFilter, setTypeFilter] = useState<string>('__all')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  // App-wide category list → the real inventory hierarchy (parent_id chain).
+  const { data: cats = [] } = useAllCategoriesFlat()
 
   // Desktop autofocuses the search on open; touch devices wait for a tap so the
   // on-screen keyboard doesn't pop up and cover the picker (on phones the picker
@@ -100,17 +112,77 @@ export function WhItemPicker({
     [items, typeFilter],
   )
 
-  // Group by category → item name → variants
+  // Tree mode activates only when categories loaded AND items carry a leaf
+  // categoryId. Otherwise fall back to the flat-by-name category column.
+  const catById = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats])
+  const hasTree = cats.length > 0 && typedItems.some((s) => s.categoryId && catById.has(s.categoryId))
+
+  // ── Items grouped by leaf category id → item name → variants (tree mode) ──
+  const itemsByCatId = useMemo(() => {
+    const m = new Map<string, Map<string, PickerItem[]>>()
+    for (const s of typedItems) {
+      const cid = s.categoryId && catById.has(s.categoryId) ? s.categoryId : UNCAT
+      if (!m.has(cid)) m.set(cid, new Map())
+      const im = m.get(cid)!
+      const key = s.name ?? '(No name)'
+      if (!im.has(key)) im.set(key, [])
+      im.get(key)!.push(s)
+    }
+    return m
+  }, [typedItems, catById])
+
+  // Direct + subtree item counts per category (tree mode).
+  const { subtreeCount, childrenOf } = useMemo(() => {
+    const childrenOf = new Map<string | null, InventoryTreeNode[]>()
+    const tree = buildTree(cats, null)
+    const walk = (nodes: InventoryTreeNode[], parent: string | null) => {
+      childrenOf.set(parent, nodes)
+      for (const n of nodes) walk(n.children, n.id)
+    }
+    walk(tree, null)
+    const direct = (id: string) =>
+      Array.from(itemsByCatId.get(id)?.values() ?? []).reduce((s, v) => s + v.length, 0)
+    const subtreeCount = new Map<string, number>()
+    const compute = (id: string): number => {
+      const cached = subtreeCount.get(id)
+      if (cached !== undefined) return cached
+      let n = direct(id)
+      for (const ch of childrenOf.get(id) ?? []) n += compute(ch.id)
+      subtreeCount.set(id, n)
+      return n
+    }
+    for (const c of cats) compute(c.id)
+    return { subtreeCount, childrenOf }
+  }, [cats, itemsByCatId])
+
+  // Roots grouped by type, pruned to those with items somewhere in their subtree.
+  const treeByType = useMemo(() => {
+    const roots = (childrenOf.get(null) ?? []).filter((r) => (subtreeCount.get(r.id) ?? 0) > 0)
+    const byType = new Map<string, InventoryTreeNode[]>()
+    for (const r of roots) {
+      const t = r.type ?? ''
+      if (!byType.has(t)) byType.set(t, [])
+      byType.get(t)!.push(r)
+    }
+    const groups: { key: string; label: string; roots: InventoryTreeNode[] }[] = []
+    const push = (t: string) => { const r = byType.get(t); if (r?.length) groups.push({ key: t || 'other', label: TYPE_LABEL[t] ?? 'Other', roots: r }) }
+    for (const t of TYPE_ORDER) push(t)
+    for (const t of byType.keys()) if (!TYPE_ORDER.includes(t)) push(t)
+    return groups
+  }, [childrenOf, subtreeCount])
+
+  const uncatCount = useMemo(
+    () => Array.from(itemsByCatId.get(UNCAT)?.values() ?? []).reduce((s, v) => s + v.length, 0),
+    [itemsByCatId],
+  )
+
+  // ── Flat fallback grouping (callers without categoryId) ──
   const grouped = useMemo(() => {
     const byCategory = new Map<string, Map<string, PickerItem[]>>()
     for (const s of typedItems) {
       const cat = s.category ?? 'Uncategorised'
       if (!byCategory.has(cat)) byCategory.set(cat, new Map())
       const catMap = byCategory.get(cat)!
-      // Key by the item's full path + name, NOT name alone — two different items
-      // can share a name across sub-categories (e.g. "11.3 kg" under both
-      // Refrigerant › R410A and Refrigerant › R422D). categoryPath is unique per
-      // item leaf; fall back to the flat category when no path was supplied.
       const key = `${s.categoryPath ?? s.category ?? ''}||${s.name ?? '(No name)'}`
       if (!catMap.has(key)) catMap.set(key, [])
       catMap.get(key)!.push(s)
@@ -118,30 +190,18 @@ export function WhItemPicker({
     return byCategory
   }, [typedItems])
 
-  // Category column grouped by inventory item_type, in canonical order, with
-  // categories sorted A→Z within each type — so the picker mirrors the
-  // inventory tree instead of a flat by-count list.
-  const categoryGroups = useMemo(() => {
+  const flatCategoryGroups = useMemo(() => {
     const info = new Map<string, { type: string; count: number }>()
     for (const [cat, its] of grouped) {
       let type = ''
-      for (const vs of its.values()) {
-        const t = vs.find((v) => v.type)?.type
-        if (t) { type = t; break }
-      }
+      for (const vs of its.values()) { const t = vs.find((v) => v.type)?.type; if (t) { type = t; break } }
       const count = Array.from(its.values()).reduce((sum, v) => sum + v.length, 0)
       info.set(cat, { type, count })
     }
     const byType = new Map<string, { name: string; variantCount: number }[]>()
-    for (const [cat, i] of info) {
-      if (!byType.has(i.type)) byType.set(i.type, [])
-      byType.get(i.type)!.push({ name: cat, variantCount: i.count })
-    }
+    for (const [cat, i] of info) { if (!byType.has(i.type)) byType.set(i.type, []); byType.get(i.type)!.push({ name: cat, variantCount: i.count }) }
     const groups: { key: string; label: string; cats: { name: string; variantCount: number }[] }[] = []
-    const pushType = (t: string) => {
-      const cats = byType.get(t)
-      if (cats?.length) groups.push({ key: t || 'other', label: TYPE_LABEL[t] ?? 'Other', cats: cats.sort((a, b) => a.name.localeCompare(b.name)) })
-    }
+    const pushType = (t: string) => { const cats = byType.get(t); if (cats?.length) groups.push({ key: t || 'other', label: TYPE_LABEL[t] ?? 'Other', cats: cats.sort((a, b) => a.name.localeCompare(b.name)) }) }
     for (const t of TYPE_ORDER) pushType(t)
     for (const t of byType.keys()) if (!TYPE_ORDER.includes(t)) pushType(t)
     return groups
@@ -150,19 +210,16 @@ export function WhItemPicker({
   const searching = search.trim().length > 0
 
   const visibleItemGroups = useMemo(() => {
-    const result = new Map<string, { cat: string; name: string; variants: PickerItem[] }>()
+    const result = new Map<string, ItemGroup>()
+
+    // Search ignores the category selection in both modes — ranked flat results.
     if (searching) {
       const q = search.toLowerCase().trim()
-      // Rank by WHERE the query hits: exact / prefix / word-start in the item
-      // name outrank a plain substring, which outranks brand / origin / SKU /
-      // category matches. So "80" surfaces "80 Gallon…" above an item that only
-      // matches on a code. Same match set as before (any field contains q).
-      const scored = new Map<string, { cat: string; name: string; variants: PickerItem[]; score: number }>()
+      const scored = new Map<string, ItemGroup & { score: number }>()
       for (const s of typedItems) {
         const score = searchRank(q, { name: s.name, brand: s.brand, origin: s.countryName, sku: s.sku, category: s.category })
         if (score < 0) continue
-        // Unique per item: full path + name (see the grouping note above).
-        const key = `${s.categoryPath ?? s.category ?? ''}||${s.name ?? ''}`
+        const key = `${s.categoryId ?? s.categoryPath ?? s.category ?? ''}||${s.name ?? ''}`
         const g = scored.get(key)
         if (!g) scored.set(key, { cat: s.category ?? '', name: s.name ?? '', variants: [s], score })
         else { g.variants.push(s); if (score < g.score) g.score = score }
@@ -172,21 +229,34 @@ export function WhItemPicker({
       }
       return result
     }
-    if (selectedCategory === '__all') {
-      for (const [cat, its] of grouped) {
-        for (const [ikey, variants] of its) {
-          result.set(`${cat}||${ikey}`, { cat, name: variants[0]?.name ?? '(No name)', variants })
+
+    if (hasTree) {
+      // The selected category's whole subtree (node + all descendants), or all.
+      const ids = selectedCategory === '__all'
+        ? null
+        : selectedCategory === UNCAT
+          ? [UNCAT]
+          : [selectedCategory, ...allDescendantIds(selectedCategory, cats)]
+      const want = (cid: string) => ids === null || ids.includes(cid)
+      for (const [cid, im] of itemsByCatId) {
+        if (!want(cid)) continue
+        for (const [name, variants] of im) {
+          result.set(`${cid}||${name}`, { cat: variants[0]?.category ?? '', name, variants })
         }
       }
       return result
     }
+
+    // Flat mode
+    if (selectedCategory === '__all') {
+      for (const [cat, its] of grouped) for (const [ikey, variants] of its) result.set(`${cat}||${ikey}`, { cat, name: variants[0]?.name ?? '(No name)', variants })
+      return result
+    }
     const catMap = grouped.get(selectedCategory)
     if (!catMap) return result
-    for (const [ikey, variants] of catMap) {
-      result.set(`${selectedCategory}||${ikey}`, { cat: selectedCategory, name: variants[0]?.name ?? '(No name)', variants })
-    }
+    for (const [ikey, variants] of catMap) result.set(`${selectedCategory}||${ikey}`, { cat: selectedCategory, name: variants[0]?.name ?? '(No name)', variants })
     return result
-  }, [searching, search, selectedCategory, grouped, typedItems])
+  }, [searching, search, selectedCategory, hasTree, grouped, itemsByCatId, typedItems, cats])
 
   // If the active type filter is no longer present (e.g. items changed after a
   // warehouse switch), fall back to All so the list can't get stuck empty.
@@ -196,13 +266,49 @@ export function WhItemPicker({
 
   const totalItems = typedItems.length
 
+  function toggle(id: string) {
+    setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  }
+
+  // Recursive category tree row (tree mode).
+  function renderNode(node: InventoryTreeNode, depth: number): React.ReactNode {
+    const count = subtreeCount.get(node.id) ?? 0
+    if (count === 0) return null
+    const kids = (childrenOf.get(node.id) ?? []).filter((c) => (subtreeCount.get(c.id) ?? 0) > 0)
+    const hasKids = kids.length > 0
+    const isOpen = expanded.has(node.id)
+    const isActive = selectedCategory === node.id
+    return (
+      <div key={node.id}>
+        <div
+          className={cn(
+            'w-full flex items-center gap-1 pr-2 text-[11px] hover:bg-accent/50 border-l-2 transition-colors',
+            isActive ? 'bg-primary/10 text-primary font-medium border-primary' : 'border-transparent',
+          )}
+          style={{ paddingLeft: 6 + depth * 12 }}
+        >
+          {hasKids ? (
+            <button type="button" onClick={() => toggle(node.id)} aria-label={isOpen ? 'Collapse' : 'Expand'} className="p-0.5 -ml-0.5 shrink-0 text-muted-foreground hover:text-foreground">
+              <ChevronRight className={cn('h-3 w-3 transition-transform', isOpen && 'rotate-90')} />
+            </button>
+          ) : (
+            <span className="w-3 shrink-0" />
+          )}
+          <button type="button" onClick={() => setSelectedCategory(node.id)} className="flex-1 min-w-0 py-2 text-left flex items-center justify-between gap-2">
+            <span className="truncate">{node.name_en}</span>
+            <span className="text-[9px] text-muted-foreground shrink-0">{count}</span>
+          </button>
+        </div>
+        {hasKids && isOpen && kids.map((c) => renderNode(c, depth + 1))}
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn(
         'flex flex-col bg-popover',
-        fill
-          ? 'h-full w-full'
-          : 'h-[min(480px,var(--available-height,85vh))] w-[720px] max-w-[92vw]',
+        fill ? 'h-full w-full' : 'h-[min(480px,var(--available-height,85vh))] w-[720px] max-w-[92vw]',
       )}
     >
       {/* Search bar + item-type quick filter */}
@@ -225,9 +331,7 @@ export function WhItemPicker({
                   type="button"
                   onClick={() => { setTypeFilter(t); setSelectedCategory('__all') }}
                   className={`px-2 py-0.5 rounded-full text-[10px] border transition-colors ${
-                    active
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background text-muted-foreground border-border hover:bg-accent/50'
+                    active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-accent/50'
                   }`}
                 >
                   {t === '__all' ? 'All' : (TYPE_LABEL[t] ?? t)}
@@ -241,7 +345,7 @@ export function WhItemPicker({
       <div className="flex-1 flex min-h-0">
         {/* Category column */}
         {!searching && (
-          <div className="w-[150px] sm:w-[180px] border-r overflow-y-auto shrink-0">
+          <div className="w-[160px] sm:w-[200px] border-r overflow-y-auto shrink-0">
             <button
               type="button"
               onClick={() => setSelectedCategory('__all')}
@@ -252,29 +356,51 @@ export function WhItemPicker({
               <span>All items</span>
               <span className="text-[9px] text-muted-foreground">{totalItems}</span>
             </button>
-            {categoryGroups.map((g) => (
-              <div key={g.key}>
-                <div className="px-3 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-                  {g.label}
+
+            {hasTree ? (
+              <>
+                {treeByType.map((g) => (
+                  <div key={g.key}>
+                    <div className="px-3 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70">{g.label}</div>
+                    {g.roots.map((r) => renderNode(r, 0))}
+                  </div>
+                ))}
+                {uncatCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory(UNCAT)}
+                    className={`w-full px-3 py-2 text-left text-[11px] flex items-center justify-between hover:bg-accent/50 border-l-2 transition-colors ${
+                      selectedCategory === UNCAT ? 'bg-primary/10 text-primary font-medium border-primary' : 'border-transparent'
+                    }`}
+                  >
+                    <span className="text-muted-foreground">Uncategorised</span>
+                    <span className="text-[9px] text-muted-foreground">{uncatCount}</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              flatCategoryGroups.map((g) => (
+                <div key={g.key}>
+                  <div className="px-3 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/70">{g.label}</div>
+                  {g.cats.map((c) => {
+                    const isActive = selectedCategory === c.name
+                    return (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onClick={() => setSelectedCategory(c.name)}
+                        className={`w-full px-3 py-2 text-left text-[11px] flex items-center justify-between hover:bg-accent/50 border-l-2 transition-colors ${
+                          isActive ? 'bg-primary/10 text-primary font-medium border-primary' : 'border-transparent'
+                        }`}
+                      >
+                        <span className="truncate pr-2">{c.name}</span>
+                        <span className="text-[9px] text-muted-foreground shrink-0">{c.variantCount}</span>
+                      </button>
+                    )
+                  })}
                 </div>
-                {g.cats.map((c) => {
-                  const isActive = selectedCategory === c.name
-                  return (
-                    <button
-                      key={c.name}
-                      type="button"
-                      onClick={() => setSelectedCategory(c.name)}
-                      className={`w-full px-3 py-2 text-left text-[11px] flex items-center justify-between hover:bg-accent/50 border-l-2 transition-colors ${
-                        isActive ? 'bg-primary/10 text-primary font-medium border-primary' : 'border-transparent'
-                      }`}
-                    >
-                      <span className="truncate pr-2">{c.name}</span>
-                      <span className="text-[9px] text-muted-foreground shrink-0">{c.variantCount}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 
@@ -283,37 +409,26 @@ export function WhItemPicker({
           {visibleItemGroups.size === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-1.5 p-4">
               <Package className="h-8 w-8 opacity-30" />
-              <p className="text-[11px]">
-                {searching ? 'No items match your search' : 'No items in this category'}
-              </p>
+              <p className="text-[11px]">{searching ? 'No items match your search' : 'No items in this category'}</p>
             </div>
           ) : (
             <div className="divide-y divide-border">
               {Array.from(visibleItemGroups.entries()).map(([groupKey, { cat, name, variants }]) => {
-                // Every variant of the same item shares the same photo
-                // (it lives on inventory_items). Grab it from the first
-                // variant that has one.
                 const itemImageUrl = variants.find((v) => v.imageUrl)?.imageUrl ?? null
-                // Whole classification tree for the header. Prefer the full
-                // breadcrumb ("Root > … > Leaf", resolved via categoryPath — all
-                // variants of an item share it); fall back to the flat leaf
-                // category when a path hasn't been supplied. Wraps (never
-                // truncates) and stays tiny so the whole tree fits.
-                const fullPath = variants.find((v) => v.categoryPath)?.categoryPath ?? null
+                // Header breadcrumb: prefer an explicit categoryPath prop; else, in
+                // tree mode, derive the real breadcrumb from the item's leaf
+                // categoryId; else fall back to the flat leaf category name.
+                const leafId = variants.find((v) => v.categoryId)?.categoryId ?? null
+                const fullPath = variants.find((v) => v.categoryPath)?.categoryPath
+                  ?? (hasTree && leafId && catById.has(leafId) ? breadcrumb(leafId, cats) : null)
                 const headerPath = fullPath ?? (cat || null)
-                // Show the full tree whenever we actually have the breadcrumb —
-                // including inside a specific category (the ancestry is still
-                // useful there). The flat leaf-name fallback stays hidden while
-                // you're already in that category (it would just repeat the sidebar).
                 const showCatLabel = !!fullPath || searching || selectedCategory === '__all'
                 return (
                   <div key={groupKey} className="px-3 py-2 space-y-1.5">
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         {showCatLabel && headerPath && (
-                          <span className="block text-[9px] leading-snug text-muted-foreground tracking-wide break-words">
-                            {headerPath}
-                          </span>
+                          <span className="block text-[9px] leading-snug text-muted-foreground tracking-wide break-words">{headerPath}</span>
                         )}
                         <p className="text-[11px] font-medium break-words">{name}</p>
                       </div>
@@ -325,12 +440,7 @@ export function WhItemPicker({
                         const isUsedElsewhere = !isSelected && selectedIds?.has(v.id)
                         const rp = v.reorderPoint ?? 0
                         const qty = v.qty
-                        // Stock tier — only when qty is known
-                        const tier = qty === undefined ? 'none' :
-                          qty === 0 ? 'out' :
-                          qty <= 2 ? 'crit' :
-                          qty <= (rp || 5) ? 'low' :
-                          'ok'
+                        const tier = qty === undefined ? 'none' : qty === 0 ? 'out' : qty <= 2 ? 'crit' : qty <= (rp || 5) ? 'low' : 'ok'
                         const tierCls =
                           tier === 'none' ? 'bg-muted/30 text-foreground ring-border' :
                           tier === 'out' ? 'bg-muted/40 text-muted-foreground ring-border' :
@@ -355,14 +465,10 @@ export function WhItemPicker({
                               {vlabel.origin && <span className="font-normal opacity-70"> · {vlabel.origin}</span>}
                             </span>
                             {showQty && qty !== undefined && (
-                              <span className="px-1.5 py-1 bg-background/60 border-l border-current/20 tabular-nums font-bold min-w-[26px] text-center">
-                                {qty}
-                              </span>
+                              <span className="px-1.5 py-1 bg-background/60 border-l border-current/20 tabular-nums font-bold min-w-[26px] text-center">{qty}</span>
                             )}
                             {showDestBadge && (
-                              <span className="px-1 py-1">
-                                <DestBadge destQty={v.destQty} reorderPoint={rp} />
-                              </span>
+                              <span className="px-1 py-1"><DestBadge destQty={v.destQty} reorderPoint={rp} /></span>
                             )}
                           </button>
                         )

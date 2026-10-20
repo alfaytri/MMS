@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Plane, Ship, Truck, PenLine, Trash2, MapPin, CircleDot, X } from 'lucide-react'
+import { Plane, Ship, Truck, PenLine, Trash2, MapPin, CircleDot, X, MessageSquare } from 'lucide-react'
 import { humanizeDbError } from '@/lib/dbErrors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -20,9 +21,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/queryKeys'
 import {
   useShipmentDetail, useUpdateShipmentStatus, useDeleteShipment, useAddScheduleRevision,
-  useUpdateShipmentLineQty, useRemoveShipmentLine, useAddShipmentLines,
-  type ShipmentMode, type ShipmentStatus, type ScheduleLeg, type ScheduleRevisionType, type ShipmentEvent, type ShipmentLine, type PlannedForecastLine,
+  useUpdateShipmentLineQty, useRemoveShipmentLine, useAddShipmentLines, useAddPoComment, useDeletePoComment,
+  type ShipmentMode, type ShipmentStatus, type ScheduleLeg, type ScheduleRevisionType, type ShipmentEvent, type ShipmentLine, type PlannedForecastLine, type ShipmentPoComment,
 } from '@/hooks/useShipments'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { createClient } from '@/lib/supabase/client'
 import { legHistory } from '@/lib/shipments/schedule'
 import { useVariantItemMeta } from '@/hooks/useVariantCategoryPaths'
@@ -90,7 +92,7 @@ export function ShipmentDetailDialog({ shipmentId, onClose }: { shipmentId: stri
               <Separator />
               <div className="px-6 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
                 {data.plannedForecasts.length > 0 && <PlannedForecastSection plannedForecasts={data.plannedForecasts} shipmentId={s.id} status={s.status} existingLineIds={new Set(data.lines.map((l) => l.po_line_item_id))} />}
-                <PoSection lines={data.lines} shipmentId={s.id} />
+                <PoSection lines={data.lines} shipmentId={s.id} poComments={data.poComments} />
                 <StageTracker shipmentId={s.id} status={s.status} events={s.events} revisions={data.revisions} />
                 <ScheduleSection shipmentId={s.id} etd={s.etd} eta={s.eta} etdActual={s.etd_actual} etaActual={s.eta_actual} revisions={data.revisions} />
               </div>
@@ -205,7 +207,7 @@ function PlannedForecastSection({ plannedForecasts, shipmentId, status, existing
   )
 }
 
-function PoSection({ lines, shipmentId }: { lines: ShipmentLine[]; shipmentId: string }) {
+function PoSection({ lines, shipmentId, poComments }: { lines: ShipmentLine[]; shipmentId: string; poComments: ShipmentPoComment[] }) {
   const updateQty = useUpdateShipmentLineQty()
   const removeLine = useRemoveShipmentLine()
   // Full category tree (tag › category › … › leaf) + brand + origin per line's
@@ -220,6 +222,12 @@ function PoSection({ lines, shipmentId }: { lines: ShipmentLine[]; shipmentId: s
     }
     return Array.from(m.entries())
   }, [lines])
+  // Comment cards grouped by PO (already newest-first from the query).
+  const commentsByPo = useMemo(() => {
+    const m = new Map<string, ShipmentPoComment[]>()
+    for (const c of poComments) { const a = m.get(c.po_id) ?? []; a.push(c); m.set(c.po_id, a) }
+    return m
+  }, [poComments])
 
   return (
     <div>
@@ -250,6 +258,7 @@ function PoSection({ lines, shipmentId }: { lines: ShipmentLine[]; shipmentId: s
                   </div>
                 </div>
               ))}
+              <PoComments shipmentId={shipmentId} poId={poId} comments={commentsByPo.get(poId) ?? []} />
             </div>
           )
         })}
@@ -257,6 +266,61 @@ function PoSection({ lines, shipmentId }: { lines: ShipmentLine[]; shipmentId: s
     </div>
   )
 }
+
+// Per-PO comment log: a card per entry (text + who + when) that prints on the
+// shipment PDF. Anyone who can see the shipment can add; author can delete their own.
+function PoComments({ shipmentId, poId, comments }: { shipmentId: string; poId: string; comments: ShipmentPoComment[] }) {
+  const me = useCurrentUser().data
+  const add = useAddPoComment()
+  const del = useDeletePoComment()
+  const [text, setText] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  function submit() {
+    const t = text.trim()
+    if (!t) return
+    add.mutate({ shipment_id: shipmentId, po_id: poId, comment: t, created_by_name: me?.name ?? null }, {
+      onSuccess: () => { setText(''); setAdding(false) },
+      onError: (e) => toast.error(humanizeDbError(e)),
+    })
+  }
+
+  return (
+    <div className="border-t bg-muted/20 px-3 py-2.5 space-y-2">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        <MessageSquare className="h-3 w-3" /> Comments for PDF{comments.length > 0 && <span className="text-muted-foreground/70"> · {comments.length}</span>}
+      </div>
+      {comments.length > 0 && (
+        <div className="space-y-1.5">
+          {comments.map((c) => (
+            <div key={c.id} className="group/cmt rounded-md border bg-background px-2.5 py-1.5 text-xs">
+              <div className="flex items-start gap-2">
+                <div className="whitespace-pre-wrap break-words flex-1">{c.comment}</div>
+                {me?.id && c.created_by === me.id && (
+                  <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 text-muted-foreground opacity-0 group-hover/cmt:opacity-100 hover:text-destructive" aria-label="Delete comment"
+                    onClick={() => del.mutate({ id: c.id, shipment_id: shipmentId }, { onError: (e) => toast.error(humanizeDbError(e)) })}><X className="h-3 w-3" /></Button>
+                )}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{c.created_by_name ?? 'Unknown'} · {formatDate(c.created_at)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <div className="space-y-1.5">
+          <Textarea autoFocus rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Note about this PO — prints on the shipment PDF" className="text-xs" />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" className="h-7" onClick={() => { setAdding(false); setText('') }}>Cancel</Button>
+            <Button size="sm" className="h-7" disabled={add.isPending || !text.trim()} onClick={submit}>{add.isPending ? 'Adding…' : 'Add comment'}</Button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} className="text-xs text-primary hover:underline">+ Add comment</button>
+      )}
+    </div>
+  )
+}
+
 function ScheduleSection({ shipmentId, etd, eta, etdActual, etaActual, revisions }: {
   shipmentId: string; etd: string | null; eta: string | null; etdActual: string | null; etaActual: string | null
   revisions: { leg: ScheduleLeg; revision_type: ScheduleRevisionType; date_value: string; reason: string | null; created_at: string }[]

@@ -169,7 +169,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; on
                   <CommandInput placeholder="Search PO # or supplier…" value={search} onValueChange={setSearch} />
                   <CommandGroup className="max-h-64 overflow-y-auto">
                     {posLoading && <div className="px-2 py-3 text-xs text-center text-muted-foreground">Loading…</div>}
-                    {!posLoading && options.length === 0 && <CommandEmpty>No open POs match.</CommandEmpty>}
+                    {!posLoading && options.length === 0 && <CommandEmpty>No POs match.</CommandEmpty>}
                     {options.map((po) => (
                       <CommandItem key={po.id} value={po.id} onSelect={() => addPo(po)} className="text-xs">
                         <Check className="mr-2 h-3 w-3 opacity-0" />
@@ -181,7 +181,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: { open: boolean; on
                     ))}
                   </CommandGroup>
                   <div className="border-t px-2 py-1 text-[10px] text-center text-muted-foreground">
-                    Showing up to 50 open POs — keep typing to narrow
+                    Showing up to 50 POs — keep typing to narrow
                   </div>
                 </Command>
               </PopoverContent>

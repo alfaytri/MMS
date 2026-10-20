@@ -352,11 +352,23 @@ export function useAllBrandVariantsGrouped(enabled = true) {
     enabled,
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('inventory_item_brand_variants')
-        .select('id, brand, cost_price, country_codes(name), inventory_items(id, name_en, sku, image_url, inventory_categories(id, name_en, type))')
-        .order('brand')
-      if (error) throw error
+      // Page through ALL variants — PostgREST caps a plain select at 1000 rows,
+      // which silently dropped everything past the 1000th (there are ~1100), so
+      // those items never reached the picker. Order by (brand, id) for a stable
+      // cursor across pages (brand alone isn't unique → page gaps/overlap).
+      const PAGE = 1000
+      const data: unknown[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data: page, error } = await supabase
+          .from('inventory_item_brand_variants')
+          .select('id, brand, cost_price, country_codes(name), inventory_items(id, name_en, sku, image_url, inventory_categories(id, name_en, type))')
+          .order('brand')
+          .order('id')
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        data.push(...(page ?? []))
+        if (!page || page.length < PAGE) break
+      }
       const rows = (data ?? []) as Array<{
         id: string
         brand: string

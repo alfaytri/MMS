@@ -45,6 +45,9 @@ export function computeDelay(args: {
 
 export type ReportItem = { name: string; sku: string | null; qty: number; po_qty: number }
 
+/** One per-PO comment card (shown under its PO on screen + printed on the PDF). */
+export type ReportPoComment = { comment: string; by: string | null; at: string }
+
 export type ReportPO = {
   po_id: string
   po_number: string
@@ -54,6 +57,7 @@ export type ReportPO = {
   value_qar: number | null    // purchase_orders.total_qar
   balance_qar: number | null  // total_qar − Σ outgoing payments
   items: ReportItem[]
+  comments: ReportPoComment[] // per-PO comment log (newest first)
 }
 
 export type ReportShipment = {

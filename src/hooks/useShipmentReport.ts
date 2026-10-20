@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { computeDelay, type ReportShipment, type ReportPO } from '@/lib/shipments/report'
+import { computeDelay, type ReportShipment, type ReportPO, type ReportPoComment } from '@/lib/shipments/report'
 import type { ShipmentStatus, ShipmentMode, ShipmentEvent } from '@/hooks/useShipments'
 
 // Shipment tables aren't in the generated Database types yet (see useShipments.ts),
@@ -12,14 +12,17 @@ function looseFrom(t: string): any { return (createClient().from as unknown as (
 
 const SELECT =
   'id, shipment_number, tracking_number, mode, carrier, status, etd, eta, etd_actual, eta_actual, events, created_at, ' +
-  'shipment_line_items( id, qty, po_line_items( id, po_id, item_name, sku, qty, purchase_orders( po_number, supplier_name ) ) )'
+  'shipment_line_items( id, qty, po_line_items( id, po_id, item_name, sku, qty, purchase_orders( po_number, supplier_name ) ) ), ' +
+  'shipment_po_comments( po_id, comment, created_by_name, created_at )'
 
 type RawPoLine = { id: string; po_id: string; item_name: string; sku: string | null; qty: number; purchase_orders: { po_number: string; supplier_name: string | null } | null }
 type RawLine = { id: string; qty: number; po_line_items: RawPoLine | null }
+type RawComment = { po_id: string; comment: string; created_by_name: string | null; created_at: string }
 type RawShip = {
   id: string; shipment_number: string; tracking_number: string | null; mode: ShipmentMode; carrier: string | null
   status: ShipmentStatus; etd: string | null; eta: string | null; etd_actual: string | null; eta_actual: string | null
   events: ShipmentEvent[] | null; created_at: string; shipment_line_items: RawLine[] | null
+  shipment_po_comments: RawComment[] | null
 }
 
 function currentLocation(events: ShipmentEvent[]): string | null {
@@ -81,6 +84,15 @@ export function useShipmentReport() {
         const etaUpdates = srevs.filter((r) => r.leg === 'eta' && r.revision_type === 'updated' && r.reason)
         const delayReason = etaUpdates.length ? etaUpdates[etaUpdates.length - 1].reason : null
 
+        // Per-PO comment cards (newest first) for this shipment.
+        const cmtByPo = new Map<string, ReportPoComment[]>()
+        for (const c of s.shipment_po_comments ?? []) {
+          const a = cmtByPo.get(c.po_id) ?? []
+          a.push({ comment: c.comment, by: c.created_by_name, at: c.created_at })
+          cmtByPo.set(c.po_id, a)
+        }
+        for (const a of cmtByPo.values()) a.sort((x, y) => y.at.localeCompare(x.at))
+
         const poMap = new Map<string, ReportPO>()
         for (const l of s.shipment_line_items ?? []) {
           const pli = l.po_line_items
@@ -94,6 +106,7 @@ export function useShipmentReport() {
               po_id: pli.po_id, po_number: pli.purchase_orders?.po_number ?? '—', supplier_name: pli.purchase_orders?.supplier_name ?? null,
               requested: meta?.requested ?? null, approved: approvedByPo.get(pli.po_id) ?? null,
               value_qar: value, balance_qar: value != null ? value - paid : null, items: [],
+              comments: cmtByPo.get(pli.po_id) ?? [],
             }
             poMap.set(pli.po_id, po)
           }
