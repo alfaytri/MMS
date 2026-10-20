@@ -104,7 +104,7 @@ git commit -m "feat(invoices): detail->hub sync triggers"
 
 - [ ] **Step 1: Write the backfill**
 
-Three `INSERT INTO invoices (...) SELECT ... FROM <detail> d WHERE NOT EXISTS (SELECT 1 FROM invoices i WHERE i.detail_table='<detail>' AND i.detail_id=d.id)`, using the same column mapping as the trigger (sets `detail_table`, `detail_id`, `direction='ar'`), with `dispatch_status='sent'`.
+Three `INSERT INTO invoices (...) SELECT ... FROM <detail> d WHERE NOT EXISTS (SELECT 1 FROM invoices i WHERE i.detail_table='<detail>' AND i.detail_id=d.id)`, with `dispatch_status='sent'` and `created_at` taken from the detail row (so historical rows keep their real invoice date). Read `sync_invoice_hub` first and match its per-table mapping exactly (detail_table, detail_id, direction='ar', legacy enums NULL, the 'partial'→'partially_paid' map, issued/due-date derivation, spare-parts subtotal, dibsy copy) so backfilled rows are identical to trigger-produced ones.
 
 - [ ] **Step 2: Apply and verify counts**
 
@@ -153,7 +153,7 @@ A `Record<InvoiceType, renderer>` mapping to the existing generators; throw on a
 
 **Interfaces:**
 - Consumes: `pdfRendererFor` (Task 4); `createDibsyPayment` (`src/lib/dibsy.ts`); the hub columns (Task 1).
-- Produces: `dispatchInvoice(hubId: string): Promise<{ status: 'sent' | 'skipped' | 'failed'; checkoutUrl?: string; error?: string }>`. Loads the hub row via the admin client. **Skip** (`dispatch_status='skipped'`) if `total_amount - paid_amount <= 0`. **No-op** returning `sent` if already `dispatch_status='sent'`. Otherwise: ensure `pdf_url` (if null, call `pdfRendererFor(kindForDetailTable(row.detail_table))(row.detail_id)` and store the returned url); ensure the Dibsy link (reuse `dibsy_checkout_url` if present and the amount is unchanged, else `createDibsyPayment` with `metadata.hub_invoice_id=hubId`, `redirectUrl=/pay/{hubId}`, `webhookUrl=/api/payments/dibsy/webhook`, store `dibsy_payment_id`+`dibsy_checkout_url`); send the WATI template to the hub row's `customer_phone` (reusing the `create-tl-invoice` send + `chat_messages` log pattern) — if no phone, skip the WhatsApp and log; set `dispatch_status='sent'`, `sent_at=now()`. On any thrown error set `dispatch_status='failed'`, `dispatch_error=<msg>`, and return `failed`.
+- Produces: `dispatchInvoice(hubId: string): Promise<{ status: 'sent' | 'skipped' | 'failed'; checkoutUrl?: string; error?: string }>`. Loads the hub row via the admin client. **Skip** (`dispatch_status='skipped'`) if `total_amount - paid_amount <= 0` OR `payment_status IN ('void','cancelled','paid')` — and, for `detail_table='so_invoices'`, also skip while the sales invoice is not finalized (`so_invoices.status='draft'`, since SO invoices are created draft and rewritten on every edit); `tl_`/`contract_invoices` are created final. **No-op** returning `sent` if already `dispatch_status='sent'`. Otherwise: ensure `pdf_url` (if null, call `pdfRendererFor(kindForDetailTable(row.detail_table))(row.detail_id)` and store the returned url); ensure the Dibsy link (reuse `dibsy_checkout_url` if present and the amount is unchanged, else `createDibsyPayment` with `metadata.hub_invoice_id=hubId`, `redirectUrl=/pay/{hubId}`, `webhookUrl=/api/payments/dibsy/webhook`, store `dibsy_payment_id`+`dibsy_checkout_url`); send the WATI template to the hub row's `customer_phone` (reusing the `create-tl-invoice` send + `chat_messages` log pattern) — if no phone, skip the WhatsApp and log; set `dispatch_status='sent'`, `sent_at=now()`. On any thrown error set `dispatch_status='failed'`, `dispatch_error=<msg>`, and return `failed`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -178,7 +178,7 @@ With the Supabase admin client, `createDibsyPayment`, and the WATI `fetch` mocke
 
 **Interfaces:**
 - Consumes: `dispatchInvoice` (Task 5).
-- Produces: `GET`/`POST` handler that selects hub rows with `dispatch_status='pending'` and `detail_table IS NOT NULL` (hub-managed customer-facing rows only), calls `dispatchInvoice` for each, and returns `{ processed, sent, skipped, failed }`. Auth: the project's existing cron-secret guard (match the other `/api/cron/*` routes).
+- Produces: `GET`/`POST` handler that selects hub rows with `dispatch_status='pending'` and `detail_table IS NOT NULL` (hub-managed customer-facing rows only), calls `dispatchInvoice` for each, and returns `{ processed, sent, skipped, failed }`. Auth: the project's existing cron-secret guard (match the other `/api/cron/*` routes). This cron must NOT be scheduled/enabled until Task 9 (tl_invoices lockdown) is applied — until then it only runs when manually invoked with the secret.
 
 - [ ] **Step 1: Write the failing test** — with `dispatchInvoice` mocked and two pending rows, the handler returns `processed: 2` and calls `dispatchInvoice` with each id.
 
@@ -238,7 +238,25 @@ With the Supabase admin client, `createDibsyPayment`, and the WATI `fetch` mocke
 
 ---
 
-### Task 9: End-to-end verification on the dev DB
+### Task 9: Lock down tl_invoices writes (gate before the cron is enabled)
+
+**Files:**
+- Create: `supabase/migrations/20261156000000_tl_invoices_lockdown.sql` (+ identical staging copy)
+
+**Interfaces:**
+- Consumes: nothing from this plan (hardens a pre-existing table).
+- Produces: `tl_invoices` is no longer directly writable by `authenticated`/`anon`. Enable RLS on `tl_invoices`; add `FOR SELECT TO authenticated USING (true)`; `REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.tl_invoices FROM authenticated, anon`; and alter the existing paid-amount trigger fn `public.sync_tl_invoice_paid_amount()` to `SECURITY DEFINER SET search_path = public` so it still writes after the revoke.
+
+**Why:** Task 2 locks HUB writes, but the sync trigger mirrors whatever lands in `tl_invoices`, which today has open write access — so without this, any authenticated user could create/alter a TL invoice and (once the cron is on) make it dispatch a pay link to any phone. `so_invoices` is already permission-gated and `contract_invoices` is SELECT-only, so only `tl_invoices` needs this.
+
+- [ ] **Step 1: Confirm the writers** — grep every writer of `tl_invoices` (`from('tl_invoices').insert|update|delete|upsert` and SQL `INSERT/UPDATE ... tl_invoices`). Confirm each legitimate writer uses the admin/service-role client or is a SECURITY DEFINER RPC (so the revoke won't break it); list them in the commit message. If any legitimate writer uses a plain authenticated client, STOP and report — the revoke would break it.
+- [ ] **Step 2: Write the migration** (both folders) — enable RLS, the SELECT policy, the REVOKEs, the `sync_tl_invoice_paid_amount` SECURITY DEFINER alter. Re-runnable, BEGIN/COMMIT + NOTIFY.
+- [ ] **Step 3: Apply + verify on the dev DB** — RLS on, writes revoked from authenticated/anon, the trigger fn now SECURITY DEFINER; confirm (rolled back, impersonating `authenticated`) a direct `tl_invoices` INSERT/UPDATE is denied while the `create_tl_invoice` RPC / service-role path still works.
+- [ ] **Step 4: Commit** — `feat(invoices): lock down tl_invoices writes (cron gate)`.
+
+---
+
+### Task 10: End-to-end verification on the dev DB
 
 **Files:** none (verification task).
 
@@ -252,4 +270,4 @@ With the Supabase admin client, `createDibsyPayment`, and the WATI `fetch` mocke
 
 ## Rollout
 
-Phased on full-build dev: Tasks 1–3 (hub + sync + backfill — read-only, nothing breaks) → Tasks 4–7 (dispatch + webhook, cron off / behind the cron-secret so it only runs when invoked) → Task 8 (page) → Task 9 (enable + verify). The existing TL/contract/subscription Dibsy paths keep working the whole time.
+Phased on full-build dev: Tasks 1–3 (hub + sync + backfill — read-only, nothing breaks) → Tasks 4–7 (dispatch + webhook, cron off / behind the cron-secret so it only runs when invoked) → Task 8 (page) → Task 9 (tl_invoices lockdown — the cron gate) → Task 10 (enable + verify). The existing TL/contract/subscription Dibsy paths keep working the whole time.
