@@ -3,10 +3,18 @@
  *
  * `dispatchInvoice(hubId)` is the one generic "send this invoice" step every
  * invoice type flows through once its hub row exists: make sure the PDF exists,
- * make sure the row carries a Dibsy pay link, WhatsApp the customer (WATI), then
- * stamp the row `sent`. It generalizes the TL-only
- * `api/payments/dibsy/create-tl-invoice` route (Dibsy create -> store -> WATI
- * template -> chat_messages log) so it runs off the hub row instead.
+ * make sure the row carries a Dibsy pay link, WhatsApp the customer, then stamp
+ * the row `sent`. It generalizes the TL-only
+ * `api/payments/dibsy/create-tl-invoice` route (Dibsy create -> store -> send) so
+ * it runs off the hub row instead.
+ *
+ * The WhatsApp is the admin-assigned `order_invoice` template, sent through the
+ * shared `sendWatiTemplate` helper exactly like `api/notifications/send-invoice`
+ * sends it: the PDF is attached and the live `/pay/{hubId}` link is carried. The
+ * helper reads the template from `notification_config` (Services -> Notifications),
+ * routes it through the `api-wati` Edge Function and writes the Contact Centre log,
+ * so nothing WATI-specific (no template name, no credentials, no chat write) lives
+ * here.
  *
  * Server-only, and every hub read/write goes through the service-role client:
  * since migration 20261154 the hub is SELECT-only for `authenticated`.
@@ -35,23 +43,29 @@
  *     (again with the same link).
  *
  * Dev safety net - INVOICE_DISPATCH_TEST_NUMBER: when set, every WhatsApp goes to that
- * number instead of the customer's (and is logged to Contact Centre under that number),
- * so a dev live-send test cannot reach a real customer. It changes where a message goes,
- * never whether one is sent: a row with no customer phone still sends nothing. A value
- * with no digits in it fails the dispatch rather than falling back to the customer.
- * Unset or empty means no redirect.
+ * number instead of the customer's (and the helper logs it to Contact Centre under that
+ * number), so a dev live-send test cannot reach a real customer. It changes where a
+ * message goes, never whether one is sent: a row with no customer phone still sends
+ * nothing. A value with no digits in it fails the dispatch rather than falling back to
+ * the customer. Unset or empty means no redirect. The digits go through the helper's
+ * phone normalisation (a number that does not start with 974 gets it prepended), so
+ * give a full Qatar number.
  *
  * Failure semantics: any thrown error is caught, recorded on the row as
  * `dispatch_status='failed'` + `dispatch_error`, and returned as
  * `{ status: 'failed' }`; `dispatchInvoice` itself never throws. Unlike
- * create-tl-invoice (where a WATI failure is only logged) a WATI failure here
- * fails the dispatch, so it is retried rather than silently counted as sent.
+ * create-tl-invoice (where a WATI failure is only logged) a WhatsApp failure here
+ * fails the dispatch, so it is retried rather than silently counted as sent. So is a
+ * send the helper skips because the `order_invoice` template is not assigned (or its
+ * notification is inactive / has no config row): the row is `failed` with an error
+ * that says where to fix it, and a retry sends once the admin has.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
 import { pdfRendererFor } from '@/lib/invoices/pdf-registry'
 import { kindForDetailTable, type HubInvoice } from '@/lib/invoices/types'
+import { sendWatiTemplate } from '@/lib/notifications/sendWatiTemplate'
 
 export interface DispatchResult {
   status: 'sent' | 'skipped' | 'failed'
@@ -59,7 +73,8 @@ export interface DispatchResult {
   error?: string
 }
 
-const WATI_TEMPLATE = 'mms_tl_invoice_payment'
+/** The `notification_config` slug whose assigned WATI template carries the invoice (PDF + pay link). */
+const WHATSAPP_SLUG = 'order_invoice'
 const CURRENCY = 'QAR'
 
 type AdminClient = ReturnType<typeof createAdminClient>
@@ -67,12 +82,12 @@ type AdminClient = ReturnType<typeof createAdminClient>
 /** The hub columns dispatch reads (amounts are nullable in the table; see `run`). */
 type HubRow = Pick<
   HubInvoice,
-  | 'id' | 'detail_table' | 'detail_id' | 'invoice_id' | 'customer_phone'
+  | 'id' | 'detail_table' | 'detail_id' | 'invoice_id' | 'customer_name' | 'customer_phone'
   | 'total_amount' | 'paid_amount' | 'payment_status' | 'dispatch_status'
   | 'dibsy_payment_id' | 'dibsy_checkout_url' | 'pdf_url'
 >
 const HUB_COLUMNS =
-  'id, detail_table, detail_id, invoice_id, customer_phone, total_amount, paid_amount, ' +
+  'id, detail_table, detail_id, invoice_id, customer_name, customer_phone, total_amount, paid_amount, ' +
   'payment_status, dispatch_status, dibsy_payment_id, dibsy_checkout_url, pdf_url'
 
 // The hub's newer columns are not in the generated Database types (known drift,
@@ -137,9 +152,10 @@ async function run(admin: AdminClient, hubId: string): Promise<DispatchResult> {
     return skip(admin, hubId)
   }
 
-  // (a) PDF
-  if (!row.pdf_url) {
-    const pdfUrl = await pdfRendererFor(kind)(detailId)
+  // (a) PDF. Held in a local: `row` was loaded before the render, and the WhatsApp must carry the PDF.
+  let pdfUrl = row.pdf_url
+  if (!pdfUrl) {
+    pdfUrl = await pdfRendererFor(kind)(detailId)
     await updateHub(admin, hubId, { pdf_url: pdfUrl })
   }
 
@@ -151,13 +167,15 @@ async function run(admin: AdminClient, hubId: string): Promise<DispatchResult> {
   if (customerDigits) {
     // Dev safety net: with INVOICE_DISPATCH_TEST_NUMBER set, the message goes there, not to the customer.
     const phoneDigits = testNumberDigits(hubId) ?? customerDigits
-    await sendPaymentMessage(admin, {
+    await sendPaymentMessage({
       hubId,
       phoneDigits,
       invoiceNumber: row.invoice_id,
+      customerName: row.customer_name,
       total,
+      paid,
       remaining,
-      checkoutUrl,
+      pdfUrl: pdfUrl || null,
     })
   } else {
     console.warn('[dispatch-invoice] no customer_phone - WhatsApp skipped for hub invoice', hubId)
@@ -254,16 +272,25 @@ async function isDraftSalesInvoice(admin: AdminClient, soInvoiceId: string): Pro
 
 // ─── Dibsy pay link ─────────────────────────────────────────────────────────────
 
+/**
+ * The app's public base url, no trailing slash. The Dibsy redirect and the link in the
+ * WhatsApp are both built on it, so the link the customer is sent is the page Dibsy
+ * returns them to: `/pay/{hubId}`.
+ */
+function appUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? 'https://mms.alfaytri.com').replace(/\/$/, '')
+}
+
 async function ensureCheckoutUrl(admin: AdminClient, row: HubRow, remaining: number): Promise<string> {
   // Reuse, never duplicate. See the header for why a stored link is still current.
   if (row.dibsy_checkout_url) return row.dibsy_checkout_url
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://mms.alfaytri.com').replace(/\/$/, '')
+  const baseUrl = appUrl()
   const payment = await createDibsyPayment({
     amount: { value: remaining.toFixed(2), currency: CURRENCY },
     description: `Invoice ${row.invoice_id}`,
-    redirectUrl: `${appUrl}/pay/${row.id}`,
-    webhookUrl: `${appUrl}/api/payments/dibsy/webhook`,
+    redirectUrl: `${baseUrl}/pay/${row.id}`,
+    webhookUrl: `${baseUrl}/api/payments/dibsy/webhook`,
     metadata: { hub_invoice_id: row.id },
   })
   // The client normalizes a missing checkout link to ''. Never store or send that.
@@ -291,120 +318,90 @@ async function ensureCheckoutUrl(admin: AdminClient, row: HubRow, remaining: num
   return winningUrl
 }
 
-// ─── WhatsApp (WATI) ────────────────────────────────────────────────────────────
+// ─── WhatsApp (order_invoice template) ──────────────────────────────────────────
 
 interface PaymentMessage {
   hubId: string
+  /** Digits only: the customer's, or the dev redirect target. */
   phoneDigits: string
   invoiceNumber: string
+  customerName: string | null
   total: number
+  paid: number
   remaining: number
-  checkoutUrl: string
+  pdfUrl: string | null
 }
 
-const money = (amount: number) => `${amount.toFixed(2)} ${CURRENCY}`
+/** Same money format as `api/notifications/send-invoice`: en-QA, always two decimals (WATI wants English numerals). */
+const fmt = (amount: number) =>
+  amount.toLocaleString('en-QA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /**
- * Same WATI v2 template send as create-tl-invoice, driven off the hub row. The
- * template's `url` parameter is the `/pay/{id}` suffix, i.e. the hub id.
- * Throws if WATI rejects the message; the chat-log write after it is best-effort.
+ * Send the invoice WhatsApp: the admin-assigned `order_invoice` template, through the
+ * same `sendWatiTemplate` call as `api/notifications/send-invoice` (PDF attached, six
+ * named params). The link in it is the live `/pay/{hubId}` portal, which redirects to the
+ * Dibsy checkout stored on the row - so that link must be stored BEFORE this runs.
+ *
+ * The helper looks the template up, sends through the `api-wati` Edge Function and writes
+ * the Contact Centre log (inserted before the send, backfilled after); this does none of
+ * that. It reports a skipped or failed send as a return value rather than throwing, so
+ * its answer is mapped here: sent -> return; skipped or failed -> throw, which
+ * `dispatchInvoice` records as `failed` with the message (never a silent `sent`).
  */
-async function sendPaymentMessage(admin: AdminClient, m: PaymentMessage): Promise<void> {
-  const watiUrl = (process.env.WATI_API_URL ?? '').replace(/\/$/, '')
-  const watiToken = process.env.WATI_API_TOKEN ?? ''
-  if (!watiUrl || !watiToken) throw new Error('WATI_API_URL / WATI_API_TOKEN are not configured')
+async function sendPaymentMessage(m: PaymentMessage): Promise<void> {
+  const payLink = `${appUrl()}/pay/${m.hubId}`
+  const customerName = (m.customerName ?? '').trim()
 
-  const broadcastName = `${WATI_TEMPLATE}_${m.invoiceNumber.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`
-  const res = await fetch(
-    `${watiUrl}/api/v2/sendTemplateMessage?whatsappNumber=${encodeURIComponent(m.phoneDigits)}`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${watiToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        template_name: WATI_TEMPLATE,
-        broadcast_name: broadcastName,
-        parameters: [
-          { name: 'bookingnumber', value: m.invoiceNumber },
-          { name: 'total_amount', value: money(m.total) },
-          { name: 'due_amount', value: money(m.remaining) },
-          { name: 'url', value: m.hubId },
-        ],
-      }),
-    },
-  )
+  const result = await sendWatiTemplate({
+    slug: WHATSAPP_SLUG,
+    phone: m.phoneDigits,
+    pdfUrl: m.pdfUrl,
+    attachmentName: `${m.invoiceNumber.replace(/[^A-Za-z0-9._-]/g, '_')}.pdf`,
+    // The cron has no user session: the helper authenticates to api-wati with the cron secret instead.
+    cronSecret: process.env.CRON_SECRET ?? null,
+    params: [
+      { name: 'invoice_number', value: m.invoiceNumber },
+      { name: 'customer_name', value: customerName || '-' },
+      { name: 'total', value: fmt(m.total) },
+      { name: 'paid', value: fmt(m.paid) },
+      { name: 'pending', value: fmt(m.remaining) },
+      { name: 'pay_link', value: payLink },
+    ],
+    // What the Contact Centre thread shows; mirrors the manual invoice send.
+    renderedText: [
+      `فاتورة رقم ${m.invoiceNumber}`,
+      customerName ? `عزيزنا ${customerName}` : '',
+      `إجمالي الفاتورة: ${fmt(m.total)} ر.ق`,
+      `المدفوع: ${fmt(m.paid)} ر.ق`,
+      `المتبقي: ${fmt(m.remaining)} ر.ق`,
+      `للدفع إلكترونياً: ${payLink}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  })
 
-  const rawText = await res.text()
-  let data: Record<string, unknown> | null
-  try {
-    data = JSON.parse(rawText) as Record<string, unknown> | null
-  } catch {
-    data = { raw: rawText }
+  if ('skipped' in result) {
+    // `run` only gets here with a phone, so this should not happen; if it does, it is the same
+    // "no phone" case as the caller's own guard: nothing was sent, and that is not a failure.
+    if (result.skipped === 'no-phone') {
+      console.warn('[dispatch-invoice] the WhatsApp helper found no usable phone - WhatsApp skipped for hub invoice', m.hubId)
+      return
+    }
+    throw new Error(skippedMessage(result.skipped))
   }
-  if (!res.ok || data?.error || data?.result === false) {
-    throw new Error(`WATI send failed (HTTP ${res.status}): ${rawText.slice(0, 300)}`)
-  }
-
-  await logChatMessage(admin, m, watiMessageId(data))
+  if (!result.ok) throw new Error(`WATI send failed: ${result.error}`)
 }
 
-function watiMessageId(data: Record<string, unknown> | null): string | null {
-  const message = data?.message as Record<string, unknown> | undefined
-  const info = data?.info as Record<string, unknown> | undefined
-  return (
-    (message?.whatsappMessageId as string | undefined) ??
-    (info?.whatsAppMessageId as string | undefined) ??
-    (data?.id as string | undefined) ??
-    (data?.messageId as string | undefined) ??
-    null
-  )
-}
-
-/**
- * Mirror the message into Contact Centre (chat_conversations / chat_messages).
- * Best-effort: the customer already has the message, so a logging failure must not
- * turn the dispatch into a failure that would be retried (a duplicate send).
- */
-async function logChatMessage(admin: AdminClient, m: PaymentMessage, watiMsgId: string | null): Promise<void> {
-  try {
-    const text = `Payment link for invoice ${m.invoiceNumber}\n\nAmount: ${money(m.remaining)}\n\n${m.checkoutUrl}`
-    const phone = `+${m.phoneDigits}`
-    const now = new Date().toISOString()
-
-    const { data: existing } = await admin
-      .from('chat_conversations')
-      .select('id')
-      .eq('wati_phone', phone)
-      .maybeSingle()
-
-    let conversationId: string | null = existing?.id ?? null
-    if (!conversationId) {
-      const { data: created } = await admin
-        .from('chat_conversations')
-        .insert({ wati_phone: phone, last_message: text, last_message_at: now, unread_count: 0 })
-        .select('id')
-        .single()
-      conversationId = created?.id ?? null
-    } else {
-      await admin
-        .from('chat_conversations')
-        .update({ last_message: text, last_message_at: now })
-        .eq('id', conversationId)
-    }
-
-    if (conversationId) {
-      await admin.from('chat_messages').insert({
-        conversation_id: conversationId,
-        from_type: 'agent',
-        source: 'whatsapp_api',
-        text,
-        agent_name: 'System',
-        external_id: watiMsgId ? `wati_${watiMsgId}` : `hub_invoice_${m.hubId}_${Date.now()}`,
-        delivery_status: 'sent',
-        message_kind: 'message',
-        created_at: now,
-      })
-    }
-  } catch (err) {
-    console.warn('[dispatch-invoice] could not log the message to chat for hub invoice', m.hubId, err)
+/** Why a skipped send fails the dispatch, worded for whoever reads `dispatch_error` on the All-Invoices page. */
+function skippedMessage(reason: string): string {
+  switch (reason) {
+    case 'unassigned':
+      return `${WHATSAPP_SLUG} WATI template not assigned (Services → Notifications)`
+    case 'config-missing':
+      return `${WHATSAPP_SLUG} notification is not configured (Services → Notifications)`
+    case 'inactive':
+      return `${WHATSAPP_SLUG} notification is inactive (Services → Notifications)`
+    default:
+      return `${WHATSAPP_SLUG} WhatsApp was skipped: ${reason}`
   }
 }
