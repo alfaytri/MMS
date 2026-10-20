@@ -325,56 +325,23 @@ describe('cron: dispatch-invoices', () => {
       ])
     })
 
-    it('only picks up pending rows of the dispatchable invoice types (service, sales, contract)', async () => {
+    it('only picks up pending tl_invoices / contract_invoices rows', async () => {
       useAdmin({
         config: { enabled: true },
         hub: [
           tlRow({ id: 'hub-tl-pending' }),
           contractRow({ id: 'hub-ct-pending' }),
-          // Sales is dispatchable: it is picked up like the others, and dispatchInvoice itself holds back a still-draft one.
-          salesRow({ id: 'hub-so-pending' }),
+          salesRow({ id: 'hub-so-pending' }), // sales: a separate business rule gates it, not in v1
           hubRow({ id: 'hub-legacy', detail_table: null, detail_id: null }), // legacy row, no detail key
-          hubRow({ id: 'hub-unlisted', detail_table: 'supplier_bills', detail_id: 'bill-1' }), // a table the cron does not dispatch
           tlRow({ id: 'hub-tl-sent', dispatch_status: 'sent' }),
           tlRow({ id: 'hub-tl-failed', dispatch_status: 'failed' }),
           contractRow({ id: 'hub-ct-skipped', dispatch_status: 'skipped' }),
-          salesRow({ id: 'hub-so-sent', dispatch_status: 'sent' }),
-          salesRow({ id: 'hub-so-failed', dispatch_status: 'failed' }),
-          // A recorded skip (void / paid / no balance) is terminal: that row is never picked up again.
-          salesRow({ id: 'hub-so-skipped', dispatch_status: 'skipped' }),
         ],
       })
 
       const body = await (await call(POST, { headers: AUTH })).json()
-      expect(body).toMatchObject({ ok: true, processed: 3 })
-      expect([...dispatchedIds()].sort()).toEqual(['hub-ct-pending', 'hub-so-pending', 'hub-tl-pending'])
-    })
-
-    it('hands a pending sales row to dispatchInvoice like any other type; a still-draft invoice comes back skipped', async () => {
-      useAdmin({ config: { enabled: true }, hub: [salesRow()] })
-      vi.mocked(dispatchInvoice).mockResolvedValue({ status: 'skipped' }) // what dispatchInvoice answers for a draft
-
-      const body = await (await call(POST, { headers: AUTH })).json()
-
-      expect(dispatchInvoice).toHaveBeenCalledTimes(1)
-      expect(dispatchInvoice).toHaveBeenCalledWith('hub-so-1')
-      expect(body).toMatchObject({ ok: true, processed: 1, sent: 0, skipped: 1, failed: 0 })
-      expect(body.details).toEqual([
-        { id: 'hub-so-1', invoice_id: 'INV-00042', detail_table: 'so_invoices', status: 'skipped' },
-      ])
-    })
-
-    it('picks a draft sales row up again on every run: a draft skip leaves it pending, and the cron itself writes nothing to the hub', async () => {
-      // The fake hub table has no update(): a write from the route would throw. The rows are shared by both runs.
-      useAdmin({ config: { enabled: true }, hub: [salesRow()] })
-      vi.mocked(dispatchInvoice).mockResolvedValue({ status: 'skipped' })
-
-      for (const run of [1, 2, 3]) {
-        const body = await (await call(POST, { headers: AUTH })).json()
-        expect(body).toMatchObject({ ok: true, processed: 1, skipped: 1 })
-        expect(dispatchInvoice).toHaveBeenCalledTimes(run)
-      }
-      expect(dispatchedIds()).toEqual(['hub-so-1', 'hub-so-1', 'hub-so-1'])
+      expect(body).toMatchObject({ ok: true, processed: 2 })
+      expect([...dispatchedIds()].sort()).toEqual(['hub-ct-pending', 'hub-tl-pending'])
     })
 
     it('dispatches one row at a time, oldest first', async () => {
@@ -427,8 +394,7 @@ describe('cron: dispatch-invoices', () => {
     it.each([true, false])(
       'lists the pending rows and dispatches nothing (config enabled: %s)',
       async (enabled) => {
-        // Sales is dispatchable now, so its pending row is part of the backlog (created last, so it lists last).
-        useAdmin({ config: { enabled }, hub: [tlRow(), contractRow(), salesRow({ created_at: '2026-10-20T10:00:00Z' })] })
+        useAdmin({ config: { enabled }, hub: [tlRow(), contractRow(), salesRow()] })
 
         const res = await call(POST, { headers: AUTH, dryRun: true })
         expect(res.status).toBe(200)
@@ -440,11 +406,10 @@ describe('cron: dispatch-invoices', () => {
           enabled,
           config_enabled: enabled,
           env_enabled: true,
-          pending_count: 3,
+          pending_count: 2,
           pending: [
             { id: 'hub-tl-1', detail_table: 'tl_invoices', invoice_id: 'SINV_2026_10_0001', customer_name: 'Acme Trading' },
             { id: 'hub-ct-1', detail_table: 'contract_invoices', invoice_id: 'CINV_2026_10_0001', customer_name: 'Beta Facilities' },
-            { id: 'hub-so-1', detail_table: 'so_invoices', invoice_id: 'INV-00042', customer_name: 'Acme Trading' },
           ],
         })
         expect(dispatchInvoice).not.toHaveBeenCalled()

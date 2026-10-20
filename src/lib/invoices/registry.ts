@@ -52,12 +52,9 @@ export const INVOICE_TYPE_REGISTRY = {
     detailTable: 'so_invoices',
     partialStatus: 'partially_paid',
     hasUpdatedAt: false,
-    // Auto-dispatched once ISSUED: a sales invoice is created as a draft and rewritten on every edit, so
-    // dispatchInvoice holds a draft back WITHOUT recording a skip - the hub row stays `pending` and the cron
-    // re-checks it each run, sending the first time it is no longer a draft (see the draft gate in dispatch.ts).
-    // OPEN before this goes to real customers: the Dibsy webhook settles a card payment with a direct write that
-    // bypasses the AR payments ledger - see the TODO (so_invoices) in the webhook route.
-    dispatchable: true,
+    // Not auto-dispatched in v1: a separate business rule gates it (see the cron route header).
+    // The webhook still settles it, as a defensive direct write (see the TODO in the webhook route).
+    dispatchable: false,
   },
   contract: {
     detailTable: 'contract_invoices',

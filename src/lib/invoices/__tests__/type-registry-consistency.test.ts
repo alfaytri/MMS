@@ -162,7 +162,7 @@ function webhookProblems(r: Registries): string[] {
   return problems
 }
 
-/** The cron dispatches a SUBSET of the known tables (a type may be left out), each fully wired: type, renderer, settle entry. */
+/** The cron dispatches a SUBSET of the known tables (sales may be left out), each fully wired: type, renderer, settle entry. */
 function cronProblems(r: Registries): string[] {
   const problems: string[] = []
   if (new Set(r.dispatchableDetailTables).size !== r.dispatchableDetailTables.length) {
@@ -242,7 +242,7 @@ describe('kindForDetailTable', () => {
 
 const TABLE_OF_TYPE: Readonly<Record<string, string>> = { alpha: 'alpha_invoices', beta: 'beta_invoices' }
 
-/** Two types; `beta` is deliberately not dispatched (the registry lets a type opt out of the cron). */
+/** Two types; `beta` is deliberately not dispatched, the way sales is not in v1. */
 const HEALTHY: Registries = {
   types: ['alpha', 'beta'],
   knownDetailTables: ['alpha_invoices', 'beta_invoices'],
@@ -421,13 +421,9 @@ describe('v1 values are unchanged', () => {
     expect(HUB_DETAIL_TABLES.so_invoices).toEqual({ partialStatus: 'partially_paid', hasUpdatedAt: false })
   })
 
-  it('has the cron dispatch all three business lines: tl_invoices, contract_invoices and (auto-sent once issued) so_invoices', () => {
-    expect([...DISPATCHABLE_DETAIL_TABLES]).toEqual(
-      expect.arrayContaining(['tl_invoices', 'contract_invoices', 'so_invoices']),
-    )
-    expect(INVOICE_TYPE_REGISTRY.service.dispatchable).toBe(true)
-    expect(INVOICE_TYPE_REGISTRY.contract.dispatchable).toBe(true)
-    expect(INVOICE_TYPE_REGISTRY.sales.dispatchable).toBe(true)
+  it('keeps the cron dispatching tl_invoices and contract_invoices, and still not so_invoices', () => {
+    expect([...DISPATCHABLE_DETAIL_TABLES]).toEqual(expect.arrayContaining(['tl_invoices', 'contract_invoices']))
+    expect(DISPATCHABLE_DETAIL_TABLES).not.toContain('so_invoices')
   })
 })
 

@@ -12,7 +12,6 @@ import { dispatchInvoice } from '../dispatch'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDibsyPayment } from '@/lib/dibsy'
 import { pdfRendererFor } from '@/lib/invoices/pdf-registry'
-import { DISPATCHABLE_DETAIL_TABLES } from '@/lib/invoices/registry'
 import {
   sendWatiTemplate,
   type SendWatiTemplateArgs,
@@ -399,83 +398,17 @@ describe('dispatchInvoice', () => {
   describe('sales invoices (so_invoices)', () => {
     const SO = { detail_table: 'so_invoices', detail_id: 'so-invoice-1', invoice_id: 'INV-00001' }
 
-    /**
-     * Would the dispatch cron pick this hub row up on its next run? The cron's query is: dispatch_status =
-     * 'pending' AND detail_table in the registry's DISPATCHABLE_DETAIL_TABLES (its own suite proves it applies
-     * exactly that). This is what makes a skip terminal or not: only a row that stays `pending` is seen again.
-     */
-    const inCronQueue = (row: Row) =>
-      row.dispatch_status === 'pending' && DISPATCHABLE_DETAIL_TABLES.includes(row.detail_table as string)
-
-    /** Records every UPDATE the dispatcher sends to the hub table from now on (the values it tried to write). */
-    function recordHubWrites(): Row[] {
-      const writes: Row[] = []
-      const realFrom = db.from.bind(db)
-      db.from = (table: string) => {
-        const q = realFrom(table) as unknown as { update: (values: Row) => unknown }
-        if (table === 'invoices') {
-          const realUpdate = q.update.bind(q)
-          q.update = (values: Row) => {
-            writes.push(values)
-            return realUpdate(values)
-          }
-        }
-        return q as never
-      }
-      return writes
-    }
-
-    it('skips while the sales invoice is still a draft - and leaves the hub row pending in the cron queue, writing nothing', async () => {
+    it('skips while the sales invoice is still a draft', async () => {
       const hub = seedHub(SO)
       db.tables.so_invoices.push({ id: 'so-invoice-1', status: 'draft' })
-      const before = { ...hub }
-      const hubWrites = recordHubWrites()
 
       const result = await dispatchInvoice(HUB_ID)
 
       expect(result).toEqual({ status: 'skipped' })
-      // NOT terminal: a draft is "not yet", not "never". Nothing is written (not even a no-op write), so the row
-      // is exactly as it was and stays in the cron's queue to be re-checked on the next run.
-      expect(hubWrites).toEqual([])
-      expect(hub.dispatch_status).toBe('pending')
-      expect(hub).toEqual(before)
-      expect(inCronQueue(hub)).toBe(true)
+      expect(hub.dispatch_status).toBe('skipped')
       expect(createDibsyPayment).not.toHaveBeenCalled()
       expect(renderPdf).not.toHaveBeenCalled()
       expect(sendWatiTemplate).not.toHaveBeenCalled()
-    })
-
-    it('re-checks a draft on every run and sends exactly once, on the first run after it is issued', async () => {
-      const hub = seedHub(SO)
-      const detail: Row = { id: 'so-invoice-1', status: 'draft' }
-      db.tables.so_invoices.push(detail)
-      const hubWrites = recordHubWrites()
-
-      // Cron runs while the invoice is still a draft (it is being edited): skipped each time, still queued, nothing sent.
-      expect(await dispatchInvoice(HUB_ID)).toEqual({ status: 'skipped' })
-      expect(await dispatchInvoice(HUB_ID)).toEqual({ status: 'skipped' })
-      expect(hubWrites).toEqual([])
-      expect(inCronQueue(hub)).toBe(true)
-      expect(renderPdf).not.toHaveBeenCalled()
-      expect(createDibsyPayment).not.toHaveBeenCalled()
-      expect(sendWatiTemplate).not.toHaveBeenCalled()
-
-      // The invoice is issued. Only the DETAIL row changes: the sync trigger preserves the hub row's
-      // dispatch_status on that UPDATE, so `pending` survives it - all the next run needs to find the row.
-      detail.status = 'sent'
-      expect(inCronQueue(hub)).toBe(true)
-
-      expect(await dispatchInvoice(HUB_ID)).toEqual({ status: 'sent', checkoutUrl: PAYMENT.checkoutUrl })
-      expect(pdfRendererFor).toHaveBeenCalledWith('sales')
-      expect(renderPdf).toHaveBeenCalledWith('so-invoice-1')
-      expect(hub).toMatchObject({ dispatch_status: 'sent', dibsy_checkout_url: PAYMENT.checkoutUrl, pdf_url: PDF_URL })
-      expect(inCronQueue(hub)).toBe(false)
-
-      // Sent is final: a further run neither skips it again nor sends it again.
-      expect(await dispatchInvoice(HUB_ID)).toEqual({ status: 'sent', checkoutUrl: PAYMENT.checkoutUrl })
-      expect(createDibsyPayment).toHaveBeenCalledTimes(1)
-      expect(sendWatiTemplate).toHaveBeenCalledTimes(1)
-      expect(renderPdf).toHaveBeenCalledTimes(1)
     })
 
     it('dispatches once the sales invoice is no longer a draft, rendering it with the sales renderer', async () => {
@@ -490,45 +423,12 @@ describe('dispatchInvoice', () => {
       expect(hub.dispatch_status).toBe('sent')
     })
 
-    it('re-evaluates a sales row already marked skipped (e.g. by an earlier version that recorded drafts that way): only sent is final', async () => {
+    it('re-evaluates a row that was skipped as a draft (skipped is not terminal)', async () => {
       const hub = seedHub({ ...SO, dispatch_status: 'skipped' })
       db.tables.so_invoices.push({ id: 'so-invoice-1', status: 'sent' })
 
       expect((await dispatchInvoice(HUB_ID)).status).toBe('sent')
       expect(hub.dispatch_status).toBe('sent')
-    })
-
-    // Only a DRAFT is "not yet". An invoice that is void, paid or has nothing left to collect will never become
-    // dispatchable, so those skips stay TERMINAL: recorded as skipped, which takes the row out of the cron's
-    // pending queue for good instead of re-checking it on every run forever. They are decided BEFORE the draft
-    // gate, so it holds whether or not the invoice is still a draft.
-    const NEVER_DISPATCHABLE: Array<[string, Row]> = [
-      ['void', { payment_status: 'void' }],
-      ['paid', { payment_status: 'paid' }],
-      ['fully paid (no balance)', { payment_status: 'unpaid', total_amount: 100, paid_amount: 100 }],
-      ['over-paid', { payment_status: 'unpaid', total_amount: 100, paid_amount: 120 }],
-      ['zero-total', { payment_status: 'unpaid', total_amount: 0, paid_amount: 0 }],
-      ['sub-fils remainder', { payment_status: 'unpaid', total_amount: 100.004, paid_amount: 100 }],
-      ['null amounts', { payment_status: 'unpaid', total_amount: null, paid_amount: null }],
-    ]
-
-    describe.each(['draft', 'sent'])('while the sales invoice is %s', (detailStatus) => {
-      it.each(NEVER_DISPATCHABLE)(
-        'a %s invoice is skipped for good: recorded skipped, out of the cron queue, nothing rendered or sent',
-        async (_label, overrides) => {
-          const hub = seedHub({ ...SO, ...overrides })
-          db.tables.so_invoices.push({ id: 'so-invoice-1', status: detailStatus })
-
-          const result = await dispatchInvoice(HUB_ID)
-
-          expect(result).toEqual({ status: 'skipped' })
-          expect(hub.dispatch_status).toBe('skipped')
-          expect(inCronQueue(hub)).toBe(false)
-          expect(renderPdf).not.toHaveBeenCalled()
-          expect(createDibsyPayment).not.toHaveBeenCalled()
-          expect(sendWatiTemplate).not.toHaveBeenCalled()
-        },
-      )
     })
 
     it('fails closed, sending nothing, when the sales invoice row no longer exists', async () => {
@@ -1059,24 +959,7 @@ describe('dispatchInvoice', () => {
     expect(hub.dispatch_status).toBe('sent')
   })
 
-  it('never downgrades a row that an overlapping dispatch already marked sent (recorded skip path)', async () => {
-    const hub = seedHub({ payment_status: 'void' }) // a recorded (terminal) skip: the only kind that writes
-    const realFrom = db.from.bind(db)
-    let hubTouches = 0
-    db.from = (table: string) => {
-      // The 1st touch of the hub is the load, the 2nd is the skip being recorded: the other dispatch finishes in between.
-      if (table === 'invoices' && ++hubTouches === 2) hub.dispatch_status = 'sent'
-      return realFrom(table)
-    }
-
-    const result = await dispatchInvoice(HUB_ID)
-
-    expect(result.status).toBe('skipped')
-    expect(hub.dispatch_status).toBe('sent')
-    expect(hubTouches).toBe(2) // the guard really was exercised: a skip write was attempted, and refused
-  })
-
-  it('never downgrades a row that an overlapping dispatch already marked sent (draft skip path: it writes nothing)', async () => {
+  it('never downgrades a row that an overlapping dispatch already marked sent (skip path)', async () => {
     const hub = seedHub({ detail_table: 'so_invoices', detail_id: 'so-invoice-1' })
     db.tables.so_invoices.push({ id: 'so-invoice-1', status: 'draft' })
     const realFrom = db.from.bind(db)
