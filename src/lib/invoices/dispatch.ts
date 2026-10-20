@@ -32,6 +32,11 @@
  *   - Skip rules are evaluated in TS after loading the row (the payment-status
  *     enum is unpaid / partially_paid / paid / overdue / void). `skipped` and
  *     `failed` rows are re-evaluated on the next call; only `sent` is final.
+ *     A skip is RECORDED (`dispatch_status='skipped'`, which the cron never selects
+ *     again) only for an invoice that will never be dispatchable: void, paid, no
+ *     balance. The one exception is a DRAFT sales invoice, which is "not yet": it
+ *     returns `skipped` but leaves the row `pending`, so the cron re-checks it every
+ *     run and dispatches it once it is issued (see the draft gate in `run`).
  *
  * Known limits:
  *   - No claim step: the `dispatch_status` CHECK has no in-flight value (adding
@@ -148,8 +153,19 @@ async function run(admin: AdminClient, hubId: string): Promise<DispatchResult> {
 
   // Sales invoices are created as drafts and rewritten on every edit: hold them
   // back until they are no longer a draft. tl_/contract_invoices are created final.
+  //
+  // This is the ONE skip that is NOT terminal. A draft is "not yet", not "never", so it answers
+  // `skipped` but writes NOTHING: the hub row stays `pending`, the cron (which only selects
+  // `pending`) re-checks it on every run - it stops right here, a status read, before any PDF /
+  // Dibsy / WhatsApp - and dispatches it on the first run after the invoice is issued. No trigger
+  // change is needed for that: sync_invoice_hub preserves `dispatch_status` on the detail UPDATE
+  // that takes the invoice out of draft, so `pending` survives it. Recording `skipped` here
+  // instead would strand the row for good, because the cron would never select it again.
+  // Every skip ABOVE this one (void, paid, no balance) stays terminal on purpose: those never
+  // become dispatchable, and they are decided before the draft is even looked at, so a void or
+  // paid draft is recorded as skipped and not re-checked forever.
   if (detailTable === 'so_invoices' && (await isDraftSalesInvoice(admin, detailId))) {
-    return skip(admin, hubId)
+    return { status: 'skipped' }
   }
 
   // (a) PDF. Held in a local: `row` was loaded before the render, and the WhatsApp must carry the PDF.
@@ -238,6 +254,12 @@ async function updateHub(
   if (error) throw new Error(`could not update hub invoice ${hubId}: ${error.message}`)
 }
 
+/**
+ * Record a TERMINAL skip: the invoice is void, paid or has no balance, so it will never be
+ * dispatchable. `skipped` takes the row out of the cron's `pending` queue (a `sent` row is never
+ * overwritten). A not-yet-ready invoice (a draft sales invoice) must NOT come through here: it
+ * answers `skipped` without writing, so it stays queued (see the draft gate in `run`).
+ */
 async function skip(admin: AdminClient, hubId: string): Promise<DispatchResult> {
   await updateHub(admin, hubId, { dispatch_status: 'skipped', dispatch_error: null }, { unlessSent: true })
   return { status: 'skipped' }
