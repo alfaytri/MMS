@@ -265,10 +265,96 @@ def probe_search(cur):
     print("search RPC OK")
 
 
+def probe_snapshots(conn, cur):
+    """
+    Assert the catalog photo is snapshotted onto order and quotation lines and
+    then STAYS PUT. Everything here runs inside a transaction that is rolled back.
+    """
+    import json as _json
+    import uuid as _uuid
+
+    fails = []
+
+    def check(label, cond, detail=""):
+        print(f"  [{'PASS' if cond else 'FAIL'}] {label}{(' — ' + detail) if detail else ''}")
+        if not cond:
+            fails.append(label)
+
+    cur.execute("SELECT id, name_en, catalog_image_url FROM services WHERE catalog_image_url IS NOT NULL LIMIT 1;")
+    svc, svc_name, url = cur.fetchone()
+    cur.execute("SELECT id, name_en FROM services WHERE catalog_image_url IS NULL AND code LIKE %s LIMIT 1;",
+                (SEED_CODE_PREFIX + "%",))
+    svc2, svc2_name = cur.fetchone()
+    cur.execute("SELECT id FROM service_customers LIMIT 1;")
+    cust = cur.fetchone()[0]
+
+    items = [
+        {"service_id": str(svc), "name": svc_name, "qty": 1, "price": 100, "duration": 60, "path": ["a", "b"]},
+        {"service_id": str(svc2), "name": svc2_name, "qty": 2, "price": 50, "duration": 30, "path": ["a", "c"]},
+        {"service_id": "", "name": "Typed custom", "qty": 1, "price": 10, "duration": 15, "path": []},
+    ]
+
+    oid = f"PROBE-{_uuid.uuid4().hex[:8]}"
+    cur.execute(
+        "SELECT create_order_with_dates(%s,%s,'normal','main-division','scheduled',CURRENT_DATE,"
+        "260,'a','n','+974','[]'::jsonb,%s::jsonb,'[]'::jsonb,'[]'::jsonb,NULL,NULL,false);",
+        (oid, cust, _json.dumps(items)))
+    cur.execute("SELECT id FROM orders WHERE order_id=%s;", (oid,))
+    order = cur.fetchone()[0]
+    cur.execute("SELECT name, catalog_image_url FROM order_services WHERE order_id=%s;", (order,))
+    lines = dict(cur.fetchall())
+    check("order line WITH a photo gets the snapshot", lines.get(svc_name) == url)
+    check("order line WITHOUT a photo is NULL", lines.get(svc2_name) is None)
+    check("order line with no service_id is NULL", lines.get("Typed custom") is None)
+
+    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/CHANGED.png' WHERE id=%s;", (svc,))
+    cur.execute("SELECT catalog_image_url FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc))
+    check("order snapshot frozen when the catalogue photo changes", cur.fetchone()[0] == url)
+
+    cur.execute("SELECT edit_order_with_dates(%s,'main-division',CURRENT_DATE,260,'a','n','+974',false,"
+                "%s::jsonb,'[]'::jsonb,'[]'::jsonb);", (order, _json.dumps(items)))
+    cur.execute("SELECT catalog_image_url FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc))
+    check("an order EDIT preserves the original snapshot", cur.fetchone()[0] == url)
+
+    cur.execute("SELECT id, catalog_image_url FROM services WHERE catalog_image_url IS NOT NULL AND id<>%s LIMIT 1;", (svc,))
+    svc3, svc3_url = cur.fetchone()
+    items2 = items + [{"service_id": str(svc3), "name": "Added later", "qty": 1, "price": 70, "duration": 20, "path": ["a", "d"]}]
+    cur.execute("SELECT edit_order_with_dates(%s,'main-division',CURRENT_DATE,330,'a','n','+974',false,"
+                "%s::jsonb,'[]'::jsonb,'[]'::jsonb);", (order, _json.dumps(items2)))
+    cur.execute("SELECT catalog_image_url FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc3))
+    check("a service added BY an edit resolves live", cur.fetchone()[0] == svc3_url)
+
+    qid = f"QP-{_uuid.uuid4().hex[:6]}"
+    cur.execute("SELECT save_order_quotation(%s,%s,'main-division','draft',100,'n',CURRENT_DATE + 30,NULL,%s::jsonb,NULL,0);",
+                (qid, cust, _json.dumps(items)))
+    cur.execute("SELECT id FROM order_quotations WHERE quotation_id=%s;", (qid,))
+    quot = cur.fetchone()[0]
+    # The catalogue photo was already changed above, so a quotation saved NOW
+    # must capture the CHANGED value — that is live resolution at save time.
+    cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc))
+    check("quotation line captures the photo current at save time",
+          cur.fetchone()[0] == "https://cdn.test/CHANGED.png")
+    cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc2))
+    check("quotation line without a photo is NULL", cur.fetchone()[0] is None)
+
+    # ...and must not move when the photo changes again afterwards.
+    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/AGAIN.png' WHERE id=%s;", (svc,))
+    cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc))
+    check("quotation snapshot frozen after a later photo change",
+          cur.fetchone()[0] == "https://cdn.test/CHANGED.png")
+
+    conn.rollback()
+    print("  (rolled back)")
+    if fails:
+        raise SystemExit(1)
+    print("snapshot paths OK")
+
+
 def main():
     thumbs_only = "--thumbs-only" in sys.argv
     verify_only = "--verify" in sys.argv
     search_probe = "--probe-search" in sys.argv
+    snap_probe = "--probe-snapshots" in sys.argv
 
     env = read_env(ENV_PATH)
     dotenv = read_env(DOTENV_PATH)
@@ -290,6 +376,11 @@ def main():
 
     if search_probe:
         probe_search(cur)
+        conn.close()
+        return
+
+    if snap_probe:
+        probe_snapshots(conn, cur)
         conn.close()
         return
 
