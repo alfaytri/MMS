@@ -222,9 +222,53 @@ def verify(cur):
     print("fixture OK")
 
 
+def probe_search(cur):
+    """Assert rpc_search_services behaves against the seeded tree. Exits non-zero on failure."""
+    fails = []
+
+    def check(label, cond, detail=""):
+        print(f"  [{'PASS' if cond else 'FAIL'}] {label}{(' — ' + detail) if detail else ''}")
+        if not cond:
+            fails.append(label)
+
+    cur.execute("SELECT name_en, path, is_leaf FROM rpc_search_services('Cleaning');")
+    cleanings = [r for r in cur.fetchall() if r[0] == "Cleaning"]
+    paths = {tuple(r[1]) for r in cleanings}
+    check("both 'Cleaning' services returned", len(cleanings) == 2, f"got {len(cleanings)}")
+    check("their breadcrumbs differ", len(paths) == 2, f"{len(paths)} distinct")
+
+    cur.execute("SELECT name_en, is_leaf FROM rpc_search_services('Repair');")
+    rep = cur.fetchall()
+    check("a branch returns is_leaf = false", any(not r[1] for r in rep))
+    check("a leaf returns is_leaf = true", any(r[1] for r in rep))
+
+    cur.execute("SELECT array_length(path, 1), is_leaf FROM rpc_search_services('On-site');")
+    r = cur.fetchone()
+    check("six-level leaf returns a 6-element path", bool(r) and r[0] == 6,
+          f"len={r[0] if r else 'n/a'}")
+
+    cur.execute("SELECT count(*) FROM rpc_search_services('Chiller', 'normal', ARRAY['main-division']);")
+    main_only = cur.fetchone()[0]
+    cur.execute("SELECT count(*) FROM rpc_search_services('Chiller', 'normal', ARRAY['alfaytri-mep']);")
+    mep_only = cur.fetchone()[0]
+    check("division filter excludes another division's service",
+          main_only == 0 and mep_only > 0, f"main={main_only} mep={mep_only}")
+
+    cur.execute("SELECT count(*) FROM rpc_search_services('e', 'normal', '{}', 5);")
+    check("p_limit is honoured", cur.fetchone()[0] == 5)
+
+    cur.execute("SELECT count(*) FROM rpc_search_services('', 'normal', '{}', 500) WHERE thumb_url IS NOT NULL;")
+    check("thumb_url comes through", cur.fetchone()[0] > 0)
+
+    if fails:
+        raise SystemExit(1)
+    print("search RPC OK")
+
+
 def main():
     thumbs_only = "--thumbs-only" in sys.argv
     verify_only = "--verify" in sys.argv
+    search_probe = "--probe-search" in sys.argv
 
     env = read_env(ENV_PATH)
     dotenv = read_env(DOTENV_PATH)
@@ -241,6 +285,11 @@ def main():
 
     if verify_only:
         verify(cur)
+        conn.close()
+        return
+
+    if search_probe:
+        probe_search(cur)
         conn.close()
         return
 

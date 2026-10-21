@@ -483,6 +483,8 @@ export const queryKeys = {
       ['service_instructions', serviceId] as const,
     serviceInstructionsAll: ['service_instructions', 'all'] as const,
     allPicker: ['services-all-picker'] as const,
+    search: (query: string, treeType: string, divisionSlugs?: string[]) =>
+      ['services', 'search', query, treeType, divisionSlugs] as const,
   },
 
   /* ── Shipments ────────────────────────────────────────── */
