@@ -40,7 +40,7 @@ Five conditions the spec implies that no task's happy path exercises. Each has a
 Nothing else in this plan is testable: the Dev DB holds one childless service.
 
 **Files:**
-- Create: `scratchpad/seed_service_tree.py`
+- Create: `scripts/seed_service_tree.py`
 
 **Interfaces:**
 - Produces: a Dev-DB service tree later tasks query. Roots named `AC General Service`, `Plumbing`, `Electrical`; one branch exactly six levels deep; ~60 leaves total; ~15 leaves carrying `catalog_image_url`.
@@ -55,7 +55,7 @@ Deliberately include **two leaves both named `Cleaning`** under different parent
 
 - [ ] **Step 2: Run it against Dev**
 
-Run: `python scratchpad/seed_service_tree.py`
+Run: `python scripts/seed_service_tree.py`
 Expected: prints the inserted count and the deepest path, with depth 6.
 
 - [ ] **Step 3: Verify the shape**
@@ -66,7 +66,7 @@ Expected: 6 levels present, ~60 leaves, exactly 2 services named `Cleaning`.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add scratchpad/seed_service_tree.py
+git add scripts/seed_service_tree.py
 git commit -m "chore(dev): seed a realistic service tree for picker work"
 ```
 
@@ -135,7 +135,7 @@ If the thumb upload fails, log and continue — a missing thumb must never block
 - [ ] **Step 8: Backfill thumbs for the seeded tree**
 
 Task 1 seeded `catalog_image_url` only — the thumb column did not exist yet. Extend
-`scratchpad/seed_service_tree.py` with a `--thumbs-only` mode that, for every seeded service holding
+`scripts/seed_service_tree.py` with a `--thumbs-only` mode that, for every seeded service holding
 a `catalog_image_url`, uploads a 200 px derivative to `thumbPathFor(id)` and sets
 `catalog_thumb_url`. Run it.
 

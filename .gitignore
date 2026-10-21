@@ -78,6 +78,7 @@ odoo_viewers/
 !/scripts/build_test_workbook.mjs
 !/scripts/build-flows-visualizer.mjs
 !/scripts/test-cases/
+!/scripts/seed_service_tree.py
 temp_*.sql
 
 # ── Session scratchpad (Claude working files) ────────────
