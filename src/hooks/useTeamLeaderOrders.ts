@@ -6,17 +6,28 @@ import type { TlVisit, TlService, VisitStatus, VisitType, QcItem } from '@/types
 import { buildQcScorers } from '@/lib/qc/scorers'
 import { queryKeys } from '@/lib/queryKeys'
 
-export function useTeamLeaderOrders(teamId: string | null | undefined) {
+/**
+ * A team's visits from `fromDate` (YYYY-MM-DD, inclusive) onward - past OR future; omitted means
+ * today-forward. The RPC has no upper bound, so a fetch loads everything from `fromDate` on;
+ * bounding it with a `p_to_date` RPC param is a possible future optimization, not needed now.
+ * Each distinct `fromDate` is its own cache entry (see queryKeys.teamLeader.orders).
+ *
+ * `options.enabled` (default true) lets a caller keep a window idle until its view is on screen.
+ */
+export function useTeamLeaderOrders(
+  teamId: string | null | undefined,
+  fromDate?: string,
+  options?: { enabled?: boolean },
+) {
   return useQuery<TlVisit[]>({
-    queryKey: queryKeys.teamLeader.orders(teamId),
+    queryKey: queryKeys.teamLeader.orders(teamId, fromDate),
     queryFn: async (): Promise<TlVisit[]> => {
       if (!teamId) return []
       const supabase = createClient()
-      const today = format(new Date(), 'yyyy-MM-dd')
 
       const { data, error } = await supabase.rpc('get_team_leader_visits', {
         p_team_id: teamId,
-        p_from_date: today,
+        p_from_date: fromDate ?? format(new Date(), 'yyyy-MM-dd'),
       })
 
       if (error) throw error
@@ -61,7 +72,7 @@ export function useTeamLeaderOrders(teamId: string | null | undefined) {
         }
       })
     },
-    enabled: !!teamId,
+    enabled: !!teamId && (options?.enabled ?? true),
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   })

@@ -660,7 +660,13 @@ export const queryKeys = {
     identity: ['tl-identity'] as const,
     allTeamsSelect: (divisionIds?: string[] | null) =>
       ['tl-all-teams-select', divisionIds ?? 'all'] as const,
-    orders: (teamId: Nullable) => ['tl-orders', teamId] as const,
+    // One cache entry per (team, load-from date). Callers that invalidate "everything for this
+    // team" (useTlActions, TlInvoiceDialog) omit fromDate: that 2-element key is a prefix of every
+    // dated key, so react-query's default partial matching reaches all of them.
+    orders: (teamId: Nullable, fromDate?: string) =>
+      fromDate === undefined
+        ? (['tl-orders', teamId] as const)
+        : (['tl-orders', teamId, fromDate] as const),
     linkableEmployees: ['tl-linkable-employees'] as const,
     linkableEmployeesEdit: ['tl-linkable-employees-edit'] as const,
     currentEmployee: (profileId?: Nullable) =>

@@ -3,9 +3,12 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Loader2, AlertTriangle, Users } from 'lucide-react'
-import { isToday, parseISO, format, addDays } from 'date-fns'
+import { format, addDays } from 'date-fns'
 import { useTeamLeaderIdentity, useAllTeamsForSelect } from '@/hooks/useTeamLeaderIdentity'
 import { useTeamLeaderOrders } from '@/hooks/useTeamLeaderOrders'
+import {
+  overdueLookbackFrom, dateViewFromDate, isTodayOrOverdueOpen,
+} from '@/lib/team-leader/visitScope'
 import { useGpsTracking } from '@/hooks/useGpsTracking'
 import { useCompleteVisit, fetchAddedServices } from '@/hooks/useTlActions'
 import { TlHeader } from '@/components/team-leader/TlHeader'
@@ -92,7 +95,22 @@ export default function TeamLeaderPage() {
     }
   }, [identityLoading, showTeamSelector, effectiveTeamId, allTeams.length])
 
-  const { data: allVisits = [], isLoading: visitsLoading } = useTeamLeaderOrders(effectiveTeamId)
+  // Each view loads the window it needs (rules in lib/team-leader/visitScope):
+  //  - Today: from the overdue lookback onward, so a visit missed on an earlier day that is still
+  //    open stays on the list instead of dropping out the next morning.
+  //  - Upcoming: the picked date, past OR future. Any date the Today fetch already covers (every
+  //    future date and the last 30 days) shares that very query - no extra request, and stepping
+  //    through days stays instant - so only a date older than the lookback fetches from itself.
+  // The RPC has no upper bound, so a fetch loads from its from-date onward; bounding it with a
+  // p_to_date RPC param is a possible future optimization, not needed now.
+  const now = new Date()
+  const todayQuery = useTeamLeaderOrders(effectiveTeamId, overdueLookbackFrom(now))
+  const dateQuery = useTeamLeaderOrders(effectiveTeamId, dateViewFromDate(selectedDate, now), {
+    enabled: viewMode === 'date',
+  })
+  const activeQuery = viewMode === 'today' ? todayQuery : dateQuery
+  const allVisits = activeQuery.data ?? []
+  const visitsLoading = activeQuery.isLoading
 
   const completeVisit = useCompleteVisit()
 
@@ -100,22 +118,20 @@ export default function TeamLeaderPage() {
   const hasStartedVisit = startedVisits.size > 0
   useGpsTracking({ teamId: effectiveTeamId, enabled: hasStartedVisit })
 
-  const filteredVisits = useMemo(() => {
-    if (viewMode === 'today') {
-      return allVisits.filter((v) => isToday(parseISO(v.date)))
-    }
-    return allVisits.filter((v) => v.date === selectedDate)
-  }, [allVisits, viewMode, selectedDate])
-
-  const todayCount = useMemo(
-    () => allVisits.filter((v) => isToday(parseISO(v.date))).length,
-    [allVisits]
+  // Today = today's visits + earlier ones still open (not completed, no invoice).
+  const todayVisits = useMemo(
+    () => (todayQuery.data ?? []).filter((v) => isTodayOrOverdueOpen(v)),
+    [todayQuery.data]
   )
 
-  const dateCount = useMemo(
-    () => allVisits.filter((v) => v.date === selectedDate).length,
-    [allVisits, selectedDate]
+  const dateVisits = useMemo(
+    () => (dateQuery.data ?? []).filter((v) => v.date === selectedDate),
+    [dateQuery.data, selectedDate]
   )
+
+  const filteredVisits = viewMode === 'today' ? todayVisits : dateVisits
+  const todayCount = todayVisits.length
+  const dateCount = dateVisits.length
 
   function handleStart(visitId: string) {
     setStartedVisits((prev) => new Set([...prev, visitId]))
