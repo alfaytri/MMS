@@ -356,6 +356,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Dev DB Task 1: schema export + full audit** — export the Dev DB (`wkmvjxxmzstsvahuiwsz`) schema to JSON, then audit it read-only against `docs/DB Audits/Audit requirement/rules.md` (security, indexing, column types, schema integrity) plus a dead-column sweep the rubric does not cover. Mirrors the 2026-08-26 prod audit.
+
 🚀 Starting: **Visit calendar Task 1: drag-to-select a date range** — `src/components/orders/VisitDatePicker.tsx` (react-day-picker v10, `mode="multiple"`, 2 months). Operator request during the picker smoke test: drag across days to take a consecutive range, while clicking still picks individual dates one by one. A real drag never fires a `click` (pointerdown and pointerup land on different elements), so range-drag and click-toggle coexist without suppression.
 
 🔄 **Inventory pricing gate SHIPPED to prod + staging (`0eb64e74` full-build / `56dd3f62` deploy, PUSHED) — 2026-09-16.** Origin rows (`OriginVariantRow`) leaked AVG COST to users without `inventory.pricing.view`; now gated (shows `—`), SELLING PRICE always shown; permission reworded to "View Item Cost". Frontend-only (no DB); ported to `deploy/warehouse-shipping` (= prod + staging) via a worktree, tsc clean both branches, pushed → Vercel prod build. **Caveat:** display-level only — `average_cost` still ships in the API payload (server-side mask is a follow-up if devtools exposure matters). **Operator: smoke on the live inventory list with a role lacking the permission.**
