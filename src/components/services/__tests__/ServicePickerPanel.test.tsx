@@ -47,6 +47,9 @@ vi.mock('@/lib/supabase/client', () => ({
 vi.mock('@/hooks/useServices', () => ({
   useServiceTree: () => ({
     data: [
+      // A real root, so "Browse all categories" has something to show.
+      { id: 'svc-split', name_en: 'Split', parent_id: null, price: null,
+        emergency_price: null, duration: null, division: ['main-division'] },
       { id: 'svc-repair', name_en: 'Repair', parent_id: 'svc-split', price: null,
         emergency_price: null, duration: null, division: ['main-division'] },
       { id: 'svc-gas', name_en: 'Gas Refill', parent_id: 'svc-repair', price: 220,
@@ -58,11 +61,11 @@ vi.mock('@/hooks/useServices', () => ({
   }),
 }))
 
-function renderPanel(onCommit = vi.fn()) {
+function renderPanel(onCommit = vi.fn(), props: Record<string, unknown> = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <ServicePickerPanel onCommit={onCommit} />
+      <ServicePickerPanel onCommit={onCommit} {...props} />
     </QueryClientProvider>,
   )
   return { onCommit }
@@ -199,5 +202,54 @@ describe('ServicePickerPanel — basket', () => {
     await search('gas')
     expect(screen.getByRole('button', { name: /add/i })).toBeDisabled()
     expect(onCommit).not.toHaveBeenCalled()
+  })
+})
+
+describe('ServicePickerPanel — after committing', () => {
+  it('empties the basket so a second tap cannot re-add the same services', async () => {
+    // The team-leader surfaces render this panel inline and never remount it.
+    // A basket that survives its own commit means a second tap doubles the
+    // quantities on the invoice — on a phone, mid-job, with no warning.
+    mock.hits = [SPLIT_CLEANING]
+    const { onCommit } = renderPanel()
+    await search('clean')
+    fireEvent.click(await screen.findByTestId('result-svc-split-cleaning'))
+    fireEvent.click(screen.getByRole('button', { name: /add/i }))
+
+    expect(screen.queryByTestId('basket-svc-split-cleaning')).toBeNull()
+    expect(screen.getByRole('button', { name: /add/i })).toBeDisabled()
+    expect(onCommit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ServicePickerPanel — browsing without searching', () => {
+  it('offers a way into the catalogue when nothing has been typed', async () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: /browse all/i }))
+    // Root-level nodes are those with no parent in the fixture tree.
+    // By row id: "Split" appears in both the name and the breadcrumb.
+    expect(await screen.findByTestId('result-svc-split')).toBeInTheDocument()
+  })
+
+  it('does not reuse a stale highlight after drilling into a branch', async () => {
+    mock.hits = [SPLIT_CLEANING, DUCTED_CLEANING, REPAIR_BRANCH]
+    renderPanel()
+    const box = await search('ea')
+    await screen.findByTestId('result-svc-repair')
+    // Highlight the third row, then drill into it: the child list has fewer
+    // rows, so a stale index would make Enter resolve undefined and do nothing.
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    fireEvent.click(screen.getByTestId('result-svc-repair'))
+    await screen.findByText('Gas Refill')
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(await screen.findByTestId('basket-svc-gas')).toBeInTheDocument()
+  })
+})
+
+describe('ServicePickerPanel — embedded use', () => {
+  it('does not steal focus when autofocus is off', () => {
+    renderPanel(vi.fn(), { autoFocusSearch: false })
+    expect(document.activeElement).not.toBe(screen.getByRole('searchbox'))
   })
 })

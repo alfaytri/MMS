@@ -18,6 +18,11 @@ interface Props {
 export function ServiceCatalogPicker({ onAdd }: Props) {
   return (
     <ServicePickerPanel
+      // Embedded partway down an already-open dialog: taking focus here would
+      // scroll past what the operator opened the dialog to do and raise the
+      // soft keyboard. The old cascade picker never stole focus either.
+      autoFocusSearch={false}
+      commitLabel="Add"
       onCommit={(lines: BasketLine[]) =>
         lines.forEach(({ service, qty, pathNames }) =>
           onAdd({

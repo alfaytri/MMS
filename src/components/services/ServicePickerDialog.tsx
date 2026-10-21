@@ -49,7 +49,7 @@ export function ServicePickerDialog({
         {triggerLabel}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="flex h-full w-full max-w-3xl flex-col gap-0 rounded-none p-0 sm:h-auto sm:max-h-[85vh] sm:rounded-xl">
+      <DialogContent className="flex h-full w-full max-w-3xl flex-col gap-0 rounded-none p-0 md:h-auto md:max-h-[85vh] md:rounded-xl">
         <DialogHeader className="shrink-0 border-b border-border px-4 py-3">
           <DialogTitle>Add services</DialogTitle>
         </DialogHeader>
@@ -57,6 +57,7 @@ export function ServicePickerDialog({
           {/* Remount per opening so the basket and query start clean. */}
           {open && (
             <ServicePickerPanel
+              commitLabel="Add to order"
               onCommit={handleCommit}
               treeType={treeType}
               divisionFilters={divisionFilters}

@@ -376,18 +376,18 @@ export function buildTlInvoiceHtml(input: BuildTlInvoiceHtmlInput): string {
             <span class="ar-header">نوع الوحدة</span>
             <span class="en-header">(Unit)</span>
           </th>
-          ${anyImage ? `<th class="th-bilingual" style="width:10%">
-            <span class="ar-header">صورة</span>
-            <span class="en-header">(Photo)</span>
-          </th>` : ''}
           <th class="th-bilingual" style="width:14%">
             <span class="ar-header">السعر لكل وحدة</span>
             <span class="en-header">(Unit Price in QAR)</span>
           </th>
-          <th class="th-bilingual" style="width:46%">
+          <th class="th-bilingual" style="width:36%">
             <span class="ar-header">الخدمة</span>
             <span class="en-header">(Service)</span>
           </th>
+          ${anyImage ? `<th class="th-bilingual" style="width:10%">
+            <span class="ar-header">صورة</span>
+            <span class="en-header">(Photo)</span>
+          </th>` : ''}
         </tr>
       </thead>
       <tbody>

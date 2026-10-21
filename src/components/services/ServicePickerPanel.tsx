@@ -34,6 +34,15 @@ export interface ServicePickerPanelProps {
   onCommit: (lines: BasketLine[]) => void
   treeType?: string
   divisionFilters?: string[]
+  /**
+   * Focus the search box on mount. True inside the picker dialog, whose whole
+   * reason to exist is searching. False when embedded partway down a
+   * team-leader dialog, where stealing focus scrolls the body and raises the
+   * soft keyboard on a surface the operator opened for something else.
+   */
+  autoFocusSearch?: boolean
+  /** Label for the commit button — not every caller is adding to an order. */
+  commitLabel?: string
 }
 
 /** Row shape shared by search hits and browse nodes, so one renderer serves both. */
@@ -48,6 +57,9 @@ interface Row {
 }
 
 const SEP = ' › '
+
+/** Keystrokes settle before a round trip. */
+const SEARCH_DEBOUNCE_MS = 250
 
 function hitToRow(h: ServiceSearchHit): Row {
   return {
@@ -73,19 +85,32 @@ export function ServicePickerPanel({
   onCommit,
   treeType = 'normal',
   divisionFilters = [],
+  autoFocusSearch = true,
+  commitLabel = 'Add',
 }: ServicePickerPanelProps) {
   const [query, setQuery] = useState('')
+  /**
+   * What actually reaches the server. Without this, every keystroke is its own
+   * query key and its own RPC — typing "cleaning" fired seven full-tree walks,
+   * on a Free plan this project has twice exhausted.
+   */
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   /** Node being browsed, with the breadcrumb that led here. null = search mode. */
   const [browse, setBrowse] = useState<{ id: string | null; path: string[] } | null>(null)
   const [basket, setBasket] = useState<BasketLine[]>([])
   const searchRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { searchRef.current?.focus() }, [])
+  useEffect(() => { if (autoFocusSearch) searchRef.current?.focus() }, [autoFocusSearch])
 
-  const searching = query.trim().length >= MIN_SEARCH_LENGTH && !browse
-  const { data: hits = [], isFetching } = useServiceSearch(query, treeType, divisionFilters)
-  const { data: tree = [] } = useServiceTree(treeType, divisionFilters, true)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const searching = debouncedQuery.trim().length >= MIN_SEARCH_LENGTH && !browse
+  const { data: hits = [], isFetching } = useServiceSearch(debouncedQuery, treeType, divisionFilters)
+  const { data: tree = [] } = useServiceTree(treeType, divisionFilters, !!browse)
 
   // Browse rows: children of the node being browsed, read from the flat tree.
   const browseRows: Row[] = useMemo(() => {
@@ -123,8 +148,11 @@ export function ServicePickerPanel({
 
   /** A branch is drilled into, never added. Only leaves can be ordered. */
   function choose(row: Row) {
-    if (row.isLeaf) addToBasket(row)
-    else setBrowse({ id: row.id, path: row.path })
+    if (row.isLeaf) { addToBasket(row); return }
+    setBrowse({ id: row.id, path: row.path })
+    // The child list is a different, usually shorter list — a carried-over
+    // highlight would point past its end and make Enter silently do nothing.
+    setActiveIndex(0)
   }
 
   /**
@@ -136,7 +164,8 @@ export function ServicePickerPanel({
     const node = (tree as unknown as Array<{ id: string; parent_id: string | null }>)
       .find((n) => n.id === browse.id)
     const parentId = node?.parent_id ?? null
-    if (!parentId) { setBrowse(null); return }
+    setActiveIndex(0)
+    if (!parentId) { setBrowse({ id: null, path: [] }); return }
     setBrowse({ id: parentId, path: browse.path.slice(0, -1) })
   }
 
@@ -165,7 +194,7 @@ export function ServicePickerPanel({
           <input
             ref={searchRef}
             type="search"
-            autoFocus
+            autoFocus={autoFocusSearch}
             value={query}
             placeholder="Search services…"
             aria-label="Search services"
@@ -190,12 +219,25 @@ export function ServicePickerPanel({
           </button>
         )}
 
-        <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
+        {!browse && (
+          <button
+            type="button"
+            onClick={() => { setBrowse({ id: null, path: [] }); setActiveIndex(0) }}
+            className="mt-2 flex min-h-11 shrink-0 items-center self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Browse all categories
+          </button>
+        )}
+
+        {/* max-h bounds the list when the parent has no definite height — the
+            team-leader dialogs embed this panel in an auto-height container,
+            where 50 rows would otherwise push the submit button off-screen. */}
+        <div className="mt-2 max-h-[50vh] min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
           {rows.length === 0 ? (
             <p className="p-4 text-center text-xs text-muted-foreground">
               {isFetching
                 ? 'Searching…'
-                : query.trim().length >= MIN_SEARCH_LENGTH
+                : debouncedQuery.trim().length >= MIN_SEARCH_LENGTH
                   ? 'No services match that.'
                   : 'Type to search, or pick a category to browse.'}
             </p>
@@ -316,9 +358,14 @@ export function ServicePickerPanel({
             type="button"
             className="h-11 w-full"
             disabled={basket.length === 0}
-            onClick={() => onCommit(basket)}
+            onClick={() => {
+              onCommit(basket)
+              // Clear it: the team-leader surfaces never remount this panel, so
+              // a surviving basket means a second tap doubles the quantities.
+              setBasket([])
+            }}
           >
-            Add {basket.length > 0 ? basket.length : ''} to order
+            {commitLabel} {basket.length > 0 ? basket.length : ''}
           </Button>
         </div>
       </div>

@@ -301,23 +301,37 @@ def probe_snapshots(conn, cur):
         (oid, cust, _json.dumps(items)))
     cur.execute("SELECT id FROM orders WHERE order_id=%s;", (oid,))
     order = cur.fetchone()[0]
+    cur.execute("SELECT catalog_thumb_url FROM services WHERE id=%s;", (svc,))
+    thumb = cur.fetchone()[0]
     cur.execute("SELECT name, catalog_image_url FROM order_services WHERE order_id=%s;", (order,))
     lines = dict(cur.fetchall())
-    check("order line WITH a photo gets the snapshot", lines.get(svc_name) == url)
+    # The snapshot must be the THUMB: the full upload can exceed the PDF fetch
+    # ceiling and would silently print as an empty cell.
+    check("order line snapshots the THUMBNAIL, not the full-size original",
+          lines.get(svc_name) == thumb and thumb is not None,
+          f"got ...{str(lines.get(svc_name))[-22:]}")
     check("order line WITHOUT a photo is NULL", lines.get(svc2_name) is None)
     check("order line with no service_id is NULL", lines.get("Typed custom") is None)
 
-    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/CHANGED.png' WHERE id=%s;", (svc,))
+    def live_photo(service_id):
+        cur.execute("SELECT coalesce(catalog_thumb_url, catalog_image_url) FROM services WHERE id=%s;",
+                    (service_id,))
+        return cur.fetchone()[0]
+
+    # A real photo change rewrites both columns, so simulate it that way.
+    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/CHANGED.png',"
+                " catalog_thumb_url='https://cdn.test/CHANGED_thumb.webp' WHERE id=%s;", (svc,))
     cur.execute("SELECT catalog_image_url FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc))
-    check("order snapshot frozen when the catalogue photo changes", cur.fetchone()[0] == url)
+    check("order snapshot frozen when the catalogue photo changes", cur.fetchone()[0] == thumb)
 
     cur.execute("SELECT edit_order_with_dates(%s,'main-division',CURRENT_DATE,260,'a','n','+974',false,"
                 "%s::jsonb,'[]'::jsonb,'[]'::jsonb);", (order, _json.dumps(items)))
     cur.execute("SELECT catalog_image_url FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc))
-    check("an order EDIT preserves the original snapshot", cur.fetchone()[0] == url)
+    check("an order EDIT preserves the original snapshot", cur.fetchone()[0] == thumb)
 
-    cur.execute("SELECT id, catalog_image_url FROM services WHERE catalog_image_url IS NOT NULL AND id<>%s LIMIT 1;", (svc,))
-    svc3, svc3_url = cur.fetchone()
+    cur.execute("SELECT id FROM services WHERE catalog_image_url IS NOT NULL AND id<>%s LIMIT 1;", (svc,))
+    svc3 = cur.fetchone()[0]
+    svc3_url = live_photo(svc3)
     items2 = items + [{"service_id": str(svc3), "name": "Added later", "qty": 1, "price": 70, "duration": 20, "path": ["a", "d"]}]
     cur.execute("SELECT edit_order_with_dates(%s,'main-division',CURRENT_DATE,330,'a','n','+974',false,"
                 "%s::jsonb,'[]'::jsonb,'[]'::jsonb);", (order, _json.dumps(items2)))
@@ -325,7 +339,8 @@ def probe_snapshots(conn, cur):
     check("a service added BY an edit resolves live", cur.fetchone()[0] == svc3_url)
 
     # ── invoice lines ────────────────────────────────────────────────────
-    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/NEW.png' WHERE id=%s;", (svc,))
+    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/NEW.png',"
+                " catalog_thumb_url='https://cdn.test/NEW_thumb.webp' WHERE id=%s;", (svc,))
     cur.execute("SELECT id FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc))
     os_id = cur.fetchone()[0]
     inv_lines = [
@@ -342,16 +357,15 @@ def probe_snapshots(conn, cur):
     cur.execute("SELECT name, service_id, catalog_image_url FROM tl_invoice_lines WHERE tl_invoice_id=%s;", (inv_id,))
     il = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
     check("invoice line from an order keeps the photo it was SOLD with",
-          il.get(svc_name, (0, 0))[1] == url)
+          il.get(svc_name, (0, 0))[1] == thumb)
     check("invoice line for a TL billable resolves live",
-          il.get("TL billable", (0, 0))[1] == "https://cdn.test/NEW.png")
+          il.get("TL billable", (0, 0))[1] == "https://cdn.test/NEW_thumb.webp")
     check("invoice line with no service_id inserts with both columns NULL",
           il.get("Typed custom", ("x", "x")) == (None, None))
     check("service_id is stored, retiring the name-string match",
           str(il.get(svc_name, (0, 0))[0]) == str(svc))
 
-    cur.execute("SELECT catalog_image_url FROM services WHERE id=%s;", (svc,))
-    current_at_save = cur.fetchone()[0]
+    current_at_save = live_photo(svc)
     qid = f"QP-{_uuid.uuid4().hex[:6]}"
     cur.execute("SELECT save_order_quotation(%s,%s,'main-division','draft',100,'n',CURRENT_DATE + 30,NULL,%s::jsonb,NULL,0);",
                 (qid, cust, _json.dumps(items)))
@@ -367,9 +381,17 @@ def probe_snapshots(conn, cur):
     check("quotation line without a photo is NULL", cur.fetchone()[0] is None)
 
     # ...and must not move when the photo changes again afterwards.
-    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/AGAIN.png' WHERE id=%s;", (svc,))
+    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/AGAIN.png',"
+                " catalog_thumb_url='https://cdn.test/AGAIN_thumb.webp' WHERE id=%s;", (svc,))
     cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc))
     check("quotation snapshot frozen after a later photo change",
+          cur.fetchone()[0] == current_at_save)
+
+    # I5: re-saving the quotation (the edit path) must not repoint its photos.
+    cur.execute("SELECT save_order_quotation(%s,%s,'main-division','sent',100,'n',CURRENT_DATE + 60,NULL,%s::jsonb,NULL,0);",
+                (qid, cust, _json.dumps(items)))
+    cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc))
+    check("RE-SAVING a quotation preserves its original snapshot",
           cur.fetchone()[0] == current_at_save)
 
     conn.rollback()

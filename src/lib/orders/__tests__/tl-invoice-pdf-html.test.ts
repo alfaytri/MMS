@@ -25,6 +25,26 @@ function html(lines: TlInvoiceLineInput[]): string {
   })
 }
 
+
+/** Header cell labels, in markup order. */
+function headerOrder(out: string): string[] {
+  const thead = out.slice(out.indexOf('<thead>'), out.indexOf('</thead>'))
+  return [...thead.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) =>
+    /\(Photo\)/.test(m[1]) ? 'PHOTO'
+      : /\(Service\)/.test(m[1]) ? 'SERVICE'
+      : /\(Unit Price/.test(m[1]) ? 'UNIT_PRICE'
+      : /\(Unit\)/.test(m[1]) ? 'UNIT'
+      : /\(Quantity\)/.test(m[1]) ? 'QTY'
+      : 'SUBTOTAL')
+}
+
+/** First body row's cell kinds, in markup order. */
+function bodyOrder(out: string): string[] {
+  const tbody = out.slice(out.indexOf('<tbody>'), out.indexOf('</tbody>'))
+  const firstRow = tbody.slice(tbody.indexOf('<tr>'), tbody.indexOf('</tr>'))
+  return [...firstRow.matchAll(/<td class="([a-z-]+)"/g)].map((m) => m[1])
+}
+
 describe('tl invoice html — image column', () => {
   it('omits the image column entirely when no line has an image', () => {
     // An invoice raised before this feature has no snapshot anywhere; its PDF
@@ -69,5 +89,32 @@ describe('tl invoice html — paged layout', () => {
     const out = html([line()])
     expect(out).toContain('<thead>')
     expect(out).toMatch(/table\.lines\s+thead\s*\{[^}]*display:\s*table-header-group/)
+  })
+})
+
+describe('tl invoice html — column alignment', () => {
+  it('puts the Photo header in the same position as the image cell', () => {
+    // The whole document is a money table sent to a customer. A header one
+    // column out puts the price under "Photo" and the service name under
+    // "Unit Price". Counting cells cannot see this; placing them can.
+    const out = html([line({ imageDataUri: 'data:image/png;base64,AAA' })])
+    const heads = headerOrder(out)
+    const cells = bodyOrder(out)
+    expect(heads).toHaveLength(cells.length)
+    expect(heads.indexOf('PHOTO')).toBe(cells.indexOf('cell-img'))
+    expect(heads.indexOf('SERVICE')).toBe(cells.indexOf('cell-desc'))
+    expect(heads.indexOf('UNIT_PRICE')).toBe(2 + cells.slice(2).indexOf('cell-num'))
+  })
+
+  it('keeps header and body cell counts equal when there is no photo', () => {
+    const out = html([line()])
+    expect(headerOrder(out)).toHaveLength(bodyOrder(out).length)
+  })
+
+  it('declares column widths that sum to 100%', () => {
+    const out = html([line({ imageDataUri: 'data:image/png;base64,AAA' })])
+    const thead = out.slice(out.indexOf('<thead>'), out.indexOf('</thead>'))
+    const widths = [...thead.matchAll(/width:(\d+)%/g)].map((m) => Number(m[1]))
+    expect(widths.reduce((a, b) => a + b, 0)).toBe(100)
   })
 })

@@ -231,7 +231,8 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
           <th style="width:18%">الإجمالي<span class="en">(Total)</span></th>
           <th style="width:18%">قيمة الوحدة<span class="en">(Unit Price)</span></th>
           <th style="width:12%">الكمية<span class="en">(Qty)</span></th>
-          <th style="width:52%">الخدمات<span class="en">(Service)</span></th>
+          <th style="width:${anyImage ? 42 : 52}%">الخدمات<span class="en">(Service)</span></th>
+          ${anyImage ? `<th style="width:10%">صورة<span class="en">(Photo)</span></th>` : ''}
         </tr>
       </thead>
       <tbody>

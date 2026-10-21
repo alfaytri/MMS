@@ -156,7 +156,12 @@ export async function generateTlInvoicePdf(
       .from('services')
       .select('name_en, name_ar, invoice_text_ar, price_unit')
       .in('name_en', legacyNames)
-      .limit(legacyNames.length)
+      // NOT .limit(legacyNames.length): leaf names repeat in this tree, so N
+      // names can match more than N rows and the cap would drop one at random,
+      // silently reprinting an old invoice's line English-only. Ordered so the
+      // winner is at least deterministic; still bounded.
+      .order('name_en')
+      .limit(legacyNames.length * 4 + 20)
     for (const r of (data ?? []) as Array<SvcMeta & { name_en: string }>) byName.set(r.name_en, r)
   }
 
