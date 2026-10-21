@@ -87,6 +87,39 @@ describe('PDF paged layout', () => {
   )
 
   it(
+    'a multi-page document with a thumbnail on every row keeps every row intact',
+    async () => {
+      // Thumbnails make each row taller, so this is the case where rows would
+      // be lost or sliced if break-inside were missing.
+      const n = 90
+      const img =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+      const rowsHtml = Array.from({ length: n }, (_, i) =>
+        `<tr><td class="cell-img"><img src="${img}" /></td>` +
+        `<td class="cell-desc">Row ${i + 1}${i === n - 1 ? ' ZZZLASTROW' : ''}</td>` +
+        `<td>1</td><td>100.00</td></tr>`,
+      ).join('')
+      const html = `<!doctype html><html><head><meta charset="utf-8"><style>${BASE_CSS}
+        table.lines thead { display: table-header-group; }
+        table.lines tr { break-inside: avoid; page-break-inside: avoid; }
+        table.lines td.cell-img img { height: 34px; width: auto; }
+      </style></head><body>
+        <div class="lines-wrap"><table class="lines">
+          <thead><tr><th>Photo</th><th>Description</th><th>Qty</th><th>Total</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table></div>
+      </body></html>`
+
+      const buf = await htmlToPdfBuffer(html)
+      const pages = countPdfPages(buf)
+      // eslint-disable-next-line no-console
+      console.log(`[thumbs] ${n} rows with images -> ${pages} page(s), ${buf.length} bytes`)
+      expect(pages).toBeGreaterThan(1)
+    },
+    LAUNCH_TIMEOUT,
+  )
+
+  it(
     'a short branded document still renders as exactly one page',
     async () => {
       const buf = await htmlToPdfBuffer(brandedHtml(5))

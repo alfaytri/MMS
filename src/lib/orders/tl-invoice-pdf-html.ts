@@ -18,6 +18,8 @@ import {
 } from '@/lib/pdf/pdf-fonts'
 
 export interface TlInvoiceLineInput {
+  /** Base64 data URI of the service photo, or null. Embedded, never linked. */
+  imageDataUri: string | null
   name:      string
   nameAr:    string | null
   unitEn:    string
@@ -89,9 +91,18 @@ export function buildTlInvoiceHtml(input: BuildTlInvoiceHtmlInput): string {
   const currency = input.currency ?? 'QAR'
   const badge    = STATUS_COLOR[input.status]
 
+  // The image column appears only when at least one line actually has a photo,
+  // so an invoice with none prints byte-identically to how it always has.
+  const anyImage = input.lines.some((li) => !!li.imageDataUri)
+
   const lineRows = input.lines.map((li) => {
     const arLine = li.nameAr
       ? `<div class="ar-line">${escapeHtml(li.nameAr)}</div>`
+      : ''
+    const imgCell = anyImage
+      ? `<td class="cell-img">${li.imageDataUri
+          ? `<img src="${li.imageDataUri}" alt="" />`
+          : ''}</td>`
       : ''
     return `
     <tr>
@@ -106,6 +117,7 @@ export function buildTlInvoiceHtml(input: BuildTlInvoiceHtmlInput): string {
         <div class="en-line">${escapeHtml(li.name)}</div>
         ${arLine}
       </td>
+      ${imgCell}
     </tr>
     `
   }).join('')
@@ -131,6 +143,23 @@ export function buildTlInvoiceHtml(input: BuildTlInvoiceHtmlInput): string {
   /* TL-invoice specific */
   table.lines { direction: ltr; }
   table.lines th { text-align: center; }
+  /* Paged layout, scoped to this document: BASE_CSS is shared by 16 generators
+     and re-flowing all of them is separate work. A row must not be sliced by a
+     page break, and page 2 needs its column headers. */
+  table.lines thead { display: table-header-group; }
+  table.lines tr    { break-inside: avoid; page-break-inside: avoid; }
+
+  table.lines td.cell-img {
+    text-align: center;
+    padding: 4px;
+    vertical-align: middle;
+  }
+  /* Capped so a 5 MB upload cannot inflate the page or the row height. */
+  table.lines td.cell-img img {
+    height: 34px; width: auto; max-width: 48px;
+    object-fit: cover; border-radius: 2px; display: inline-block;
+  }
+
   table.lines td.cell-desc {
     text-align: center;
     padding: 6px 8px;
@@ -347,6 +376,10 @@ export function buildTlInvoiceHtml(input: BuildTlInvoiceHtmlInput): string {
             <span class="ar-header">نوع الوحدة</span>
             <span class="en-header">(Unit)</span>
           </th>
+          ${anyImage ? `<th class="th-bilingual" style="width:10%">
+            <span class="ar-header">صورة</span>
+            <span class="en-header">(Photo)</span>
+          </th>` : ''}
           <th class="th-bilingual" style="width:14%">
             <span class="ar-header">السعر لكل وحدة</span>
             <span class="en-header">(Unit Price in QAR)</span>

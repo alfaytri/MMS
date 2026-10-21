@@ -7,6 +7,7 @@
  * resolver, same caching-by-column pattern.
  */
 
+import { fetchLineImages } from '@/lib/pdf/line-images'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPdfFonts } from '@/lib/pdf/pdf-fonts'
 import { resolveBrand, brandDataToAssets } from '@/lib/pdf/brand-resolver'
@@ -62,11 +63,13 @@ interface InvoiceRow {
   payment_status:   'unpaid' | 'partial' | 'paid'
   pdf_url:          string | null
   tl_invoice_lines: Array<{
-    id:         string
-    name:       string
-    qty:        number | null
-    unit_price: number | null
-    total:      number | null
+    id:                string
+    name:              string
+    qty:               number | null
+    unit_price:        number | null
+    total:             number | null
+    service_id:        string | null
+    catalog_image_url: string | null
   }> | null
   tl_invoice_payments: Array<{
     id:                  string
@@ -92,7 +95,7 @@ export async function generateTlInvoicePdf(
       customer_name, customer_phone,
       subtotal, spare_parts_amount, discount_amount, total_amount, paid_amount,
       payment_status, pdf_url,
-      tl_invoice_lines(id, name, qty, unit_price, total),
+      tl_invoice_lines(id, name, qty, unit_price, total, service_id, catalog_image_url),
       tl_invoice_payments(
         id, amount, method_slug, paid_at, registered_by_name,
         payment_methods:payment_method_id(name)
@@ -124,30 +127,45 @@ export async function generateTlInvoicePdf(
   const sparePart = Number(inv.spare_parts_amount ?? 0)
   const discount  = Number(inv.discount_amount ?? 0)
 
-  // Look up Arabic name + unit for each line by matching the line name
-  // against services.name_en. This is best-effort — if no service matches
-  // (e.g. custom billable service the team leader typed), fall back to
-  // English-only display and unit "Unit / الوحده".
-  const lineNames = Array.from(new Set((inv.tl_invoice_lines ?? []).map((l) => l.name)))
-  let serviceMap = new Map<string, { name_ar: string | null; invoice_text_ar: string | null; price_unit: string | null }>()
-  if (lineNames.length > 0) {
-    const { data: svcRows } = await supabase
+  // Resolve each line's Arabic name + unit.
+  //
+  // Lines now carry service_id, so this is an exact lookup. It used to match on
+  // services.name_en, which cannot distinguish two services that share a leaf
+  // name — and in a six-level tree they do ("Cleaning" exists under both Split
+  // and Ducted), so the Arabic text and unit printed could belong to the wrong
+  // service. The name match survives only as a fallback for rows written before
+  // service_id existed and for a team leader's typed-in custom billable.
+  type SvcMeta = { name_ar: string | null; invoice_text_ar: string | null; price_unit: string | null }
+  const lineRows   = inv.tl_invoice_lines ?? []
+  const serviceIds = Array.from(new Set(lineRows.map((l) => l.service_id).filter((v): v is string => !!v)))
+  const legacyNames = Array.from(new Set(lineRows.filter((l) => !l.service_id).map((l) => l.name)))
+
+  const byId   = new Map<string, SvcMeta>()
+  const byName = new Map<string, SvcMeta>()
+
+  if (serviceIds.length > 0) {
+    const { data } = await supabase
+      .from('services')
+      .select('id, name_ar, invoice_text_ar, price_unit')
+      .in('id', serviceIds)
+      .limit(serviceIds.length)
+    for (const r of (data ?? []) as Array<SvcMeta & { id: string }>) byId.set(r.id, r)
+  }
+  if (legacyNames.length > 0) {
+    const { data } = await supabase
       .from('services')
       .select('name_en, name_ar, invoice_text_ar, price_unit')
-      .in('name_en', lineNames)
-    serviceMap = new Map((svcRows ?? []).map((s: {
-      name_en: string
-      name_ar: string | null
-      invoice_text_ar: string | null
-      price_unit: string | null
-    }) => [s.name_en, {
-      name_ar:         s.name_ar,
-      invoice_text_ar: s.invoice_text_ar,
-      price_unit:      s.price_unit,
-    }]))
+      .in('name_en', legacyNames)
+      .limit(legacyNames.length)
+    for (const r of (data ?? []) as Array<SvcMeta & { name_en: string }>) byName.set(r.name_en, r)
   }
 
-  const UNIT_LABELS: Record<string, { en: string; ar: string }> = {
+  // Photos are fetched and base64-embedded BEFORE rendering: letting the
+  // renderer pull them mid-render would fail intermittently. A failure here
+  // yields null for that line and an empty cell — never a failed invoice.
+  const images = await fetchLineImages(lineRows.map((l) => l.catalog_image_url))
+
+const UNIT_LABELS: Record<string, { en: string; ar: string }> = {
     unit:  { en: 'Unit',  ar: 'الوحدة' },
     hour:  { en: 'Hour',  ar: 'ساعة' },
     day:   { en: 'Day',   ar: 'يوم' },
@@ -159,12 +177,13 @@ export async function generateTlInvoicePdf(
     piece: { en: 'Piece', ar: 'قطعة' },
   }
 
-  const lines: TlInvoiceLineInput[] = (inv.tl_invoice_lines ?? []).map((l) => {
-    const svc = serviceMap.get(l.name)
+  const lines: TlInvoiceLineInput[] = lineRows.map((l, idx) => {
+    const svc = l.service_id ? byId.get(l.service_id) : byName.get(l.name)
     const arText = svc?.invoice_text_ar?.trim() || svc?.name_ar?.trim() || ''
     const unitKey = (svc?.price_unit ?? 'unit').toLowerCase()
     const unit = UNIT_LABELS[unitKey] ?? { en: unitKey.charAt(0).toUpperCase() + unitKey.slice(1), ar: unitKey }
     return {
+      imageDataUri: images[idx] ?? null,
       name:      l.name,
       nameAr:    arText || null,
       unitEn:    unit.en,

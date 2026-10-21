@@ -124,6 +124,10 @@ export async function generateContractInvoicePdf(
     const unitKey = (svc?.price_unit ?? 'unit').toLowerCase()
     const unit = UNIT_LABELS[unitKey] ?? { en: unitKey.charAt(0).toUpperCase() + unitKey.slice(1), ar: unitKey }
     return {
+      // Contract invoice lines carry no service photo, so every line is null and
+      // the shared builder omits the image column entirely — these PDFs are
+      // unchanged by the service-photo work.
+      imageDataUri: null,
       name: l.name, nameAr: arText || null, unitEn: unit.en, unitAr: unit.ar,
       qty: Number(l.qty ?? 0), unitPrice: Number(l.unit_price ?? 0), total: Number(l.total ?? 0),
     }

@@ -16,6 +16,7 @@
  * only, so Puppeteer never loads on that code path.
  */
 
+import { fetchLineImages } from '@/lib/pdf/line-images'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildQuotationHtml,
@@ -96,7 +97,7 @@ export async function generateQuotationPdf(
         name,
         service_customer_phones(phone, is_primary)
       ),
-      order_quotation_line_items(name, path, qty, price)
+      order_quotation_line_items(name, path, qty, price, catalog_image_url)
     `)
     .eq('id', quotationUuid)
     .single<QuotationRow>()
@@ -119,7 +120,15 @@ export async function generateQuotationPdf(
   const phones   = customer?.service_customer_phones ?? []
   const primaryPhone = phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? ''
 
-  const services: QuotationLineItem[] = (q.order_quotation_line_items ?? []).map((li) => ({
+  // Fetch and embed before rendering; a failure yields null for that line and
+  // an empty cell rather than a failed quotation.
+  const quoteLines = q.order_quotation_line_items ?? []
+  const quoteImages = await fetchLineImages(
+    quoteLines.map((li) => (li as { catalog_image_url?: string | null }).catalog_image_url ?? null),
+  )
+
+  const services: QuotationLineItem[] = quoteLines.map((li, idx) => ({
+    imageDataUri: quoteImages[idx] ?? null,
     name:      li.name,
     pathLabel: (li.path && li.path.length > 1) ? li.path.slice(0, -1).join(' › ') : '',
     qty:       li.qty,

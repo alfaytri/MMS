@@ -18,6 +18,8 @@ import type { PdfFonts, PdfAssets } from '@/lib/pdf/pdf-fonts'
 import { fontFacesCss, brandHeaderHtml, contactStripHtml, footerHtml, stampSectionHtml, BASE_CSS } from '@/lib/pdf/pdf-fonts'
 
 export interface QuotationLineItem {
+  /** Base64 data URI of the service photo, or null. Embedded, never linked. */
+  imageDataUri: string | null
   name:      string                  // service name (Arabic or English — rendered as-is)
   pathLabel: string                  // "Cat › Subcat" breadcrumb shown beneath name (may be empty)
   qty:       number
@@ -65,9 +67,13 @@ function fmtMoney(amount: number, currency: string): string {
 export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
   const currency = input.currency ?? 'QAR'
 
+  // The image column appears only when some line actually has a photo, so a
+  // quotation without any prints exactly as it always has.
+  const anyImage = input.services.some((li) => !!li.imageDataUri)
+
   const servicesRows = input.services.length === 0
     ? `<tr>
-         <td colspan="4" class="empty-row">Add services from the left panel</td>
+         <td colspan="${anyImage ? 5 : 4}" class="empty-row">Add services from the left panel</td>
        </tr>`
     : input.services.map((li) => `
         <tr>
@@ -78,6 +84,9 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
             <div class="item-name">${escapeHtml(li.name).replace(/\n/g, '<br>')}</div>
             ${li.pathLabel ? `<div class="item-sku">${escapeHtml(li.pathLabel)}</div>` : ''}
           </td>
+          ${anyImage
+            ? `<td class="cell-img">${li.imageDataUri ? `<img src="${li.imageDataUri}" alt="" />` : ''}</td>`
+            : ''}
         </tr>
       `).join('')
 
@@ -140,6 +149,20 @@ export function buildQuotationHtml(input: BuildQuotationHtmlInput): string {
   ${BASE_CSS}
 
   /* ─── Order quotation overrides ─── */
+
+  /* Scoped to this document — BASE_CSS is shared by 16 generators and
+     re-flowing all of them is separate work. A row must not be sliced by a
+     page break, and page 2 needs its column headers. */
+  table.lines thead { display: table-header-group; }
+  table.lines tr    { break-inside: avoid; page-break-inside: avoid; }
+
+  table.lines td.cell-img { text-align: center; padding: 4px; vertical-align: middle; }
+  /* Capped so a 5 MB upload cannot inflate the page or the row height. */
+  table.lines td.cell-img img {
+    height: 34px; width: auto; max-width: 48px;
+    object-fit: cover; border-radius: 2px; display: inline-block;
+  }
+
   table.lines td.empty-row {
     border-top: 0.7px solid var(--text);
     padding: 10mm 3mm;
