@@ -2,6 +2,7 @@
 'use client'
 
 import { format, isToday, isTomorrow, parseISO } from 'date-fns'
+import { AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { TlOrderCard } from './TlOrderCard'
 import type { TlVisit } from '@/types/team-leader'
@@ -15,6 +16,12 @@ interface Props {
   onTapCard: (visit: TlVisit) => void
   onReviewWork?: (visit: TlVisit) => void
   onCreateInvoice?: (visit: TlVisit) => void
+  /**
+   * YYYY-MM-DD; when set (today view), any group dated before it is a missed visit surfaced
+   * alongside today, so its header reads "Overdue" instead of the plain date. Left unset when a
+   * specific day is being viewed, where every visit genuinely belongs to the picked day.
+   */
+  overdueBefore?: string
 }
 
 function dateLabel(dateStr: string): string {
@@ -26,6 +33,7 @@ function dateLabel(dateStr: string): string {
 
 export function TlVisitList({
   visits, teamId, startedVisits, completedVisits, onStart, onTapCard, onReviewWork, onCreateInvoice,
+  overdueBefore,
 }: Props) {
   if (visits.length === 0) {
     return (
@@ -47,13 +55,25 @@ export function TlVisitList({
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-2xl">
-        {Array.from(groups.entries()).map(([date, group]) => (
+        {Array.from(groups.entries()).map(([date, group]) => {
+          const isOverdue = !!overdueBefore && date < overdueBefore
+          return (
           <div key={date}>
-            {/* Sticky date header */}
-            <div className="sticky top-0 z-[5] flex items-center gap-2 bg-muted/80 backdrop-blur-sm px-4 py-2 border-b">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {dateLabel(date)}
+            {/* Sticky date header — overdue days (surfaced on the today view) are flagged */}
+            <div className={`sticky top-0 z-[5] flex items-center gap-2 backdrop-blur-sm px-4 py-2 border-b ${
+              isOverdue ? 'bg-amber-500/15' : 'bg-muted/80'
+            }`}>
+              {isOverdue && <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 shrink-0" />}
+              <span className={`text-xs font-semibold uppercase tracking-wide ${
+                isOverdue ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
+              }`}>
+                {isOverdue ? 'Overdue' : dateLabel(date)}
               </span>
+              {isOverdue && (
+                <span className="text-xs text-muted-foreground normal-case font-normal">
+                  {format(parseISO(date), 'EEE, MMM d')}
+                </span>
+              )}
               <Badge variant="secondary" className="text-xs h-5">{group.length}</Badge>
             </div>
 
@@ -74,7 +94,8 @@ export function TlVisitList({
               ))}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

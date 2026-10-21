@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Loader2, AlertTriangle, Users } from 'lucide-react'
-import { format, addDays } from 'date-fns'
+import { format } from 'date-fns'
 import { useTeamLeaderIdentity, useAllTeamsForSelect } from '@/hooks/useTeamLeaderIdentity'
 import { useTeamLeaderOrders } from '@/hooks/useTeamLeaderOrders'
 import {
@@ -42,9 +42,8 @@ export default function TeamLeaderPage() {
   )
 
   const [adminOverride, setAdminOverride]       = useState<string | null>(null)
-  const [viewMode, setViewMode]                 = useState<'today' | 'date'>('today')
   const [selectedDate, setSelectedDate]         = useState<string>(
-    () => format(addDays(new Date(), 1), 'yyyy-MM-dd')
+    () => format(new Date(), 'yyyy-MM-dd')
   )
   const [startedVisits, setStartedVisits]       = useState<Set<string>>(new Set())
   const [completedVisits, setCompletedVisits]   = useState<Set<string>>(new Set())
@@ -95,20 +94,23 @@ export default function TeamLeaderPage() {
     }
   }, [identityLoading, showTeamSelector, effectiveTeamId, allTeams.length])
 
-  // Each view loads the window it needs (rules in lib/team-leader/visitScope):
+  // The screen is a single date selector that opens on today. Each view loads the window it needs
+  // (rules in lib/team-leader/visitScope):
   //  - Today: from the overdue lookback onward, so a visit missed on an earlier day that is still
   //    open stays on the list instead of dropping out the next morning.
-  //  - Upcoming: the picked date, past OR future. Any date the Today fetch already covers (every
+  //  - A picked day: that date, past OR future. Any date the today fetch already covers (every
   //    future date and the last 30 days) shares that very query - no extra request, and stepping
   //    through days stays instant - so only a date older than the lookback fetches from itself.
   // The RPC has no upper bound, so a fetch loads from its from-date onward; bounding it with a
   // p_to_date RPC param is a possible future optimization, not needed now.
   const now = new Date()
+  const todayStr = format(now, 'yyyy-MM-dd')
+  const isViewingToday = selectedDate === todayStr
   const todayQuery = useTeamLeaderOrders(effectiveTeamId, overdueLookbackFrom(now))
   const dateQuery = useTeamLeaderOrders(effectiveTeamId, dateViewFromDate(selectedDate, now), {
-    enabled: viewMode === 'date',
+    enabled: !isViewingToday,
   })
-  const activeQuery = viewMode === 'today' ? todayQuery : dateQuery
+  const activeQuery = isViewingToday ? todayQuery : dateQuery
   const allVisits = activeQuery.data ?? []
   const visitsLoading = activeQuery.isLoading
 
@@ -129,9 +131,8 @@ export default function TeamLeaderPage() {
     [dateQuery.data, selectedDate]
   )
 
-  const filteredVisits = viewMode === 'today' ? todayVisits : dateVisits
-  const todayCount = todayVisits.length
-  const dateCount = dateVisits.length
+  const filteredVisits = isViewingToday ? todayVisits : dateVisits
+  const count = filteredVisits.length
 
   function handleStart(visitId: string) {
     setStartedVisits((prev) => new Set([...prev, visitId]))
@@ -222,10 +223,7 @@ export default function TeamLeaderPage() {
         allTeams={allTeams}
         effectiveTeamId={effectiveTeamId}
         onTeamChange={setAdminOverride}
-        todayCount={todayCount}
-        dateCount={dateCount}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        count={count}
         selectedDate={selectedDate}
         onSelectedDateChange={setSelectedDate}
       />
@@ -244,6 +242,7 @@ export default function TeamLeaderPage() {
           onTapCard={setActiveVisit}
           onReviewWork={setReviewVisit}
           onCreateInvoice={handleCreateInvoice}
+          overdueBefore={isViewingToday ? todayStr : undefined}
         />
       )}
 

@@ -7,7 +7,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -20,23 +19,20 @@ interface Props {
   allTeams: TlTeamOption[]
   effectiveTeamId: string | null
   onTeamChange: (teamId: string) => void
-  todayCount: number
-  dateCount: number
-  viewMode: 'today' | 'date'
-  onViewModeChange: (mode: 'today' | 'date') => void
+  count: number
   selectedDate: string                       // YYYY-MM-DD
   onSelectedDateChange: (date: string) => void
 }
 
 export function TlHeader({
   teamName, isAdmin, showTeamSelector, allTeams, effectiveTeamId,
-  onTeamChange, todayCount, dateCount, viewMode, onViewModeChange,
-  selectedDate, onSelectedDateChange,
+  onTeamChange, count, selectedDate, onSelectedDateChange,
 }: Props) {
   const today = format(new Date(), 'EEEE, MMM d, yyyy')
-  const countLabel = viewMode === 'today'
-    ? `${todayCount} today`
-    : `${dateCount} on ${format(parseISO(selectedDate), 'MMM d')}`
+  const viewingToday = isToday(parseISO(selectedDate))
+  const countLabel = viewingToday
+    ? `${count} today`
+    : `${count} on ${format(parseISO(selectedDate), 'MMM d')}`
 
   const divisionNames = Array.from(new Set(allTeams.map((t) => t.division_name).filter(Boolean)))
   const hasManyDivisions = divisionNames.length > 1
@@ -96,55 +92,50 @@ export function TlHeader({
         </Select>
       )}
 
-      {/* Row 3: view mode tabs */}
-      <Tabs value={viewMode} onValueChange={(v) => onViewModeChange(v as 'today' | 'date')}>
-        <TabsList className="w-full h-9">
-          <TabsTrigger value="today" className="flex-1 text-sm">
-            Today ({todayCount})
-          </TabsTrigger>
-          <TabsTrigger value="date" className="flex-1 text-sm">
-            Upcoming
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Row 3: date selector — opens on today; the TL steps or picks another day when they want one */}
+      <div className="flex items-center gap-2 min-h-[44px]">
+        <Button
+          type="button" variant="outline" size="icon"
+          className="h-11 w-11 shrink-0"
+          aria-label="Previous day"
+          onClick={() => shiftDate(-1)}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
 
-      {/* Row 4: date strip — only visible in 'date' mode */}
-      {viewMode === 'date' && (
-        <div className="flex items-center gap-2 min-h-[44px]">
+        <Input
+          ref={dateInputRef}
+          type="date"
+          value={selectedDate}
+          onChange={(e) => onSelectedDateChange(e.target.value)}
+          onClick={openDatePicker}
+          className="h-11 flex-1 min-w-0 cursor-pointer"
+          aria-label="Pick a date"
+        />
+
+        <Button
+          type="button" variant="outline" size="icon"
+          className="h-11 w-11 shrink-0"
+          aria-label="Next day"
+          onClick={() => shiftDate(1)}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+
+        {/* Quick jump back to the default (today) when the TL has navigated away */}
+        {!viewingToday && (
           <Button
-            type="button" variant="outline" size="icon"
-            className="h-11 w-11 shrink-0"
-            aria-label="Previous day"
-            onClick={() => shiftDate(-1)}
+            type="button" variant="secondary"
+            className="h-11 shrink-0 px-3 text-sm"
+            onClick={() => onSelectedDateChange(format(new Date(), 'yyyy-MM-dd'))}
           >
-            <ChevronLeft className="h-4 w-4" />
+            Today
           </Button>
-
-          <Input
-            ref={dateInputRef}
-            type="date"
-            value={selectedDate}
-            onChange={(e) => onSelectedDateChange(e.target.value)}
-            onClick={openDatePicker}
-            className="h-11 flex-1 min-w-0 cursor-pointer"
-            aria-label="Pick a date"
-          />
-
-          <Button
-            type="button" variant="outline" size="icon"
-            className="h-11 w-11 shrink-0"
-            aria-label="Next day"
-            onClick={() => shiftDate(1)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Read-only label below the date strip so the user sees the day-of-week even on tiny screens */}
-      {viewMode === 'date' && (
-        <p className="text-xs text-muted-foreground -mt-1">{dateLabel}</p>
-      )}
+      <p className="text-xs text-muted-foreground -mt-1">{dateLabel}</p>
     </div>
     </div>
   )
