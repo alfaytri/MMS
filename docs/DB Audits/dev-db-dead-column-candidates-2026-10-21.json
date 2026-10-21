@@ -1,0 +1,235 @@
+{
+  "nowhere": {
+    "cc_handling_events": [
+      "opened_at"
+    ],
+    "chat_conversations": [
+      "is_deleted"
+    ],
+    "chat_messages": [
+      "call_metadata"
+    ],
+    "customer_addresses": [
+      "blue_plate_no"
+    ],
+    "customer_subscriptions": [
+      "auto_renew",
+      "discount_percent_snapshot",
+      "price_paid"
+    ],
+    "document_terms": [
+      "content_ar"
+    ],
+    "instructions": [
+      "linked_service_ids"
+    ],
+    "media_download_jobs": [
+      "done_at",
+      "last_error"
+    ],
+    "notification_config": [
+      "has_media_followup",
+      "media_description",
+      "portal_purpose",
+      "requires_portal",
+      "template_slug"
+    ],
+    "notification_templates": [
+      "button_type",
+      "button_url_suffix_param",
+      "has_buttons",
+      "param_count"
+    ],
+    "order_quotations": [
+      "approved_by_customer",
+      "approved_by_manager",
+      "converted_order_id",
+      "has_configurable",
+      "line_item_count"
+    ],
+    "order_team_assignments": [
+      "is_full_day",
+      "parent_assignment_id"
+    ],
+    "orders": [
+      "scheduled_end_date"
+    ],
+    "projects": [
+      "completion_date"
+    ],
+    "promotion_rules": [
+      "campaign_id",
+      "free_service_id",
+      "free_service_name"
+    ],
+    "qc_inspection_results": [
+      "general_checklist",
+      "max_possible_score",
+      "qc_team_id",
+      "schedule_entry_id",
+      "service_checklist",
+      "total_score"
+    ],
+    "qc_inspections": [
+      "qc_order_id"
+    ],
+    "qc_schedule": [
+      "assigned_qc_team_id",
+      "order_type"
+    ],
+    "qc_team_scores": [
+      "current_score",
+      "last_inspection",
+      "member_change_date",
+      "previous_scores",
+      "service_history",
+      "total_inspections"
+    ],
+    "sale_orders": [
+      "campaign_id",
+      "voucher_id"
+    ],
+    "service_customers": [
+      "legacy_customer_id"
+    ],
+    "storage_cleanup_failures": [
+      "occurred_at"
+    ],
+    "subscription_usage_log": [
+      "discount_applied"
+    ],
+    "sync_state": [
+      "last_3cx_sync_at",
+      "last_wati_sync_at",
+      "last_whapi_sync_at"
+    ],
+    "voucher_redemptions": [
+      "discount_applied",
+      "redeemed_at",
+      "voucher_id"
+    ],
+    "vouchers": [
+      "campaign_id",
+      "max_discount",
+      "min_order_value"
+    ]
+  },
+  "server_side_only": {
+    "call_records": [
+      "initiated_by"
+    ],
+    "chat_messages": [
+      "wati_id"
+    ],
+    "cogs_entries": [
+      "consumer_customer_id",
+      "consumer_division_id"
+    ],
+    "consumption_entries": [
+      "consumer_customer_id"
+    ],
+    "consumption_number_counters": [
+      "last_seq"
+    ],
+    "contract_invoice_lines": [
+      "contract_invoice_id"
+    ],
+    "contract_invoice_payments": [
+      "contract_invoice_id"
+    ],
+    "fifo_cost_layers": [
+      "source_currency",
+      "source_exchange_rate"
+    ],
+    "inventory_damaged_stock_layers": [
+      "layered_at",
+      "qty_remaining",
+      "source_return_line_id"
+    ],
+    "invoices": [
+      "doc_status"
+    ],
+    "media_download_jobs": [
+      "claimed_at",
+      "scheduled_for"
+    ],
+    "order_team_snapshots": [
+      "member_ids"
+    ],
+    "orders": [
+      "completed_by",
+      "qc_inspection_id"
+    ],
+    "purchase_orders": [
+      "initial_rate_captured_by"
+    ],
+    "qc_inspections": [
+      "site_key"
+    ],
+    "receivals": [
+      "received_by"
+    ],
+    "return_line_inventory_dispositions": [
+      "inventory_stock_movement_id"
+    ],
+    "sale_orders": [
+      "initial_rate_captured_by"
+    ],
+    "services": [
+      "brands_supported",
+      "includes_notes"
+    ],
+    "site_visits": [
+      "completed_by"
+    ],
+    "storage_cleanup_failures": [
+      "error_text",
+      "source_table"
+    ],
+    "teams": [
+      "quality_score"
+    ],
+    "tool_asset_units": [
+      "current_custody_location_id"
+    ],
+    "tool_check_sessions": [
+      "initiated_by"
+    ],
+    "tool_unit_assignments": [
+      "assigned_by",
+      "custody_location_id",
+      "release_reason",
+      "returned_to_warehouse_id"
+    ],
+    "tool_unit_inspections": [
+      "custody_location_id",
+      "inspected_by",
+      "session_id"
+    ],
+    "visit_completions": [
+      "completed_by"
+    ],
+    "warehouse_item_requests": [
+      "resolved_by"
+    ],
+    "warehouse_transfers": [
+      "approved_by_profile_id",
+      "approved_date",
+      "cancelled_by_profile_id",
+      "repair_cost"
+    ],
+    "warehouses": [
+      "is_team_warehouse"
+    ],
+    "warranty_claim_counters": [
+      "next_value"
+    ],
+    "warranty_number_counters": [
+      "next_value"
+    ],
+    "warranty_records": [
+      "origin_country_id",
+      "starts_from_snapshot"
+    ]
+  }
+}

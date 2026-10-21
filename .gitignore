@@ -79,6 +79,8 @@ odoo_viewers/
 !/scripts/build-flows-visualizer.mjs
 !/scripts/test-cases/
 !/scripts/seed_service_tree.py
+!/scripts/db_schema_export.py
+!/scripts/db_audit.py
 temp_*.sql
 
 # ── Session scratchpad (Claude working files) ────────────
@@ -87,3 +89,6 @@ temp_*.sql
 # Temporary dev-only QA login — mints a session via the service-role key.
 # Its own header says NEVER COMMIT; a `git add -A src` swept it in once.
 /src/app/api/dev-login/
+
+.vercel
+.env*.local

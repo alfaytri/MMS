@@ -1,0 +1,218 @@
+# MMS — Dev Database Audit (2026-10-21)
+
+**Target:** Dev `wkmvjxxmzstsvahuiwsz` (the full-build database — every module, including the
+ones pruned out of staging and prod)
+**Engine:** PostgreSQL · **Method:** read-only catalog export + live probes. No writes.
+**Rubric:** `docs/DB Audits/Audit requirement/rules.md`
+**Schema export:** [`dev-db-schema-2026-10-21.json`](dev-db-schema-2026-10-21.json)
+**Raw findings:** [`dev-db-audit-findings-2026-10-21.json`](dev-db-audit-findings-2026-10-21.json)
+**Prior audit (different database):** [`2026-08-26-prod-db-audit.md`](2026-08-26-prod-db-audit.md) — new-prod, graded B+
+
+---
+
+## Scale
+
+| | |
+|---|---|
+| Tables | 208 |
+| Columns | 2,532 |
+| Functions | 723 |
+| RLS policies | 427 |
+| Indexes | 862 |
+| Enums | 76 |
+| Triggers | 165 |
+| Views | 19 |
+| **Rows in the entire database** | **17,576 — and 16,901 of those are in one table** |
+
+That last line governs how much of this audit can be trusted, and it is the first finding.
+
+---
+
+## Verdict — **C+ / "excellent engineering discipline, almost no access control"**
+
+The craftsmanship is genuinely strong and better than most codebases this size:
+**all 723 functions that run as `SECURITY DEFINER` pin their `search_path`** — zero injection
+surface, across a surface area more than double prod's. Every timestamp is `timestamptz`.
+207 of 208 tables have a primary key. Enum-versus-check discipline is deliberate rather than
+accidental. None of that is luck.
+
+But the authorization layer that is doing real work on prod is largely **absent here**:
+**67 tables have RLS switched off**, `anon` holds write grants on **all 218** tables, and
+**24 of the unprotected tables hold live data** — including the contact-centre conversation
+table with 16,901 rows.
+
+Prod earned a B+ with exactly one RLS gap. This database has sixty-seven. It is a development
+database, which lowers the stakes — but not to zero, because a Supabase project is
+internet-facing by default and its anon key is designed to live in client code.
+
+---
+
+## Scorecard against the rubric
+
+| Rubric area | Result | Grade |
+|---|---|---|
+| RLS enabled on every public table | **141 / 208 — 67 tables have RLS OFF** | ❌ |
+| Policy granularity (no blind `USING(true)`) | 148 permissive `USING(true)` policies | ⚠️ |
+| `INSERT`/`UPDATE` policies carry `WITH CHECK` | 27 write policies have none | ⚠️ |
+| `SECURITY DEFINER` pins `search_path` | **723 / 723** | ✅ |
+| Views use `security_invoker` | 12 / 19 — 7 bypass RLS | ⚠️ |
+| Foreign keys indexed | 9 unindexed (of ~870) | ✅ |
+| Duplicate / unused indexes | 1 duplicate pair; 504 zero-scan — **not actionable, see below** | 🟡 |
+| Column types (enum / check / FK) | 89 enum columns, 142 checks; `status` split 31 enum / 26 text | 🟡 |
+| Primary keys | 207 / 208 — **`returns` has none** | ⚠️ |
+| `timestamptz` everywhere | **0 naive `timestamp` columns** | ✅ |
+| Explicit FK delete rules | 250 FKs default to `NO ACTION` | 🟡 |
+
+---
+
+## Finding 1 — The database is 68% empty, which limits what any audit can conclude
+
+143 of 208 tables contain **zero rows**. Of the 65 that hold anything, one table
+(`chat_conversations`, 16,901 rows) accounts for 96% of all data in the database. The next
+largest is `chat_messages` at 215. Most business tables hold single digits: `orders` 10,
+`services` 63, `tl_invoice_lines` 7.
+
+This matters because two things people normally want from a schema audit cannot be answered
+here:
+
+- **"Is this column dead?" cannot be answered from the data.** 202 columns are NULL in every
+  row — but in a database this empty that means "nothing has been entered yet", not "unused".
+- **"Which indexes should we drop?" cannot be answered either.** 504 indexes show zero scans,
+  because there is effectively no traffic. Dropping on that evidence would be destroying
+  indexes that production needs. **Do not prune indexes from this database.**
+
+The dead-column question is answered below by a different method that does not depend on data.
+
+---
+
+## Finding 2 — 67 tables have RLS off, and `anon` can write to all of them ❌
+
+`anon` holds `INSERT`/`UPDATE`/`DELETE` grants on **all 218** tables in `public`. On this
+project RLS is therefore the *only* thing standing between the anon key and the data, and on
+67 tables it is switched off entirely.
+
+24 of those tables contain data today:
+
+| Table | Rows |
+|---|---|
+| `chat_conversations` | **16,901** |
+| `chat_messages` | 215 |
+| `services` | 63 |
+| `media_download_jobs` | 14 |
+| `team_activity_log` | 14 |
+| `orders` / `order_services` | 10 / 10 |
+| `tl_invoice_lines` / `tl_invoice_payments` | 7 / 5 |
+| `employees` | 2 |
+
+`chat_conversations` is the contact-centre table. If those 16,901 rows are real customer
+WhatsApp conversations rather than test traffic, this is the single finding on the page worth
+acting on today.
+
+**Not proven live.** The prior prod audit confirmed exposure with an anon-key REST probe. That
+was not possible here: `.env.local` was regenerated by the Vercel CLI at 20:13 today and no
+longer contains a Supabase URL or anon key (see the operational note at the end). The finding
+above is derived from the system catalogs — `pg_class.relrowsecurity` and
+`information_schema.role_table_grants` — which is reliable, but it is an inference about
+reachability rather than a demonstration of it. **Re-run the probe once the key is back** before
+treating any of these tables as confirmed-exposed or confirmed-safe.
+
+Two further tables — `consumption_number_counters` and `storage_cleanup_failures` — have RLS
+**on** with **zero policies**, which denies everyone including the app. That is safe but almost
+certainly unintended: a table in that state silently fails every query against it.
+
+---
+
+## Finding 3 — 61 columns are referenced nowhere at all
+
+This is the dead-column answer, reached without relying on the data.
+
+Method, and why each stage was needed:
+
+1. Start from all 2,532 columns; drop 700 generic names (`id`, `status`, `created_at`…) where a
+   text match proves nothing. **1,832 checked.**
+2. Search all 1,246 hand-written `.ts`/`.tsx` files. **111 never appear.**
+   *The generated `src/types/database.types.ts` was excluded — it lists every column by
+   construction, and including it made the first run return a meaningless zero.*
+3. Search all 723 deployed function bodies and 19 view definitions. **50 of the 111 are used by
+   server-side SQL only** — real false positives, correctly removed.
+
+**61 columns remain: not in application code, not in any function, not in any view.**
+
+| Table | Count | Columns |
+|---|---|---|
+| `qc_inspection_results` | 6 | `general_checklist`, `max_possible_score`, `qc_team_id`, `schedule_entry_id`, `service_checklist`, `total_score` |
+| `qc_team_scores` | 6 | `current_score`, `last_inspection`, `member_change_date`, `previous_scores`, `service_history`, `total_inspections` |
+| `notification_config` | 5 | `has_media_followup`, `media_description`, `portal_purpose`, `requires_portal`, `template_slug` |
+| `order_quotations` | 5 | `approved_by_customer`, `approved_by_manager`, `converted_order_id`, `has_configurable`, `line_item_count` |
+| `notification_templates` | 4 | `button_type`, `button_url_suffix_param`, `has_buttons`, `param_count` |
+| `customer_subscriptions` | 3 | `auto_renew`, `discount_percent_snapshot`, `price_paid` |
+| `promotion_rules` | 3 | `campaign_id`, `free_service_id`, `free_service_name` |
+| `sync_state` | 3 | `last_3cx_sync_at`, `last_wati_sync_at`, `last_whapi_sync_at` |
+| `voucher_redemptions` | 3 | `discount_applied`, `redeemed_at`, `voucher_id` |
+| `vouchers` | 3 | `campaign_id`, `max_discount`, `min_order_value` |
+| 16 more tables | 20 | see [`dev-db-dead-column-candidates-2026-10-21.json`](dev-db-dead-column-candidates-2026-10-21.json) |
+
+**Read this as a shortlist to review, not a drop list.** The pattern is informative: the
+clusters are QC scoring, vouchers/campaigns, and subscription billing — features that look
+designed-ahead rather than abandoned. A column waiting for a feature is not dead; a column left
+behind by one is. Only you can tell those apart, which is why nothing here is phrased as a
+recommendation to drop.
+
+---
+
+## Finding 4 — Smaller items
+
+- **`returns` has no primary key.** The only table of 208 without one. It also owns 4 of the 9
+  unindexed foreign keys (`created_by`, `credit_note_id`, `division_id`, `restock_warehouse_id`).
+  Worth a look as a unit — the table seems to have missed a pass everything else got.
+- **Seven views do not set `security_invoker`**, so they run with their owner's rights and
+  bypass RLS: `customer_credit_balances`, `customer_credit_summary`,
+  `customer_open_credit_notes`, `customer_refunds_payable`, `sale_order_paid_summary`,
+  `supplier_credit_balances`, `warehouse_sub_container_totals`. Every one of them is customer or
+  supplier financial data. The same class of finding was fixed on prod in August; it was never
+  applied here.
+- **Nine unindexed foreign keys**, five on `invoices` (`phone_id`, `purchase_order_id`,
+  `receival_id`, `sale_delivery_id`, `supplier_id`). Cheap to add, no impact at this scale.
+- **One duplicate index pair:** `cogs_entries.idx_cogs_delivery` and
+  `idx_cogs_entries_sale_delivery_id` are the same index under two names.
+- **`status` is typed inconsistently:** 31 columns use an enum, 26 use `text`. The rubric prefers
+  `text` + `CHECK` for evolving workflow states and reserves enums for immutable domains. Both
+  choices appear here without an obvious rule separating them. Not a defect — worth a convention.
+- **250 foreign keys default to `NO ACTION`** on delete. The rubric asks for an explicit rule on
+  every FK. `NO ACTION` is a real and often correct choice; the gap is that it is a default
+  rather than a decision.
+
+---
+
+## What I would do, in order
+
+1. **Decide what `chat_conversations` actually holds.** 16,901 rows, RLS off, anon-writable. If
+   it is real customer conversation data, enable RLS on it today. If it is test traffic, say so
+   and it drops down this list.
+2. **Re-run the anon probe** once `.env.local` has its key back, and let it confirm or refute
+   Finding 2 rather than leaving it inferred.
+3. **Fix the two RLS-on-no-policy tables** — they are silently denying the application.
+4. **Set `security_invoker` on the seven financial views.** Small, and the same fix already
+   shipped to prod.
+5. **Review the 61 columns** against your roadmap and tell me which are waiting versus abandoned.
+6. Leave indexes alone until this database sees real traffic.
+
+---
+
+## Operational note, unrelated to the audit but urgent
+
+**`.env.local` was regenerated by the Vercel CLI at 20:13 today and no longer contains any
+Supabase configuration** — no URL, no anon key. It went from ~4.7 KB to 1.3 KB and is now just a
+`VERCEL_OIDC_TOKEN`. **The dev server on :3001 is down and will not reconnect to Supabase if
+restarted**, which will stop the smoke test.
+
+Three backups are on disk. Note the names are misleading:
+
+| File | Actually points at |
+|---|---|
+| `.env.local.wholeapp-backup` | **Dev** `wkmvjxxmzstsvahuiwsz` ← the one we were using |
+| `.env.local.dev-backup` | *staging* `mwvblpgbgxipvrevkeff` |
+| `.env.local.staging-backup` | staging `mwvblpgbgxipvrevkeff` |
+
+I have not restored anything — the Vercel pull may well have been deliberate, and overwriting
+environment config is yours to decide.
