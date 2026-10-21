@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/command'
 import { Form } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
+import { buildCatalogThumb, thumbPathFor } from '@/lib/services/catalogThumb'
 import { useServiceTree, useCreateService, useUpdateService, type Service } from '@/hooks/useServices'
 import { useSubmitServiceChange } from '@/hooks/useServiceChangeRequests'
 import { collectDescendantIds, buildTreeMap } from './ServiceTree'
@@ -134,6 +135,7 @@ export function ServiceEditDialog({
       const serviceId = mode === 'edit' && node ? node.id : crypto.randomUUID()
 
       let catalogImageUrl: string | undefined
+      let catalogThumbUrl: string | undefined
       if (pendingFile) {
         const ext = pendingFile.name.split('.').pop() ?? 'jpg'
         const path = `catalog/${serviceId}.${ext}`
@@ -145,6 +147,24 @@ export function ServiceEditDialog({
           .from('service-photos')
           .getPublicUrl(path)
         catalogImageUrl = publicUrl
+
+        // Small WebP derivative for the picker list and the invoice PDF, which
+        // cannot afford the full-size original. Best-effort: a thumbnail that
+        // fails to build or upload must never block saving the service — the
+        // readers treat a missing thumb the same as a service with no photo.
+        try {
+          const thumbPath = thumbPathFor(serviceId)
+          const thumb = await buildCatalogThumb(pendingFile)
+          const { error: thumbError } = await supabase.storage
+            .from('service-photos')
+            .upload(thumbPath, thumb, { upsert: true, contentType: 'image/webp' })
+          if (thumbError) throw thumbError
+          catalogThumbUrl = supabase.storage
+            .from('service-photos')
+            .getPublicUrl(thumbPath).data.publicUrl
+        } catch (thumbErr) {
+          console.warn('catalog thumbnail skipped', thumbErr)
+        }
       }
 
       const payload = {
@@ -179,6 +199,7 @@ export function ServiceEditDialog({
         components: values.service_type === 'configurable' ? values.component_service_ids : null,
         qc_items: type !== 'contract' && values.qc_items.length > 0 ? values.qc_items : null,
         ...(catalogImageUrl !== undefined && { catalog_image_url: catalogImageUrl }),
+        ...(catalogThumbUrl !== undefined && { catalog_thumb_url: catalogThumbUrl }),
       }
 
       const changes = buildChangesDiff(payload, mode === 'edit' ? node : null)
