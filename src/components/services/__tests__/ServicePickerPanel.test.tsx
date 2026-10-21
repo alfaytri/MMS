@@ -53,7 +53,8 @@ vi.mock('@/hooks/useServices', () => ({
       { id: 'svc-repair', name_en: 'Repair', parent_id: 'svc-split', price: null,
         emergency_price: null, duration: null, division: ['main-division'] },
       { id: 'svc-gas', name_en: 'Gas Refill', parent_id: 'svc-repair', price: 220,
-        emergency_price: null, duration: 45, division: ['main-division'] },
+        emergency_price: null, duration: 45, division: ['main-division'],
+        catalog_thumb_url: 'https://cdn.test/gas_thumb.webp' },
       { id: 'svc-thermo', name_en: 'Thermostat', parent_id: 'svc-repair', price: 160,
         emergency_price: null, duration: 30, division: ['main-division'] },
     ],
@@ -251,5 +252,29 @@ describe('ServicePickerPanel — embedded use', () => {
   it('does not steal focus when autofocus is off', () => {
     renderPanel(vi.fn(), { autoFocusSearch: false })
     expect(document.activeElement).not.toBe(screen.getByRole('searchbox'))
+  })
+})
+
+describe('ServicePickerPanel — photos while browsing', () => {
+  it('shows a service photo in browse mode, not only in search results', async () => {
+    // Browsing is how operators who do not know a name find a service. A photo
+    // that appears when you search and vanishes when you browse is the photo
+    // missing exactly where it helps most.
+    mock.hits = [REPAIR_BRANCH]
+    renderPanel()
+    await search('repair')
+    fireEvent.click(await screen.findByTestId('result-svc-repair'))
+    const gas = await screen.findByTestId('result-svc-gas')
+    expect(gas.querySelector('img')).not.toBeNull()
+    expect(gas.querySelector('img')?.getAttribute('src')).toBe('https://cdn.test/gas_thumb.webp')
+  })
+
+  it('still renders no image slot for a browsed service without a photo', async () => {
+    mock.hits = [REPAIR_BRANCH]
+    renderPanel()
+    await search('repair')
+    fireEvent.click(await screen.findByTestId('result-svc-repair'))
+    const thermo = await screen.findByTestId('result-svc-thermo')
+    expect(thermo.querySelector('img')).toBeNull()
   })
 })

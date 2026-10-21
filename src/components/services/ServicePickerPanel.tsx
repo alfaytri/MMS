@@ -118,6 +118,7 @@ export function ServicePickerPanel({
     type Node = {
       id: string; name_en: string; parent_id: string | null; price: number | null
       emergency_price: number | null; duration: number | null; division: string[] | null
+      catalog_thumb_url: string | null
     }
     const nodes = tree as unknown as Node[]
     return nodes
@@ -127,7 +128,7 @@ export function ServicePickerPanel({
         name: n.name_en,
         path: [...browse.path, n.name_en],
         price: n.price,
-        thumbUrl: null,
+        thumbUrl: n.catalog_thumb_url ?? null,
         isLeaf: !nodes.some((c) => c.parent_id === n.id),
         service: {
           id: n.id, name_en: n.name_en, parent_id: n.parent_id, price: n.price,
