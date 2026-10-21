@@ -43,3 +43,25 @@ export function mergeVisitDates(existing: string[], added: string[]): string[] {
   if (added.length === 0) return existing
   return [...new Set([...existing, ...added])].sort()
 }
+
+/** `yyyy-MM-dd`, which is what react-day-picker stamps into `data-day`. */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * The ISO date of the calendar day under `el`, or null if there isn't one.
+ *
+ * react-day-picker stamps every day cell with `data-day="yyyy-MM-dd"` and marks
+ * unavailable ones `data-disabled`. Reading that is what lets the drag work on
+ * touch: a finger has no hover, so the day has to come from whatever element is
+ * under the pointer rather than from a mouseenter that never fires.
+ *
+ * Returns null for a disabled day, so a drag cannot pass through the past, and
+ * for anything that is not a day at all — month arrows, weekday headings, gaps.
+ */
+export function dayIsoFromElement(el: Element | null | undefined): string | null {
+  const cell = el?.closest?.('[data-day]') as HTMLElement | null | undefined
+  if (!cell) return null
+  if (cell.hasAttribute('data-disabled')) return null
+  const iso = cell.getAttribute('data-day')
+  return iso && ISO_DAY.test(iso) ? iso : null
+}

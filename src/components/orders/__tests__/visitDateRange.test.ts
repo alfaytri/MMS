@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { datesInDragRange, mergeVisitDates } from '../visitDateRange'
+import { datesInDragRange, mergeVisitDates, dayIsoFromElement } from '../visitDateRange'
 
 const d = (iso: string) => new Date(`${iso}T00:00:00`)
 
@@ -60,5 +60,40 @@ describe('mergeVisitDates', () => {
   it('keeps the result sorted so the summary reads first to last', () => {
     expect(mergeVisitDates(['2026-11-02'], ['2026-10-30', '2026-10-31']))
       .toEqual(['2026-10-30', '2026-10-31', '2026-11-02'])
+  })
+})
+
+describe('dayIsoFromElement', () => {
+  // react-day-picker stamps every day cell with data-day="yyyy-MM-dd" plus
+  // data-disabled. Reading the DOM is what makes the drag work on touch, where
+  // there is no hover to tell us which day the finger is over.
+  function cell(attrs: Record<string, string>, childHtml = '<span>21</span>') {
+    const root = document.createElement('div')
+    root.innerHTML = `<div ${Object.entries(attrs)
+      .map(([k, v]) => `${k}="${v}"`).join(' ')}>${childHtml}</div>`
+    return root.firstElementChild as HTMLElement
+  }
+
+  it('reads the date off the day cell', () => {
+    expect(dayIsoFromElement(cell({ 'data-day': '2026-10-21' }))).toBe('2026-10-21')
+  })
+
+  it('finds the day cell when the pointer is over a child of it', () => {
+    const el = cell({ 'data-day': '2026-10-21' })
+    expect(dayIsoFromElement(el.querySelector('span'))).toBe('2026-10-21')
+  })
+
+  it('ignores a disabled day, so a drag cannot pass through the past', () => {
+    expect(dayIsoFromElement(cell({ 'data-day': '2026-10-01', 'data-disabled': 'true' }))).toBeNull()
+  })
+
+  it('returns null away from any day — month arrows, weekday headings, gaps', () => {
+    const plain = document.createElement('div')
+    expect(dayIsoFromElement(plain)).toBeNull()
+    expect(dayIsoFromElement(null)).toBeNull()
+  })
+
+  it('rejects a malformed data-day rather than passing it on', () => {
+    expect(dayIsoFromElement(cell({ 'data-day': 'not-a-date' }))).toBeNull()
   })
 })

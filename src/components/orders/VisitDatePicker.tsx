@@ -4,7 +4,7 @@ import { DayPicker } from 'react-day-picker'
 import { format, parseISO } from 'date-fns'
 import { CalendarIcon } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { datesInDragRange, mergeVisitDates } from './visitDateRange'
+import { datesInDragRange, dayIsoFromElement, mergeVisitDates } from './visitDateRange'
 import 'react-day-picker/style.css'
 
 interface Props {
@@ -35,16 +35,34 @@ export function VisitDatePicker({ selected, onChange }: Props) {
    * press and release on the SAME day is a click, and is left entirely to the
    * library.
    *
-   * Mouse and pen only: the anchor comes from the last day the pointer moved
-   * over, and touch has no hover. Tapping dates one by one still works on a
-   * phone, which is the natural interaction there anyway.
+   * Works the same for mouse, pen and finger: the day under the pointer comes
+   * from the DOM (`data-day`, which react-day-picker stamps on every cell),
+   * not from hover — a finger has no hover, so a mouseenter-based anchor
+   * would never fire on touch.
    */
   const [dragAnchor, setDragAnchor] = useState<Date | null>(null)
   const [dragHover, setDragHover]   = useState<Date | null>(null)
-  /** Last day the pointer was over — pointerdown has no day of its own. */
-  const hoveredDay = useRef<Date | null>(null)
+  /** True once the pointer has actually moved to another day. */
+  const movedRef = useRef(false)
 
   const minDate = useMemo(() => new Date(new Date().setHours(0, 0, 0, 0)), [])
+
+  /**
+   * One month on a phone, two from tablet up.
+   *
+   * Two months never fitted a phone, and it matters more now: the day grid
+   * sets `touch-action: none` so a drag is not swallowed as a page pan, which
+   * also means a calendar taller than the screen could not be scrolled past.
+   * Showing one month keeps it on screen.
+   */
+  const [months, setMonths] = useState(2)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const apply = () => setMonths(mq.matches ? 2 : 1)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
 
   const dragRange = useMemo(
     () => datesInDragRange(dragAnchor, dragHover, minDate),
@@ -52,10 +70,17 @@ export function VisitDatePicker({ selected, onChange }: Props) {
   )
 
   function commitDrag() {
-    // Only a real drag commits; a single day is the library's click to handle.
-    if (dragAnchor && dragHover && dragRange.length > 1) {
-      onChange(mergeVisitDates(selected, dragRange))
+    // Only a real drag commits. On a mouse, a press and release on one day is
+    // a click the library handles. On touch there is no click, so a tap that
+    // never moved has to be applied here instead.
+    if (dragAnchor && dragHover) {
+      if (dragRange.length > 1) {
+        onChange(mergeVisitDates(selected, dragRange))
+      } else if (movedRef.current && dragRange.length === 1) {
+        onChange(mergeVisitDates(selected, dragRange))
+      }
     }
+    movedRef.current = false
     setDragAnchor(null)
     setDragHover(null)
   }
@@ -104,27 +129,43 @@ export function VisitDatePicker({ selected, onChange }: Props) {
         >
           <div
             onPointerDown={(e) => {
-              // Ignore anything but a primary press, and presses that are not
-              // over a day (month arrows, weekday headings).
-              if (e.button !== 0 || !hoveredDay.current) return
-              setDragAnchor(hoveredDay.current)
-              setDragHover(hoveredDay.current)
+              if (e.button !== 0) return
+              const iso = dayIsoFromElement(e.target as Element)
+              if (!iso) return     // month arrows, weekday headings, gaps
+              const day = parseISO(iso)
+              movedRef.current = false
+              setDragAnchor(day)
+              setDragHover(day)
+              // Keep receiving moves even once the finger leaves this element.
+              try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* unsupported */ }
+            }}
+            onPointerMove={(e) => {
+              if (!dragAnchor) return
+              // With the pointer captured the event target stays this
+              // container, so ask the document what is actually under the
+              // finger. This is the part touch needs.
+              const iso = dayIsoFromElement(
+                document.elementFromPoint(e.clientX, e.clientY),
+              )
+              if (!iso) return
+              const day = parseISO(iso)
+              if (format(day, 'yyyy-MM-dd') !== format(dragAnchor, 'yyyy-MM-dd')) {
+                movedRef.current = true
+              }
+              setDragHover(day)
             }}
             onPointerUp={commitDrag}
-            // Dragging over day cells would otherwise start a text selection.
-            className="select-none"
+            // select-none: dragging over cells would start a text selection.
+            // touch-action-none: without it the browser pans instead of
+            // sending pointermove, and the drag never starts on a phone.
+            className="touch-none select-none"
           >
             <DayPicker
               mode="multiple"
               selected={selectedDates}
               onSelect={handleSelect}
-              numberOfMonths={2}
+              numberOfMonths={months}
               disabled={{ before: minDate }}
-              onDayMouseEnter={(day, modifiers) => {
-                hoveredDay.current = modifiers.disabled ? null : day
-                if (dragAnchor && !modifiers.disabled) setDragHover(day)
-              }}
-              onDayMouseLeave={() => { hoveredDay.current = null }}
               // Preview the range under the pointer before it is committed.
               modifiers={{ dragging: dragRange.map((iso) => parseISO(iso)) }}
               modifiersClassNames={{ dragging: 'bg-primary/20 rounded-none' }}
