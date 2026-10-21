@@ -39,6 +39,9 @@ export function useTeamLeaderOrders(
 
         const services: TlService[] = rawServices.map((s) => ({
           id: s.id as string,
+          // get_team_leader_visits now exposes os.service_id; invoicing needs it
+          // to resolve the service photo and to stop matching lines by name.
+          service_id: (s.service_id as string | null) ?? null,
           name: (s.name as string) ?? 'Service',
           unit_price: (s.unit_price as number) ?? 0,
           qty: (s.qty as number) ?? 1,

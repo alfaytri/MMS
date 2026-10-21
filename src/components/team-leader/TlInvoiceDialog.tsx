@@ -82,11 +82,16 @@ export function TlInvoiceDialog({ visit, addedServices, profileId, onDone, onClo
 
   // Bill lines = original visit services + any added billable services.
   const allItems = [
+    // Visit services came from an order line, so they carry its id: the server
+    // prefers the photo that line was SOLD with over the catalogue's current one.
     ...visit.services.map((s) => ({
       name: s.name, qty: s.qty, unit_price: s.unit_price, total: s.unit_price * s.qty,
+      service_id: s.service_id ?? '', order_service_id: s.id,
     })),
+    // Team-leader billables have no order line — the server resolves live.
     ...addedServices.map((s) => ({
       name: s.name, qty: s.qty, unit_price: s.unitPrice, total: s.unitPrice * s.qty,
+      service_id: s.id, order_service_id: '',
     })),
   ]
 
@@ -113,7 +118,10 @@ export function TlInvoiceDialog({ visit, addedServices, profileId, onDone, onClo
 
     setSubmitting(true)
     try {
-      const lines = allItems.map(({ name, qty, unit_price }) => ({ name, qty, unit_price }))
+      // service_id/order_service_id are identifiers only — the server resolves the
+      // photo and authors every money figure itself.
+      const lines = allItems.map(({ name, qty, unit_price, service_id, order_service_id }) =>
+        ({ name, qty, unit_price, service_id, order_service_id }))
       const { id: invoiceId, invoice_number: invoiceNumber } = await createInvoice.mutateAsync({
         visit,
         lines,

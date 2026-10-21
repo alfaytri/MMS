@@ -10,7 +10,10 @@ export type VisitType =
   | 'qc'
 
 export interface TlService {
+  /** The `order_services` row id — NOT the service id. */
   id: string
+  /** The catalogue service, when the line came from one. Null for ad-hoc lines. */
+  service_id: string | null
   name: string
   unit_price: number
   qty: number

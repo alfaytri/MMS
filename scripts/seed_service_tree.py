@@ -324,16 +324,45 @@ def probe_snapshots(conn, cur):
     cur.execute("SELECT catalog_image_url FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc3))
     check("a service added BY an edit resolves live", cur.fetchone()[0] == svc3_url)
 
+    # ── invoice lines ────────────────────────────────────────────────────
+    cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/NEW.png' WHERE id=%s;", (svc,))
+    cur.execute("SELECT id FROM order_services WHERE order_id=%s AND service_id=%s;", (order, svc))
+    os_id = cur.fetchone()[0]
+    inv_lines = [
+        {"name": svc_name, "qty": 1, "unit_price": 100,
+         "service_id": str(svc), "order_service_id": str(os_id)},
+        {"name": "TL billable", "qty": 1, "unit_price": 50,
+         "service_id": str(svc), "order_service_id": ""},
+        {"name": "Typed custom", "qty": 1, "unit_price": 20,
+         "service_id": "", "order_service_id": ""},
+    ]
+    cur.execute("SELECT id FROM create_tl_invoice(%s,%s,'Probe','+974',%s::jsonb,0,0,0,0,'n',NULL);",
+                (str(_uuid.uuid4()), oid, _json.dumps(inv_lines)))
+    inv_id = cur.fetchone()[0]
+    cur.execute("SELECT name, service_id, catalog_image_url FROM tl_invoice_lines WHERE tl_invoice_id=%s;", (inv_id,))
+    il = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+    check("invoice line from an order keeps the photo it was SOLD with",
+          il.get(svc_name, (0, 0))[1] == url)
+    check("invoice line for a TL billable resolves live",
+          il.get("TL billable", (0, 0))[1] == "https://cdn.test/NEW.png")
+    check("invoice line with no service_id inserts with both columns NULL",
+          il.get("Typed custom", ("x", "x")) == (None, None))
+    check("service_id is stored, retiring the name-string match",
+          str(il.get(svc_name, (0, 0))[0]) == str(svc))
+
+    cur.execute("SELECT catalog_image_url FROM services WHERE id=%s;", (svc,))
+    current_at_save = cur.fetchone()[0]
     qid = f"QP-{_uuid.uuid4().hex[:6]}"
     cur.execute("SELECT save_order_quotation(%s,%s,'main-division','draft',100,'n',CURRENT_DATE + 30,NULL,%s::jsonb,NULL,0);",
                 (qid, cust, _json.dumps(items)))
     cur.execute("SELECT id FROM order_quotations WHERE quotation_id=%s;", (qid,))
     quot = cur.fetchone()[0]
-    # The catalogue photo was already changed above, so a quotation saved NOW
-    # must capture the CHANGED value — that is live resolution at save time.
+    # Read what the catalogue says right now rather than hardcoding a URL, so
+    # this stays true no matter what earlier checks did to the photo.
     cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc))
+    quoted_url = cur.fetchone()[0]
     check("quotation line captures the photo current at save time",
-          cur.fetchone()[0] == "https://cdn.test/CHANGED.png")
+          quoted_url == current_at_save, f"saved {str(quoted_url)[-18:]}")
     cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc2))
     check("quotation line without a photo is NULL", cur.fetchone()[0] is None)
 
@@ -341,7 +370,7 @@ def probe_snapshots(conn, cur):
     cur.execute("UPDATE services SET catalog_image_url='https://cdn.test/AGAIN.png' WHERE id=%s;", (svc,))
     cur.execute("SELECT catalog_image_url FROM order_quotation_line_items WHERE quotation_id=%s AND service_id=%s;", (quot, svc))
     check("quotation snapshot frozen after a later photo change",
-          cur.fetchone()[0] == "https://cdn.test/CHANGED.png")
+          cur.fetchone()[0] == current_at_save)
 
     conn.rollback()
     print("  (rolled back)")

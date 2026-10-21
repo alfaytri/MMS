@@ -117,7 +117,11 @@ export function NormalOrderDialog({ visit, profileId: _profileId, onComplete, on
 
   const allServices: TlService[] = [
     ...visit.services,
-    ...addedServices.map((s) => ({ id: s.id, name: s.name, unit_price: s.unitPrice, qty: s.qty })),
+    // A billable picked from the catalogue: its id IS the service id, and it has
+    // no order line behind it.
+    ...addedServices.map((s) => ({
+      id: s.id, service_id: s.id, name: s.name, unit_price: s.unitPrice, qty: s.qty,
+    })),
   ]
 
   const otherTeams = (visit.team_ids ?? []).filter((t) => t !== visit.team_id)
