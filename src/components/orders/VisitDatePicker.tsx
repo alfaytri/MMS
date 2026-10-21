@@ -35,6 +35,10 @@ export function VisitDatePicker({ selected, onChange }: Props) {
    * press and release on the SAME day is a click, and is left entirely to the
    * library.
    *
+   * The calendar shows ONE month on every screen, so a range spanning a month
+   * boundary is two drags — which works, because a drag adds to the selection
+   * rather than replacing it.
+   *
    * Works the same for mouse, pen and finger: the day under the pointer comes
    * from the DOM (`data-day`, which react-day-picker stamps on every cell),
    * not from hover — a finger has no hover, so a mouseenter-based anchor
@@ -47,22 +51,6 @@ export function VisitDatePicker({ selected, onChange }: Props) {
 
   const minDate = useMemo(() => new Date(new Date().setHours(0, 0, 0, 0)), [])
 
-  /**
-   * One month on a phone, two from tablet up.
-   *
-   * Two months never fitted a phone, and it matters more now: the day grid
-   * sets `touch-action: none` so a drag is not swallowed as a page pan, which
-   * also means a calendar taller than the screen could not be scrolled past.
-   * Showing one month keeps it on screen.
-   */
-  const [months, setMonths] = useState(2)
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)')
-    const apply = () => setMonths(mq.matches ? 2 : 1)
-    apply()
-    mq.addEventListener('change', apply)
-    return () => mq.removeEventListener('change', apply)
-  }, [])
 
   const dragRange = useMemo(
     () => datesInDragRange(dragAnchor, dragHover, minDate),
@@ -164,7 +152,7 @@ export function VisitDatePicker({ selected, onChange }: Props) {
               mode="multiple"
               selected={selectedDates}
               onSelect={handleSelect}
-              numberOfMonths={months}
+              numberOfMonths={1}
               disabled={{ before: minDate }}
               // Preview the range under the pointer before it is committed.
               modifiers={{ dragging: dragRange.map((iso) => parseISO(iso)) }}
