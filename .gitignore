@@ -82,6 +82,8 @@ odoo_viewers/
 !/scripts/db_schema_export.py
 !/scripts/db_audit.py
 !/scripts/apply_prod_division_backfill.py
+!/scripts/create_rsh_new_items.py
+!/scripts/load_rsh_opening_stock.py
 temp_*.sql
 
 # ── Session scratchpad (Claude working files) ────────────
