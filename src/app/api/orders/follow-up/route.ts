@@ -64,7 +64,8 @@ export async function POST(req: Request) {
         address:        body.address,
         parent_order_id:      body.parent_order_id,
         follow_up_request_id: body.follow_up_request_id ?? null,
-      })
+      // service_customer_id omitted (nullable now, retired in 5.7); cast past stale gen types.
+      } as never)
       .select('id')
       .single()
     if (oErr) throw oErr
