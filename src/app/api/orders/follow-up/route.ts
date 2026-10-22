@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
     const { data: parent, error: pErr } = await admin
       .from('orders')
-      .select('division, customer_id, service_customer_id')
+      .select('division, customer_id')
       .eq('id', body.parent_order_id)
       .single()
     if (pErr || !parent) return NextResponse.json({ error: 'parent_order_not_found' }, { status: 404 })
@@ -51,9 +51,9 @@ export async function POST(req: Request) {
     const { data: order, error: oErr } = await admin
       .from('orders')
       .insert({
+        // Stage 5: stamp the unified customer_id only (service_customer_id is retired).
         order_id:       orderIdHuman,
-        customer_id:    body.customer_id,
-        service_customer_id: parent.service_customer_id ?? body.customer_id,
+        customer_id:    parent.customer_id ?? body.customer_id,
         type:           'follow-up',
         division:       parent.division,
         status:         'scheduled',
