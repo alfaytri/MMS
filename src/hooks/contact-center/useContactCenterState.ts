@@ -14,6 +14,7 @@ import { useAddressState }       from './useAddressState'
 import { useProviderSetting }    from '@/hooks/useProviderSetting'
 import { ensureTeamConversation } from '@/lib/contact-center/ensure-team-conversation'
 import { markResolved }           from '@/lib/contact-center/mark-resolved'
+import { bridgeServiceToCustomer } from '@/lib/contact-center/bridge-customer'
 import { useTeamPhones }          from './local/useTeamPhones'
 import { getDb }                  from '@/lib/contact-center/local/db'
 import type { SidebarView }      from '@/types/contact-center'
@@ -102,25 +103,31 @@ export function useContactCenterState() {
   // table-wide postgres_changes subscription on every agent.
 
   async function openConversation(conversationId: string, customerId: string | null, phone: string | null) {
-    let resolvedCustomerId   = customerId
-    let resolvedConversationId: string | null = conversationId || null
+    // The CRM panel keys off a service_customers.id (activeCustomerId). The phone is the
+    // authoritative source for it — the stored chat_conversations.customer_id now holds a
+    // unified customers.id (FK → customers), which must NOT be fed to the panel. `customerId`
+    // is only honoured as a fallback for the attach flow (unknown caller → picked service id).
+    let resolvedServiceCustomerId: string | null = null   // service_customers.id — drives the CRM panel
+    let linkCustomerId:            string | null = null    // customers.id — stored on chat_conversations
+    let resolvedConversationId:    string | null = conversationId || null
 
     if (phone) {
       const normalised = tryNormalisePhone(phone) ?? phone
       const supabase   = createClient()
 
-      // 1. Resolve the customer from the phone if we don't have one yet.
-      // Catches the case where the WATI sync ran before the customer was added to MMS.
-      if (!resolvedCustomerId) {
-        const { data } = await supabase
-          .from('service_customer_phones')
-          .select('customer_id')
-          .eq('phone', normalised)
-          .maybeSingle()
-        if (data?.customer_id) resolvedCustomerId = data.customer_id
-      }
+      // 1. Resolve the (service) customer from the phone. Authoritative for the CRM panel;
+      // falls back to the passed id for the attach flow where the phone isn't linked yet.
+      const { data: phoneRow } = await supabase
+        .from('service_customer_phones')
+        .select('customer_id')
+        .eq('phone', normalised)
+        .maybeSingle()
+      resolvedServiceCustomerId = phoneRow?.customer_id ?? customerId ?? null
 
-      // 2. Resolve (or create) a chat_conversations row for this phone+provider.
+      // 2. Bridge the service id to the unified customers.id stored on the conversation FK.
+      linkCustomerId = await bridgeServiceToCustomer(supabase, resolvedServiceCustomerId)
+
+      // 3. Resolve (or create) a chat_conversations row for this phone+provider.
       // Without this, attaching a customer to a 3CX-originated unknown caller
       // leaves activeConversationId null — useLiveThread then short-circuits and
       // never shows the WhatsApp thread.
@@ -134,10 +141,10 @@ export function useContactCenterState() {
 
         if (existing?.id) {
           resolvedConversationId = existing.id
-          if (resolvedCustomerId && !existing.customer_id) {
+          if (linkCustomerId && !existing.customer_id) {
             await supabase
               .from('chat_conversations')
-              .update({ customer_id: resolvedCustomerId })
+              .update({ customer_id: linkCustomerId })
               .eq('id', existing.id)
           }
         } else {
@@ -147,7 +154,7 @@ export function useContactCenterState() {
               wati_phone:        normalised,
               provider,
               conversation_type: 'customer',
-              ...(resolvedCustomerId ? { customer_id: resolvedCustomerId } : {}),
+              ...(linkCustomerId ? { customer_id: linkCustomerId } : {}),
             })
             .select('id')
             .single()
@@ -157,17 +164,17 @@ export function useContactCenterState() {
             resolvedConversationId = created.id
           }
         }
-      } else if (resolvedCustomerId) {
+      } else if (linkCustomerId) {
         // Existing conversation row, but it may still be missing customer_id.
         await supabase
           .from('chat_conversations')
-          .update({ customer_id: resolvedCustomerId })
+          .update({ customer_id: linkCustomerId })
           .eq('id', resolvedConversationId)
       }
     }
 
     setActiveConversationId(resolvedConversationId)
-    setActiveCustomerId(resolvedCustomerId)
+    setActiveCustomerId(resolvedServiceCustomerId)
     setActivePhone(phone)
     setSidebarView('detail')
     if (resolvedConversationId) {

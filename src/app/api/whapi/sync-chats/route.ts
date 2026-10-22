@@ -83,8 +83,10 @@ export async function GET(req: NextRequest) {
         .map((c: WhapiChat) => normalisePhone(c.id))
         .filter((p): p is string => p !== null)
 
+      // Resolve unified customers.id by phone. chat_conversations.customer_id FKs the
+      // customers table now; customer_phones mirrors service_customer_phones (dual-write).
       const { data: phoneLookups } = await supabase
-        .from('service_customer_phones')
+        .from('customer_phones')
         .select('phone, customer_id')
         .in('phone', phones)
 

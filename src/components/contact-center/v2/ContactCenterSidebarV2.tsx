@@ -119,7 +119,9 @@ export function ContactCenterSidebarV2() {
       return cNorm === target
     })
     if (match) {
-      openConversation(match.id, match.customer_id, match.wati_phone)
+      // null → openConversation resolves the CRM (service) customer from the phone;
+      // the stored conversation customer_id is a unified customers.id, not a panel id.
+      openConversation(match.id, null, match.wati_phone)
     } else {
       // No existing conversation — open with empty conversationId so the
       // sidebar enters the "unknown caller / attach" flow with this phone.
@@ -253,7 +255,8 @@ export function ContactCenterSidebarV2() {
               if (others.length > 0) {
                 toast.warning(`${others[0].name} is already chatting with this customer`)
               }
-              openConversation(c.id, c.customer_id, c.wati_phone)
+              // null → resolve the CRM (service) customer by phone (stored id is customers-space)
+              openConversation(c.id, null, c.wati_phone)
               if (authUserId && c.id) {
                 void markReadLocal(getDb(authUserId), c.id)
                 if (!c.is_opened) void markOpenedLocal(getDb(authUserId), c.id)
@@ -363,7 +366,8 @@ export function ContactCenterSidebarV2() {
                   const conv = conversations.find((c) => c.wati_phone === phone)
                   if (conv) {
                     if (conv.provider && conv.provider !== provider) setProvider(conv.provider)
-                    openConversation(conv.id, conv.customer_id, phone)
+                    // null → resolve the CRM (service) customer by phone (stored id is customers-space)
+                    openConversation(conv.id, null, phone)
                   }
                 }
               }}

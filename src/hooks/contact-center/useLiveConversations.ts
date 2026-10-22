@@ -26,8 +26,7 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
       .select(`
         id, customer_id, conversation_type, wati_phone, wati_contact_name,
         last_message, last_message_at, unread_count,
-        assigned_agent, is_opened, wati_status, created_at,
-        service_customers!chat_conversations_customer_id_fkey(name)
+        assigned_agent, is_opened, wati_status, created_at
       `)
       .eq('provider', provider)
       .not('last_message_at', 'is', null)
@@ -58,8 +57,11 @@ export function useLiveConversations(provider: 'wati' | 'whapi' = 'wati') {
         .filter((row) => row.last_message_at != null)
         .map((row) => ({
           ...row,
-          // WHAPI/WATI phonebook name takes priority over CRM name — matches chat header order
-          customer_name: row.wati_contact_name ?? (row.service_customers as { name?: string } | null)?.name ?? null,
+          // Phonebook name is the list label. The CRM-name fallback (once embedded via the
+          // customer FK) is omitted: chat_conversations.customer_id now FKs the unified
+          // customers table, links are created customers-side and are NULL on current data,
+          // so the embed contributed nothing. Re-add a `customers` embed when CC links land.
+          customer_name: row.wati_contact_name ?? null,
           unread_count: locallyReadIds.current.has(row.id as string) ? 0 : row.unread_count,
           // Keep locally-patched status until the DB confirms the change
           wati_status: localStatusPatch.current.has(row.id as string)

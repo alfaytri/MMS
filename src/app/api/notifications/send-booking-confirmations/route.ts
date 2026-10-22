@@ -102,8 +102,7 @@ export async function POST(req: NextRequest) {
       address_id,
       service_customer_id,
       confirmation_pdf_url,
-      order_team_assignments ( time_slot, scheduled_date ),
-      service_customer_addresses ( label, waze_link )
+      order_team_assignments ( time_slot, scheduled_date )
     `)
     .is('confirmation_sent_at', null)
     .in('status', ['scheduled', 'confirmed'])
@@ -146,17 +145,13 @@ export async function POST(req: NextRequest) {
 
       const watiPhone = normalisePhone(phoneRow.phone)
 
-      // ── 2. Address ───────────────────────────────────────────────────────
+      // ── 2. Address (Stage 4: unified book resolves address_id from either address table) ──
       let addressLabel: string = order.address ?? ''
       let wazeLink: string = ''
 
-      if (order.service_customer_addresses) {
-        const addrJoin = order.service_customer_addresses as unknown as { label: string | null; waze_link: string | null } | null
-        addressLabel = addrJoin?.label ?? order.address ?? ''
-        wazeLink     = addrJoin?.waze_link ?? ''
-      } else if (order.address_id) {
+      if (order.address_id) {
         const { data: addr } = await supabase
-          .from('service_customer_addresses')
+          .from('order_address_book')
           .select('label, waze_link')
           .eq('id', order.address_id)
           .maybeSingle()

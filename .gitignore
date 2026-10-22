@@ -97,3 +97,6 @@ temp_*.sql
 
 .vercel
 .env*.local
+
+# Local deploy link/env backups (contain secrets — never commit)
+.deploy-backups/

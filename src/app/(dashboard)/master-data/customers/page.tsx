@@ -33,6 +33,7 @@ export default function CustomersPage() {
   const [search, setSearch]                   = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage]                       = useState(0)
+  const [scope, setScope]                     = useState<'all' | 'sales'>('all')
   const debounceRef                           = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [createOpen, setCreateOpen]   = useState(false)
@@ -50,6 +51,10 @@ export default function CustomersPage() {
 
   const { data, isLoading }   = useAllCustomers(debouncedSearch, page)
   const customers              = data?.customers ?? []
+  // Stage 4 (customer consolidation): one unified list with a Sales/All toggle. "All" = every
+  // customer (service + sales); "Sales" = is_sales_customer only. Filter is page-local for now —
+  // server-side scoping inside search_customers is the scale follow-up.
+  const scoped                 = scope === 'sales' ? customers.filter((c) => c.is_sales_customer) : customers
   const total                  = data?.total ?? 0
   const totalPages             = Math.ceil(total / PAGE_SIZE)
 
@@ -79,7 +84,25 @@ export default function CustomersPage() {
           onChange={(e) => handleSearch(e.target.value)}
           className="w-full sm:max-w-sm"
         />
-        <Button size="sm" className="gap-1.5 shrink-0 min-h-11 md:min-h-0" onClick={() => setCreateOpen(true)}>
+        <div className="inline-flex rounded-md border p-0.5 shrink-0">
+          <Button
+            variant={scope === 'all' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-8"
+            onClick={() => { setScope('all'); setPage(0) }}
+          >
+            All
+          </Button>
+          <Button
+            variant={scope === 'sales' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-8"
+            onClick={() => { setScope('sales'); setPage(0) }}
+          >
+            Sales
+          </Button>
+        </div>
+        <Button size="sm" className="gap-1.5 shrink-0 min-h-11 md:min-h-0 sm:ml-auto" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           New Customer
         </Button>
@@ -113,14 +136,14 @@ export default function CustomersPage() {
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
-              : customers.length === 0 ? (
+              : scoped.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="p-0">
-                      <EmptyState title="No customers found" />
+                      <EmptyState title={scope === 'sales' ? 'No sales customers on this page' : 'No customers found'} />
                     </TableCell>
                   </TableRow>
                 )
-              : customers.map((c, i) => (
+              : scoped.map((c, i) => (
                   <TableRow key={c.id} className={cn(c.is_active === false ? 'opacity-50' : '', STAGGER_IN)} style={staggerDelay(i)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -250,7 +273,7 @@ export default function CustomersPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{total} customers · page {page + 1} of {totalPages}</span>
+          <span>{scope === 'sales' ? `${scoped.length} sales shown` : `${total} customers`} · page {page + 1} of {totalPages}</span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
               <ChevronLeft className="h-4 w-4" />

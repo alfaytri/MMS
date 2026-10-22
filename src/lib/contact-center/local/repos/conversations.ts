@@ -61,7 +61,7 @@ export async function lazyFetch(
       id, customer_id, customer_id_v2, conversation_type, wati_phone, wati_contact_name,
       last_message, last_message_at, unread_count, assigned_agent, is_opened,
       wati_status, provider, created_at,
-      service_customers:customer_id_v2 ( name )
+      customer:customer_id_v2 ( name )
     `)
     .eq('provider', provider)
     .not('last_message_at', 'is', null)
@@ -74,14 +74,15 @@ export async function lazyFetch(
   }
 
   if (data && data.length > 0) {
-    // Flatten the joined service_customers.name into customer_name so Dexie
-    // stays a flat shape (no nested objects in the row), matching the rest
-    // of the LocalConversation interface.
+    // Flatten the joined customer name into customer_name so Dexie stays a flat
+    // shape (no nested objects in the row), matching the LocalConversation interface.
+    // The embed resolves via the customer_id_v2 FK, which now references the unified
+    // customers table (was service_customers) — the alias:column form follows the FK.
     const rows: LocalConversation[] = (data as unknown as Array<LocalConversation & {
-      service_customers?: { name?: string | null } | null
+      customer?: { name?: string | null } | null
     }>).map((r) => {
-      const { service_customers, ...rest } = r
-      return { ...rest, customer_name: service_customers?.name ?? null }
+      const { customer, ...rest } = r
+      return { ...rest, customer_name: customer?.name ?? null }
     })
     await db.conversations.bulkPut(rows)
   }

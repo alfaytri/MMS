@@ -79,8 +79,10 @@ async function upsertContacts(allContacts: WatiContact[], supabase: ReturnType<t
   const phones = Array.from(phoneMap.keys())
   if (phones.length === 0) return 0
 
+  // Resolve unified customers.id by phone. chat_conversations.customer_id FKs the customers
+  // table now; customer_phones mirrors service_customer_phones via the dual-write trigger.
   const { data: phoneLookups } = await supabase
-    .from('service_customer_phones')
+    .from('customer_phones')
     .select('phone, customer_id')
     .in('phone', phones)
 

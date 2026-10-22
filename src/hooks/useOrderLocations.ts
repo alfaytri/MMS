@@ -68,14 +68,11 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
       let query = supabase
         .from('orders')
         .select(`
-          id, order_id, address, status, scheduled_date,
+          id, order_id, address, status, scheduled_date, address_id,
           service_customers!inner(name),
-          order_services(name),
-          service_customer_addresses!orders_address_id_fkey(lat, lng)
+          order_services(name)
         `)
         .not('status', 'in', '("completed","cancelled")')
-        .not('service_customer_addresses.lat', 'is', null)
-        .not('service_customer_addresses.lng', 'is', null)
 
       // Date filtering — defaults to today + tomorrow
       const from = dateFrom ?? getToday()
@@ -85,24 +82,42 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
       const { data, error } = await query.limit(500)
       if (error) throw error
 
-      type OrderRow = (typeof data extends (infer R)[] | null ? R : never) & {
+      type OrderRow = {
+        id: string; order_id: string; address: string | null; status: string | null
+        scheduled_date: string | null; address_id: string | null
         service_customers: { name?: string } | null
         order_services: { name?: string }[] | null
-        service_customer_addresses: { lat: number | null; lng: number | null } | null
       }
-      return ((data ?? []) as OrderRow[])
-        .filter((o) => {
-          const addr = o.service_customer_addresses
-          return addr && addr.lat != null && addr.lng != null
-        })
-        .map((o) => ({
+      const rows = (data ?? []) as unknown as OrderRow[]
+
+      // Stage 4: resolve lat/lng via the unified address book (works whether address_id points at the
+      // old service table or the new customer table), then keep only geocoded orders. Decouples this
+      // read from the address FK so the later FK remap is non-breaking.
+      const addrIds = Array.from(new Set(rows.map((o) => o.address_id).filter((x): x is string => !!x)))
+      const geo = new Map<string, { lat: number | null; lng: number | null }>()
+      if (addrIds.length) {
+        const { data: addrs } = await supabase
+          // view shares service_customer_addresses' column shape; cast the typed name (runtime queries the view).
+          .from('order_address_book' as unknown as 'service_customer_addresses')
+          .select('id, lat, lng')
+          .in('id', addrIds)
+        for (const a of (addrs ?? []) as { id: string; lat: number | null; lng: number | null }[]) {
+          geo.set(a.id, { lat: a.lat, lng: a.lng })
+        }
+      }
+
+      return rows
+        .map((o) => ({ o, addr: o.address_id ? geo.get(o.address_id) ?? null : null }))
+        .filter((x): x is { o: OrderRow; addr: { lat: number; lng: number } } =>
+          !!x.addr && x.addr.lat != null && x.addr.lng != null)
+        .map(({ o, addr }) => ({
           id: o.id,
           orderId: o.order_id,
           customerName: o.service_customers?.name ?? '',
           service: o.order_services?.[0]?.name ?? '',
           address: o.address ?? '',
-          lat: o.service_customer_addresses!.lat!,
-          lng: o.service_customer_addresses!.lng!,
+          lat: addr.lat,
+          lng: addr.lng,
           status: toMapStatus(o.status),
           visitDate: o.scheduled_date ?? null,
         }))

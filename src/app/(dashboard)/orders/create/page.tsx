@@ -96,14 +96,18 @@ export default function CreateOrderPage() {
   useEffect(() => {
     if (!prefilledCustomerId) return
     const supabase = createClient()
+    // Stage 4: the site-visit customer_id is a service_customer id, so resolve it there (keeps
+    // draft.customerId a service id, which the address/risk lookups expect). The addresses themselves
+    // now read from the unified customer side via the bridge inside useCustomerAddresses.
     ;supabase
-      .from('customers')
-      .select('id, name, customer_phones(id, phone)')
+      .from('service_customers')
+      .select('id, name, service_customer_phones(id, phone)')
       .eq('id', prefilledCustomerId)
       .single()
       .then(({ data, error }) => {
         if (error || !data) return
-        const phones: Array<{ id: string; phone: string }> = data.customer_phones ?? []
+        const phones: Array<{ id: string; phone: string }> =
+          (data as { service_customer_phones?: Array<{ id: string; phone: string }> }).service_customer_phones ?? []
         const phone = prefilledPhoneId
           ? phones.find((p) => p.id === prefilledPhoneId) ?? phones[0]
           : phones[0]
@@ -255,7 +259,10 @@ export default function CreateOrderPage() {
             assignments={draft.assignments}
             draftServices={
               draft.type === 'site-visit'
-                ? [makeSiteVisitDraft(draft.siteVisitFromTime, draft.siteVisitToTime)]
+                ? [makeSiteVisitDraft(
+                    draft.visitDates.find((w) => w.date === draft.visitDate)?.fromTime ?? null,
+                    draft.visitDates.find((w) => w.date === draft.visitDate)?.toTime ?? null,
+                  )]
                 : draft.services
             }
             draftInfo={{
@@ -321,12 +328,7 @@ export default function CreateOrderPage() {
         ) : draggingService ? (
           <div className="w-72 rotate-1">
             {draggingService.serviceId === SITE_VISIT_SERVICE_ID ? (
-              <SiteVisitCard
-                fromTime={draggingService.fromTime ?? null}
-                toTime={draggingService.toTime ?? null}
-                onTimeChange={() => {}}
-                isOverlay
-              />
+              <SiteVisitCard isOverlay />
             ) : (
               <SelectedServiceCard
                 service={draggingService}

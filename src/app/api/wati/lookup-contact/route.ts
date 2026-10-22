@@ -58,9 +58,10 @@ export async function GET(req: NextRequest) {
 
   const supabase = createClient<Database>(SUPA_URL, SUPA_KEY)
 
-  // Resolve customer_id via phone lookup
+  // Resolve the unified customers.id via phone. chat_conversations.customer_id now FKs
+  // the customers table; customer_phones mirrors service_customer_phones (dual-write).
   const { data: phoneLookup } = await supabase
-    .from('service_customer_phones')
+    .from('customer_phones')
     .select('customer_id')
     .eq('phone', phone)
     .maybeSingle()
@@ -85,13 +86,14 @@ export async function GET(req: NextRequest) {
   if (upsertErr)
     return NextResponse.json({ error: upsertErr.message }, { status: 500 })
 
-  // Return the full conversation row (with customer name join)
+  // Return the full conversation row. No customer-name embed: the customer FK now points
+  // at the unified customers table and links are customers-side (NULL on current data),
+  // so the phonebook name is the label here, consistent with the inbox list.
   const { data: convo, error: fetchErr } = await supabase
     .from('chat_conversations')
     .select(`
       id, customer_id, conversation_type, wati_phone, wati_contact_name,
-      last_message, last_message_at, unread_count, created_at,
-      service_customers!customer_id(name)
+      last_message, last_message_at, unread_count, created_at
     `)
     .eq('wati_phone', phone)
     .maybeSingle()
@@ -102,7 +104,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     conversation: {
       ...convo,
-      customer_name: convo.service_customers?.name ?? convo.wati_contact_name ?? null,
+      customer_name: convo.wati_contact_name ?? null,
     },
   })
 }
