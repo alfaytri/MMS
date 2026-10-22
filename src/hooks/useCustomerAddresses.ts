@@ -3,23 +3,11 @@ import { createClient } from '@/lib/supabase/client'
 import type { CustomerAddress } from '@/types/orders'
 import type { Database } from '@/types/database.types'
 import { queryKeys } from '@/lib/queryKeys'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Stage 4 cutover (customer consolidation): order addresses now live on the unified customers side
-// (customer_addresses). The order-create flow still identifies a customer by their service_customer id,
-// so we resolve the bridge (service_customers.customer_id) and read/write customer_addresses, mapping the
-// *_no columns back to the building/street/zone/unit shape the UI (CustomerAddress) expects.
-// Only the order-create AddressPicker/AddressCreationSheet use this hook; the Contact Centre uses a
-// separate address hook. service_customer_addresses stays as read-only legacy (resolved via the book).
-async function resolveBridge(supabase: SupabaseClient, serviceCustomerId: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('service_customers')
-    .select('customer_id')
-    .eq('id', serviceCustomerId)
-    .maybeSingle()
-  return (data as { customer_id: string | null } | null)?.customer_id ?? null
-}
-
+// Customer consolidation: order addresses live on the unified customers side (customer_addresses).
+// Stage 5 flipped the order-create flow to a customers.id, so this hook reads/writes customer_addresses
+// directly by that id, mapping the *_no columns back to the building/street/zone/unit shape the UI
+// (CustomerAddress) expects. Only the order-create AddressPicker/AddressCreationSheet use this hook.
 function mapRow(ca: Record<string, unknown>): CustomerAddress {
   return {
     id:           ca.id,
@@ -47,12 +35,11 @@ export function useCustomerAddresses(customerId: string | null) {
     queryKey: queryKeys.contactCenter.serviceCustomerAddresses(customerId),
     queryFn: async (): Promise<CustomerAddress[]> => {
       if (!customerId) return []
-      const bridgeId = await resolveBridge(supabase, customerId)
-      if (!bridgeId) return []
+      // Stage 5: customerId is a customers.id — read customer_addresses directly.
       const { data, error } = await supabase
         .from('customer_addresses')
         .select('*')
-        .eq('customer_id', bridgeId)
+        .eq('customer_id', customerId)
         .order('is_primary', { ascending: false })
       if (error) throw error
       return (data ?? []).map((r) => mapRow(r as unknown as Record<string, unknown>))
@@ -64,12 +51,11 @@ export function useCustomerAddresses(customerId: string | null) {
     mutationFn: async (
       input: Omit<CustomerAddress, 'id' | 'created_at'>
     ): Promise<CustomerAddress> => {
-      const svcId = (input as { customer_id?: string | null }).customer_id ?? customerId
-      const bridgeId = svcId ? await resolveBridge(supabase, svcId) : null
-      if (!bridgeId) throw new Error('customer is not linked to a unified customer record')
+      const custId = (input as { customer_id?: string | null }).customer_id ?? customerId
+      if (!custId) throw new Error('no customer id')
       const i = input as unknown as Record<string, unknown>
       const row = {
-        customer_id:  bridgeId,
+        customer_id:  custId,
         label:        (i.label as string | null) ?? null,
         address_type: i.address_type,
         unit_no:      (i.unit as string | null) ?? null,

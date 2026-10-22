@@ -95,7 +95,7 @@ export function useEditOrder(orderId: string) {
     const addressSnapshot: CustomerAddress | null = addrRow
       ? {
           id:           addrRow.id,
-          customer_id:  orderExt.service_customer_id ?? '',
+          customer_id:  order.customer_id ?? orderExt.service_customer_id ?? '',
           phone_id:     null,
           label:        addrRow.label ?? null,
           address_type: 'blue-plate',
@@ -115,7 +115,7 @@ export function useEditOrder(orderId: string) {
 
     setDraft({
       orderId: order.order_id,
-      customerId: orderExt.service_customer_id ?? order.customer_id,
+      customerId: order.customer_id ?? orderExt.service_customer_id ?? '',
       phoneId: '',
       customerName: order.customer_name,
       phone: order.customer_phone,

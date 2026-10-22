@@ -71,7 +71,7 @@ export default function CreateOrderPage() {
     ;(async () => {
       const normalised = tryNormalisePhone(selectedCustomer.primaryPhone) ?? selectedCustomer.primaryPhone
       const { data } = await supabase
-        .from('service_customer_phones')
+        .from('customer_phones')
         .select('id')
         .eq('customer_id', selectedCustomer.customerId)
         .eq('phone', normalised)
@@ -92,36 +92,52 @@ export default function CreateOrderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomer?.customerId])
 
-  // Auto-fill customer when navigating from a site visit
+  // Auto-fill customer when navigating from a site visit.
   useEffect(() => {
     if (!prefilledCustomerId) return
     const supabase = createClient()
-    // Stage 4: the site-visit customer_id is a service_customer id, so resolve it there (keeps
-    // draft.customerId a service id, which the address/risk lookups expect). The addresses themselves
-    // now read from the unified customer side via the bridge inside useCustomerAddresses.
-    ;supabase
-      .from('service_customers')
-      .select('id, name, service_customer_phones(id, phone)')
-      .eq('id', prefilledCustomerId)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) return
-        const phones: Array<{ id: string; phone: string }> =
-          (data as { service_customer_phones?: Array<{ id: string; phone: string }> }).service_customer_phones ?? []
-        const phone = prefilledPhoneId
-          ? phones.find((p) => p.id === prefilledPhoneId) ?? phones[0]
-          : phones[0]
-        if (!phone) return
-        setCustomer({
-          found: true as const,
-          customerId: data.id as string,
-          phoneId: phone.id,
-          customerName: data.name as string,
-          phone: phone.phone,
-          addressCount: 0,
-          orderCount: 0,
-        })
+    let cancelled = false
+    // Stage 5: draft.customerId is a unified customers.id. The site-visit customer_id may still be a
+    // legacy service_customers id (get_team_leader_visits output), so resolve robustly: try customers
+    // first, else bridge the service id to its customers id.
+    ;(async () => {
+      let cust = (await supabase
+        .from('customers')
+        .select('id, name, customer_phones(id, phone)')
+        .eq('id', prefilledCustomerId)
+        .maybeSingle()).data as { id: string; name: string; customer_phones?: Array<{ id: string; phone: string }> } | null
+      if (!cust) {
+        const { data: sc } = await supabase
+          .from('service_customers')
+          .select('customer_id')
+          .eq('id', prefilledCustomerId)
+          .maybeSingle()
+        const bridged = (sc as { customer_id?: string | null } | null)?.customer_id
+        if (bridged) {
+          cust = (await supabase
+            .from('customers')
+            .select('id, name, customer_phones(id, phone)')
+            .eq('id', bridged)
+            .maybeSingle()).data as typeof cust
+        }
+      }
+      if (cancelled || !cust) return
+      const phones: Array<{ id: string; phone: string }> = cust.customer_phones ?? []
+      const phone = prefilledPhoneId
+        ? phones.find((p) => p.id === prefilledPhoneId) ?? phones[0]
+        : phones[0]
+      if (!phone) return
+      setCustomer({
+        found: true as const,
+        customerId: cust.id,
+        phoneId: phone.id,
+        customerName: cust.name,
+        phone: phone.phone,
+        addressCount: 0,
+        orderCount: 0,
       })
+    })()
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
