@@ -100,13 +100,13 @@ export async function POST(req: NextRequest) {
       scheduled_date,
       address,
       address_id,
-      service_customer_id,
+      customer_id,
       confirmation_pdf_url,
       order_team_assignments ( time_slot, scheduled_date )
     `)
     .is('confirmation_sent_at', null)
     .in('status', ['scheduled', 'confirmed'])
-    .not('service_customer_id', 'is', null)
+    .not('customer_id', 'is', null)
 
   if (isImmediateMode) {
     query = query.eq('order_id', body.orderId)
@@ -130,11 +130,11 @@ export async function POST(req: NextRequest) {
     const orderId: string = order.order_id
 
     try {
-      // ── 1. Primary phone + customer name ──────────────────────────────────
+      // ── 1. Primary phone + customer name (unified customers side) ─────────
       const { data: phoneRow } = await supabase
-        .from('service_customer_phones')
+        .from('customer_phones')
         .select('phone')
-        .eq('customer_id', order.service_customer_id)
+        .eq('customer_id', order.customer_id)
         .eq('is_primary', true)
         .maybeSingle()
 
