@@ -38,7 +38,6 @@ export const NAV_ITEMS: NavEntry[] = [
       {
         label: 'FIELD SERVICE',
         items: [
-          { label: 'Service Customers',     href: '/master-data/service-customers', icon: 'Headset',    permission: 'master_data.service_customers.view' },
           { label: 'Services',              href: '/master-data/services',          icon: 'Wrench',     permission: 'master_data.services.view' },
           { label: 'Teams & Employees',     href: '/master-data/teams',             icon: 'UsersRound', permission: 'teams.view' },
           { label: 'Subscription Packages', href: '/master-data/subscriptions',     icon: 'CreditCard', permission: 'master_data.subscriptions.view' },

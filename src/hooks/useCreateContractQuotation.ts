@@ -24,8 +24,10 @@ export function useCreateContractQuotation() {
           quotation_number: quotationNumber as string,
           status: 'draft',
           source_type: data.sourceType,
-          service_customer_id: data.serviceCustomerId || null,
-          phone_id: data.phoneId || null,
+          // Stage 5: data.serviceCustomerId is now a customers.id; phone_id (FK ->
+          // service_customer_phones) is retired in the 5.7 drop, so leave it null.
+          customer_id: data.serviceCustomerId || null,
+          phone_id: null,
           customer_name: data.customerName,
           phone: data.phone,
           address: data.address,

@@ -1,28 +1,74 @@
 'use client'
 
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { Check, ChevronsUpDown, User, Phone } from 'lucide-react'
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useServiceCustomers, type ServiceCustomerRow } from '@/hooks/useServiceCustomers'
 import { cn } from '@/lib/utils'
+
+// Stage 5: searchable picker over the unified customers (service_customers is retired).
+export interface CustomerPickRow {
+  id: string
+  name: string
+  primaryPhone: { id: string; phone: string } | null
+  allPhones: { id: string; phone: string; is_primary: boolean }[]
+}
 
 interface Props {
   value: string | null
   selectedName?: string
-  onSelect: (customer: ServiceCustomerRow) => void
+  onSelect: (customer: CustomerPickRow) => void
   id?: string
 }
 
-/** Searchable picker over the service-customer list (name or phone). */
+/** Searchable picker over customers (by name or phone). */
 export function ServiceCustomerCombobox({ value, selectedName, onSelect, id }: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const trimmed = search.trim()
 
-  const { data, isLoading } = useServiceCustomers(search, 0, 20)
-  const customers = data?.data ?? []
+  const { data: customers = [], isLoading } = useQuery({
+    queryKey: ['contract-customer-search', trimmed],
+    enabled: trimmed.length >= 2,
+    staleTime: 60_000,
+    queryFn: async (): Promise<CustomerPickRow[]> => {
+      const supabase = createClient()
+      const phoneIds = /\d/.test(trimmed)
+        ? ((await supabase.from('customer_phones').select('customer_id').ilike('phone', `%${trimmed}%`)).data ?? [])
+            .map((r) => (r as { customer_id: string }).customer_id)
+        : []
+      let q = supabase.from('customers').select('id, name').order('name').limit(20)
+      q = phoneIds.length > 0
+        ? q.or(`name.ilike.%${trimmed}%,id.in.(${phoneIds.join(',')})`)
+        : q.ilike('name', `%${trimmed}%`)
+      const { data: custs, error } = await q
+      if (error) throw error
+      const ids = (custs ?? []).map((c) => c.id)
+      const phonesData = ids.length
+        ? ((await supabase.from('customer_phones').select('id, customer_id, phone, is_primary').in('customer_id', ids)).data ?? [])
+        : []
+      const byCust = new Map<string, { id: string; phone: string; is_primary: boolean }[]>()
+      for (const p of phonesData as { id: string; customer_id: string; phone: string; is_primary: boolean }[]) {
+        const arr = byCust.get(p.customer_id) ?? []
+        arr.push({ id: p.id, phone: p.phone, is_primary: p.is_primary })
+        byCust.set(p.customer_id, arr)
+      }
+      return (custs ?? []).map((c) => {
+        const ph = byCust.get(c.id) ?? []
+        const primary = ph.find((p) => p.is_primary) ?? ph[0] ?? null
+        return {
+          id: c.id,
+          name: c.name,
+          primaryPhone: primary ? { id: primary.id, phone: primary.phone } : null,
+          allPhones: ph,
+        }
+      })
+    },
+  })
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -50,7 +96,7 @@ export function ServiceCustomerCombobox({ value, selectedName, onSelect, id }: P
           <CommandList className="max-h-64">
             <CommandEmpty>
               <span className="text-xs text-muted-foreground">
-                {search.trim().length < 2
+                {trimmed.length < 2
                   ? 'Type at least 2 characters to search.'
                   : isLoading
                     ? 'Searching…'

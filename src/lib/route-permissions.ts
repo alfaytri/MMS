@@ -33,7 +33,6 @@ export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { pathPrefix: '/master-data/admin/mep',                    permission: 'warehouse.projects.manage' },
   { pathPrefix: '/master-data/services/approvals', permission: 'master_data.services.approve' },
   { pathPrefix: '/master-data/services',           permission: 'master_data.services.view' },
-  { pathPrefix: '/master-data/service-customers',  permission: 'master_data.service_customers.view' },
   { pathPrefix: '/master-data/customers',          permission: 'master_data.customers.view' },
   { pathPrefix: '/master-data/suppliers',          permission: 'master_data.suppliers.view' },
   { pathPrefix: '/master-data/inventory',          permission: 'inventory.catalog.view' },

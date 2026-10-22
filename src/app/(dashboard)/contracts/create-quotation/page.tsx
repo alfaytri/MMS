@@ -34,8 +34,7 @@ import { WorkflowProgressBar } from '@/components/contracts/WorkflowProgressBar'
 import { ContractBuildingTree } from '@/components/contracts/ContractBuildingTree'
 import { AreaServiceCard } from '@/components/contracts/AreaServiceCard'
 import { AddContractServiceDialog } from '@/components/contracts/AddContractServiceDialog'
-import { ServiceCustomerCombobox } from '@/components/contracts/ServiceCustomerCombobox'
-import type { ServiceCustomerRow } from '@/hooks/useServiceCustomers'
+import { ServiceCustomerCombobox, type CustomerPickRow } from '@/components/contracts/ServiceCustomerCombobox'
 import { PaymentScheduleSection } from '@/components/contracts/PaymentScheduleSection'
 // ContractTermsSection replaced by PDF upload
 import { VisitSummarySection } from '@/components/contracts/VisitSummarySection'
@@ -98,7 +97,7 @@ export default function CreateContractQuotationPage() {
     setLookupOpen(false)
   }
 
-  function handleServiceCustomerSelect(c: ServiceCustomerRow) {
+  function handleServiceCustomerSelect(c: CustomerPickRow) {
     const primaryPhone = c.primaryPhone ?? c.allPhones[0] ?? null
     setServiceCustomerId(c.id)
     setPhoneId(primaryPhone?.id ?? null)
@@ -132,7 +131,7 @@ export default function CreateContractQuotationPage() {
     ;(async () => {
       const normalised = tryNormalisePhone(selectedCustomer.primaryPhone) ?? selectedCustomer.primaryPhone
       const { data } = await supabase
-        .from('service_customer_phones')
+        .from('customer_phones')
         .select('id')
         .eq('customer_id', selectedCustomer.customerId)
         .eq('phone', normalised)
