@@ -97,30 +97,13 @@ export default function CreateOrderPage() {
     if (!prefilledCustomerId) return
     const supabase = createClient()
     let cancelled = false
-    // Stage 5: draft.customerId is a unified customers.id. The site-visit customer_id may still be a
-    // legacy service_customers id (get_team_leader_visits output), so resolve robustly: try customers
-    // first, else bridge the service id to its customers id.
+    // Stage 5: draft.customerId is a unified customers.id; the site-visit customer_id is a customers id.
     ;(async () => {
-      let cust = (await supabase
+      const cust = (await supabase
         .from('customers')
         .select('id, name, customer_phones(id, phone)')
         .eq('id', prefilledCustomerId)
         .maybeSingle()).data as { id: string; name: string; customer_phones?: Array<{ id: string; phone: string }> } | null
-      if (!cust) {
-        const { data: sc } = await supabase
-          .from('service_customers')
-          .select('customer_id')
-          .eq('id', prefilledCustomerId)
-          .maybeSingle()
-        const bridged = (sc as { customer_id?: string | null } | null)?.customer_id
-        if (bridged) {
-          cust = (await supabase
-            .from('customers')
-            .select('id, name, customer_phones(id, phone)')
-            .eq('id', bridged)
-            .maybeSingle()).data as typeof cust
-        }
-      }
       if (cancelled || !cust) return
       const phones: Array<{ id: string; phone: string }> = cust.customer_phones ?? []
       const phone = prefilledPhoneId

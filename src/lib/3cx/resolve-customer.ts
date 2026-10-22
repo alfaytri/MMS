@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
-import { bridgeServiceToCustomer } from '@/lib/contact-center/bridge-customer'
 
 interface Resolved {
   conversation_id: string
@@ -14,24 +13,22 @@ export async function resolveConversation(
 ): Promise<Resolved> {
   if (!callerPhone) throw new Error('callerPhone required')
 
+  // Stage 5: resolve the unified customer directly from the phone (customer_phones).
   const { data: phoneRow } = await supabase
-    .from('service_customer_phones')
+    .from('customer_phones')
     .select('id, customer_id')
     .eq('phone', callerPhone)
     .maybeSingle()
 
-  const customerId = phoneRow?.customer_id ?? null   // service_customers.id — returned for the CRM panel
-  const phoneId    = phoneRow?.id ?? null
-  // Unified customers.id for the chat_conversations FK (now → customers), bridged from the
-  // service id. The returned customer_id stays the service id the CC CRM panel consumes.
-  const linkId     = await bridgeServiceToCustomer(supabase, customerId)
+  const customerId = phoneRow?.customer_id ?? null   // customers.id
+  const phoneId    = phoneRow?.id ?? null             // customer_phones.id
 
   // Prefer a conversation already linked to the customer (any provider).
-  if (linkId) {
+  if (customerId) {
     const { data: byCustomer } = await supabase
       .from('chat_conversations')
       .select('id')
-      .eq('customer_id_v2', linkId)
+      .eq('customer_id_v2', customerId)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle()
@@ -55,7 +52,7 @@ export async function resolveConversation(
     const { data: created, error } = await supabase
       .from('chat_conversations')
       .insert({
-        customer_id_v2:    linkId,
+        customer_id_v2:    customerId,
         wati_phone:        callerPhone,
         last_message_at:   new Date().toISOString(),
         unread_count:      0,
