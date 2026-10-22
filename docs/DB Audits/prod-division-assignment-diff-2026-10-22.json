@@ -1,0 +1,2591 @@
+{
+  "to_add": [
+    {
+      "category": "Accessories / Funnel",
+      "item": "Big",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "0f870bb0-fcd0-4508-9860-cd7b2efb2ea0",
+      "qty": 2,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Brooms & Brushes / Broom",
+      "item": "Hard, Yellow",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "3576c40a-d6bd-4470-83fd-81c3d0e5faca",
+      "qty": 10,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Multi-Purpose Cleaner",
+      "item": "30 L",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "4d799f02-0bbb-4dbe-a4c6-0a57eb24f17d",
+      "qty": 13,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Cream Cleaner",
+      "item": "500 ml",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "f04eeba7-cffe-4fa1-9ef3-1fbae9321886",
+      "qty": 1,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Toilet Cleaner",
+      "item": "Acid",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "a32a138d-d4b0-481f-ad0f-8917d5f83ba2",
+      "qty": 17,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Disinfectant",
+      "item": "Dettolish",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "069a4c0b-d658-4daa-b4ed-9152f11eea07",
+      "qty": 2,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Drain Cleaner",
+      "item": "Drainage, 920 ml",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "f4c990f9-825c-4cc0-9e6d-26d4dff2e473",
+      "qty": 3,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Chemicals / Acid Cleaner",
+      "item": "Hydrochloric, 30 L",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "c910e85f-105e-4a82-9fd3-edad277c7cdb",
+      "qty": 43,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Disinfectant",
+      "item": "Lavender",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "115a962f-36e4-4748-a1ee-de5055496ba7",
+      "qty": 5,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Disinfectant",
+      "item": "Pine",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "779e996d-6313-4e2c-898b-13f35f3c9610",
+      "qty": 4,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Chemicals / Solvent",
+      "item": "Thinner",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "7b1e2747-81ea-4284-b12e-af0dabccb0bf",
+      "qty": 19,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Equipment / Suction Hose",
+      "item": "10 Mtrs",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "6ba77ac5-94af-41ab-b41b-f46b5b854da8",
+      "qty": 5,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Cleaning Equipment / Air Freshener",
+      "item": "Air Freshener",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "92f5c3fe-dc71-44de-96e4-66f0f37e3e94",
+      "qty": 28,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Equipment / Air Freshener",
+      "item": "Air Freshener",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "92f5c3fe-dc71-44de-96e4-66f0f37e3e94",
+      "qty": 28,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Equipment / Brooms & Brushes",
+      "item": "Aluminium Stick / Handle",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "09360e7c-d2d5-4e75-b915-15016ceb875e",
+      "qty": 1,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Equipment / Vacuum Cleaner",
+      "item": "Wet/Dry Vacuum- 2300W",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b8e47a2d-35b5-4127-9c87-cb451256c6dd",
+      "qty": 6,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Cleaning Machines / AC Cleaning Machine",
+      "item": "C10",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "8b7bb2f3-1d94-490c-94a6-df8927662380",
+      "qty": 1,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Cleaning Machines / AC Cleaning Machine",
+      "item": "C10B",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "c9defe40-d917-4e92-9456-7123939c5321",
+      "qty": 1,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Cleaning Machines / AC Cleaning Machine",
+      "item": "C40T",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "d0ac8147-2af7-4660-93b8-7287b053c207",
+      "qty": 1,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Cleaning Machines / Sprayer",
+      "item": "Handheld",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "163da297-2ca7-40ab-b620-7c621f97549a",
+      "qty": 2,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Supplies / Garbage Bag",
+      "item": "65 x 80 cm",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "dcb4c26d-f0a7-467a-ad91-973b6dfe6506",
+      "qty": 2,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Supplies / Garbage Bag",
+      "item": "90 x 110 cm",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "cf751d1e-4884-46ac-8390-bc5ada9f07a3",
+      "qty": 6,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Supplies / Chemicals",
+      "item": "Cement Remover",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "714f5263-19e4-4c39-97d0-046ee623dd22",
+      "qty": 8,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Supplies / Chemicals",
+      "item": "Glass Cleaner",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "d68e93c0-16c8-4c5e-8126-64e21ce78ccb",
+      "qty": 12,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Cleaning Supplies / Table Roll",
+      "item": "Sufra Plastic Cover, 5 kg",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "22f7636a-f1b5-4709-9737-388301857e39",
+      "qty": 14,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Gloves / Vinyl Disposable Gloves",
+      "item": "Black",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "9bc212b3-edc0-4619-8c08-3d12feb93018",
+      "qty": 7000,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Gloves / Vinyl Disposable Gloves",
+      "item": "Clear",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "7d12faad-f867-472d-b65c-d0641ef13bff",
+      "qty": 2000,
+      "add": [
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Pest Control / Ant & Cockroach",
+      "item": "WDG (Powder)",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "7df81c21-3878-406e-b237-1ec451b4fdce",
+      "qty": 75,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Plumbing / Drain Filter",
+      "item": "Bathroom, Blue",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "9e4bf097-5001-44d1-b24c-641342669d15",
+      "qty": 465,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Plumbing / Floor Drain",
+      "item": "Bathroom, Blue & White",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "d52688e8-3f77-45de-9f02-3897d0fa5b33",
+      "qty": 2950,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Plumbing / Drain Filter",
+      "item": "Bathroom, Dark Blue",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "39ecd3c2-d729-4d08-82f1-7e13646cdb6d",
+      "qty": 475,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Plumbing / Drain Filter",
+      "item": "Bathroom, Pink",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "a768e50f-43ca-443c-99cd-dea31f99ad6a",
+      "qty": 500,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Plumbing / Drain Filter",
+      "item": "Bathroom, White",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "edbcc3eb-50b3-4002-ae8b-e265c3f24bfc",
+      "qty": 465,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Wipers & Squeegees / Window Wiper",
+      "item": "35 cm",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "5f5650a2-1862-417d-995c-053fc0bbb6a4",
+      "qty": 1,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Wipers & Squeegees / Scraper",
+      "item": "Portable",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "c3d68b0b-f4a5-424c-8339-57c08df818a3",
+      "qty": 36,
+      "add": [
+        "Maintenance"
+      ]
+    },
+    {
+      "category": "Wipers & Squeegees / Floor Wiper",
+      "item": "Steel",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "76c78509-f38f-405c-99ad-21737204e9de",
+      "qty": 10,
+      "add": [
+        "Maintenance"
+      ]
+    }
+  ],
+  "prod_superset": [
+    {
+      "category": "AC Deflector / Square Diffuser",
+      "item": "Netted",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "4b7fa78d-4541-4fb3-b6d6-1d6c98c5402e",
+      "qty": 9,
+      "extra": [
+        "Trading"
+      ]
+    },
+    {
+      "category": "AC Deflector / Split AC",
+      "item": "Netted",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "f5ee7418-87c1-4ea9-93ed-0ba4f8b6c18c",
+      "qty": 11,
+      "extra": [
+        "Trading"
+      ]
+    },
+    {
+      "category": "Accessories / Bucket",
+      "item": "Colour, 17 L",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Kitchen",
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "6a7db729-e17b-487b-87e1-77dcc4afb146",
+      "qty": 6,
+      "extra": [
+        "Kitchen",
+        "Pest Control & Cleaning"
+      ]
+    },
+    {
+      "category": "Circuit Protection / ELCB",
+      "item": "Single Pole, 16 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "f01d1fe3-9df7-417d-9a76-4cbd762a849d",
+      "qty": 4,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / MCB",
+      "item": "Single Pole, 16 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "b4b804c1-a4aa-4f6b-8b31-931dc62b3c71",
+      "qty": 5,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / MCB",
+      "item": "Single Pole, 16 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "b4b804c1-a4aa-4f6b-8b31-931dc62b3c71",
+      "qty": 5,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / ELCB",
+      "item": "Single Pole, 16 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "f01d1fe3-9df7-417d-9a76-4cbd762a849d",
+      "qty": 4,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / ELCB",
+      "item": "Single Pole, 20 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "e466f38c-ee4d-4eb1-99ce-7424aac2c94e",
+      "qty": 3,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / ELCB",
+      "item": "Single Pole, 20 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "e466f38c-ee4d-4eb1-99ce-7424aac2c94e",
+      "qty": 4,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / MCB",
+      "item": "Single Pole, 20 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "2deab9be-ca34-452f-93ca-33fa53945e83",
+      "qty": 2,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / MCB",
+      "item": "Single Pole, 20 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "2deab9be-ca34-452f-93ca-33fa53945e83",
+      "qty": 5,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / MCB",
+      "item": "Single Pole, 32 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "6d9ee421-1141-4a40-ad35-736953b9c1b3",
+      "qty": 20,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / ELCB",
+      "item": "Single Pole, 32 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "1e44b8af-05a7-48df-bf36-07feb995f4c4",
+      "qty": 2,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / MCB",
+      "item": "Single Pole, 32 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "6d9ee421-1141-4a40-ad35-736953b9c1b3",
+      "qty": 21,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Circuit Protection / Isolator",
+      "item": "Switch, IP66",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "ff1765ef-89a8-4475-9029-085112d7b187",
+      "qty": 12,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "HVAC Service Tools / Terminal Wire",
+      "item": "Compressor",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Kitchen",
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "0126757c-8e23-4eb8-8c70-2e0c8b180da6",
+      "qty": 78,
+      "extra": [
+        "Kitchen",
+        "Trading"
+      ]
+    },
+    {
+      "category": "LED Light / Lamp",
+      "item": "12W 3000K",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "583ec895-28f7-4bfe-ac61-6cf4e174c376",
+      "qty": 7,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "LED Light / Lamp",
+      "item": "12W 6500K",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "432f7ced-2cf9-4b12-829d-2e18e490cfb9",
+      "qty": 10,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "LED Light / COB",
+      "item": "20W 6500K",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "36703cf2-088f-49cf-a2ed-05914c183585",
+      "qty": 10,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "LED Light / COB",
+      "item": "30W 6500K",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "80dbb824-0e66-4bff-a69f-a53ddf561343",
+      "qty": 9,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "LED Light / COB",
+      "item": "7W 3000K GU10",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "0dfa6bf2-6ddd-4f4e-bca5-b219365902ef",
+      "qty": 2,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "LED Light / COB",
+      "item": "7W 3000K GU5.3",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "MEP",
+        "Maintenance"
+      ],
+      "item_id": "0f7041c7-b87a-4411-a715-e4a1b2cd9e08",
+      "qty": 7,
+      "extra": [
+        "MEP"
+      ]
+    },
+    {
+      "category": "Power Tools / Drill",
+      "item": "Small Machine",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Kitchen",
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "6a95440d-f7a1-4192-86a0-ca0001201aaa",
+      "qty": 36,
+      "extra": [
+        "Kitchen",
+        "MEP"
+      ]
+    },
+    {
+      "category": "Safety & PPE / Shoe Cover",
+      "item": "Blue",
+      "sheet": [
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Kitchen",
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "item_id": "127947c0-9eec-4943-939b-9b38bd592c47",
+      "qty": 43900,
+      "extra": [
+        "Kitchen",
+        "Trading"
+      ]
+    },
+    {
+      "category": "Safety & PPE / Face Mask",
+      "item": "Box of 20",
+      "sheet": [
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Kitchen",
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "item_id": "0fe20fa0-1253-40eb-b8bb-b7af2542d50b",
+      "qty": 40,
+      "extra": [
+        "Kitchen",
+        "Trading"
+      ]
+    },
+    {
+      "category": "Safety & PPE / Goggles",
+      "item": "Safety Goggles",
+      "sheet": [
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Kitchen",
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning",
+        "Trading"
+      ],
+      "item_id": "0542c491-a85c-492f-8147-2a8ffcd8c29f",
+      "qty": 56,
+      "extra": [
+        "Kitchen",
+        "Trading"
+      ]
+    },
+    {
+      "category": "Tool Bags & Belts",
+      "item": "Standard",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Kitchen",
+        "MEP",
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "73e9600a-1af5-45de-a175-7156ad8a70a1",
+      "qty": 48,
+      "extra": [
+        "Kitchen",
+        "MEP",
+        "Pest Control & Cleaning"
+      ]
+    }
+  ],
+  "exact": [
+    {
+      "category": "3 Stage / Without Box",
+      "item": "Jumbo",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "16a2af43-45a5-40f6-9381-ffd80dab26da",
+      "qty": 115
+    },
+    {
+      "category": "AC Deflector / Linear Diffuser",
+      "item": "Netted",
+      "sheet": [
+        "Maintenance",
+        "Trading"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "a59154bc-e6df-4790-ad7a-7973370abfbd",
+      "qty": 3
+    },
+    {
+      "category": "Accessories / Heating Element",
+      "item": "4.5 kW",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "1b77856f-167d-43a2-85f9-22c60a46341d",
+      "qty": 85
+    },
+    {
+      "category": "Accessories / Filter Housing",
+      "item": "Blue, 20 x 4.5",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "45184592-a0e0-4b63-b023-ece3080c092f",
+      "qty": 31
+    },
+    {
+      "category": "Accessories / Thermostat",
+      "item": "Bottom",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "e20cac1e-76d3-4e5f-accb-036a6b9841d8",
+      "qty": 83
+    },
+    {
+      "category": "Accessories / Valves",
+      "item": "Drain",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "f91a6fc8-c2ea-4cde-a953-dd1128bdad2c",
+      "qty": 8
+    },
+    {
+      "category": "Accessories / Valves",
+      "item": "One Way",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "4d22b31d-11ec-4e41-a658-d4930f8bd595",
+      "qty": 8
+    },
+    {
+      "category": "Accessories / Valves",
+      "item": "P/T Relief",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "0b98cf2b-97e3-4509-8069-ec8a6af1817e",
+      "qty": 29
+    },
+    {
+      "category": "Accessories / Faucet",
+      "item": "RO",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "f7058684-aed8-42c4-b09a-9fbf0b4ea25f",
+      "qty": 10
+    },
+    {
+      "category": "Accessories / Heating Element",
+      "item": "Sealing Ring, 1\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "82f62f71-1854-4309-82d2-0b54b45b8c43",
+      "qty": 156
+    },
+    {
+      "category": "Accessories / Thermostat",
+      "item": "Top",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "7a6b548b-cc03-4c50-8d9d-9cd1e9e9f1e5",
+      "qty": 83
+    },
+    {
+      "category": "Accessories / Filter Housing",
+      "item": "White, 10 x 2.5 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "9dc93000-53c5-459a-9005-94189e61c7c2",
+      "qty": 24
+    },
+    {
+      "category": "Accessories / Filter Housing",
+      "item": "White, 10 x 2.5 x 3/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "08f38f69-e307-4128-ae5b-42f86313a173",
+      "qty": 16
+    },
+    {
+      "category": "Carpet & Stain Care / Tools",
+      "item": "Applicator, 35 cm",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "2fb270ad-618d-453c-bbaa-ad0d3790bc1b",
+      "qty": 3
+    },
+    {
+      "category": "Carpet & Stain Care / Tools",
+      "item": "Bone Scraper",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "cd0b3c77-b284-4148-9967-1463a3dca941",
+      "qty": 14
+    },
+    {
+      "category": "Cartridge / 20\"",
+      "item": "CTO",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b6f7c191-21d9-43fd-ba38-bd1d831760d9",
+      "qty": 2
+    },
+    {
+      "category": "Cartridge / 10\"",
+      "item": "CTO",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "5f761fbb-bbcb-479c-9b62-c9deea6f094a",
+      "qty": 380
+    },
+    {
+      "category": "Cartridge / 20\"",
+      "item": "CTO",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b6f7c191-21d9-43fd-ba38-bd1d831760d9",
+      "qty": 720
+    },
+    {
+      "category": "Cartridge / RO System",
+      "item": "In-Line (White)",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "d7cbdb88-0d9c-4765-8d98-795fbb89a1b2",
+      "qty": 156
+    },
+    {
+      "category": "Cartridge / RO System",
+      "item": "Mineral In-Line (Yellow)",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "f07291fe-c95c-4253-a498-b72bce47fa2a",
+      "qty": 162
+    },
+    {
+      "category": "Cartridge / 20\"",
+      "item": "PP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "eec38f88-8fb1-423d-93f7-9aeb85808a96",
+      "qty": 37
+    },
+    {
+      "category": "Cartridge / 10\"",
+      "item": "PP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "f001a75a-ab41-4c91-aff4-83c429127544",
+      "qty": 479
+    },
+    {
+      "category": "Cartridge / 20\"",
+      "item": "PP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "eec38f88-8fb1-423d-93f7-9aeb85808a96",
+      "qty": 186
+    },
+    {
+      "category": "Cartridge / 40\"",
+      "item": "PP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "03869a81-571b-41e8-b039-61db7e6bdd44",
+      "qty": 103
+    },
+    {
+      "category": "Cartridge / 20\"",
+      "item": "PP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "eec38f88-8fb1-423d-93f7-9aeb85808a96",
+      "qty": 1047
+    },
+    {
+      "category": "Cartridge / 30\"",
+      "item": "PP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "4e415e6f-cb1c-431c-b751-4e6a47aa0827",
+      "qty": 7450
+    },
+    {
+      "category": "Cartridge / RO System",
+      "item": "Reverse Osmosis (Membrane)",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "5f215912-41a8-46b7-9fd7-21edddc4459f",
+      "qty": 146
+    },
+    {
+      "category": "Cartridge / 10\"",
+      "item": "UDF",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "ed9eb7f5-c8b0-41bc-9543-074f47cb727d",
+      "qty": 380
+    },
+    {
+      "category": "Chemicals / Coil Cleaner",
+      "item": "GLN -3.78 LTR - Can",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "6a02bdc7-365a-4c0b-bd1a-373102a09563",
+      "qty": 96
+    },
+    {
+      "category": "Chemicals & Lubricants / Coil Cleaner",
+      "item": "AIR CONDITIONER FOAMING SPRAY, BITOP",
+      "sheet": [
+        "Maintenance",
+        "Trading"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "4edf7dbc-c272-42a9-ab4c-41aa5892fcd7",
+      "qty": 4
+    },
+    {
+      "category": "Cleaning Machines / Pressure Washer",
+      "item": "AquaTak 110",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "701dd6c0-14bc-4ee0-ae18-0b0e60b4f89d",
+      "qty": 29
+    },
+    {
+      "category": "Cleaning Machines",
+      "item": "Blower",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "e07bd3be-b9d8-4930-bb2c-459ad03b5d8c",
+      "qty": 5
+    },
+    {
+      "category": "Coil Cooling / Piston Compressor",
+      "item": "1.5 Ton",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "9a763f17-e3e1-495a-9b68-7c38d7d550ad",
+      "qty": 1
+    },
+    {
+      "category": "Coil Cooling / Piston Compressor",
+      "item": "2 Ton",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "346431ea-9ba6-4b7a-b539-cd3dc151b6a2",
+      "qty": 84
+    },
+    {
+      "category": "Coil Cooling / Rotary Compressor",
+      "item": "2 Ton",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b4d0037f-cf49-4d6a-ade0-e1b88865a179",
+      "qty": 2
+    },
+    {
+      "category": "Coil Cooling / Rotary Compressor",
+      "item": "2.5 Ton",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "c77d8ff5-32e8-4fcf-be59-ee1380bd3a5b",
+      "qty": 14
+    },
+    {
+      "category": "Coil Cooling / Piston Compressor",
+      "item": "2.5 Ton",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "ebcc5212-1b2c-4c57-9c22-0a18bf032879",
+      "qty": 28
+    },
+    {
+      "category": "Drinking Water / 6 Stage",
+      "item": "RO",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "6a1f9f3f-bdfc-44f7-a375-f61990d4182b",
+      "qty": 168
+    },
+    {
+      "category": "HVAC Service Tools / AC Cleaning Cover",
+      "item": "Split",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "a4e142ba-cf29-4731-adf8-b581b4bb23a2",
+      "qty": 24
+    },
+    {
+      "category": "Pads & Cloths / Microfiber Cloth",
+      "item": "30 x 30 cm",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "0f593c8b-f190-4616-9a1f-0ade6cd63819",
+      "qty": 372
+    },
+    {
+      "category": "Pads & Cloths / Microfiber Cloth",
+      "item": "40 x 60 cm",
+      "sheet": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Maintenance",
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "5b963ec8-ac93-4279-9765-c9a80ab89dd6",
+      "qty": 828
+    },
+    {
+      "category": "Pads & Cloths / Floor Pad",
+      "item": "Black, 17\"",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "dad21d6b-c5b4-4e46-87ca-3f9b6a016aed",
+      "qty": 330
+    },
+    {
+      "category": "Pads & Cloths / Floor Pad",
+      "item": "White, 17\"",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "f32d0229-61a7-4a9b-8545-5a84dc8f2bc2",
+      "qty": 125
+    },
+    {
+      "category": "Pest Control / Mosquito",
+      "item": "Avenger Insect Killer, 1 L",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "062bb28d-0023-4f81-b8a8-8de992082aa0",
+      "qty": 9
+    },
+    {
+      "category": "Pest Control / Ant & Cockroach",
+      "item": "Cockroach Injection",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "d1514d4b-ea3f-4624-b039-8381c5afb5da",
+      "qty": 100
+    },
+    {
+      "category": "Pest Control / Ant & Cockroach",
+      "item": "Demon Max",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "72a92308-a707-4c31-933f-bd564322ce86",
+      "qty": 5
+    },
+    {
+      "category": "Pest Control / Gecko",
+      "item": "Gecko Killer",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "b00a05c9-6cd1-4484-9bc4-84728d990c2f",
+      "qty": 5
+    },
+    {
+      "category": "Pest Control / Ant & Cockroach",
+      "item": "Optigard Flex",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "4620a40f-b3a4-4758-8b97-4a460d8781c9",
+      "qty": 11
+    },
+    {
+      "category": "Pest Control / Rat",
+      "item": "Rascal Wax Blocks",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "6240e460-342d-4565-90f9-509010546c62",
+      "qty": 3
+    },
+    {
+      "category": "Pest Control / Rat",
+      "item": "Rat",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "92453b94-7047-4c11-b6df-b3c3453216f4",
+      "qty": 32
+    },
+    {
+      "category": "Pest Control / Rat",
+      "item": "Roban Wax Blocks",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "94c77408-e921-462c-a6ba-6b2f43d9e90c",
+      "qty": 1
+    },
+    {
+      "category": "Plumbing / Pop-Up Waste",
+      "item": "1-1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "9530bd22-95b9-4d1b-963c-3f67488d9681",
+      "qty": 5
+    },
+    {
+      "category": "Plumbing / Non-Return Valve",
+      "item": "1\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "84c10ff0-5e71-4eaf-b01e-596ee1ca7a58",
+      "qty": 7
+    },
+    {
+      "category": "Plumbing / Float Valve",
+      "item": "1\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "8f7ebd07-568e-43cf-b218-b83c5ce728d4",
+      "qty": 18
+    },
+    {
+      "category": "Plumbing / Non-Return Valve",
+      "item": "1\", Brass",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "72b49595-9b29-4092-966c-879661d94f37",
+      "qty": 5
+    },
+    {
+      "category": "Plumbing / Angle Valve",
+      "item": "1/2\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "ca843476-1891-4b0b-b8ee-7e441040df42",
+      "qty": 1
+    },
+    {
+      "category": "Plumbing / Angle Valve",
+      "item": "1/2\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "ca843476-1891-4b0b-b8ee-7e441040df42",
+      "qty": 12
+    },
+    {
+      "category": "Plumbing / Angle Valve",
+      "item": "1/2\" x 3/8\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "1abf67d2-94c0-47b3-bdfb-9b12afdef1a6",
+      "qty": 9
+    },
+    {
+      "category": "Plumbing / Float Switch",
+      "item": "3 m",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "0de7b51b-f3dd-48dd-8ffa-ab42e4152b29",
+      "qty": 7
+    },
+    {
+      "category": "Plumbing / Float Valve",
+      "item": "3/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "d8710a98-71ba-4825-b303-3f3010b8a832",
+      "qty": 14
+    },
+    {
+      "category": "Plumbing / Non-Return Valve",
+      "item": "3/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "c4232bec-3764-4015-9d6d-59f1068ce2fc",
+      "qty": 2
+    },
+    {
+      "category": "Plumbing / Shattaf",
+      "item": "A5550",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "7ee00c0e-6da1-42ef-a5f8-a4701f944755",
+      "qty": 1
+    },
+    {
+      "category": "Plumbing / Shattaf",
+      "item": "A5560",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "4a931743-5e3a-4028-8a93-ff471a588cfc",
+      "qty": 1
+    },
+    {
+      "category": "Plumbing / Flexible Hose",
+      "item": "Magic, 1/2\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "0634e173-fb65-4b6b-8b7b-a9aeed602473",
+      "qty": 5
+    },
+    {
+      "category": "Plumbing / Flexible Hose",
+      "item": "Magic, 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b1075e1f-a9ef-4ed7-9acd-d3945e83e042",
+      "qty": 8
+    },
+    {
+      "category": "Plumbing / Float Valve",
+      "item": "Tank",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "217a51df-babc-41da-940e-b1cb6c558a39",
+      "qty": 307
+    },
+    {
+      "category": "Potable Water / Silent",
+      "item": "Booster, 1.36 HP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "2c60fb64-6a54-4823-a8fa-3a11e59f1631",
+      "qty": 3
+    },
+    {
+      "category": "Potable Water / Silent",
+      "item": "Booster, 2 HP",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "f61f22d6-36d1-4c0a-b139-f61984d6d81a",
+      "qty": 3
+    },
+    {
+      "category": "Pressure Washer / Accessories",
+      "item": "Hose",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "59ff75e6-0030-46e2-b972-d6c91d954d0d",
+      "qty": 22
+    },
+    {
+      "category": "Pressure Washer / Accessories",
+      "item": "Pistol Grip",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "8157728c-e923-4494-a5a9-92ba3f8159ed",
+      "qty": 40
+    },
+    {
+      "category": "Refrigerant / R410A",
+      "item": "11.3 kg",
+      "sheet": [
+        "Maintenance",
+        "Trading"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "14369800-d3ac-481f-b914-b608402b47dc",
+      "qty": 91
+    },
+    {
+      "category": "Refrigerant / R422D",
+      "item": "11.3 kg",
+      "sheet": [
+        "Maintenance",
+        "Trading"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "5ebccd0d-b7c5-4d6a-9dfe-906a4adec5bc",
+      "qty": 285
+    },
+    {
+      "category": "Refrigerant / R410A",
+      "item": "11.3 kg",
+      "sheet": [
+        "Maintenance",
+        "Trading"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "14369800-d3ac-481f-b914-b608402b47dc",
+      "qty": 450
+    },
+    {
+      "category": "Refrigerant / R22",
+      "item": "13.6 kg",
+      "sheet": [
+        "Maintenance",
+        "Trading"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "07a97631-b4fb-4822-a0cb-71ac2b8cc1e2",
+      "qty": 30
+    },
+    {
+      "category": "Refrigerant / R22",
+      "item": "13.6 kg",
+      "sheet": [
+        "Maintenance",
+        "Trading"
+      ],
+      "prod": [
+        "Maintenance",
+        "Trading"
+      ],
+      "item_id": "07a97631-b4fb-4822-a0cb-71ac2b8cc1e2",
+      "qty": 1
+    },
+    {
+      "category": "RO / Booster Pump",
+      "item": "24V",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "9ac08e8c-9086-47cd-a3be-bf15fc154516",
+      "qty": 24
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Cp Blue Valve, 1/4 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "41212c91-1173-4790-a1e7-e7d5022a228e",
+      "qty": 92
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "CP Connector 1/2",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "a3222578-f802-41bc-af73-ee4fa841e9c7",
+      "qty": 50
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Female Socket, 1/2 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "c331a0f3-8d9f-45aa-a32a-ed5dc8e5b7b9",
+      "qty": 100
+    },
+    {
+      "category": "RO / Tank",
+      "item": "Float",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "52fa3414-9303-4cf7-bfe0-9e387252b8a0",
+      "qty": 24
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Float Valve",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "63849793-a6c2-4c9f-89a9-475293a601cd",
+      "qty": 7
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Male Elbow, 1/4 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "87d1bc82-5701-44a6-9c15-bc7cc8d04b6a",
+      "qty": 50
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Male Tee Side, 1/4 x 1/4 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "8a90b626-aef8-4505-a977-0812998292eb",
+      "qty": 50
+    },
+    {
+      "category": "RO / Adapter",
+      "item": "Power",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b3332d39-e8f8-4eef-9b85-2bdc12599a42",
+      "qty": 24
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Pvc Blue Valve, 1/4 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "9fb36975-a4f5-4e18-bc79-f88da4e2a8c4",
+      "qty": 19
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Socket, 1/4 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "ab62c9b5-cff2-4bd7-a93b-d3e00da8ac5b",
+      "qty": 98
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Tank Valve (Female)",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "be38bdfd-3ca0-4d99-b0b1-13c427475289",
+      "qty": 20
+    },
+    {
+      "category": "RO / Fittings",
+      "item": "Tee, 1/4 x 1/4 x 1/4\"",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "7c2f9b56-9a7d-49a9-83a4-57421f241aa6",
+      "qty": 50
+    },
+    {
+      "category": "RO / Tank",
+      "item": "TK3600",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "d6e87728-0519-426e-8854-61f036d7a196",
+      "qty": 9
+    },
+    {
+      "category": "Stain Remover / Coffee Stains",
+      "item": "Coffee & Tannin Stain Remover",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "274696e6-3121-4cac-ac52-e173b652a653",
+      "qty": 9
+    },
+    {
+      "category": "Stain Remover / General Stain (Cleaner)",
+      "item": "General John RTU",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "6d5d6320-cdc8-443e-85de-e11d70eb9001",
+      "qty": 8
+    },
+    {
+      "category": "Stain Remover / Paint - Ink - Nail Polish",
+      "item": "GOOFF Adhesive Remover",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "f12d1031-9174-4e73-b97c-c373060fc437",
+      "qty": 15
+    },
+    {
+      "category": "Stain Remover / Red - Juice Stains",
+      "item": "Juice Out (Food Color / Red Stain)",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "31d45640-56e6-4307-a023-ed3110fbe4a0",
+      "qty": 9
+    },
+    {
+      "category": "Stain Remover / Protein Stain (Oxidizers)",
+      "item": "Magic (Part A Part B)",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "f0c96ec3-24e2-4597-a3d7-6099dbad93c5",
+      "qty": 47
+    },
+    {
+      "category": "Stain Remover / General Stain (Cleaner)",
+      "item": "Original Stain Remover",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "39b99de2-663a-41f6-b956-ee9049ba3c3d",
+      "qty": 21
+    },
+    {
+      "category": "Stain Remover / General Stain (Cleaner)",
+      "item": "Pro Chemical",
+      "sheet": [
+        "Pest Control & Cleaning"
+      ],
+      "prod": [
+        "Pest Control & Cleaning"
+      ],
+      "item_id": "3301a1ba-ef9c-4fd3-b685-27e8f14f4e3e",
+      "qty": 6
+    },
+    {
+      "category": "Stainless Steel / 40\"",
+      "item": "SS304",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "ad1a231b-5618-4dbe-a95e-669e21222dc6",
+      "qty": 6
+    },
+    {
+      "category": "Stainless Steel / 30\"",
+      "item": "SS304",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "0ccd34bd-c928-4aa5-8460-3d0b203db443",
+      "qty": 51
+    },
+    {
+      "category": "Testers / Tyre Pressure Meter",
+      "item": "Testing",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "916cb473-edc9-4d6a-8763-94ac7af94972",
+      "qty": 4
+    },
+    {
+      "category": "Timers / Timer Switch",
+      "item": "20 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "acfd22ef-0f8a-46cb-9caa-e185b80433ee",
+      "qty": 8
+    },
+    {
+      "category": "Timers / Timer Switch",
+      "item": "30 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "796f5282-f3ca-4923-9e0c-ea6cef4df001",
+      "qty": 3
+    },
+    {
+      "category": "Timers / Timer Switch",
+      "item": "EH110",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "28a54e8e-f642-4248-a25b-3a16186574e6",
+      "qty": 12
+    },
+    {
+      "category": "Water Filter / Kitchen Water",
+      "item": "3 Stage",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "4af58cf4-9d07-4a54-8786-01b62178e9aa",
+      "qty": 69
+    },
+    {
+      "category": "Water Filter / Cartridge",
+      "item": "Shower",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "9d5ef683-6bef-4b59-a392-2c9bc7be41ef",
+      "qty": 39
+    },
+    {
+      "category": "Water Heater / Central",
+      "item": "80 Gallon",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "28231a0b-4db9-4686-b809-8141dd7d4623",
+      "qty": 104
+    },
+    {
+      "category": "Water Heater / Central",
+      "item": "80 Gallon",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "28231a0b-4db9-4686-b809-8141dd7d4623",
+      "qty": 1
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "Electrical Control Components",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b66ea5f8-f7be-4e0b-899d-d8e8560a79a7",
+      "qty": 9
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "FAN",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "51de2cce-d327-4490-841e-7d4aeaadb113",
+      "qty": 27
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "Fan Motor",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "90b881f9-f6a9-465a-9791-049b55caeff4",
+      "qty": 24
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "High Pressure Switch",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "4a453bd3-0850-44df-af32-9aa746eea9a1",
+      "qty": 21
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "Level Switch",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "88d4b0fb-2763-4811-bf5e-0f4565ab5a7d",
+      "qty": 15
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "Low Pressure Switch",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "758fd178-b9f2-498f-a6a5-f83a83a08d93",
+      "qty": 21
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "Motor",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "bc68fd64-1328-4e35-a94c-44d91644283f",
+      "qty": 25
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "PCB&Controller",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "1fc61330-f79f-44db-9924-d1e77fdbdde9",
+      "qty": 7
+    },
+    {
+      "category": "Water Tank Cooler / Accessory",
+      "item": "Sensor",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "e6eb55e4-d041-4f0d-b77b-fa9465d1e6a3",
+      "qty": 21
+    },
+    {
+      "category": "Welding & Brazing / Torch & MAPP Gas",
+      "item": "MAPP Gas",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "e5f3f03f-d2c7-41b8-8c7e-6504e05fce6b",
+      "qty": 115
+    },
+    {
+      "category": "Wiring Devices / Socket",
+      "item": "13 A, Double",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "cb99cb01-af66-4d7d-9846-e4b07fb18824",
+      "qty": 16
+    },
+    {
+      "category": "Wiring Devices / Socket",
+      "item": "13 A, Single",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "6879ceb3-2d64-4dfe-aa40-53f2e6c3dc49",
+      "qty": 18
+    },
+    {
+      "category": "Wiring Devices / Plug Top",
+      "item": "3-Pin",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b81d9f39-5d17-456c-a376-8b5cd4ff43f3",
+      "qty": 6
+    },
+    {
+      "category": "Wiring Devices / Outlet",
+      "item": "45 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "cca67f1f-60d1-4565-af35-6937138647c4",
+      "qty": 4
+    },
+    {
+      "category": "Wiring Devices / Switch",
+      "item": "Double Pole, 20 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "e378c9e8-58b4-4af9-a02d-7c1611233a2c",
+      "qty": 5
+    },
+    {
+      "category": "Wiring Devices / Switch",
+      "item": "Double Pole, 45 A",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "d58d2986-c2cb-49ff-b18f-d9d042154a85",
+      "qty": 12
+    },
+    {
+      "category": "Wiring Devices / Module Box",
+      "item": "HT5-M10161",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "057fb203-ac7f-4798-b4fc-fa030b820e30",
+      "qty": 20
+    },
+    {
+      "category": "Wiring Devices / Switch",
+      "item": "One Gang",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "7ddd4a46-47c9-4aac-a07d-43154f0a3d80",
+      "qty": 10
+    },
+    {
+      "category": "Wiring Devices / Socket",
+      "item": "Spare",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "b837804a-22c4-4e3b-bd71-4921c423b0c0",
+      "qty": 4
+    },
+    {
+      "category": "Wiring Devices / Switch",
+      "item": "Three Gang",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "a2c374f6-d882-4afe-a278-4dfb5b3c9d7d",
+      "qty": 10
+    },
+    {
+      "category": "Wiring Devices / Switch",
+      "item": "Two Gang",
+      "sheet": [
+        "Maintenance"
+      ],
+      "prod": [
+        "Maintenance"
+      ],
+      "item_id": "4adf387b-98a8-4a0e-9d71-91bbada4cdf6",
+      "qty": 8
+    }
+  ],
+  "sheet_blank": [],
+  "truly_unassigned_in_prod": [
+    {
+      "item_id": "b7041e55-1b52-4d6a-adbc-69ca1c71f4a3",
+      "item": "Manifold guage",
+      "category": "HVAC Service Tools",
+      "stock": 0
+    }
+  ]
+}
