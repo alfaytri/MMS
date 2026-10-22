@@ -116,7 +116,7 @@ export interface LocalProduct {
 export interface LocalOrder {
   id: string
   order_id: string
-  service_customer_id: string
+  customer_id: string
   status: string | null
   scheduled_date: string | null
   type: string | null

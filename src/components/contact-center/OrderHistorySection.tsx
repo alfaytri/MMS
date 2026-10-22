@@ -25,7 +25,7 @@ export function OrderHistorySection({ customerId }: { customerId: string | null 
       const { data, error } = await supabase
         .from('orders')
         .select('id, order_id, status, scheduled_date, type, total_amount, has_invoice')
-        .eq('service_customer_id', customerId)
+        .eq('customer_id', customerId)
         .order('scheduled_date', { ascending: false, nullsFirst: false })
         .limit(20)
       if (error) throw error

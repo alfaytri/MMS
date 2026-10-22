@@ -37,6 +37,34 @@ export class MmsCcDb extends Dexie {
         if (m.revoked_at === undefined) m.revoked_at = null
       })
     })
+
+    // v3 (Stage 5 customer consolidation): the CRM cache id-space moved from
+    // service_customers.id to the unified customers.id. Re-key the orders store by
+    // customer_id (was service_customer_id) and clear the re-keyed caches + their sync
+    // cursors so they re-fetch cleanly from customers/customer_phones/customer_addresses.
+    // conversations/messages/pendingWrites are unaffected.
+    this.version(3).stores({
+      conversations:  '&id, customer_id, customer_id_v2, wati_phone, provider, last_message_at',
+      messages:       '&id, conversation_id, created_at, [conversation_id+created_at], external_id, delivery_status, message_type',
+      customers:      '&id, name',
+      phones:         '&id, customer_id, phone, [customer_id+is_primary]',
+      addresses:      '&id, customer_id, [customer_id+is_primary]',
+      products:       '&id, customer_id',
+      orders:         '&id, customer_id, scheduled_date, [customer_id+scheduled_date]',
+      pendingWrites:  '++id, kind, status, createdAt',
+      sync:           '&key',
+    }).upgrade(async (tx) => {
+      await Promise.all([
+        tx.table('customers').clear(),
+        tx.table('phones').clear(),
+        tx.table('addresses').clear(),
+        tx.table('products').clear(),
+        tx.table('orders').clear(),
+      ])
+      await tx.table('sync').where('key')
+        .startsWithAnyOf(['lastCustomerSync:', 'lastPhonesSync:', 'lastAddressesSync:', 'lastOrdersSync:'])
+        .delete()
+    })
   }
 }
 

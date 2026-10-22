@@ -531,19 +531,37 @@ export class SyncWorker {
     }
   }
 
+  // Stage 5: the offline CRM mutations keep their display shapes (customer_type,
+  // unit/building/street/zone); map them to the unified customers tables at the push
+  // boundary (customer_type -> entity_type, unit -> unit_no, …).
+  private mapCustomerAddrRow(payload: Record<string, unknown>): Record<string, unknown> {
+    const { unit, building, street, zone, ...rest } = payload
+    return {
+      ...rest,
+      unit_no:     (unit as string | null) ?? null,
+      building_no: (building as string | null) ?? null,
+      street_no:   (street as string | null) ?? null,
+      zone_no:     (zone as string | null) ?? null,
+    }
+  }
+
   private async pushCustomerUpdate(row: PendingWrite): Promise<void> {
-    const { customerId, ...patch } = row.payload as { customerId: string; [k: string]: unknown }
+    const { customerId, customer_type, ...rest } = row.payload as {
+      customerId: string; customer_type?: string; [k: string]: unknown
+    }
+    const patch: Record<string, unknown> = { ...rest }
+    if (customer_type !== undefined) patch.entity_type = customer_type
     const { error } = await this.supabase
-      .from('service_customers')
+      .from('customers')
       .update(patch)
       .eq('id', customerId)
     if (error) throw new Error(error.message)
   }
 
   private async pushAddressInsert(row: PendingWrite): Promise<void> {
-    const p = row.payload as Record<string, unknown>
+    const p = this.mapCustomerAddrRow(row.payload as Record<string, unknown>)
     const { error } = await this.supabase
-      .from('service_customer_addresses')
+      .from('customer_addresses')
       .insert(p)
     if (error) throw new Error(error.message)
   }
@@ -551,8 +569,8 @@ export class SyncWorker {
   private async pushAddressUpdate(row: PendingWrite): Promise<void> {
     const { addressId, ...patch } = row.payload as { addressId: string; [k: string]: unknown }
     const { error } = await this.supabase
-      .from('service_customer_addresses')
-      .update(patch)
+      .from('customer_addresses')
+      .update(this.mapCustomerAddrRow(patch))
       .eq('id', addressId)
     if (error) throw new Error(error.message)
   }
@@ -560,7 +578,7 @@ export class SyncWorker {
   private async pushPhoneInsert(row: PendingWrite): Promise<void> {
     const p = row.payload as Record<string, unknown>
     const { error } = await this.supabase
-      .from('service_customer_phones')
+      .from('customer_phones')
       .insert(p)
     if (error) throw new Error(error.message)
   }
@@ -568,7 +586,7 @@ export class SyncWorker {
   private async pushPhoneDelete(row: PendingWrite): Promise<void> {
     const { phoneId } = row.payload as { phoneId: string }
     const { error } = await this.supabase
-      .from('service_customer_phones')
+      .from('customer_phones')
       .delete()
       .eq('id', phoneId)
     if (error) throw new Error(error.message)

@@ -43,6 +43,19 @@ export function buildWazeLink(lat: number, lng: number): string {
   return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
 }
 
+/** Map a service-shaped address payload (unit/building/street/zone) to the
+ *  customer_addresses column names (*_no). address_type stays as-is ('blue-plate'). */
+function toCustomerAddressRow(payload: Record<string, unknown>): Record<string, unknown> {
+  const { unit, building, street, zone, ...rest } = payload
+  return {
+    ...rest,
+    unit_no:     (unit as string | null) ?? null,
+    building_no: (building as string | null) ?? null,
+    street_no:   (street as string | null) ?? null,
+    zone_no:     (zone as string | null) ?? null,
+  }
+}
+
 export function useAddressState(customerId: string | null) {
   const supabase = createClient()
   const qc = useQueryClient()
@@ -55,16 +68,33 @@ export function useAddressState(customerId: string | null) {
     queryFn: async () => {
       if (!customerId) return []
       const { data, error } = await supabase
-        .from('service_customer_addresses')
+        .from('customer_addresses')
         .select('*')
         .eq('customer_id', customerId)
         .order('is_primary', { ascending: false })
       if (error) throw error
-      // Normalise DB hyphen format ('blue-plate', 'google-coords') to TS underscore format
-      return (data ?? []).map((row) => ({
-        ...row,
-        address_type: ((row.address_type as string) ?? '').replace('-', '_') as AddressType,
-      })) as CustomerAddress[]
+      // customer_addresses stores *_no columns; map to building/street/zone/unit and
+      // normalise the DB hyphen address_type ('blue-plate') to the TS underscore form.
+      return (data ?? []).map((row) => {
+        const r = row as unknown as Record<string, unknown>
+        return {
+          id:           r.id,
+          customer_id:  r.customer_id,
+          address_type: (((r.address_type as string) ?? '').replace('-', '_')) as AddressType,
+          label:        (r.label as string | null) ?? null,
+          unit:         (r.unit_no as string | null) ?? null,
+          building:     (r.building_no as string | null) ?? null,
+          street:       (r.street_no as string | null) ?? null,
+          zone:         (r.zone_no as string | null) ?? null,
+          lat:          (r.lat as number | null) ?? null,
+          lng:          (r.lng as number | null) ?? null,
+          is_primary:   (r.is_primary as boolean) ?? false,
+          is_geocoded:  (r.is_geocoded as boolean) ?? false,
+          waze_link:    (r.waze_link as string | null) ?? null,
+          tags:         (r.tags as string[]) ?? [],
+          created_at:   r.created_at,
+        } as CustomerAddress
+      })
     },
     enabled: !!customerId,
   })
@@ -145,8 +175,8 @@ export function useAddressState(customerId: string | null) {
       }
 
       const { error } = await supabase
-        .from('service_customer_addresses')
-        .insert({ customer_id: customerId!, ...payload } as DBInsert<'service_customer_addresses'>)
+        .from('customer_addresses')
+        .insert(toCustomerAddressRow({ customer_id: customerId!, ...payload }) as unknown as DBInsert<'customer_addresses'>)
       if (error) throw error
     },
     onSuccess: () => {
@@ -178,8 +208,8 @@ export function useAddressState(customerId: string | null) {
       }
 
       const { error } = await supabase
-        .from('service_customer_addresses')
-        .update(payload as DBUpdate<'service_customer_addresses'>)
+        .from('customer_addresses')
+        .update(toCustomerAddressRow(payload) as unknown as DBUpdate<'customer_addresses'>)
         .eq('id', id)
       if (error) throw error
     },

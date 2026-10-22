@@ -29,10 +29,30 @@ export async function lazyFetch(db: MmsCcDb, supabase: SupabaseClient, customerI
     if (Date.now() - new Date(cursor.value).getTime() < STALE_MS) return
   }
   const { data, error } = await supabase
-    .from('service_customer_addresses')
+    .from('customer_addresses')
     .select('*')
     .eq('customer_id', customerId)
   if (error) { console.error('[addresses.lazyFetch]', error); return }
-  if (data) await db.addresses.bulkPut(data as unknown as LocalAddress[])
+  if (data) await db.addresses.bulkPut(data.map((row) => {
+    // customer_addresses stores *_no columns + hyphen address_type; map to LocalAddress shape.
+    const r = row as unknown as Record<string, unknown>
+    return {
+      id:           r.id,
+      customer_id:  r.customer_id,
+      address_type: (((r.address_type as string) ?? '').replace('-', '_')),
+      label:        (r.label as string | null) ?? null,
+      unit:         (r.unit_no as string | null) ?? null,
+      building:     (r.building_no as string | null) ?? null,
+      street:       (r.street_no as string | null) ?? null,
+      zone:         (r.zone_no as string | null) ?? null,
+      lat:          (r.lat as number | null) ?? null,
+      lng:          (r.lng as number | null) ?? null,
+      is_primary:   (r.is_primary as boolean) ?? false,
+      is_geocoded:  (r.is_geocoded as boolean) ?? false,
+      waze_link:    (r.waze_link as string | null) ?? null,
+      tags:         (r.tags as string[]) ?? [],
+      created_at:   r.created_at,
+    } as unknown as LocalAddress
+  }))
   await db.sync.put({ key: cursorKey, value: new Date().toISOString(), updatedAt: Date.now() })
 }

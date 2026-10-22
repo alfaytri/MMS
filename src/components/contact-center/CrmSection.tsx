@@ -106,7 +106,7 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
   async function handleAttach() {
     const result = await searchByPhone(attachSearch)
     if (result?.customer_id) {
-      onCustomerResolved?.(result.customer_id, result.service_customers?.name ?? 'Unknown', attachSearch)
+      onCustomerResolved?.(result.customer_id, (result as { customers?: { name?: string } | null }).customers?.name ?? 'Unknown', attachSearch)
     } else {
       toast.error('No customer found with that phone')
     }
@@ -121,12 +121,18 @@ export function CrmSection({ customerData, onCustomerResolved, pendingPhone }: P
     if (!canonical) { toast.error('Invalid phone number'); return }
     const supabase = (await import('@/lib/supabase/client')).createClient()
     try {
-      const { data, error } = await supabase.rpc('create_service_customer', {
-        p_name: createName.trim(), p_phone: canonical, p_link_phone: undefined,
-      })
+      // Stage 5: create directly on the unified customers side (+ customer_phones).
+      const { data: newCust, error } = await supabase
+        .from('customers')
+        .insert({ name: createName.trim(), entity_type: 'individual' })
+        .select('id, name')
+        .single()
       if (error) throw error
-      const result = data as { customer_id: string; customer_name: string } | null
-      onCustomerResolved?.(result?.customer_id ?? '', result?.customer_name ?? '', canonical)
+      const { error: phoneErr } = await supabase
+        .from('customer_phones')
+        .insert({ customer_id: newCust.id, phone: canonical, is_primary: true })
+      if (phoneErr) throw phoneErr
+      onCustomerResolved?.(newCust.id, newCust.name, canonical)
       toast.success('Customer created')
     } catch {
       toast.error('Failed to create customer')

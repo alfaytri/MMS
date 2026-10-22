@@ -5,7 +5,7 @@ import type { LocalOrder } from '../schema'
 const STALE_MS = 30_000
 
 export async function listByCustomer(db: MmsCcDb, customerId: string): Promise<LocalOrder[]> {
-  const rows = await db.orders.where('service_customer_id').equals(customerId).toArray()
+  const rows = await db.orders.where('customer_id').equals(customerId).toArray()
   return rows.sort((a, b) => {
     const da = a.scheduled_date ?? ''
     const db_ = b.scheduled_date ?? ''
@@ -34,8 +34,8 @@ export async function lazyFetch(db: MmsCcDb, supabase: SupabaseClient, customerI
   }
   const { data, error } = await supabase
     .from('orders')
-    .select('id, order_id, service_customer_id, status, scheduled_date, type, total_amount, invoice_number, order_services(id)')
-    .eq('service_customer_id', customerId)
+    .select('id, order_id, customer_id, status, scheduled_date, type, total_amount, invoice_number, order_services(id)')
+    .eq('customer_id', customerId)
     .order('scheduled_date', { ascending: false })
     .limit(50)
   if (error) { console.error('[orders.lazyFetch]', error); return }
@@ -65,14 +65,14 @@ export async function lazyFetch(db: MmsCcDb, supabase: SupabaseClient, customerI
 
   const rows: LocalOrder[] = data.map((o) => {
     const row = o as {
-      id: string; order_id: string; service_customer_id: string; status: string | null;
+      id: string; order_id: string; customer_id: string; status: string | null;
       scheduled_date: string | null; type: string | null; total_amount: number | null;
       invoice_number: string | null; order_services: { id: string }[] | null;
     }
     return {
       id:                  row.id,
       order_id:            row.order_id,
-      service_customer_id: row.service_customer_id,
+      customer_id:         row.customer_id,
       status:              row.status,
       scheduled_date:      row.scheduled_date,
       type:                row.type,

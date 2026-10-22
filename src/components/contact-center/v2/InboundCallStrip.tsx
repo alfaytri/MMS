@@ -60,8 +60,8 @@ function CallRow({ call, connectedSince, onOpen }: CallRowProps) {
     let cancelled = false
     const supabase = createClient()
     supabase
-      .from('service_customer_phones')
-      .select('customer_id, service_customers ( name )')
+      .from('customer_phones')
+      .select('customer_id, customers ( name )')
       .eq('phone', call.customerPhone)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -70,8 +70,8 @@ function CallRow({ call, connectedSince, onOpen }: CallRowProps) {
           console.warn('[InboundCallStrip] customer lookup failed:', error.message)
           return
         }
-        const name = (data as unknown as { service_customers: { name: string } | null } | null)
-          ?.service_customers?.name
+        const name = (data as unknown as { customers: { name: string } | null } | null)
+          ?.customers?.name
         if (name) setCustomerName(name)
       })
     return () => { cancelled = true }

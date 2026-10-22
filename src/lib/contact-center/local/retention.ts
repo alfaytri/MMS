@@ -34,13 +34,20 @@ export async function prune(db: MmsCcDb): Promise<void> {
     }
   }
 
-  // Customer-orphan prune is intentionally disabled during the consolidation cutover.
-  // The local CRM cache (customers/phones/addresses/orders/products) is keyed by
-  // service_customers.id, but chat_conversations.customer_id now holds a unified
-  // customers.id (the FK was re-pointed to customers). The two id-spaces no longer
-  // align, so a conversation-based liveness check would flag every cached customer as
-  // an orphan and wipe the cache on each run. The cache is bounded (only customers the
-  // agent has opened) and self-heals via the repos' lazyFetch, so leaving it unpruned is
-  // safe. Re-enable with a customers-native liveness check when the CC CRM panel moves
-  // to customers ids (the deferred field-unification step).
+  // Prune orphaned CRM cache (Stage 5: the local cache and chat_conversations now share the
+  // unified customers.id space, so a conversation-based liveness check is accurate again).
+  const liveCustomerIds = new Set(
+    (await db.conversations.toArray())
+      .flatMap((c) => [c.customer_id, c.customer_id_v2])
+      .filter(Boolean) as string[],
+  )
+  const customers = await db.customers.toArray()
+  const orphans = customers.filter((c) => !liveCustomerIds.has(c.id)).map((c) => c.id)
+  if (orphans.length > 0) {
+    await db.customers.bulkDelete(orphans)
+    await db.phones.where('customer_id').anyOf(orphans).delete()
+    await db.addresses.where('customer_id').anyOf(orphans).delete()
+    await db.products.where('customer_id').anyOf(orphans).delete()
+    await db.orders.where('customer_id').anyOf(orphans).delete()
+  }
 }

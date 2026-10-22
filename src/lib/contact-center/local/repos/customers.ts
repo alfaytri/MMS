@@ -28,11 +28,30 @@ export async function lazyFetch(db: MmsCcDb, supabase: SupabaseClient, customerI
     if (Date.now() - new Date(cursor.value).getTime() < STALE_MS) return
   }
   const { data, error } = await supabase
-    .from('service_customers')
-    .select('id, name, name_ar, customer_type, is_blocked, pending_payment_amount, created_at')
+    .from('customers')
+    .select('id, name, name_ar, entity_type, is_blocked, created_at')
     .eq('id', customerId)
     .maybeSingle()
   if (error) { console.error('[customers.lazyFetch]', error); return }
-  if (data) await db.customers.put(data as unknown as LocalCustomer)
+  if (data) {
+    // Real pending from the tl_invoices-backed RPC (customers has no stored amount).
+    const { data: pend } = await supabase.rpc(
+      'get_customer_pending_summary' as never, { p_customer_id: customerId } as never,
+    )
+    const pRow = (Array.isArray(pend) ? pend[0] : pend) as { total_pending?: number } | null
+    const r = data as unknown as {
+      id: string; name: string; name_ar: string | null
+      entity_type: 'individual' | 'business' | null; is_blocked: boolean; created_at: string
+    }
+    await db.customers.put({
+      id:                     r.id,
+      name:                   r.name,
+      name_ar:                r.name_ar,
+      customer_type:          r.entity_type ?? 'individual',
+      is_blocked:             r.is_blocked,
+      pending_payment_amount: Number(pRow?.total_pending ?? 0),
+      created_at:             r.created_at,
+    } as LocalCustomer)
+  }
   await db.sync.put({ key: cursorKey, value: new Date().toISOString(), updatedAt: Date.now() })
 }
