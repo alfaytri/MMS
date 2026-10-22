@@ -64,6 +64,11 @@ interface QuotationRow {
     name: string | null
     service_customer_phones?: { phone: string; is_primary?: boolean }[] | null
   } | null
+  // Unified master (preferred); service_customers kept as fallback.
+  customers:           {
+    name: string | null
+    customer_phones?: { phone: string; is_primary?: boolean }[] | null
+  } | null
   order_quotation_line_items: Array<{
     name:  string
     path:  string[] | null
@@ -97,6 +102,10 @@ export async function generateQuotationPdf(
         name,
         service_customer_phones(phone, is_primary)
       ),
+      customers(
+        name,
+        customer_phones(phone, is_primary)
+      ),
       order_quotation_line_items(name, path, qty, price, catalog_image_url)
     `)
     .eq('id', quotationUuid)
@@ -116,8 +125,9 @@ export async function generateQuotationPdf(
   const validityDays = Number.isFinite(cfgDays) && cfgDays > 0 ? cfgDays : 30
 
   // ── 3. Build template data ─────────────────────────────────────────────
-  const customer = q.service_customers
-  const phones   = customer?.service_customer_phones ?? []
+  // Prefer the unified customers record; fall back to service_customers.
+  const customerName = q.customers?.name ?? q.service_customers?.name ?? ''
+  const phones       = q.customers?.customer_phones ?? q.service_customers?.service_customer_phones ?? []
   const primaryPhone = phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? ''
 
   // Fetch and embed before rendering; a failure yields null for that line and
@@ -165,7 +175,7 @@ export async function generateQuotationPdf(
     issuingDate,
     validUntilDate:  validUntil,
     validityDays,
-    customerName:    customer?.name ?? '',
+    customerName,
     customerPhone:   primaryPhone,
     services,
     subtotal,

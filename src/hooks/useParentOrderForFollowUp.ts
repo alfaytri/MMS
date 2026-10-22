@@ -21,6 +21,7 @@ interface SupabaseRow {
   division: string
   address: string | null
   service_customers: { name: string | null; service_customer_phones: { phone: string }[] | null } | null
+  customers: { name: string | null; customer_phones: { phone: string }[] | null } | null
   order_services: Array<{ id: string; service_id: string | null; name: string; qty: number; duration: number | null; path: string[] | null }> | null
   order_team_assignments: Array<{ team_id: string; teams: { name: string | null } | null }> | null
 }
@@ -37,6 +38,7 @@ export function useParentOrderForFollowUp(orderId: string | null) {
         .select(`
           id, order_id, service_customer_id, division, address,
           service_customers ( name, service_customer_phones(phone) ),
+          customers ( name, customer_phones(phone) ),
           order_services ( id, service_id, name, qty, duration, path ),
           order_team_assignments ( team_id, teams ( name ) )
         `)
@@ -49,8 +51,8 @@ export function useParentOrderForFollowUp(orderId: string | null) {
         id: row.id,
         order_id: row.order_id,
         customer_id: row.service_customer_id ?? '',
-        customer_name: row.service_customers?.name ?? '',
-        customer_phone: row.service_customers?.service_customer_phones?.[0]?.phone ?? null,
+        customer_name: row.customers?.name ?? row.service_customers?.name ?? '',
+        customer_phone: row.customers?.customer_phones?.[0]?.phone ?? row.service_customers?.service_customer_phones?.[0]?.phone ?? null,
         division: row.division,
         address: row.address,
         services: (row.order_services ?? []).map((s) => ({
