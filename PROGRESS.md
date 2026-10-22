@@ -356,6 +356,8 @@ Purchase & Sales▾:
 
 ## 🔄 In Progress
 
+🚀 Starting: **Prod divisions Task 1: add 36 missing item-division links + Manifold guage** — new-prod `optishfnnctrhffpoywg`, `inventory_item_divisions`. Operator's `unassigned (1).xlsx` turned out to be a STALE export: all 190 items already carry a division. 127 match, 27 have extra, 36 are missing a division the sheet lists (mostly Maintenance+Pest Control shared items assigned to only one). Purely additive — nothing removed. Plus `Manifold guage` (HVAC Service Tools), the only item in prod with no division at all → Maintenance.
+
 🚀 Starting: **Dev DB Task 1: schema export + full audit** — export the Dev DB (`wkmvjxxmzstsvahuiwsz`) schema to JSON, then audit it read-only against `docs/DB Audits/Audit requirement/rules.md` (security, indexing, column types, schema integrity) plus a dead-column sweep the rubric does not cover. Mirrors the 2026-08-26 prod audit.
 
 🚀 Starting: **Visit calendar Task 1: drag-to-select a date range** — `src/components/orders/VisitDatePicker.tsx` (react-day-picker v10, `mode="multiple"`, 2 months). Operator request during the picker smoke test: drag across days to take a consecutive range, while clicking still picks individual dates one by one. A real drag never fires a `click` (pointerdown and pointerup land on different elements), so range-drag and click-toggle coexist without suppression.
