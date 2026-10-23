@@ -241,16 +241,6 @@ export const NAV_TREE: TreeNode[] = [
               { key: 'master_data.services.approve', label: 'Approve Service Changes', description: 'Review and approve/reject service change requests' },
             ],
           },
-          {
-            id: 'md-admin-svc-cust',
-            label: 'Service Customers',
-            icon: UserCheck,
-            permissions: [
-              { key: 'master_data.service_customers.view',   label: 'View Service Customers',   description: 'Access the service customers list and details' },
-              { key: 'master_data.service_customers.create', label: 'Create Service Customers', description: 'Add new service customer records' },
-              { key: 'master_data.service_customers.manage', label: 'Edit Service Customers',   description: 'Edit and delete existing service customer records (legacy .manage — alias of .edit)' },
-            ],
-          },
         ],
       },
     ],
@@ -654,14 +644,6 @@ export const NAV_TREE: TreeNode[] = [
     label: 'Field Service Setup',
     icon: Wrench,
     children: [
-      {
-        id: 'fs-service-customers',
-        label: 'Service Customers',
-        icon: UserCheck,
-        permissions: [
-          { key: 'master_data.service_customers.view', label: 'View Service Customers', description: 'Open the Service Customers master-data page' },
-        ],
-      },
       {
         id: 'fs-services',
         label: 'Services',

@@ -97,8 +97,7 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
       const geo = new Map<string, { lat: number | null; lng: number | null }>()
       if (addrIds.length) {
         const { data: addrs } = await supabase
-          // view shares service_customer_addresses' column shape; cast the typed name (runtime queries the view).
-          .from('order_address_book' as unknown as 'service_customer_addresses')
+          .from('order_address_book')
           .select('id, lat, lng')
           .in('id', addrIds)
         for (const a of (addrs ?? []) as { id: string; lat: number | null; lng: number | null }[]) {

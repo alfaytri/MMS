@@ -32,9 +32,7 @@ export function useOrderDetail(orderId: string | null) {
       const addrId = (data as { address_id?: string | null }).address_id
       if (addrId) {
         const { data: a } = await supabase
-          // view has the same column shape as service_customer_addresses; cast the typed name so the
-          // generated types resolve (runtime still queries the order_address_book view).
-          .from('order_address_book' as unknown as 'service_customer_addresses')
+          .from('order_address_book')
           .select('id, label, building, street, zone, lat, lng, waze_link, is_primary')
           .eq('id', addrId)
           .maybeSingle()

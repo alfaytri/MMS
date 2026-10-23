@@ -137,14 +137,6 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         ],
       },
       {
-        label: 'Service Customers',
-        permissions: [
-          { key: 'master_data.service_customers.view',   label: 'View Service Customers',   description: 'Access the service customers list and details' },
-          { key: 'master_data.service_customers.create', label: 'Create Service Customers', description: 'Add new service customer records' },
-          { key: 'master_data.service_customers.manage', label: 'Edit Service Customers',   description: 'Edit and delete existing service customer records (legacy .manage — alias of .edit)' },
-        ],
-      },
-      {
         label: 'Services',
         permissions: [
           { key: 'master_data.services.view',    label: 'View Services',           description: 'Access the services catalog and pricing' },
