@@ -16,10 +16,9 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
       let query = supabase
         .from('orders')
         .select(`
-          id, order_id, service_customer_id, type, division, status, confirmation_status,
+          id, order_id, customer_id, type, division, status, confirmation_status,
           scheduled_date, scheduled_time, total_amount, agent_name, address, arrival_phone,
           has_invoice, invoice_number, created_at, notes,
-          service_customers(name, service_customer_phones(phone)),
           customers(name, customer_phones(phone)),
           order_services(name, qty)
         `)
@@ -51,7 +50,7 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
       // Search both the stored arrival phone AND the customer's primary phone
       if (filter.customerPhone) {
         const ph = filter.customerPhone.replace(/\s+/g, '')
-        query = query.or(`arrival_phone.ilike.%${ph}%,service_customers.phone.ilike.%${ph}%`)
+        query = query.ilike('arrival_phone', `%${ph}%`)
       }
       if (filter.division)        query = query.eq('division', filter.division)
 
@@ -68,15 +67,14 @@ export function useOrders(filter: OrdersFilter = DEFAULT_FILTER) {
 
       const items = (data ?? []).map((o) => {
         const oExt = o as typeof o & {
-          service_customers: { name?: string; service_customer_phones?: { phone: string }[] } | null
           customers: { name?: string; customer_phones?: { phone: string }[] } | null
         }
         return {
           ...o,
-          customer_id: o.service_customer_id,
-          // Stage 3 (customer consolidation): prefer the unified customers table, fall back to service_customers.
-          customer_name: oExt.customers?.name ?? oExt.service_customers?.name ?? '',
-          customer_phone: oExt.customers?.customer_phones?.[0]?.phone ?? oExt.service_customers?.service_customer_phones?.[0]?.phone ?? '',
+          customer_id: o.customer_id,
+          // Stage 5: unified customers table.
+          customer_name: oExt.customers?.name ?? '',
+          customer_phone: oExt.customers?.customer_phones?.[0]?.phone ?? '',
           arrival_phone: o.arrival_phone ?? null,
           scheduled_time: o.scheduled_time ?? null,
           notes: o.notes ?? null,

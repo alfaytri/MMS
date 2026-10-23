@@ -13,9 +13,8 @@ export function useOrderDetail(orderId: string | null) {
       const { data, error } = await supabase
         .from('orders')
         .select(`
-          id, order_id, service_customer_id, address_id, type, is_emergency, division, status, confirmation_status,
+          id, order_id, customer_id, address_id, type, is_emergency, division, status, confirmation_status,
           scheduled_date, total_amount, agent_name, address, notes, arrival_phone, has_invoice, invoice_number, created_at,
-          service_customers(name, service_customer_phones(phone)),
           customers(name, customer_phones(phone)),
           order_services(id, service_id, name, qty, price, duration, path, from_time, to_time),
           order_team_assignments(id, team_id, services, scheduled_date, time_slot, duration, teams(name)),
@@ -41,8 +40,7 @@ export function useOrderDetail(orderId: string | null) {
           .maybeSingle()
         orderAddress = a ?? null
       }
-      const sc = data.service_customers as { name?: string; service_customer_phones?: { phone: string }[] } | null
-      // Stage 3 (customer consolidation): prefer the unified customers table, fall back to service_customers.
+      // Stage 5: unified customers table.
       const cust = (data as typeof data & { customers?: { name?: string; customer_phones?: { phone: string }[] } | null }).customers ?? null
       const assignments = (data.order_team_assignments ?? []).map((a) => {
         const aExt = a as typeof a & { teams?: { name?: string } | null }
@@ -59,8 +57,8 @@ export function useOrderDetail(orderId: string | null) {
       return {
         ...data,
         service_customer_addresses: orderAddress,
-        customer_name: cust?.name ?? sc?.name ?? '',
-        customer_phone: cust?.customer_phones?.[0]?.phone ?? sc?.service_customer_phones?.[0]?.phone ?? '',
+        customer_name: cust?.name ?? '',
+        customer_phone: cust?.customer_phones?.[0]?.phone ?? '',
         services_summary: '',
         order_team_assignments: assignments,
         order_log: logs,

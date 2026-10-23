@@ -69,7 +69,7 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
         .from('orders')
         .select(`
           id, order_id, address, status, scheduled_date, address_id,
-          service_customers!inner(name),
+          customers!inner(name),
           order_services(name)
         `)
         .not('status', 'in', '("completed","cancelled")')
@@ -85,7 +85,7 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
       type OrderRow = {
         id: string; order_id: string; address: string | null; status: string | null
         scheduled_date: string | null; address_id: string | null
-        service_customers: { name?: string } | null
+        customers: { name?: string } | null
         order_services: { name?: string }[] | null
       }
       const rows = (data ?? []) as unknown as OrderRow[]
@@ -113,7 +113,7 @@ export function useOrderLocations(opts?: UseOrderLocationsOptions) {
         .map(({ o, addr }) => ({
           id: o.id,
           orderId: o.order_id,
-          customerName: o.service_customers?.name ?? '',
+          customerName: o.customers?.name ?? '',
           service: o.order_services?.[0]?.name ?? '',
           address: o.address ?? '',
           lat: addr.lat,

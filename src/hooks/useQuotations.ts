@@ -23,7 +23,6 @@ export function useQuotations(filter: QuotationsFilter = DEFAULT_FILTER) {
         .from('order_quotations')
         .select(`
           id, quotation_id, division, status, total_amount, created_date,
-          service_customers(name, service_customer_phones(phone)),
           customers(name, customer_phones(phone))
         `)
         .order('created_at', { ascending: false })
@@ -45,7 +44,7 @@ export function useQuotations(filter: QuotationsFilter = DEFAULT_FILTER) {
       if (filter.customerPhone) {
         const ph = filter.customerPhone.replace(/\s+/g, '').toLowerCase()
         rows = rows.filter((r) =>
-          (r.service_customers?.service_customer_phones ?? []).some((cp) =>
+          ((r.customers as { customer_phones?: { phone: string }[] } | null)?.customer_phones ?? []).some((cp) =>
             (cp.phone ?? '').replace(/\s+/g, '').toLowerCase().includes(ph)
           )
         )
@@ -54,9 +53,9 @@ export function useQuotations(filter: QuotationsFilter = DEFAULT_FILTER) {
       const items: QuotationListItem[] = rows.map((r) => ({
         id:             r.id,
         quotation_id:   r.quotation_id,
-        // Stage 3 (customer consolidation): prefer the unified customers table, fall back to service_customers.
-        customer_name:  r.customers?.name ?? r.service_customers?.name ?? '—',
-        customer_phone: r.customers?.customer_phones?.[0]?.phone ?? r.service_customers?.service_customer_phones?.[0]?.phone ?? '—',
+        // Stage 5: unified customers table.
+        customer_name:  r.customers?.name ?? '—',
+        customer_phone: r.customers?.customer_phones?.[0]?.phone ?? '—',
         division:       r.division ?? '—',
         status:         (r.status ?? 'draft') as QuotationListItem['status'],
         total_amount:   r.total_amount ?? 0,

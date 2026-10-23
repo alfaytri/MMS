@@ -69,12 +69,6 @@ interface OrderRow {
   scheduled_date:       string
   total_amount:         number
   confirmation_pdf_url: string | null
-  service_customer_id:  string
-  service_customers:    {
-    name: string | null
-    service_customer_phones?: { phone: string; is_primary?: boolean }[] | null
-  } | null
-  // Unified master (preferred); service_customers kept as fallback.
   customers:            {
     name: string | null
     customer_phones?: { phone: string; is_primary?: boolean }[] | null
@@ -108,11 +102,6 @@ export async function generateOrderConfirmationPdf(
       scheduled_date,
       total_amount,
       confirmation_pdf_url,
-      service_customer_id,
-      service_customers(
-        name,
-        service_customer_phones(phone, is_primary)
-      ),
       customers(
         name,
         customer_phones(phone, is_primary)
@@ -137,9 +126,9 @@ export async function generateOrderConfirmationPdf(
   }
 
   // -- 2. Build template data -------------------------------------------------
-  // Prefer the unified customers record; fall back to service_customers.
-  const customerName = order.customers?.name ?? order.service_customers?.name ?? ''
-  const phones       = order.customers?.customer_phones ?? order.service_customers?.service_customer_phones ?? []
+  // Stage 5: unified customers record.
+  const customerName = order.customers?.name ?? ''
+  const phones       = order.customers?.customer_phones ?? []
   const primaryPhone = phones.find((p) => p.is_primary)?.phone ?? phones[0]?.phone ?? ''
 
   const services: ConfirmationLineItem[] = (order.order_services ?? []).map((row) => {
