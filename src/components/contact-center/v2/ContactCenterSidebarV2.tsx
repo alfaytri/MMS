@@ -35,6 +35,7 @@ import { UnifiedThread } from './UnifiedThread'
 import { ComposerV2 } from './ComposerV2'
 import { ProductsList } from '@/components/contact-center/ProductsList'
 import { OrderHistoryV2 } from './OrderHistoryV2'
+import { HandlingTeamBridge } from './HandlingTeamBridge'
 import type { WatiTemplate } from '@/types/contact-center'
 
 export function ContactCenterSidebarV2() {
@@ -297,9 +298,16 @@ export function ContactCenterSidebarV2() {
   // Detail view
   const activeConversation = conversations.find((c) => c.id === activeConversationId)
   const customer = local.customer
-  // CRM name first, phone number otherwise — the WhatsApp display name is
-  // skipped intentionally so the sidebar matches the service_customers view.
-  const displayName = customer?.name ?? activePhone ?? 'Unknown'
+  // A team chat (opened from the Teams tab or the handling-team bridge) has no
+  // linked customer; identify it by its phone so the header shows the team name.
+  const activeTeam = (() => {
+    if (customer || !activePhone) return null
+    const n = tryNormalisePhone(activePhone)
+    return n ? teamPhones.byPhone.get(n) ?? null : null
+  })()
+  // CRM name first, then team name, then the phone number — the WhatsApp display
+  // name is skipped intentionally so the sidebar matches the customers view.
+  const displayName = customer?.name ?? activeTeam?.name_en ?? activeTeam?.name_ar ?? activePhone ?? 'Unknown'
   const phones = local.phones
   const primaryPhone = phones.find((p) => p.is_primary) ?? phones[0]
   const _secondaryPhones = phones.filter((p) => p.id !== primaryPhone?.id)
@@ -330,6 +338,11 @@ export function ContactCenterSidebarV2() {
               {customer.customer_type === 'business' ? 'BIZ' : 'IND'}
             </Badge>
           )}
+          {activeTeam && (
+            <Badge variant="outline" className="text-[10px] px-1 py-0 uppercase flex-shrink-0">
+              TEAM
+            </Badge>
+          )}
           {customer?.is_blocked && (
             <span title="Blocked"><AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" /></span>
           )}
@@ -337,7 +350,7 @@ export function ContactCenterSidebarV2() {
             <Button size="icon" variant="ghost" className="h-5 w-5 flex-shrink-0" onClick={() => customerData.setCrmMode('edit')} title="Edit customer">
               <Edit2 className="h-3 w-3" />
             </Button>
-          ) : (
+          ) : activeTeam ? null : (
             <Button
               size="sm"
               variant="outline"
@@ -407,7 +420,7 @@ export function ContactCenterSidebarV2() {
 
       {/* When no customer is linked OR we're in unknown-caller flow,
           render the v1 CrmSection's attach/create flow inline */}
-      {(!customer || customerData.crmMode === 'unknown' || customerData.crmMode === 'edit') && activePhone && (
+      {(!customer || customerData.crmMode === 'unknown' || customerData.crmMode === 'edit') && activePhone && !activeTeam && (
         <div className="flex-shrink-0 border-b border-border">
           <CrmSection
             customerData={customerData}
@@ -426,6 +439,20 @@ export function ContactCenterSidebarV2() {
             }}
           />
         </div>
+      )}
+
+      {/* Handling team(s) for this customer's open jobs — tap to open their chat. */}
+      {customer && activeCustomerId && (
+        <HandlingTeamBridge
+          customerId={activeCustomerId}
+          onOpenTeam={async (team) => {
+            try {
+              await ensureAndOpenTeamConversation({ id: team.team_id, phone: team.phone, name_en: team.name_en })
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Could not open team chat')
+            }
+          }}
+        />
       )}
 
       {/* CRM sections — Addresses, Products, Orders (only when customer is linked).
