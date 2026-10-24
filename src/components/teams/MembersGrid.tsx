@@ -8,7 +8,7 @@ import { useUnassignEmployee } from '@/hooks/useTeams'
 import type { TeamFull, Employee } from '@/hooks/useTeams'
 import type { DragData } from './useDnDHandlers'
 
-export function MembersGrid({ team }: { team: TeamFull }) {
+export function MembersGrid({ team, className }: { team: TeamFull; className?: string }) {
   const { employeeToolCounts } = useTeamsPage()
   const { setNodeRef, isOver } = useDroppable({
     id: `members-grid-${team.id}`,
@@ -20,12 +20,13 @@ export function MembersGrid({ team }: { team: TeamFull }) {
     <div
       ref={setNodeRef}
       className={cn(
-        'rounded-md border border-orange-200 bg-orange-50/50 p-3 transition-colors',
+        'rounded-md border border-orange-200 bg-orange-50/50 p-3 transition-colors flex flex-col',
         isOver && 'border-primary bg-primary/10',
+        className,
       )}
     >
       {members.length === 0 && !isOver && (
-        <p className="text-xs text-muted-foreground text-center py-6">
+        <p className="text-xs text-muted-foreground text-center py-4 m-auto">
           No members. Drag employees here to add.
         </p>
       )}

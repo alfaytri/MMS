@@ -39,7 +39,7 @@ export function TeamList() {
   const multiCompany = groups.length > 1
 
   return (
-    <div className="w-[300px] shrink-0 border-r border-border/60 flex flex-col bg-background">
+    <div className="w-[260px] xl:w-[300px] shrink-0 border-r border-border/60 flex flex-col bg-background">
       <div className="flex-1 overflow-y-auto py-2">
         {isLoading && (
           <p className="text-xs text-muted-foreground px-4 py-6">Loading…</p>

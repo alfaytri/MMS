@@ -61,18 +61,29 @@ export function TeamGroupedList({
   }, [teams, term])
 
   const grouped = useMemo(() => {
+    const known = new Set(divisions.map((d) => d.id))
     const byDivId = new Map<string, TeamSlim[]>()
     for (const t of filteredTeams) {
-      const key = t.division_id ?? '__none__'
+      // A team whose division is null (or not in the divisions list) still has to
+      // surface — bucket it under "Unassigned" rather than dropping it silently.
+      const key = t.division_id && known.has(t.division_id) ? t.division_id : '__unassigned__'
       const arr = byDivId.get(key) ?? []
       arr.push(t)
       byDivId.set(key, arr)
     }
-    return divisions
+    const groups = divisions
       .slice()
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
       .map((d) => ({ division: d, teams: byDivId.get(d.id) ?? [] }))
       .filter((g) => g.teams.length > 0)
+    const orphans = byDivId.get('__unassigned__') ?? []
+    if (orphans.length) {
+      groups.push({
+        division: { id: '__unassigned__', name: 'Unassigned', short_name: null, sort_order: 9999 },
+        teams: orphans,
+      })
+    }
+    return groups
   }, [filteredTeams, divisions])
 
   // Unread rolls up per division so a collapsed section still signals new activity.

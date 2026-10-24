@@ -31,7 +31,7 @@ export function TeamDetail() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[960px] p-6 space-y-6">
+      <div className="max-w-[960px] min-h-full p-5 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h2 className="text-2xl font-semibold truncate">{team.name_en ?? team.name}</h2>
@@ -74,15 +74,15 @@ export function TeamDetail() {
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="flex-1 flex flex-col gap-1.5 min-h-0">
           <div className="flex items-baseline justify-between">
             <p className="text-xs font-medium text-muted-foreground">Members ({memberCount})</p>
             <p className="text-[10px] text-muted-foreground">Drag here to add</p>
           </div>
-          <MembersGrid team={team} />
+          <MembersGrid team={team} className="flex-1 min-h-0" />
         </div>
 
-        <div className="flex items-center gap-1 pt-4 border-t border-border/60">
+        <div className="flex flex-wrap items-center gap-1 pt-4 border-t border-border/60">
           {team.phone && (
             <button
               type="button"
@@ -117,11 +117,10 @@ export function TeamDetail() {
             <Clock className="h-3.5 w-3.5" />
             <span>Activity</span>
           </button>
-          <div className="flex-1" />
           <button
             type="button"
             onClick={() => openTeamDialog(team)}
-            className="h-8 px-3 inline-flex items-center gap-1.5 text-xs hover:bg-muted/40 rounded"
+            className="h-8 px-3 inline-flex items-center gap-1.5 text-xs hover:bg-muted/40 rounded ml-auto"
           >
             <Pencil className="h-3.5 w-3.5" /> Edit
           </button>

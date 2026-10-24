@@ -55,7 +55,7 @@ export function PoolsPanel() {
   )
 
   return (
-    <aside className="hidden lg:flex w-[320px] shrink-0 border-l border-border/60 flex-col bg-background">
+    <aside className="hidden lg:flex w-[280px] xl:w-[320px] shrink-0 border-l border-border/60 flex-col bg-background">
       <div className="px-4 h-12 flex items-center border-b border-border/60">
         <p className="text-sm font-semibold">Pools</p>
       </div>

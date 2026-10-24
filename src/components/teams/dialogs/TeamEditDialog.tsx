@@ -443,6 +443,9 @@ export function TeamEditDialog() {
                     countryCode={form.watch('countryCode')}
                     onCountryCodeChange={(v) => form.setValue('countryCode', v)}
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Used to reach this team in the Contact Centre — set it to list the team in the CC Teams tab and message them on WhatsApp.
+                  </p>
                 </div>
 
                 <FormField
