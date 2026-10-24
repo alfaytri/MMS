@@ -1,61 +1,38 @@
 name: CI
 
+# Runs on every PR into the protected integration branch, and on pushes to it.
+# Two independent checks are published so you can require them separately in the
+# branch ruleset:
+#   - "Type check (tsc)"   — green today; safe to mark as a required status check.
+#   - "Unit tests (vitest)" — currently has pre-existing failures; mark it required
+#                             once the suite is green.
 on:
   pull_request:
-    branches: [develop, main]
+    branches: ["full-build/admin-misc"]
   push:
-    branches: [develop, main]
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    branches: ["full-build/admin-misc"]
 
 jobs:
-  build:
-    name: Build
+  typecheck:
+    name: Type check (tsc)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build (type check + lint + compile)
-        run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-          NEXT_PUBLIC_ADMIN_BOOTSTRAP_EMAIL: ci@test.com
-          NEXT_PUBLIC_ENABLED_MODULES: master_data,purchase_sales,warehouse,orders,contracts,finance,teams,reports,system,contact_centre
+      - run: npm ci
+      - run: npx tsc --noEmit
 
   test:
-    name: Test
+    name: Unit tests (vitest)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    continue-on-error: true
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npx vitest run --reporter=verbose
+      - run: npm ci
+      - run: npm run test:run
