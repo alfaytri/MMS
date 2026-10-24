@@ -15,3 +15,6 @@ src/app/api/wati/send-reaction
 skill-observations
 DESIGN.md
 docs/Inventory Counts
+
+# local deploy link/env backups (contain secrets)
+.deploy-backups/

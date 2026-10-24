@@ -48,6 +48,10 @@ supabase/.temp/
 # ── Local data & generated caches ────────────────────────
 /graphify-out/
 /inventory-warehouse-wise/
+/db-schema.json
+/docs/Inventory Counts/
+/skill-observations/
+/DESIGN.md
 
 # ── Internal notes (not for repo) ────────────────────────
 /docs/internal/
