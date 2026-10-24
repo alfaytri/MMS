@@ -17,6 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Plus, Pencil, Trash2, MoreHorizontal, Check, X, FolderPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { humanizeDbError } from '@/lib/dbErrors'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn } from '@/lib/utils'
@@ -195,7 +196,10 @@ function CategoryRail({ categories, counts, selectedSlug, onSelect, loading, onA
     rename.mutate({ id: c.id, label })
   }
 
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+
   return (
+    <>
     <div className="flex flex-col border-b lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categories</span>
@@ -268,11 +272,7 @@ function CategoryRail({ categories, counts, selectedSlug, onSelect, loading, onA
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => {
-                            if (confirm(`Delete category "${c.label}"? Its existing reasons stay, but you can't add new ones to it.`)) {
-                              remove.mutate(c.id)
-                            }
-                          }}
+                          onClick={() => setCategoryToDelete(c)}
                         >
                           <Trash2 className="mr-2 h-3.5 w-3.5" />Delete
                         </DropdownMenuItem>
@@ -292,6 +292,16 @@ function CategoryRail({ categories, counts, selectedSlug, onSelect, loading, onA
         </Button>
       </div>
     </div>
+    <ConfirmDialog
+      open={categoryToDelete !== null}
+      onOpenChange={(o) => { if (!o) setCategoryToDelete(null) }}
+      title="Delete category"
+      description={`Delete category "${categoryToDelete?.label ?? ''}"? Its existing reasons stay, but you can't add new ones to it.`}
+      confirmLabel="Delete"
+      variant="destructive"
+      onConfirm={() => { if (categoryToDelete) remove.mutate(categoryToDelete.id); setCategoryToDelete(null) }}
+    />
+    </>
   )
 }
 
@@ -458,6 +468,7 @@ function SortableReasonRow({ reason, onToggle, onRename, onDelete }: SortableRea
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: reason.id })
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(reason.label)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   useEffect(() => { if (!editing) setDraft(reason.label) }, [reason.label, editing])
 
@@ -474,6 +485,7 @@ function SortableReasonRow({ reason, onToggle, onRename, onDelete }: SortableRea
   }
 
   return (
+    <>
     <div ref={setNodeRef} style={style} className={cn('flex items-center gap-2 bg-card px-2 py-2', isDragging && 'rounded-md shadow-lg')}>
       <button
         type="button"
@@ -522,7 +534,7 @@ function SortableReasonRow({ reason, onToggle, onRename, onDelete }: SortableRea
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => { if (confirm(`Delete reason "${reason.label}"?`)) onDelete(reason) }}
+                onClick={() => setConfirmOpen(true)}
               >
                 <Trash2 className="mr-2 h-3.5 w-3.5" />Delete
               </DropdownMenuItem>
@@ -531,6 +543,16 @@ function SortableReasonRow({ reason, onToggle, onRename, onDelete }: SortableRea
         </>
       )}
     </div>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Delete reason"
+      description={`Delete reason "${reason.label}"?`}
+      confirmLabel="Delete"
+      variant="destructive"
+      onConfirm={() => { onDelete(reason); setConfirmOpen(false) }}
+    />
+    </>
   )
 }
 

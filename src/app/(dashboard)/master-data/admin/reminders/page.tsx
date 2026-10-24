@@ -22,6 +22,7 @@ import {
   useServicesForReminder, useSetServicesReminder,
 } from '@/hooks/useReminderTemplates'
 import { useWatiTemplates } from '@/hooks/useWatiTemplates'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 type Draft = { id?: string; name: string; wati_template_name: string | null; interval_months: number; active: boolean }
 const BLANK: Draft = { name: '', wati_template_name: null, interval_months: 12, active: true }
@@ -38,6 +39,7 @@ export default function RemindersAdminPage() {
 
   const [draft, setDraft] = useState<Draft | null>(null)
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null)
 
   function openDraft(t?: Draft & { id?: string }) {
     setDraft(t ?? { ...BLANK })
@@ -154,7 +156,7 @@ export default function RemindersAdminPage() {
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
-                  onClick={async () => { if (confirm(`Delete "${t.name}"?`)) { try { await del.mutateAsync(t.id); toast.success('Deleted') } catch (e) { toast.error((e as Error).message) } } }}>
+                  onClick={() => setTemplateToDelete({ id: t.id, name: t.name })}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -219,6 +221,22 @@ export default function RemindersAdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={templateToDelete !== null}
+        onOpenChange={(o) => { if (!o) setTemplateToDelete(null) }}
+        title="Delete reminder template"
+        description={`Delete "${templateToDelete?.name ?? ''}"? Services using it will no longer send this reminder.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        isPending={del.isPending}
+        onConfirm={async () => {
+          if (!templateToDelete) return
+          try { await del.mutateAsync(templateToDelete.id); toast.success('Deleted') }
+          catch (e) { toast.error((e as Error).message) }
+          setTemplateToDelete(null)
+        }}
+      />
     </PageWrapper>
   )
 }
