@@ -46,7 +46,9 @@ interface Props {
   onUpdateServiceQty: (serviceId: string, qty: number) => void
   onUpdateServiceTime: (serviceId: string, fromTime: string | null, toTime: string | null) => void
   onAddressSelect: (a: CustomerAddress) => void
-  onUpdateSiteVisitTime: (fromTime: string | null, toTime: string | null) => void
+  /** @deprecated Site visits now take their arrival time from the per-date REQUESTED
+   *  ARRIVAL WINDOW (VisitDateSchedule); this is ignored. Optional so existing callers compile. */
+  onUpdateSiteVisitTime?: (fromTime: string | null, toTime: string | null) => void
   onUpdate: (patch: Partial<OrderDraft>) => void
   onPendingFilesChange: (files: PendingAttachment[]) => void
   onLookupCustomer: () => void
@@ -74,7 +76,6 @@ export function OrderFormPanel({
   onUpdateServiceQty,
   onUpdateServiceTime,
   onAddressSelect,
-  onUpdateSiteVisitTime,
   onUpdate,
   onPendingFilesChange,
   onLookupCustomer,
@@ -278,14 +279,7 @@ export function OrderFormPanel({
               )
             )}
 
-            {draft.type === 'site-visit' && (
-              <SiteVisitCard
-                fromTime={draft.siteVisitFromTime}
-                toTime={draft.siteVisitToTime}
-                onTimeChange={onUpdateSiteVisitTime}
-                visitDate={draft.visitDate}
-              />
-            )}
+            {draft.type === 'site-visit' && <SiteVisitCard />}
           </div>
         </div>
 

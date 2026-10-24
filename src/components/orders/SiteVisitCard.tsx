@@ -2,7 +2,6 @@
 import { useDraggable } from '@dnd-kit/core'
 import { GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TimeRangeSelect } from '@/components/orders/TimeRangeSelect'
 import type { OrderServiceDraft } from '@/types/orders'
 
 export const SITE_VISIT_SERVICE_ID = '__site_visit__'
@@ -24,15 +23,14 @@ export function makeSiteVisitDraft(
 }
 
 interface Props {
-  fromTime: string | null
-  toTime: string | null
-  onTimeChange: (fromTime: string | null, toTime: string | null) => void
   isOverlay?: boolean
-  visitDate?: string
 }
 
-export function SiteVisitCard({ fromTime, toTime, onTimeChange, isOverlay = false, visitDate }: Props) {
-  const siteVisitDraft = makeSiteVisitDraft(fromTime, toTime)
+// A site visit's arrival time comes from the REQUESTED ARRIVAL WINDOW (the per-date
+// window in VisitDateSchedule), which is the single source of truth for the scheduled
+// slot. This card is just the draggable handle; it carries no time of its own.
+export function SiteVisitCard({ isOverlay = false }: Props) {
+  const siteVisitDraft = makeSiteVisitDraft(null, null)
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: SITE_VISIT_SERVICE_ID,
@@ -69,23 +67,6 @@ export function SiteVisitCard({ fromTime, toTime, onTimeChange, isOverlay = fals
           <p className="text-[11px] text-muted-foreground leading-snug">
             Drag onto a team row in the calendar to assign
           </p>
-        )}
-
-        <div className="border-t border-slate-100" />
-
-        {!isOverlay && (
-          <div className="space-y-1">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Arrival Window
-            </span>
-            <TimeRangeSelect
-              fromTime={fromTime}
-              toTime={toTime}
-              onChange={onTimeChange}
-              compact
-              visitDate={visitDate}
-            />
-          </div>
         )}
       </div>
     </div>

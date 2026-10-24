@@ -181,7 +181,10 @@ export default function EditOrderPage() {
               assignments={draft.assignments}
               draftServices={
                 draft.type === 'site-visit'
-                  ? [makeSiteVisitDraft(draft.siteVisitFromTime, draft.siteVisitToTime)]
+                  ? [makeSiteVisitDraft(
+                      draft.visitDates.find((w) => w.date === draft.visitDate)?.fromTime ?? null,
+                      draft.visitDates.find((w) => w.date === draft.visitDate)?.toTime ?? null,
+                    )]
                   : draft.services
               }
               draftInfo={{
@@ -233,12 +236,7 @@ export default function EditOrderPage() {
         ) : draggingService ? (
           <div className="w-72 rotate-1">
             {draggingService.serviceId === SITE_VISIT_SERVICE_ID ? (
-              <SiteVisitCard
-                fromTime={draggingService.fromTime ?? null}
-                toTime={draggingService.toTime ?? null}
-                onTimeChange={() => {}}
-                isOverlay
-              />
+              <SiteVisitCard isOverlay />
             ) : (
               <SelectedServiceCard
                 service={draggingService}
