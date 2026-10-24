@@ -18,6 +18,7 @@ import { useDivisions } from '@/hooks/useDivisions'
 import { PhoneInputWithCode, splitPhone } from '@/components/shared/PhoneInputWithCode'
 import { useTeamsPage } from '../TeamsPageContext'
 import { queryKeys } from '@/lib/queryKeys'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 // ─── Service tree builder ─────────────────────────────────────────────────────
 type ServiceNode = Service & {
@@ -253,6 +254,7 @@ export function EmployeeEditDialog() {
   const disableEmployee = useDisableEmployee()
   const enableEmployee  = useEnableEmployee()
   const archiveEmployee = useArchiveEmployee()
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false)
 
   const isArchived = employee?.status === 'archived'
 
@@ -465,6 +467,7 @@ export function EmployeeEditDialog() {
   const displayAvatar  = previewUrl || avatarWatchUrl || null
 
   return (
+    <>
     <Dialog open={open} onOpenChange={o => { if (!o) closeEmployeeDialog() }}>
       <DialogContent className="w-full h-full max-h-[100dvh] rounded-none md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-lg lg:max-w-5xl lg:h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
@@ -709,14 +712,7 @@ export function EmployeeEditDialog() {
                     type="button"
                     variant="destructive"
                     disabled={archiveEmployee.isPending}
-                    onClick={async () => {
-                      try {
-                        await archiveEmployee.mutateAsync(employee!.id)
-                        closeEmployeeDialog()
-                      } catch (err) {
-                        setSubmitError(err instanceof Error ? err.message : 'Failed to remove')
-                      }
-                    }}
+                    onClick={() => setRemoveConfirmOpen(true)}
                   >
                     {archiveEmployee.isPending ? 'Removing...' : 'Remove'}
                   </Button>
@@ -731,5 +727,25 @@ export function EmployeeEditDialog() {
         </Form>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={removeConfirmOpen}
+      onOpenChange={setRemoveConfirmOpen}
+      title="Remove employee"
+      description={`Remove ${employee?.name ?? 'this employee'}? They disappear from all team lists.`}
+      confirmLabel="Remove"
+      variant="destructive"
+      isPending={archiveEmployee.isPending}
+      onConfirm={async () => {
+        try {
+          await archiveEmployee.mutateAsync(employee!.id)
+          setRemoveConfirmOpen(false)
+          closeEmployeeDialog()
+        } catch (err) {
+          setSubmitError(err instanceof Error ? err.message : 'Failed to remove')
+          setRemoveConfirmOpen(false)
+        }
+      }}
+    />
+    </>
   )
 }

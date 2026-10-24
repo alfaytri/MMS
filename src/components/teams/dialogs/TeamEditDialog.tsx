@@ -31,6 +31,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateTeam, useUpdateTeam, useArchiveTeam } from '@/hooks/useTeams'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useProvisionTeamCustody, useDeactivateTeamCustody, useTeamCustody, deriveHoldsStock } from '@/hooks/teamCustody'
 import { useCompanies } from '@/hooks/useCompanies'
 import { useDivisionsByCompany } from '@/hooks/useDivisions'
@@ -65,6 +66,7 @@ export function TeamEditDialog() {
 
   const [saveError, setSaveError] = useState<string | null>(null)
   const [traccarError, setTraccarError] = useState<string | null>(null)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
 
   const createTeam  = useCreateTeam()
   const updateTeam  = useUpdateTeam()
@@ -237,6 +239,7 @@ export function TeamEditDialog() {
   const isPending = createTeam.isPending || updateTeam.isPending
 
   return (
+    <>
     <Dialog open={open} onOpenChange={isOpen => { if (!isOpen) closeTeamDialog() }}>
       <DialogContent className="w-full max-w-lg rounded-none md:rounded-xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
         {/* Header */}
@@ -499,7 +502,7 @@ export function TeamEditDialog() {
                     size="sm"
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     disabled={archiveTeam.isPending}
-                    onClick={handleArchive}
+                    onClick={() => setArchiveConfirmOpen(true)}
                   >
                     {archiveTeam.isPending ? 'Archiving…' : 'Archive'}
                   </Button>
@@ -518,6 +521,17 @@ export function TeamEditDialog() {
         </Form>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={archiveConfirmOpen}
+      onOpenChange={setArchiveConfirmOpen}
+      title="Archive team"
+      description={`Archive ${team?.name_en ?? team?.name ?? 'this team'}? It will be deactivated and hidden from active team lists.`}
+      confirmLabel="Archive"
+      variant="destructive"
+      isPending={archiveTeam.isPending}
+      onConfirm={async () => { setArchiveConfirmOpen(false); await handleArchive() }}
+    />
+    </>
   )
 }
 

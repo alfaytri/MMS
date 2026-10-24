@@ -22,11 +22,14 @@ import { type Service } from '@/hooks/useServices'
 import { useSubmitServiceChange } from '@/hooks/useServiceChangeRequests'
 import type { ReorderArgs } from './ServiceTree'
 
-const LEVEL_COLORS: Record<number, string> = {
-  0: 'bg-blue-100 text-blue-700',
-  1: 'bg-green-100 text-green-700',
-  2: 'bg-amber-100 text-amber-700',
-}
+const LEVEL_COLORS = [
+  'bg-blue-100 text-blue-700',
+  'bg-green-100 text-green-700',
+  'bg-amber-100 text-amber-700',
+  'bg-purple-100 text-purple-700',
+  'bg-pink-100 text-pink-700',
+  'bg-teal-100 text-teal-700',
+]
 
 function formatDuration(minutes: number | null | undefined): string {
   if (!minutes) return '—'
@@ -76,6 +79,7 @@ export function ServiceTreeRow({
   onShowHistory,
 }: ServiceTreeRowProps) {
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [addChildConfirmOpen, setAddChildConfirmOpen] = useState(false)
   const submitChange = useSubmitServiceChange()
   const isBranch = hasChildren
 
@@ -88,7 +92,7 @@ export function ServiceTreeRow({
     isDragging,
   } = useSortable({ id: service.id, disabled: !dragMode })
   const levelLabel = `L${depth + 1}`
-  const levelColor = LEVEL_COLORS[Math.min(depth, 2)] ?? 'bg-muted text-foreground'
+  const levelColor = LEVEL_COLORS[depth % LEVEL_COLORS.length]
 
   // Linkage flags
   const hasInventory = Array.isArray(service.inventory_items) && (service.inventory_items as unknown[]).length > 0
@@ -375,7 +379,11 @@ export function ServiceTreeRow({
             size="icon"
             className="h-5 w-5"
             aria-label="Add child service"
-            onClick={(e) => { e.stopPropagation(); onAddChild(service.id) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (service.price != null && !hasChildren) setAddChildConfirmOpen(true)
+              else onAddChild(service.id)
+            }}
           >
             <Plus className="h-3.5 w-3.5 text-primary" />
           </Button>
@@ -409,6 +417,7 @@ export function ServiceTreeRow({
             <AlertDialogDescription>
               Are you sure you want to archive &ldquo;{service.name_en}&rdquo;? It will be
               deactivated and hidden from active lists.
+              {hasChildren && ' This service has sub-services, which may be hidden along with it.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -418,6 +427,25 @@ export function ServiceTreeRow({
               onClick={handleArchiveConfirm}
             >
               Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Adding a sub-service to a priced leaf turns it into a category (its price stops applying) */}
+      <AlertDialog open={addChildConfirmOpen} onOpenChange={setAddChildConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Add a sub-service?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{service.name_en}&rdquo; has a price. Adding a sub-service turns it into a
+              category, and its own price and invoice text will no longer apply to bookings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setAddChildConfirmOpen(false); onAddChild(service.id) }}>
+              Add sub-service
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

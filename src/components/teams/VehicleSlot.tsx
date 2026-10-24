@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { Truck, Satellite, Clock, X, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUnassignVehicle } from '@/hooks/useTeams'
 import { useTeamsPage } from './TeamsPageContext'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import type { TeamFull, Vehicle } from '@/hooks/useTeams'
 import type { DragData } from './useDnDHandlers'
 
@@ -64,8 +66,10 @@ function VehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
     id: `vehicle-draggable-${vehicle.id}`,
     data: { type: 'vehicle', vehicleId: vehicle.id, fromTeamId: teamId } satisfies DragData,
   })
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   return (
+    <>
     <div
       ref={setNodeRef}
       {...listeners}
@@ -90,10 +94,20 @@ function VehicleChip({ vehicle, teamId, onUnassign, onLog, onEdit }: {
         <button onClick={onLog} className="p-1.5 hover:text-foreground text-muted-foreground" type="button">
           <Clock className="h-3.5 w-3.5" />
         </button>
-        <button onClick={onUnassign} className="p-1.5 hover:text-destructive text-muted-foreground" type="button">
+        <button onClick={() => setConfirmOpen(true)} className="p-1.5 hover:text-destructive text-muted-foreground" type="button">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Unassign vehicle"
+      description={`Remove vehicle ${vehicle.plate} from this team?`}
+      confirmLabel="Unassign"
+      variant="destructive"
+      onConfirm={() => { onUnassign(); setConfirmOpen(false) }}
+    />
+    </>
   )
 }

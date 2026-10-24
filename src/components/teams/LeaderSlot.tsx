@@ -1,14 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Crown, Clock, Pencil, UserMinus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRemoveTeamLeader } from '@/hooks/useTeams'
 import { useTeamsPage } from './TeamsPageContext'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import type { TeamFull } from '@/hooks/useTeams'
 
 export function LeaderSlot({ team }: { team: TeamFull }) {
   const removeLeader = useRemoveTeamLeader()
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const { openEmployeeDialog, openLogPanel } = useTeamsPage()
   const { setNodeRef, isOver } = useDroppable({
     id: `leader-slot-${team.id}`,
@@ -31,6 +34,7 @@ export function LeaderSlot({ team }: { team: TeamFull }) {
   const avatarUrl = leader.avatar_url ?? null
 
   return (
+    <>
     <div
       ref={setNodeRef}
       className={cn(
@@ -63,10 +67,21 @@ export function LeaderSlot({ team }: { team: TeamFull }) {
         <button onClick={() => openEmployeeDialog(leader)} className="p-1.5 hover:text-foreground text-muted-foreground" type="button">
           <Pencil className="h-3.5 w-3.5" />
         </button>
-        <button onClick={() => removeLeader.mutate({ teamId: team.id })} className="p-1.5 hover:text-destructive text-muted-foreground" type="button">
+        <button onClick={() => setConfirmOpen(true)} className="p-1.5 hover:text-destructive text-muted-foreground" type="button">
           <UserMinus className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Remove team leader"
+      description={`Remove ${leader.name ?? 'this leader'} as the team leader?`}
+      confirmLabel="Remove leader"
+      variant="destructive"
+      isPending={removeLeader.isPending}
+      onConfirm={() => { removeLeader.mutate({ teamId: team.id }); setConfirmOpen(false) }}
+    />
+    </>
   )
 }

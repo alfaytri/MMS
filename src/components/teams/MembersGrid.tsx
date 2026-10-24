@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { Wrench, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTeamsPage } from './TeamsPageContext'
 import { useUnassignEmployee } from '@/hooks/useTeams'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import type { TeamFull, Employee } from '@/hooks/useTeams'
 import type { DragData } from './useDnDHandlers'
 
@@ -56,6 +58,7 @@ function MemberTile({ employee, teamId, hasTools }: {
   hasTools: boolean
 }) {
   const removeFromTeam = useUnassignEmployee()
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `member-${employee.id}-team-${teamId}`,
     data: { type: 'employee', employeeId: employee.id, fromTeamId: teamId } satisfies DragData,
@@ -64,6 +67,7 @@ function MemberTile({ employee, teamId, hasTools }: {
   const avatarUrl = employee.avatar_url ?? null
 
   return (
+    <>
     <div
       ref={setNodeRef}
       {...listeners}
@@ -86,7 +90,7 @@ function MemberTile({ employee, teamId, hasTools }: {
         <button
           type="button"
           onPointerDown={e => e.stopPropagation()}
-          onClick={() => removeFromTeam.mutate({ employeeId: employee.id, fromTeamId: teamId })}
+          onClick={() => setConfirmOpen(true)}
           className="opacity-0 group-hover:opacity-100 absolute -top-1 -right-1 h-4 w-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive flex items-center justify-center transition-opacity"
         >
           <X className="h-2.5 w-2.5" />
@@ -94,5 +98,16 @@ function MemberTile({ employee, teamId, hasTools }: {
       </div>
       <span className="text-[10px] text-muted-foreground truncate max-w-full">{employee.name?.split(' ')[0]}</span>
     </div>
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="Remove team member"
+      description={`Remove ${employee.name ?? 'this employee'} from the team? They return to the unassigned pool.`}
+      confirmLabel="Remove"
+      variant="destructive"
+      isPending={removeFromTeam.isPending}
+      onConfirm={() => { removeFromTeam.mutate({ employeeId: employee.id, fromTeamId: teamId }); setConfirmOpen(false) }}
+    />
+    </>
   )
 }

@@ -28,6 +28,7 @@ import {
   type ScheduleInsert,
   type ScheduleUpdate,
 } from '@/hooks/useTeams'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import {
   useDivisionsWithSchedule,
   useAssignDivisionSchedule,
@@ -128,6 +129,7 @@ export function ScheduleDialog() {
   const createSchedule = useCreateSchedule()
   const updateSchedule = useUpdateSchedule()
   const deleteSchedule = useDeleteSchedule()
+  const [scheduleToDelete, setScheduleToDelete] = useState<Schedule | null>(null)
   const attachSchedule = useAttachSchedule()
   const detachSchedule = useDetachSchedule()
   const assignDivisionSchedule = useAssignDivisionSchedule()
@@ -230,6 +232,7 @@ export function ScheduleDialog() {
     : []
 
   return (
+    <>
     <Dialog open={open} onOpenChange={o => { if (!o) closeScheduleDialog() }}>
       <DialogContent className="w-full max-w-2xl rounded-none md:rounded-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -392,7 +395,7 @@ export function ScheduleDialog() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => deleteSchedule.mutate(s.id)}
+                          onClick={() => setScheduleToDelete(s)}
                         >
                           Delete
                         </Button>
@@ -603,5 +606,16 @@ export function ScheduleDialog() {
         )}
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={scheduleToDelete !== null}
+      onOpenChange={o => { if (!o) setScheduleToDelete(null) }}
+      title="Delete schedule"
+      description={`Delete the schedule "${scheduleToDelete?.name ?? ''}"? Divisions and teams using it will lose this schedule. This cannot be undone.`}
+      confirmLabel="Delete"
+      variant="destructive"
+      isPending={deleteSchedule.isPending}
+      onConfirm={() => { if (scheduleToDelete) deleteSchedule.mutate(scheduleToDelete.id); setScheduleToDelete(null) }}
+    />
+    </>
   )
 }
