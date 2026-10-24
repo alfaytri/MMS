@@ -1,0 +1,11 @@
+# Code owners for alfaytri/MMS
+#
+# Every change requires review from the owner before it can be merged.
+# This is enforced by the branch ruleset option "Require review from Code Owners"
+# on the protected branch(es) (e.g. full-build/admin-misc).
+#
+# The last matching pattern wins. The catch-all below makes @alfaytri the
+# required reviewer for everything; add more specific lines above it later to
+# delegate particular areas to other reviewers.
+
+* @alfaytri
