@@ -130,6 +130,12 @@ export function ScheduleDialog() {
   const updateSchedule = useUpdateSchedule()
   const deleteSchedule = useDeleteSchedule()
   const [scheduleToDelete, setScheduleToDelete] = useState<Schedule | null>(null)
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string
+    description: string
+    confirmLabel: string
+    onConfirm: () => void
+  } | null>(null)
   const attachSchedule = useAttachSchedule()
   const detachSchedule = useDetachSchedule()
   const assignDivisionSchedule = useAssignDivisionSchedule()
@@ -425,9 +431,11 @@ export function ScheduleDialog() {
                                   className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity"
                                   title="Remove"
                                   onClick={() =>
-                                    assignDivisionSchedule.mutate({
-                                      divisionId: d.id,
-                                      scheduleId: null,
+                                    setPendingConfirm({
+                                      title: 'Remove division from schedule',
+                                      description: `Remove ${d.short_name ?? d.name} from this schedule? Its calendar will no longer follow it.`,
+                                      confirmLabel: 'Remove',
+                                      onConfirm: () => assignDivisionSchedule.mutate({ divisionId: d.id, scheduleId: null }),
                                     })
                                   }
                                 >
@@ -589,7 +597,12 @@ export function ScheduleDialog() {
                         size="sm"
                         variant="destructive"
                         onClick={() =>
-                          detachSchedule.mutate({ assignmentId: a.id, teamId: teamIdStr })
+                          setPendingConfirm({
+                            title: 'Detach schedule',
+                            description: 'Detach this schedule from the team? The team will no longer follow it.',
+                            confirmLabel: 'Detach',
+                            onConfirm: () => detachSchedule.mutate({ assignmentId: a.id, teamId: teamIdStr }),
+                          })
                         }
                       >
                         Detach
@@ -615,6 +628,15 @@ export function ScheduleDialog() {
       variant="destructive"
       isPending={deleteSchedule.isPending}
       onConfirm={() => { if (scheduleToDelete) deleteSchedule.mutate(scheduleToDelete.id); setScheduleToDelete(null) }}
+    />
+    <ConfirmDialog
+      open={pendingConfirm !== null}
+      onOpenChange={o => { if (!o) setPendingConfirm(null) }}
+      title={pendingConfirm?.title ?? ''}
+      description={pendingConfirm?.description ?? ''}
+      confirmLabel={pendingConfirm?.confirmLabel ?? 'Confirm'}
+      variant="destructive"
+      onConfirm={() => { pendingConfirm?.onConfirm(); setPendingConfirm(null) }}
     />
     </>
   )
